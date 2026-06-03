@@ -188,7 +188,99 @@ enum TheyOSUninstallPlan {
             ))
         }
 
+        items.append(contentsOf: developerBuildItems(
+            home: home,
+            library: library,
+            tmpDirectories: tmpDirectories,
+            includeEngine: includeEngine,
+            includeUserData: includeUserData,
+            includeCachesAndLogs: includeCachesAndLogs
+        ))
+
         return items.deduplicatedByPath()
+    }
+
+    /// Removal items for the developer build (`Soyeht Dev.app`,
+    /// `com.soyeht.mac.dev`). Its entire footprint is namespaced under
+    /// `SoyehtDev` / `.theyos-dev` / `com.soyeht.engine.dev` so it never
+    /// shares state with the shipping app. Listed here — alongside the
+    /// shipping paths — so a full uninstall removes both installs, matching
+    /// the existing both-bundle cleanup (`com.soyeht.mac` + `com.soyeht.mac.dev`
+    /// caches/preferences). Gated by the same include flags as the shipping
+    /// footprint. See `docs/dev-build-isolation.md`.
+    private static func developerBuildItems(
+        home: URL,
+        library: URL,
+        tmpDirectories: [URL],
+        includeEngine: Bool,
+        includeUserData: Bool,
+        includeCachesAndLogs: Bool
+    ) -> [TheyOSRemovalItem] {
+        let support = home
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("SoyehtDev", isDirectory: true)
+
+        var items: [TheyOSRemovalItem] = []
+
+        if includeEngine {
+            items.append(contentsOf: [
+                item(home.appendingPathComponent(".theyos-dev", isDirectory: true), "~/.theyos-dev"),
+                item(support.appendingPathComponent("engine", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/engine"),
+                item(support.appendingPathComponent("bootstrap-token"), "~/Library/Application\\ Support/SoyehtDev/bootstrap-token"),
+                item(support.appendingPathComponent("apns.p8"), "~/Library/Application\\ Support/SoyehtDev/apns.p8"),
+                item(support.appendingPathComponent("identity.bootstrap_state"), "~/Library/Application\\ Support/SoyehtDev/identity.bootstrap_state"),
+                item(support.appendingPathComponent("household.tearing-down"), "~/Library/Application\\ Support/SoyehtDev/household.tearing-down"),
+                item(library.appendingPathComponent("LaunchAgents/com.soyeht.engine.dev.plist"), "~/Library/LaunchAgents/com.soyeht.engine.dev.plist"),
+            ])
+        }
+
+        for tmpDirectory in tmpDirectories {
+            let displayPrefix = tmpDirectory.path.hasSuffix("/") ? tmpDirectory.path : tmpDirectory.path + "/"
+            if includeEngine || includeCachesAndLogs {
+                items.append(item(tmpDirectory.appendingPathComponent("soyehtdev-engine.log"), "\(displayPrefix)soyehtdev-engine.log"))
+            }
+            if includeEngine || includeUserData {
+                items.append(item(tmpDirectory.appendingPathComponent("soyehtdev-vmrunner-macos.sock"), "\(displayPrefix)soyehtdev-vmrunner-macos.sock"))
+            }
+        }
+
+        if includeUserData {
+            if includeEngine {
+                items.append(item(support, "~/Library/Application\\ Support/SoyehtDev"))
+            }
+            items.append(contentsOf: [
+                item(support.appendingPathComponent("vms", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/vms"),
+                item(support.appendingPathComponent("snapshots", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/snapshots"),
+                item(support.appendingPathComponent("conversations", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/conversations"),
+                item(support.appendingPathComponent("household", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/household"),
+            ])
+        }
+
+        if includeCachesAndLogs {
+            items.append(contentsOf: [
+                item(support.appendingPathComponent("logs", isDirectory: true), "~/Library/Application\\ Support/SoyehtDev/logs"),
+                item(library.appendingPathComponent("Logs/SoyehtDev", isDirectory: true), "~/Library/Logs/SoyehtDev"),
+                item(library.appendingPathComponent("Caches/SoyehtDev", isDirectory: true), "~/Library/Caches/SoyehtDev"),
+                item(home.appendingPathComponent(".cache/theyos-dev", isDirectory: true), "~/.cache/theyos-dev"),
+            ])
+        }
+
+        if includeEngine || includeUserData {
+            // engineDatabaseNames covers the main DBs; the dev plist also points
+            // THEYOS_SESSION_DB at SoyehtDev/theyos-sessions.db (hyphenated).
+            for db in engineDatabaseNames + ["theyos-sessions.db"] {
+                for suffix in ["", "-shm", "-wal"] {
+                    let filename = db + suffix
+                    items.append(item(
+                        support.appendingPathComponent(filename),
+                        "~/Library/Application\\ Support/SoyehtDev/\(filename)"
+                    ))
+                }
+            }
+        }
+
+        return items
     }
 
     private static let engineDatabaseNames = [

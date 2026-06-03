@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 /// Resolves the on-disk base directory for SoyehtMac's persisted state.
 ///
@@ -24,7 +25,8 @@ import Foundation
 /// correct response.
 enum AppSupportDirectory {
 
-    /// Soyeht's root: `~/Library/Application Support/Soyeht/`.
+    /// Soyeht's root: `~/Library/Application Support/Soyeht/`
+    /// (`.../SoyehtDev/` for the developer build).
     /// Created on first call; subsequent calls return the existing dir.
     static func soyehtRoot() throws -> URL {
         let appSupport = try FileManager.default.url(
@@ -33,7 +35,10 @@ enum AppSupportDirectory {
             appropriateFor: nil,
             create: true
         )
-        let root = appSupport.appendingPathComponent("Soyeht", isDirectory: true)
+        let root = appSupport.appendingPathComponent(
+            SoyehtInstallProfile.current.supportDirectoryName,
+            isDirectory: true
+        )
         try FileManager.default.createDirectory(
             at: root,
             withIntermediateDirectories: true

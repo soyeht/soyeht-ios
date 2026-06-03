@@ -647,8 +647,12 @@ private enum ExistingSoyehtStopper {
     }
 
     private static func serviceStopCommands() -> [(executable: String, arguments: [String])] {
+        // Stop only THIS build's engine. A dev build must never bootout the
+        // shipping engine (com.soyeht.engine) and vice versa — otherwise
+        // launching one would knock the other offline.
+        let engineLabel = SoyehtInstallProfile.current.engineLaunchdLabel
         var commands: [(String, [String])] = [
-            ("/bin/launchctl", ["bootout", "gui/\(getuid())/com.soyeht.engine"]),
+            ("/bin/launchctl", ["bootout", "gui/\(getuid())/\(engineLabel)"]),
         ]
 
         for brew in TheyOSEnvironment.brewBinaryCandidates where FileManager.default.isExecutableFile(atPath: brew) {
@@ -709,10 +713,11 @@ private enum ExistingSoyehtStateResetter {
 
     private static func resetLocalEngineStateBlocking() {
         let fm = FileManager.default
-        let supportDir = fm.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("Soyeht", isDirectory: true)
+        // MUST be the current build's support dir. A dev build resetting its
+        // engine state must never delete the shipping app's databases /
+        // identity / household — TheyOSEnvironment.supportDirectory resolves to
+        // "Soyeht" or "SoyehtDev" per SoyehtInstallProfile.
+        let supportDir = TheyOSEnvironment.supportDirectory
 
         let files = [
             "theyos.db", "theyos.db-shm", "theyos.db-wal",

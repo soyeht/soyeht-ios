@@ -46,7 +46,9 @@ final class PairingStore {
     init(
         defaults: UserDefaults = .standard,
         keychain: KeychainHelper = KeychainHelper(
-            service: "com.soyeht.mac",
+            // "com.soyeht.mac" for the shipping app, "com.soyeht.mac.dev" for
+            // the developer build — pairing secrets must not be shared.
+            service: SoyehtInstallProfile.current.keychainService,
             accessibility: kSecAttrAccessibleAfterFirstUnlock
         ),
         clock: @escaping () -> Date = Date.init

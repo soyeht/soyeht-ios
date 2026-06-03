@@ -1,14 +1,18 @@
 import Foundation
 import ServiceManagement
+import SoyehtCore
 
 /// Registers and manages the engine LaunchAgent via `SMAppService.agent(plistName:)`.
 ///
-/// Plist `com.soyeht.engine.plist` must live in `Contents/Library/LaunchAgents/`
-/// inside the app bundle (required by SMAppService). Zero-sudo per FR-012.
+/// The plist (`com.soyeht.engine.plist`, or `com.soyeht.engine.dev.plist` for
+/// the developer build) must live in `Contents/Library/LaunchAgents/` inside
+/// the app bundle (required by SMAppService). Both plists are embedded in every
+/// build; each build registers only its own profile's plist, so the dev engine
+/// and the shipping engine never share a launchd job. Zero-sudo per FR-012.
 enum SMAppServiceInstaller {
 
-    private static let plistName = "com.soyeht.engine.plist"
-    private static let launchdLabel = "com.soyeht.engine"
+    private static var plistName: String { SoyehtInstallProfile.current.engineLaunchAgentPlistName }
+    private static var launchdLabel: String { SoyehtInstallProfile.current.engineLaunchdLabel }
 
     // MARK: - API
 

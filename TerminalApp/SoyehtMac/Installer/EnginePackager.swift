@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import SoyehtCore
 
 /// Installs the engine binary and credentials into Application Support,
 /// and keeps everything up to date on subsequent launches.
@@ -15,7 +16,12 @@ enum EnginePackager {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
-        return appSupport.appendingPathComponent("Soyeht", isDirectory: true)
+        // "Soyeht" for the shipping app, "SoyehtDev" for the developer build —
+        // the dev engine binaries/token/APNs key live in a separate tree.
+        return appSupport.appendingPathComponent(
+            SoyehtInstallProfile.current.supportDirectoryName,
+            isDirectory: true
+        )
     }()
 
     static let engineDestinationDirectory: URL =
