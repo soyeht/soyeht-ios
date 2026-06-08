@@ -129,6 +129,67 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(rects[1].rect.height, 100, accuracy: 0.001)
     }
 
+    func testEqualLinearLayoutThreePanesPreservesEqualHorizontalSharesAcrossResize() {
+        let ids = [a, b, c]
+        guard let tree = PaneNode.equalLinearLayout(ids, axis: .horizontal) else {
+            return XCTFail("expected 3-pane horizontal layout")
+        }
+
+        for height: CGFloat in [300, 540] {
+            let rectByID = Dictionary(uniqueKeysWithValues:
+                tree.layoutRects(in: CGRect(x: 0, y: 0, width: 600, height: height))
+                    .map { ($0.id, $0.rect) }
+            )
+            for id in ids {
+                guard let rect = rectByID[id] else { return XCTFail("missing rect for \(id)") }
+                XCTAssertEqual(rect.height, height / 3, accuracy: 0.001)
+                XCTAssertEqual(rect.width, 600, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testEqualLinearLayoutFourPanesPreservesEqualVerticalSharesAcrossResize() {
+        let ids = [a, b, c, d]
+        guard let tree = PaneNode.equalLinearLayout(ids, axis: .vertical) else {
+            return XCTFail("expected 4-pane vertical layout")
+        }
+
+        for width: CGFloat in [400, 720] {
+            let rectByID = Dictionary(uniqueKeysWithValues:
+                tree.layoutRects(in: CGRect(x: 0, y: 0, width: width, height: 320))
+                    .map { ($0.id, $0.rect) }
+            )
+            for id in ids {
+                guard let rect = rectByID[id] else { return XCTFail("missing rect for \(id)") }
+                XCTAssertEqual(rect.width, width / 4, accuracy: 0.001)
+                XCTAssertEqual(rect.height, 320, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testNestedLayoutPreservesCustomVerticalSharesAcrossResize() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.42, children: [
+            .leaf(a),
+            .split(axis: .vertical, ratio: 0.35, children: [.leaf(b), .leaf(c)])
+        ])
+
+        for width: CGFloat in [500, 900] {
+            let rectByID = Dictionary(uniqueKeysWithValues:
+                tree.layoutRects(in: CGRect(x: 0, y: 0, width: width, height: 320))
+                    .map { ($0.id, $0.rect) }
+            )
+
+            guard let aRect = rectByID[a],
+                  let bRect = rectByID[b],
+                  let cRect = rectByID[c] else {
+                return XCTFail("missing rect")
+            }
+            XCTAssertEqual(aRect.width, width * 0.42, accuracy: 0.001)
+            XCTAssertEqual(bRect.width, width * 0.58 * 0.35, accuracy: 0.001)
+            XCTAssertEqual(cRect.width, width * 0.58 * 0.65, accuracy: 0.001)
+        }
+    }
+
     // MARK: - MCP batch creation layout
 
     func testMCPBatchCreationLayoutSinglePaneReturnsLeaf() {
@@ -305,7 +366,7 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(tree.leafCount, swapped.leafCount)
     }
 
-    // MARK: - settingRatio(atPath:ratio:) — Fase 1.5
+    // MARK: - settingRatio(atPath:ratio:) - Phase 1.5
 
     func testSettingRatioAtEmptyPathUpdatesRoot() {
         let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
@@ -358,7 +419,7 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(updated.leafIDs, tree.leafIDs)
     }
 
-    // MARK: - Fase 2.5 — swap
+    // MARK: - Phase 2.5 - swap
 
     func testSwapLeavesExchangesPositions() {
         let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
@@ -431,7 +492,7 @@ final class PaneNodeTests: XCTestCase {
         )
     }
 
-    // MARK: - Fase 2.5 — rotatingSplit
+    // MARK: - Phase 2.5 - rotatingSplit
 
     func testRotatingSplitFlipsParentAxis() {
         let tree: PaneNode = .split(axis: .vertical, ratio: 0.3, children: [.leaf(a), .leaf(b)])

@@ -16,26 +16,30 @@ final class GapSplitView: NSSplitView {
 /// broke `addSplitViewItem` routing — customizations now live in the delegate
 /// path or post-factory layout tweaks.
 ///
-/// Fase 1.5 additions:
+/// Phase 1.5 additions:
 /// - `initialRatio` is the ratio the factory wants applied on first layout.
-///   It's applied exactly once via `viewDidLayout` (replacing the previous
-///   `DispatchQueue.main.async` in factory.build, which raced with user drags).
-/// - `onRatioChanged` fires only when the user drags the divider (the
-///   `NSSplitView.didResizeSubviewsNotification` userInfo contains
-///   `NSSplitViewDividerIndex` only for user-initiated resizes, per Apple
-///   documentation — window resizes and programmatic `setPosition` are NOT
-///   reported with that key). This makes the fire edge trivially correct
-///   without a reentrancy flag.
+///   It is also kept as this split's target ratio and re-applied whenever the
+///   split's own axis length changes, so window resizes preserve pane
+///   proportions instead of letting nested `NSSplitView`s absorb the delta in
+///   one branch.
+/// - `onRatioChanged` fires only when the user drags the divider. AppKit can
+///   include `NSSplitViewDividerIndex` during autosizing, so the handler also
+///   requires the split's own axis length to be unchanged. Window resizes are
+///   corrected back to `targetRatio` instead of being persisted as user edits.
 /// - `paneNodePath` is the chain of child indices from the tree root to this
 ///   split. Passed back with the callback so the grid can update the right
 ///   split via `PaneNode.settingRatio(atPath:ratio:)`.
 @MainActor
 final class GapSplitViewController: NSSplitViewController {
-    var initialRatio: CGFloat = 0.5
+    var initialRatio: CGFloat = 0.5 {
+        didSet { targetRatio = Self.clampRatio(initialRatio) }
+    }
     var paneNodePath: [Int] = []
     var onRatioChanged: (@MainActor (_ path: [Int], _ ratio: CGFloat) -> Void)?
+    private var targetRatio: CGFloat = 0.5
     private var hasAppliedInitialRatio = false
-    private var isApplyingInitialRatio = false
+    private var isApplyingRatio = false
+    private var lastAppliedSplitLength: CGFloat?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,21 +55,28 @@ final class GapSplitViewController: NSSplitViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        // First pass with a valid bounds wins; subsequent layout passes (e.g.
-        // window resize) leave the user-dragged divider alone.
-        guard !hasAppliedInitialRatio else { return }
+        applyTargetRatioIfNeeded(force: !hasAppliedInitialRatio)
+    }
+
+    private func applyTargetRatioIfNeeded(force: Bool = false) {
         let bounds = splitView.bounds
         guard bounds.width > 0, bounds.height > 0,
               splitView.arrangedSubviews.count == 2 else { return }
+        let splitLength = splitView.isVertical ? bounds.width : bounds.height
+        guard force || lastAppliedSplitLength.map({ abs($0 - splitLength) > 0.5 }) == true else {
+            return
+        }
+
         hasAppliedInitialRatio = true
-        let clamped = max(0.1, min(0.9, initialRatio))
+        lastAppliedSplitLength = splitLength
+        targetRatio = Self.clampRatio(targetRatio)
         let divider = splitView.isVertical
-            ? bounds.width * clamped
-            : bounds.height * clamped
-        isApplyingInitialRatio = true
+            ? bounds.width * targetRatio
+            : bounds.height * targetRatio
+        isApplyingRatio = true
         splitView.setPosition(divider, ofDividerAt: 0)
         DispatchQueue.main.async { [weak self] in
-            self?.isApplyingInitialRatio = false
+            self?.isApplyingRatio = false
         }
     }
 
@@ -85,20 +96,31 @@ final class GapSplitViewController: NSSplitViewController {
     }
 
     @objc private func splitViewResized(_ n: Notification) {
-        guard hasAppliedInitialRatio, !isApplyingInitialRatio else { return }
-        // Apple docs: NSSplitViewDividerIndex is present ONLY when the
-        // resize originated from a user drag of a divider. Window resizes
-        // and our own `setPosition` do not set this key.
+        guard hasAppliedInitialRatio, !isApplyingRatio else { return }
         guard n.userInfo?["NSSplitViewDividerIndex"] != nil else { return }
         guard splitView.arrangedSubviews.count == 2 else { return }
         let bounds = splitView.bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
+        let splitLength = splitView.isVertical ? bounds.width : bounds.height
+        if let lastAppliedSplitLength, abs(lastAppliedSplitLength - splitLength) > 0.5 {
+            DispatchQueue.main.async { [weak self] in
+                self?.applyTargetRatioIfNeeded(force: true)
+            }
+            return
+        }
+
         let first = splitView.arrangedSubviews[0].frame
         let ratio: CGFloat = splitView.isVertical
             ? first.width / bounds.width
             : first.height / bounds.height
-        let clamped = max(0.1, min(0.9, ratio))
+        let clamped = Self.clampRatio(ratio)
+        targetRatio = clamped
+        lastAppliedSplitLength = splitLength
         onRatioChanged?(paneNodePath, clamped)
+    }
+
+    private static func clampRatio(_ ratio: CGFloat) -> CGFloat {
+        max(0.1, min(0.9, ratio))
     }
 }
 
@@ -179,13 +201,13 @@ final class PaneSplitFactory {
     /// Reconcile the tree and return the root view controller. Caller embeds
     /// the returned VC's `view` into its container. Drops cached panes that
     /// aren't in `node.leafIDs`. Use `reconcile(render:retaining:)` when the
-    /// rendered subtree is narrower than the retained set (Fase 2.4 zoom).
+    /// rendered subtree is narrower than the retained set (Phase 2.4 zoom).
     @discardableResult
     func reconcile(_ node: PaneNode) -> NSViewController {
         reconcile(render: node, retaining: Set(node.leafIDs))
     }
 
-    /// Fase 2.4 — render `render` while keeping `retaining` panes alive in
+    /// Phase 2.4 - render `render` while keeping `retaining` panes alive in
     /// the cache. `retaining` must be a superset of `render.leafIDs`; panes
     /// outside `retaining` are disconnected and dropped. Used by zoom/
     /// maximize so hidden panes keep their WebSocket + scrollback while
