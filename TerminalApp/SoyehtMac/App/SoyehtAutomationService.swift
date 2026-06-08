@@ -12,6 +12,10 @@ struct SoyehtAutomationRequest: Decodable {
         case renamePanes = "rename_panes"
         case arrangePanes = "arrange_panes"
         case emphasizePane = "emphasize_pane"
+        case resizePaneExact = "resize_pane_exact"
+        case setPaneFontSize = "set_pane_font_size"
+        case scrollPane = "scroll_pane"
+        case capturePaneRange = "capture_pane_range"
         case createWorktreeTabs = "create_worktree_tabs"
         case listWindows = "list_windows"
         case listWorkspaces = "list_workspaces"
@@ -20,6 +24,7 @@ struct SoyehtAutomationRequest: Decodable {
         case closeWorkspace = "close_workspace"
         case movePaneToWorkspace = "move_pane"
         case getPaneStatus = "get_pane_status"
+        case capturePane = "capture_pane"
         case getActiveContext = "get_active_context"
         case openEditor = "open_editor"
         case openExplorer = "open_explorer"
@@ -63,7 +68,22 @@ struct SoyehtAutomationRequest: Decodable {
         let layout: String?
         let mode: String?
         let ratio: Double?
+        let fraction: Double?
+        let widthFraction: Double?
+        let heightFraction: Double?
         let position: String?
+        let fontSize: Double?
+        let delta: Double?
+        let persist: Bool?
+        let direction: String?
+        let lines: Int?
+        let scrollPosition: Double?
+        let row: Int?
+        let captureMode: String?
+        let maxLines: Int?
+        let startLine: Int?
+        let lineCount: Int?
+        let fromEnd: Bool?
         let destinationWorkspaceID: String?
         let destinationWorkspaceName: String?
         let windowID: String?
@@ -190,6 +210,47 @@ struct SoyehtAutomationResponse: Encodable {
         let position: String?
     }
 
+    struct PaneBounds: Encodable {
+        let x: Double
+        let y: Double
+        let width: Double
+        let height: Double
+    }
+
+    struct ResizedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let position: String
+        let fraction: Double
+        let bounds: PaneBounds?
+        let pixelBounds: PaneBounds?
+        let windowID: String?
+    }
+
+    struct AdjustedPaneFont: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let fontSize: Double
+        let persisted: Bool
+        let columns: Int
+        let rows: Int
+        let windowID: String?
+    }
+
+    struct ScrolledPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let mode: String
+        let row: Int
+        let position: Double
+        let canScroll: Bool
+        let isScrolledToBottom: Bool
+        let windowID: String?
+    }
+
     struct ListedWorkspace: Encodable {
         let workspaceID: String
         let name: String
@@ -297,6 +358,46 @@ struct SoyehtAutomationResponse: Encodable {
         let exitCode: Int?
     }
 
+    struct CapturedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let mode: String
+        let text: String
+        let lineCount: Int
+        let omittedLineCount: Int
+        let truncated: Bool
+        let rangeStartLine: Int?
+        let rangeLineCount: Int?
+        let windowID: String?
+
+        init(
+            conversationID: String,
+            workspaceID: String,
+            handle: String,
+            mode: String,
+            text: String,
+            lineCount: Int,
+            omittedLineCount: Int,
+            truncated: Bool,
+            rangeStartLine: Int? = nil,
+            rangeLineCount: Int? = nil,
+            windowID: String? = nil
+        ) {
+            self.conversationID = conversationID
+            self.workspaceID = workspaceID
+            self.handle = handle
+            self.mode = mode
+            self.text = text
+            self.lineCount = lineCount
+            self.omittedLineCount = omittedLineCount
+            self.truncated = truncated
+            self.rangeStartLine = rangeStartLine
+            self.rangeLineCount = rangeLineCount
+            self.windowID = windowID
+        }
+    }
+
     struct OpenedSpecialPane: Encodable {
         let kind: String
         let path: String
@@ -327,6 +428,9 @@ struct SoyehtAutomationResponse: Encodable {
     let renamedPanes: [RenamedPane]
     let arrangedPaneLayouts: [ArrangedPaneLayout]
     let emphasizedPanes: [EmphasizedPane]
+    let resizedPanes: [ResizedPane]
+    let adjustedPaneFonts: [AdjustedPaneFont]
+    let scrolledPanes: [ScrolledPane]
     let listedWindows: [ListedWindow]
     let listedWorkspaces: [ListedWorkspace]
     let listedPanes: [ListedPane]
@@ -334,6 +438,7 @@ struct SoyehtAutomationResponse: Encodable {
     let closedWorkspaces: [ClosedWorkspace]
     let movedPanes: [MovedPane]
     let paneStatuses: [PaneStatus]
+    let capturedPanes: [CapturedPane]
     let openedSpecialPanes: [OpenedSpecialPane]
     let activeContext: ActiveContext?
 }
@@ -346,6 +451,9 @@ struct SoyehtAutomationResult {
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
     var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
     var emphasizedPanes: [SoyehtAutomationResponse.EmphasizedPane] = []
+    var resizedPanes: [SoyehtAutomationResponse.ResizedPane] = []
+    var adjustedPaneFonts: [SoyehtAutomationResponse.AdjustedPaneFont] = []
+    var scrolledPanes: [SoyehtAutomationResponse.ScrolledPane] = []
     var listedWindows: [SoyehtAutomationResponse.ListedWindow] = []
     var listedWorkspaces: [SoyehtAutomationResponse.ListedWorkspace] = []
     var listedPanes: [SoyehtAutomationResponse.ListedPane] = []
@@ -353,6 +461,7 @@ struct SoyehtAutomationResult {
     var closedWorkspaces: [SoyehtAutomationResponse.ClosedWorkspace] = []
     var movedPanes: [SoyehtAutomationResponse.MovedPane] = []
     var paneStatuses: [SoyehtAutomationResponse.PaneStatus] = []
+    var capturedPanes: [SoyehtAutomationResponse.CapturedPane] = []
     var openedSpecialPanes: [SoyehtAutomationResponse.OpenedSpecialPane] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
 }
@@ -556,6 +665,9 @@ final class SoyehtAutomationService {
                 renamedPanes: result.renamedPanes,
                 arrangedPaneLayouts: result.arrangedPaneLayouts,
                 emphasizedPanes: result.emphasizedPanes,
+                resizedPanes: result.resizedPanes,
+                adjustedPaneFonts: result.adjustedPaneFonts,
+                scrolledPanes: result.scrolledPanes,
                 listedWindows: result.listedWindows,
                 listedWorkspaces: result.listedWorkspaces,
                 listedPanes: result.listedPanes,
@@ -563,6 +675,7 @@ final class SoyehtAutomationService {
                 closedWorkspaces: result.closedWorkspaces,
                 movedPanes: result.movedPanes,
                 paneStatuses: result.paneStatuses,
+                capturedPanes: result.capturedPanes,
                 openedSpecialPanes: result.openedSpecialPanes,
                 activeContext: result.activeContext
             ))
@@ -581,6 +694,9 @@ final class SoyehtAutomationService {
                 renamedPanes: [],
                 arrangedPaneLayouts: [],
                 emphasizedPanes: [],
+                resizedPanes: [],
+                adjustedPaneFonts: [],
+                scrolledPanes: [],
                 listedWindows: [],
                 listedWorkspaces: [],
                 listedPanes: [],
@@ -588,6 +704,7 @@ final class SoyehtAutomationService {
                 closedWorkspaces: [],
                 movedPanes: [],
                 paneStatuses: [],
+                capturedPanes: [],
                 openedSpecialPanes: [],
                 activeContext: nil
             ))

@@ -20,6 +20,8 @@ PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 KNOWN_AGENTS = {"claude", "opencode", "codex", "shell"}
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
+PANE_CAPTURE_MODE_CHOICES = ["all", "visible", "scrollback"]
+PANE_SCROLL_MODE_CHOICES = ["up", "down", "page_up", "page_down", "top", "bottom", "position", "row"]
 WINDOW_ID_PROPERTY = {
     "type": "string",
     "description": "Stable Soyeht macOS windowID. Discover with list_windows. Defaults to the active/key Soyeht window.",
@@ -173,6 +175,25 @@ def with_window_target(payload, args):
         if args.get(key):
             payload[key] = args.get(key)
     return payload
+
+
+def normalize_fraction(value):
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        raise RuntimeError(f"Invalid fraction: {value!r}")
+    if numeric > 1 and numeric <= 100:
+        numeric = numeric / 100
+    return numeric
+
+
+def first_present(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
 
 
 def with_source_context(payload):
@@ -783,11 +804,78 @@ def tool_emphasize_pane(args):
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "mode": args.get("mode") or "spotlight",
-        "ratio": args.get("ratio"),
+        "ratio": normalize_fraction(args.get("ratio")),
         "position": args.get("position"),
     }, args)
     return submit_request(
         "emphasize_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_resize_pane_exact(args):
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "position": args.get("position") or "left",
+        "fraction": normalize_fraction(first_present(args.get("fraction"), args.get("ratio"))),
+        "widthFraction": normalize_fraction(args.get("widthFraction")),
+        "heightFraction": normalize_fraction(args.get("heightFraction")),
+    }, args)
+    return submit_request(
+        "resize_pane_exact",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_set_pane_zoom(args):
+    mode = args.get("mode")
+    if not mode:
+        mode = "zoom" if args.get("zoom", True) else "unzoom"
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "mode": mode,
+    }, args)
+    return submit_request(
+        "emphasize_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_set_pane_font_size(args):
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "fontSize": args.get("fontSize"),
+        "delta": args.get("delta"),
+        "persist": bool(args.get("persist", False)),
+    }, args)
+    return submit_request(
+        "set_pane_font_size",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_scroll_pane(args):
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "mode": args.get("mode") or args.get("direction"),
+        "lines": args.get("lines"),
+        "scrollPosition": normalize_fraction(first_present(args.get("scrollPosition"), args.get("position"))),
+        "row": args.get("row"),
+    }, args)
+    return submit_request(
+        "scroll_pane",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -885,6 +973,38 @@ def tool_get_pane_status(args):
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 15.0),
+    )
+
+
+def tool_capture_pane(args):
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "captureMode": args.get("mode") or args.get("captureMode") or "all",
+        "maxLines": args.get("maxLines", 200),
+    }, args)
+    return submit_request(
+        "capture_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_capture_pane_range(args):
+    payload = with_window_target({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "captureMode": args.get("mode") or args.get("captureMode") or "all",
+        "startLine": args.get("startLine"),
+        "lineCount": first_present(args.get("lineCount"), args.get("lines")),
+        "fromEnd": bool(args.get("fromEnd", False)),
+    }, args)
+    return submit_request(
+        "capture_pane_range",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
     )
 
 
@@ -1350,7 +1470,7 @@ TOOLS = [
     },
     {
         "name": "arrange_panes",
-        "description": "Rearrange Soyeht panes/tabs in the current workspace. Use this when the user asks to put panes one above another, stack tabs, make panes vertical/top-to-bottom, put them side by side, line them up, tile them, or make a grid. Portuguese examples: 'deixa essas 3 uma em cima da outra', 'lado a lado', 'em grade'. If no target is provided, all panes in the active workspace are arranged.",
+        "description": "Rearrange Soyeht panes/tabs in the current workspace. Use this when the user asks to put panes one above another, stack tabs, make panes vertical/top-to-bottom, put them side by side, line them up, tile them, or make a grid. If no target is provided, all panes in the active workspace are arranged.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1382,7 +1502,7 @@ TOOLS = [
     },
     {
         "name": "emphasize_pane",
-        "description": "Make one Soyeht pane/tab stand out. Use spotlight when the user asks to make a pane larger or 'em evidencia' while keeping other panes visible. Use zoom when they want only that pane visible, and unzoom/restore when they want to return to the split layout.",
+        "description": "Make one Soyeht pane/tab stand out. Use spotlight when the user asks to make a pane larger while keeping other panes visible. Use zoom when they want only that pane visible, and unzoom/restore when they want to return to the split layout.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1412,6 +1532,130 @@ TOOLS = [
                     "enum": PANE_EMPHASIS_POSITION_CHOICES,
                     "default": "left",
                     "description": "Where to place the target in spotlight mode.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "resize_pane_exact",
+        "description": "Place one Soyeht pane at an exact share of the workspace on the left, right, top, or bottom. Use fraction=0.5 for 50% of the workspace. Omit targets to resize the active pane.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane conversation ID. Uses the first target. Omit with handles to use the active pane.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane handle such as @codex or @feature-screen-recording.",
+                },
+                "position": {
+                    "type": "string",
+                    "enum": PANE_EMPHASIS_POSITION_CHOICES,
+                    "default": "left",
+                    "description": "Side of the workspace occupied by the target pane.",
+                },
+                "fraction": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "Target pane share as 0.1..0.9. Values like 50 are accepted as 50%.",
+                },
+                "widthFraction": {
+                    "type": "number",
+                    "description": "Width share for left/right placement. Overrides fraction for horizontal placement.",
+                },
+                "heightFraction": {
+                    "type": "number",
+                    "description": "Height share for top/bottom placement. Overrides fraction for vertical placement.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "set_pane_zoom",
+        "description": "Zoom one Soyeht pane so only that pane is visible, or unzoom to restore the split layout. Omit targets to use the active pane.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "mode": {
+                    "type": "string",
+                    "enum": ["zoom", "unzoom"],
+                    "description": "Explicit zoom mode. Overrides zoom.",
+                },
+                "zoom": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "true zooms the target pane; false restores the split layout.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "set_pane_font_size",
+        "description": "Set or adjust the font size of live Soyeht terminal panes. Omit targets to use the active pane.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "fontSize": {
+                    "type": "number",
+                    "description": "Absolute terminal font size in points. Clamped by the app.",
+                },
+                "delta": {
+                    "type": "number",
+                    "description": "Relative font-size adjustment in points. Used when fontSize is omitted.",
+                },
+                "persist": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, also save this as the default terminal font size.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "scroll_pane",
+        "description": "Scroll live Soyeht terminal panes without mouse or screen automation. Omit targets to use the active pane.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "mode": {
+                    "type": "string",
+                    "enum": PANE_SCROLL_MODE_CHOICES,
+                    "default": "bottom",
+                    "description": "Scroll action. position uses scrollPosition; row uses row; up/down use lines.",
+                },
+                "lines": {
+                    "type": "integer",
+                    "description": "Line count for up/down. Defaults to the pane height.",
+                },
+                "scrollPosition": {
+                    "type": "number",
+                    "description": "Relative scroll position 0..1 for mode=position. Values like 50 are accepted as 50%.",
+                },
+                "row": {
+                    "type": "integer",
+                    "description": "Top visible row for mode=row.",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -1576,6 +1820,89 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "capture_pane",
+        "description": (
+            "Read text directly from a live Soyeht terminal pane without using screen recording, "
+            "Accessibility, screenshots, or clipboard automation. Omit conversationIDs and handles "
+            "to capture the active pane in the active Soyeht window."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to capture. Omit with handles to capture the active pane.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the active pane.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": PANE_CAPTURE_MODE_CHOICES,
+                    "default": "all",
+                    "description": "all returns scrollback plus visible rows; visible returns only the viewport; scrollback excludes the viewport.",
+                },
+                "maxLines": {
+                    "type": "integer",
+                    "default": 200,
+                    "description": "Maximum number of trailing lines to return per pane. Use 0 to return all available text.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "capture_pane_range",
+        "description": (
+            "Read a specific line range from a live Soyeht terminal pane without using screen recording, "
+            "Accessibility, screenshots, or clipboard automation. Omit targets to capture the active pane."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to capture. Omit with handles to capture the active pane.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the active pane.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": PANE_CAPTURE_MODE_CHOICES,
+                    "default": "all",
+                    "description": "all returns scrollback plus visible rows; visible returns only the viewport; scrollback excludes the viewport.",
+                },
+                "startLine": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Zero-based line offset. With fromEnd=true, this is the number of trailing lines to skip.",
+                },
+                "lineCount": {
+                    "type": "integer",
+                    "default": 120,
+                    "description": "Maximum number of lines to return.",
+                },
+                "fromEnd": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, returns a range counted backward from the end.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
 ]
 
 
@@ -1595,6 +1922,10 @@ TOOL_HANDLERS = {
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,
     "emphasize_pane": tool_emphasize_pane,
+    "resize_pane_exact": tool_resize_pane_exact,
+    "set_pane_zoom": tool_set_pane_zoom,
+    "set_pane_font_size": tool_set_pane_font_size,
+    "scroll_pane": tool_scroll_pane,
     "list_windows": tool_list_windows,
     "list_workspaces": tool_list_workspaces,
     "list_panes": tool_list_panes,
@@ -1602,6 +1933,8 @@ TOOL_HANDLERS = {
     "close_workspace": tool_close_workspace,
     "move_pane": tool_move_pane,
     "get_pane_status": tool_get_pane_status,
+    "capture_pane": tool_capture_pane,
+    "capture_pane_range": tool_capture_pane_range,
     "get_active_context": tool_get_active_context,
 }
 

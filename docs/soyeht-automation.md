@@ -186,14 +186,37 @@ any other MCP client. It exposes these tools:
 - `send_pane_input`: send text directly to live panes by `conversationID` or
   handle. Calls from a local Soyeht pane to a non-shell destination pane include
   source/destination metadata; shell destinations remain raw automation input.
+- `capture_pane`: read text directly from a live terminal pane without using
+  Screen Recording, Accessibility, screenshots, or clipboard automation.
+- `capture_pane_range`: read a specific line range from a live terminal pane
+  without using Screen Recording, Accessibility, screenshots, or clipboard
+  automation.
 - `rename_panes`: rename panes/tabs by `conversationID` or handle.
 - `rename_workspace`: rename a workspace by id/name, or the active workspace by
   default.
 - `arrange_panes`: rearrange panes/tabs as `stack`, `row`, or `grid`.
 - `emphasize_pane`: spotlight, zoom, or unzoom one pane/tab.
+- `resize_pane_exact`: place one pane at an exact workspace share on the left,
+  right, top, or bottom. Use `fraction: 0.5` for 50%.
+- `set_pane_zoom`: zoom one pane or restore the split layout.
+- `set_pane_font_size`: set or adjust live terminal pane font size.
+- `scroll_pane`: scroll live terminal panes without mouse/screen automation.
 
 The Soyeht Mac app must be running because the MCP server writes requests to the
 same app-local IPC inbox used by the CLI.
+
+## Agent Visual Permissions
+
+Agents launched inside Soyeht can use Native Tools to inspect and drive app UI.
+That path needs macOS Screen Recording and Accessibility approval for the app
+that owns the agent process. Use **Soyeht > Agent Visual Permissions...** to run
+the productized permission flow. The flow prompts for missing access, opens the
+right System Settings pane, and reports current status.
+
+macOS grants these permissions per app identity. `Soyeht` and `Soyeht Dev` have
+separate bundle IDs and must be approved separately. After changing either
+permission, quit and reopen that app so newly launched agent processes inherit
+the updated TCC access.
 
 ### Install the MCP launcher
 
@@ -381,6 +404,77 @@ Make one pane larger while keeping the others visible:
     "mode": "spotlight",
     "ratio": 0.68,
     "position": "left"
+  }
+}
+```
+
+Place a pane at exactly 50% of the workspace on the left:
+
+```json
+{
+  "tool": "resize_pane_exact",
+  "arguments": {
+    "handles": ["@agent2"],
+    "position": "left",
+    "fraction": 0.5
+  }
+}
+```
+
+Zoom the active pane, then restore the split layout:
+
+```json
+{
+  "tool": "set_pane_zoom",
+  "arguments": {
+    "zoom": true
+  }
+}
+```
+
+```json
+{
+  "tool": "set_pane_zoom",
+  "arguments": {
+    "zoom": false
+  }
+}
+```
+
+Increase terminal readability for one pane:
+
+```json
+{
+  "tool": "set_pane_font_size",
+  "arguments": {
+    "handles": ["@agent2"],
+    "fontSize": 16
+  }
+}
+```
+
+Scroll to the middle of a pane without UI automation:
+
+```json
+{
+  "tool": "scroll_pane",
+  "arguments": {
+    "handles": ["@agent2"],
+    "mode": "position",
+    "scrollPosition": 0.5
+  }
+}
+```
+
+Capture the last 80 lines of a pane:
+
+```json
+{
+  "tool": "capture_pane_range",
+  "arguments": {
+    "handles": ["@agent2"],
+    "fromEnd": true,
+    "lineCount": 80
   }
 }
 ```

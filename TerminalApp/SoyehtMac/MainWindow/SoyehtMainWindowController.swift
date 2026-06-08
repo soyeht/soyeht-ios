@@ -133,6 +133,44 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let position: String?
     }
 
+    struct PaneBoundsResult {
+        let x: Double
+        let y: Double
+        let width: Double
+        let height: Double
+    }
+
+    struct ResizedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let position: String
+        let fraction: Double
+        let bounds: PaneBoundsResult?
+        let pixelBounds: PaneBoundsResult?
+    }
+
+    struct AdjustedPaneFontResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let fontSize: Double
+        let persisted: Bool
+        let columns: Int
+        let rows: Int
+    }
+
+    struct ScrolledPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let mode: String
+        let row: Int
+        let position: Double
+        let canScroll: Bool
+        let isScrolledToBottom: Bool
+    }
+
     struct ListedWorkspaceResult {
         let workspaceID: Workspace.ID
         let name: String
@@ -191,15 +229,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let exitCode: Int?
     }
 
+    struct CapturedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let mode: String
+        let text: String
+        let lineCount: Int
+        let omittedLineCount: Int
+        let truncated: Bool
+        let rangeStartLine: Int?
+        let rangeLineCount: Int?
+    }
+
     private enum LocalAgentWorkspaceError: LocalizedError {
         case missingConversationStore
         case paneUnavailable(Conversation.ID)
+        case paneCaptureUnavailable(Conversation.ID)
         case emptyPaneInputTargets
         case noPaneInputDelivered
         case noPaneLayoutAvailable
         case paneLayoutTargetsSpanWorkspaces
         case invalidPaneLayout(String)
         case invalidPaneEmphasisMode(String)
+        case invalidPaneCaptureMode(String)
+        case invalidPaneScrollMode(String)
+        case missingPaneFontSize
         case paneLayoutTargetMissing(Conversation.ID)
         case paneIsLastInWorkspace
         case noTargetWorkspace
@@ -225,6 +280,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Conversation store is not available."
             case .paneUnavailable(let id):
                 return "Pane did not become available for local agent startup: \(id.uuidString)"
+            case .paneCaptureUnavailable(let id):
+                return "Pane is not live or cannot be captured: \(id.uuidString)"
             case .emptyPaneInputTargets:
                 return "No pane input targets were provided."
             case .noPaneInputDelivered:
@@ -237,6 +294,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Unsupported pane layout: \(layout)"
             case .invalidPaneEmphasisMode(let mode):
                 return "Unsupported pane emphasis mode: \(mode)"
+            case .invalidPaneCaptureMode(let mode):
+                return "Unsupported pane capture mode: \(mode)"
+            case .invalidPaneScrollMode(let mode):
+                return "Unsupported pane scroll mode: \(mode)"
+            case .missingPaneFontSize:
+                return "set_pane_font_size requires fontSize or delta."
             case .paneLayoutTargetMissing(let id):
                 return "Pane is not present in its workspace layout: \(id.uuidString)"
             case .paneIsLastInWorkspace:
@@ -1674,7 +1737,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case "spotlight":
             let targetRatio = PaneNode.clampRatio(CGFloat(ratio ?? 0.72))
             let targetPosition = canonicalPaneEmphasisPosition(position)
-            try applySpotlightLayout(
+            _ = try applySpotlightLayout(
                 conversationID: target.id,
                 workspaceID: target.workspaceID,
                 ratio: targetRatio,
@@ -1695,6 +1758,187 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ratio: appliedRatio,
             position: appliedPosition
         )
+    }
+
+    @MainActor
+    func resizePaneExact(
+        conversationIDStrings: [String],
+        handles: [String],
+        position: String?,
+        fraction: Double?,
+        widthFraction: Double?,
+        heightFraction: Double?
+    ) throws -> ResizedPaneResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let target = try targetConversationForEmphasis(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        let canonicalPosition = canonicalPaneEmphasisPosition(position)
+        let preferredFraction: Double?
+        switch canonicalPosition {
+        case "left", "right":
+            preferredFraction = widthFraction ?? fraction
+        default:
+            preferredFraction = heightFraction ?? fraction
+        }
+        let requestedFraction = Self.normalizedPaneFraction(preferredFraction)
+        focusPane(workspaceID: target.workspaceID, conversationID: target.id)
+        let newLayout = try applySpotlightLayout(
+            conversationID: target.id,
+            workspaceID: target.workspaceID,
+            ratio: requestedFraction,
+            position: canonicalPosition
+        )
+        focusPane(workspaceID: target.workspaceID, conversationID: target.id)
+
+        let normalizedBounds = Self.boundsResult(
+            for: target.id,
+            in: newLayout,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1)
+        )
+        let gridBounds = chromeVC.currentContainer?.gridController?.view.bounds ?? .zero
+        let pixelBounds = gridBounds.isEmpty ? nil : Self.boundsResult(
+            for: target.id,
+            in: newLayout,
+            bounds: gridBounds
+        )
+        let appliedFraction: Double
+        if let normalizedBounds {
+            switch canonicalPosition {
+            case "left", "right":
+                appliedFraction = normalizedBounds.width
+            default:
+                appliedFraction = normalizedBounds.height
+            }
+        } else {
+            appliedFraction = Double(requestedFraction)
+        }
+
+        return ResizedPaneResult(
+            conversationID: target.id,
+            workspaceID: target.workspaceID,
+            handle: target.handle,
+            position: canonicalPosition,
+            fraction: appliedFraction,
+            bounds: normalizedBounds,
+            pixelBounds: pixelBounds
+        )
+    }
+
+    @MainActor
+    func setPaneFontSize(
+        conversationIDStrings: [String],
+        handles: [String],
+        fontSize: Double?,
+        delta: Double?,
+        persist: Bool
+    ) throws -> [AdjustedPaneFontResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversationsForPaneTool(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+
+        return try targets.map { conv in
+            guard conv.content.isTerminal,
+                  let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                throw LocalAgentWorkspaceError.paneCaptureUnavailable(conv.id)
+            }
+            let currentSize = pane.terminalView.font.pointSize
+            let requestedSize: CGFloat
+            if let fontSize {
+                requestedSize = CGFloat(fontSize)
+            } else if let delta {
+                requestedSize = currentSize + CGFloat(delta)
+            } else {
+                throw LocalAgentWorkspaceError.missingPaneFontSize
+            }
+            let clamped = max(TerminalPreferences.minimumFontSize, min(32, requestedSize))
+            pane.terminalView.applyJetBrainsMono(size: clamped)
+            pane.synchronizeTerminalSizeWithBackend(force: true)
+            if persist {
+                TerminalPreferences.shared.fontSize = clamped
+            }
+            let terminal = pane.terminalView.getTerminal()
+            return AdjustedPaneFontResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                fontSize: Double(clamped),
+                persisted: persist,
+                columns: terminal.cols,
+                rows: terminal.rows
+            )
+        }
+    }
+
+    @MainActor
+    func scrollPanes(
+        conversationIDStrings: [String],
+        handles: [String],
+        mode: String?,
+        lines: Int?,
+        position: Double?,
+        row: Int?
+    ) throws -> [ScrolledPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversationsForPaneTool(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+
+        return try targets.map { conv in
+            guard conv.content.isTerminal,
+                  let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                throw LocalAgentWorkspaceError.paneCaptureUnavailable(conv.id)
+            }
+            let canonicalMode = try Self.normalizedScrollMode(mode, position: position, row: row)
+            let terminalView = pane.terminalView
+            let terminal = terminalView.getTerminal()
+            let amount = max(1, min(lines ?? terminal.rows, 10_000))
+            switch canonicalMode {
+            case "up":
+                terminalView.scrollUp(lines: amount)
+            case "down":
+                terminalView.scrollDown(lines: amount)
+            case "page_up":
+                terminalView.pageUp()
+            case "page_down":
+                terminalView.pageDown()
+            case "top":
+                terminalView.scroll(toPosition: 0)
+            case "bottom":
+                terminalView.scrollToBottom()
+            case "position":
+                terminalView.scroll(toPosition: Self.clampedUnitInterval(position ?? 1))
+            case "row":
+                terminalView.scrollTo(row: max(0, row ?? 0))
+            default:
+                throw LocalAgentWorkspaceError.invalidPaneScrollMode(canonicalMode)
+            }
+
+            return ScrolledPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                mode: canonicalMode,
+                row: terminal.getTopVisibleRow(),
+                position: terminalView.scrollPosition,
+                canScroll: terminalView.canScroll,
+                isScrolledToBottom: terminalView.isScrolledToBottom
+            )
+        }
     }
 
     // MARK: - Automation: List, Close, Move
@@ -2091,6 +2335,163 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    @MainActor
+    func capturePanes(
+        conversationIDStrings: [String],
+        handles: [String],
+        mode: String?,
+        maxLines: Int?
+    ) throws -> [CapturedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets: [Conversation]
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            guard let activePaneID = store.workspace(activeWorkspaceID)?.activePaneID,
+                  let activeConversation = convStore.conversation(activePaneID) else {
+                throw LocalAgentWorkspaceError.emptyPaneInputTargets
+            }
+            targets = [activeConversation]
+        } else {
+            targets = try targetConversations(
+                conversationIDStrings: conversationIDStrings,
+                handles: handles,
+                convStore: convStore
+            )
+        }
+
+        let captureMode = try Self.normalizedCaptureMode(mode)
+        let lineLimit = (maxLines ?? 0) > 0 ? maxLines : nil
+        return try targets.map { conv in
+            guard conv.content.isTerminal,
+                  let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                throw LocalAgentWorkspaceError.paneCaptureUnavailable(conv.id)
+            }
+            let rawText = try Self.captureText(from: pane, mode: captureMode)
+            let limited = Self.limitCapturedText(rawText, maxLines: lineLimit)
+            return CapturedPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                mode: captureMode,
+                text: limited.text,
+                lineCount: limited.lineCount,
+                omittedLineCount: limited.omittedLineCount,
+                truncated: limited.truncated,
+                rangeStartLine: nil,
+                rangeLineCount: nil
+            )
+        }
+    }
+
+    @MainActor
+    func capturePaneRange(
+        conversationIDStrings: [String],
+        handles: [String],
+        mode: String?,
+        startLine: Int?,
+        lineCount: Int?,
+        fromEnd: Bool
+    ) throws -> [CapturedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversationsForPaneTool(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+
+        let captureMode = try Self.normalizedCaptureMode(mode)
+        let requestedStart = max(0, startLine ?? 0)
+        let requestedCount = max(1, lineCount ?? 120)
+        return try targets.map { conv in
+            guard conv.content.isTerminal,
+                  let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                throw LocalAgentWorkspaceError.paneCaptureUnavailable(conv.id)
+            }
+            let rawText = try Self.captureText(from: pane, mode: captureMode)
+            let lines = rawText.isEmpty ? [] : rawText.components(separatedBy: "\n")
+            let range: Range<Int>
+            if fromEnd {
+                let end = max(0, lines.count - requestedStart)
+                let start = max(0, end - requestedCount)
+                range = start..<end
+            } else {
+                let start = min(requestedStart, lines.count)
+                let end = min(lines.count, start + requestedCount)
+                range = start..<end
+            }
+            let selected = Array(lines[range]).joined(separator: "\n")
+            return CapturedPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                mode: captureMode,
+                text: selected,
+                lineCount: lines.count,
+                omittedLineCount: max(0, lines.count - range.count),
+                truncated: range.count < lines.count,
+                rangeStartLine: range.lowerBound,
+                rangeLineCount: range.count
+            )
+        }
+    }
+
+    private static func captureText(
+        from pane: PaneViewController,
+        mode captureMode: String
+    ) throws -> String {
+        let terminal = pane.terminalView.getTerminal()
+        switch captureMode {
+        case "visible":
+            return terminal.getVisibleText()
+        case "scrollback":
+            return terminal.getScrollbackText()
+        default:
+            let scrollback = terminal.getScrollbackText()
+            let visible = terminal.getVisibleText()
+            if scrollback.isEmpty {
+                return visible
+            } else if visible.isEmpty {
+                return scrollback
+            } else {
+                return scrollback + "\n" + visible
+            }
+        }
+    }
+
+    private static func normalizedCaptureMode(_ mode: String?) throws -> String {
+        let value = mode?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        switch value {
+        case "", "all", "full", "text":
+            return "all"
+        case "visible", "screen", "viewport":
+            return "visible"
+        case "scrollback", "history", "backscroll":
+            return "scrollback"
+        default:
+            throw LocalAgentWorkspaceError.invalidPaneCaptureMode(value)
+        }
+    }
+
+    private static func limitCapturedText(
+        _ text: String,
+        maxLines: Int?
+    ) -> (text: String, lineCount: Int, omittedLineCount: Int, truncated: Bool) {
+        guard !text.isEmpty else {
+            return ("", 0, 0, false)
+        }
+        let lines = text.components(separatedBy: "\n")
+        guard let maxLines, maxLines > 0, lines.count > maxLines else {
+            return (text, lines.count, 0, false)
+        }
+        let kept = lines.suffix(maxLines).joined(separator: "\n")
+        return (kept, lines.count, lines.count - maxLines, true)
+    }
+
     private func targetConversations(
         conversationIDStrings: [String],
         handles: [String],
@@ -2209,6 +2610,37 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return target
     }
 
+    private func targetConversationsForPaneTool(
+        conversationIDStrings: [String],
+        handles: [String],
+        convStore: ConversationStore
+    ) throws -> [Conversation] {
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            guard let workspace = store.workspace(activeWorkspaceID) else {
+                throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+            }
+            if let active = workspace.activePaneID,
+               let conversation = convStore.conversation(active) {
+                return [conversation]
+            }
+            if let firstID = workspace.layout.leafIDs.first,
+               let conversation = convStore.conversation(firstID) {
+                return [conversation]
+            }
+            throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+        }
+
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        guard !targets.isEmpty else {
+            throw LocalAgentWorkspaceError.emptyPaneInputTargets
+        }
+        return targets
+    }
+
     private func orderedConversations(
         in workspaceID: Workspace.ID,
         convStore: ConversationStore
@@ -2258,7 +2690,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func canonicalPaneEmphasisMode(_ mode: String?) throws -> String {
         let value = normalizedLayoutToken(mode)
         switch value {
-        case "", "spotlight", "focus", "featured", "highlight", "emphasis", "evidence", "evidencia":
+        case "", "spotlight", "focus", "featured", "highlight", "emphasis", "evidence":
             return "spotlight"
         case "zoom", "fullscreen", "maximize", "maximise", "max":
             return "zoom"
@@ -2271,15 +2703,83 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func canonicalPaneEmphasisPosition(_ position: String?) -> String {
         switch normalizedLayoutToken(position) {
-        case "right", "direita":
+        case "right":
             return "right"
-        case "top", "up", "above", "cima", "acima":
+        case "top", "up", "above":
             return "top"
-        case "bottom", "down", "below", "baixo", "abaixo":
+        case "bottom", "down", "below":
             return "bottom"
         default:
             return "left"
         }
+    }
+
+    private static func normalizedScrollMode(
+        _ mode: String?,
+        position: Double?,
+        row: Int?
+    ) throws -> String {
+        let value = (mode ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+        switch value {
+        case "":
+            if row != nil { return "row" }
+            if position != nil { return "position" }
+            return "bottom"
+        case "up", "back", "previous", "prev":
+            return "up"
+        case "down", "forward", "next":
+            return "down"
+        case "page-up", "pageup", "pgup":
+            return "page_up"
+        case "page-down", "pagedown", "pgdown", "pgdn":
+            return "page_down"
+        case "top", "start", "beginning":
+            return "top"
+        case "bottom", "end", "latest":
+            return "bottom"
+        case "position", "percent", "percentage", "fraction":
+            return "position"
+        case "row", "line":
+            return "row"
+        default:
+            throw LocalAgentWorkspaceError.invalidPaneScrollMode(mode ?? "")
+        }
+    }
+
+    private static func clampedUnitInterval(_ value: Double) -> Double {
+        guard value.isFinite else { return 1 }
+        let normalized = value > 1 && value <= 100 ? value / 100 : value
+        return max(0, min(1, normalized))
+    }
+
+    private static func normalizedPaneFraction(_ value: Double?) -> CGFloat {
+        guard var requested = value, requested.isFinite else {
+            return 0.5
+        }
+        if requested > 1 && requested <= 100 {
+            requested /= 100
+        }
+        return PaneNode.clampRatio(CGFloat(requested))
+    }
+
+    private static func boundsResult(
+        for conversationID: Conversation.ID,
+        in layout: PaneNode,
+        bounds: CGRect
+    ) -> PaneBoundsResult? {
+        guard let rect = layout.layoutRects(in: bounds).first(where: { $0.id == conversationID })?.rect else {
+            return nil
+        }
+        return PaneBoundsResult(
+            x: Double(rect.minX),
+            y: Double(rect.minY),
+            width: Double(rect.width),
+            height: Double(rect.height)
+        )
     }
 
     private func normalizedLayoutToken(_ value: String?) -> String {
@@ -2295,7 +2795,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         workspaceID: Workspace.ID,
         ratio: CGFloat,
         position: String
-    ) throws {
+    ) throws -> PaneNode {
         guard let workspace = store.workspace(workspaceID) else {
             throw LocalAgentWorkspaceError.noPaneLayoutAvailable
         }
@@ -2338,6 +2838,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         store.setLayout(workspaceID, layout: newLayout, undoManager: window?.undoManager)
+        return newLayout
     }
 
     private enum TerminalInputTerminator {
