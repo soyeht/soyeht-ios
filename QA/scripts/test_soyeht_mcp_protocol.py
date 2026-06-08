@@ -131,6 +131,38 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 "noCreate": True,
             })
 
+    def test_session_spec_requires_name_by_default(self):
+        with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
+            MODULE["session_spec"]({"path": "."})
+
+    def test_open_shell_allows_app_generated_name(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_open_shell"]({"path": "."})
+        finally:
+            globals_["submit_request"] = original
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertTrue(captured["payload"]["allowAutoPaneNames"])
+        self.assertNotIn("name", captured["payload"]["panes"][0])
+
+    def test_open_panes_requires_name(self):
+        with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
+            MODULE["tool_open_panes"]({"panes": [{"path": "."}]})
+
+    def test_open_workspace_requires_pane_name(self):
+        with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
+            MODULE["tool_open_workspace"]({"panes": [{"path": "."}]})
+
 
 if __name__ == "__main__":
     unittest.main()

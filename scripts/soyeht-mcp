@@ -361,23 +361,31 @@ def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_R
     return response
 
 
-def session_spec(spec, default_agent=None, default_command=None, default_prompt=None, default_prompt_delay_ms=None):
+def session_spec(
+    spec,
+    default_agent=None,
+    default_command=None,
+    default_prompt=None,
+    default_prompt_delay_ms=None,
+    require_name=True,
+):
     name = spec.get("name")
     path = spec.get("path")
-    if not name:
+    if require_name and not name:
         raise RuntimeError("Pane spec is missing name.")
     if not path:
-        raise RuntimeError(f"Pane {name} is missing path.")
+        raise RuntimeError("Pane spec is missing path.")
 
     directory = require_directory(path)
     agent = spec.get("agent") or default_agent or "codex"
     command = spec.get("command") or default_command or default_agent_command(agent)
     result = {
-        "name": str(name),
         "path": str(directory),
         "agent": agent,
         "command": command,
     }
+    if name:
+        result["name"] = str(name)
     if spec.get("branch") is not None:
         result["branch"] = spec.get("branch")
     prompt = spec.get("prompt") if spec.get("prompt") is not None else default_prompt
@@ -465,25 +473,29 @@ def tool_open_shell(args):
     command = args.get("command")
     if command is None:
         command = default_agent_command(agent)
-    name = args.get("name") or args.get("paneName") or "new-shell"
+    name = args.get("name") or args.get("paneName")
+    spec = {
+        "path": str(directory),
+        "agent": agent,
+        "command": command,
+        "prompt": args.get("prompt"),
+        "promptDelayMs": args.get("promptDelayMs"),
+    }
+    if name:
+        spec["name"] = name
 
     payload = with_window_target(with_name_styles({
+        "allowAutoPaneNames": True,
         "agent": agent,
         "command": command,
         "panes": [
             session_spec(
-                {
-                    "name": name,
-                    "path": str(directory),
-                    "agent": agent,
-                    "command": command,
-                    "prompt": args.get("prompt"),
-                    "promptDelayMs": args.get("promptDelayMs"),
-                },
+                spec,
                 default_agent=agent,
                 default_command=command,
                 default_prompt=args.get("prompt"),
                 default_prompt_delay_ms=args.get("promptDelayMs"),
+                require_name=False,
             )
         ],
     }, args), args)
@@ -1073,7 +1085,7 @@ TOOLS = [
                 },
                 "name": {
                     "type": "string",
-                    "description": "Pane/tab name. Defaults to a short hyphen name.",
+                    "description": "Pane/tab name. If omitted for a shell pane, Soyeht assigns a random unused friendly name.",
                 },
                 "paneName": {"type": "string"},
                 "command": {

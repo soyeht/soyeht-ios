@@ -41,6 +41,58 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(inB.handle, "@foo-2")
     }
 
+    func testDefaultShellHandleUsesFriendlyNamePool() {
+        let store = ConversationStore()
+        let ws = UUID()
+
+        let handle = store.nextAvailableHandle(for: .shell, in: ws)
+        let base = ConversationStore.normalize(handle)
+
+        XCTAssertTrue(ConversationStore.defaultShellHandleBases.contains(base))
+        XCTAssertNotEqual(handle, "@shell")
+    }
+
+    func testDefaultShellHandlePoolHasNoDuplicates() {
+        let bases = ConversationStore.defaultShellHandleBases
+
+        XCTAssertEqual(Set(bases).count, bases.count)
+    }
+
+    func testDefaultShellHandleSkipsFriendlyNamesAlreadyInUse() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let remaining = "sophia"
+        for base in ConversationStore.defaultShellHandleBases where base != remaining {
+            _ = store.add(makeConversation(handle: "@\(base)", ws: ws))
+        }
+
+        let handle = store.nextAvailableHandle(for: .shell, in: ws)
+
+        XCTAssertEqual(handle, "@\(remaining)")
+    }
+
+    func testDefaultShellHandleFallsBackWithoutUsingShellWhenPoolIsExhausted() {
+        let store = ConversationStore()
+        let ws = UUID()
+        for base in ConversationStore.defaultShellHandleBases {
+            _ = store.add(makeConversation(handle: "@\(base)", ws: ws))
+        }
+        _ = store.add(makeConversation(handle: "@pane", ws: ws))
+
+        let handle = store.nextAvailableHandle(for: .shell, in: ws)
+
+        XCTAssertEqual(handle, "@pane-2")
+    }
+
+    func testDefaultClawHandleStillUsesAgentName() {
+        let store = ConversationStore()
+        let ws = UUID()
+
+        let handle = store.nextAvailableHandle(for: .claw("codex"), in: ws)
+
+        XCTAssertEqual(handle, "@codex")
+    }
+
     func testNormalizeStripsAtAndLowercases() {
         XCTAssertEqual(ConversationStore.normalize("@Foo"), "foo")
         XCTAssertEqual(ConversationStore.normalize(" foo "), "foo")
