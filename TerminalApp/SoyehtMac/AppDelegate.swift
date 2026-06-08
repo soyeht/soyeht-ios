@@ -308,7 +308,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if let initialWorkspaceID {
             workspaceID = initialWorkspaceID
         } else if createFreshWorkspace {
-            workspaceID = workspaceStore.addAdhocWorkspaceForNewWindow(windowID: windowID).id
+            workspaceID = workspaceStore.addAdhocWorkspace(toWindow: windowID).id
         } else {
             workspaceID = nil
         }
@@ -1550,27 +1550,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
-        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
+        let target = frontmostMainWindowController
         target?.moveFocusedPaneToWorkspaceByTag(sender)
     }
 
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
-        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
+        let target = frontmostMainWindowController
         target?.selectWorkspaceByTag(sender)
     }
 
     @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
-        activeMainWindowController?.moveActiveWorkspaceLeft(sender)
+        frontmostMainWindowController?.moveActiveWorkspaceLeft(sender)
     }
 
     @IBAction func moveActiveWorkspaceRight(_ sender: Any?) {
-        activeMainWindowController?.moveActiveWorkspaceRight(sender)
+        frontmostMainWindowController?.moveActiveWorkspaceRight(sender)
     }
 
     @IBAction func splitPaneVertical(_ sender: Any?) { withActivePaneGrid { $0.splitPaneVertical(sender) } }
@@ -1814,7 +1808,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @IBAction func newConversation(_ sender: Any?) {
-        guard let controller = activeMainWindowController else {
+        guard let controller = frontmostMainWindowController else {
             NSSound.beep()
             return
         }
@@ -1846,7 +1840,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private var clawStoreCloseObserver: NSObjectProtocol?
 
     @IBAction func showClawStore(_ sender: Any?) {
-        if let target = activeMainWindowController {
+        if let target = frontmostMainWindowController {
             target.openClawDrawerOverlay()
             target.window?.makeKeyAndOrderFront(nil)
             return
@@ -1931,8 +1925,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             }
             commandPalette = palette
         }
-        let parent = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)?.window
-            ?? NSApp.windows.first(where: { $0.windowController is SoyehtMainWindowController })
+        let parent = frontmostMainWindowController?.window
         palette.present(from: parent)
     }
 
@@ -1942,10 +1935,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// path so the behaviour is identical whichever entry point the user
     /// uses.
     private func jump(to item: CommandPaletteItem) {
-        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
+        let target = frontmostMainWindowController ?? activeMainWindowController
         guard let target else { return }
         if let paneID = item.paneID {
             target.focusPane(workspaceID: item.workspaceID, conversationID: paneID)
@@ -2193,19 +2183,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
+    private var frontmostMainWindowController: SoyehtMainWindowController? {
+        Self.frontmostMainWindowController()
+    }
+
     private var activeMainWindowController: SoyehtMainWindowController? {
-        (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
+        frontmostMainWindowController ?? mainWindowControllers.first
+    }
+
+    fileprivate static func frontmostMainWindowController() -> SoyehtMainWindowController? {
+        mainWindowController(owning: NSApp.keyWindow)
+            ?? mainWindowController(owning: NSApp.mainWindow)
+            ?? NSApp.orderedWindows.lazy.compactMap { mainWindowController(owning: $0) }.first
+    }
+
+    fileprivate static func mainWindowController(owning window: NSWindow?) -> SoyehtMainWindowController? {
+        var current = window
+        while let window = current {
+            if let controller = window.windowController as? SoyehtMainWindowController {
+                return controller
+            }
+            current = window.sheetParent ?? window.parent
+        }
+        return nil
     }
 
     private var activeUndoManager: UndoManager? {
-        activeMainWindowController?.window?.undoManager
+        frontmostMainWindowController?.window?.undoManager
     }
 
     private func withActivePaneGrid(_ body: (PaneGridController) -> Void) {
-        guard let grid = activeMainWindowController?.activeGridController else {
+        guard let grid = frontmostMainWindowController?.activeGridController else {
             NSSound.beep()
             return
         }
@@ -2237,9 +2245,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             menuItem.title = title.isEmpty ? redoTitle : title
             return activeUndoManager?.canRedo == true
         case #selector(moveActiveWorkspaceLeft(_:)):
-            return activeMainWindowController?.canMoveActiveWorkspace(by: -1) == true
+            return frontmostMainWindowController?.canMoveActiveWorkspace(by: -1) == true
         case #selector(moveActiveWorkspaceRight(_:)):
-            return activeMainWindowController?.canMoveActiveWorkspace(by: 1) == true
+            return frontmostMainWindowController?.canMoveActiveWorkspace(by: 1) == true
         case #selector(showClawStore(_:)):
             return true
         case #selector(checkForUpdates(_:)):
@@ -2255,10 +2263,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// `WindowChromeViewController`, NOT as a separate NSWindow — matches
     /// SXnc2 V2 `floatSidebar`.
     @IBAction func showConversationsSidebar(_ sender: Any?) {
-        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
+        let target = frontmostMainWindowController
         target?.toggleSidebarOverlay()
     }
 
@@ -2511,8 +2516,7 @@ enum WorkspaceSwitchBenchmark {
     }
 
     private static func activeMainWindowController() -> SoyehtMainWindowController? {
-        if let wc = NSApp.keyWindow?.windowController as? SoyehtMainWindowController { return wc }
-        return NSApp.windows.compactMap { $0.windowController as? SoyehtMainWindowController }.first
+        AppDelegate.frontmostMainWindowController()
     }
 
     struct Stats {
