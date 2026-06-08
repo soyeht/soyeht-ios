@@ -4,6 +4,7 @@
 //
 
 import Cocoa
+import ApplicationServices
 import SoyehtCore
 
 @MainActor
@@ -75,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         #endif
         SoyehtUpdater.shared.startIfConfigured()
         installApplicationMenuEnhancements()
+        installAgentVisualPermissionsMenu()
         installUpdateMenu()
         installShellMenuEnhancements()
         installSoundMenu()
@@ -414,6 +416,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleArrangePanes(request)
         case .emphasizePane:
             return try handleEmphasizePane(request)
+        case .resizePaneExact:
+            return try handleResizePaneExact(request)
+        case .setPaneFontSize:
+            return try handleSetPaneFontSize(request)
+        case .scrollPane:
+            return try handleScrollPane(request)
         case .listWindows:
             return handleListWindows(request)
         case .listWorkspaces:
@@ -428,6 +436,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleMovePaneToWorkspace(request)
         case .getPaneStatus:
             return try handleGetPaneStatus(request)
+        case .capturePane:
+            return try handleCapturePane(request)
+        case .capturePaneRange:
+            return try handleCapturePaneRange(request)
         case .getActiveContext:
             return try handleGetActiveContext(request)
         case .openEditor:
@@ -818,6 +830,93 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         ])
     }
 
+    private func handleResizePaneExact(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload)
+        let resized = try target.resizePaneExact(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            position: payload.position,
+            fraction: payload.fraction ?? payload.ratio,
+            widthFraction: payload.widthFraction,
+            heightFraction: payload.heightFraction
+        )
+        return SoyehtAutomationResult(resizedPanes: [
+            SoyehtAutomationResponse.ResizedPane(
+                conversationID: resized.conversationID.uuidString,
+                workspaceID: resized.workspaceID.uuidString,
+                handle: resized.handle,
+                position: resized.position,
+                fraction: resized.fraction,
+                bounds: automationBounds(resized.bounds),
+                pixelBounds: automationBounds(resized.pixelBounds),
+                windowID: target.windowID
+            )
+        ])
+    }
+
+    private func handleSetPaneFontSize(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload)
+        let adjusted = try target.setPaneFontSize(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            fontSize: payload.fontSize,
+            delta: payload.delta,
+            persist: payload.persist ?? false
+        )
+        return SoyehtAutomationResult(adjustedPaneFonts: adjusted.map {
+            SoyehtAutomationResponse.AdjustedPaneFont(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                fontSize: $0.fontSize,
+                persisted: $0.persisted,
+                columns: $0.columns,
+                rows: $0.rows,
+                windowID: target.windowID
+            )
+        })
+    }
+
+    private func handleScrollPane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload)
+        let scrolled = try target.scrollPanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            mode: payload.mode ?? payload.direction,
+            lines: payload.lines,
+            position: payload.scrollPosition ?? payload.fraction ?? payload.ratio,
+            row: payload.row
+        )
+        return SoyehtAutomationResult(scrolledPanes: scrolled.map {
+            SoyehtAutomationResponse.ScrolledPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                mode: $0.mode,
+                row: $0.row,
+                position: $0.position,
+                canScroll: $0.canScroll,
+                isScrolledToBottom: $0.isScrolledToBottom,
+                windowID: target.windowID
+            )
+        })
+    }
+
+    private func automationBounds(
+        _ bounds: SoyehtMainWindowController.PaneBoundsResult?
+    ) -> SoyehtAutomationResponse.PaneBounds? {
+        guard let bounds else { return nil }
+        return SoyehtAutomationResponse.PaneBounds(
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height
+        )
+    }
+
     private func handleListWindows(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
         SoyehtAutomationResult(listedWindows: mainWindowControllers.map { listedWindow($0) })
     }
@@ -1199,6 +1298,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         })
     }
 
+    private func handleCapturePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload, createIfMissing: false)
+        let captured = try target.capturePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            mode: payload.captureMode,
+            maxLines: payload.maxLines
+        )
+        return SoyehtAutomationResult(capturedPanes: captured.map {
+            SoyehtAutomationResponse.CapturedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                mode: $0.mode,
+                text: $0.text,
+                lineCount: $0.lineCount,
+                omittedLineCount: $0.omittedLineCount,
+                truncated: $0.truncated,
+                windowID: target.windowID
+            )
+        })
+    }
+
+    private func handleCapturePaneRange(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload, createIfMissing: false)
+        let captured = try target.capturePaneRange(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            mode: payload.captureMode,
+            startLine: payload.startLine,
+            lineCount: payload.lineCount,
+            fromEnd: payload.fromEnd ?? false
+        )
+        return SoyehtAutomationResult(capturedPanes: captured.map {
+            SoyehtAutomationResponse.CapturedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                mode: $0.mode,
+                text: $0.text,
+                lineCount: $0.lineCount,
+                omittedLineCount: $0.omittedLineCount,
+                truncated: $0.truncated,
+                rangeStartLine: $0.rangeStartLine,
+                rangeLineCount: $0.rangeLineCount,
+                windowID: target.windowID
+            )
+        })
+    }
+
     /// Debug builds are commonly launched from a shell inside the repo under
     /// `~/Documents`, which makes the app inherit a TCC-protected cwd and
     /// triggers the recurring "access files in your Documents folder" prompt
@@ -1303,12 +1454,99 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         PreferencesWindowController.shared.showWindow(nil)
     }
 
+    @IBAction func showAgentVisualPermissions(_ sender: Any?) {
+        runAgentVisualPermissionsFlow()
+    }
+
     @IBAction func showPairedDevices(_ sender: Any) {
         PairedDevicesWindowController.shared.showWindow(nil)
     }
 
     @IBAction func showConnectedServers(_ sender: Any?) {
         ConnectedServersWindowController.shared.showWindow(nil)
+    }
+
+    private struct AgentVisualPermissionState {
+        let screenRecording: Bool
+        let accessibility: Bool
+
+        var isComplete: Bool {
+            screenRecording && accessibility
+        }
+    }
+
+    private func runAgentVisualPermissionsFlow() {
+        let initial = currentAgentVisualPermissionState()
+
+        if !initial.screenRecording {
+            _ = CGRequestScreenCaptureAccess()
+        }
+
+        if !initial.accessibility {
+            let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+            let options = [promptKey: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
+
+        let current = currentAgentVisualPermissionState()
+        showAgentVisualPermissionsResult(current)
+    }
+
+    private func currentAgentVisualPermissionState() -> AgentVisualPermissionState {
+        AgentVisualPermissionState(
+            screenRecording: CGPreflightScreenCaptureAccess(),
+            accessibility: AXIsProcessTrusted()
+        )
+    }
+
+    private func showAgentVisualPermissionsResult(_ state: AgentVisualPermissionState) {
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "Soyeht"
+        let screenStatus = state.screenRecording ? "Granted" : "Needs approval"
+        let accessibilityStatus = state.accessibility ? "Granted" : "Needs approval"
+
+        let alert = NSAlert()
+        alert.messageText = "Agent Visual Permissions"
+        alert.informativeText = """
+        Native Tools uses these macOS permissions for agents launched inside \(appName).
+
+        Screen Recording: \(screenStatus)
+        Accessibility: \(accessibilityStatus)
+
+        These permissions are granted separately for Soyeht and Soyeht Dev. After changing them, quit and reopen \(appName) so new agent processes inherit the updated access.
+        """
+        alert.alertStyle = state.isComplete ? .informational : .warning
+        if state.isComplete {
+            alert.addButton(withTitle: "OK")
+        } else {
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "OK")
+        }
+
+        let response = alert.runModal()
+        if !state.isComplete && response == .alertFirstButtonReturn {
+            openAgentVisualPermissionsSettings(for: state)
+        }
+    }
+
+    private func openAgentVisualPermissionsSettings(for state: AgentVisualPermissionState) {
+        let screenRecordingURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        let accessibilityURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        let fallbackURL = URL(string: "x-apple.systempreferences:com.apple.preference.security")
+
+        let url: URL?
+        if !state.screenRecording {
+            url = screenRecordingURL ?? fallbackURL
+        } else if !state.accessibility {
+            url = accessibilityURL ?? fallbackURL
+        } else {
+            url = fallbackURL
+        }
+
+        if let url {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
@@ -1380,6 +1618,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
               let command = AppCommandRegistry.command(.showPreferences),
               let item = findMenuItem(in: appMenu, titled: command.title) else { return }
         configureMenuItem(item, with: command)
+    }
+
+    private func installAgentVisualPermissionsMenu() {
+        guard let command = AppCommandRegistry.command(.showAgentVisualPermissions),
+              let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
+        if let existing = findMenuItem(for: command, in: appMenu) {
+            configureMenuItem(existing, with: command)
+            return
+        }
+
+        let item = makeMenuItem(for: command)
+        let insertAfter = appMenu.items.firstIndex {
+            $0.action == #selector(showPreferences(_:))
+                || $0.title.lowercased().contains("preferences")
+                || $0.title.lowercased().contains("settings")
+        }
+        appMenu.insertItem(item, at: insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count))
     }
 
     private func installUpdateMenu() {
