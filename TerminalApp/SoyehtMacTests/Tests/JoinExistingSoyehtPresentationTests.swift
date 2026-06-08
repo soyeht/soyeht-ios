@@ -39,7 +39,8 @@ final class JoinExistingSoyehtPresentationTests: XCTestCase {
     func test_iPhoneAddMacCopyKeepsActiveHouseholdGateAndMentionsMacQR() throws {
         let source = try terminalSource("Soyeht/Home/AddDevicePickerView.swift")
 
-        XCTAssertTrue(source.contains("if activeHousehold != nil"))
+        XCTAssertTrue(source.contains("if identity.isActive"))
+        XCTAssertTrue(source.contains("guard let snapshot = identity.active else { return }"))
         XCTAssertTrue(source.contains("scan a QR shown by the Mac"))
     }
 

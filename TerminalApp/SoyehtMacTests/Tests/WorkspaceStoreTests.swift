@@ -85,17 +85,52 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(workspace.id)?.name, "build")
     }
 
+    func testDefaultAdhocWorkspaceNamesFillLowestAvailableSlot() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let first = store.addAdhocWorkspace(toWindow: "window-a")
+        let second = store.addAdhocWorkspace(toWindow: "window-a")
+        let third = store.addAdhocWorkspace(toWindow: "window-a")
+
+        store.remove(second.id)
+        let replacement = store.addAdhocWorkspace(toWindow: "window-a")
+
+        XCTAssertEqual(first.name, "Workspace")
+        XCTAssertEqual(second.name, "Workspace 2")
+        XCTAssertEqual(third.name, "Workspace 3")
+        XCTAssertEqual(replacement.name, "Workspace 2")
+    }
+
+    func testDefaultAdhocWorkspaceNameDoesNotCreateNestedCollisionSuffix() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        _ = store.add(Workspace.make(name: "Default", kind: .adhoc))
+        _ = store.add(Workspace.make(name: "Workspace 3", kind: .adhoc))
+
+        let added = store.addAdhocWorkspace(toWindow: "window-a")
+
+        XCTAssertEqual(added.name, "Workspace")
+    }
+
+    func testDefaultAdhocWorkspaceNameTreatsWorkspaceOneAsFirstSlot() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        _ = store.add(Workspace.make(name: "Workspace 1", kind: .adhoc))
+        _ = store.add(Workspace.make(name: "Workspace 2", kind: .adhoc))
+
+        let added = store.addAdhocWorkspace(toWindow: "window-a")
+
+        XCTAssertEqual(added.name, "Workspace 3")
+    }
+
     func testNewWindowWorkspaceDoesNotReuseExistingWorkspaceOrPaneIdentity() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let existing = store.add(Workspace.make(name: "Default", kind: .adhoc))
         store.setActiveWorkspace(windowID: "window-a", workspaceID: existing.id)
 
-        let fresh = store.addAdhocWorkspaceForNewWindow(windowID: "window-b")
+        let fresh = store.addAdhocWorkspace(toWindow: "window-b")
 
         XCTAssertNotEqual(fresh.id, existing.id)
         XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), existing.id)
         XCTAssertEqual(store.activeWorkspaceID(in: "window-b"), fresh.id)
-        XCTAssertEqual(fresh.name, "Workspace 2")
+        XCTAssertEqual(fresh.name, "Workspace")
         XCTAssertNotEqual(fresh.layout.leafIDs.first, existing.layout.leafIDs.first)
     }
 
@@ -104,7 +139,7 @@ final class WorkspaceStoreTests: XCTestCase {
         let existing = store.add(Workspace.make(name: "Default", kind: .adhoc))
         store.registerWindow(windowID: "window-a", preferredWorkspaceID: existing.id)
 
-        let fresh = store.addAdhocWorkspaceForNewWindow(windowID: "window-b")
+        let fresh = store.addAdhocWorkspace(toWindow: "window-b")
 
         XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [existing.id])
         XCTAssertEqual(store.orderedWorkspaces(in: "window-b").map(\.id), [fresh.id])
@@ -184,7 +219,7 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.orderedWorkspaces(in: "window-b").map(\.id), [bFallback.id])
     }
 
-    func testRepairActiveWorkspaceSeedsDefaultWhenWindowHasNoRemainingWorkspace() {
+    func testRepairActiveWorkspaceSeedsWorkspaceWhenWindowHasNoRemainingWorkspace() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let only = store.add(Workspace.make(name: "Only", kind: .adhoc), toWindow: "window-a")
         store.setActiveWorkspace(windowID: "window-a", workspaceID: only.id)
@@ -193,7 +228,7 @@ final class WorkspaceStoreTests: XCTestCase {
         let repaired = store.repairActiveWorkspaceIfNeeded(windowID: "window-a")
 
         XCTAssertNotNil(store.workspace(repaired))
-        XCTAssertEqual(store.workspace(repaired)?.name, "Default")
+        XCTAssertEqual(store.workspace(repaired)?.name, "Workspace")
         XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), repaired)
         XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [repaired])
     }
