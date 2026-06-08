@@ -385,7 +385,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private weak var topBarView: WindowTopBarView?
 
     var activeGridController: PaneGridController? {
-        containerCache[activeWorkspaceID]?.gridController
+        chromeVC.currentContainer?.gridController
+            ?? containerCache[activeWorkspaceID]?.gridController
     }
 
     /// Per-window undo manager used by Fase 2.3 (close pane + close
@@ -1055,12 +1056,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// Create a new `.adhoc` workspace and activate it. Used by the "+" button
     /// in the titlebar tab bar.
     func addAdhocWorkspace() {
-        let index = store.orderedWorkspaces.count + 1
-        let ws = Workspace.make(
-            name: "Workspace \(index)",
-            kind: .adhoc
-        )
-        let added = store.add(ws, toWindow: windowID)
+        let added = store.addAdhocWorkspace(toWindow: windowID)
         activate(workspaceID: added.id)
     }
 
@@ -3455,7 +3451,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     /// Close the currently active workspace. Disconnects every live pane,
     /// drops the workspace's conversations + security-scoped bookmark, and
-    /// activates another workspace (seeding a new Default if this was the
+    /// activates another workspace (seeding a new Workspace if this was the
     /// only one). Invoked by `File → Close Workspace` (`⌘⇧W`) and by the
     /// right-click tab context menu.
     @IBAction func closeActiveWorkspace(_ sender: Any?) {
@@ -3530,10 +3526,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             chromeVC.disposeContainer(evicted)
         }
 
-        // Pick a successor workspace. Seed a new Default if we just removed
+        // Pick a successor workspace. Seed a new Workspace if we just removed
         // the last one (shouldn't happen — we gate above — but defensive).
         let next = store.orderedWorkspaces(in: windowID).first
-            ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
+            ?? store.add(Workspace.make(name: "Workspace", kind: .adhoc), toWindow: windowID)
         // Force re-activation even if ids match (our active was just removed).
         activeWorkspaceID = next.id
         store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
@@ -3576,10 +3572,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Seed workspace
 
     /// Ensure the store has at least one workspace. If empty, create a
-    /// `Default` ad-hoc workspace with a single leaf. Returns the workspace
+    /// `Workspace` ad-hoc workspace with a single leaf. Returns the workspace
     /// to activate for this window.
     private static func ensureSeedWorkspace(in store: WorkspaceStore) -> Workspace {
         if let first = store.orderedWorkspaces.first { return first }
-        return store.add(Workspace.make(name: "Default", kind: .adhoc))
+        return store.add(Workspace.make(name: "Workspace", kind: .adhoc))
     }
 }

@@ -261,16 +261,15 @@ final class WorkspaceStore {
         return stored
     }
 
-    /// Create a brand-new ad-hoc workspace for a newly opened main window.
-    /// This deliberately does not reuse the first existing workspace: each
-    /// main window needs its own workspace/pane identities so automation by
-    /// workspace name, pane handle, or pane id never targets a duplicate view
-    /// of the same underlying session.
+    /// Create a brand-new ad-hoc workspace with a store-owned default name.
+    /// This deliberately creates new workspace/pane identities instead of
+    /// reusing an existing workspace, so automation by workspace name, pane
+    /// handle, or pane id never targets a duplicate view of the same
+    /// underlying session.
     @discardableResult
-    func addAdhocWorkspaceForNewWindow(windowID: String) -> Workspace {
-        let index = order.count + 1
+    func addAdhocWorkspace(toWindow windowID: String) -> Workspace {
         let stored = add(Workspace.make(
-            name: "Workspace \(index)",
+            name: nextDefaultWorkspaceName(),
             kind: .adhoc
         ), toWindow: windowID)
         setActiveWorkspace(windowID: windowID, workspaceID: stored.id)
@@ -372,6 +371,38 @@ final class WorkspaceStore {
         return workspaces.values.contains {
             $0.id != excluding && Self.normalizedWorkspaceName($0.name) == normalized
         }
+    }
+
+    func nextDefaultWorkspaceName(base: String = "Workspace") -> String {
+        Self.nextDefaultWorkspaceName(
+            base: base,
+            existingNames: workspaces.values.map(\.name)
+        )
+    }
+
+    private static func nextDefaultWorkspaceName(base: String, existingNames: [String]) -> String {
+        let canonicalBase = canonicalWorkspaceName(base)
+        let usedNumbers = Set(existingNames.compactMap {
+            defaultWorkspaceNumber(for: $0, base: canonicalBase)
+        })
+
+        var n = 1
+        while usedNumbers.contains(n) { n += 1 }
+        return n == 1 ? canonicalBase : "\(canonicalBase) \(n)"
+    }
+
+    private static func defaultWorkspaceNumber(for name: String, base: String) -> Int? {
+        let normalizedName = normalizedWorkspaceName(name)
+        let normalizedBase = normalizedWorkspaceName(base)
+        if normalizedName == normalizedBase { return 1 }
+
+        let prefix = "\(normalizedBase) "
+        guard normalizedName.hasPrefix(prefix) else { return nil }
+        let suffix = String(normalizedName.dropFirst(prefix.count))
+        guard let number = Int(suffix), number >= 1, suffix == "\(number)" else {
+            return nil
+        }
+        return number
     }
 
     private static func uniqueWorkspaceName(desired: String, taken: Set<String>) -> String {
@@ -794,7 +825,7 @@ final class WorkspaceStore {
     }
 
     @discardableResult
-    func repairActiveWorkspaceIfNeeded(windowID: String, fallbackName: String = "Default") -> Workspace.ID {
+    func repairActiveWorkspaceIfNeeded(windowID: String, fallbackName: String = "Workspace") -> Workspace.ID {
         rememberWindowOrder(windowID)
         let previousScoped = workspaceOrderByWindow[windowID]
         let scoped = uniqueExistingWorkspaceIDs(previousScoped ?? [])
