@@ -10,6 +10,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case showCommandPalette
     case checkForUpdates
     case showPreferences
+    case showAgentVisualPermissions
     case showPairedDevices
     case showConnectedServers
     case uninstallSoyeht
@@ -43,6 +44,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .showCommandPalette: return "showCommandPalette"
         case .checkForUpdates: return "checkForUpdates"
         case .showPreferences: return "showPreferences"
+        case .showAgentVisualPermissions: return "showAgentVisualPermissions"
         case .showPairedDevices: return "showPairedDevices"
         case .showConnectedServers: return "showConnectedServers"
         case .uninstallSoyeht: return "uninstallSoyeht"
@@ -78,6 +80,7 @@ enum AppCommandAction: String, Hashable {
     case showCommandPalette = "showCommandPalette:"
     case checkForUpdates = "checkForUpdates:"
     case showPreferences = "showPreferences:"
+    case showAgentVisualPermissions = "showAgentVisualPermissions:"
     case showPairedDevices = "showPairedDevices:"
     case showConnectedServers = "showConnectedServers:"
     case uninstallSoyeht = "uninstallSoyeht:"
@@ -379,6 +382,17 @@ enum AppCommandRegistry {
                 title: String(localized: "appCommand.preferences"),
                 action: .showPreferences,
                 shortcut: AppCommandShortcut(.character(","), modifiers: [.command]),
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .showAgentVisualPermissions,
+                title: String(
+                    localized: "appMenu.agentVisualPermissions",
+                    defaultValue: "Agent Visual Permissions...",
+                    comment: "App menu item that checks Screen Recording and Accessibility permissions used by local AI agents."
+                ),
+                action: .showAgentVisualPermissions,
+                shortcut: nil,
                 menuPlacement: .appMenu
             ),
             AppCommand(
