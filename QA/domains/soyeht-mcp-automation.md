@@ -15,7 +15,8 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 - Soyeht Mac app automation request handlers.
 - Live pane targeting by `conversationID` and handle.
 - Agent-driven use through Codex, Claude Code, and OpenCode.
-- Pane layout automation: stack, row, grid, spotlight, zoom, and unzoom.
+- Pane layout automation: stack, row, grid, spotlight, zoom, unzoom, exact
+  pane share, font-size adjustment, pane scrolling, and headless text capture.
 
 ## Cases
 
@@ -23,7 +24,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | --- | --- | --- | --- |
 | ST-Q-MCPA-001 | Initialize MCP over newline-delimited JSON-RPC. | Direct MCP | Server info and tools capability are returned. |
 | ST-Q-MCPA-002 | Initialize MCP over `Content-Length` framed JSON-RPC. | Direct MCP | Response uses the same framed transport. |
-| ST-Q-MCPA-003 | List all Soyeht automation tools. | Direct MCP | Tool list includes workspace, pane, shell/file, send, rename, arrange, and emphasize tools. |
+| ST-Q-MCPA-003 | List all Soyeht automation tools. | Direct MCP | Tool list includes workspace, pane, shell/file, send, rename, arrange, emphasize, resize, zoom, font-size, scroll, and capture tools. |
 | ST-Q-MCPA-004 | Create a workspace with shell panes. | Direct MCP `open_workspace` | Panes open in requested directories and share one workspace id. |
 | ST-Q-MCPA-005 | Add panes to the active workspace. | Direct MCP `open_panes`/`open_shell` | New panes are added without creating an unintended workspace. |
 | ST-Q-MCPA-006 | Create git worktree panes. | Direct MCP `create_worktree_panes` | Worktrees/branches are created and opened as panes. |
@@ -105,6 +106,10 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-073 | Emphasize (spotlight) pane at `right` side with 0.7 ratio. | Direct MCP `emphasize_pane` | Target pane occupies 70% of the right side; sibling panes share the remaining 30%. |
 | ST-Q-MCPA-074 | Zoom a pane, send input, then unzoom. | Direct MCP `emphasize_pane` (zoom) + `send_pane_input` + `emphasize_pane` (unzoom) | Pane accepts input while zoomed; sibling layout is restored after unzoom. |
 | ST-Q-MCPA-075 | Emphasize a pane that does not exist. | Direct MCP `emphasize_pane` | Tool returns a clear error; other panes are unaffected. |
+| ST-Q-MCPA-076 | Resize a pane to exactly 50% of the workspace on the left. | Direct MCP `resize_pane_exact` with `fraction=0.5`, `position="left"` | Response reports `fraction=0.5` and normalized bounds width near 0.5; siblings remain visible. |
+| ST-Q-MCPA-077 | Resize a pane to 60% at the bottom. | Direct MCP `resize_pane_exact` with `heightFraction=0.6`, `position="bottom"` | Response reports bottom placement and normalized bounds height near 0.6. |
+| ST-Q-MCPA-078 | Zoom through the dedicated MCP alias. | Direct MCP `set_pane_zoom` | `zoom=true` renders a single pane; `zoom=false` restores split rendering. |
+| ST-Q-MCPA-079 | Change pane font size without changing global preference. | Direct MCP `set_pane_font_size` with `fontSize=16`, `persist=false` | Response reports font size 16 plus terminal rows/columns after resize synchronization. |
 
 ### Workspace Management
 
@@ -205,6 +210,23 @@ created and attached in one request.
 | ST-Q-MCPA-138 | Mixed `agent_race_panes` panes get the same even batch layout. | `agent_race_panes` with `repo=<test repo>`, `agents=["codex","claude","opencode","claude"]`, `prefix="qa-agent-mixed"`, `newWorkspace=true`, `workspaceName="qa-agent-mixed"`, `timeout=60`. | Four worktree panes open in one workspace with top band `[codex, claude]` and bottom band `[opencode, claude-2]` by creation order. | IPC response, `list_panes` declaredAgent fields, screenshot or layout dump, and worktree paths. | PASS only if layout is 2x2 across different agent types and cleanup removes workspace/worktrees. |
 | ST-Q-MCPA-139 | Droid/Droide MCP path is documented and extensible. | If the `droid` MCP client is installed, invoke ST-Q-MCPA-131 through Droid using the registered Soyeht MCP server. Separately, direct `agent_race_panes` with `agents=["droid"]` should return the existing unknown-agent error. | Droid is currently a supported MCP client setup path in `docs/soyeht-automation.md`, not a supported pane agent in `KNOWN_AGENTS`. The layout rule is client-agnostic once the request reaches Soyeht. | Droid client transcript when available, or the direct error response: `Unknown agent(s): ['droid']`. | PASS if Droid client requests receive the same 2-band layout when the client exists; otherwise SKIP with the exact limitation and no partial worktrees. |
 | ST-Q-MCPA-140 | Create 3 panes in one macOS MCP request. | `open_workspace` with `name="qa-stack-3"`, `agent="shell"`, `command=""`, `panes=[{"name":"qa-stack-3-a","path":"/tmp/soyeht-even-layout/a"},{"name":"qa-stack-3-b","path":"/tmp/soyeht-even-layout/b"},{"name":"qa-stack-3-c","path":"/tmp/soyeht-even-layout/c"}]`, `timeout=60`. | New workspace has exactly 3 panes. Persisted layout is a vertical stack: pane 1 in the visual top band, pane 2 in the middle band, and pane 3 in the bottom band. No 2+1 split and no side-by-side row. | Screenshot or structural dump plus computed rect table showing `top=a`, `middle=b`, `bottom=c` with full-width panes. | PASS only if the three created panes occupy separate top/middle/bottom bands and `close_workspace` removes the test workspace. |
+
+### Pane Capture
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-141 | Capture the active pane with no UI automation permissions. | Direct MCP `capture_pane` with no filters. | Response includes one `capturedPanes` item for the active pane, with `text`, `lineCount`, `truncated`, `conversationID`, `workspaceID`, `handle`, and `windowID`; no Screen Recording, Accessibility, screenshot, or clipboard prompt appears. |
+| ST-Q-MCPA-142 | Capture a pane by handle with a line limit. | Direct MCP `capture_pane` with `handles=["@codex"]`, `mode="all"`, `maxLines=20`. | Response text is the trailing 20 lines or fewer; if the full buffer is longer, `truncated=true` and `omittedLineCount` is positive. |
+| ST-Q-MCPA-143 | Capture visible-only terminal text. | Direct MCP `capture_pane` with `mode="visible"`. | Response text matches the terminal viewport and excludes older scrollback. |
+| ST-Q-MCPA-144 | Capture a specific range from the end of a pane. | Direct MCP `capture_pane_range` with `fromEnd=true`, `lineCount=80`. | Response includes `rangeStartLine`, `rangeLineCount <= 80`, and no UI automation prompt appears. |
+| ST-Q-MCPA-145 | Scroll a pane without UI automation. | Direct MCP `scroll_pane` with `mode="position"`, `scrollPosition=0.5`. | Response includes updated `row`, `position`, `canScroll`, and `isScrolledToBottom`; no mouse/screenshot automation is required. |
+
+### Agent Visual Permissions
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-146 | Run the productized visual-permission flow. | App menu `Soyeht > Agent Visual Permissions...` | App prompts for missing Screen Recording and Accessibility access, opens the relevant System Settings pane, reports current status, and reminds the user to quit/reopen the app. |
+| ST-Q-MCPA-147 | Verify Soyeht and Soyeht Dev are independent TCC identities. | Assisted macOS Settings check | Each app appears and is approved separately under Screen Recording and Accessibility; granting one does not imply the other. |
 
 ## Execution Reports
 
