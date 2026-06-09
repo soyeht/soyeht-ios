@@ -24,7 +24,7 @@ final class ConversationStore {
         var errorDescription: String? {
             switch self {
             case .duplicateHandle(let handle):
-                return "A shell named \(handle) already exists. Choose another name."
+                return "A pane named \(handle) already exists. Choose another name."
             }
         }
     }
@@ -217,12 +217,46 @@ final class ConversationStore {
         return normalized.isEmpty ? "pane" : normalized
     }
 
+    /// Friendly handle pool for auto-created local shell panes. Values are
+    /// stored normalized because pane handles are canonical lowercase tokens.
+    static let defaultShellHandleBases: [String] = [
+        "abelia", "acacia", "adalia", "adelia", "adria", "adriana", "adrianne",
+        "alicia", "amalia", "anastasia", "aria", "bianca", "brianna",
+        "calia", "cassia", "cecilia", "celia", "claudia",
+        "dalia", "damia", "daria", "delia", "diana", "elia", "elian",
+        "fabian", "felicia", "gia", "gianna", "gloria", "gracia",
+        "hestia", "ian", "ilia", "julia", "jovian",
+        "kalia", "kiana", "kylian", "lavinia", "leticia", "lia",
+        "marian", "marcia", "matias", "nadia", "natalia", "nia",
+        "ophelia", "rosalia", "safia", "sania", "sia", "sonia",
+        "sophia", "tatiana", "thalia", "thiago", "tia", "tiana",
+        "victoria", "virginia", "vivian", "zelia", "aidan", "aina",
+        "alaine", "blaine", "blaire", "caia", "cairo", "caio",
+        "claire", "daisy", "gaia", "hailey", "isaiah", "jaiden",
+        "jaime", "kailee", "kaiser", "kairos", "khai", "laia",
+        "maia", "maira", "raiza", "saira", "tais", "zain", "zaira",
+        "lucia", "livia", "tobias", "paige"
+    ]
+
     /// Auto-generate the next available handle for `agent` in `workspaceID`.
     /// Drives the in-pane empty-state picker (driQx/RgdJh) which, unlike the
-    /// full sheet, doesn't prompt the user for a handle. Policy: `@<agent>`
-    /// with `-2`, `-3`, ... suffixes on app-wide collision.
+    /// full sheet, doesn't prompt the user for a handle. Local shells use a
+    /// random friendly name that is not currently in use; non-shell agents keep
+    /// the conventional `@<agent>` with `-2`, `-3`, ... collision suffixes.
     func nextAvailableHandle(for agent: AgentType, in workspaceID: Workspace.ID) -> String {
-        uniqueHandle(desired: "@" + agent.displayName, excluding: nil)
+        if agent.isShell {
+            return nextFriendlyShellHandle()
+        }
+        return uniqueHandle(desired: "@" + agent.displayName, excluding: nil)
+    }
+
+    private func nextFriendlyShellHandle() -> String {
+        let taken = handlesInUse
+        let available = Self.defaultShellHandleBases.filter { !taken.contains($0) }
+        if let base = available.randomElement() {
+            return "@" + base
+        }
+        return uniqueHandle(desired: "@pane", excluding: nil)
     }
 
     // MARK: - Helpers

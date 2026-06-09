@@ -359,6 +359,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case invalidDirectory(String)
         case invalidFile(String)
         case invalidWorkspaceIDFormat(String)
+        case missingPaneName(String)
         case workspaceNotFound(UUID)
         case missingConversationStore
         case noActiveMainWindow
@@ -384,6 +385,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation file path does not exist: \(path)"
             case .invalidWorkspaceIDFormat(let value):
                 return "Workspace ID is not a valid UUID: \(value)"
+            case .missingPaneName(let path):
+                return "Automation pane is missing a name: \(path)"
             case .workspaceNotFound(let id):
                 return "Workspace does not exist: \(id.uuidString)"
             case .missingConversationStore:
@@ -522,6 +525,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         return try automationTargetWindow(payload: payload)
     }
 
+    private func automationDisplayName(
+        _ value: String?,
+        fallback: String,
+        kind: SoyehtAutomationNameKind,
+        style: String?
+    ) -> String {
+        let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? value!
+            : fallback
+        return SoyehtAutomationNameFormatter.displayName(raw, kind: kind, style: style)
+    }
+
+    private func optionalAutomationDisplayName(
+        _ value: String?,
+        kind: SoyehtAutomationNameKind,
+        style: String?
+    ) -> String? {
+        guard let value,
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return SoyehtAutomationNameFormatter.displayName(value, kind: kind, style: style)
+    }
+
+    private func automationPaneName(
+        _ value: String?,
+        path: String,
+        style: String?,
+        allowsAutomaticName: Bool
+    ) throws -> String? {
+        if let displayName = optionalAutomationDisplayName(value, kind: .pane, style: style) {
+            return displayName
+        }
+        guard allowsAutomaticName else {
+            throw AutomationError.missingPaneName(path)
+        }
+        return nil
+    }
+
     private func handleCreateWorktreeWorkspaces(
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
@@ -545,12 +587,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             let command = workspace.command ?? payload.command ?? agent
             let prompt = workspace.prompt ?? payload.prompt
             let promptDelayMs = workspace.promptDelayMs ?? payload.promptDelayMs
-            let workspaceName = SoyehtAutomationNameFormatter.displayName(
+            let workspaceName = automationDisplayName(
                 workspace.name,
+                fallback: url.lastPathComponent,
                 kind: .workspace,
                 style: payload.workspaceNameStyle ?? payload.nameStyle
             )
-            let paneName = SoyehtAutomationNameFormatter.displayName(
+            let paneName = optionalAutomationDisplayName(
                 workspace.name,
                 kind: .pane,
                 style: payload.paneNameStyle ?? payload.nameStyle
@@ -598,10 +641,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
             let agent = pane.agent ?? payload.agent ?? "codex"
             let command = pane.command ?? payload.command ?? agent
-            let name = SoyehtAutomationNameFormatter.displayName(
+            let name = try automationPaneName(
                 pane.name,
-                kind: .pane,
-                style: payload.paneNameStyle ?? payload.nameStyle
+                path: pane.path,
+                style: payload.paneNameStyle ?? payload.nameStyle,
+                allowsAutomaticName: payload.allowAutoPaneNames == true
+                    && panes.count == 1
+                    && agent == "shell"
             )
             specs.append(SoyehtMainWindowController.LocalAgentPaneSpec(
                 name: name,
@@ -647,10 +693,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
             let agent = pane.agent ?? payload.agent ?? "shell"
             let command = pane.command ?? payload.command ?? agent
-            let name = SoyehtAutomationNameFormatter.displayName(
+            let name = try automationPaneName(
                 pane.name,
-                kind: .pane,
-                style: payload.paneNameStyle ?? payload.nameStyle
+                path: pane.path,
+                style: payload.paneNameStyle ?? payload.nameStyle,
+                allowsAutomaticName: false
             )
             return SoyehtMainWindowController.LocalAgentPaneSpec(
                 name: name,
@@ -663,9 +710,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
 
         guard let first = specs.first else { throw AutomationError.emptyWorkspacePanes }
-        let rawWorkspaceName = payload.workspaceName ?? first.name
-        let workspaceName = SoyehtAutomationNameFormatter.displayName(
-            rawWorkspaceName,
+        let workspaceName = automationDisplayName(
+            payload.workspaceName ?? first.name,
+            fallback: first.projectURL.lastPathComponent,
             kind: .workspace,
             style: payload.workspaceNameStyle ?? payload.nameStyle
         )
@@ -692,7 +739,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             windowID: target.windowID
         )
         let firstPane = SoyehtAutomationResponse.CreatedPane(
-            name: first.name,
+            name: first.name ?? ConversationStore.normalize(firstResult.handle),
             path: first.projectURL.path,
             workspaceID: firstResult.workspaceID.uuidString,
             conversationID: firstResult.conversationID.uuidString,

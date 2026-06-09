@@ -73,7 +73,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     struct LocalAgentPaneSpec {
-        let name: String
+        let name: String?
         let projectURL: URL
         let agentName: String
         let initialCommand: String?
@@ -1086,7 +1086,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let added = store.add(ws, toWindow: windowID)
         WorkspaceBookmarkStore.shared.save(url: projectURL, for: added.id)
 
-        let handle = paneName ?? name
+        let handle = paneName ?? (agent.isShell ? convStore.nextAvailableHandle(for: agent, in: added.id) : name)
         let storedConversation = convStore.add(Conversation(
             id: paneID,
             handle: handle,
@@ -1135,9 +1135,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         for (index, spec) in specs.enumerated() {
             let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: index == 0)
             let agent: AgentType = spec.agentName == "shell" ? .shell : .claw(spec.agentName)
+            let handle = spec.name ?? convStore.nextAvailableHandle(for: agent, in: workspaceID)
             let storedConversation = convStore.add(Conversation(
                 id: paneID,
-                handle: spec.name,
+                handle: handle,
                 agent: agent,
                 workspaceID: workspaceID,
                 commander: .mirror(instanceID: "pending"),
@@ -1147,7 +1148,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             attachJobs.append((paneID, spec))
             batchPaneIDs.append(paneID)
             results.append(LocalAgentPaneResult(
-                name: spec.name,
+                name: ConversationStore.normalize(storedConversation.handle),
                 projectURL: spec.projectURL,
                 workspaceID: workspaceID,
                 conversationID: paneID,
@@ -3152,7 +3153,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// and its RgdJh session dialog. Hydrates the placeholder conversation at
     /// `paneID` in place (C1: the leaf UUID never changes), resolves the
     /// default tmux container (C2: bash + every agent go through remote
-    /// tmux), auto-generates a globally unique `@handle` (C3), and kicks off
+    /// tmux), auto-generates a globally unique pane handle (C3), and kicks off
     /// the same `wireTerminal` recipe used by the full sheet.
     @MainActor
     func startNewConversation(
@@ -3213,7 +3214,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// running `/bin/bash -i` with full env inherit + bashrc startup,
     /// and wire it into the pane's terminal view without touching the
     /// remote tmux path. Mirrors the `startNewConversation` shape so C1
-    /// (immutable pane identity) and C3 (auto `@shell` handle) still hold.
+    /// (immutable pane identity) and C3 (auto shell handle) still hold.
     @MainActor
     func startLocalShell(in paneID: Conversation.ID, cwd: URL) {
         guard let convStore = AppEnvironment.conversationStore else { return }
@@ -3225,8 +3226,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         WorkspaceBookmarkStore.shared.save(url: cwd, for: workspaceID)
         updateSubtitle()
 
-        // Auto-handle per C3. For `.shell` the display name is "shell", so the
-        // handle is `@shell` (falls back to `@shell-2` etc. on collision).
+        // Auto-handle per C3. Shell panes use a friendly unused handle instead
+        // of `@shell`, which keeps multiple local panes easier to scan.
         let handle = convStore.nextAvailableHandle(for: .shell, in: workspaceID)
 
         // C1: hydrate placeholder in place; paneID identity stays immutable.

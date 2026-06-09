@@ -34,7 +34,7 @@ struct SoyehtAutomationRequest: Decodable {
 
     struct Payload: Decodable {
         struct SessionSpec: Decodable {
-            let name: String
+            let name: String?
             let path: String
             let branch: String?
             let agent: String?
@@ -48,6 +48,7 @@ struct SoyehtAutomationRequest: Decodable {
         let command: String?
         let prompt: String?
         let promptDelayMs: Int?
+        let allowAutoPaneNames: Bool?
         let workspaceName: String?
         let workspaceBranch: String?
         let workspaceIDs: [String]?
