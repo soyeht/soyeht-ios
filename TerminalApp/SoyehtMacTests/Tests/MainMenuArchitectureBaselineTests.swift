@@ -134,6 +134,62 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
         )
     }
 
+    func testRuntimeMenuOwnershipStaysInsideMainMenuBoundary() throws {
+        let appDelegate = try String(contentsOf: Self.appDelegateURL, encoding: .utf8)
+        let controller = try String(contentsOf: Self.mainMenuControllerURL, encoding: .utf8)
+
+        XCTAssertTrue(appDelegate.contains("private lazy var mainMenuController"))
+        XCTAssertTrue(appDelegate.contains("mainMenuController.installProgrammaticMainMenu()"))
+        XCTAssertTrue(appDelegate.contains("mainMenuController.installProgrammaticMainMenuIfNeeded()"))
+        XCTAssertTrue(appDelegate.contains("mainMenuController.installInternalDebugMenuIfNeeded()"))
+
+        for forbidden in [
+            "NSMenuDelegate",
+            "NSMenuItemValidation",
+            "NSApp.mainMenu =",
+            "func menuNeedsUpdate",
+            "func validateMenuItem",
+            "refreshMoveFocusedPaneMenu",
+            "rebuildWorkspaceMenu",
+            "refreshWorkspaceMenuEnhancements",
+            "private func refreshSoundMenu",
+            "private func installDebugMenu",
+        ] {
+            XCTAssertFalse(appDelegate.contains(forbidden), "AppDelegate should not own runtime menu code: \(forbidden)")
+        }
+
+        for required in [
+            "final class MainMenuController",
+            "NSMenuDelegate",
+            "NSMenuItemValidation",
+            "NSApp.mainMenu =",
+            "func menuNeedsUpdate",
+            "func validateMenuItem",
+            "refreshMoveFocusedPaneMenu",
+            "rebuildWorkspaceMenu",
+            "refreshWorkspaceMenuEnhancements",
+            "private func refreshSoundMenu",
+            "private func installDebugMenu",
+        ] {
+            XCTAssertTrue(controller.contains(required), "MainMenuController should own runtime menu code: \(required)")
+        }
+
+        let runtimeMenuNeedles = [
+            "NSApp.mainMenu",
+            "NSMenuDelegate",
+            "NSMenuItemValidation",
+            "func menuNeedsUpdate",
+            "func validateMenuItem",
+        ]
+        let offenders = try swiftSourcesOutsideMainMenu().compactMap { url -> String? in
+            let source = try String(contentsOf: url, encoding: .utf8)
+            return runtimeMenuNeedles.contains(where: source.contains)
+                ? url.lastPathComponent
+                : nil
+        }
+        XCTAssertEqual(offenders.sorted(), [], "Runtime menu ownership leaked outside MainMenu/: \(offenders)")
+    }
+
     private func publicNoWindowSnapshot() -> MainMenuSnapshotNode {
         MainMenuSnapshot.capture(
             MainMenuBuilder().buildPublicNoWindowMenu(),
@@ -161,6 +217,35 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("SoyehtMac/AppDelegate.swift")
+    }
+
+    private static var mainMenuControllerURL: URL {
+        soyehtMacURL
+            .appendingPathComponent("MainMenu/MainMenuController.swift")
+    }
+
+    private static var soyehtMacURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("SoyehtMac")
+    }
+
+    private func swiftSourcesOutsideMainMenu() throws -> [URL] {
+        let enumerator = try XCTUnwrap(
+            FileManager.default.enumerator(
+                at: Self.soyehtMacURL,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        )
+        return enumerator.compactMap { entry -> URL? in
+            guard let url = entry as? URL,
+                  url.pathExtension == "swift",
+                  !url.path.contains("/MainMenu/") else { return nil }
+            return url
+        }
     }
 
     private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {

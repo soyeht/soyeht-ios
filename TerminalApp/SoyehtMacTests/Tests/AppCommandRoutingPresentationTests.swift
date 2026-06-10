@@ -10,13 +10,13 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         let resolver = try slice(
             source,
-            from: "private var frontmostMainWindowController",
-            to: "private var activeUndoManager"
+            from: "var frontmostMainWindowController",
+            to: "private func withActivePaneGrid"
         )
         let activePaneGridBridge = try slice(
             source,
             from: "private func withActivePaneGrid",
-            to: "func validateMenuItem"
+            to: "/// Menu item / `⌘⇧C` target."
         )
 
         XCTAssertTrue(commandActions.contains("let target = frontmostMainWindowController"))

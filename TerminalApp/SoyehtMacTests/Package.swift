@@ -20,7 +20,8 @@ let package = Package(
             name: "SoyehtMacDomain",
             dependencies: [
                 .product(name: "SoyehtCore", package: "SoyehtCore"),
-            ]
+            ],
+            exclude: ["MainMenu/MainMenuController.swift"]
         ),
         .testTarget(
             name: "SoyehtMacDomainTests",
