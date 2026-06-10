@@ -8,13 +8,17 @@ private func normalizeProcessWorkingDirectoryBeforeAppKitLaunch() {
     unsetenv("OLDPWD")
 }
 
-normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
+MainActor.assumeIsolated {
+    normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
 
-if Bundle.main.object(forInfoDictionaryKey: "SoyehtUninstallerMode") as? Bool == true {
     let app = NSApplication.shared
-    let delegate = UninstallCompanionAppDelegate()
-    app.delegate = delegate
-    app.run()
-} else {
-    _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+    if Bundle.main.object(forInfoDictionaryKey: "SoyehtUninstallerMode") as? Bool == true {
+        let delegate = UninstallCompanionAppDelegate()
+        app.delegate = delegate
+        app.run()
+    } else {
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
 }
