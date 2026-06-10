@@ -527,21 +527,33 @@ enum AppCommandRegistry {
         [
             AppCommand(
                 id: .newWindow,
-                title: String(localized: "appCommand.newWindow"),
+                title: String(
+                    localized: "appCommand.newWindow",
+                    defaultValue: "New Window",
+                    comment: "Shell menu item that opens a new Soyeht window."
+                ),
                 action: .newWindow,
                 shortcut: AppCommandShortcut(.character("n"), modifiers: [.command]),
                 menuPlacement: .shellMenu
             ),
             AppCommand(
                 id: .newConversation,
-                title: String(localized: "appCommand.newConversation"),
+                title: String(
+                    localized: "appCommand.newConversation",
+                    defaultValue: "New Conversation",
+                    comment: "Shell menu item that opens a new conversation tab."
+                ),
                 action: .newConversation,
                 shortcut: AppCommandShortcut(.character("t"), modifiers: [.command]),
                 menuPlacement: .shellMenu
             ),
             AppCommand(
                 id: .showCommandPalette,
-                title: String(localized: "appMenu.goToPane", comment: "View menu item that opens the command palette to jump to a workspace or pane."),
+                title: String(
+                    localized: "appMenu.goToPane",
+                    defaultValue: "Go to Pane…",
+                    comment: "View menu item that opens the command palette to jump to a workspace or pane."
+                ),
                 action: .showCommandPalette,
                 shortcut: AppCommandShortcut(.character("p"), modifiers: [.command, .shift]),
                 menuPlacement: .viewMenu
@@ -570,14 +582,22 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .checkForUpdates,
-                title: String(localized: "appMenu.checkForUpdates", comment: "App menu item that checks for a new Soyeht update."),
+                title: String(
+                    localized: "appMenu.checkForUpdates",
+                    defaultValue: "Check for Updates…",
+                    comment: "App menu item that checks for a new Soyeht update."
+                ),
                 action: .checkForUpdates,
                 shortcut: nil,
                 menuPlacement: .appMenu
             ),
             AppCommand(
                 id: .showPairedDevices,
-                title: String(localized: "appMenu.pairedDevices", comment: "App menu item that opens the Paired Devices window."),
+                title: String(
+                    localized: "appMenu.pairedDevices",
+                    defaultValue: "Paired Devices…",
+                    comment: "App menu item that opens the Paired Devices window."
+                ),
                 action: .showPairedDevices,
                 shortcut: AppCommandShortcut(.character("d"), modifiers: [.command, .shift]),
                 menuPlacement: .appMenu
@@ -606,7 +626,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .showClawStore,
-                title: String(localized: "appMenu.clawStore", comment: "App menu item that opens the Claw Store window."),
+                title: String(
+                    localized: "appMenu.clawStore",
+                    defaultValue: "Claw Store…",
+                    comment: "App menu item that opens the Claw Store window."
+                ),
                 action: .showClawStore,
                 shortcut: AppCommandShortcut(.character("s"), modifiers: [.command, .option]),
                 menuPlacement: .appMenu
@@ -624,7 +648,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .undoWindowAction,
-                title: String(localized: "appCommand.undo"),
+                title: String(
+                    localized: "appCommand.undo",
+                    defaultValue: "Undo",
+                    comment: "Edit menu item that undoes the active workspace action."
+                ),
                 action: .undoWindowAction,
                 shortcut: AppCommandShortcut(.character("z"), modifiers: [.command]),
                 menuPlacement: .editMenu
@@ -642,14 +670,22 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .splitPaneVertical,
-                title: String(localized: "appCommand.splitVertical"),
+                title: String(
+                    localized: "appCommand.splitVertical",
+                    defaultValue: "Split Vertical",
+                    comment: "Pane menu item that splits the focused pane vertically."
+                ),
                 action: .splitPaneVertical,
                 shortcut: AppCommandShortcut(.character("|"), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu
             ),
             AppCommand(
                 id: .splitPaneHorizontal,
-                title: String(localized: "appCommand.splitHorizontal"),
+                title: String(
+                    localized: "appCommand.splitHorizontal",
+                    defaultValue: "Split Horizontal",
+                    comment: "Pane menu item that splits the focused pane horizontally."
+                ),
                 action: .splitPaneHorizontal,
                 shortcut: AppCommandShortcut(.character("_"), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu
@@ -715,7 +751,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .toggleZoomFocusedPane,
-                title: String(localized: "paneMenu.zoomFocused", comment: "Pane menu item — zoom the focused pane to fill the window."),
+                title: String(
+                    localized: "paneMenu.zoomFocused",
+                    defaultValue: "Zoom Focused Pane",
+                    comment: "Pane menu item — zoom the focused pane to fill the window."
+                ),
                 action: .toggleZoomFocusedPane,
                 shortcut: AppCommandShortcut(.character("z"), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -723,7 +763,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .exitZoom,
-                title: String(localized: "paneMenu.exitZoom", comment: "Pane menu item — exits zoom mode."),
+                title: String(
+                    localized: "paneMenu.exitZoom",
+                    defaultValue: "Exit Zoom",
+                    comment: "Pane menu item — exits zoom mode."
+                ),
                 action: .exitZoom,
                 shortcut: AppCommandShortcut(.special(.escape), modifiers: []),
                 menuPlacement: .paneMenu,
@@ -731,7 +775,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .swapPaneLeft,
-                title: String(localized: "paneMenu.swapLeft", comment: "Pane menu item — swap the focused pane with the one to its left."),
+                title: String(
+                    localized: "paneMenu.swapLeft",
+                    defaultValue: "Swap Pane Left",
+                    comment: "Pane menu item — swap the focused pane with the one to its left."
+                ),
                 action: .swapPaneLeft,
                 shortcut: AppCommandShortcut(.special(.leftArrow), modifiers: [.option, .shift]),
                 menuPlacement: .paneMenu,
@@ -739,7 +787,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .swapPaneRight,
-                title: String(localized: "paneMenu.swapRight", comment: "Pane menu item — swap the focused pane with the one to its right."),
+                title: String(
+                    localized: "paneMenu.swapRight",
+                    defaultValue: "Swap Pane Right",
+                    comment: "Pane menu item — swap the focused pane with the one to its right."
+                ),
                 action: .swapPaneRight,
                 shortcut: AppCommandShortcut(.special(.rightArrow), modifiers: [.option, .shift]),
                 menuPlacement: .paneMenu,
@@ -747,7 +799,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .swapPaneUp,
-                title: String(localized: "paneMenu.swapUp", comment: "Pane menu item — swap the focused pane with the one above."),
+                title: String(
+                    localized: "paneMenu.swapUp",
+                    defaultValue: "Swap Pane Up",
+                    comment: "Pane menu item — swap the focused pane with the one above."
+                ),
                 action: .swapPaneUp,
                 shortcut: AppCommandShortcut(.special(.upArrow), modifiers: [.option, .shift]),
                 menuPlacement: .paneMenu,
@@ -755,7 +811,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .swapPaneDown,
-                title: String(localized: "paneMenu.swapDown", comment: "Pane menu item — swap the focused pane with the one below."),
+                title: String(
+                    localized: "paneMenu.swapDown",
+                    defaultValue: "Swap Pane Down",
+                    comment: "Pane menu item — swap the focused pane with the one below."
+                ),
                 action: .swapPaneDown,
                 shortcut: AppCommandShortcut(.special(.downArrow), modifiers: [.option, .shift]),
                 menuPlacement: .paneMenu,
@@ -763,7 +823,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .rotateFocusedSplit,
-                title: String(localized: "paneMenu.rotateSplit", comment: "Pane menu item — rotate the axis of the split containing the focused pane."),
+                title: String(
+                    localized: "paneMenu.rotateSplit",
+                    defaultValue: "Rotate Focused Split",
+                    comment: "Pane menu item — rotate the axis of the split containing the focused pane."
+                ),
                 action: .rotateFocusedSplit,
                 shortcut: AppCommandShortcut(.character("r"), modifiers: [.option, .shift]),
                 menuPlacement: .paneMenu,
@@ -771,14 +835,22 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .moveActiveWorkspaceLeft,
-                title: String(localized: "workspaceMenu.moveActiveLeft", comment: "Workspace menu item — move the active workspace one slot to the left."),
+                title: String(
+                    localized: "workspaceMenu.moveActiveLeft",
+                    defaultValue: "Move Active Workspace Left",
+                    comment: "Workspace menu item — move the active workspace one slot to the left."
+                ),
                 action: .moveActiveWorkspaceLeft,
                 shortcut: AppCommandShortcut(.character("["), modifiers: [.command, .control]),
                 menuPlacement: .workspaceMenu
             ),
             AppCommand(
                 id: .moveActiveWorkspaceRight,
-                title: String(localized: "workspaceMenu.moveActiveRight", comment: "Workspace menu item — move the active workspace one slot to the right."),
+                title: String(
+                    localized: "workspaceMenu.moveActiveRight",
+                    defaultValue: "Move Active Workspace Right",
+                    comment: "Workspace menu item — move the active workspace one slot to the right."
+                ),
                 action: .moveActiveWorkspaceRight,
                 shortcut: AppCommandShortcut(.character("]"), modifiers: [.command, .control]),
                 menuPlacement: .workspaceMenu
