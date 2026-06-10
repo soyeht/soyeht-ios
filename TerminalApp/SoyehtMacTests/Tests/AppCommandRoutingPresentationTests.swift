@@ -11,7 +11,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let resolver = try slice(
             source,
             from: "private var frontmostMainWindowController",
-            to: "private func findMenuItem"
+            to: "private var activeUndoManager"
+        )
+        let activePaneGridBridge = try slice(
+            source,
+            from: "private func withActivePaneGrid",
+            to: "func validateMenuItem"
         )
 
         XCTAssertTrue(commandActions.contains("let target = frontmostMainWindowController"))
@@ -22,7 +27,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(resolver.contains("NSApp.keyWindow"))
         XCTAssertTrue(resolver.contains("NSApp.mainWindow"))
         XCTAssertTrue(resolver.contains("NSApp.orderedWindows"))
-        XCTAssertTrue(resolver.contains("guard let grid = frontmostMainWindowController?.activeGridController"))
+        XCTAssertTrue(activePaneGridBridge.contains("guard let grid = frontmostMainWindowController?.activeGridController"))
     }
 
     func testMainWindowControllerRoutesPaneCommandsToVisibleWorkspaceContainer() throws {
