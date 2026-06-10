@@ -15,6 +15,7 @@ enum MainMenuID: String, Hashable {
     case sound
     case dictationLanguage
     case window
+    case debug
     case help
 }
 

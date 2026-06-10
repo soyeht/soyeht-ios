@@ -10,7 +10,7 @@ struct MainMenuBuilder {
 
     func build(_ model: MenuModel = .publicNoWindow()) -> NSMenu {
         let mainMenu = NSMenu(title: model.title)
-        mainMenu.identifier = identifier(for: .main)
+        mainMenu.identifier = Self.identifier(for: .main)
         for topLevelMenu in model.topLevelMenus {
             mainMenu.addItem(makeTopLevelItem(topLevelMenu))
         }
@@ -23,13 +23,14 @@ struct MainMenuBuilder {
 
     private func makeTopLevelItem(_ model: TopLevelMenuModel) -> NSMenuItem {
         let item = NSMenuItem(title: model.title, action: nil, keyEquivalent: "")
-        item.identifier = identifier(for: model.id)
+        item.identifier = Self.identifier(for: model.id)
+        item.representedObject = model.id
         if let tag = model.tag {
             item.tag = tag
         }
 
         let submenu = NSMenu(title: model.title)
-        submenu.identifier = identifier(for: model.id)
+        submenu.identifier = Self.identifier(for: model.id)
         model.items.map(makeItem).forEach(submenu.addItem)
         item.submenu = submenu
         return item
@@ -93,7 +94,7 @@ struct MainMenuBuilder {
         isEnabled: Bool = true
     ) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.identifier = identifier(for: id)
+        item.identifier = Self.identifier(for: id)
         item.representedObject = id
         if let tag {
             item.tag = tag
@@ -101,7 +102,7 @@ struct MainMenuBuilder {
         item.isEnabled = isEnabled
 
         let submenu = NSMenu(title: title)
-        submenu.identifier = identifier(for: id)
+        submenu.identifier = Self.identifier(for: id)
         items.forEach(submenu.addItem)
         item.submenu = submenu
         return item
@@ -163,7 +164,7 @@ struct MainMenuBuilder {
         }
     }
 
-    private func identifier(for menuID: MainMenuID) -> NSUserInterfaceItemIdentifier {
+    static func identifier(for menuID: MainMenuID) -> NSUserInterfaceItemIdentifier {
         NSUserInterfaceItemIdentifier("soyeht.mainMenu.\(menuID.rawValue)")
     }
 }
