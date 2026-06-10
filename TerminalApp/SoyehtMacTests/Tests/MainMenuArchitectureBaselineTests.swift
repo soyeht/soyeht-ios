@@ -58,6 +58,7 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
 
             if let commandID = canonicalization.commandID {
                 let command = try XCTUnwrap(AppCommandRegistry.command(commandID), "Missing command \(commandID)")
+                XCTAssertEqual(command.title, canonicalization.canonicalTitle, canonicalization.label)
                 XCTAssertEqual(command.action.rawValue, canonicalization.canonicalSelector, canonicalization.label)
                 XCTAssertEqual(command.shortcut.map(MenuShortcutSnapshot.init), canonicalization.canonicalShortcut, canonicalization.label)
             }

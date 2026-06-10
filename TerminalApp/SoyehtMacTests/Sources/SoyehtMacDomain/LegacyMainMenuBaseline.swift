@@ -151,6 +151,12 @@ enum LegacyMainMenuBaseline {
         ),
     ]
 
+    /// Builds a structural snapshot target for the current public menu surface.
+    ///
+    /// This is a PR-1 safety net, not a full `NSMenuItemValidation` oracle:
+    /// commands that are context-dependent may appear structurally even in the
+    /// no-window baseline. PR-2 owns moving that enabled/disabled behavior into
+    /// descriptor-level `CommandUIContext` validation.
     static func makePublicNoWindowMenu(clawStoreEnabled: Bool = false) -> NSMenu {
         let mainMenu = NSMenu(title: "Main Menu")
         addTopLevel("Soyeht", to: mainMenu, items: appMenuItems(clawStoreEnabled: clawStoreEnabled))
