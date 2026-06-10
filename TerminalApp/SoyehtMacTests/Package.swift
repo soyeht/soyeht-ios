@@ -28,7 +28,8 @@ let package = Package(
                 "SoyehtMacDomain",
                 .product(name: "SoyehtCore", package: "SoyehtCore"),
             ],
-            path: "Tests"
+            path: "Tests",
+            exclude: ["Fixtures"]
         ),
     ]
 )
