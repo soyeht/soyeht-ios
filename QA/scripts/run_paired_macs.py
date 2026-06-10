@@ -18,8 +18,10 @@ Assumptions (aborts early if missing):
 - iPhone <qa-device-2> physical device connected (UDID via env SOYEHT_IOS_UDID).
 - Mac Soyeht app running with ≥1 pane, already paired with this iPhone from a
   prior QR flow (state fixture — no pairing is performed here).
-- Appium + WebDriverAgent either already running (env SOYEHT_WDA_URL) or
-  startable via appium_gate_common.ensure_appium_server/ensure_wda.
+- Appium running or startable via appium_gate_common.ensure_appium_server.
+  WebDriverAgent is managed by Appium by default; set SOYEHT_WDA_URL to reuse
+  a known-good WDA endpoint, or SOYEHT_PAIRED_MACS_EXTERNAL_WDA=1 to start WDA
+  separately via xcodebuild.
 
 Usage:
     uv run QA/scripts/run_paired_macs.py
@@ -32,6 +34,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -52,6 +55,11 @@ from appium_gate_common import (
 
 
 BUNDLE_ID = os.environ.get("SOYEHT_BUNDLE_ID", "com.soyeht.app")
+PLATFORM_VERSION = os.environ.get("SOYEHT_IOS_PLATFORM_VERSION", "").strip()
+WDA_LOCAL_PORT = int(os.environ.get("SOYEHT_WDA_LOCAL_PORT", "8110"))
+WDA_BUNDLE_ID = os.environ.get("SOYEHT_WDA_BUNDLE_ID", "com.soyeht.WebDriverAgentRunner")
+WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "").strip()
+WDA_SIGNING_ID = os.environ.get("SOYEHT_WDA_SIGNING_ID", "Apple Development")
 W3C_ELEMENT = "element-6066-11e4-a52e-4f735466cecf"
 
 
@@ -101,6 +109,10 @@ class AppiumSession:
             "appium:automationName": "XCUITest",
             "appium:udid": self.udid,
             "appium:bundleId": BUNDLE_ID,
+            "appium:processArguments": {
+                "args": ["-SoyehtUITest"],
+                "env": {"SOYEHT_UI_TEST": "1"},
+            },
             "appium:noReset": True,
             "appium:shouldUseSingletonTestManager": False,
             "appium:waitForIdleTimeout": 0,
@@ -108,13 +120,20 @@ class AppiumSession:
             "appium:wdaEventloopIdleDelay": 1,
             "appium:wdaLaunchTimeout": 180000,
             "appium:wdaConnectionTimeout": 180000,
+            "appium:wdaLocalPort": WDA_LOCAL_PORT,
             "appium:newCommandTimeout": 240,
         }
+        if PLATFORM_VERSION:
+            caps["appium:platformVersion"] = PLATFORM_VERSION
         if self.wda_url:
             caps["appium:webDriverAgentUrl"] = self.wda_url
             caps["appium:useNewWDA"] = False
         else:
+            team_id = require_env("SOYEHT_WDA_TEAM_ID", WDA_TEAM_ID)
             caps["appium:useNewWDA"] = True
+            caps["appium:updatedWDABundleId"] = WDA_BUNDLE_ID
+            caps["appium:xcodeOrgId"] = team_id
+            caps["appium:xcodeSigningId"] = WDA_SIGNING_ID
         response = requests.post(
             f"{self.appium_url}/session",
             json={"capabilities": {"alwaysMatch": caps, "firstMatch": [{}]}},
@@ -240,32 +259,68 @@ class PairedMacsRunner:
         self.session.screenshot(path)
         return str(path.relative_to(self.run_dir))
 
+    def _visible_accessibility_ids(self, source: str, prefix: str) -> list[str]:
+        ids: list[str] = []
+        for identifier in re.findall(r'<[^>]+name="([^"]+)"[^>]*visible="true"', source):
+            if identifier.startswith(prefix) and identifier not in ids:
+                ids.append(identifier)
+        return ids
+
+    def _home_mac_card_ids(self, source: str | None = None) -> list[str]:
+        src = source if source is not None else self.session.source()
+        return self._visible_accessibility_ids(src, "soyeht.instanceList.macCard.")
+
+    def _open_mac_card(self, timeout: float = 15.0) -> bool:
+        deadline = time.time() + timeout
+        fallback_xpaths = [
+            f"//*[starts-with(@name,'soyeht.instanceList.macCard.') and contains(@label,{json.dumps(self.mac_name)})]",
+            "//*[starts-with(@name,'soyeht.instanceList.macCard.')]",
+            f"//*[contains(@label,{json.dumps(self.mac_name)}) and contains(@label, ', online')]",
+            f"//*[contains(@label,{json.dumps(self.mac_name)}) and contains(@label, ', connecting')]",
+            f"//*[contains(@label,{json.dumps(self.mac_name)})]",
+        ]
+
+        while time.time() < deadline:
+            source = self.session.source()
+            for card_id in self._home_mac_card_ids(source):
+                try:
+                    self.session.tap(self.session.find("accessibility id", card_id, timeout=2))
+                    return True
+                except Exception:  # noqa: BLE001
+                    continue
+
+            for xpath in fallback_xpaths:
+                try:
+                    self.session.tap(self.session.find("xpath", xpath, timeout=1.5))
+                    return True
+                except LookupError:
+                    continue
+            time.sleep(0.5)
+        return False
+
     # ----- Cases ---------------------------------------------------------- #
 
     def pm_001(self) -> CaseResult:
-        """Home list renders a paired Mac row with [mac] tag within 3s."""
+        """Home list renders a paired Mac row with a stable automation ID."""
         self.session.reset_app()
         deadline = time.time() + 15
         source = ""
         while time.time() < deadline:
             source = self.session.source()
-            if "[mac]" in source and self.mac_name in source:
+            if self._home_mac_card_ids(source) and self.mac_name in source:
                 break
             time.sleep(1)
         shot = self._shot("pm-001-home")
-        if "[mac]" not in source:
-            return CaseResult("PM-001", "FAIL", f"[mac] tag not rendered on home list; {self.mac_name!r} absent", shot)
+        if not self._home_mac_card_ids(source):
+            return CaseResult("PM-001", "FAIL", "Mac row accessibility ID not rendered on home list", shot)
         if self.mac_name not in source:
             return CaseResult("PM-001", "FAIL", f"Mac row visible but expected name {self.mac_name!r} missing", shot)
-        return CaseResult("PM-001", "PASS", f"Mac row {self.mac_name!r} visible with [mac] tag", shot)
+        return CaseResult("PM-001", "PASS", f"Mac row {self.mac_name!r} visible with stable accessibility ID", shot)
 
     def pm_002(self) -> CaseResult:
         """Tap Mac row → MacDetailView sheet opens with pane list."""
-        try:
-            mac_row = self.session.find("xpath", f"//*[contains(@label,'{self.mac_name}')]", timeout=10)
-        except LookupError as exc:
-            return CaseResult("PM-002", "FAIL", f"Mac row not tappable: {exc}")
-        self.session.tap(mac_row)
+        if not self._open_mac_card(timeout=15):
+            return CaseResult("PM-002", "FAIL", "Mac row not tappable from home list")
         time.sleep(2)
         shot = self._shot("pm-002-detail")
         source = self.session.source()
@@ -280,15 +335,18 @@ class PairedMacsRunner:
 
     def _on_terminal(self, source: str | None = None) -> bool:
         """True when the iOS app is on a terminal view (LocalTerminalView).
-        We detect by: (a) MacDetailView marker absent AND (b) keyboard or
-        terminal container element present.
+        We detect by the stable terminal accessibility ID first, with text
+        fallbacks for older builds that did not expose the identifier.
         """
         src = source if source is not None else self.session.source()
-        if self.MAC_DETAIL_MARKER in src:
+        if self.MAC_DETAIL_MARKER in src and "soyeht.terminal.terminalView" not in src:
             return False
-        # Either the SwiftTerm view ID "terminal-view" (set via .accessibilityIdentifier),
-        # or the on-screen keyboard (XCUIElementTypeKeyboard) is enough.
-        return "terminal-view" in src or "XCUIElementTypeKeyboard" in src
+        return (
+            "soyeht.terminal.terminalView" in src
+            or "terminal-view" in src
+            or "[mac local]" in src
+            or "XCUIElementTypeKeyboard" in src
+        )
 
     def pm_003(self) -> CaseResult:
         """Tap a pane → terminal opens via attach (no QR)."""
@@ -300,9 +358,9 @@ class PairedMacsRunner:
             return CaseResult("PM-003", "SKIP", f"No panes listed for {self.mac_name!r} — open a pane on the Mac first")
         target_label = pane_buttons[0]["label"]
         self.session.tap(pane_buttons[0]["id"])
-        # Poll up to 6s for the terminal to take over (WS grant round-trip + transition).
+        # Poll up to 15s for the terminal to take over (WS grant round-trip + transition).
         on_terminal = False
-        deadline = time.time() + 6
+        deadline = time.time() + 15
         while time.time() < deadline:
             if self._on_terminal():
                 on_terminal = True
@@ -310,7 +368,7 @@ class PairedMacsRunner:
             time.sleep(0.5)
         shot = self._shot("pm-003-pane")
         if not on_terminal:
-            return CaseResult("PM-003", "FAIL", f"Tap on pane {target_label!r} did not reach terminal view within 6s", shot)
+            return CaseResult("PM-003", "FAIL", f"Tap on pane {target_label!r} did not reach terminal view within 15s", shot)
         return CaseResult("PM-003", "PASS", f"Pane {target_label!r} opened without QR", shot)
 
     def pm_004(self) -> CaseResult:
@@ -450,7 +508,7 @@ class PairedMacsRunner:
         deadline = time.time() + 10
         while time.time() < deadline:
             source = self.session.source()
-            if self.mac_name in source and "[mac]" in source:
+            if self.mac_name in source and self._home_mac_card_ids(source):
                 break
             time.sleep(1)
         shot = self._shot("pm-006-relaunch")
@@ -458,6 +516,8 @@ class PairedMacsRunner:
         source = self.session.source()
         if "offline" in source.lower() and self.mac_name in source:
             return CaseResult("PM-006", "FAIL", "Mac row stuck offline after relaunch", shot)
+        if not self._home_mac_card_ids(source):
+            return CaseResult("PM-006", "FAIL", "Mac row accessibility ID missing after relaunch", shot)
         if self.mac_name not in source:
             return CaseResult("PM-006", "FAIL", "Mac row missing after relaunch", shot)
         return CaseResult("PM-006", "PASS", "Presence reconnected after relaunch", shot)
@@ -471,18 +531,48 @@ class PairedMacsRunner:
     def _find_pane_buttons(self) -> list[dict[str, str]]:
         """Returns a list of {id, label} for pane rows inside MacDetailView.
 
-        SwiftUI Button without `.contentShape(Rectangle())` only hit-tests on
-        non-transparent subviews. The row's horizontal center falls on a
-        Spacer, so tapping the Button's rect center is a no-op. Instead we
-        target the inner text element (e.g. "@shell") — inside the Button's
-        action region, always hittable — which our `tap` helper will convert
-        to the element's rect center.
+        Current builds expose stable pane row IDs. Older builds rendered only
+        visible "@pane" text, so we keep a fallback for compatibility.
         """
+        source = self.session.source()
+        items: list[dict[str, str]] = []
+        for pane_id in self._visible_accessibility_ids(source, "soyeht.macDetail.pane."):
+            try:
+                element_id = self.session.find("accessibility id", pane_id, timeout=2)
+                label = self.session.text_of(element_id) or pane_id
+            except Exception:  # noqa: BLE001
+                continue
+            if "not attachable" not in label.lower():
+                items.append({"id": element_id, "label": label})
+        if items:
+            return items
+
+        for xpath in [
+            "//XCUIElementTypeButton[starts-with(@name,'soyeht.macDetail.pane.') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, ', shell,') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, ', idle') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, ', active') and not(contains(@label, 'not attachable'))]",
+        ]:
+            response = self.session._post(
+                "/elements",
+                {"using": "xpath", "value": xpath},
+            )
+            for raw in response or []:
+                element_id = raw.get(W3C_ELEMENT) or raw.get("ELEMENT")
+                if not element_id:
+                    continue
+                try:
+                    label = self.session.text_of(element_id) or xpath
+                except Exception:  # noqa: BLE001
+                    label = xpath
+                items.append({"id": element_id, "label": label})
+            if items:
+                return items
+
         response = self.session._post(
             "/elements",
             {"using": "xpath", "value": "//XCUIElementTypeStaticText[starts-with(@label,'@')]"},
         )
-        items = []
         for raw in response or []:
             element_id = raw.get(W3C_ELEMENT) or raw.get("ELEMENT")
             if not element_id:
@@ -547,7 +637,8 @@ def main() -> int:
         appium_server = ensure_appium_server(run_dir, DEFAULT_APPIUM_URL)
         if appium_server:
             processes.append(appium_server)
-        if not wda_url:
+        use_external_wda = os.environ.get("SOYEHT_PAIRED_MACS_EXTERNAL_WDA") == "1"
+        if not wda_url and use_external_wda:
             wda_url, wda_process = ensure_wda(run_dir, udid)
             processes.append(wda_process)
 

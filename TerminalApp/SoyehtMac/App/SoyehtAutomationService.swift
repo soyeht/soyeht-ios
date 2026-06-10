@@ -560,7 +560,7 @@ final class SoyehtAutomationService {
     private var directoryFD: CInt = -1
     private var processing = false
 
-    init(rootURL: URL = SoyehtAutomationService.defaultRootURL(), handler: @escaping Handler) {
+    init(rootURL: URL, handler: @escaping Handler) {
         self.rootURL = rootURL
         self.requestURL = rootURL.appendingPathComponent("Requests", isDirectory: true)
         self.responseURL = rootURL.appendingPathComponent("Responses", isDirectory: true)
@@ -726,22 +726,14 @@ final class SoyehtAutomationService {
         }
     }
 
-    nonisolated static func defaultRootURL() -> URL {
+    nonisolated static func defaultRootURL() throws -> URL {
         if let override = ProcessInfo.processInfo.environment["SOYEHT_AUTOMATION_DIR"],
            !override.isEmpty {
             return URL(fileURLWithPath: override, isDirectory: true)
         }
-        do {
-            return try AppSupportDirectory.subdirectory("Automation")
-        } catch {
-            // Application Support genuinely unavailable. The previous
-            // `?? NSTemporaryDirectory()` fallback would have routed
-            // automation state into `/tmp`, where macOS reaps it on
-            // restart — users would lose persisted automation runs
-            // silently. Surface loudly instead.
-            preconditionFailure(
-                "Cannot locate Application Support for Automation: \(error)"
-            )
-        }
+        // Do not fall back to /tmp here. Automation requests are durable
+        // process state; AppDelegate decides whether to disable automation
+        // if Application Support is not writable.
+        return try AppSupportDirectory.subdirectory("Automation")
     }
 }

@@ -92,11 +92,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
         PairingPresenceServer.shared.start()
-        automationService = SoyehtAutomationService { [weak self] request in
-            guard let self else { return SoyehtAutomationResult() }
-            return try await self.handleAutomationRequest(request)
+        MacAutomaticIPhoneDiscoveryService.shared.start()
+        do {
+            let automationRootURL = try SoyehtAutomationService.defaultRootURL()
+            automationService = SoyehtAutomationService(rootURL: automationRootURL) { [weak self] request in
+                guard let self else { return SoyehtAutomationResult() }
+                return try await self.handleAutomationRequest(request)
+            }
+            automationService?.start()
+        } catch {
+            NSLog("Soyeht automation disabled: \(error.localizedDescription)")
         }
-        automationService?.start()
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
@@ -138,6 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         workspaceStore.flushPendingSave()
         WorkspaceBookmarkStore.shared.releaseAll()
         automationService?.stop()
+        MacAutomaticIPhoneDiscoveryService.shared.stop()
         PairingPresenceServer.shared.stop()
     }
 
@@ -1887,6 +1894,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private var clawStoreCloseObserver: NSObjectProtocol?
 
     @IBAction func showClawStore(_ sender: Any?) {
+        guard SoyehtFeatureFlags.clawStoreEnabled else {
+            showClawStoreComingSoonAlert()
+            return
+        }
         if let target = frontmostMainWindowController {
             target.openClawDrawerOverlay()
             target.window?.makeKeyAndOrderFront(nil)
@@ -1902,6 +1913,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @IBAction func showStandaloneClawStore(_ sender: Any?) {
+        guard SoyehtFeatureFlags.clawStoreEnabled else {
+            showClawStoreComingSoonAlert()
+            return
+        }
         guard let context = SessionStore.shared.currentContext() else {
             openWelcomeWindow()
             return
@@ -1938,6 +1953,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func showClawStoreComingSoonAlert() {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "clawStore.comingSoon.title", comment: "Alert title shown while Claw Store is disabled for launch.")
+        alert.addButton(withTitle: String(localized: "common.button.ok"))
+        if let window = NSApp.keyWindow ?? frontmostMainWindowController?.window {
+            alert.beginSheetModal(for: window, completionHandler: nil)
+        } else {
+            alert.runModal()
+        }
     }
 
     /// Adds "Claw Store…" to the app menu with ⌘⌥S. ⌘⇧S is already

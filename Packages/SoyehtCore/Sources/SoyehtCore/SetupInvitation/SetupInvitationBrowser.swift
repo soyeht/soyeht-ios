@@ -3,12 +3,10 @@ import Network
 
 /// Mac-side Bonjour browser for `_soyeht-setup._tcp.` (case B).
 ///
-/// Discovers the iPhone's setup invitation service over Tailscale, decodes the
-/// CBOR TXT record, and exposes the `SetupInvitationPayload` for the Mac to call
+/// Discovers the iPhone's setup invitation service over the local network or
+/// Tailscale, decodes the CBOR TXT record, and exposes the
+/// `SetupInvitationPayload` for the Mac to call
 /// `POST /bootstrap/claim-setup-invitation`.
-///
-/// Only browses on `.other` interface type (Tailscale). Plain LAN browsing is
-/// skipped unless `allowPlainLAN` is set at init time.
 public final class SetupInvitationBrowser: @unchecked Sendable {
     public enum State: Equatable, Sendable {
         case idle
@@ -37,7 +35,7 @@ public final class SetupInvitationBrowser: @unchecked Sendable {
     /// Called on the browser's internal queue when state changes.
     public var onStateChange: (@Sendable (State) -> Void)?
 
-    public init(parameters: NWParameters = .tailscaleOnly()) {
+    public init(parameters: NWParameters = .localNetworkAndTailscale()) {
         self.parameters = parameters
     }
 

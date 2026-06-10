@@ -13,6 +13,11 @@ from appium_gate_common import build_gate_env, terminate_processes
 SMOKE_ONLY = "brow_001,brow_003_004_005_007,brow_006,brow_008_009_010,brow_014_015,brow_016,brow_017"
 
 
+def appium_python(repo_root: Path) -> str:
+    venv_python = repo_root / ".venv-appium" / "bin" / "python"
+    return str(venv_python if venv_python.exists() else sys.executable)
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     run_dir = Path(
@@ -26,7 +31,7 @@ def main() -> int:
         env = os.environ.copy()
         env.update(env_updates)
         command = [
-            str(repo_root / ".venv-appium" / "bin" / "python"),
+            appium_python(repo_root),
             str(repo_root / "QA" / "scripts" / "run_file_live_appium.py"),
             "--suite",
             "browser",

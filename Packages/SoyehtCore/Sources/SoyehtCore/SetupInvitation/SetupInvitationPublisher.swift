@@ -7,9 +7,8 @@ private let setupInvitationLogger = Logger(subsystem: "com.soyeht.mobile", categ
 /// iPhone-side Bonjour publisher for `_soyeht-setup._tcp.` (case B, FR-040).
 ///
 /// Publishes the setup invitation as a TXT record `m=<base64url(CBOR)>` over the
-/// Tailscale interface only. Plain LAN publication is opt-in per network (FR-041).
-/// Use `NWParameters.requiredInterfaceType = .other` to restrict to Tailscale
-/// (tun/utun interfaces, not .wifi or .cellular).
+/// local network and Tailscale by default so a fresh iPhone can discover a
+/// nearby Mac without a QR-code detour.
 ///
 /// Lifecycle:
 /// 1. Call `start()` after user confirms they are near their Mac (scene PB2).
@@ -47,7 +46,7 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
 
     public init(
         invitation: SetupInvitationPayload,
-        parameters: NWParameters = .tailscaleOnly(),
+        parameters: NWParameters = .localNetworkAndTailscale(),
         directPort: UInt16 = SetupInvitationPublisher.directPort
     ) {
         self.invitation = invitation
@@ -604,6 +603,14 @@ private struct DirectHTTPRequest {
 // MARK: - NWParameters extension
 
 extension NWParameters {
+    /// Parameters for the release pairing path: allow Bonjour over the current
+    /// LAN and over Tailscale's `.other` tunnel interface.
+    public static func localNetworkAndTailscale() -> NWParameters {
+        let params = NWParameters.tcp
+        params.includePeerToPeer = true
+        return params
+    }
+
     /// Parameters that restrict publishing to Tailscale interfaces only (FR-040).
     /// Tailscale uses userspace tun, exposed as `.other` interface type on Apple platforms.
     public static func tailscaleOnly() -> NWParameters {

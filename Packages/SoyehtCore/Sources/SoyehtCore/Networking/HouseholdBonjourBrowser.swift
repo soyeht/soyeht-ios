@@ -60,6 +60,73 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
 
     public init() {}
 
+    public static func engineEndpointURL(
+        from result: NWBrowser.Result,
+        defaultPort: Int = 8091
+    ) -> URL? {
+        guard case let .service(name, _, domain, _) = result.endpoint else {
+            return nil
+        }
+        let txt = result.metadata.txtRecord ?? [:]
+        return engineEndpointURL(
+            serviceName: name,
+            domain: domain,
+            txt: txt,
+            defaultPort: defaultPort
+        )
+    }
+
+    static func engineEndpointURL(
+        serviceName: String,
+        domain: String,
+        txt: [String: String],
+        defaultPort: Int = 8091
+    ) -> URL? {
+        explicitEngineEndpointURL(
+            serviceName: serviceName,
+            domain: domain,
+            txt: txt,
+            defaultPort: defaultPort
+        )
+    }
+
+    public static func resolveEngineEndpointViaDNSSD(
+        from result: NWBrowser.Result,
+        defaultPort: Int = 8091,
+        timeout: TimeInterval = 2.0
+    ) async -> URL? {
+        guard case let .service(name, _, domain, _) = result.endpoint else {
+            return nil
+        }
+        guard let resolved = await resolveTXTViaDNSSD(
+            serviceName: name,
+            domain: domain,
+            timeout: timeout
+        ) else {
+            return nil
+        }
+        let txt = txtByApplyingResolvedEndpointDefaults(
+            resolved.txt,
+            hostTarget: resolved.hostTarget,
+            port: resolved.port
+        )
+
+        let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? resolved.port ?? defaultPort
+        if let hostTarget = resolved.hostTarget,
+           let ip = await resolveIPv4Address(hostname: hostTarget, timeout: min(1.0, timeout)),
+           let url = URL(string: "http://\(ip):\(port)") {
+            bonjourBrowserDiscoveryLogger.info("DNSServiceGetAddrInfo endpoint hostTarget=\(hostTarget, privacy: .public) ip=\(ip, privacy: .public) url=\(url.absoluteString, privacy: .public)")
+            return url
+        }
+
+        return engineEndpointURL(
+            serviceName: name,
+            domain: domain,
+            txt: txt,
+            defaultPort: defaultPort
+        )
+    }
+
     public func firstMatchingCandidate(
         for qr: PairDeviceQR,
         timeout: TimeInterval = 10
@@ -380,6 +447,32 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let port: Int?
     }
 
+    private final class DNSSDAddressBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: [(rank: Int, ip: String)] = []
+
+        var bestAddress: String? {
+            lock.lock()
+            defer { lock.unlock() }
+            return values.sorted { lhs, rhs in lhs.rank < rhs.rank }.first?.ip
+        }
+
+        var hasTailnetAddress: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return values.contains { $0.rank == 0 }
+        }
+
+        func add(_ ip: String) {
+            guard let rank = endpointRank(forIPv4: ip) else { return }
+            lock.lock()
+            if !values.contains(where: { $0.ip == ip }) {
+                values.append((rank: rank, ip: ip))
+            }
+            lock.unlock()
+        }
+    }
+
     private final class DNSSDResolveBox: @unchecked Sendable {
         private let lock = NSLock()
         private var storedResult: DNSSDResolvedService?
@@ -429,6 +522,29 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let resolvedPort = Int(UInt16(bigEndian: port))
         bonjourBrowserDiscoveryLogger.info("DNSServiceResolve callback fullname=\(fullname.flatMap { String(validatingUTF8: $0) } ?? "<nil>", privacy: .public) hostTarget=\(resolvedHost ?? "<nil>", privacy: .public) port=\(resolvedPort, privacy: .public) txtKeyCount=\(txt.count, privacy: .public)")
         box.complete(DNSSDResolvedService(txt: txt, hostTarget: resolvedHost, port: resolvedPort))
+    }
+
+    private static let dnsServiceGetAddrInfoReply: DNSServiceGetAddrInfoReply = { _, flags, _, errorCode, hostname, address, _, context in
+        guard let context else { return }
+        let box = Unmanaged<DNSSDAddressBox>.fromOpaque(context).takeUnretainedValue()
+        guard errorCode == kDNSServiceErr_NoError else {
+            bonjourBrowserDiscoveryLogger.error("DNSServiceGetAddrInfo callback errorCode=\(errorCode, privacy: .public)")
+            return
+        }
+        guard (flags & DNSServiceFlags(kDNSServiceFlagsAdd)) != 0,
+              let address,
+              address.pointee.sa_family == sa_family_t(AF_INET) else {
+            return
+        }
+
+        var socketAddress = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+        var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+        guard inet_ntop(AF_INET, &socketAddress.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
+            return
+        }
+        let ip = String(cString: buffer)
+        bonjourBrowserDiscoveryLogger.info("DNSServiceGetAddrInfo callback hostname=\(hostname.flatMap { String(validatingUTF8: $0) } ?? "<nil>", privacy: .public) ip=\(ip, privacy: .public)")
+        box.add(ip)
     }
 
     static func parseDNSSDTXTRecord(_ bytes: [UInt8]) -> [String: String] {
@@ -489,6 +605,90 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                     )
                 )
             }
+        }
+    }
+
+    private static func resolveIPv4Address(
+        hostname: String,
+        timeout: TimeInterval
+    ) async -> String? {
+        let normalizedHost = hostname.hasSuffix(".") ? String(hostname.dropLast()) : hostname
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let box = DNSSDAddressBox()
+                let unmanaged = Unmanaged.passRetained(box)
+                defer { unmanaged.release() }
+
+                var serviceRef: DNSServiceRef?
+                let error = DNSServiceGetAddrInfo(
+                    &serviceRef,
+                    DNSServiceFlags(0),
+                    0,
+                    DNSServiceProtocol(kDNSServiceProtocol_IPv4),
+                    normalizedHost,
+                    dnsServiceGetAddrInfoReply,
+                    unmanaged.toOpaque()
+                )
+                guard error == kDNSServiceErr_NoError, let serviceRef else {
+                    bonjourBrowserDiscoveryLogger.error("DNSServiceGetAddrInfo start failed error=\(error, privacy: .public) hostname=\(normalizedHost, privacy: .public)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                defer { DNSServiceRefDeallocate(serviceRef) }
+
+                let socket = DNSServiceRefSockFD(serviceRef)
+                guard socket >= 0 else {
+                    bonjourBrowserDiscoveryLogger.error("DNSServiceGetAddrInfo socket invalid fd=\(socket, privacy: .public)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let deadline = Date().addingTimeInterval(timeout)
+                while Date() < deadline {
+                    var fds = pollfd(fd: socket, events: Int16(POLLIN), revents: 0)
+                    let remainingMs = max(50, min(250, Int(deadline.timeIntervalSinceNow * 1000)))
+                    let pollResult = poll(&fds, 1, Int32(remainingMs))
+                    if pollResult > 0, (fds.revents & Int16(POLLIN)) != 0 {
+                        let processError = DNSServiceProcessResult(serviceRef)
+                        if processError != kDNSServiceErr_NoError {
+                            bonjourBrowserDiscoveryLogger.error("DNSServiceGetAddrInfo process failed error=\(processError, privacy: .public)")
+                            break
+                        }
+                        if box.hasTailnetAddress {
+                            continuation.resume(returning: box.bestAddress)
+                            return
+                        }
+                    } else if pollResult < 0 {
+                        bonjourBrowserDiscoveryLogger.error("DNSServiceGetAddrInfo poll failed errno=\(errno, privacy: .public)")
+                        break
+                    }
+                }
+
+                continuation.resume(returning: box.bestAddress)
+            }
+        }
+    }
+
+    private static func endpointRank(forIPv4 ip: String) -> Int? {
+        let parts = ip.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return nil }
+        let octets = parts.compactMap { UInt8($0) }
+        guard octets.count == 4 else { return nil }
+        switch octets[0] {
+        case 0, 127:
+            return nil
+        case 100 where (64...127).contains(octets[1]):
+            return 0
+        case 10:
+            return 1
+        case 172 where (16...31).contains(octets[1]):
+            return 1
+        case 192 where octets[1] == 168:
+            return 1
+        case 169 where octets[1] == 254:
+            return nil
+        default:
+            return 2
         }
     }
 
@@ -579,12 +779,17 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
     /// which DNS-SD rejected and surfaced as the user-facing
     /// `household.pairing.error.noMatchingHousehold` after the URLSession
     /// connect failed.
-    static func endpointURL(serviceName: String, domain: String, txt: [String: String]) -> URL? {
+    static func endpointURL(
+        serviceName: String,
+        domain: String,
+        txt: [String: String],
+        defaultPort: Int = 8091
+    ) -> URL? {
         if let urlString = txt["url"], let url = URL(string: urlString) {
             return url
         }
         let scheme = txt["scheme"] ?? "http"
-        let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? 8091
+        let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? defaultPort
         let domainName = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let hostDomain = domainName.isEmpty ? "local" : domainName
         let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])
@@ -616,6 +821,37 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let result = components.url
         bonjourBrowserDiscoveryLogger.info("endpointURL serviceName=\(serviceName, privacy: .public) domain=\(domain, privacy: .public) hostLabel=\(hostLabel, privacy: .public) host=\(host, privacy: .public) url=\(result?.absoluteString ?? "nil", privacy: .public)")
         return result
+    }
+
+    private static func explicitEngineEndpointURL(
+        serviceName: String,
+        domain: String,
+        txt: [String: String],
+        defaultPort: Int
+    ) -> URL? {
+        if let urlString = txt["url"], let url = URL(string: urlString) {
+            return url
+        }
+        guard let hostValue = txt["host"] ?? txt["hh_host"],
+              acceptsBonjourEngineHost(hostValue) else {
+            return nil
+        }
+        let result = endpointURL(
+            serviceName: serviceName,
+            domain: domain,
+            txt: txt,
+            defaultPort: defaultPort
+        )
+        bonjourBrowserDiscoveryLogger.info("explicitEngineEndpointURL serviceName=\(serviceName, privacy: .public) domain=\(domain, privacy: .public) host=\(hostValue, privacy: .public) url=\(result?.absoluteString ?? "nil", privacy: .public)")
+        return result
+    }
+
+    private static func acceptsBonjourEngineHost(_ host: String) -> Bool {
+        let normalized = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return false }
+        if endpointRank(forIPv4: normalized) != nil { return true }
+        let withoutTrailingDot = normalized.hasSuffix(".") ? String(normalized.dropLast()) : normalized
+        return withoutTrailingDot.hasSuffix(".local") || !withoutTrailingDot.contains(".")
     }
 
     private static func inferredHostLabel(serviceName: String, householdId: String?) -> String {

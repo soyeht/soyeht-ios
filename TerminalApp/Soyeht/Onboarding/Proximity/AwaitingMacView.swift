@@ -78,6 +78,7 @@ struct AwaitingMacView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
 
+                        #if DEBUG
                         if let diag = viewModel.diagnosticMessage {
                             Text(diag)
                                 .font(.caption.monospaced())
@@ -85,6 +86,7 @@ struct AwaitingMacView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.top, 8)
                         }
+                        #endif
                     }
                 }
                 .padding(.horizontal, 32)
@@ -321,6 +323,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var alreadyFound = false
     private var installedLocalPairingForDiscovery = false
     private var recoveryHintTask: Task<Void, Never>?
+    private var macBrowserResolutionTask: Task<Void, Never>?
 
     /// Seconds to wait with no successful Mac discovery before revealing the
     /// "Not finding your Mac?" recovery section underneath the radar.
@@ -365,9 +368,15 @@ final class AwaitingMacViewModel: ObservableObject {
                 awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
                 self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
                 guard !self.alreadyFound else { return }
-                if let pairing = claim.macLocalPairing, claim.existingHouse == nil {
+                if let pairing = claim.macLocalPairing {
                     installMacLocalPairing(pairing)
                     self.installedLocalPairingForDiscovery = true
+                }
+                if claim.macLocalPairing != nil {
+                    self.alreadyFound = true
+                    self.diagnosticMessage = "Connected to Mac"
+                    self.onMacFoundHandler?(.connectedToExistingMac)
+                    return
                 }
                 if let existingHouse = claim.existingHouse {
                     awaitingMacLogger.info("direct_claim_present_existing_house")
@@ -391,6 +400,8 @@ final class AwaitingMacViewModel: ObservableObject {
         publisher.onMacClaimed = nil
         macBrowser?.cancel()
         macBrowser = nil
+        macBrowserResolutionTask?.cancel()
+        macBrowserResolutionTask = nil
         onMacFoundHandler = nil
         cancelRecoveryHint()
     }
@@ -477,22 +488,122 @@ final class AwaitingMacViewModel: ObservableObject {
         macBrowser = nil
         let browser = NWBrowser(
             for: .bonjour(type: "_soyeht-household._tcp", domain: nil),
-            using: .tailscaleOnly()
+            using: .localNetworkAndTailscale()
         )
         let tokenBytes = self.tokenBytes
         browser.browseResultsChangedHandler = { [weak self] results, _ in
-            for result in results {
-                if let engineURL = awaitingMacExtractEngineURL(from: result) {
-                        Task { @MainActor [weak self] in
-                            guard let self, !self.alreadyFound else { return }
-                            await self.resolveDiscoveredMac(engineURL: engineURL, claimToken: tokenBytes)
-                        }
-                    return
+            let engineURLs = Self.macEngineURLs(in: results, phase: "browseChanged")
+            if !engineURLs.isEmpty {
+                Task { @MainActor [weak self] in
+                    guard let self, !self.alreadyFound else { return }
+                    await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: tokenBytes)
                 }
+                return
+            }
+            Task { @MainActor [weak self] in
+                self?.scheduleMacBrowserResolutionPolls(for: results)
+            }
+        }
+        browser.stateUpdateHandler = { [weak self] state in
+            let message: String?
+            switch state {
+            case .setup:
+                message = "Preparing Mac discovery..."
+            case .ready:
+                message = "Scanning local network and Tailscale..."
+            case .waiting(let error):
+                message = "Waiting for network permission/path: \(error.localizedDescription)"
+            case .failed(let error):
+                message = "Mac discovery failed: \(error.localizedDescription)"
+            case .cancelled:
+                message = nil
+            @unknown default:
+                message = nil
+            }
+            guard let message else { return }
+            Task { @MainActor [weak self] in
+                guard let self, !self.alreadyFound, self.pendingExistingHouse == nil else { return }
+                self.diagnosticMessage = message
             }
         }
         browser.start(queue: browserQueue)
         macBrowser = browser
+    }
+
+    private func scheduleMacBrowserResolutionPolls(for results: Set<NWBrowser.Result>) {
+        macBrowserResolutionTask?.cancel()
+        macBrowserResolutionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await Task.yield()
+            guard !Task.isCancelled, !self.alreadyFound else { return }
+
+            var engineURLs = Self.macEngineURLs(in: results, phase: "metadataPoll+0ms")
+            if !engineURLs.isEmpty {
+                await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
+                return
+            }
+
+            engineURLs = await Self.macEngineURLsViaDNSSD(in: results)
+            if !engineURLs.isEmpty {
+                guard !Task.isCancelled, !self.alreadyFound else { return }
+                await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
+                return
+            }
+
+            for delayMs in [300, 700, 1500, 3000] as [UInt64] {
+                try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+                guard !Task.isCancelled, !self.alreadyFound else { return }
+                engineURLs = Self.macEngineURLs(in: results, phase: "metadataPoll+\(delayMs)ms")
+                if !engineURLs.isEmpty {
+                    await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
+                    return
+                }
+            }
+        }
+    }
+
+    nonisolated private static func macEngineURLs(
+        in results: Set<NWBrowser.Result>,
+        phase: String
+    ) -> [URL] {
+        var urls: [URL] = []
+        for result in results {
+            if let engineURL = awaitingMacExtractEngineURL(from: result) {
+                awaitingMacLogger.info("mac_browser.endpoint phase=\(phase, privacy: .public) endpoint=\(engineURL.absoluteString, privacy: .public)")
+                urls.append(engineURL)
+            }
+        }
+        urls = deduplicatedMacEngineURLs(urls)
+        if !urls.isEmpty { return urls }
+        awaitingMacLogger.info("mac_browser.no_endpoint phase=\(phase, privacy: .public) result_count=\(results.count, privacy: .public)")
+        return []
+    }
+
+    nonisolated private static func macEngineURLsViaDNSSD(
+        in results: Set<NWBrowser.Result>
+    ) async -> [URL] {
+        var urls: [URL] = []
+        for result in results {
+            if let engineURL = await HouseholdBonjourBrowser.resolveEngineEndpointViaDNSSD(from: result) {
+                awaitingMacLogger.info("mac_browser.endpoint phase=DNSServiceResolve endpoint=\(engineURL.absoluteString, privacy: .public)")
+                urls.append(engineURL)
+            }
+        }
+        urls = deduplicatedMacEngineURLs(urls)
+        if !urls.isEmpty { return urls }
+        awaitingMacLogger.info("mac_browser.no_endpoint phase=DNSServiceResolve result_count=\(results.count, privacy: .public)")
+        return []
+    }
+
+    nonisolated private static func deduplicatedMacEngineURLs(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var result: [URL] = []
+        for url in urls {
+            let key = "\(url.scheme ?? "http")://\(url.host ?? ""):\(url.port ?? -1)"
+            guard seen.insert(key).inserted else { continue }
+            result.append(url)
+        }
+        return result
     }
 
     /// After the Mac POSTs `/setup-invitation/claimed`, the iPhone must reach
@@ -507,54 +618,60 @@ final class AwaitingMacViewModel: ObservableObject {
     /// Persistent failures surface a real error so the user can pick the
     /// download-link / Linux fallback instead of staring at a spinner.
     private func resolveDiscoveredMac(engineURL: URL, claimToken: Data) async {
-        awaitingMacLogger.info("resolveDiscoveredMac.entry engine=\(engineURL.absoluteString, privacy: .public) already_found=\(self.alreadyFound, privacy: .public) can_open_existing=\(self.installedLocalPairingForDiscovery, privacy: .public)")
-        diagnosticMessage = "Connecting to Mac at \(engineURL.absoluteString)…"
+        await resolveDiscoveredMac(engineURLs: [engineURL], claimToken: claimToken)
+    }
+
+    private func resolveDiscoveredMac(engineURLs: [URL], claimToken: Data) async {
+        let engineURLs = Self.deduplicatedMacEngineURLs(engineURLs)
+        awaitingMacLogger.info("resolveDiscoveredMac.entry engines=\(engineURLs.map(\.absoluteString).joined(separator: ","), privacy: .public) already_found=\(self.alreadyFound, privacy: .public) can_open_existing=\(self.installedLocalPairingForDiscovery, privacy: .public)")
+        diagnosticMessage = "Connecting to Mac..."
         guard !alreadyFound else { return }
+        guard !engineURLs.isEmpty else { return }
 
         let deadline = Date().addingTimeInterval(60)
         var attempts = 0
         while !alreadyFound, Date() < deadline {
             attempts += 1
-            diagnosticMessage = "Reaching Mac (attempt \(attempts))…"
-            let decision = await awaitingMacBootstrapDecision(
-                at: engineURL,
-                canOpenExistingMac: installedLocalPairingForDiscovery
-            )
-            awaitingMacLogger.info("resolveDiscoveredMac.decision attempt=\(attempts, privacy: .public) result=\(String(describing: decision), privacy: .public)")
-            guard !alreadyFound else { return }
+            var lastRawErrText: String?
+            var lastHostPort = "?"
+            for engineURL in engineURLs {
+                diagnosticMessage = "Reaching Mac (attempt \(attempts))..."
+                let decision = await awaitingMacBootstrapDecision(
+                    at: engineURL,
+                    canOpenExistingMac: installedLocalPairingForDiscovery
+                )
+                awaitingMacLogger.info("resolveDiscoveredMac.decision attempt=\(attempts, privacy: .public) engine=\(engineURL.absoluteString, privacy: .public) result=\(String(describing: decision), privacy: .public)")
+                guard !alreadyFound else { return }
 
-            switch decision {
-            case .existingHouse(let house):
-                alreadyFound = true
-                diagnosticMessage = "Mac already has a household — joining"
-                presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
-                return
-            case .connectedToExistingMac:
-                alreadyFound = true
-                diagnosticMessage = "Connected to existing Mac"
-                onMacFoundHandler?(.connectedToExistingMac)
-                return
-            case .needsNaming:
-                alreadyFound = true
-                diagnosticMessage = "Mac engine ready — naming the home"
-                onMacFoundHandler?(.needsNaming(
-                    engineURL: engineURL,
-                    claimToken: claimToken
-                ))
-                return
-            case .retryLater:
-                // BootstrapStatusClient catches the underlying URLError and
-                // throws .networkDrop, losing detail. Run a raw URLSession
-                // probe to surface the actual NSURLErrorDomain code so the
-                // on-screen diagnostic tells us *why* the connection failed.
-                let rawErrText = await probeRawError(for: engineURL)
-                // Bug 1 instrumentation (2026-05-21): surface the host:port
-                // on screen so we can read off the iPhone without log capture.
-                let hostPort = "\(engineURL.host ?? "?"):\(engineURL.port.map(String.init) ?? "?")"
-                diagnosticMessage = "Mac unreachable @ \(hostPort) (retry \(attempts)) — \(rawErrText)"
-                awaitingMacLogger.info("resolveDiscoveredMac.retry_later attempt=\(attempts, privacy: .public) host_port=\(hostPort, privacy: .public) raw_err=\(rawErrText, privacy: .public)")
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                switch decision {
+                case .existingHouse(let house):
+                    alreadyFound = true
+                    diagnosticMessage = "Mac already has a household — joining"
+                    presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
+                    return
+                case .connectedToExistingMac:
+                    alreadyFound = true
+                    diagnosticMessage = "Connected to existing Mac"
+                    onMacFoundHandler?(.connectedToExistingMac)
+                    return
+                case .needsNaming:
+                    alreadyFound = true
+                    diagnosticMessage = "Mac engine ready — naming the home"
+                    onMacFoundHandler?(.needsNaming(
+                        engineURL: engineURL,
+                        claimToken: claimToken
+                    ))
+                    return
+                case .retryLater:
+                    let rawErrText = await probeRawError(for: engineURL)
+                    let hostPort = "\(engineURL.host ?? "?"):\(engineURL.port.map(String.init) ?? "?")"
+                    lastRawErrText = rawErrText
+                    lastHostPort = hostPort
+                    awaitingMacLogger.info("resolveDiscoveredMac.retry_later attempt=\(attempts, privacy: .public) host_port=\(hostPort, privacy: .public) raw_err=\(rawErrText, privacy: .public)")
+                }
             }
+            diagnosticMessage = "Mac unreachable @ \(lastHostPort) (retry \(attempts)) — \(lastRawErrText ?? "no compatible endpoint")"
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
         diagnosticMessage = "Couldn't reach Mac engine after \(attempts) attempts"
         awaitingMacLogger.error("resolveDiscoveredMac.gave_up_after_attempts attempts=\(attempts, privacy: .public)")
@@ -672,25 +789,14 @@ func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
         presencePort: pairing.presencePort,
         attachPort: pairing.attachPort
     )
+    _ = store.setDefaultAliasIfNeeded(macID: pairing.macID, suggestedAlias: pairing.macName)
     PairedMacRegistry.shared.reconcileClients()
 }
 
 // MARK: - URL extraction (nonisolated — reads only Sendable value types from NWBrowser.Result)
 
 private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? {
-    guard case .service = result.endpoint else { return nil }
-    guard case .bonjour(let txt) = result.metadata else { return nil }
-
-    if let urlStr = txt["url"], let url = URL(string: urlStr) {
-        return url
-    }
-
-    let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? 8091
-    if let host = txt["host"] ?? txt["hh_host"] {
-        return URL(string: "http://\(host):\(port)")
-    }
-
-    return nil
+    HouseholdBonjourBrowser.engineEndpointURL(from: result)
 }
 
 private enum AwaitingMacBootstrapDecision {
