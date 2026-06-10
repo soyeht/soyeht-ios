@@ -10,6 +10,11 @@ from pathlib import Path
 from appium_gate_common import build_gate_env, terminate_processes
 
 
+def appium_python(repo_root: Path) -> str:
+    venv_python = repo_root / ".venv-appium" / "bin" / "python"
+    return str(venv_python if venv_python.exists() else sys.executable)
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     run_dir = Path(
@@ -23,7 +28,7 @@ def main() -> int:
         env = os.environ.copy()
         env.update(env_updates)
         command = [
-            str(repo_root / ".venv-appium" / "bin" / "python"),
+            appium_python(repo_root),
             str(repo_root / "QA" / "scripts" / "run_file_live_appium.py"),
             "--suite",
             "browser",

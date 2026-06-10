@@ -33,6 +33,7 @@ WDA_URL = os.environ.get("SOYEHT_WDA_URL", "")
 WDA_BUNDLE_ID = os.environ.get("SOYEHT_WDA_BUNDLE_ID", "com.soyeht.WebDriverAgentRunner")
 WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "").strip()
 WDA_SIGNING_ID = os.environ.get("SOYEHT_WDA_SIGNING_ID", "Apple Development")
+WDA_LOCAL_PORT = int(os.environ.get("SOYEHT_WDA_LOCAL_PORT", "8110"))
 RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-real"))
 SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "").strip()
 FORCE_BROWSER_FALLBACK = os.environ.get("SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK") == "1"
@@ -93,6 +94,7 @@ class AppiumSession:
             "appium:wdaEventloopIdleDelay": 1,
             "appium:wdaLaunchTimeout": 180000,
             "appium:wdaConnectionTimeout": 180000,
+            "appium:wdaLocalPort": WDA_LOCAL_PORT,
             "appium:newCommandTimeout": 240,
         }
         if WDA_URL:
@@ -536,11 +538,60 @@ class Runner:
                     return card
         return cards[0]
 
+    def _pick_mac_card(self, src: str) -> str | None:
+        cards = self._visible_accessibility_ids(src, "soyeht.instanceList.macCard.")
+        return cards[0] if cards else None
+
+    def _open_visible_mac_card(self, src: str) -> bool:
+        target = self._pick_mac_card(src)
+        if target:
+            self.app.click_id(target, timeout=6)
+            return True
+
+        if "soyeht.instanceList.appsSectionHeader" not in src:
+            return False
+        for xpath in [
+            "//*[@label='macStudio, online' or @name='macStudio, online']",
+            "//*[contains(@label, ', online') and contains(@label, 'mac')]",
+            "//*[@label='[mac]' or @name='[mac]']",
+        ]:
+            try:
+                self.app.click_xpath(xpath, timeout=2)
+                return True
+            except Exception:
+                continue
+        return False
+
     def _pick_window_card(self, src: str) -> str | None:
         cards = self._visible_accessibility_ids(src, "soyeht.sessionSheet.windowCard.")
         return cards[0] if cards else None
 
-    def ensure_terminal_screen(self, allow_mirror: bool = False, timeout: float = 30.0) -> str:
+    def _pick_mac_detail_pane(self, src: str) -> str | None:
+        cards = self._visible_accessibility_ids(src, "soyeht.macDetail.pane.")
+        return cards[0] if cards else None
+
+    def _open_visible_mac_detail_pane(self, src: str) -> bool:
+        target = self._pick_mac_detail_pane(src)
+        if target:
+            self.app.click_id(target, timeout=6)
+            return True
+
+        if "WINDOW " not in src or " workspace" not in src:
+            return False
+        for xpath in [
+            "//XCUIElementTypeButton[contains(@label, ', shell,') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, ', idle') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, ', running') and not(contains(@label, 'not attachable'))]",
+            "//XCUIElementTypeButton[contains(@label, '[focused]') and not(contains(@label, 'not attachable'))]",
+        ]:
+            try:
+                self.app.click_xpath(xpath, timeout=2)
+                return True
+            except Exception:
+                continue
+        return False
+
+    def ensure_terminal_screen(self, allow_mirror: bool = False, timeout: float = 90.0) -> str:
         deadline = time.time() + timeout
         while time.time() < deadline:
             src = self.app.source()
@@ -590,6 +641,10 @@ class Runner:
                     time.sleep(3)
                     continue
 
+            if self._open_visible_mac_detail_pane(src):
+                time.sleep(4)
+                continue
+
             if self._pick_instance_card(src):
                 target = self._pick_instance_card(src)
                 if target:
@@ -597,17 +652,45 @@ class Runner:
                     time.sleep(2)
                     continue
 
+            if self._open_visible_mac_card(src):
+                time.sleep(3)
+                continue
+
             time.sleep(1)
 
         raise LookupError("Unable to reach terminal screen from current app state")
+
+    def focus_terminal_keybar(self, timeout: float = 8.0) -> str:
+        deadline = time.time() + timeout
+        last_source = self.app.source()
+        while time.time() < deadline:
+            if "soyeht.terminal.fileBrowserButton" in last_source:
+                return last_source
+
+            try:
+                terminal = self.app.find("id", "soyeht.terminal.terminalView", timeout=2)
+                rect = self.app.rect(terminal)
+                self.app.tap_point(rect["x"] + rect["width"] / 2, rect["y"] + min(rect["height"] - 8, 80))
+            except Exception:  # noqa: BLE001
+                try:
+                    self.app.click_id("soyeht.terminal.terminalView", timeout=2)
+                except Exception:  # noqa: BLE001
+                    pass
+
+            time.sleep(1)
+            last_source = self.app.source()
+
+        return last_source
 
     def open_browser(self, allow_mirror: bool = False, reset: bool = True) -> str:
         if reset:
             self.app.reset_app()
         self.ensure_terminal_screen(allow_mirror=allow_mirror)
+        self.focus_terminal_keybar()
         try:
             self.app.click_id("soyeht.terminal.fileBrowserButton", timeout=8)
         except Exception:
+            self.focus_terminal_keybar(timeout=4)
             self.app.click_xpath("//*[@label='Move' or @name='folder']", timeout=8)
         time.sleep(2)
         return self.app.source()

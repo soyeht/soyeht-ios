@@ -55,7 +55,7 @@ struct SplashView: View {
                     .frame(height: 60)
 
                 // Version
-                Text(verbatim: "v2.1.0")
+                Text(verbatim: Self.versionText)
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
                     .padding(.bottom, 20)
@@ -72,5 +72,21 @@ struct SplashView: View {
                 onFinished()
             }
         }
+    }
+
+    private static var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let marketingVersion = (info?["CFBundleShortVersionString"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let buildVersion = (info?["CFBundleVersion"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let marketingVersion, !marketingVersion.isEmpty {
+            return "v\(marketingVersion)"
+        }
+        if let buildVersion, !buildVersion.isEmpty {
+            return "build \(buildVersion)"
+        }
+        return "vunknown"
     }
 }

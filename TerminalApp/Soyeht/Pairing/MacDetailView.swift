@@ -1,20 +1,33 @@
 import SwiftUI
+import Combine
 import SoyehtCore
 
 /// Tap on a paired Mac in the home list opens this sheet. Mirrors the Mac's
 /// open windows, workspaces and panes from the persistent presence channel.
 struct MacDetailView: View {
     let mac: PairedMac
+    let attachingPaneID: String?
     let onAttach: (UUID, PaneEntry) -> Void
     let onDismiss: () -> Void
 
     @ObservedObject private var registry = PairedMacRegistry.shared
+    @State private var clientUpdateNonce = 0
 
     private var client: MacPresenceClient? {
         registry.client(for: mac.macID)
     }
 
+    private var clientObjectWillChange: AnyPublisher<Void, Never> {
+        guard let client else {
+            return Empty().eraseToAnyPublisher()
+        }
+        return client.objectWillChange
+            .map { _ in () }
+            .eraseToAnyPublisher()
+    }
+
     var body: some View {
+        let _ = clientUpdateNonce
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
 
@@ -42,6 +55,9 @@ struct MacDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .onReceive(clientObjectWillChange) { _ in
+            clientUpdateNonce &+= 1
+        }
     }
 
     private var header: some View {
@@ -53,6 +69,8 @@ struct MacDetailView: View {
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
+            .disabled(attachingPaneID != nil)
+            .opacity(attachingPaneID == nil ? 1 : 0.45)
 
             Text(client?.displayName ?? mac.name)
                 .font(MacMirrorTreeStyle.headerFont)
@@ -152,19 +170,15 @@ struct MacDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             treeChip(workspace.name, isActive: workspace.isActive)
 
-            if !workspace.panes.isEmpty {
-                VStack(spacing: 1) {
-                    ForEach(workspace.orderedPaneRows) { item in
-                        Button { onAttach(mac.macID, item.pane) } label: {
-                            paneRow(item.pane, activePaneID: workspace.activePaneID)
+                if !workspace.panes.isEmpty {
+                    VStack(spacing: 1) {
+                        ForEach(workspace.orderedPaneRows) { item in
+                            paneButton(item.pane, activePaneID: workspace.activePaneID)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(!item.pane.isAttachable)
                     }
+                    .background(MacMirrorTreeStyle.rowGroupBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-                .background(MacMirrorTreeStyle.rowGroupBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(workspaceSubtitle(workspace))
@@ -205,11 +219,7 @@ struct MacDetailView: View {
 
                 VStack(spacing: 1) {
                     ForEach(client.panes) { pane in
-                        Button { onAttach(mac.macID, pane) } label: {
-                            paneRow(pane, activePaneID: nil)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!pane.isAttachable)
+                        paneButton(pane, activePaneID: nil)
                     }
                 }
                 .background(MacMirrorTreeStyle.rowGroupBackground)
@@ -221,8 +231,20 @@ struct MacDetailView: View {
         }
     }
 
-    private func paneRow(_ pane: PaneEntry, activePaneID: String?) -> some View {
+    private func paneButton(_ pane: PaneEntry, activePaneID: String?) -> some View {
         let focused = pane.isFocused || pane.id == activePaneID
+        let isAttaching = attachingPaneID == pane.id
+        return Button { onAttach(mac.macID, pane) } label: {
+            paneRow(pane, focused: focused, isAttaching: isAttaching)
+        }
+        .buttonStyle(.plain)
+        .disabled(!pane.isAttachable || attachingPaneID != nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(paneAccessibilityLabel(pane, focused: focused, isAttaching: isAttaching))
+        .accessibilityIdentifier(AccessibilityID.MacDetail.paneRow(pane.id))
+    }
+
+    private func paneRow(_ pane: PaneEntry, focused: Bool, isAttaching: Bool) -> some View {
         return HStack(spacing: 8) {
             Text(paneDisplayTitle(pane))
                 .font(focused ? MacMirrorTreeStyle.paneFocusedFont : MacMirrorTreeStyle.paneFont)
@@ -232,7 +254,11 @@ struct MacDetailView: View {
 
             Spacer(minLength: 8)
 
-            if pane.isAttachable {
+            if isAttaching {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(focused ? SoyehtTheme.selectionText : SoyehtTheme.paneActiveBorder)
+            } else if pane.isAttachable {
                 Image(systemName: "chevron.right")
                     .font(MacMirrorTreeStyle.chevronFont)
                     .foregroundColor(focused ? SoyehtTheme.paneActiveBorder : SoyehtTheme.textTertiary)
@@ -250,9 +276,7 @@ struct MacDetailView: View {
                     .frame(width: 2)
             }
         }
-        .opacity(pane.isAttachable ? 1 : 0.72)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(paneAccessibilityLabel(pane, focused: focused))
+        .opacity(pane.isAttachable || isAttaching ? 1 : 0.72)
     }
 
     private func treeDividerLabel(_ title: String) -> some View {
@@ -309,10 +333,13 @@ struct MacDetailView: View {
         pane.title.hasPrefix("@") ? String(pane.title.dropFirst()) : pane.title
     }
 
-    private func paneAccessibilityLabel(_ pane: PaneEntry, focused: Bool) -> String {
+    private func paneAccessibilityLabel(_ pane: PaneEntry, focused: Bool, isAttaching: Bool) -> String {
         var parts = [paneDisplayTitle(pane), pane.agent, pane.status]
         if focused {
             parts.append(String(localized: "mac.detail.pane.focusedTag"))
+        }
+        if isAttaching {
+            parts.append(String(localized: "mac.detail.pane.connecting", defaultValue: "connecting", comment: "Accessibility suffix for a pane currently opening on iPhone."))
         }
         if !pane.isAttachable {
             parts.append(String(localized: "mac.detail.pane.notAttachable", defaultValue: "not attachable", comment: "Accessibility suffix for placeholder panes that cannot be opened from iPhone."))

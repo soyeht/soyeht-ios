@@ -267,6 +267,47 @@ final class PairedMacsStore {
         return .success
     }
 
+    @discardableResult
+    func setDefaultAliasIfNeeded(macID: UUID, suggestedAlias rawAlias: String) -> SetAliasResult {
+        guard let mac = macs.first(where: { $0.macID == macID }) else {
+            return .unknownMac
+        }
+        guard mac.needsAlias else { return .success }
+
+        let base = Self.defaultAliasBase(from: rawAlias)
+        for index in 0..<100 {
+            let candidate = Self.defaultAliasCandidate(base: base, duplicateIndex: index)
+            switch setAlias(macID: macID, alias: candidate) {
+            case .success:
+                return .success
+            case .duplicate:
+                continue
+            case .invalid(let error):
+                return .invalid(error)
+            case .unknownMac:
+                return .unknownMac
+            }
+        }
+        return .duplicate(conflictingMacID: macID)
+    }
+
+    private static func defaultAliasBase(from rawAlias: String) -> String {
+        let cleanedScalars = rawAlias.unicodeScalars.filter { scalar in
+            !MacAliasRules.forbiddenChars.contains(scalar)
+        }
+        let cleaned = String(String.UnicodeScalarView(cleanedScalars))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = cleaned.isEmpty ? "Mac" : cleaned
+        return String(base.prefix(MacAliasRules.maxLength))
+    }
+
+    private static func defaultAliasCandidate(base: String, duplicateIndex: Int) -> String {
+        guard duplicateIndex > 0 else { return base }
+        let suffix = " \(duplicateIndex + 1)"
+        let maxBaseLength = max(1, MacAliasRules.maxLength - suffix.count)
+        return String(base.prefix(maxBaseLength)) + suffix
+    }
+
     /// Returns the `PairedMac` that backs an engine-kind `PairedServer`,
     /// by matching the server's host against `lastHost`. Used by views like
     /// `ServerListView` and `ClawSetupView` to surface the alias instead

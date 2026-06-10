@@ -331,7 +331,7 @@ struct SoyehtAppView: View {
                             }
                         },
                         onAttachMacPane: { macID, pane in
-                            Task { await attachToMacPane(macID: macID, pane: pane) }
+                            await attachToMacPane(macID: macID, pane: pane)
                         },
                         autoSelectInstance: $autoSelectInstance,
                         autoSelectServerId: $autoSelectServerId,
@@ -1070,18 +1070,21 @@ struct SoyehtAppView: View {
     /// Opens a pane on a paired Mac via presence. Requests an attach nonce
     /// from the persistent WS, builds the pane attach URL and transitions the
     /// app to `.localTerminal`.
-    private func attachToMacPane(macID: UUID, pane: PaneEntry) async {
+    private func attachToMacPane(macID: UUID, pane: PaneEntry) async -> Bool {
         guard let client = PairedMacRegistry.shared.client(for: macID),
               let mac = ServerRegistry.shared.pairedMac(for: macID.uuidString),
-              let host = mac.lastHost,
               mac.attachPort != nil else {
             await MainActor.run {
                 errorMessage = String(localized: "ssh.error.macUnreachable", comment: "Shown when the paired Mac can't be reached — user should open Soyeht on Mac.")
             }
-            return
+            return false
         }
 
         do {
+            guard let host = client.currentAttachHost ?? mac.lastHost,
+                  !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
+            }
             let grant = try await client.requestAttachGrant(paneID: pane.id)
             // Host may be "192.0.2.17" (no port) or "192.0.2.17:12345"
             // (legacy Fase 1 cache). Strip any trailing port before composing.
@@ -1093,6 +1096,7 @@ struct SoyehtAppView: View {
                     appState = .localTerminal(wsUrl: wsURL, title: pane.title, macID: macID, paneID: pane.id)
                 }
             }
+            return true
         } catch {
             await MainActor.run {
                 errorMessage = String(
@@ -1101,6 +1105,7 @@ struct SoyehtAppView: View {
                     comment: "Shown when requestAttachGrant fails. %@ = underlying error."
                 )
             }
+            return false
         }
     }
 
@@ -1127,7 +1132,7 @@ struct SoyehtAppView: View {
                 throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.presenceUnavailable", comment: "Reconnect error — presence WS did not come back in time for this Mac.")])
             }
             let mac = ServerRegistry.shared.pairedMac(for: macID.uuidString)
-            guard let host = mac?.lastHost else {
+            guard let host = client.currentAttachHost ?? mac?.lastHost else {
                 throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }
             let grant = try await client.requestAttachGrant(paneID: paneID)

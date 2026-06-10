@@ -172,7 +172,7 @@ def _maybe_pair(base: str, out_dir: Path) -> None:
         return
     host = os.environ.get("SOYEHT_BASE_URL") or os.environ.get("QA_BASE_URL") or DEFAULT_BASE_URL
     try:
-        token = ensure_session_token(host)
+        token, host = ensure_session_token(host)
     except Exception as e:
         print(f"  [warn] cannot obtain token: {e}")
         return

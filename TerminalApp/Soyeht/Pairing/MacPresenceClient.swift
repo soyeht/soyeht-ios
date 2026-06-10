@@ -59,6 +59,32 @@ final class MacPresenceClient: NSObject, ObservableObject {
         let host: String
         let presencePort: Int
         let attachPort: Int
+        let hostCandidates: [String]
+
+        init(
+            host: String,
+            presencePort: Int,
+            attachPort: Int,
+            hostCandidates: [String] = []
+        ) {
+            self.host = host
+            self.presencePort = presencePort
+            self.attachPort = attachPort
+            self.hostCandidates = Self.uniqueHosts([host] + hostCandidates)
+        }
+
+        private static func uniqueHosts(_ hosts: [String]) -> [String] {
+            var seen = Set<String>()
+            var ordered: [String] = []
+            for raw in hosts {
+                let host = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !host.isEmpty else { continue }
+                let key = host.lowercased()
+                guard seen.insert(key).inserted else { continue }
+                ordered.append(host)
+            }
+            return ordered
+        }
     }
 
     struct AttachGrant {
@@ -89,8 +115,11 @@ final class MacPresenceClient: NSObject, ObservableObject {
     private var urlSession: URLSession?
     private var task: PresenceWebSocket?
     private var clientNonce: Data?
+    private var activeHost: String?
+    private var hostCandidateIndex = 0
     private var cancelled = false
     private var reconnectAttempt = 0
+    private var consecutiveCandidateFailures = 0
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var pendingAttaches: [(paneID: String, continuation: CheckedContinuation<AttachGrant, Error>)] = []
@@ -121,7 +150,15 @@ final class MacPresenceClient: NSObject, ObservableObject {
     var testPendingAttachCount: Int { pendingAttaches.count }
 
     func updateEndpoint(_ endpoint: Endpoint) {
+        if self.endpoint?.hostCandidates.map({ $0.lowercased() }) != endpoint.hostCandidates.map({ $0.lowercased() }) {
+            hostCandidateIndex = 0
+            activeHost = nil
+        }
         self.endpoint = endpoint
+    }
+
+    var currentAttachHost: String? {
+        activeHost ?? endpoint?.host
     }
 
     func connect() {
@@ -130,16 +167,24 @@ final class MacPresenceClient: NSObject, ObservableObject {
             status = .offline("no_endpoint")
             return
         }
+        let hosts = endpoint.hostCandidates.isEmpty ? [endpoint.host] : endpoint.hostCandidates
+        guard !hosts.isEmpty else {
+            status = .offline("no_host")
+            return
+        }
+        let host = hosts[hostCandidateIndex % hosts.count]
         let scheme = MacLocalWebSocketEndpoint.scheme
-        guard let url = URL(string: "\(scheme)://\(endpoint.host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
+        guard let url = URL(string: "\(scheme)://\(host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
             status = .offline("invalid_url")
+            advanceHostCandidate()
             return
         }
 
         reconnectTask?.cancel()
         reconnectTask = nil
         status = .connecting
-        presenceClientLogger.log("presence_connecting mac_id=\(self.macID.uuidString, privacy: .public) host=\(endpoint.host, privacy: .public)")
+        activeHost = host
+        presenceClientLogger.log("presence_connecting mac_id=\(self.macID.uuidString, privacy: .public) host=\(host, privacy: .public) candidate=\(self.hostCandidateIndex, privacy: .public)")
 
         let task: PresenceWebSocket
         if let webSocketFactory {
@@ -168,6 +213,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
         task = nil
         urlSession?.invalidateAndCancel()
         urlSession = nil
+        activeHost = nil
         // Reject pending attach calls.
         for pending in pendingAttaches {
             pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "presence.error.disconnected", comment: "NSError userInfo shown when the presence WebSocket drops while an attach is in flight.")]))
@@ -223,6 +269,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
     internal func didOpen() {
         // URLSession delegate hopped here on main actor.
         clientNonce = PairingCrypto.randomBytes(count: 16)
+        consecutiveCandidateFailures = 0
+        reconnectAttempt = 0
         sendJSON([
             "type": PresenceMessage.presenceHello,
             "device_id": deviceID.uuidString,
@@ -235,7 +283,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
         if code == .policyViolation || code == .normalClosure {
             status = .offline("closed_by_server")
         }
-        scheduleReconnect()
+        let advanced = advanceHostCandidate()
+        recordConnectionFailureAndScheduleReconnect(candidateAdvanced: advanced)
     }
 
     private func handleText(_ text: String) {
@@ -432,15 +481,39 @@ final class MacPresenceClient: NSObject, ObservableObject {
 
     private func handleConnectionError(_ error: Error) {
         status = .offline(error.localizedDescription)
-        scheduleReconnect()
+        let advanced = advanceHostCandidate()
+        recordConnectionFailureAndScheduleReconnect(candidateAdvanced: advanced)
     }
 
-    private func scheduleReconnect() {
+    @discardableResult
+    private func advanceHostCandidate() -> Bool {
+        guard let endpoint else { return false }
+        let count = max(endpoint.hostCandidates.count, 1)
+        guard count > 1 else { return false }
+        hostCandidateIndex = (hostCandidateIndex + 1) % count
+        presenceClientLogger.log("presence_next_host_candidate mac_id=\(self.macID.uuidString, privacy: .public) candidate=\(self.hostCandidateIndex, privacy: .public)")
+        return true
+    }
+
+    private func recordConnectionFailureAndScheduleReconnect(candidateAdvanced: Bool) {
+        consecutiveCandidateFailures += 1
+        let hostCount = max(endpoint?.hostCandidates.count ?? 1, 1)
+        let shouldFastRetry = candidateAdvanced && consecutiveCandidateFailures < hostCount
+        scheduleReconnect(fastCandidateRetry: shouldFastRetry)
+    }
+
+    private func scheduleReconnect(fastCandidateRetry: Bool = false) {
         guard !cancelled else { return }
         pingTask?.cancel()
         pingTask = nil
-        reconnectAttempt += 1
-        let delay = min(30.0, pow(2.0, Double(min(reconnectAttempt, 5))))
+        let delay: Double
+        if fastCandidateRetry {
+            delay = 0.25
+        } else {
+            reconnectAttempt += 1
+            consecutiveCandidateFailures = 0
+            delay = min(30.0, pow(2.0, Double(min(reconnectAttempt, 5))))
+        }
         presenceClientLogger.log("presence_reconnect_in mac_id=\(self.macID.uuidString, privacy: .public) attempt=\(self.reconnectAttempt, privacy: .public) delay=\(Int(delay), privacy: .public)")
         reconnectTask?.cancel()
         reconnectTask = Task { [weak self] in

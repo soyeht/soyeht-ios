@@ -39,7 +39,7 @@ struct InstanceListView: View {
     /// New in Fase 2. Called when user taps a pane inside a paired Mac detail
     /// view. Caller is expected to open the terminal pointing at the Mac's
     /// pane attach endpoint.
-    var onAttachMacPane: ((_ macID: UUID, _ pane: PaneEntry) -> Void)? = nil
+    var onAttachMacPane: ((_ macID: UUID, _ pane: PaneEntry) async -> Bool)? = nil
     @Binding var autoSelectInstance: SoyehtInstance?
     @Binding var autoSelectServerId: String?
     @Binding var autoSelectSessionName: String?
@@ -84,6 +84,7 @@ struct InstanceListView: View {
     @ObservedObject private var macRegistry = PairedMacRegistry.shared
     @ObservedObject private var serverRegistry = ServerRegistry.shared
     @State private var selectedMac: PairedMac?
+    @State private var attachingMacPaneID: String?
 
     /// Footer "X servers connected" count. Reads from the unified
     /// `ServerRegistry`, which mirrors both legacy stores after every
@@ -248,6 +249,7 @@ struct InstanceListView: View {
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier(AccessibilityID.InstanceList.macCard(entry.server.id))
                                 }
                                 // Claws section header — always rendered so
                                 // the page hierarchy stays consistent even
@@ -325,6 +327,10 @@ struct InstanceListView: View {
                                 //     opens so install/deploy are bound
                                 //     to a known server.
                                 Button(action: {
+                                    guard SoyehtFeatureFlags.clawStoreEnabled else {
+                                        openClawStoreComingSoon()
+                                        return
+                                    }
                                     let servers = serverRegistry.servers
                                     if servers.count == 1 {
                                         openClawStore(serverId: servers[0].id)
@@ -400,7 +406,11 @@ struct InstanceListView: View {
                     // pre-check `store.context(for:)` here — that would
                     // duplicate the resolver's logic and miss the
                     // selected-Mac household endpoint path.
-                    ClawStoreView(installTarget: ClawInstallTarget(serverID: serverId))
+                    if SoyehtFeatureFlags.clawStoreEnabled {
+                        ClawStoreView(installTarget: ClawInstallTarget(serverID: serverId))
+                    } else {
+                        ClawStoreComingSoonView(onBack: popClawRoute)
+                    }
                 case .householdStore:
                     // PR-3: iOS no longer produces `.householdStore`.
                     // The case stays alive for macOS. Render an empty
@@ -408,28 +418,40 @@ struct InstanceListView: View {
                     // saved navigation state); the user can press back.
                     EmptyView()
                 case .detail(let claw, let serverId):
-                    ClawDetailView(
-                        claw: claw,
-                        installTarget: ClawInstallTarget(serverID: serverId)
-                    )
+                    if SoyehtFeatureFlags.clawStoreEnabled {
+                        ClawDetailView(
+                            claw: claw,
+                            installTarget: ClawInstallTarget(serverID: serverId)
+                        )
+                    } else {
+                        ClawStoreComingSoonView(onBack: popClawRoute)
+                    }
                 case .householdDetail:
                     // PR-3: same as `.householdStore`. iOS no longer
                     // produces this case; keep the ramp exhaustive.
                     EmptyView()
                 case .setup(let claw, let serverId):
-                    ClawSetupView(claw: claw, serverId: serverId)
+                    if SoyehtFeatureFlags.clawStoreEnabled {
+                        ClawSetupView(claw: claw, serverId: serverId)
+                    } else {
+                        ClawStoreComingSoonView(onBack: popClawRoute)
+                    }
                 case .serverPicker:
-                    ClawStoreServerPickerView(
-                        onSelect: { target in
-                            // Swap the picker for the catalog by
-                            // replacing the top of the stack — Back
-                            // from the catalog returns to the home,
-                            // not to the picker.
-                            clawPath.removeLast()
-                            clawPath.append(ClawRoute.store(serverId: target.serverID))
-                        },
-                        onBack: popClawRoute
-                    )
+                    if SoyehtFeatureFlags.clawStoreEnabled {
+                        ClawStoreServerPickerView(
+                            onSelect: { target in
+                                // Swap the picker for the catalog by
+                                // replacing the top of the stack — Back
+                                // from the catalog returns to the home,
+                                // not to the picker.
+                                clawPath.removeLast()
+                                clawPath.append(ClawRoute.store(serverId: target.serverID))
+                            },
+                            onBack: popClawRoute
+                        )
+                    } else {
+                        ClawStoreComingSoonView(onBack: popClawRoute)
+                    }
                 }
             }
         }
@@ -505,12 +527,27 @@ struct InstanceListView: View {
         .sheet(item: $selectedMac) { mac in
             MacDetailView(
                 mac: mac,
+                attachingPaneID: attachingMacPaneID,
                 onAttach: { macID, pane in
-                    selectedMac = nil
-                    onAttachMacPane?(macID, pane)
+                    guard attachingMacPaneID == nil else { return }
+                    attachingMacPaneID = pane.id
+                    Task {
+                        let didAttach = await (onAttachMacPane?(macID, pane) ?? false)
+                        await MainActor.run {
+                            attachingMacPaneID = nil
+                            selectedMac = nil
+                            if !didAttach {
+                                instanceListLogger.error("soyeht_diag mac_pane_attach_failed pane_id=\(pane.id, privacy: .public)")
+                            }
+                        }
+                    }
                 },
-                onDismiss: { selectedMac = nil }
+                onDismiss: {
+                    guard attachingMacPaneID == nil else { return }
+                    selectedMac = nil
+                }
             )
+            .interactiveDismissDisabled(attachingMacPaneID != nil)
         }
         // Mandatory Mac-naming step. The cover is data-driven: it
         // appears as long as any paired Mac still has
@@ -576,7 +613,15 @@ struct InstanceListView: View {
         clawPath.removeLast()
     }
 
+    private func openClawStoreComingSoon() {
+        clawPath.append(ClawRoute.store(serverId: "__claw-store-coming-soon"))
+    }
+
     private func openClawStore(serverId: String) {
+        guard SoyehtFeatureFlags.clawStoreEnabled else {
+            openClawStoreComingSoon()
+            return
+        }
         store.setActiveServer(id: serverId)
         clawPath.append(ClawRoute.store(serverId: serverId))
     }
@@ -697,6 +742,34 @@ struct InstanceListView: View {
         if aggregated.isEmpty, let err = lastError {
             errorMessage = err.localizedDescription
         }
+    }
+}
+
+// MARK: - Claw Store Coming Soon
+
+private struct ClawStoreComingSoonView: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 20) {
+                Button(action: onBack) {
+                    Text(verbatim: "<")
+                        .font(Typography.monoPageTitle)
+                        .foregroundColor(SoyehtTheme.accentGreen)
+                }
+                Spacer()
+                Text("clawStore.comingSoon.title")
+                    .font(Typography.monoPageTitle)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            }
+            .padding(20)
+        }
+        .navigationBarHidden(true)
     }
 }
 

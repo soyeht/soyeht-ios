@@ -73,6 +73,7 @@ jobs:
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+          SOYEHT_APNS_P8_BASE64: ${{ secrets.SOYEHT_APNS_P8_BASE64 }}
         shell: bash
         run: |
           set -euo pipefail
@@ -86,7 +87,8 @@ jobs:
             APPLE_NOTARY_KEY_ID \
             APPLE_NOTARY_ISSUER_ID \
             APPLE_TEAM_ID \
-            APPLE_CODESIGN_IDENTITY
+            APPLE_CODESIGN_IDENTITY \
+            SOYEHT_APNS_P8_BASE64
           do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing GitHub secret ${name}." >&2
@@ -137,7 +139,7 @@ jobs:
           rm -f "${certificate_path}"
           echo "APPLE_SIGNING_KEYCHAIN=${keychain_path}" >> "${GITHUB_ENV}"
 
-      - name: Prepare optional APNs key
+      - name: Prepare APNs key
         env:
           SOYEHT_APNS_P8_BASE64: ${{ secrets.SOYEHT_APNS_P8_BASE64 }}
         shell: bash
@@ -145,8 +147,8 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${SOYEHT_APNS_P8_BASE64:-}" ]]; then
-            echo "SOYEHT_APNS_P8_BASE64 not set; macOS engine will fall back to Bonjour-only pairing."
-            exit 0
+            echo "Missing GitHub secret SOYEHT_APNS_P8_BASE64." >&2
+            exit 1
           fi
 
           apns_path="${RUNNER_TEMP}/apns.p8"

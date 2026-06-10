@@ -26,6 +26,9 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         XCTAssertTrue(buttonBody.contains("let servers = serverRegistry.servers"),
             "Home Claw Store button must read the server list from `serverRegistry.servers`, not from `SessionStore.pairedServers`."
         )
+        XCTAssertTrue(buttonBody.contains("openClawStoreComingSoon()"),
+            "When the release feature flag disables Claw Store, the home button must route to the visible coming-soon placeholder instead of doing nothing."
+        )
         XCTAssertTrue(buttonBody.contains("servers.count == 1"),
             "Home Claw Store button must single out the 1-server case and push the catalog directly."
         )
@@ -62,6 +65,9 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         XCTAssertTrue(navDest.contains("ClawStoreView(installTarget: ClawInstallTarget(serverID: serverId))"),
             "`.store(serverId:)` must construct `ClawStoreView(installTarget:)`."
         )
+        XCTAssertTrue(navDest.contains("ClawStoreComingSoonView(onBack: popClawRoute)"),
+            "Disabled Claw Store routes must render the coming-soon placeholder."
+        )
         XCTAssertTrue(navDest.contains("ClawDetailView("),
             "`.detail(claw, serverId:)` must construct `ClawDetailView(...)`."
         )
@@ -92,6 +98,41 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
+    func test_releaseLaunchRouting_keepsCarouselBehindFeatureFlag() throws {
+        let appDelegate = try iosSource("AppDelegate.swift")
+        let launchRouting = try slice(
+            appDelegate,
+            from: "let storage = CarouselSeenStorage()",
+            to: "window.makeKeyAndVisible()"
+        )
+        let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
+
+        XCTAssertTrue(featureFlags.contains("onboardingCarouselEnabled = false"),
+            "Public launch should keep the marketing carousel disabled until the release experience is Mac-first."
+        )
+        XCTAssertTrue(launchRouting.contains("!Self.hasAnySetupState()"),
+            "First-run with no paired state must go directly to automatic Mac discovery."
+        )
+        XCTAssertTrue(launchRouting.contains("showAutomaticMacDiscovery(in: window)"),
+            "No-setup launch should start nearby Mac discovery without requiring the old carousel."
+        )
+        XCTAssertTrue(launchRouting.contains("SoyehtFeatureFlags.onboardingCarouselEnabled"),
+            "Carousel routing must stay behind a feature flag so launch cannot regress to the Claw Store tour."
+        )
+    }
+
+    func test_macHomeRowsExposeStableAutomationIdentifier() throws {
+        let source = try iosSource("InstanceListView.swift")
+        let accessibilityIDs = try iosSource("AccessibilityID.swift")
+
+        XCTAssertTrue(accessibilityIDs.contains("static func macCard"),
+            "Mac rows need a stable accessibility identifier for Appium and XCUITest navigation."
+        )
+        XCTAssertTrue(source.contains("AccessibilityID.InstanceList.macCard(entry.server.id)"),
+            "The Mac home row button must expose the stable macCard identifier."
+        )
+    }
+
     // MARK: - Helpers
 
     private func iosSource(_ relativePath: String) throws -> String {
@@ -99,6 +140,17 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
             .deletingLastPathComponent()  // SoyehtTests/
             .deletingLastPathComponent()  // TerminalApp/
         let url = terminalApp.appendingPathComponent("Soyeht").appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func coreSource(_ relativePath: String) throws -> String {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // SoyehtTests/
+            .deletingLastPathComponent()  // TerminalApp/
+            .deletingLastPathComponent()  // repo root
+        let url = repoRoot
+            .appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore")
+            .appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
     }
 

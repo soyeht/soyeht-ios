@@ -34,7 +34,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(overlay.contains("DevicePairConfirmationCardHost"))
     }
 
-    func test_existingHouseSetupDefersLocalMacPairingUntilHouseholdPairingSucceeds() throws {
+    func test_localMacPairingClaimOpensMacMirrorWithoutWaitingForHouseholdPairing() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let claimHandler = try slice(
             source,
@@ -47,7 +47,9 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             to: "// MARK: - Private"
         )
 
-        XCTAssertTrue(claimHandler.contains("claim.macLocalPairing, claim.existingHouse == nil"))
+        XCTAssertTrue(claimHandler.contains("if let pairing = claim.macLocalPairing"))
+        XCTAssertTrue(claimHandler.contains("if claim.macLocalPairing != nil"))
+        XCTAssertTrue(claimHandler.contains("self.onMacFoundHandler?(.connectedToExistingMac)"))
         XCTAssertTrue(claimHandler.contains("deferredLocalPairing: claim.macLocalPairing"))
         XCTAssertTrue(connectFlow.contains("if let pairing = house.deferredLocalPairing"))
         XCTAssertTrue(connectFlow.contains("installMacLocalPairing(pairing)"))

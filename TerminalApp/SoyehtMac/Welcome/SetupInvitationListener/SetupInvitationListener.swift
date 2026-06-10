@@ -3,6 +3,7 @@ import Darwin
 import Network
 import OSLog
 import SoyehtCore
+import dnssd
 
 private let setupInvitationLogger = Logger(subsystem: "com.soyeht.mac", category: "SetupInvitation")
 
@@ -213,6 +214,115 @@ final class SetupInvitationListener: @unchecked Sendable {
     }
 }
 
+@MainActor
+final class MacAutomaticIPhoneDiscoveryService {
+    static let shared = MacAutomaticIPhoneDiscoveryService()
+
+    private var task: Task<Void, Never>?
+
+    func start() {
+        guard task == nil else { return }
+        task = Task { [weak self] in
+            await self?.run()
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+    }
+
+    private func run() async {
+        while !Task.isCancelled {
+            guard let existingHouse = await makeExistingHousePayload() else {
+                try? await Task.sleep(for: .seconds(2))
+                continue
+            }
+            let listener = SetupInvitationListener(
+                engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
+                existingHouse: existingHouse
+            )
+            let outcome = await listener.listen()
+            switch outcome {
+            case .invitationClaimed:
+                setupInvitationLogger.info("automatic_listener.claimed")
+                try? await Task.sleep(for: .seconds(1))
+            case .notFound:
+                try? await Task.sleep(for: .milliseconds(500))
+            case .failed(let error):
+                setupInvitationLogger.error("automatic_listener.failed error=\(String(describing: error), privacy: .public)")
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private func makeExistingHousePayload() async -> SetupInvitationExistingHouse? {
+        do {
+            let status = try await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+            guard status.state == .ready else { return nil }
+            let identity = try await AutomaticHouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+            let endpoint = await SetupInvitationDirectProbe.reachableMacEngineURL(
+                localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
+            ) ?? TheyOSEnvironment.bootstrapBaseURL
+            let link = HouseholdDevicePairingLink(
+                endpoint: endpoint,
+                householdId: identity.householdId,
+                householdPublicKey: identity.householdPublicKey,
+                householdName: identity.name,
+                pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
+            )
+            return SetupInvitationExistingHouse(
+                name: identity.name,
+                hostLabel: Host.current().localizedName ?? "Mac",
+                pairDeviceURI: try link.url().absoluteString
+            )
+        } catch {
+            setupInvitationLogger.info("automatic_listener.payload_unavailable error=\(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+}
+
+private struct AutomaticHouseholdIdentitySummary {
+    let householdId: String
+    let householdPublicKey: Data
+    let name: String
+}
+
+private struct AutomaticHouseholdIdentityFetcher {
+    let baseURL: URL
+
+    func fetch() async throws -> AutomaticHouseholdIdentitySummary {
+        let url = baseURL.appendingPathComponent("api/v1/household/identity")
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        let envelope = try JSONDecoder().decode(IdentityEnvelope.self, from: data)
+        guard let publicKey = Data(base64Encoded: envelope.householdPublicKeyBase64),
+              publicKey.count == HouseholdIdentifiers.compressedP256PublicKeyLength else {
+            throw URLError(.cannotDecodeContentData)
+        }
+        return AutomaticHouseholdIdentitySummary(
+            householdId: envelope.householdId,
+            householdPublicKey: publicKey,
+            name: envelope.name
+        )
+    }
+
+    private struct IdentityEnvelope: Decodable {
+        let householdId: String
+        let householdPublicKeyBase64: String
+        let name: String
+
+        enum CodingKeys: String, CodingKey {
+            case householdId = "hh_id"
+            case householdPublicKeyBase64 = "hh_pub_b64"
+            case name
+        }
+    }
+}
+
 private final class ResumeOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
@@ -397,15 +507,15 @@ private enum SetupInvitationDirectProbe {
         }
     }
 
-	    fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
-	        guard case BootstrapError.serverError(let code, _) = error else { return false }
-	        return [
-	            "invitation_not_recognized",
-	            "invalid_state",
-	            "already_initialized",
-	            "already_named",
-	        ].contains(code)
-	    }
+    fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
+        guard case BootstrapError.serverError(let code, _) = error else { return false }
+        return [
+            "invitation_not_recognized",
+            "invalid_state",
+            "already_initialized",
+            "already_named",
+        ].contains(code)
+    }
 
     private static func candidateIPhoneBaseURLs(timeout: TimeInterval) async -> [Candidate] {
         let tailscale = await tailscaleStatus().map(candidateTailscaleIPhoneBaseURLs) ?? []
@@ -457,7 +567,7 @@ private enum SetupInvitationDirectProbe {
             ) else {
                 continue
             }
-            candidates.append(contentsOf: parseBonjourResolveCandidates(from: resolveData))
+            candidates.append(contentsOf: await parseBonjourResolveCandidates(from: resolveData))
         }
         return deduplicatedCandidates(candidates)
     }
@@ -477,7 +587,7 @@ private enum SetupInvitationDirectProbe {
         return names
     }
 
-    private static func parseBonjourResolveCandidates(from data: Data) -> [Candidate] {
+    private static func parseBonjourResolveCandidates(from data: Data) async -> [Candidate] {
         guard let output = String(data: data, encoding: .utf8) else { return [] }
         var candidates: [Candidate] = []
         for line in output.split(whereSeparator: \.isNewline).map(String.init) {
@@ -488,12 +598,19 @@ private enum SetupInvitationDirectProbe {
                 continue
             }
             let host = String(hostPort[..<colon])
-            let port = String(hostPort[hostPort.index(after: colon)...])
-            guard !host.isEmpty, UInt16(port) != nil,
-                  let url = URL(string: "http://\(host):\(port)") else {
+            let portString = String(hostPort[hostPort.index(after: colon)...])
+            guard !host.isEmpty,
+                  let port = UInt16(portString) else {
                 continue
             }
-            candidates.append(Candidate(baseURL: url, addresses: [host]))
+            let resolvedIPs = await resolveBonjourIPv4Addresses(hostname: host, timeout: 0.8)
+            for ip in resolvedIPs {
+                guard let url = URL(string: "http://\(ip):\(port)") else { continue }
+                candidates.append(Candidate(baseURL: url, addresses: [ip, host]))
+            }
+            if let url = URL(string: "http://\(host):\(port)") {
+                candidates.append(Candidate(baseURL: url, addresses: resolvedIPs + [host]))
+            }
         }
         return candidates
     }
@@ -587,11 +704,20 @@ private enum SetupInvitationDirectProbe {
             }
 
             DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
-                if process.isRunning {
+                guard process.isRunning else { return }
+                // dns-sd browse/resolve commands are long-running streams. The
+                // useful records arrive before the timeout, so let the
+                // termination handler read and return the captured stdout
+                // instead of discarding it as a timeout failure.
+                if executable.hasSuffix("/dns-sd") {
+                    kill(process.processIdentifier, SIGINT)
+                } else {
                     process.terminate()
                 }
-                if gate.claim() {
-                    continuation.resume(returning: nil)
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.25) {
+                    if process.isRunning {
+                        kill(process.processIdentifier, SIGKILL)
+                    }
                 }
             }
         }
@@ -605,10 +731,136 @@ private enum SetupInvitationDirectProbe {
         return trimmed
     }
 
+    private static func resolveBonjourIPv4Addresses(
+        hostname: String,
+        timeout: TimeInterval
+    ) async -> [String] {
+        let normalizedHost = hostname.hasSuffix(".") ? String(hostname.dropLast()) : hostname
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(
+                    returning: resolveBonjourIPv4AddressesBlocking(
+                        hostname: normalizedHost,
+                        timeout: timeout
+                    )
+                )
+            }
+        }
+    }
+
+    private static func resolveBonjourIPv4AddressesBlocking(
+        hostname: String,
+        timeout: TimeInterval
+    ) -> [String] {
+        let box = BonjourAddressBox()
+        let unmanaged = Unmanaged.passRetained(box)
+        defer { unmanaged.release() }
+
+        var serviceRef: DNSServiceRef?
+        let error = DNSServiceGetAddrInfo(
+            &serviceRef,
+            DNSServiceFlags(0),
+            UInt32(kDNSServiceInterfaceIndexAny),
+            DNSServiceProtocol(kDNSServiceProtocol_IPv4),
+            hostname,
+            dnsServiceGetAddrInfoReply,
+            unmanaged.toOpaque()
+        )
+        guard error == kDNSServiceErr_NoError, let serviceRef else {
+            setupInvitationLogger.info("direct_probe.dnssd_getaddrinfo_start_failed host=\(hostname, privacy: .public) error=\(error, privacy: .public)")
+            return []
+        }
+        defer { DNSServiceRefDeallocate(serviceRef) }
+
+        let socket = DNSServiceRefSockFD(serviceRef)
+        guard socket >= 0 else { return [] }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            var descriptor = pollfd(fd: socket, events: Int16(POLLIN), revents: 0)
+            let remainingMs = max(50, min(250, Int(deadline.timeIntervalSinceNow * 1000)))
+            let pollResult = poll(&descriptor, 1, Int32(remainingMs))
+            if pollResult > 0, (descriptor.revents & Int16(POLLIN)) != 0 {
+                let processError = DNSServiceProcessResult(serviceRef)
+                if processError != kDNSServiceErr_NoError {
+                    setupInvitationLogger.info("direct_probe.dnssd_getaddrinfo_process_failed host=\(hostname, privacy: .public) error=\(processError, privacy: .public)")
+                    break
+                }
+                if box.hasTailnetAddress { break }
+            } else if pollResult < 0, errno != EINTR {
+                break
+            }
+        }
+
+        let addresses = box.addresses
+        setupInvitationLogger.info("direct_probe.dnssd_getaddrinfo host=\(hostname, privacy: .public) count=\(addresses.count, privacy: .public)")
+        return addresses
+    }
+
+    private static let dnsServiceGetAddrInfoReply: DNSServiceGetAddrInfoReply = { _, flags, _, errorCode, hostname, address, _, context in
+        guard let context else { return }
+        let box = Unmanaged<BonjourAddressBox>.fromOpaque(context).takeUnretainedValue()
+        guard errorCode == kDNSServiceErr_NoError,
+              (flags & DNSServiceFlags(kDNSServiceFlagsAdd)) != 0,
+              let address,
+              address.pointee.sa_family == sa_family_t(AF_INET) else {
+            return
+        }
+
+        var socketAddress = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+        var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+        guard inet_ntop(AF_INET, &socketAddress.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
+            return
+        }
+        let ip = String(cString: buffer)
+        setupInvitationLogger.info("direct_probe.dnssd_getaddrinfo_callback host=\(hostname.flatMap { String(validatingUTF8: $0) } ?? "<nil>", privacy: .public) ip=\(ip, privacy: .public)")
+        box.add(ip)
+    }
+
+    private final class BonjourAddressBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: [(rank: Int, ip: String)] = []
+
+        var addresses: [String] {
+            lock.lock()
+            defer { lock.unlock() }
+            return values
+                .sorted { lhs, rhs in lhs.rank < rhs.rank }
+                .map(\.ip)
+        }
+
+        var hasTailnetAddress: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return values.contains { $0.rank == 0 }
+        }
+
+        func add(_ ip: String) {
+            guard let rank = directProbeAddressRank(forIPv4: ip) else { return }
+            lock.lock()
+            if !values.contains(where: { $0.ip == ip }) {
+                values.append((rank: rank, ip: ip))
+            }
+            lock.unlock()
+        }
+    }
+
     private static func isTailscaleIPv4(_ value: String) -> Bool {
         let parts = value.split(separator: ".").compactMap { UInt8($0) }
         guard parts.count == 4 else { return false }
         return parts[0] == 100 && (64...127).contains(parts[1])
+    }
+
+    private static func directProbeAddressRank(forIPv4 value: String) -> Int? {
+        let parts = value.split(separator: ".").compactMap { UInt8($0) }
+        guard parts.count == 4 else { return nil }
+        if parts[0] == 0 || parts[0] == 127 { return nil }
+        if parts[0] == 169 && parts[1] == 254 { return nil }
+        if isTailscaleIPv4(value) { return 0 }
+        if parts[0] == 10 { return 1 }
+        if parts[0] == 172 && (16...31).contains(parts[1]) { return 1 }
+        if parts[0] == 192 && parts[1] == 168 { return 1 }
+        return 2
     }
 
     private static func isLANReachableIPv4(_ value: String) -> Bool {

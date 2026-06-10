@@ -189,7 +189,7 @@ struct PairedMacRegistryTests {
 
         var connectURLs: [URL] = []
         var sockets: [FakePresenceWebSocket] = []
-        let registry = PairedMacRegistry(store: store) { mac, secret, deviceID, endpoint in
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { nil }, localNetworkProvider: { false }) { mac, secret, deviceID, endpoint in
             MacPresenceClient(
                 macID: mac.macID,
                 deviceID: deviceID,
@@ -231,6 +231,136 @@ struct PairedMacRegistryTests {
         #expect(sockets.count == 1)
         #expect(sockets.first?.resumed == true)
         #expect(client.status == .connecting)
+    }
+
+    @Test("tailnet active prefers MagicDNS host while preserving LAN fallback")
+    func tailnetActivePrefersMagicDNSCandidate() async throws {
+        let defaultsName = "com.soyeht.tests.registry.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.registry.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "Mac Studio",
+            host: Fixture.testHost,
+            presencePort: 57414,
+            attachPort: 57415
+        )
+
+        var capturedEndpoint: MacPresenceClient.Endpoint?
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.66.202.16" }, localNetworkProvider: { false }) { mac, secret, deviceID, endpoint in
+            capturedEndpoint = endpoint
+            return MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name,
+                webSocketFactory: { _ in FakePresenceWebSocket() }
+            )
+        }
+        defer {
+            registry.clients.values.forEach { $0.disconnect() }
+        }
+
+        registry.bootstrap()
+
+        let endpoint = try #require(capturedEndpoint)
+        #expect(endpoint.host == "macstudio")
+        #expect(endpoint.hostCandidates.contains(Fixture.testHostBare))
+        #expect(endpoint.hostCandidates.contains("macstudio.local"))
+    }
+
+    @Test("wifi active prefers local DNS before tailnet candidates")
+    func wifiActivePrefersLocalDNSCandidate() async throws {
+        let defaultsName = "com.soyeht.tests.registry.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.registry.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "Mac Studio",
+            host: "100.103.149.48:57414",
+            presencePort: 57414,
+            attachPort: 57415
+        )
+
+        var capturedEndpoint: MacPresenceClient.Endpoint?
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.66.202.16" }, localNetworkProvider: { true }) { mac, secret, deviceID, endpoint in
+            capturedEndpoint = endpoint
+            return MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name,
+                webSocketFactory: { _ in FakePresenceWebSocket() }
+            )
+        }
+        defer {
+            registry.clients.values.forEach { $0.disconnect() }
+        }
+
+        registry.bootstrap()
+
+        let endpoint = try #require(capturedEndpoint)
+        #expect(endpoint.host == "macstudio.local")
+        #expect(endpoint.hostCandidates == ["macstudio.local", "100.103.149.48", "macstudio"])
+    }
+
+    @Test("tailnet inactive prefers stored LAN host while preserving DNS fallback")
+    func tailnetInactivePrefersStoredLANHost() async throws {
+        let defaultsName = "com.soyeht.tests.registry.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.registry.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "Mac Studio",
+            host: Fixture.testHost,
+            presencePort: 57414,
+            attachPort: 57415
+        )
+
+        var capturedEndpoint: MacPresenceClient.Endpoint?
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { nil }, localNetworkProvider: { false }) { mac, secret, deviceID, endpoint in
+            capturedEndpoint = endpoint
+            return MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name,
+                webSocketFactory: { _ in FakePresenceWebSocket() }
+            )
+        }
+        defer {
+            registry.clients.values.forEach { $0.disconnect() }
+        }
+
+        registry.bootstrap()
+
+        let endpoint = try #require(capturedEndpoint)
+        #expect(endpoint.host == Fixture.testHostBare)
+        #expect(endpoint.hostCandidates == [Fixture.testHostBare, "macstudio.local", "macstudio"])
     }
 
     @Test("Tailscale MagicDNS endpoints use the Mac-local plain WebSocket listener")

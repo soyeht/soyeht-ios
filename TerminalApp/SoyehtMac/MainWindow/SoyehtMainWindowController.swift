@@ -3031,6 +3031,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// Public entry point called by the chrome Claw Store button and command
     /// paths. Opens a right-side drawer inside the main window.
     func toggleClawDrawerOverlay() {
+        guard SoyehtFeatureFlags.clawStoreEnabled else {
+            showClawStoreComingSoonAlert()
+            return
+        }
         if clawDrawerOverlay == nil {
             openClawDrawerOverlay()
         } else {
@@ -3039,6 +3043,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func openClawDrawerOverlay() {
+        guard SoyehtFeatureFlags.clawStoreEnabled else {
+            showClawStoreComingSoonAlert()
+            return
+        }
         if clawDrawerOverlay != nil {
             clawDrawerOverlay?.refresh()
             return
@@ -3057,6 +3065,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         chromeVC.setClawDrawerOverlay(nil)
         clawDrawerOverlay = nil
         refreshClawStoreTint()
+    }
+
+    private func showClawStoreComingSoonAlert() {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "clawStore.comingSoon.title", comment: "Alert title shown while Claw Store is disabled for launch.")
+        alert.addButton(withTitle: String(localized: "common.button.ok"))
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: nil)
+        } else {
+            alert.runModal()
+        }
     }
 
     /// Sidebar row click → activate workspace if needed, then focus pane.
