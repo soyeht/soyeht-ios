@@ -8,7 +8,7 @@ import ApplicationServices
 import SoyehtCore
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation, AppCommandPerforming {
 
     // Strong references to all open window controllers.
     // NSWindow.windowController is weak, so without this the WC is immediately deallocated.
@@ -1664,6 +1664,80 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         target?.moveFocusedPaneToWorkspaceByTag(sender)
     }
 
+    @IBAction func dispatchAppCommand(_ sender: Any?) {
+        guard CommandDispatcher(performer: self).dispatch(sender) else {
+            NSSound.beep()
+            return
+        }
+    }
+
+    func performAppCommand(_ commandID: AppCommandID, sender: Any?) {
+        switch commandID {
+        case .newWindow:
+            newWindow(sender ?? self)
+        case .newConversation:
+            newConversation(sender)
+        case .showCommandPalette:
+            showCommandPalette(sender)
+        case .checkForUpdates:
+            checkForUpdates(sender)
+        case .showPreferences:
+            showPreferences(sender ?? self)
+        case .showAgentVisualPermissions:
+            showAgentVisualPermissions(sender)
+        case .showPairedDevices:
+            showPairedDevices(sender ?? self)
+        case .showConnectedServers:
+            showConnectedServers(sender)
+        case .uninstallSoyeht:
+            uninstallSoyeht(sender)
+        case .showClawStore:
+            showClawStore(sender)
+        case .showConversationsSidebar:
+            showConversationsSidebar(sender)
+        case .undoWindowAction:
+            undoWindowAction(sender)
+        case .redoWindowAction:
+            redoWindowAction(sender)
+        case .splitPaneVertical:
+            splitPaneVertical(sender)
+        case .splitPaneHorizontal:
+            splitPaneHorizontal(sender)
+        case .closeFocusedPane:
+            closeFocusedPane(sender)
+        case .focusPaneLeft:
+            focusPaneLeft(sender)
+        case .focusPaneRight:
+            focusPaneRight(sender)
+        case .focusPaneUp:
+            focusPaneUp(sender)
+        case .focusPaneDown:
+            focusPaneDown(sender)
+        case .toggleZoomFocusedPane:
+            toggleZoomFocusedPane(sender)
+        case .exitZoom:
+            exitZoom(sender)
+        case .swapPaneLeft:
+            swapPaneLeft(sender)
+        case .swapPaneRight:
+            swapPaneRight(sender)
+        case .swapPaneUp:
+            swapPaneUp(sender)
+        case .swapPaneDown:
+            swapPaneDown(sender)
+        case .rotateFocusedSplit:
+            rotateFocusedSplit(sender)
+        case .selectWorkspace:
+            selectWorkspaceByTag(sender)
+        case .moveFocusedPaneToWorkspace:
+            moveFocusedPaneToWorkspaceByTag(sender)
+        case .moveActiveWorkspaceLeft:
+            moveActiveWorkspaceLeft(sender)
+        case .moveActiveWorkspaceRight:
+            moveActiveWorkspaceRight(sender)
+        }
+    }
+
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
         let target = frontmostMainWindowController
         target?.selectWorkspaceByTag(sender)
@@ -2095,7 +2169,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         let none = NSMenuItem(title: String(localized: "workspaceMenu.group.none", comment: "Group submenu item that unassigns the active workspace from any group."), action: #selector(assignActiveWorkspaceToGroup(_:)), keyEquivalent: "")
         none.target = self
-        none.representedObject = nil
+        none.representedObject = MainMenuExplicitRole.assignActiveWorkspaceToNoGroup
         none.state = currentGroupID == nil ? .on : .off
         none.isEnabled = hasActiveWorkspace
         submenu.addItem(none)
@@ -2115,6 +2189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         submenu.addItem(.separator())
         let newGroup = NSMenuItem(title: String(localized: "workspaceMenu.group.newGroup", comment: "Group submenu item that opens the new-group prompt."), action: #selector(newGroupForActiveWorkspace(_:)), keyEquivalent: "")
         newGroup.target = self
+        newGroup.representedObject = MainMenuExplicitRole.newGroupForActiveWorkspace
         newGroup.isEnabled = hasActiveWorkspace
         submenu.addItem(newGroup)
     }
@@ -2122,7 +2197,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func makeMenuItem(for command: AppCommand) -> NSMenuItem {
         let item = NSMenuItem(
             title: command.title,
-            action: command.action.selector,
+            action: CommandDispatcher.action,
             keyEquivalent: command.shortcut?.menuKeyEquivalent ?? ""
         )
         configureMenuItem(item, with: command)
@@ -2131,7 +2206,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     private func configureMenuItem(_ item: NSMenuItem, with command: AppCommand) {
         item.title = command.title
-        item.action = command.action.selector
+        item.action = CommandDispatcher.action
         item.target = self
         item.representedObject = command.id
         if let tag = command.tag {
@@ -2222,6 +2297,86 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         frontmostMainWindowController?.window?.undoManager
     }
 
+    private var commandUIContext: CommandUIContext {
+        let frontmostController = frontmostMainWindowController
+        let activeController = activeMainWindowController
+        let frontmostState = frontmostController.map {
+            commandWindowState(for: $0, includeMoveDestinations: true)
+        }
+        let activeState: MainWindowCommandUIState?
+        if let activeController, let frontmostController, activeController === frontmostController {
+            activeState = frontmostState
+        } else {
+            activeState = activeController.map {
+                commandWindowState(for: $0, includeMoveDestinations: false)
+            }
+        }
+        return CommandUIContext(
+            frontmostWindow: frontmostState,
+            activeWindow: activeState,
+            undo: UndoCommandUIState(
+                canUndo: activeUndoManager?.canUndo == true,
+                canRedo: activeUndoManager?.canRedo == true,
+                undoMenuItemTitle: activeUndoManager?.undoMenuItemTitle,
+                redoMenuItemTitle: activeUndoManager?.redoMenuItemTitle
+            ),
+            hasPairedServers: !SessionStore.shared.pairedServers.isEmpty,
+            clawStoreEnabled: SoyehtFeatureFlags.clawStoreEnabled,
+            canCheckForUpdates: SoyehtUpdater.shared.canCheckForUpdates,
+            terminalFontSize: Double(TerminalPreferences.shared.fontSize),
+            defaultTerminalFontSize: Double(TerminalPreferences.defaultFontSize),
+            minimumTerminalFontSize: Double(TerminalPreferences.minimumFontSize)
+        )
+    }
+
+    private func commandWindowState(
+        for controller: SoyehtMainWindowController,
+        includeMoveDestinations: Bool
+    ) -> MainWindowCommandUIState {
+        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
+        let activeWorkspaceTag = ordered.firstIndex(where: { $0.id == controller.activeWorkspaceID })
+            .map { $0 + 1 }
+        let selectableTags = Set(ordered.indices.map { $0 + 1 })
+        let moveDestinations: Set<Int>
+        if includeMoveDestinations, canMoveFocusedPane {
+            moveDestinations = Set(ordered.enumerated().compactMap { index, workspace in
+                workspace.id == controller.activeWorkspaceID ? nil : index + 1
+            })
+        } else {
+            moveDestinations = []
+        }
+
+        return MainWindowCommandUIState(
+            workspaceCount: ordered.count,
+            activeWorkspaceTag: activeWorkspaceTag,
+            selectableWorkspaceTags: selectableTags,
+            moveFocusedPaneDestinationTags: moveDestinations,
+            canMoveActiveWorkspaceLeft: controller.canMoveActiveWorkspace(by: -1),
+            canMoveActiveWorkspaceRight: controller.canMoveActiveWorkspace(by: 1),
+            paneGrid: controller.activeGridController.map(commandPaneState)
+        )
+    }
+
+    private func commandPaneState(for grid: PaneGridController) -> PaneCommandUIState {
+        let directions: [(CommandUIDirection, WorkspaceLayout.Direction)] = [
+            (.left, .left),
+            (.right, .right),
+            (.up, .up),
+            (.down, .down),
+        ]
+        return PaneCommandUIState(
+            canActOnFocusedPane: grid.canActOnFocusedPane,
+            hasZoomedPane: grid.zoomedPaneID != nil,
+            canRotateFocusedSplit: grid.canRotateFocusedSplit,
+            focusableDirections: Set(directions.compactMap { command, layout in
+                grid.canFocusNeighbor(layout) ? command : nil
+            }),
+            swappableDirections: Set(directions.compactMap { command, layout in
+                grid.canSwapNeighbor(layout) ? command : nil
+            })
+        )
+    }
+
     private func withActivePaneGrid(_ body: (PaneGridController) -> Void) {
         guard let grid = frontmostMainWindowController?.activeGridController else {
             NSSound.beep()
@@ -2231,97 +2386,62 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let context = commandUIContext
+        if let commandID = menuItem.representedObject as? AppCommandID,
+           let command = AppCommandRegistry.command(commandID) {
+            return apply(command.validation(in: context), to: menuItem)
+        }
+        if let role = menuItem.representedObject as? MainMenuExplicitRole {
+            return apply(role.validation(in: context), to: menuItem)
+        }
+
         switch menuItem.action {
-        case #selector(newConversation(_:)):
-            return frontmostMainWindowController != nil
-        case #selector(closeActiveWorkspace(_:)):
-            guard let controller = frontmostMainWindowController else { return false }
-            return controller.store.workspaceCount(in: controller.windowID) > 1
-        case #selector(logout(_:)):
-            return !SessionStore.shared.pairedServers.isEmpty
-        case #selector(showConversationsSidebar(_:)):
-            return frontmostMainWindowController != nil
         case #selector(selectWorkspaceByTag(_:)):
-            return validateSelectWorkspaceItem(menuItem)
+            return validateSelectWorkspaceItem(menuItem, context: context)
         case #selector(moveFocusedPaneToWorkspaceByTag(_:)):
-            return validateMoveFocusedPaneItem(menuItem)
-        case #selector(splitPaneVertical(_:)), #selector(splitPaneHorizontal(_:)):
-            return frontmostMainWindowController?.activeGridController?.canActOnFocusedPane == true
-        case #selector(closeFocusedPane(_:)):
-            return frontmostMainWindowController?.activeGridController != nil
-        case #selector(focusPaneLeft(_:)):
-            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.left) == true
-        case #selector(focusPaneRight(_:)):
-            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.right) == true
-        case #selector(focusPaneUp(_:)):
-            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.up) == true
-        case #selector(focusPaneDown(_:)):
-            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.down) == true
-        case #selector(toggleZoomFocusedPane(_:)):
-            return frontmostMainWindowController?.activeGridController?.canActOnFocusedPane == true
-        case #selector(exitZoom(_:)):
-            return frontmostMainWindowController?.activeGridController?.zoomedPaneID != nil
-        case #selector(swapPaneLeft(_:)):
-            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.left) == true
-        case #selector(swapPaneRight(_:)):
-            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.right) == true
-        case #selector(swapPaneUp(_:)):
-            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.up) == true
-        case #selector(swapPaneDown(_:)):
-            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.down) == true
-        case #selector(rotateFocusedSplit(_:)):
-            return frontmostMainWindowController?.activeGridController?.canRotateFocusedSplit == true
-        case #selector(defaultFontSize(_:)):
-            return TerminalPreferences.shared.fontSize != TerminalPreferences.defaultFontSize
-        case #selector(biggerFont(_:)):
-            return true
-        case #selector(smallerFont(_:)):
-            return TerminalPreferences.shared.fontSize > TerminalPreferences.minimumFontSize
-        case #selector(undoWindowAction(_:)):
-            let undoTitle = String(localized: "editMenu.undo.default", comment: "Default Edit > Undo title when no undo is available.")
-            let title = activeUndoManager?.undoMenuItemTitle ?? undoTitle
-            menuItem.title = title.isEmpty ? undoTitle : title
-            return activeUndoManager?.canUndo == true
-        case #selector(redoWindowAction(_:)):
-            let redoTitle = String(localized: "editMenu.redo.default", comment: "Default Edit > Redo title when no redo is available.")
-            let title = activeUndoManager?.redoMenuItemTitle ?? redoTitle
-            menuItem.title = title.isEmpty ? redoTitle : title
-            return activeUndoManager?.canRedo == true
-        case #selector(moveActiveWorkspaceLeft(_:)):
-            return frontmostMainWindowController?.canMoveActiveWorkspace(by: -1) == true
-        case #selector(moveActiveWorkspaceRight(_:)):
-            return frontmostMainWindowController?.canMoveActiveWorkspace(by: 1) == true
-        case #selector(showClawStore(_:)):
-            return SoyehtFeatureFlags.clawStoreEnabled
-        case #selector(checkForUpdates(_:)):
-            return SoyehtUpdater.shared.canCheckForUpdates
+            return validateMoveFocusedPaneItem(menuItem, context: context)
+        case #selector(assignActiveWorkspaceToGroup(_:)), #selector(newGroupForActiveWorkspace(_:)):
+            return context.activeWindow != nil
         default:
             return true
         }
     }
 
-    private func validateSelectWorkspaceItem(_ menuItem: NSMenuItem) -> Bool {
-        guard let controller = activeMainWindowController else {
-            menuItem.state = .off
-            return false
-        }
-        let index = menuItem.tag - 1
-        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
-        guard ordered.indices.contains(index) else {
-            menuItem.state = .off
-            return false
-        }
-        menuItem.state = ordered[index].id == controller.activeWorkspaceID ? .on : .off
-        return true
+    private func validateSelectWorkspaceItem(
+        _ menuItem: NSMenuItem,
+        context: CommandUIContext
+    ) -> Bool {
+        let tag = menuItem.tag
+        let validation = CommandUIValidation(
+            isEnabled: context.activeWindow?.selectableWorkspaceTags.contains(tag) == true,
+            state: context.activeWindow?.activeWorkspaceTag == tag ? .on : .off
+        )
+        return apply(validation, to: menuItem)
     }
 
-    private func validateMoveFocusedPaneItem(_ menuItem: NSMenuItem) -> Bool {
-        guard let controller = frontmostMainWindowController,
-              canMoveFocusedPane else { return false }
-        let index = menuItem.tag - 1
-        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
-        guard ordered.indices.contains(index) else { return false }
-        return ordered[index].id != controller.activeWorkspaceID
+    private func validateMoveFocusedPaneItem(
+        _ menuItem: NSMenuItem,
+        context: CommandUIContext
+    ) -> Bool {
+        context.frontmostWindow?.moveFocusedPaneDestinationTags.contains(menuItem.tag) == true
+    }
+
+    private func apply(_ validation: CommandUIValidation, to menuItem: NSMenuItem) -> Bool {
+        if let title = validation.title {
+            menuItem.title = title
+        }
+        if let state = validation.state {
+            menuItem.state = nsState(for: state)
+        }
+        return validation.isEnabled
+    }
+
+    private func nsState(for state: MenuItemState) -> NSControl.StateValue {
+        switch state {
+        case .off: return .off
+        case .on: return .on
+        case .mixed: return .mixed
+        }
     }
 
     /// Menu item / `⌘⇧C` target. Toggles the floating sidebar overlay on
