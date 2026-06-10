@@ -5,7 +5,7 @@ import XCTest
 
 final class MainMenuArchitectureBaselineTests: XCTestCase {
 
-    func testPublicNoWindowMainMenuMatchesGoldenFixture() throws {
+    func testMainMenuBuilderPublicNoWindowMenuMatchesGoldenFixture() throws {
         let snapshot = publicNoWindowSnapshot()
         let actual = try MainMenuSnapshot.encode(snapshot)
 
@@ -67,7 +67,7 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
 
     private func publicNoWindowSnapshot() -> MainMenuSnapshotNode {
         MainMenuSnapshot.capture(
-            LegacyMainMenuBaseline.makePublicNoWindowMenu(),
+            MainMenuBuilder().buildPublicNoWindowMenu(),
             options: LegacyMainMenuBaseline.snapshotOptions()
         )
     }
