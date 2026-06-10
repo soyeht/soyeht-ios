@@ -397,6 +397,43 @@
         }
       }
     },
+    "appMenu.agentVisualPermissions": {
+      "comment": "App menu item that checks Screen Recording and Accessibility permissions used by local AI agents.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent Permissions…"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissões dos Agentes…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissões dos Agentes…"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Agent Permissions…"}}
+      }
+    },
     "appMenu.clawStore": {
       "comment": "App menu item that opens the Claw Store window.",
       "extractionState": "stale",
@@ -19503,7 +19540,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Move Focused Pane To"
+            "value": "Move Pane to Workspace"
           }
         },
         "es": {
@@ -19547,13 +19584,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mover painel focado para"
+            "value": "Mover Painel para Workspace"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mover painel focado para"
+            "value": "Mover Painel para Workspace"
           }
         },
         "ru": {
@@ -19574,6 +19611,80 @@
             "value": "فوکس pane کو منتقل کریں"
           }
         }
+      }
+    },
+    "paneMenu.moveTo.noDestinations": {
+      "comment": "Disabled Pane submenu item shown when there is no workspace destination.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Other Workspaces"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Outro Workspace"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Outro Workspace"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "No Other Workspaces"}}
+      }
+    },
+    "paneMenu.moveTo.noPane": {
+      "comment": "Disabled Pane submenu item shown when there is no focused pane to move.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Focused Pane"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Painel Focado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Painel Focado"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "No Focused Pane"}}
       }
     },
     "paneMenu.moveTo.workspace": {
@@ -29166,6 +29277,191 @@
         }
       }
     },
+    "workspaceMenu.noWindow": {
+      "comment": "Disabled Workspaces menu item shown when no workspace window is open.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Workspace Window"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhuma Janela de Workspace"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhuma Janela de Workspace"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "No Workspace Window"}}
+      }
+    },
+    "workspaceMenu.noWorkspaces": {
+      "comment": "Disabled Workspaces menu item shown when the active window has no workspaces.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Workspaces"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Workspace"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum Workspace"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "No Workspaces"}}
+      }
+    },
+    "viewMenu.actualSize": {
+      "comment": "View menu item that resets terminal text to the default size.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actual Size"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamanho Real"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamanho Real"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Actual Size"}}
+      }
+    },
+    "viewMenu.zoomIn": {
+      "comment": "View menu item that increases terminal text size.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom In"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aumentar Zoom"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aumentar Zoom"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Zoom In"}}
+      }
+    },
+    "viewMenu.zoomOut": {
+      "comment": "View menu item that decreases terminal text size.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom Out"
+          }
+        },
+        "es": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reduzir Zoom"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reduzir Zoom"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Zoom Out"}}
+      }
+    },
     "workspaceMenu.groupActive.header": {
       "comment": "Workspace submenu header — reveals 'assign active workspace to group' options.",
       "extractionState": "stale",
@@ -30238,6 +30534,80 @@
             "value": "Preferences..."
           }
         }
+      }
+    },
+    "appCommand.settings": {
+      "comment": "App menu item that opens Soyeht settings.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        },
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "es": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definições…"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Settings…"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Settings…"}}
+      }
+    },
+    "workspaceMenu.showSidebar": {
+      "comment": "Workspace menu item that shows the workspace and pane sidebar.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Workspace Sidebar"
+          }
+        },
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "es": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar Barra Lateral de Workspaces"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar Barra Lateral de Workspaces"
+          }
+        },
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Show Workspace Sidebar"}}
       }
     },
     "appCommand.conversationsSidebar": {
@@ -40823,43 +41193,43 @@
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verbundene Server..."
+            "value": "Verbundene Server…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Servidores conectados..."
+            "value": "Servidores conectados…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serveurs connectés..."
+            "value": "Serveurs connectés…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Server terhubung..."
+            "value": "Server terhubung…"
           }
         },
         "ja": {
@@ -40868,12 +41238,12 @@
             "value": "接続済みサーバー…"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "연결된 서버..."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "已连接服务器..."}},
+        "ko": {"stringUnit": {"state": "translated", "value": "연결된 서버…"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "已连接服务器…"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         },
         "pt-BR": {
@@ -40891,19 +41261,19 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подключенные серверы..."
+            "value": "Подключенные серверы…"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected Servers..."
+            "value": "Connected Servers…"
           }
         }
       },

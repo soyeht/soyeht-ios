@@ -90,36 +90,6 @@
                                                 <action selector="logout:" target="Ady-hI-5gd" id="AA0-lg-out2"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="AA0-lg-sep1"/>
-                                        <menuItem title="Export Text As..." keyEquivalent="s" id="pxx-59-PXV">
-                                            <connections>
-                                                <action selector="exportBuffer:" target="Ady-hI-5gd" id="RuH-bk-JQe"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Export Selected Text As..." keyEquivalent="S" id="NIO-el-3Fl">
-                                            <connections>
-                                                <action selector="exportSelection:" target="Ady-hI-5gd" id="Qfi-Yz-gBE"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="aJh-i4-bef"/>
-                                        <menuItem title="Soft Reset" keyEquivalent="r" id="779-Jx-ExK">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                            <connections>
-                                                <action selector="softReset:" target="Ady-hI-5gd" id="d90-wM-KrY"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Hard Reset" keyEquivalent="r" id="PHf-b2-S9M">
-                                            <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
-                                            <connections>
-                                                <action selector="hardReset:" target="Ady-hI-5gd" id="JDY-Yd-UEd"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="2vj-ue-M3f"/>
-                                        <menuItem title="Print…" keyEquivalent="p" id="aTl-1u-JFS">
-                                            <connections>
-                                                <action selector="print:" target="Ady-hI-5gd" id="qaZ-4w-aoO"/>
-                                            </connections>
-                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>
@@ -138,10 +108,6 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="ULC-jl-AMk"/>
-                                        <menuItem title="Debug" id="woQ-w9-MeP">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="WRV-NI-Exz"/>
                                         <menuItem title="Cut" keyEquivalent="x" id="uRl-iY-unG">
                                             <connections>
                                                 <action selector="cut:" target="Ady-hI-5gd" id="YJe-68-I9s"/>
@@ -307,52 +273,6 @@
                                                 <action selector="showConversationsSidebar:" target="Ady-hI-5gd" id="soy-ws-sb-a"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="soy-ws-sep"/>
-                                        <menuItem title="Workspace 1" tag="1" keyEquivalent="1" id="soy-ws-1">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-1-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 2" tag="2" keyEquivalent="2" id="soy-ws-2">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-2-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 3" tag="3" keyEquivalent="3" id="soy-ws-3">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-3-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 4" tag="4" keyEquivalent="4" id="soy-ws-4">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-4-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 5" tag="5" keyEquivalent="5" id="soy-ws-5">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-5-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 6" tag="6" keyEquivalent="6" id="soy-ws-6">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-6-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 7" tag="7" keyEquivalent="7" id="soy-ws-7">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-7-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 8" tag="8" keyEquivalent="8" id="soy-ws-8">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-8-a"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Workspace 9" tag="9" keyEquivalent="9" id="soy-ws-9">
-                                            <connections>
-                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-9-a"/>
-                                            </connections>
-                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>
@@ -360,19 +280,6 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="View" id="HyV-fh-RgO">
                                     <items>
-                                        <menuItem title="Show Toolbar" keyEquivalent="t" id="snW-S8-Cw5">
-                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                                            <connections>
-                                                <action selector="toggleToolbarShown:" target="Ady-hI-5gd" id="BXY-wc-z0C"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Customize Toolbar…" id="1UK-8n-QPP">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="runToolbarCustomizationPalette:" target="Ady-hI-5gd" id="pQI-g3-MTW"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="jmg-UD-vBX"/>
                                         <menuItem title="Default Font Size" keyEquivalent="0" id="ygS-hf-vVv">
                                             <connections>
                                                 <action selector="defaultFontSize:" target="Ady-hI-5gd" id="Tw1-d1-QIC"/>
@@ -389,21 +296,6 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="hB3-LF-h0Y"/>
-                                        <menuItem title="Allow Mouse Reporting" keyEquivalent="r" id="jzH-qx-TzS">
-                                            <connections>
-                                                <action selector="allowMouseReporting:" target="Ady-hI-5gd" id="2ic-hh-vRb"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Custom Block Glyphs" id="n1S-3x-LZb">
-                                            <connections>
-                                                <action selector="toggleCustomBlockGlyphs:" target="Ady-hI-5gd" id="KpX-Fv-1m0"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Use Base16 LAB 256 Palette" id="QmM-zN-kK1">
-                                            <connections>
-                                                <action selector="toggleAnsi256PaletteStrategy:" target="Ady-hI-5gd" id="Vw2-1s-H4W"/>
-                                            </connections>
-                                        </menuItem>
                                         <menuItem title="Enter Full Screen" keyEquivalent="f" id="4J7-dP-txa">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
                                             <connections>
@@ -429,91 +321,10 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Ynf-P3-cQG"/>
-                                        <menuItem title="Show Next Tab" id="Wlk-by-VEG">
-                                            <string key="keyEquivalent" base64-UTF8="YES">
-CQ
-</string>
-                                            <modifierMask key="keyEquivalentModifierMask" control="YES"/>
-                                            <connections>
-                                                <action selector="selectNextTab:" target="Ady-hI-5gd" id="Vuf-By-PKz"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Show Previous Tab" id="N9R-ai-0Xh">
-                                            <string key="keyEquivalent" base64-UTF8="YES">
-GQ
-</string>
-                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
-                                            <connections>
-                                                <action selector="selectPreviousTab:" target="Ady-hI-5gd" id="tDP-sc-3cN"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Move Tab to New Window" id="UaO-vr-it6">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="moveTabToNewWindow:" target="Ady-hI-5gd" id="2HU-DU-SAY"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Merge All Windows" id="gFY-ve-zFl">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="mergeAllWindows:" target="Ady-hI-5gd" id="dLh-cb-hVD"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="eu3-7i-yIM"/>
                                         <menuItem title="Bring All to Front" id="LE2-aR-0XJ">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="arrangeInFront:" target="Ady-hI-5gd" id="DRN-fu-gQh"/>
-                                            </connections>
-                                        </menuItem>
-                                    </items>
-                                </menu>
-                            </menuItem>
-                            <menuItem title="Debug" id="xXM-Rf-SN3">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Debug" id="PZO-Mh-HgN">
-                                    <items>
-                                        <menuItem title="Log host output to ~/Downloads/Logs" tag="1000" id="a46-bA-6WQ">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="debugToggleHostLogging:" target="Ady-hI-5gd" id="LMD-BF-wDc"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Show Debug Buffer" id="k5i-qy-zy2">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <segue destination="nkh-mY-QjY" kind="show" id="adp-CF-3zb"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem isSeparatorItem="YES" id="k6s-LU-zTp"/>
-                                        <menuItem title="Set size to 80x25" id="2R6-Zv-UF1">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="set80x25:" target="Ady-hI-5gd" id="SQb-8p-G7X"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Resizificate-up" id="SKl-Ia-pof">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="resizificator:" target="Ady-hI-5gd" id="pX8-9D-PGr"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Resizificate-down" id="Qxi-Mx-PvP">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="resizificatorDown:" target="Ady-hI-5gd" id="oOh-5S-lVH"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Toggle Metal Renderer" id="qCs-hZ-2n5">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="toggleMetalRenderer:" target="Ady-hI-5gd" id="QbO-bt-8ys"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="Use Per-Frame Metal Buffering" id="dWc-9x-NlP">
-                                            <modifierMask key="keyEquivalentModifierMask"/>
-                                            <connections>
-                                                <action selector="toggleMetalBufferingMode:" target="Ady-hI-5gd" id="Z7a-Rj-3vS"/>
                                             </connections>
                                         </menuItem>
                                     </items>

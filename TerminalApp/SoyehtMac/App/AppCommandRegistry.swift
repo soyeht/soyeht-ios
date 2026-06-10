@@ -288,6 +288,175 @@ enum AppCommandMenuTag {
     static let workspaceGroupActiveHeader = -102
 }
 
+enum PublicMenuSurface {
+    static let internalDebugEnvironmentKey = "SOYEHT_SHOW_DEBUG_MENU"
+    static let internalDebugDefaultsKey = "SoyehtShowDebugMenu"
+
+    static let forbiddenPublicTitleFragments = [
+        "Debug",
+        "Use Base16",
+        "Soft Reset",
+        "Hard Reset",
+        "Move Focused Pane",
+        "Export Text",
+        "Export Selected Text"
+    ]
+
+    static let requiredPublicTitleFragments = [
+        "Settings",
+        "Agent Permissions",
+        "Workspaces",
+        "Move Pane to Workspace"
+    ]
+
+    static func shouldShowInternalDebugMenu(
+        isDevelopmentBuild: Bool,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        userDefaults: UserDefaults = .standard
+    ) -> Bool {
+        guard isDevelopmentBuild else { return false }
+        if environment[internalDebugEnvironmentKey] == "1" { return true }
+        return userDefaults.bool(forKey: internalDebugDefaultsKey)
+    }
+
+    static func forbiddenTitleFragments(in titles: [String]) -> [String] {
+        forbiddenPublicTitleFragments.filter { fragment in
+            titles.contains { $0.localizedCaseInsensitiveContains(fragment) }
+        }
+    }
+
+    static func missingRequiredTitleFragments(in titles: [String]) -> [String] {
+        requiredPublicTitleFragments.filter { fragment in
+            !titles.contains { $0.localizedCaseInsensitiveContains(fragment) }
+        }
+    }
+}
+
+#if canImport(AppKit)
+extension PublicMenuSurface {
+    static func removeForbiddenPublicItems(
+        from mainMenu: NSMenu,
+        allowInternalDebugMenu: Bool,
+        localizedDebugTitle: String
+    ) {
+        for index in mainMenu.items.indices.reversed() {
+            let item = mainMenu.items[index]
+            let isDebugRoot = isDebugTitle(item.title, localizedDebugTitle: localizedDebugTitle)
+            if isDebugRoot && !allowInternalDebugMenu {
+                mainMenu.removeItem(at: index)
+                continue
+            }
+            if let submenu = item.submenu {
+                removeForbiddenPublicItems(
+                    from: submenu,
+                    allowInternalDebugSubtree: isDebugRoot && allowInternalDebugMenu,
+                    localizedDebugTitle: localizedDebugTitle
+                )
+            }
+        }
+        collapseSeparators(in: mainMenu)
+    }
+
+    static func allMenuItemTitles(in menu: NSMenu) -> [String] {
+        var titles: [String] = []
+        collectMenuItemTitles(in: menu, into: &titles)
+        return titles
+    }
+
+    static func removeDuplicateVisibleItems(from menu: NSMenu) {
+        removeDuplicateSiblings(in: menu)
+        for item in menu.items {
+            if let submenu = item.submenu {
+                removeDuplicateVisibleItems(from: submenu)
+            }
+        }
+    }
+
+    private static func removeForbiddenPublicItems(
+        from menu: NSMenu,
+        allowInternalDebugSubtree: Bool,
+        localizedDebugTitle: String
+    ) {
+        for index in menu.items.indices.reversed() {
+            let item = menu.items[index]
+            if !allowInternalDebugSubtree,
+               isForbiddenPublicTitle(item.title, localizedDebugTitle: localizedDebugTitle) {
+                menu.removeItem(at: index)
+                continue
+            }
+            if let submenu = item.submenu {
+                removeForbiddenPublicItems(
+                    from: submenu,
+                    allowInternalDebugSubtree: false,
+                    localizedDebugTitle: localizedDebugTitle
+                )
+            }
+        }
+        collapseSeparators(in: menu)
+    }
+
+    private static func removeDuplicateSiblings(in menu: NSMenu) {
+        var seen = Set<String>()
+        var duplicateIndexes: [Int] = []
+
+        for (index, item) in menu.items.enumerated() {
+            guard let identity = duplicateIdentity(for: item) else { continue }
+            if !seen.insert(identity).inserted {
+                duplicateIndexes.append(index)
+            }
+        }
+
+        for index in duplicateIndexes.reversed() {
+            menu.removeItem(at: index)
+        }
+        collapseSeparators(in: menu)
+    }
+
+    private static func duplicateIdentity(for item: NSMenuItem) -> String? {
+        guard !item.isSeparatorItem else { return nil }
+        let title = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return nil }
+        return title
+    }
+
+    private static func collectMenuItemTitles(in menu: NSMenu, into titles: inout [String]) {
+        if !menu.title.isEmpty {
+            titles.append(menu.title)
+        }
+        for item in menu.items {
+            if !item.title.isEmpty {
+                titles.append(item.title)
+            }
+            if let submenu = item.submenu {
+                collectMenuItemTitles(in: submenu, into: &titles)
+            }
+        }
+    }
+
+    private static func isForbiddenPublicTitle(_ title: String, localizedDebugTitle: String) -> Bool {
+        if isDebugTitle(title, localizedDebugTitle: localizedDebugTitle) { return true }
+        return forbiddenPublicTitleFragments
+            .filter { $0.compare("Debug", options: [.caseInsensitive]) != .orderedSame }
+            .contains { title.localizedCaseInsensitiveContains($0) }
+    }
+
+    private static func isDebugTitle(_ title: String, localizedDebugTitle: String) -> Bool {
+        title == "Debug" || title == localizedDebugTitle
+    }
+
+    private static func collapseSeparators(in menu: NSMenu) {
+        for index in menu.items.indices.reversed() {
+            let item = menu.items[index]
+            let isEdge = index == 0 || index == menu.items.count - 1
+            let previousIsSeparator = index > 0 && menu.items[index - 1].isSeparatorItem
+            if item.isSeparatorItem && (isEdge || previousIsSeparator) {
+                menu.removeItem(at: index)
+            }
+        }
+    }
+}
+#endif
+
 enum AppCommandRegistry {
     static let workspaceTags = 1...9
 
@@ -379,7 +548,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .showPreferences,
-                title: String(localized: "appCommand.preferences"),
+                title: String(
+                    localized: "appCommand.settings",
+                    defaultValue: "Settings…",
+                    comment: "App menu item that opens Soyeht settings."
+                ),
                 action: .showPreferences,
                 shortcut: AppCommandShortcut(.character(","), modifiers: [.command]),
                 menuPlacement: .appMenu
@@ -388,7 +561,7 @@ enum AppCommandRegistry {
                 id: .showAgentVisualPermissions,
                 title: String(
                     localized: "appMenu.agentVisualPermissions",
-                    defaultValue: "Agent Visual Permissions...",
+                    defaultValue: "Agent Permissions…",
                     comment: "App menu item that checks Screen Recording and Accessibility permissions used by local AI agents."
                 ),
                 action: .showAgentVisualPermissions,
@@ -440,7 +613,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .showConversationsSidebar,
-                title: String(localized: "appCommand.conversationsSidebar"),
+                title: String(
+                    localized: "workspaceMenu.showSidebar",
+                    defaultValue: "Show Workspace Sidebar",
+                    comment: "Workspace menu item that shows the workspace and pane sidebar."
+                ),
                 action: .showConversationsSidebar,
                 shortcut: AppCommandShortcut(.character("c"), modifiers: [.command, .shift]),
                 menuPlacement: .workspaceMenu
