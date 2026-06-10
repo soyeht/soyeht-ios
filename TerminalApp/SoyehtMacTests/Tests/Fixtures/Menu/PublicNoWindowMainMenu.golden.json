@@ -1,0 +1,829 @@
+{
+  "children" : [
+    {
+      "children" : [
+        {
+          "action" : "orderFrontStandardAboutPanel:",
+          "kind" : "item",
+          "targetPolicy" : "responderChain",
+          "title" : "About Soyeht"
+        },
+        {
+          "action" : "checkForUpdates:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Check for Updates…"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "showPreferences:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : ",",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Settings…"
+        },
+        {
+          "action" : "showAgentVisualPermissions:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Agent Permissions…"
+        },
+        {
+          "action" : "showPairedDevices:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "d",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Paired Devices…"
+        },
+        {
+          "action" : "showConnectedServers:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Connected Servers…"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "hide:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "h",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Hide Soyeht"
+        },
+        {
+          "action" : "hideOtherApplications:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "h",
+            "modifiers" : [
+              "command",
+              "option"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Hide Others"
+        },
+        {
+          "action" : "unhideAllApplications:",
+          "kind" : "item",
+          "targetPolicy" : "responderChain",
+          "title" : "Show All"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "uninstallSoyeht:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Uninstall Soyeht…"
+        },
+        {
+          "action" : "terminate:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "q",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Quit Soyeht"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Soyeht"
+    },
+    {
+      "children" : [
+        {
+          "action" : "newWindow:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "n",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "New Window"
+        },
+        {
+          "action" : "newConversation:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "t",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "New Conversation"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "performClose:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "w",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Close"
+        },
+        {
+          "action" : "closeActiveWorkspace:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "w",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Close Workspace"
+        },
+        {
+          "action" : "logout:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Logout…"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Shell"
+    },
+    {
+      "children" : [
+        {
+          "action" : "undoWindowAction:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "z",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Undo"
+        },
+        {
+          "action" : "redoWindowAction:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "y",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Redo"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "cut:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "x",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Cut"
+        },
+        {
+          "action" : "copy:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "c",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Copy"
+        },
+        {
+          "action" : "paste:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "v",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Paste"
+        },
+        {
+          "action" : "pasteAsPlainText:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "v",
+            "modifiers" : [
+              "command",
+              "option"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Paste and Match Style"
+        },
+        {
+          "action" : "delete:",
+          "kind" : "item",
+          "targetPolicy" : "responderChain",
+          "title" : "Delete"
+        },
+        {
+          "action" : "selectAll:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "a",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Select All"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "toggleOptionAsMetaKey:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "o",
+            "modifiers" : [
+              "command",
+              "option"
+            ]
+          },
+          "state" : "on",
+          "targetPolicy" : "responderChain",
+          "title" : "Use Option as Meta Key"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "children" : [
+            {
+              "action" : "performFindPanelAction:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "f",
+                "modifiers" : [
+                  "command"
+                ]
+              },
+              "tag" : 1,
+              "targetPolicy" : "responderChain",
+              "title" : "Find…"
+            },
+            {
+              "action" : "performFindPanelAction:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "f",
+                "modifiers" : [
+                  "command",
+                  "option"
+                ]
+              },
+              "tag" : 12,
+              "targetPolicy" : "responderChain",
+              "title" : "Find and Replace…"
+            },
+            {
+              "action" : "performFindPanelAction:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "g",
+                "modifiers" : [
+                  "command"
+                ]
+              },
+              "tag" : 2,
+              "targetPolicy" : "responderChain",
+              "title" : "Find Next"
+            },
+            {
+              "action" : "performFindPanelAction:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "g",
+                "modifiers" : [
+                  "command",
+                  "shift"
+                ]
+              },
+              "tag" : 3,
+              "targetPolicy" : "responderChain",
+              "title" : "Find Previous"
+            },
+            {
+              "action" : "performFindPanelAction:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "e",
+                "modifiers" : [
+                  "command"
+                ]
+              },
+              "tag" : 7,
+              "targetPolicy" : "responderChain",
+              "title" : "Use Selection for Find"
+            },
+            {
+              "action" : "centerSelectionInVisibleArea:",
+              "kind" : "item",
+              "shortcut" : {
+                "key" : "j",
+                "modifiers" : [
+                  "command"
+                ]
+              },
+              "targetPolicy" : "responderChain",
+              "title" : "Jump to Selection"
+            }
+          ],
+          "kind" : "item",
+          "title" : "Find"
+        },
+        {
+          "children" : [
+            {
+              "action" : "startSpeaking:",
+              "kind" : "item",
+              "targetPolicy" : "responderChain",
+              "title" : "Start Speaking"
+            },
+            {
+              "action" : "stopSpeaking:",
+              "kind" : "item",
+              "targetPolicy" : "responderChain",
+              "title" : "Stop Speaking"
+            }
+          ],
+          "kind" : "item",
+          "title" : "Speech"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Edit"
+    },
+    {
+      "children" : [
+        {
+          "action" : "defaultFontSize:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "0",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Actual Size"
+        },
+        {
+          "action" : "biggerFont:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "+",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Zoom In"
+        },
+        {
+          "action" : "smallerFont:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "-",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Zoom Out"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "toggleFullScreen:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "f",
+            "modifiers" : [
+              "command",
+              "control"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Enter Full Screen"
+        },
+        {
+          "action" : "showCommandPalette:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "p",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Go to Pane…"
+        }
+      ],
+      "kind" : "item",
+      "title" : "View"
+    },
+    {
+      "children" : [
+        {
+          "action" : "splitPaneVertical:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "|",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Split Vertical"
+        },
+        {
+          "action" : "splitPaneHorizontal:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "_",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Split Horizontal"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "focusPaneLeft:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "leftArrow",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Focus Left"
+        },
+        {
+          "action" : "focusPaneRight:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "rightArrow",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Focus Right"
+        },
+        {
+          "action" : "focusPaneUp:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "upArrow",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Focus Up"
+        },
+        {
+          "action" : "focusPaneDown:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "downArrow",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Focus Down"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "closeFocusedPane:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Close Pane"
+        },
+        {
+          "action" : "toggleZoomFocusedPane:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "z",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Zoom Focused Pane"
+        },
+        {
+          "action" : "exitZoom:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "escape",
+            "modifiers" : [
+
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Exit Zoom"
+        },
+        {
+          "action" : "swapPaneLeft:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "leftArrow",
+            "modifiers" : [
+              "shift",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Swap Pane Left"
+        },
+        {
+          "action" : "swapPaneRight:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "rightArrow",
+            "modifiers" : [
+              "shift",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Swap Pane Right"
+        },
+        {
+          "action" : "swapPaneUp:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "upArrow",
+            "modifiers" : [
+              "shift",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Swap Pane Up"
+        },
+        {
+          "action" : "swapPaneDown:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "downArrow",
+            "modifiers" : [
+              "shift",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Swap Pane Down"
+        },
+        {
+          "action" : "rotateFocusedSplit:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "r",
+            "modifiers" : [
+              "shift",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Rotate Focused Split"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "children" : [
+            {
+              "enabled" : false,
+              "kind" : "item",
+              "tag" : -802,
+              "title" : "No Focused Pane"
+            }
+          ],
+          "enabled" : false,
+          "kind" : "item",
+          "tag" : -101,
+          "title" : "Move Pane to Workspace"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Pane"
+    },
+    {
+      "children" : [
+        {
+          "action" : "showConversationsSidebar:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "c",
+            "modifiers" : [
+              "command",
+              "shift"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Show Workspace Sidebar"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "enabled" : false,
+          "kind" : "item",
+          "tag" : -801,
+          "title" : "No Workspace Window"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "moveActiveWorkspaceLeft:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "[",
+            "modifiers" : [
+              "command",
+              "control"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Move Active Workspace Left"
+        },
+        {
+          "action" : "moveActiveWorkspaceRight:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "]",
+            "modifiers" : [
+              "command",
+              "control"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Move Active Workspace Right"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "children" : [
+            {
+              "action" : "assignActiveWorkspaceToGroup:",
+              "enabled" : false,
+              "kind" : "item",
+              "state" : "on",
+              "targetPolicy" : "explicitTarget",
+              "title" : "None"
+            },
+            {
+              "kind" : "separator"
+            },
+            {
+              "action" : "newGroupForActiveWorkspace:",
+              "enabled" : false,
+              "kind" : "item",
+              "targetPolicy" : "explicitTarget",
+              "title" : "New Group…"
+            }
+          ],
+          "kind" : "item",
+          "tag" : -102,
+          "title" : "Group Active Workspace"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Workspaces"
+    },
+    {
+      "children" : [
+        {
+          "childrenRedacted" : "dictation languages are locale and preference dependent",
+          "kind" : "item",
+          "tag" : -702,
+          "title" : "Dictation Language"
+        }
+      ],
+      "kind" : "item",
+      "tag" : -701,
+      "title" : "Sound"
+    },
+    {
+      "children" : [
+        {
+          "action" : "performMiniaturize:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "m",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Minimize"
+        },
+        {
+          "action" : "performZoom:",
+          "kind" : "item",
+          "targetPolicy" : "responderChain",
+          "title" : "Zoom"
+        },
+        {
+          "kind" : "separator"
+        },
+        {
+          "action" : "arrangeInFront:",
+          "kind" : "item",
+          "targetPolicy" : "responderChain",
+          "title" : "Bring All to Front"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Window"
+    },
+    {
+      "children" : [
+        {
+          "action" : "showHelp:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "?",
+            "modifiers" : [
+              "command"
+            ]
+          },
+          "targetPolicy" : "responderChain",
+          "title" : "Soyeht Help"
+        }
+      ],
+      "kind" : "item",
+      "title" : "Help"
+    }
+  ],
+  "kind" : "menu",
+  "title" : "Main Menu"
+}
