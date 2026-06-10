@@ -37,6 +37,42 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
         )
     }
 
+    func testMainMenuBuilderAssignsStableRuntimeIdentifiers() throws {
+        let mainMenu = MainMenuBuilder().buildPublicNoWindowMenu()
+
+        for id in [
+            MainMenuID.app,
+            .shell,
+            .edit,
+            .view,
+            .pane,
+            .workspaces,
+            .sound,
+            .window,
+            .help,
+        ] {
+            let item = try XCTUnwrap(mainMenu.topLevelItem(id), "Missing top-level menu \(id)")
+            XCTAssertEqual(item.representedObject as? MainMenuID, id)
+            XCTAssertEqual(item.submenu?.identifier, MainMenuBuilder.identifier(for: id))
+        }
+
+        let paneMenu = try XCTUnwrap(mainMenu.topLevelItem(.pane)?.submenu)
+        let movePane = try XCTUnwrap(
+            paneMenu.items.first { $0.tag == AppCommandMenuTag.paneMoveToWorkspaceHeader }
+        )
+        XCTAssertEqual(movePane.identifier, MainMenuBuilder.identifier(for: .movePaneToWorkspace))
+        XCTAssertEqual(movePane.representedObject as? MainMenuDynamicSectionID, .movePaneToWorkspace)
+        XCTAssertEqual(movePane.submenu?.identifier, MainMenuBuilder.identifier(for: .movePaneToWorkspace))
+
+        let soundMenu = try XCTUnwrap(mainMenu.topLevelItem(.sound)?.submenu)
+        let dictationLanguage = try XCTUnwrap(
+            soundMenu.items.first { $0.tag == MainMenuTag.soundDictationLanguage }
+        )
+        XCTAssertEqual(dictationLanguage.identifier, MainMenuBuilder.identifier(for: .dictationLanguage))
+        XCTAssertEqual(dictationLanguage.representedObject as? MainMenuDynamicSectionID, .dictationLanguage)
+        XCTAssertEqual(dictationLanguage.submenu?.identifier, MainMenuBuilder.identifier(for: .dictationLanguage))
+    }
+
     func testLegacyStoryboardCanonicalizationsAreExplicitAndCurrent() throws {
         let storyboardItems = try StoryboardMenuScanner(storyboardURL: Self.storyboardURL).itemsBySelector
 
@@ -65,6 +101,27 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
         }
     }
 
+    func testAppActivationReassertsProgrammaticMenuBeforeDebugMenu() throws {
+        let source = try String(contentsOf: Self.appDelegateURL, encoding: .utf8)
+        let activation = try slice(
+            source,
+            from: "func applicationDidBecomeActive",
+            to: "private func autoHouseholdPairDevice"
+        )
+
+        let programmaticMenu = try XCTUnwrap(
+            activation.range(of: "installProgrammaticMainMenuIfNeeded()")
+        )
+        let internalDebugMenu = try XCTUnwrap(
+            activation.range(of: "installInternalDebugMenuIfNeeded()")
+        )
+        XCTAssertLessThan(
+            programmaticMenu.lowerBound,
+            internalDebugMenu.lowerBound,
+            "The runtime builder must replace any late storyboard menu before DEBUG-only items are considered."
+        )
+    }
+
     private func publicNoWindowSnapshot() -> MainMenuSnapshotNode {
         MainMenuSnapshot.capture(
             MainMenuBuilder().buildPublicNoWindowMenu(),
@@ -84,6 +141,27 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("SoyehtMac/Base.lproj/Main.storyboard")
+    }
+
+    private static var appDelegateURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("SoyehtMac/AppDelegate.swift")
+    }
+
+    private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
+        let start = try XCTUnwrap(source.range(of: startMarker))
+        let tail = source[start.lowerBound...]
+        let end = try XCTUnwrap(tail.range(of: endMarker))
+        return String(tail[..<end.lowerBound])
+    }
+}
+
+private extension NSMenu {
+    func topLevelItem(_ id: MainMenuID) -> NSMenuItem? {
+        items.first { $0.identifier == MainMenuBuilder.identifier(for: id) }
     }
 }
 

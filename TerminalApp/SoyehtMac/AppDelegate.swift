@@ -26,16 +26,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     var isTerminatingForWindowRestoration: Bool { isTerminating }
 
-    private enum SoundMenuTag {
-        static let topLevel = -701
-        static let dictationLanguage = -702
-    }
-
-    private enum MenuPolishTag {
-        static let workspaceUnavailable = -801
-        static let paneMoveUnavailable = -802
-    }
-
     #if DEBUG
     private static var shouldShowInternalDebugMenu: Bool {
         PublicMenuSurface.shouldShowInternalDebugMenu(isDevelopmentBuild: true)
@@ -47,6 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     #endif
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        installProgrammaticMainMenu()
         // Kick off the login-shell PATH probe immediately so it's ready by
         // the time the user opens the first bash pane. Async; never blocks
         // launch.
@@ -56,6 +47,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        installProgrammaticMainMenuIfNeeded()
         AppEnvironment.workspaceStore = workspaceStore
         AppEnvironment.conversationStore = conversationStore
         workspaceStore.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
@@ -89,8 +81,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         WorkspaceSwitchBenchmark.scheduleIfRequestedByEnvironment()
         #endif
         SoyehtUpdater.shared.startIfConfigured()
-        installPublicMenuEnhancements()
-        scheduleDeferredPublicMenuRefresh()
         // Boot the app-level WebSocket server so paired iPhones can reach us
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
@@ -171,6 +161,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         return false  // Don't present Open dialog on launch
     }
 
+    private func installProgrammaticMainMenu() {
+        let mainMenu = MainMenuBuilder(explicitTarget: self)
+            .buildPublicNoWindowMenu(clawStoreEnabled: SoyehtFeatureFlags.clawStoreEnabled)
+        NSApp.mainMenu = mainMenu
+        configureProgrammaticMainMenuRuntime(mainMenu)
+    }
+
+    private func installProgrammaticMainMenuIfNeeded() {
+        guard NSApp.mainMenu?.identifier != MainMenuBuilder.identifier(for: .main) else { return }
+        installProgrammaticMainMenu()
+    }
+
+    private func configureProgrammaticMainMenuRuntime(_ mainMenu: NSMenu) {
+        NSApp.windowsMenu = submenu(.window, in: mainMenu)
+        NSApp.helpMenu = submenu(.help, in: mainMenu)
+
+        [
+            MainMenuID.edit,
+            .view,
+            .pane,
+            .workspaces,
+            .sound,
+        ].compactMap { submenu($0, in: mainMenu) }
+            .forEach { $0.delegate = self }
+
+        if let soundMenu = submenu(.sound, in: mainMenu) {
+            refreshSoundMenu(soundMenu)
+        }
+
+        #if DEBUG
+        installInternalDebugMenuIfNeeded()
+        #endif
+    }
+
+    private func submenu(_ id: MainMenuID) -> NSMenu? {
+        submenu(id, in: NSApp.mainMenu)
+    }
+
+    private func submenu(_ id: MainMenuID, in mainMenu: NSMenu?) -> NSMenu? {
+        mainMenu?.items.first(where: {
+            $0.identifier == MainMenuBuilder.identifier(for: id)
+                || $0.submenu?.identifier == MainMenuBuilder.identifier(for: id)
+        })?.submenu
+    }
+
+    #if DEBUG
+    private func installInternalDebugMenuIfNeeded() {
+        guard Self.shouldShowInternalDebugMenu else { return }
+        installDebugMenu()
+    }
+    #endif
+
     // MARK: - URL Scheme (theyos://)
 
     /// Strong reference to the Welcome window while it's visible. AppKit
@@ -200,7 +242,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        scheduleDeferredPublicMenuRefresh()
+        // The storyboard can still provide a late main-menu instance during app
+        // activation. Keep the programmatic builder as the runtime source.
+        installProgrammaticMainMenuIfNeeded()
+        #if DEBUG
+        installInternalDebugMenuIfNeeded()
+        #endif
     }
 
     private func autoHouseholdPairDevice(url: URL) {
@@ -1433,17 +1480,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func installDebugMenu() {
         guard let mainMenu = NSApp.mainMenu else { return }
 
-        // Reuse an existing top-level "Debug" menu if SwiftTerm's storyboard
-        // (or any other origin) already installed one — appending into it is
-        // safer than creating a second menu with the same title.
         let debugTitle = String(localized: "debug.menu.title")
         let debugMenu: NSMenu
         let isFreshMenu: Bool
-        if let existing = mainMenu.items.first(where: { $0.title == debugTitle || $0.title == "Debug" })?.submenu {
+        if let existing = submenu(.debug, in: mainMenu) {
             debugMenu = existing
             isFreshMenu = false
         } else {
             debugMenu = NSMenu(title: debugTitle)
+            debugMenu.identifier = MainMenuBuilder.identifier(for: .debug)
             isFreshMenu = true
         }
 
@@ -1478,9 +1523,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         if isFreshMenu {
             let debugItem = NSMenuItem(title: debugTitle, action: nil, keyEquivalent: "")
+            debugItem.identifier = MainMenuBuilder.identifier(for: .debug)
+            debugItem.representedObject = MainMenuID.debug
             debugItem.submenu = debugMenu
             // Insert before the Help menu (last item).
-            let insertIndex = max(0, mainMenu.items.count - 1)
+            let insertIndex = mainMenu.items.firstIndex {
+                $0.identifier == MainMenuBuilder.identifier(for: .help)
+            } ?? max(0, mainMenu.items.count - 1)
             mainMenu.insertItem(debugItem, at: insertIndex)
         }
     }
@@ -1667,225 +1716,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         controller.assignActiveWorkspaceToGroup(sender.representedObject as? Group.ID)
     }
 
-    private func installPublicMenuEnhancements() {
-        installApplicationMenuEnhancements()
-        installAgentVisualPermissionsMenu()
-        installUpdateMenu()
-        installShellMenuEnhancements()
-        installViewMenuEnhancements()
-        installWindowMenuEnhancements()
-        installSoundMenu()
-        installPairingMenu()
-        installClawStoreMenu()
-        installConnectedServersMenu()
-        installUninstallMenu()
-        normalizeApplicationMenuUtilityOrder()
-        installCommandPaletteMenu()
-        installPaneMenuEnhancements()
-        installEditMenuEnhancements()
-        installWorkspaceMenuEnhancements()
-        normalizeTopLevelMenuOrder()
-        polishPublicMenuSurface()
-    }
-
-    private func scheduleDeferredPublicMenuRefresh() {
-        DispatchQueue.main.async { [weak self] in
-            self?.installPublicMenuEnhancements()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            self?.installPublicMenuEnhancements()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.installPublicMenuEnhancements()
-        }
-    }
-
-    private func installApplicationMenuEnhancements() {
-        guard let mainMenu = NSApp.mainMenu,
-              let appMenu = mainMenu.items.first?.submenu,
-              let command = AppCommandRegistry.command(.showPreferences),
-              let item = appMenu.items.first(where: { $0.action == command.action.selector })
-                ?? findMenuItem(in: appMenu, titled: "Preferences…")
-                ?? findMenuItem(in: appMenu, titled: "Preferences...") else { return }
-        configureMenuItem(item, with: command)
-    }
-
-    private func installAgentVisualPermissionsMenu() {
-        guard let command = AppCommandRegistry.command(.showAgentVisualPermissions),
-              let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
-        if let existing = findMenuItem(for: command, in: appMenu) {
-            configureMenuItem(existing, with: command)
-            return
-        }
-
-        let item = makeMenuItem(for: command)
-        let insertAfter = appMenu.items.firstIndex {
-            $0.action == #selector(showPreferences(_:))
-                || $0.title.lowercased().contains("preferences")
-                || $0.title.lowercased().contains("settings")
-        }
-        appMenu.insertItem(item, at: insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count))
-    }
-
-    private func installUpdateMenu() {
-        guard let command = AppCommandRegistry.command(.checkForUpdates),
-              let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
-        if let existing = findMenuItem(for: command, in: appMenu) {
-            configureMenuItem(existing, with: command)
-            return
-        }
-
-        let item = makeMenuItem(for: command)
-        let aboutIndex = appMenu.items.firstIndex {
-            $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
-        }
-        let index = aboutIndex.map { $0 + 1 } ?? min(1, appMenu.items.count)
-        appMenu.insertItem(item, at: index)
-    }
-
-    private func installShellMenuEnhancements() {
-        guard let shellMenu = NSApp.mainMenu?
-            .items
-            .first(where: { $0.title == "Shell" })?
-            .submenu
-        else { return }
-
-        removeMenuItems(
-            in: shellMenu,
-            actions: [
-                NSSelectorFromString("exportBuffer:"),
-                NSSelectorFromString("exportSelection:"),
-                NSSelectorFromString("softReset:"),
-                NSSelectorFromString("hardReset:"),
-                NSSelectorFromString("print:")
-            ]
-        )
-
-        for commandID in [AppCommandID.newWindow, .newConversation] {
-            guard let command = AppCommandRegistry.command(commandID),
-                  let item = findMenuItem(in: shellMenu, titled: command.title) else { continue }
-            configureMenuItem(item, with: command)
-        }
-
-        if let closeWorkspace = findMenuItem(in: shellMenu, titled: "Close Workspace") {
-            closeWorkspace.target = self
-            closeWorkspace.action = #selector(closeActiveWorkspace(_:))
-            closeWorkspace.keyEquivalent = "w"
-            closeWorkspace.keyEquivalentModifierMask = [.command, .shift]
-        }
-
-        if let logout = findMenuItem(in: shellMenu, titled: "Logout…")
-            ?? findMenuItem(in: shellMenu, titled: "Logout...") {
-            logout.target = self
-            logout.action = #selector(logout(_:))
-        }
-
-        collapseSeparators(in: shellMenu)
-    }
-
-    private func installViewMenuEnhancements() {
-        guard let viewMenu = NSApp.mainMenu?
-            .items
-            .first(where: { $0.title == "View" })?
-            .submenu
-        else { return }
-
-        viewMenu.delegate = self
-        removeMenuItems(
-            in: viewMenu,
-            titles: [
-                "Show Toolbar",
-                "Customize Toolbar…",
-                "Customize Toolbar...",
-                "Allow Mouse Reporting",
-                "Custom Block Glyphs",
-                "Use Base16 LAB 256 Palette"
-            ]
-        )
-
-        if let actualSize = findMenuItem(in: viewMenu, titled: "Default Font Size") {
-            actualSize.title = String(
-                localized: "viewMenu.actualSize",
-                defaultValue: "Actual Size",
-                comment: "View menu item that resets terminal text to the default size."
-            )
-            actualSize.target = self
-            actualSize.action = #selector(defaultFontSize(_:))
-            actualSize.keyEquivalent = "0"
-            actualSize.keyEquivalentModifierMask = [.command]
-        }
-
-        if let bigger = findMenuItem(in: viewMenu, titled: "Bigger") {
-            bigger.title = String(
-                localized: "viewMenu.zoomIn",
-                defaultValue: "Zoom In",
-                comment: "View menu item that increases terminal text size."
-            )
-            bigger.target = self
-            bigger.action = #selector(biggerFont(_:))
-            bigger.keyEquivalent = "+"
-            bigger.keyEquivalentModifierMask = [.command]
-        }
-
-        if let smaller = findMenuItem(in: viewMenu, titled: "Smaller") {
-            smaller.title = String(
-                localized: "viewMenu.zoomOut",
-                defaultValue: "Zoom Out",
-                comment: "View menu item that decreases terminal text size."
-            )
-            smaller.target = self
-            smaller.action = #selector(smallerFont(_:))
-            smaller.keyEquivalent = "-"
-            smaller.keyEquivalentModifierMask = [.command]
-        }
-
-        PublicMenuSurface.removeDuplicateVisibleItems(from: viewMenu)
-        collapseSeparators(in: viewMenu)
-    }
-
-    private func installWindowMenuEnhancements() {
-        guard let windowMenu = NSApp.mainMenu?
-            .items
-            .first(where: { $0.title == "Window" })?
-            .submenu
-        else { return }
-
-        removeMenuItems(
-            in: windowMenu,
-            actions: [
-                NSSelectorFromString("selectNextTab:"),
-                NSSelectorFromString("selectPreviousTab:"),
-                NSSelectorFromString("moveTabToNewWindow:"),
-                NSSelectorFromString("mergeAllWindows:")
-            ]
-        )
-        collapseSeparators(in: windowMenu)
-    }
-
-    private func installSoundMenu() {
-        guard let mainMenu = NSApp.mainMenu else { return }
-
-        let soundTitle = String(localized: "sound.menu.title")
-        let item: NSMenuItem
-        let menu: NSMenu
-        if let existing = mainMenu.items.first(where: { $0.tag == SoundMenuTag.topLevel || $0.title == soundTitle || $0.title == "Sound" }) {
-            item = existing
-            menu = existing.submenu ?? NSMenu(title: soundTitle)
-        } else {
-            item = NSMenuItem(title: soundTitle, action: nil, keyEquivalent: "")
-            menu = NSMenu(title: soundTitle)
-            let windowIndex = mainMenu.items.firstIndex { $0.title == "Window" }
-            mainMenu.insertItem(item, at: windowIndex ?? max(0, mainMenu.items.count - 1))
-        }
-
-        item.title = soundTitle
-        item.tag = SoundMenuTag.topLevel
-        item.submenu = menu
-        menu.title = soundTitle
-        menu.delegate = self
-        refreshSoundMenu(menu)
-    }
-
     private func refreshSoundMenu(_ soundMenu: NSMenu) {
         soundMenu.removeAllItems()
 
@@ -1894,11 +1724,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             defaultValue: "Dictation Language"
         )
         let header = NSMenuItem(title: languageTitle, action: nil, keyEquivalent: "")
-        header.tag = SoundMenuTag.dictationLanguage
-        header.submenu = NSMenu(title: languageTitle)
+        header.identifier = MainMenuBuilder.identifier(for: .dictationLanguage)
+        header.representedObject = MainMenuDynamicSectionID.dictationLanguage
+        header.tag = MainMenuTag.soundDictationLanguage
+        let languageMenu = NSMenu(title: languageTitle)
+        languageMenu.identifier = MainMenuBuilder.identifier(for: .dictationLanguage)
+        header.submenu = languageMenu
         soundMenu.addItem(header)
 
-        guard let languageMenu = header.submenu else { return }
         let selected = MacVoiceInputPreferences.selectedLanguage
         for language in MacVoiceInputLanguage.allCases {
             let item = NSMenuItem(
@@ -1911,129 +1744,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             item.state = language == selected ? .on : .off
             languageMenu.addItem(item)
         }
-    }
-
-    /// Adds a "Paired devices..." item under the app menu, right after
-    /// Preferences (Cmd-,). Cmd-Shift-D opens the window.
-    private func installPairingMenu() {
-        guard let command = AppCommandRegistry.command(.showPairedDevices) else { return }
-        guard let mainMenu = NSApp.mainMenu,
-              let appMenuItem = mainMenu.items.first,
-              let appMenu = appMenuItem.submenu else { return }
-        if appMenu.items.contains(where: { $0.action == command.action.selector }) { return }
-
-        let item = makeMenuItem(for: command)
-
-        // Insert right after "Preferences…" if present, else near the top.
-        let insertAfter = appMenu.items.firstIndex(where: {
-            $0.action == #selector(showPreferences(_:))
-                || $0.title.lowercased().contains("preferences")
-                || $0.title.lowercased().contains("settings")
-        })
-        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
-        appMenu.insertItem(item, at: index)
-    }
-
-    /// Adds a theyOS server list under the app menu. This is distinct from
-    /// Paired Devices, which manages iPhones connected to this Mac.
-    private func installConnectedServersMenu() {
-        guard let command = AppCommandRegistry.command(.showConnectedServers) else { return }
-        guard let mainMenu = NSApp.mainMenu,
-              let appMenuItem = mainMenu.items.first,
-              let appMenu = appMenuItem.submenu else { return }
-        if appMenu.items.contains(where: { $0.action == command.action.selector }) { return }
-
-        let item = makeMenuItem(for: command)
-        let insertAfter = appMenu.items.firstIndex(where: {
-            $0.action == #selector(showPreferences(_:))
-                || $0.title.lowercased().contains("preferences")
-                || $0.title.lowercased().contains("settings")
-        })
-        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
-        appMenu.insertItem(item, at: index)
-    }
-
-    private func installUninstallMenu() {
-        guard let command = AppCommandRegistry.command(.uninstallSoyeht) else { return }
-        guard let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
-        if let existing = findMenuItem(for: command, in: appMenu) {
-            configureMenuItem(existing, with: command)
-            return
-        }
-
-        let item = makeMenuItem(for: command)
-        let quitIndex = appMenu.items.firstIndex { $0.action == #selector(NSApplication.terminate(_:)) }
-        let index = quitIndex ?? appMenu.items.count
-        if index > 0 && !appMenu.items[index - 1].isSeparatorItem {
-            appMenu.insertItem(.separator(), at: index)
-            appMenu.insertItem(item, at: index + 1)
-        } else {
-            appMenu.insertItem(item, at: index)
-        }
-    }
-
-    private func normalizeApplicationMenuUtilityOrder() {
-        guard let appMenu = NSApp.mainMenu?.items.first?.submenu,
-              let settingsIndex = appMenu.items.firstIndex(where: { $0.action == #selector(showPreferences(_:)) })
-        else { return }
-
-        let orderedActions: [Selector] = [
-            #selector(showAgentVisualPermissions(_:)),
-            #selector(showPairedDevices(_:)),
-            #selector(showConnectedServers(_:)),
-            #selector(showClawStore(_:))
-        ]
-
-        var itemsByAction: [String: NSMenuItem] = [:]
-        for action in orderedActions {
-            guard let index = appMenu.items.firstIndex(where: { $0.action == action }) else { continue }
-            let item = appMenu.items[index]
-            appMenu.removeItem(at: index)
-            itemsByAction[NSStringFromSelector(action)] = item
-        }
-
-        var insertIndex = min(settingsIndex + 1, appMenu.items.count)
-        for action in orderedActions {
-            guard let item = itemsByAction[NSStringFromSelector(action)] else { continue }
-            appMenu.insertItem(item, at: insertIndex)
-            insertIndex += 1
-        }
-    }
-
-    private func normalizeTopLevelMenuOrder() {
-        guard let mainMenu = NSApp.mainMenu, mainMenu.items.count > 1 else { return }
-
-        let orderedTitles = [
-            "Shell",
-            "Edit",
-            "View",
-            "Pane",
-            "Workspaces",
-            String(localized: "sound.menu.title"),
-            "Sound",
-            "Window",
-            "Debug",
-            String(localized: "debug.menu.title"),
-            "Help"
-        ]
-
-        var orderedItems: [NSMenuItem] = []
-        for title in orderedTitles {
-            guard let index = mainMenu.items.firstIndex(where: { $0.title == title }) else { continue }
-            let item = mainMenu.items[index]
-            if !orderedItems.contains(where: { $0 === item }) {
-                orderedItems.append(item)
-            }
-        }
-
-        let appItem = mainMenu.items[0]
-        let remainingItems = mainMenu.items.filter { item in
-            item !== appItem && !orderedItems.contains(where: { $0 === item })
-        }
-        let newItems = [appItem] + orderedItems + remainingItems
-
-        mainMenu.removeAllItems()
-        newItems.forEach(mainMenu.addItem)
     }
 
     @IBAction func newWindow(_ sender: Any) {
@@ -2115,7 +1825,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
               let language = MacVoiceInputLanguage(rawValue: rawValue) else { return }
 
         MacVoiceInputPreferences.selectedLanguage = language
-        if let soundMenu = NSApp.mainMenu?.items.first(where: { $0.tag == SoundMenuTag.topLevel })?.submenu {
+        if let soundMenu = submenu(.sound) {
             refreshSoundMenu(soundMenu)
         }
     }
@@ -2206,24 +1916,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    /// Adds "Claw Store…" to the app menu only while the release feature flag is enabled.
-    private func installClawStoreMenu() {
-        guard SoyehtFeatureFlags.clawStoreEnabled else { return }
-        guard let command = AppCommandRegistry.command(.showClawStore) else { return }
-        guard let mainMenu = NSApp.mainMenu,
-              let appMenuItem = mainMenu.items.first,
-              let appMenu = appMenuItem.submenu else { return }
-        if appMenu.items.contains(where: { $0.action == command.action.selector }) { return }
-        let item = makeMenuItem(for: command)
-        let insertAfter = appMenu.items.firstIndex(where: {
-            $0.action == #selector(showPreferences(_:))
-                || $0.title.lowercased().contains("preferences")
-                || $0.title.lowercased().contains("settings")
-        })
-        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
-        appMenu.insertItem(item, at: index)
-    }
-
     // MARK: - Command palette (Fase 3.2)
 
     @IBAction func showCommandPalette(_ sender: Any?) {
@@ -2259,109 +1951,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    /// Add a menu item under the View menu (or the app menu as fallback)
-    /// that triggers `showCommandPalette(_:)` with `⌘P`.
-    private func installCommandPaletteMenu() {
-        guard let command = AppCommandRegistry.command(.showCommandPalette) else { return }
-        guard let mainMenu = NSApp.mainMenu else { return }
-        // `Print…` ships from the storyboard with the standard `⌘P`, which
-        // collides with the command palette's entry point. The workspace QA
-        // contract expects `⌘P` to open the palette, so demote Print to a
-        // click-only menu item and free the shortcut before installing ours.
-        if let printItem = findMenuItem(in: mainMenu, titled: "Print…") {
-            printItem.keyEquivalent = ""
-            printItem.keyEquivalentModifierMask = []
-        }
-        // Try to find a View menu first (standard location for palettes);
-        // fall back to appending at the end of the app menu.
-        let targetMenu: NSMenu
-        if let viewItem = mainMenu.items.first(where: { $0.title == "View" }),
-           let submenu = viewItem.submenu {
-            targetMenu = submenu
-        } else if let appItem = mainMenu.items.first, let submenu = appItem.submenu {
-            targetMenu = submenu
-        } else {
-            return
-        }
-        upsertMenuItem(for: command, in: targetMenu)
-    }
-
-    /// Normalize conflicting storyboard shortcuts and install the phase-2
-    /// pane commands that still lack menu wiring (`zoom`, `swap`, `rotate`).
-    /// We do this programmatically so the runtime menu always matches the
-    /// product contract, even if the storyboard lags behind.
-    private func installPaneMenuEnhancements() {
-        guard let mainMenu = NSApp.mainMenu,
-              let paneMenu = mainMenu.items.first(where: { $0.title == "Pane" })?.submenu
-        else { return }
-
-        paneMenu.delegate = self
-        [
-            AppCommandID.splitPaneVertical,
-            .splitPaneHorizontal,
-            .focusPaneLeft,
-            .focusPaneRight,
-            .focusPaneUp,
-            .focusPaneDown,
-            .closeFocusedPane,
-            .toggleZoomFocusedPane,
-            .exitZoom,
-            .swapPaneLeft,
-            .swapPaneRight,
-            .swapPaneUp,
-            .swapPaneDown,
-            .rotateFocusedSplit,
-        ].forEach { commandID in
-            guard let command = AppCommandRegistry.command(commandID) else { return }
-            upsertMenuItem(for: command, in: paneMenu)
-        }
-        installMoveFocusedPaneMenu(in: paneMenu)
-    }
-
-    /// Route Edit > Undo/Redo directly to the active main window's
-    /// workspace-level UndoManager. Relying on the responder chain left the
-    /// menu item titles updating correctly while the items stayed disabled
-    /// whenever focus was inside a terminal or custom pane view.
-    private func installEditMenuEnhancements() {
-        guard let mainMenu = NSApp.mainMenu else { return }
-        let editMenu = mainMenu.items.first(where: { $0.title == "Edit" })?.submenu
-        editMenu?.delegate = self
-        for commandID in [AppCommandID.undoWindowAction, .redoWindowAction] {
-            guard let command = AppCommandRegistry.command(commandID),
-                  let item = findMenuItem(in: mainMenu, titled: command.title) else { continue }
-            configureMenuItem(item, with: command)
-        }
-        if let editMenu {
-            PublicMenuSurface.removeDuplicateVisibleItems(from: editMenu)
-        }
-    }
-
-    private func installMoveFocusedPaneMenu(in paneMenu: NSMenu) {
-        let title = String(
-            localized: "paneMenu.moveTo.header",
-            defaultValue: "Move Pane to Workspace",
-            comment: "Pane submenu header. Reveals workspace targets for moving the focused pane."
-        )
-        let header: NSMenuItem
-        // Identity via tag, not title — title changes with the UI language,
-        // so title-match would double-insert on language switch.
-        if let existing = paneMenu.items.first(where: { $0.tag == AppCommandMenuTag.paneMoveToWorkspaceHeader }) {
-            header = existing
-            existing.title = title
-            if existing.submenu == nil {
-                existing.submenu = NSMenu(title: title)
-            }
-        } else {
-            header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            header.tag = AppCommandMenuTag.paneMoveToWorkspaceHeader
-            header.submenu = NSMenu(title: title)
-            paneMenu.addItem(.separator())
-            paneMenu.addItem(header)
-        }
-        guard let submenu = header.submenu else { return }
-        refreshMoveFocusedPaneMenu(header: header, submenu: submenu)
-    }
-
     private func refreshMoveFocusedPaneMenu(header: NSMenuItem, submenu: NSMenu) {
         submenu.removeAllItems()
 
@@ -2377,7 +1966,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     defaultValue: "No Focused Pane",
                     comment: "Disabled Pane submenu item shown when there is no focused pane to move."
                 ),
-                tag: MenuPolishTag.paneMoveUnavailable
+                tag: MainMenuTag.paneMoveUnavailable
             ))
             return
         }
@@ -2395,7 +1984,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     defaultValue: "No Other Workspaces",
                     comment: "Disabled Pane submenu item shown when there is no workspace destination."
                 ),
-                tag: MenuPolishTag.paneMoveUnavailable
+                tag: MainMenuTag.paneMoveUnavailable
             ))
             return
         }
@@ -2409,6 +1998,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 keyEquivalent: ""
             )
             item.target = self
+            item.representedObject = workspace.id
             item.tag = tag
             if let command = AppCommandRegistry.command(.moveFocusedPaneToWorkspace(tag)),
                let shortcut = command.shortcut {
@@ -2417,19 +2007,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             }
             submenu.addItem(item)
         }
-    }
-
-    private func installWorkspaceMenuEnhancements() {
-        // Storyboard-baked title; storyboard is not catalog-localized so this
-        // stays stable across UI languages. `// i18n-exempt: storyboard title`.
-        guard let workspaceMenu = NSApp.mainMenu?
-            .items
-            .first(where: { $0.title == "Workspaces" })?
-            .submenu
-        else { return }
-
-        workspaceMenu.delegate = self
-        rebuildWorkspaceMenu(in: workspaceMenu)
     }
 
     private func rebuildWorkspaceMenu(in workspaceMenu: NSMenu) {
@@ -2451,8 +2028,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         workspaceMenu.addItem(.separator())
         let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
         let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        header.identifier = MainMenuBuilder.identifier(for: .groupActiveWorkspace)
+        header.representedObject = MainMenuID.groupActiveWorkspace
         header.tag = AppCommandMenuTag.workspaceGroupActiveHeader
-        header.submenu = NSMenu(title: title)
+        let submenu = NSMenu(title: title)
+        submenu.identifier = MainMenuBuilder.identifier(for: .groupActiveWorkspace)
+        header.submenu = submenu
         workspaceMenu.addItem(header)
         refreshWorkspaceMenuEnhancements(in: workspaceMenu)
         collapseSeparators(in: workspaceMenu)
@@ -2466,7 +2047,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     defaultValue: "No Workspace Window",
                     comment: "Disabled Workspaces menu item shown when no workspace window is open."
                 ),
-                tag: MenuPolishTag.workspaceUnavailable
+                tag: MainMenuTag.workspaceUnavailable
             ))
             return
         }
@@ -2479,7 +2060,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     defaultValue: "No Workspaces",
                     comment: "Disabled Workspaces menu item shown when the active window has no workspaces."
                 ),
-                tag: MenuPolishTag.workspaceUnavailable
+                tag: MainMenuTag.workspaceUnavailable
             ))
             return
         }
@@ -2492,6 +2073,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 keyEquivalent: ""
             )
             item.target = self
+            item.representedObject = workspace.id
             item.tag = tag
             item.state = workspace.id == controller.activeWorkspaceID ? .on : .off
             if let command = AppCommandRegistry.command(.selectWorkspace(tag)),
@@ -2537,28 +2119,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         submenu.addItem(newGroup)
     }
 
-    @discardableResult
-    private func upsertMenuItem(for command: AppCommand, in menu: NSMenu) -> NSMenuItem {
-        if let existing = findMenuItem(for: command, in: menu) {
-            configureMenuItem(existing, with: command)
-            return existing
-        }
-        let item = makeMenuItem(for: command)
-        menu.addItem(item)
-        return item
-    }
-
-    private func findMenuItem(for command: AppCommand, in menu: NSMenu) -> NSMenuItem? {
-        if let tag = command.tag {
-            return menu.items.first {
-                $0.tag == tag || ($0.title == command.title && $0.action == command.action.selector)
-            }
-        }
-        return menu.items.first {
-            $0.action == command.action.selector || $0.title == command.title
-        }
-    }
-
     private func makeMenuItem(for command: AppCommand) -> NSMenuItem {
         let item = NSMenuItem(
             title: command.title,
@@ -2573,6 +2133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         item.title = command.title
         item.action = command.action.selector
         item.target = self
+        item.representedObject = command.id
         if let tag = command.tag {
             item.tag = tag
         }
@@ -2592,19 +2153,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         return item
     }
 
-    private func removeMenuItems(in menu: NSMenu, titles: Set<String>) {
-        for index in menu.items.indices.reversed() where titles.contains(menu.items[index].title) {
-            menu.removeItem(at: index)
-        }
-    }
-
-    private func removeMenuItems(in menu: NSMenu, actions: Set<Selector>) {
-        for index in menu.items.indices.reversed() {
-            guard let action = menu.items[index].action, actions.contains(action) else { continue }
-            menu.removeItem(at: index)
-        }
-    }
-
     private func collapseSeparators(in menu: NSMenu) {
         for index in menu.items.indices.reversed() {
             let item = menu.items[index]
@@ -2616,43 +2164,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    private func polishPublicMenuSurface() {
-        guard let mainMenu = NSApp.mainMenu else { return }
-
-        PublicMenuSurface.removeForbiddenPublicItems(
-            from: mainMenu,
-            allowInternalDebugMenu: Self.shouldShowInternalDebugMenu,
-            localizedDebugTitle: String(localized: "debug.menu.title")
-        )
-        removeDuplicateSystemMenuItems(in: mainMenu)
-        #if DEBUG
-        if Self.shouldShowInternalDebugMenu {
-            installDebugMenu()
-        }
-        #endif
-
-        normalizeTopLevelMenuOrder()
-    }
-
-    private func removeDuplicateSystemMenuItems(in mainMenu: NSMenu) {
-        for title in ["Edit", "View"] {
-            guard let submenu = mainMenu.items.first(where: { $0.title == title })?.submenu else { continue }
-            PublicMenuSurface.removeDuplicateVisibleItems(from: submenu)
-        }
-    }
-
     func menuNeedsUpdate(_ menu: NSMenu) {
-        switch menu.title {
-        case "Pane":
+        switch menu.identifier {
+        case MainMenuBuilder.identifier(for: .pane):
             if let header = menu.items.first(where: { $0.tag == AppCommandMenuTag.paneMoveToWorkspaceHeader }),
                let submenu = header.submenu {
                 refreshMoveFocusedPaneMenu(header: header, submenu: submenu)
             }
-        case "Edit", "View":
+        case MainMenuBuilder.identifier(for: .edit), MainMenuBuilder.identifier(for: .view):
             PublicMenuSurface.removeDuplicateVisibleItems(from: menu)
-        case "Workspaces":
+        case MainMenuBuilder.identifier(for: .workspaces):
             rebuildWorkspaceMenu(in: menu)
-        case "Sound":
+        case MainMenuBuilder.identifier(for: .sound):
             refreshSoundMenu(menu)
         default:
             return
@@ -2705,18 +2228,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return
         }
         body(grid)
-    }
-
-    private func findMenuItem(in menu: NSMenu, titled title: String) -> NSMenuItem? {
-        for item in menu.items {
-            if item.title == title {
-                return item
-            }
-            if let submenu = item.submenu, let match = findMenuItem(in: submenu, titled: title) {
-                return match
-            }
-        }
-        return nil
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
