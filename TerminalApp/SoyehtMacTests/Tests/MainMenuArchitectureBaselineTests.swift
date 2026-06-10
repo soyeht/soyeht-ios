@@ -73,6 +73,18 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
         XCTAssertEqual(dictationLanguage.submenu?.identifier, MainMenuBuilder.identifier(for: .dictationLanguage))
     }
 
+    func testMainMenuBuilderRoutesAppCommandsThroughSingleDispatcher() throws {
+        let mainMenu = MainMenuBuilder().buildPublicNoWindowMenu()
+        let commandItems = mainMenu.commandItems()
+
+        XCTAssertFalse(commandItems.isEmpty)
+        for item in commandItems {
+            XCTAssertEqual(item.action, CommandDispatcher.action, item.title)
+            XCTAssertNotNil(item.target, item.title)
+            XCTAssertNotNil(item.representedObject as? AppCommandID, item.title)
+        }
+    }
+
     func testLegacyStoryboardCanonicalizationsAreExplicitAndCurrent() throws {
         let storyboardItems = try StoryboardMenuScanner(storyboardURL: Self.storyboardURL).itemsBySelector
 
@@ -162,6 +174,19 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
 private extension NSMenu {
     func topLevelItem(_ id: MainMenuID) -> NSMenuItem? {
         items.first { $0.identifier == MainMenuBuilder.identifier(for: id) }
+    }
+
+    func commandItems() -> [NSMenuItem] {
+        items.flatMap { item -> [NSMenuItem] in
+            var values: [NSMenuItem] = []
+            if item.representedObject is AppCommandID {
+                values.append(item)
+            }
+            if let submenu = item.submenu {
+                values.append(contentsOf: submenu.commandItems())
+            }
+            return values
+        }
     }
 }
 

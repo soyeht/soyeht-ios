@@ -9,7 +9,7 @@
           "title" : "About Soyeht"
         },
         {
-          "action" : "checkForUpdates:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "targetPolicy" : "explicitTarget",
           "title" : "Check for Updates…"
@@ -18,7 +18,7 @@
           "kind" : "separator"
         },
         {
-          "action" : "showPreferences:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : ",",
@@ -30,13 +30,13 @@
           "title" : "Settings…"
         },
         {
-          "action" : "showAgentVisualPermissions:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "targetPolicy" : "explicitTarget",
           "title" : "Agent Permissions…"
         },
         {
-          "action" : "showPairedDevices:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "d",
@@ -49,7 +49,7 @@
           "title" : "Paired Devices…"
         },
         {
-          "action" : "showConnectedServers:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "targetPolicy" : "explicitTarget",
           "title" : "Connected Servers…"
@@ -92,7 +92,7 @@
           "kind" : "separator"
         },
         {
-          "action" : "uninstallSoyeht:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "targetPolicy" : "explicitTarget",
           "title" : "Uninstall Soyeht…"
@@ -116,7 +116,7 @@
     {
       "children" : [
         {
-          "action" : "newWindow:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "n",
@@ -128,7 +128,7 @@
           "title" : "New Window"
         },
         {
-          "action" : "newConversation:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "t",
@@ -180,7 +180,7 @@
     {
       "children" : [
         {
-          "action" : "undoWindowAction:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "z",
@@ -192,7 +192,7 @@
           "title" : "Undo"
         },
         {
-          "action" : "redoWindowAction:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "y",
@@ -455,7 +455,7 @@
           "title" : "Enter Full Screen"
         },
         {
-          "action" : "showCommandPalette:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "p",
@@ -474,7 +474,7 @@
     {
       "children" : [
         {
-          "action" : "splitPaneVertical:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "|",
@@ -487,7 +487,7 @@
           "title" : "Split Vertical"
         },
         {
-          "action" : "splitPaneHorizontal:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "_",
@@ -503,7 +503,7 @@
           "kind" : "separator"
         },
         {
-          "action" : "focusPaneLeft:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "leftArrow",
@@ -516,7 +516,7 @@
           "title" : "Focus Left"
         },
         {
-          "action" : "focusPaneRight:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "rightArrow",
@@ -529,7 +529,7 @@
           "title" : "Focus Right"
         },
         {
-          "action" : "focusPaneUp:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "upArrow",
@@ -542,7 +542,7 @@
           "title" : "Focus Up"
         },
         {
-          "action" : "focusPaneDown:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "downArrow",
@@ -558,13 +558,13 @@
           "kind" : "separator"
         },
         {
-          "action" : "closeFocusedPane:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "targetPolicy" : "explicitTarget",
           "title" : "Close Pane"
         },
         {
-          "action" : "toggleZoomFocusedPane:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "z",
@@ -577,7 +577,7 @@
           "title" : "Zoom Focused Pane"
         },
         {
-          "action" : "exitZoom:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "escape",
@@ -589,7 +589,7 @@
           "title" : "Exit Zoom"
         },
         {
-          "action" : "swapPaneLeft:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "leftArrow",
@@ -602,7 +602,7 @@
           "title" : "Swap Pane Left"
         },
         {
-          "action" : "swapPaneRight:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "rightArrow",
@@ -615,7 +615,7 @@
           "title" : "Swap Pane Right"
         },
         {
-          "action" : "swapPaneUp:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "upArrow",
@@ -628,7 +628,7 @@
           "title" : "Swap Pane Up"
         },
         {
-          "action" : "swapPaneDown:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "downArrow",
@@ -641,7 +641,7 @@
           "title" : "Swap Pane Down"
         },
         {
-          "action" : "rotateFocusedSplit:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "r",
@@ -677,7 +677,7 @@
     {
       "children" : [
         {
-          "action" : "showConversationsSidebar:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "c",
@@ -702,7 +702,7 @@
           "kind" : "separator"
         },
         {
-          "action" : "moveActiveWorkspaceLeft:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "[",
@@ -715,7 +715,7 @@
           "title" : "Move Active Workspace Left"
         },
         {
-          "action" : "moveActiveWorkspaceRight:",
+          "action" : "dispatchAppCommand:",
           "kind" : "item",
           "shortcut" : {
             "key" : "]",

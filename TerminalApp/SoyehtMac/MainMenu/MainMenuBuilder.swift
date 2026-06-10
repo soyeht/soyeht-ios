@@ -64,7 +64,7 @@ struct MainMenuBuilder {
         guard let command = AppCommandRegistry.command(id) else {
             preconditionFailure("Missing command \(id)")
         }
-        let item = NSMenuItem(title: command.title, action: command.action.selector, keyEquivalent: "")
+        let item = NSMenuItem(title: command.title, action: CommandDispatcher.action, keyEquivalent: "")
         item.target = explicitTarget
         item.representedObject = id
         configure(item, shortcut: command.shortcut, tag: command.tag, state: .off, isEnabled: true)
