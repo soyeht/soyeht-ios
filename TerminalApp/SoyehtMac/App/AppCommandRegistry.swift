@@ -631,7 +631,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .redoWindowAction,
-                title: String(localized: "appCommand.redo"),
+                title: String(
+                    localized: "appCommand.redo",
+                    defaultValue: "Redo",
+                    comment: "Edit menu item that redoes the active workspace action."
+                ),
                 action: .redoWindowAction,
                 shortcut: AppCommandShortcut(.character("y"), modifiers: [.command]),
                 menuPlacement: .editMenu
@@ -652,14 +656,22 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .closeFocusedPane,
-                title: String(localized: "appCommand.closePane"),
+                title: String(
+                    localized: "appCommand.closePane",
+                    defaultValue: "Close Pane",
+                    comment: "Pane menu item that closes the focused pane."
+                ),
                 action: .closeFocusedPane,
                 shortcut: nil,
                 menuPlacement: .paneMenu
             ),
             AppCommand(
                 id: .focusPaneLeft,
-                title: String(localized: "appCommand.focusLeft"),
+                title: String(
+                    localized: "appCommand.focusLeft",
+                    defaultValue: "Focus Left",
+                    comment: "Pane menu item that moves focus to the pane on the left."
+                ),
                 action: .focusPaneLeft,
                 shortcut: AppCommandShortcut(.special(.leftArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -667,7 +679,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneRight,
-                title: String(localized: "appCommand.focusRight"),
+                title: String(
+                    localized: "appCommand.focusRight",
+                    defaultValue: "Focus Right",
+                    comment: "Pane menu item that moves focus to the pane on the right."
+                ),
                 action: .focusPaneRight,
                 shortcut: AppCommandShortcut(.special(.rightArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -675,7 +691,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneUp,
-                title: String(localized: "appCommand.focusUp"),
+                title: String(
+                    localized: "appCommand.focusUp",
+                    defaultValue: "Focus Up",
+                    comment: "Pane menu item that moves focus to the pane above."
+                ),
                 action: .focusPaneUp,
                 shortcut: AppCommandShortcut(.special(.upArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -683,7 +703,11 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneDown,
-                title: String(localized: "appCommand.focusDown"),
+                title: String(
+                    localized: "appCommand.focusDown",
+                    defaultValue: "Focus Down",
+                    comment: "Pane menu item that moves focus to the pane below."
+                ),
                 action: .focusPaneDown,
                 shortcut: AppCommandShortcut(.special(.downArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
