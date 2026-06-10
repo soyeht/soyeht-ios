@@ -67,7 +67,7 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
         ].compactMap { submenu($0, in: mainMenu) }
             .forEach { $0.delegate = self }
 
-        refreshSoundMenu()
+        rebuildSoundMenuIfPresent()
         installInternalDebugMenuIfNeeded()
     }
 
@@ -80,6 +80,17 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
             $0.identifier == MainMenuBuilder.identifier(for: id)
                 || $0.submenu?.identifier == MainMenuBuilder.identifier(for: id)
         })?.submenu
+    }
+
+    private var dynamicActions: MainMenuDynamicActionSelectors {
+        MainMenuDynamicActionSelectors(
+            dispatchAppCommand: CommandDispatcher.action,
+            selectWorkspaceByTag: #selector(selectWorkspaceByTag(_:)),
+            moveFocusedPaneToWorkspaceByTag: #selector(moveFocusedPaneToWorkspaceByTag(_:)),
+            assignActiveWorkspaceToGroup: #selector(assignActiveWorkspaceToGroup(_:)),
+            newGroupForActiveWorkspace: #selector(newGroupForActiveWorkspace(_:)),
+            selectVoiceInputLanguage: #selector(selectVoiceInputLanguage(_:))
+        )
     }
 
     @IBAction func dispatchAppCommand(_ sender: Any?) {
@@ -135,257 +146,105 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
               let language = MacVoiceInputLanguage(rawValue: rawValue) else { return }
 
         MacVoiceInputPreferences.selectedLanguage = language
-        refreshSoundMenu()
+        rebuildSoundMenuIfPresent()
     }
 
-    private func refreshSoundMenu() {
+    private func rebuildSoundMenuIfPresent() {
         guard let soundMenu = submenu(.sound) else { return }
-        refreshSoundMenu(soundMenu)
+        rebuildSoundMenu(soundMenu)
     }
 
-    private func refreshSoundMenu(_ soundMenu: NSMenu) {
-        soundMenu.removeAllItems()
+    private func rebuildSoundMenu(_ soundMenu: NSMenu) {
+        let builder = DictationLanguageMenuSectionBuilder(target: self, actions: dynamicActions)
+        builder.rebuild(soundMenu: soundMenu, state: dictationLanguageSectionState)
+    }
 
-        let languageTitle = String(
-            localized: "voice.mac.menu.dictationLanguage",
-            defaultValue: "Dictation Language"
-        )
-        let header = NSMenuItem(title: languageTitle, action: nil, keyEquivalent: "")
-        header.identifier = MainMenuBuilder.identifier(for: .dictationLanguage)
-        header.representedObject = MainMenuDynamicSectionID.dictationLanguage
-        header.tag = MainMenuTag.soundDictationLanguage
-        let languageMenu = NSMenu(title: languageTitle)
-        languageMenu.identifier = MainMenuBuilder.identifier(for: .dictationLanguage)
-        header.submenu = languageMenu
-        soundMenu.addItem(header)
+    private func rebuildMovePaneSection(header: NSMenuItem, submenu: NSMenu) {
+        let builder = MovePaneMenuSectionBuilder(target: self, actions: dynamicActions)
+        builder.rebuild(header: header, submenu: submenu, state: movePaneSectionState)
+    }
 
+    private func rebuildWorkspaceSection(in workspaceMenu: NSMenu) {
+        let builder = WorkspaceMenuSectionBuilder(target: self, actions: dynamicActions)
+        builder.rebuild(menu: workspaceMenu, state: workspaceSectionState)
+    }
+
+    private var dictationLanguageSectionState: DictationLanguageMenuSectionState {
         let selected = MacVoiceInputPreferences.selectedLanguage
-        for language in MacVoiceInputLanguage.allCases {
-            let item = NSMenuItem(
+        return DictationLanguageMenuSectionState(entries: MacVoiceInputLanguage.allCases.map { language in
+            DictationLanguageMenuEntry(
                 title: language.menuTitle,
-                action: #selector(selectVoiceInputLanguage(_:)),
-                keyEquivalent: ""
+                rawValue: language.rawValue,
+                isSelected: language == selected
             )
-            item.target = self
-            item.representedObject = language.rawValue
-            item.state = language == selected ? .on : .off
-            languageMenu.addItem(item)
-        }
+        })
     }
 
-    private func refreshMoveFocusedPaneMenu(header: NSMenuItem, submenu: NSMenu) {
-        submenu.removeAllItems()
-
+    private var movePaneSectionState: MovePaneMenuSectionState {
         guard let controller = frontmostMainWindowController,
               canMoveFocusedPane,
               let focusedPaneID = controller.activeGridController?.focusedPaneID,
               controller.store.workspace(controller.activeWorkspaceID)?.layout.contains(focusedPaneID) == true
         else {
-            header.isEnabled = false
-            submenu.addItem(disabledMenuItem(
-                title: String(
-                    localized: "paneMenu.moveTo.noPane",
-                    defaultValue: "No Focused Pane",
-                    comment: "Disabled Pane submenu item shown when there is no focused pane to move."
-                ),
-                tag: MainMenuTag.paneMoveUnavailable
-            ))
-            return
+            return .noFocusedPane
         }
 
-        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
-        let destinations = ordered.enumerated().filter { _, workspace in
-            workspace.id != controller.activeWorkspaceID
-        }
-
-        guard !destinations.isEmpty else {
-            header.isEnabled = false
-            submenu.addItem(disabledMenuItem(
-                title: String(
-                    localized: "paneMenu.moveTo.noDestinations",
-                    defaultValue: "No Other Workspaces",
-                    comment: "Disabled Pane submenu item shown when there is no workspace destination."
-                ),
-                tag: MainMenuTag.paneMoveUnavailable
-            ))
-            return
-        }
-
-        header.isEnabled = true
-        for (index, workspace) in destinations {
-            let tag = index + 1
-            let item = NSMenuItem(
-                title: workspace.name,
-                action: #selector(moveFocusedPaneToWorkspaceByTag(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = workspace.id
-            item.tag = tag
-            if let command = AppCommandRegistry.command(.moveFocusedPaneToWorkspace(tag)),
-               let shortcut = command.shortcut {
-                item.keyEquivalent = shortcut.menuKeyEquivalent
-                item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+        let destinations = controller.store.orderedWorkspaces(in: controller.windowID)
+            .enumerated()
+            .compactMap { index, workspace -> WorkspaceMenuEntry? in
+                guard workspace.id != controller.activeWorkspaceID else { return nil }
+                return WorkspaceMenuEntry(
+                    id: workspace.id,
+                    name: workspace.name,
+                    tag: index + 1,
+                    isActive: false
+                )
             }
-            submenu.addItem(item)
-        }
+
+        return destinations.isEmpty ? .noDestinations : .destinations(destinations)
     }
 
-    private func rebuildWorkspaceMenu(in workspaceMenu: NSMenu) {
-        workspaceMenu.removeAllItems()
+    private var workspaceSectionState: WorkspaceMenuSectionState {
+        let controller = activeMainWindowController
+        let currentGroupID = controller?.activeWorkspaceGroupID
+        let selection: WorkspaceSelectionMenuState
 
-        if let command = AppCommandRegistry.command(.showConversationsSidebar) {
-            workspaceMenu.addItem(makeMenuItem(for: command))
-        }
-
-        workspaceMenu.addItem(.separator())
-        appendWorkspaceSelectionItems(to: workspaceMenu)
-        workspaceMenu.addItem(.separator())
-
-        for commandID in [AppCommandID.moveActiveWorkspaceLeft, .moveActiveWorkspaceRight] {
-            guard let command = AppCommandRegistry.command(commandID) else { continue }
-            workspaceMenu.addItem(makeMenuItem(for: command))
-        }
-
-        workspaceMenu.addItem(.separator())
-        let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
-        let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        header.identifier = MainMenuBuilder.identifier(for: .groupActiveWorkspace)
-        header.representedObject = MainMenuID.groupActiveWorkspace
-        header.tag = AppCommandMenuTag.workspaceGroupActiveHeader
-        let submenu = NSMenu(title: title)
-        submenu.identifier = MainMenuBuilder.identifier(for: .groupActiveWorkspace)
-        header.submenu = submenu
-        workspaceMenu.addItem(header)
-        refreshWorkspaceMenuEnhancements(in: workspaceMenu)
-        collapseSeparators(in: workspaceMenu)
-    }
-
-    private func appendWorkspaceSelectionItems(to workspaceMenu: NSMenu) {
-        guard let controller = activeMainWindowController else {
-            workspaceMenu.addItem(disabledMenuItem(
-                title: String(
-                    localized: "workspaceMenu.noWindow",
-                    defaultValue: "No Workspace Window",
-                    comment: "Disabled Workspaces menu item shown when no workspace window is open."
-                ),
-                tag: MainMenuTag.workspaceUnavailable
-            ))
-            return
-        }
-
-        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
-        guard !ordered.isEmpty else {
-            workspaceMenu.addItem(disabledMenuItem(
-                title: String(
-                    localized: "workspaceMenu.noWorkspaces",
-                    defaultValue: "No Workspaces",
-                    comment: "Disabled Workspaces menu item shown when the active window has no workspaces."
-                ),
-                tag: MainMenuTag.workspaceUnavailable
-            ))
-            return
-        }
-
-        for (index, workspace) in ordered.enumerated() {
-            let tag = index + 1
-            let item = NSMenuItem(
-                title: workspace.name,
-                action: #selector(selectWorkspaceByTag(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = workspace.id
-            item.tag = tag
-            item.state = workspace.id == controller.activeWorkspaceID ? .on : .off
-            if let command = AppCommandRegistry.command(.selectWorkspace(tag)),
-               let shortcut = command.shortcut {
-                item.keyEquivalent = shortcut.menuKeyEquivalent
-                item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
-            }
-            workspaceMenu.addItem(item)
-        }
-    }
-
-    private func refreshWorkspaceMenuEnhancements(in workspaceMenu: NSMenu) {
-        guard let runtime,
-              let header = workspaceMenu.items.first(where: { $0.tag == AppCommandMenuTag.workspaceGroupActiveHeader }),
-              let submenu = header.submenu else { return }
-
-        let currentGroupID = activeMainWindowController?.activeWorkspaceGroupID
-        let hasActiveWorkspace = activeMainWindowController != nil
-        submenu.removeAllItems()
-
-        let none = NSMenuItem(title: String(localized: "workspaceMenu.group.none", comment: "Group submenu item that unassigns the active workspace from any group."), action: #selector(assignActiveWorkspaceToGroup(_:)), keyEquivalent: "")
-        none.target = self
-        none.representedObject = MainMenuExplicitRole.assignActiveWorkspaceToNoGroup
-        none.state = currentGroupID == nil ? .on : .off
-        none.isEnabled = hasActiveWorkspace
-        submenu.addItem(none)
-
-        if !runtime.workspaceStore.orderedGroups.isEmpty {
-            submenu.addItem(.separator())
-            for group in runtime.workspaceStore.orderedGroups {
-                let item = NSMenuItem(title: group.name, action: #selector(assignActiveWorkspaceToGroup(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = group.id
-                item.state = currentGroupID == group.id ? .on : .off
-                item.isEnabled = hasActiveWorkspace
-                submenu.addItem(item)
-            }
-        }
-
-        submenu.addItem(.separator())
-        let newGroup = NSMenuItem(title: String(localized: "workspaceMenu.group.newGroup", comment: "Group submenu item that opens the new-group prompt."), action: #selector(newGroupForActiveWorkspace(_:)), keyEquivalent: "")
-        newGroup.target = self
-        newGroup.representedObject = MainMenuExplicitRole.newGroupForActiveWorkspace
-        newGroup.isEnabled = hasActiveWorkspace
-        submenu.addItem(newGroup)
-    }
-
-    private func makeMenuItem(for command: AppCommand) -> NSMenuItem {
-        let item = NSMenuItem(
-            title: command.title,
-            action: CommandDispatcher.action,
-            keyEquivalent: command.shortcut?.menuKeyEquivalent ?? ""
-        )
-        configureMenuItem(item, with: command)
-        return item
-    }
-
-    private func configureMenuItem(_ item: NSMenuItem, with command: AppCommand) {
-        item.title = command.title
-        item.action = CommandDispatcher.action
-        item.target = self
-        item.representedObject = command.id
-        if let tag = command.tag {
-            item.tag = tag
-        }
-        if let shortcut = command.shortcut {
-            item.keyEquivalent = shortcut.menuKeyEquivalent
-            item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+        if let controller {
+            let workspaces = workspaceEntries(for: controller)
+            selection = workspaces.isEmpty ? .noWorkspaces : .workspaces(workspaces)
         } else {
-            item.keyEquivalent = ""
-            item.keyEquivalentModifierMask = []
+            selection = .noWindow
         }
+
+        return WorkspaceMenuSectionState(
+            selection: selection,
+            groups: workspaceGroups(activeGroupID: currentGroupID),
+            hasActiveWorkspace: controller != nil,
+            activeWorkspaceHasNoGroup: currentGroupID == nil
+        )
     }
 
-    private func disabledMenuItem(title: String, tag: Int) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.tag = tag
-        item.isEnabled = false
-        return item
-    }
-
-    private func collapseSeparators(in menu: NSMenu) {
-        for index in menu.items.indices.reversed() {
-            let item = menu.items[index]
-            let isEdge = index == 0 || index == menu.items.count - 1
-            let previousIsSeparator = index > 0 && menu.items[index - 1].isSeparatorItem
-            if item.isSeparatorItem && (isEdge || previousIsSeparator) {
-                menu.removeItem(at: index)
+    private func workspaceEntries(for controller: SoyehtMainWindowController) -> [WorkspaceMenuEntry] {
+        controller.store.orderedWorkspaces(in: controller.windowID)
+            .enumerated()
+            .map { index, workspace in
+                WorkspaceMenuEntry(
+                    id: workspace.id,
+                    name: workspace.name,
+                    tag: index + 1,
+                    isActive: workspace.id == controller.activeWorkspaceID
+                )
             }
-        }
+    }
+
+    private func workspaceGroups(activeGroupID: Group.ID?) -> [WorkspaceGroupMenuEntry] {
+        runtime?.workspaceStore.orderedGroups.map { group in
+            WorkspaceGroupMenuEntry(
+                id: group.id,
+                name: group.name,
+                isActive: group.id == activeGroupID
+            )
+        } ?? []
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -393,14 +252,14 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
         case MainMenuBuilder.identifier(for: .pane):
             if let header = menu.items.first(where: { $0.tag == AppCommandMenuTag.paneMoveToWorkspaceHeader }),
                let submenu = header.submenu {
-                refreshMoveFocusedPaneMenu(header: header, submenu: submenu)
+                rebuildMovePaneSection(header: header, submenu: submenu)
             }
         case MainMenuBuilder.identifier(for: .edit), MainMenuBuilder.identifier(for: .view):
             PublicMenuSurface.removeDuplicateVisibleItems(from: menu)
         case MainMenuBuilder.identifier(for: .workspaces):
-            rebuildWorkspaceMenu(in: menu)
+            rebuildWorkspaceSection(in: menu)
         case MainMenuBuilder.identifier(for: .sound):
-            refreshSoundMenu(menu)
+            rebuildSoundMenu(menu)
         default:
             return
         }
@@ -555,17 +414,9 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
             menuItem.title = title
         }
         if let state = validation.state {
-            menuItem.state = nsState(for: state)
+            menuItem.state = MainMenuItemFactory.nsState(for: state)
         }
         return validation.isEnabled
-    }
-
-    private func nsState(for state: MenuItemState) -> NSControl.StateValue {
-        switch state {
-        case .off: return .off
-        case .on: return .on
-        case .mixed: return .mixed
-        }
     }
 
     #if DEBUG

@@ -69,6 +69,7 @@
 		AA510002000000000000001 /* MainMenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510002000000000000002 /* MainMenuBuilder.swift */; };
 		AA510003000000000000001 /* AppCommandDispatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510003000000000000002 /* AppCommandDispatch.swift */; };
 		AA510004000000000000001 /* MainMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510004000000000000002 /* MainMenuController.swift */; };
+		AA510005000000000000001 /* DynamicMenuSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510005000000000000002 /* DynamicMenuSections.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
 		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
@@ -223,6 +224,7 @@
 		AA510002000000000000002 /* MainMenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuBuilder.swift; sourceTree = "<group>"; };
 		AA510003000000000000002 /* AppCommandDispatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandDispatch.swift; sourceTree = "<group>"; };
 		AA510004000000000000002 /* MainMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuController.swift; sourceTree = "<group>"; };
+		AA510005000000000000002 /* DynamicMenuSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicMenuSections.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
 		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
@@ -582,6 +584,7 @@
 				AA510001000000000000002 /* MenuModel.swift */,
 				AA510002000000000000002 /* MainMenuBuilder.swift */,
 				AA510003000000000000002 /* AppCommandDispatch.swift */,
+				AA510005000000000000002 /* DynamicMenuSections.swift */,
 				AA510004000000000000002 /* MainMenuController.swift */,
 			);
 			path = MainMenu;
@@ -956,6 +959,7 @@
 				AA510001000000000000001 /* MenuModel.swift in Sources */,
 				AA510002000000000000001 /* MainMenuBuilder.swift in Sources */,
 				AA510003000000000000001 /* AppCommandDispatch.swift in Sources */,
+				AA510005000000000000001 /* DynamicMenuSections.swift in Sources */,
 				AA510004000000000000001 /* MainMenuController.swift in Sources */,
 				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,

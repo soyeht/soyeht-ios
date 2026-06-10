@@ -137,6 +137,7 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
     func testRuntimeMenuOwnershipStaysInsideMainMenuBoundary() throws {
         let appDelegate = try String(contentsOf: Self.appDelegateURL, encoding: .utf8)
         let controller = try String(contentsOf: Self.mainMenuControllerURL, encoding: .utf8)
+        let dynamicSections = try String(contentsOf: Self.dynamicMenuSectionsURL, encoding: .utf8)
 
         XCTAssertTrue(appDelegate.contains("private lazy var mainMenuController"))
         XCTAssertTrue(appDelegate.contains("mainMenuController.installProgrammaticMainMenu()"))
@@ -165,13 +166,34 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
             "NSApp.mainMenu =",
             "func menuNeedsUpdate",
             "func validateMenuItem",
+            "MovePaneMenuSectionBuilder",
+            "WorkspaceMenuSectionBuilder",
+            "DictationLanguageMenuSectionBuilder",
+            "private func installDebugMenu",
+        ] {
+            XCTAssertTrue(controller.contains(required), "MainMenuController should own runtime menu code: \(required)")
+        }
+
+        for extracted in [
             "refreshMoveFocusedPaneMenu",
             "rebuildWorkspaceMenu",
             "refreshWorkspaceMenuEnhancements",
             "private func refreshSoundMenu",
-            "private func installDebugMenu",
+            "private func makeMenuItem",
+            "private func configureMenuItem",
+            "private func disabledMenuItem",
+            "private func collapseSeparators",
         ] {
-            XCTAssertTrue(controller.contains(required), "MainMenuController should own runtime menu code: \(required)")
+            XCTAssertFalse(controller.contains(extracted), "Dynamic menu assembly should stay out of MainMenuController: \(extracted)")
+        }
+
+        for required in [
+            "struct MovePaneMenuSectionBuilder",
+            "struct WorkspaceMenuSectionBuilder",
+            "struct DictationLanguageMenuSectionBuilder",
+            "enum MainMenuItemFactory",
+        ] {
+            XCTAssertTrue(dynamicSections.contains(required), "DynamicMenuSections should own dynamic menu assembly: \(required)")
         }
 
         let runtimeMenuNeedles = [
@@ -222,6 +244,11 @@ final class MainMenuArchitectureBaselineTests: XCTestCase {
     private static var mainMenuControllerURL: URL {
         soyehtMacURL
             .appendingPathComponent("MainMenu/MainMenuController.swift")
+    }
+
+    private static var dynamicMenuSectionsURL: URL {
+        soyehtMacURL
+            .appendingPathComponent("MainMenu/DynamicMenuSections.swift")
     }
 
     private static var soyehtMacURL: URL {
