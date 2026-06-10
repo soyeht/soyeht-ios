@@ -117,6 +117,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        Task { @MainActor in
+            PairedMacRegistry.shared.reconcileClients()
+        }
         Task {
             do {
                 _ = try await APNSRegistrationCoordinator.shared.handleForeground()
@@ -226,13 +229,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             )
         } else if let launchURL, OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: launchURL) {
             showMainStoryboard(in: window)
-        } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
-            showCarousel(in: window)
         } else if !Self.hasAnySetupState() {
-            // Carousel already seen but the user never finished pairing —
-            // re-enter the platform-pick flow instead of dumping them into
-            // a no-cancel QR scanner.
-            showInstallPicker(in: window)
+            // The iPhone release experience is Mac-first: if there is no
+            // paired state, start looking for the nearby Mac immediately and
+            // keep platform/manual choices as recovery actions.
+            showAutomaticMacDiscovery(in: window)
+        } else if SoyehtFeatureFlags.onboardingCarouselEnabled,
+                  storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
+            showCarousel(in: window)
         } else {
             showMainStoryboard(in: window)
         }
@@ -350,9 +354,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = UIHostingController(rootView:
             CarouselRootView { [weak self, weak window] in
                 guard let self, let window else { return }
-                self.showInstallPicker(in: window)
+                self.showAutomaticMacDiscovery(in: window)
             }
         )
+    }
+
+    @MainActor
+    private func showAutomaticMacDiscovery(in window: UIWindow) {
+        let invitation = makeSetupInvitationPayload(apnsToken: APNsTokenRegistrar.shared.persistedToken())
+        showAwaitingMac(invitation: invitation, in: window)
     }
 
     @MainActor
@@ -404,6 +414,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     @MainActor
     private func makeSetupInvitationPayload() async -> SetupInvitationPayload {
         let apnsToken = await captureAPNsTokenForInvitation()
+        return makeSetupInvitationPayload(apnsToken: apnsToken)
+    }
+
+    @MainActor
+    private func makeSetupInvitationPayload(apnsToken: Data?) -> SetupInvitationPayload {
         return SetupInvitationPayload(
             token: SetupInvitationToken(),
             ownerDisplayName: nil,

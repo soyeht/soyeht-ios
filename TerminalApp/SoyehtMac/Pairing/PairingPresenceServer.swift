@@ -37,6 +37,10 @@ final class PairingPresenceServer {
 
     private var presenceListener: NWListener?
     private var attachListener: NWListener?
+    private var pathMonitor: NWPathMonitor?
+    private var lastInterfaceFingerprint: String?
+    private var pendingNetworkRestart: Task<Void, Never>?
+    private var pendingListenerRestart: Task<Void, Never>?
 
     /// Sessions keyed by their generated UUID. One per active WS connection.
     private var presenceSessions: [UUID: PresenceSession] = [:]
@@ -56,8 +60,10 @@ final class PairingPresenceServer {
     func start() {
         guard presenceListener == nil, attachListener == nil else {
             presenceLogger.log("start_skipped already_running")
+            startNetworkMonitorIfNeeded()
             return
         }
+        startNetworkMonitorIfNeeded()
 
         do {
             presenceListener = try makeListener(
@@ -98,6 +104,17 @@ final class PairingPresenceServer {
     }
 
     func stop() {
+        pendingNetworkRestart?.cancel()
+        pendingNetworkRestart = nil
+        pendingListenerRestart?.cancel()
+        pendingListenerRestart = nil
+        pathMonitor?.cancel()
+        pathMonitor = nil
+        lastInterfaceFingerprint = nil
+        stopListeners()
+    }
+
+    private func stopListeners() {
         presenceLogger.log("server_stop presence=\(self.presenceSessions.count, privacy: .public) attach=\(self.attachSessions.count, privacy: .public)")
         for session in presenceSessions.values { session.cancel() }
         for session in attachSessions.values { session.cancel() }
@@ -109,6 +126,51 @@ final class PairingPresenceServer {
         attachListener = nil
         presencePort = nil
         attachPort = nil
+    }
+
+    private func restartListenersAfterNetworkChange() {
+        guard presenceListener != nil || attachListener != nil else { return }
+        presenceLogger.log("network_changed_restarting_presence_listeners")
+        stopListeners()
+        scheduleListenerRestart(reason: "network_changed", delay: .milliseconds(1_250))
+    }
+
+    private func startNetworkMonitorIfNeeded() {
+        guard pathMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let fingerprint = Self.interfaceFingerprint(for: path)
+            Task { @MainActor [weak self] in
+                self?.handleInterfaceFingerprint(fingerprint)
+            }
+        }
+        pathMonitor = monitor
+        monitor.start(queue: queue)
+    }
+
+    private func handleInterfaceFingerprint(_ fingerprint: String) {
+        guard let previous = lastInterfaceFingerprint else {
+            lastInterfaceFingerprint = fingerprint
+            return
+        }
+        guard previous != fingerprint else { return }
+        lastInterfaceFingerprint = fingerprint
+        pendingNetworkRestart?.cancel()
+        pendingNetworkRestart = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(750))
+            guard !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                self?.pendingNetworkRestart = nil
+                self?.restartListenersAfterNetworkChange()
+            }
+        }
+    }
+
+    private nonisolated static func interfaceFingerprint(for path: NWPath) -> String {
+        path.availableInterfaces
+            .map { "\($0.type):\($0.name)" }
+            .sorted()
+            .joined(separator: "|")
     }
 
     /// Returns true if any paired iPhone currently has an authenticated
@@ -193,7 +255,7 @@ final class PairingPresenceServer {
             }
         case .failed(let error):
             presenceLogger.error("presence_listener_failed error=\(error.localizedDescription, privacy: .public)")
-            stop()
+            recoverFromListenerFailure()
         case .cancelled:
             presenceLogger.log("presence_listener_cancelled")
         default:
@@ -211,12 +273,37 @@ final class PairingPresenceServer {
             }
         case .failed(let error):
             presenceLogger.error("attach_listener_failed error=\(error.localizedDescription, privacy: .public)")
-            stop()
+            recoverFromListenerFailure()
         case .cancelled:
             presenceLogger.log("attach_listener_cancelled")
         default:
             break
         }
+    }
+
+    private func recoverFromListenerFailure() {
+        guard presenceListener != nil || attachListener != nil else { return }
+        stopListeners()
+        scheduleListenerRestart(reason: "listener_failed", delay: .milliseconds(1_250))
+    }
+
+    private func scheduleListenerRestart(reason: String, delay: Duration) {
+        pendingListenerRestart?.cancel()
+        pendingListenerRestart = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.pendingListenerRestart = nil
+                self.presenceLoggerLogRestart(reason: reason)
+                self.start()
+                self.broadcastMembershipChange()
+            }
+        }
+    }
+
+    private func presenceLoggerLogRestart(reason: String) {
+        presenceLogger.log("listener_restart_retry reason=\(reason, privacy: .public)")
     }
 
     // MARK: - Accept

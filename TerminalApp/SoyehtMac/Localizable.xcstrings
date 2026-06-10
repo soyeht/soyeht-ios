@@ -6553,6 +6553,103 @@
         }
       }
     },
+    "clawStore.comingSoon.title": {
+      "comment": "Short title shown when Claw Store is disabled for launch.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قريبًا"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "শীঘ্রই"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demnächst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coming Soon"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximamente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bientôt disponible"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जल्द आ रहा है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segera hadir"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近日公開"
+          }
+        },
+        "ko": {"stringUnit": {"state": "translated", "value": "곧 제공"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "即将推出"}},
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लवकरच"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Em breve"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Em breve"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скоро"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "త్వరలో"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جلد آ رہا ہے"
+          }
+        }
+      }
+    },
     "claw.store.alert.error.title": {
       "comment": "Title of the error alert shown when an action on a claw fails.",
       "extractionState": "stale",

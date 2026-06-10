@@ -86,6 +86,41 @@ struct HouseholdBonjourBrowserTests {
         #expect(url == URL(string: "http://macStudio.local:8091"))
     }
 
+    @Test func engineEndpointURLAcceptsLocalHostPublishedByMac() throws {
+        let txt = [
+            "bootstrap_state": "named_awaiting_pair",
+            "host": "macStudio.local",
+            "hh_id": "hh_eeit7s5ak64oy4cr",
+            "hh_name": "Home macStudio",
+            "platform": "macos",
+            "port": "8101",
+            "proto": "1",
+        ]
+
+        let url = HouseholdBonjourBrowser.engineEndpointURL(
+            serviceName: "Soyeht-macStudio-local-eeit7s5a",
+            domain: "local.",
+            txt: txt
+        )
+
+        #expect(url == URL(string: "http://macStudio.local:8101"))
+    }
+
+    @Test func engineEndpointURLRejectsNonLocalHostWithoutExplicitURL() throws {
+        let txt = [
+            "host": "example.com",
+            "port": "8101",
+        ]
+
+        let url = HouseholdBonjourBrowser.engineEndpointURL(
+            serviceName: "Soyeht-example",
+            domain: "local.",
+            txt: txt
+        )
+
+        #expect(url == nil)
+    }
+
     /// Single-label hosts (older publishers, or future single-label
     /// hostnames) MUST still get the search domain appended — the
     /// FQDN detection is by the presence of a dot, not by always

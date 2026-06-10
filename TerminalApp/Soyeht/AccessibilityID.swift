@@ -21,6 +21,7 @@ enum AccessibilityID {
         static let deployBanner = "soyeht.instanceList.deployBanner"
         static func deployBannerRow(_ id: String) -> String { "soyeht.instanceList.deployBanner.\(id)" }
         static func serverSection(_ id: String) -> String { "soyeht.instanceList.serverSection.\(id)" }
+        static func macCard(_ id: String) -> String { "soyeht.instanceList.macCard.\(id)" }
         static let appsSectionHeader = "soyeht.instanceList.appsSectionHeader"
     }
 
@@ -46,6 +47,12 @@ enum AccessibilityID {
     enum WebSocket {
         static let reconnectingState = "soyeht.websocket.reconnectingState"
         static let connectionStatus = "soyeht.websocket.connectionStatus"
+    }
+
+    // MARK: - Mac Detail
+
+    enum MacDetail {
+        static func paneRow(_ id: String) -> String { "soyeht.macDetail.pane.\(id)" }
     }
 
     // MARK: - Session Sheet

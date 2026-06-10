@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import XCTest
 @testable import SoyehtCore
 
@@ -196,5 +197,13 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
         )
 
         XCTAssertEqual(acceptedAt, 0)
+    }
+
+    func test_setupInvitationReleaseParametersAllowLocalNetworkAndTailscale() {
+        let releaseParameters = NWParameters.localNetworkAndTailscale()
+        XCTAssertTrue(releaseParameters.includePeerToPeer)
+
+        let tailscaleParameters = NWParameters.tailscaleOnly()
+        XCTAssertFalse(tailscaleParameters.includePeerToPeer)
     }
 }

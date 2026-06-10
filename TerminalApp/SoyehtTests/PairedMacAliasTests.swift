@@ -168,6 +168,39 @@ struct PairedMacAliasTests {
         #expect(store.setAlias(macID: id, alias: "Studio") == .success)
     }
 
+    // MARK: - default alias
+
+    @Test func setDefaultAliasIfNeededUsesMacNameWhenUnnamed() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let id = seedMac(store, name: "macStudio")
+
+        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "macStudio") == .success)
+        #expect(store.macs.first(where: { $0.macID == id })?.alias == "macStudio")
+        #expect(store.macs.first(where: { $0.macID == id })?.needsAlias == false)
+    }
+
+    @Test func setDefaultAliasIfNeededPreservesUserAlias() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let id = seedMac(store, name: "macStudio")
+        #expect(store.setAlias(macID: id, alias: "Studio") == .success)
+
+        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "macStudio") == .success)
+        #expect(store.macs.first(where: { $0.macID == id })?.alias == "Studio")
+    }
+
+    @Test func setDefaultAliasIfNeededCreatesUniqueFallback() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let first = seedMac(store, name: "macStudio")
+        let second = seedMac(store, name: "macMini")
+        #expect(store.setDefaultAliasIfNeeded(macID: first, suggestedAlias: "macStudio") == .success)
+
+        #expect(store.setDefaultAliasIfNeeded(macID: second, suggestedAlias: "macStudio") == .success)
+        #expect(store.macs.first(where: { $0.macID == second })?.alias == "macStudio 2")
+    }
+
     // MARK: - paired(forServer:)
 
     @Test func pairedForServerMatchesHostForEngineKind() {
