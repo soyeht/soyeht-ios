@@ -30,6 +30,9 @@ enum MainMenuTag {
     static let soundDictationLanguage = -702
     static let workspaceUnavailable = -801
     static let paneMoveUnavailable = -802
+    static let debugOpenPaneWindow = -901
+    static let debugConversationsSidebar = -902
+    static let debugBenchmark = -903
 }
 
 struct MenuModel: Hashable {
