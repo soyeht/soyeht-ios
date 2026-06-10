@@ -331,6 +331,24 @@ final class PaneGridController: NSViewController {
         }
     }
 
+    var canActOnFocusedPane: Bool {
+        guard let focusedPaneID else { return false }
+        return tree.contains(focusedPaneID)
+    }
+
+    func canFocusNeighbor(_ direction: WorkspaceLayout.Direction) -> Bool {
+        neighbor(in: direction) != nil
+    }
+
+    func canSwapNeighbor(_ direction: WorkspaceLayout.Direction) -> Bool {
+        neighbor(in: direction) != nil
+    }
+
+    var canRotateFocusedSplit: Bool {
+        guard let focused = focusedPaneID, tree.leafCount > 1 else { return false }
+        return tree.rotatingSplit(containing: focused) != tree
+    }
+
     func applyTheme() {
         PerfTrace.interval("grid.applyTheme") {
             view.layer?.backgroundColor = MacTheme.gutter.cgColor
@@ -460,12 +478,20 @@ final class PaneGridController: NSViewController {
 
     private func swapNeighbor(_ direction: WorkspaceLayout.Direction) {
         guard let focused = focusedPaneID else { return }
-        guard let neighbor = WorkspaceLayout.neighbor(
-            of: focused, in: tree, bounds: view.bounds, direction: direction
-        ) else { return }
+        guard let neighbor = neighbor(in: direction) else { return }
         mutate { $0.swap(focused, with: neighbor) }
         // Keep focus on the same pane (it moved to neighbor's old slot).
         focus(paneID: focused)
+    }
+
+    private func neighbor(in direction: WorkspaceLayout.Direction) -> Conversation.ID? {
+        guard let focused = focusedPaneID else { return nil }
+        return WorkspaceLayout.neighbor(
+            of: focused,
+            in: tree,
+            bounds: view.bounds,
+            direction: direction
+        )
     }
 
     // MARK: - Private

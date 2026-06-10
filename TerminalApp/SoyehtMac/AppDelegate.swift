@@ -31,6 +31,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         static let dictationLanguage = -702
     }
 
+    private enum MenuPolishTag {
+        static let workspaceUnavailable = -801
+        static let paneMoveUnavailable = -802
+    }
+
+    #if DEBUG
+    private static var shouldShowInternalDebugMenu: Bool {
+        PublicMenuSurface.shouldShowInternalDebugMenu(isDevelopmentBuild: true)
+    }
+    #else
+    private static var shouldShowInternalDebugMenu: Bool {
+        PublicMenuSurface.shouldShowInternalDebugMenu(isDevelopmentBuild: false)
+    }
+    #endif
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Kick off the login-shell PATH probe immediately so it's ready by
         // the time the user opens the first bash pane. Async; never blocks
@@ -71,23 +86,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Typography.bootstrap()
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
-        installDebugMenu()
         WorkspaceSwitchBenchmark.scheduleIfRequestedByEnvironment()
         #endif
         SoyehtUpdater.shared.startIfConfigured()
-        installApplicationMenuEnhancements()
-        installAgentVisualPermissionsMenu()
-        installUpdateMenu()
-        installShellMenuEnhancements()
-        installSoundMenu()
-        installPairingMenu()
-        installClawStoreMenu()
-        installConnectedServersMenu()
-        installUninstallMenu()
-        installCommandPaletteMenu()
-        installPaneMenuEnhancements()
-        installEditMenuEnhancements()
-        installWorkspaceMenuEnhancements()
+        installPublicMenuEnhancements()
+        scheduleDeferredPublicMenuRefresh()
         // Boot the app-level WebSocket server so paired iPhones can reach us
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
@@ -194,6 +197,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case .householdDevicePairing, .householdPairMachine:
             return
         }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        scheduleDeferredPublicMenuRefresh()
     }
 
     private func autoHouseholdPairDevice(url: URL) {
@@ -1660,11 +1667,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         controller.assignActiveWorkspaceToGroup(sender.representedObject as? Group.ID)
     }
 
+    private func installPublicMenuEnhancements() {
+        installApplicationMenuEnhancements()
+        installAgentVisualPermissionsMenu()
+        installUpdateMenu()
+        installShellMenuEnhancements()
+        installViewMenuEnhancements()
+        installWindowMenuEnhancements()
+        installSoundMenu()
+        installPairingMenu()
+        installClawStoreMenu()
+        installConnectedServersMenu()
+        installUninstallMenu()
+        normalizeApplicationMenuUtilityOrder()
+        installCommandPaletteMenu()
+        installPaneMenuEnhancements()
+        installEditMenuEnhancements()
+        installWorkspaceMenuEnhancements()
+        normalizeTopLevelMenuOrder()
+        polishPublicMenuSurface()
+    }
+
+    private func scheduleDeferredPublicMenuRefresh() {
+        DispatchQueue.main.async { [weak self] in
+            self?.installPublicMenuEnhancements()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.installPublicMenuEnhancements()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.installPublicMenuEnhancements()
+        }
+    }
+
     private func installApplicationMenuEnhancements() {
         guard let mainMenu = NSApp.mainMenu,
               let appMenu = mainMenu.items.first?.submenu,
               let command = AppCommandRegistry.command(.showPreferences),
-              let item = findMenuItem(in: appMenu, titled: command.title) else { return }
+              let item = appMenu.items.first(where: { $0.action == command.action.selector })
+                ?? findMenuItem(in: appMenu, titled: "Preferences…")
+                ?? findMenuItem(in: appMenu, titled: "Preferences...") else { return }
         configureMenuItem(item, with: command)
     }
 
@@ -1708,11 +1750,116 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             .submenu
         else { return }
 
+        removeMenuItems(
+            in: shellMenu,
+            actions: [
+                NSSelectorFromString("exportBuffer:"),
+                NSSelectorFromString("exportSelection:"),
+                NSSelectorFromString("softReset:"),
+                NSSelectorFromString("hardReset:"),
+                NSSelectorFromString("print:")
+            ]
+        )
+
         for commandID in [AppCommandID.newWindow, .newConversation] {
             guard let command = AppCommandRegistry.command(commandID),
                   let item = findMenuItem(in: shellMenu, titled: command.title) else { continue }
             configureMenuItem(item, with: command)
         }
+
+        if let closeWorkspace = findMenuItem(in: shellMenu, titled: "Close Workspace") {
+            closeWorkspace.target = self
+            closeWorkspace.action = #selector(closeActiveWorkspace(_:))
+            closeWorkspace.keyEquivalent = "w"
+            closeWorkspace.keyEquivalentModifierMask = [.command, .shift]
+        }
+
+        if let logout = findMenuItem(in: shellMenu, titled: "Logout…")
+            ?? findMenuItem(in: shellMenu, titled: "Logout...") {
+            logout.target = self
+            logout.action = #selector(logout(_:))
+        }
+
+        collapseSeparators(in: shellMenu)
+    }
+
+    private func installViewMenuEnhancements() {
+        guard let viewMenu = NSApp.mainMenu?
+            .items
+            .first(where: { $0.title == "View" })?
+            .submenu
+        else { return }
+
+        viewMenu.delegate = self
+        removeMenuItems(
+            in: viewMenu,
+            titles: [
+                "Show Toolbar",
+                "Customize Toolbar…",
+                "Customize Toolbar...",
+                "Allow Mouse Reporting",
+                "Custom Block Glyphs",
+                "Use Base16 LAB 256 Palette"
+            ]
+        )
+
+        if let actualSize = findMenuItem(in: viewMenu, titled: "Default Font Size") {
+            actualSize.title = String(
+                localized: "viewMenu.actualSize",
+                defaultValue: "Actual Size",
+                comment: "View menu item that resets terminal text to the default size."
+            )
+            actualSize.target = self
+            actualSize.action = #selector(defaultFontSize(_:))
+            actualSize.keyEquivalent = "0"
+            actualSize.keyEquivalentModifierMask = [.command]
+        }
+
+        if let bigger = findMenuItem(in: viewMenu, titled: "Bigger") {
+            bigger.title = String(
+                localized: "viewMenu.zoomIn",
+                defaultValue: "Zoom In",
+                comment: "View menu item that increases terminal text size."
+            )
+            bigger.target = self
+            bigger.action = #selector(biggerFont(_:))
+            bigger.keyEquivalent = "+"
+            bigger.keyEquivalentModifierMask = [.command]
+        }
+
+        if let smaller = findMenuItem(in: viewMenu, titled: "Smaller") {
+            smaller.title = String(
+                localized: "viewMenu.zoomOut",
+                defaultValue: "Zoom Out",
+                comment: "View menu item that decreases terminal text size."
+            )
+            smaller.target = self
+            smaller.action = #selector(smallerFont(_:))
+            smaller.keyEquivalent = "-"
+            smaller.keyEquivalentModifierMask = [.command]
+        }
+
+        PublicMenuSurface.removeDuplicateVisibleItems(from: viewMenu)
+        collapseSeparators(in: viewMenu)
+    }
+
+    private func installWindowMenuEnhancements() {
+        guard let windowMenu = NSApp.mainMenu?
+            .items
+            .first(where: { $0.title == "Window" })?
+            .submenu
+        else { return }
+
+        removeMenuItems(
+            in: windowMenu,
+            actions: [
+                NSSelectorFromString("selectNextTab:"),
+                NSSelectorFromString("selectPreviousTab:"),
+                NSSelectorFromString("moveTabToNewWindow:"),
+                NSSelectorFromString("mergeAllWindows:")
+            ]
+        )
+        collapseSeparators(in: windowMenu)
     }
 
     private func installSoundMenu() {
@@ -1727,8 +1874,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         } else {
             item = NSMenuItem(title: soundTitle, action: nil, keyEquivalent: "")
             menu = NSMenu(title: soundTitle)
-            let shellIndex = mainMenu.items.firstIndex { $0.title == "Shell" }
-            mainMenu.insertItem(item, at: shellIndex.map { $0 + 1 } ?? max(0, mainMenu.items.count - 1))
+            let windowIndex = mainMenu.items.firstIndex { $0.title == "Window" }
+            mainMenu.insertItem(item, at: windowIndex ?? max(0, mainMenu.items.count - 1))
         }
 
         item.title = soundTitle
@@ -1779,7 +1926,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         // Insert right after "Preferences…" if present, else near the top.
         let insertAfter = appMenu.items.firstIndex(where: {
-            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+            $0.action == #selector(showPreferences(_:))
+                || $0.title.lowercased().contains("preferences")
+                || $0.title.lowercased().contains("settings")
         })
         let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
         appMenu.insertItem(item, at: index)
@@ -1796,7 +1945,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         let item = makeMenuItem(for: command)
         let insertAfter = appMenu.items.firstIndex(where: {
-            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+            $0.action == #selector(showPreferences(_:))
+                || $0.title.lowercased().contains("preferences")
+                || $0.title.lowercased().contains("settings")
         })
         let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
         appMenu.insertItem(item, at: index)
@@ -1821,8 +1972,97 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
+    private func normalizeApplicationMenuUtilityOrder() {
+        guard let appMenu = NSApp.mainMenu?.items.first?.submenu,
+              let settingsIndex = appMenu.items.firstIndex(where: { $0.action == #selector(showPreferences(_:)) })
+        else { return }
+
+        let orderedActions: [Selector] = [
+            #selector(showAgentVisualPermissions(_:)),
+            #selector(showPairedDevices(_:)),
+            #selector(showConnectedServers(_:)),
+            #selector(showClawStore(_:))
+        ]
+
+        var itemsByAction: [String: NSMenuItem] = [:]
+        for action in orderedActions {
+            guard let index = appMenu.items.firstIndex(where: { $0.action == action }) else { continue }
+            let item = appMenu.items[index]
+            appMenu.removeItem(at: index)
+            itemsByAction[NSStringFromSelector(action)] = item
+        }
+
+        var insertIndex = min(settingsIndex + 1, appMenu.items.count)
+        for action in orderedActions {
+            guard let item = itemsByAction[NSStringFromSelector(action)] else { continue }
+            appMenu.insertItem(item, at: insertIndex)
+            insertIndex += 1
+        }
+    }
+
+    private func normalizeTopLevelMenuOrder() {
+        guard let mainMenu = NSApp.mainMenu, mainMenu.items.count > 1 else { return }
+
+        let orderedTitles = [
+            "Shell",
+            "Edit",
+            "View",
+            "Pane",
+            "Workspaces",
+            String(localized: "sound.menu.title"),
+            "Sound",
+            "Window",
+            "Debug",
+            String(localized: "debug.menu.title"),
+            "Help"
+        ]
+
+        var orderedItems: [NSMenuItem] = []
+        for title in orderedTitles {
+            guard let index = mainMenu.items.firstIndex(where: { $0.title == title }) else { continue }
+            let item = mainMenu.items[index]
+            if !orderedItems.contains(where: { $0 === item }) {
+                orderedItems.append(item)
+            }
+        }
+
+        let appItem = mainMenu.items[0]
+        let remainingItems = mainMenu.items.filter { item in
+            item !== appItem && !orderedItems.contains(where: { $0 === item })
+        }
+        let newItems = [appItem] + orderedItems + remainingItems
+
+        mainMenu.removeAllItems()
+        newItems.forEach(mainMenu.addItem)
+    }
+
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow(createFreshWorkspace: true)
+    }
+
+    @IBAction func closeActiveWorkspace(_ sender: Any?) {
+        guard let controller = frontmostMainWindowController else {
+            NSSound.beep()
+            return
+        }
+        controller.closeActiveWorkspace(sender)
+    }
+
+    @IBAction func defaultFontSize(_ sender: Any?) {
+        setTerminalFontSize(TerminalPreferences.defaultFontSize)
+    }
+
+    @IBAction func biggerFont(_ sender: Any?) {
+        setTerminalFontSize(TerminalPreferences.shared.fontSize + 1)
+    }
+
+    @IBAction func smallerFont(_ sender: Any?) {
+        setTerminalFontSize(TerminalPreferences.shared.fontSize - 1)
+    }
+
+    private func setTerminalFontSize(_ size: CGFloat) {
+        TerminalPreferences.shared.fontSize = size
+        NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
     @IBAction func checkForUpdates(_ sender: Any?) {
@@ -1966,9 +2206,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    /// Adds "Claw Store…" to the app menu with ⌘⌥S. ⌘⇧S is already
-    /// taken by "Export Selected Text As…" in the Shell menu.
+    /// Adds "Claw Store…" to the app menu only while the release feature flag is enabled.
     private func installClawStoreMenu() {
+        guard SoyehtFeatureFlags.clawStoreEnabled else { return }
         guard let command = AppCommandRegistry.command(.showClawStore) else { return }
         guard let mainMenu = NSApp.mainMenu,
               let appMenuItem = mainMenu.items.first,
@@ -1976,7 +2216,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if appMenu.items.contains(where: { $0.action == command.action.selector }) { return }
         let item = makeMenuItem(for: command)
         let insertAfter = appMenu.items.firstIndex(where: {
-            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+            $0.action == #selector(showPreferences(_:))
+                || $0.title.lowercased().contains("preferences")
+                || $0.title.lowercased().contains("settings")
         })
         let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
         appMenu.insertItem(item, at: index)
@@ -2053,6 +2295,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
               let paneMenu = mainMenu.items.first(where: { $0.title == "Pane" })?.submenu
         else { return }
 
+        paneMenu.delegate = self
         [
             AppCommandID.splitPaneVertical,
             .splitPaneHorizontal,
@@ -2081,15 +2324,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// whenever focus was inside a terminal or custom pane view.
     private func installEditMenuEnhancements() {
         guard let mainMenu = NSApp.mainMenu else { return }
+        let editMenu = mainMenu.items.first(where: { $0.title == "Edit" })?.submenu
+        editMenu?.delegate = self
         for commandID in [AppCommandID.undoWindowAction, .redoWindowAction] {
             guard let command = AppCommandRegistry.command(commandID),
                   let item = findMenuItem(in: mainMenu, titled: command.title) else { continue }
             configureMenuItem(item, with: command)
         }
+        if let editMenu {
+            PublicMenuSurface.removeDuplicateVisibleItems(from: editMenu)
+        }
     }
 
     private func installMoveFocusedPaneMenu(in paneMenu: NSMenu) {
-        let title = String(localized: "paneMenu.moveTo.header", comment: "Pane submenu header — 'Move Focused Pane To…'. Reveals workspace targets.")
+        let title = String(
+            localized: "paneMenu.moveTo.header",
+            defaultValue: "Move Pane to Workspace",
+            comment: "Pane submenu header. Reveals workspace targets for moving the focused pane."
+        )
         let header: NSMenuItem
         // Identity via tag, not title — title changes with the UI language,
         // so title-match would double-insert on language switch.
@@ -2107,9 +2359,63 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             paneMenu.addItem(header)
         }
         guard let submenu = header.submenu else { return }
-        for tag in AppCommandRegistry.workspaceTags {
-            guard let command = AppCommandRegistry.command(.moveFocusedPaneToWorkspace(tag)) else { continue }
-            upsertMenuItem(for: command, in: submenu)
+        refreshMoveFocusedPaneMenu(header: header, submenu: submenu)
+    }
+
+    private func refreshMoveFocusedPaneMenu(header: NSMenuItem, submenu: NSMenu) {
+        submenu.removeAllItems()
+
+        guard let controller = frontmostMainWindowController,
+              canMoveFocusedPane,
+              let focusedPaneID = controller.activeGridController?.focusedPaneID,
+              controller.store.workspace(controller.activeWorkspaceID)?.layout.contains(focusedPaneID) == true
+        else {
+            header.isEnabled = false
+            submenu.addItem(disabledMenuItem(
+                title: String(
+                    localized: "paneMenu.moveTo.noPane",
+                    defaultValue: "No Focused Pane",
+                    comment: "Disabled Pane submenu item shown when there is no focused pane to move."
+                ),
+                tag: MenuPolishTag.paneMoveUnavailable
+            ))
+            return
+        }
+
+        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
+        let destinations = ordered.enumerated().filter { _, workspace in
+            workspace.id != controller.activeWorkspaceID
+        }
+
+        guard !destinations.isEmpty else {
+            header.isEnabled = false
+            submenu.addItem(disabledMenuItem(
+                title: String(
+                    localized: "paneMenu.moveTo.noDestinations",
+                    defaultValue: "No Other Workspaces",
+                    comment: "Disabled Pane submenu item shown when there is no workspace destination."
+                ),
+                tag: MenuPolishTag.paneMoveUnavailable
+            ))
+            return
+        }
+
+        header.isEnabled = true
+        for (index, workspace) in destinations {
+            let tag = index + 1
+            let item = NSMenuItem(
+                title: workspace.name,
+                action: #selector(moveFocusedPaneToWorkspaceByTag(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.tag = tag
+            if let command = AppCommandRegistry.command(.moveFocusedPaneToWorkspace(tag)),
+               let shortcut = command.shortcut {
+                item.keyEquivalent = shortcut.menuKeyEquivalent
+                item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+            }
+            submenu.addItem(item)
         }
     }
 
@@ -2123,44 +2429,78 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         else { return }
 
         workspaceMenu.delegate = self
-        if let command = AppCommandRegistry.command(.showConversationsSidebar),
-           let item = findMenuItem(in: workspaceMenu, titled: command.title) {
-            configureMenuItem(item, with: command)
-        }
-        for tag in AppCommandRegistry.workspaceTags {
-            guard let command = AppCommandRegistry.command(.selectWorkspace(tag)) else { continue }
-            // Storyboard pre-assigns tag=1…9 on these items; match by tag so
-            // lookup survives language switches (title is localized at runtime).
-            guard let item = workspaceMenu.items.first(where: { $0.tag == tag }) else { continue }
-            configureMenuItem(item, with: command)
-        }
-        if workspaceMenu.items.last?.isSeparatorItem != true {
-            workspaceMenu.addItem(.separator())
-        }
-        for commandID in [
-            AppCommandID.moveActiveWorkspaceLeft,
-            .moveActiveWorkspaceRight,
-        ] {
-            guard let command = AppCommandRegistry.command(commandID) else { continue }
-            upsertMenuItem(for: command, in: workspaceMenu)
+        rebuildWorkspaceMenu(in: workspaceMenu)
+    }
+
+    private func rebuildWorkspaceMenu(in workspaceMenu: NSMenu) {
+        workspaceMenu.removeAllItems()
+
+        if let command = AppCommandRegistry.command(.showConversationsSidebar) {
+            workspaceMenu.addItem(makeMenuItem(for: command))
         }
 
-        let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
-        let header: NSMenuItem
-        // Identity via tag, not title — title is language-dependent.
-        if let existing = workspaceMenu.items.first(where: { $0.tag == AppCommandMenuTag.workspaceGroupActiveHeader }) {
-            header = existing
-            existing.title = title
-            if existing.submenu == nil {
-                existing.submenu = NSMenu(title: title)
-            }
-        } else {
-            header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            header.tag = AppCommandMenuTag.workspaceGroupActiveHeader
-            header.submenu = NSMenu(title: title)
-            workspaceMenu.addItem(header)
+        workspaceMenu.addItem(.separator())
+        appendWorkspaceSelectionItems(to: workspaceMenu)
+        workspaceMenu.addItem(.separator())
+
+        for commandID in [AppCommandID.moveActiveWorkspaceLeft, .moveActiveWorkspaceRight] {
+            guard let command = AppCommandRegistry.command(commandID) else { continue }
+            workspaceMenu.addItem(makeMenuItem(for: command))
         }
+
+        workspaceMenu.addItem(.separator())
+        let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
+        let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        header.tag = AppCommandMenuTag.workspaceGroupActiveHeader
+        header.submenu = NSMenu(title: title)
+        workspaceMenu.addItem(header)
         refreshWorkspaceMenuEnhancements(in: workspaceMenu)
+        collapseSeparators(in: workspaceMenu)
+    }
+
+    private func appendWorkspaceSelectionItems(to workspaceMenu: NSMenu) {
+        guard let controller = activeMainWindowController else {
+            workspaceMenu.addItem(disabledMenuItem(
+                title: String(
+                    localized: "workspaceMenu.noWindow",
+                    defaultValue: "No Workspace Window",
+                    comment: "Disabled Workspaces menu item shown when no workspace window is open."
+                ),
+                tag: MenuPolishTag.workspaceUnavailable
+            ))
+            return
+        }
+
+        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
+        guard !ordered.isEmpty else {
+            workspaceMenu.addItem(disabledMenuItem(
+                title: String(
+                    localized: "workspaceMenu.noWorkspaces",
+                    defaultValue: "No Workspaces",
+                    comment: "Disabled Workspaces menu item shown when the active window has no workspaces."
+                ),
+                tag: MenuPolishTag.workspaceUnavailable
+            ))
+            return
+        }
+
+        for (index, workspace) in ordered.enumerated() {
+            let tag = index + 1
+            let item = NSMenuItem(
+                title: workspace.name,
+                action: #selector(selectWorkspaceByTag(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.tag = tag
+            item.state = workspace.id == controller.activeWorkspaceID ? .on : .off
+            if let command = AppCommandRegistry.command(.selectWorkspace(tag)),
+               let shortcut = command.shortcut {
+                item.keyEquivalent = shortcut.menuKeyEquivalent
+                item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+            }
+            workspaceMenu.addItem(item)
+        }
     }
 
     private func refreshWorkspaceMenuEnhancements(in workspaceMenu: NSMenu) {
@@ -2245,10 +2585,73 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
+    private func disabledMenuItem(title: String, tag: Int) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.tag = tag
+        item.isEnabled = false
+        return item
+    }
+
+    private func removeMenuItems(in menu: NSMenu, titles: Set<String>) {
+        for index in menu.items.indices.reversed() where titles.contains(menu.items[index].title) {
+            menu.removeItem(at: index)
+        }
+    }
+
+    private func removeMenuItems(in menu: NSMenu, actions: Set<Selector>) {
+        for index in menu.items.indices.reversed() {
+            guard let action = menu.items[index].action, actions.contains(action) else { continue }
+            menu.removeItem(at: index)
+        }
+    }
+
+    private func collapseSeparators(in menu: NSMenu) {
+        for index in menu.items.indices.reversed() {
+            let item = menu.items[index]
+            let isEdge = index == 0 || index == menu.items.count - 1
+            let previousIsSeparator = index > 0 && menu.items[index - 1].isSeparatorItem
+            if item.isSeparatorItem && (isEdge || previousIsSeparator) {
+                menu.removeItem(at: index)
+            }
+        }
+    }
+
+    private func polishPublicMenuSurface() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+
+        PublicMenuSurface.removeForbiddenPublicItems(
+            from: mainMenu,
+            allowInternalDebugMenu: Self.shouldShowInternalDebugMenu,
+            localizedDebugTitle: String(localized: "debug.menu.title")
+        )
+        removeDuplicateSystemMenuItems(in: mainMenu)
+        #if DEBUG
+        if Self.shouldShowInternalDebugMenu {
+            installDebugMenu()
+        }
+        #endif
+
+        normalizeTopLevelMenuOrder()
+    }
+
+    private func removeDuplicateSystemMenuItems(in mainMenu: NSMenu) {
+        for title in ["Edit", "View"] {
+            guard let submenu = mainMenu.items.first(where: { $0.title == title })?.submenu else { continue }
+            PublicMenuSurface.removeDuplicateVisibleItems(from: submenu)
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         switch menu.title {
+        case "Pane":
+            if let header = menu.items.first(where: { $0.tag == AppCommandMenuTag.paneMoveToWorkspaceHeader }),
+               let submenu = header.submenu {
+                refreshMoveFocusedPaneMenu(header: header, submenu: submenu)
+            }
+        case "Edit", "View":
+            PublicMenuSurface.removeDuplicateVisibleItems(from: menu)
         case "Workspaces":
-            refreshWorkspaceMenuEnhancements(in: menu)
+            rebuildWorkspaceMenu(in: menu)
         case "Sound":
             refreshSoundMenu(menu)
         default:
@@ -2262,6 +2665,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     private var activeMainWindowController: SoyehtMainWindowController? {
         frontmostMainWindowController ?? mainWindowControllers.first
+    }
+
+    private var canMoveFocusedPane: Bool {
+        guard let controller = frontmostMainWindowController,
+              let grid = controller.activeGridController,
+              grid.canActOnFocusedPane,
+              controller.store.workspaceCount(in: controller.windowID) > 1
+        else {
+            return false
+        }
+        return true
     }
 
     fileprivate static func frontmostMainWindowController() -> SoyehtMainWindowController? {
@@ -2307,6 +2721,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
+        case #selector(newConversation(_:)):
+            return frontmostMainWindowController != nil
+        case #selector(closeActiveWorkspace(_:)):
+            guard let controller = frontmostMainWindowController else { return false }
+            return controller.store.workspaceCount(in: controller.windowID) > 1
+        case #selector(logout(_:)):
+            return !SessionStore.shared.pairedServers.isEmpty
+        case #selector(showConversationsSidebar(_:)):
+            return frontmostMainWindowController != nil
+        case #selector(selectWorkspaceByTag(_:)):
+            return validateSelectWorkspaceItem(menuItem)
+        case #selector(moveFocusedPaneToWorkspaceByTag(_:)):
+            return validateMoveFocusedPaneItem(menuItem)
+        case #selector(splitPaneVertical(_:)), #selector(splitPaneHorizontal(_:)):
+            return frontmostMainWindowController?.activeGridController?.canActOnFocusedPane == true
+        case #selector(closeFocusedPane(_:)):
+            return frontmostMainWindowController?.activeGridController != nil
+        case #selector(focusPaneLeft(_:)):
+            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.left) == true
+        case #selector(focusPaneRight(_:)):
+            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.right) == true
+        case #selector(focusPaneUp(_:)):
+            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.up) == true
+        case #selector(focusPaneDown(_:)):
+            return frontmostMainWindowController?.activeGridController?.canFocusNeighbor(.down) == true
+        case #selector(toggleZoomFocusedPane(_:)):
+            return frontmostMainWindowController?.activeGridController?.canActOnFocusedPane == true
+        case #selector(exitZoom(_:)):
+            return frontmostMainWindowController?.activeGridController?.zoomedPaneID != nil
+        case #selector(swapPaneLeft(_:)):
+            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.left) == true
+        case #selector(swapPaneRight(_:)):
+            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.right) == true
+        case #selector(swapPaneUp(_:)):
+            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.up) == true
+        case #selector(swapPaneDown(_:)):
+            return frontmostMainWindowController?.activeGridController?.canSwapNeighbor(.down) == true
+        case #selector(rotateFocusedSplit(_:)):
+            return frontmostMainWindowController?.activeGridController?.canRotateFocusedSplit == true
+        case #selector(defaultFontSize(_:)):
+            return TerminalPreferences.shared.fontSize != TerminalPreferences.defaultFontSize
+        case #selector(biggerFont(_:)):
+            return true
+        case #selector(smallerFont(_:)):
+            return TerminalPreferences.shared.fontSize > TerminalPreferences.minimumFontSize
         case #selector(undoWindowAction(_:)):
             let undoTitle = String(localized: "editMenu.undo.default", comment: "Default Edit > Undo title when no undo is available.")
             let title = activeUndoManager?.undoMenuItemTitle ?? undoTitle
@@ -2322,12 +2781,36 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case #selector(moveActiveWorkspaceRight(_:)):
             return frontmostMainWindowController?.canMoveActiveWorkspace(by: 1) == true
         case #selector(showClawStore(_:)):
-            return true
+            return SoyehtFeatureFlags.clawStoreEnabled
         case #selector(checkForUpdates(_:)):
             return SoyehtUpdater.shared.canCheckForUpdates
         default:
             return true
         }
+    }
+
+    private func validateSelectWorkspaceItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let controller = activeMainWindowController else {
+            menuItem.state = .off
+            return false
+        }
+        let index = menuItem.tag - 1
+        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
+        guard ordered.indices.contains(index) else {
+            menuItem.state = .off
+            return false
+        }
+        menuItem.state = ordered[index].id == controller.activeWorkspaceID ? .on : .off
+        return true
+    }
+
+    private func validateMoveFocusedPaneItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let controller = frontmostMainWindowController,
+              canMoveFocusedPane else { return false }
+        let index = menuItem.tag - 1
+        let ordered = controller.store.orderedWorkspaces(in: controller.windowID)
+        guard ordered.indices.contains(index) else { return false }
+        return ordered[index].id != controller.activeWorkspaceID
     }
 
     /// Menu item / `⌘⇧C` target. Toggles the floating sidebar overlay on
