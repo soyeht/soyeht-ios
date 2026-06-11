@@ -42,6 +42,71 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testPaneFocusShortcutRegressionMutatesOnlyCurrentUIWindowTarget() throws {
+        let windowActions = WindowScopedPaneCommandSpy()
+        let router = AppCommandActionRouter(
+            applicationActions: nil,
+            windowActions: windowActions
+        )
+
+        XCTAssertEqual(windowActions.activePaneIDs, [.left: "left-start", .right: "right-start"])
+
+        try performShortcut(.focusPaneRight, through: router)
+        XCTAssertEqual(windowActions.activePaneIDs[.left], "left-right")
+        XCTAssertEqual(
+            windowActions.activePaneIDs[.right],
+            "right-start",
+            "Cmd+Shift+Right in the left key window must not mutate the right window."
+        )
+
+        windowActions.keyWindowTarget = .right
+        try performShortcut(.focusPaneRight, through: router)
+        XCTAssertEqual(
+            windowActions.activePaneIDs[.left],
+            "left-right",
+            "Cmd+Shift+Right in the right key window must not keep mutating the old left window."
+        )
+        XCTAssertEqual(windowActions.activePaneIDs[.right], "right-right")
+
+        try performShortcut(.focusPaneLeft, through: router)
+        XCTAssertEqual(windowActions.activePaneIDs[.left], "left-right")
+        XCTAssertEqual(windowActions.activePaneIDs[.right], "right-left")
+
+        windowActions.keyWindowTarget = .left
+        try performShortcut(.focusPaneLeft, through: router)
+        XCTAssertEqual(windowActions.activePaneIDs[.left], "left-left")
+        XCTAssertEqual(
+            windowActions.activePaneIDs[.right],
+            "right-left",
+            "Cmd+Shift+Left after returning focus to the left key window must not mutate the right window."
+        )
+
+        XCTAssertEqual(
+            windowActions.calls,
+            [
+                .init(window: .left, commandID: .focusPaneRight),
+                .init(window: .right, commandID: .focusPaneRight),
+                .init(window: .right, commandID: .focusPaneLeft),
+                .init(window: .left, commandID: .focusPaneLeft),
+            ]
+        )
+
+        let activePaneIDs = windowActions.activePaneIDs
+        let calls = windowActions.calls
+        windowActions.keyWindowTarget = nil
+        windowActions.mainWindowTarget = nil
+        windowActions.automationFallbackTarget = .right
+        let fallbackOnlyCommandID = try routedCommandID(for: .focusPaneRight)
+        XCTAssertFalse(router.perform(fallbackOnlyCommandID, sender: nil))
+        XCTAssertEqual(
+            windowActions.activePaneIDs,
+            activePaneIDs,
+            "Public UI shortcut dispatch must not mutate a window when only the automation fallback target exists."
+        )
+        XCTAssertEqual(windowActions.calls, calls)
+    }
+
     func testAppDelegateDelegatesAppCommandIDDispatchToActionRouter() throws {
         let source = try macSource("AppDelegate.swift")
         let dispatch = try slice(
@@ -163,6 +228,38 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let end = try XCTUnwrap(tail.range(of: endMarker))
         return String(tail[..<end.lowerBound])
     }
+
+    @MainActor
+    private func performShortcut(
+        _ expectedID: AppCommandID,
+        through router: AppCommandActionRouter,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let commandID = try routedCommandID(for: expectedID, file: file, line: line)
+        XCTAssertEqual(commandID, expectedID, file: file, line: line)
+        XCTAssertTrue(router.perform(commandID, sender: nil), file: file, line: line)
+    }
+
+    private func routedCommandID(
+        for id: AppCommandID,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> AppCommandID {
+        let command = try XCTUnwrap(AppCommandRegistry.command(id), "Missing command \(id)", file: file, line: line)
+        let shortcut = try XCTUnwrap(command.shortcut, "Missing shortcut for \(id)", file: file, line: line)
+        return try XCTUnwrap(
+            AppCommandShortcutRouter().commandID(
+                matchingKeyCode: shortcut.lookupKeyCode,
+                charactersIgnoringModifiers: shortcut.lookupCharacters,
+                modifiers: shortcut.modifiers,
+                in: .paneGrid
+            ),
+            "Shortcut for \(id) should resolve through AppCommandShortcutRouter",
+            file: file,
+            line: line
+        )
+    }
 }
 
 @MainActor
@@ -210,5 +307,85 @@ private final class AppCommandWindowActionSpy: AppCommandWindowActionPerforming 
     private func record(_ name: String) -> Bool {
         calls.append(name)
         return true
+    }
+}
+
+private enum FakeWindowID: String, Hashable {
+    case left
+    case right
+}
+
+private struct WindowScopedCommandCall: Equatable {
+    var window: FakeWindowID
+    var commandID: AppCommandID
+}
+
+@MainActor
+private final class WindowScopedPaneCommandSpy: AppCommandWindowActionPerforming {
+    var keyWindowTarget: FakeWindowID? = .left
+    var mainWindowTarget: FakeWindowID?
+    var automationFallbackTarget: FakeWindowID?
+    var activePaneIDs: [FakeWindowID: String] = [
+        .left: "left-start",
+        .right: "right-start",
+    ]
+    var calls: [WindowScopedCommandCall] = []
+
+    private var resolver: MainWindowCommandTargetResolver<FakeWindowID> {
+        MainWindowCommandTargetResolver(
+            keyWindowTarget: keyWindowTarget,
+            mainWindowTarget: mainWindowTarget,
+            automationFallbackTarget: automationFallbackTarget
+        )
+    }
+
+    func performNewConversationCommand(_ sender: Any?) -> Bool { false }
+    func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool { false }
+    func performUndoWindowActionCommand(_ sender: Any?) -> Bool { false }
+    func performRedoWindowActionCommand(_ sender: Any?) -> Bool { false }
+    func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool { false }
+    func performSplitPaneHorizontalCommand(_ sender: Any?) -> Bool { false }
+    func performCloseFocusedPaneCommand(_ sender: Any?) -> Bool { false }
+    func performFocusPaneLeftCommand(_ sender: Any?) -> Bool { record(.focusPaneLeft, activePaneID: "left") }
+    func performFocusPaneRightCommand(_ sender: Any?) -> Bool { record(.focusPaneRight, activePaneID: "right") }
+    func performFocusPaneUpCommand(_ sender: Any?) -> Bool { false }
+    func performFocusPaneDownCommand(_ sender: Any?) -> Bool { false }
+    func performToggleZoomFocusedPaneCommand(_ sender: Any?) -> Bool { false }
+    func performExitZoomCommand(_ sender: Any?) -> Bool { false }
+    func performSwapPaneLeftCommand(_ sender: Any?) -> Bool { false }
+    func performSwapPaneRightCommand(_ sender: Any?) -> Bool { false }
+    func performSwapPaneUpCommand(_ sender: Any?) -> Bool { false }
+    func performSwapPaneDownCommand(_ sender: Any?) -> Bool { false }
+    func performRotateFocusedSplitCommand(_ sender: Any?) -> Bool { false }
+    func performSelectWorkspaceCommand(_ sender: Any?) -> Bool { false }
+    func performMoveFocusedPaneToWorkspaceCommand(_ sender: Any?) -> Bool { false }
+    func performMoveActiveWorkspaceLeftCommand(_ sender: Any?) -> Bool { false }
+    func performMoveActiveWorkspaceRightCommand(_ sender: Any?) -> Bool { false }
+
+    private func record(_ commandID: AppCommandID, activePaneID: String) -> Bool {
+        guard let target = resolver.uiTarget else { return false }
+        activePaneIDs[target] = "\(target.rawValue)-\(activePaneID)"
+        calls.append(.init(window: target, commandID: commandID))
+        return true
+    }
+}
+
+private extension AppCommandShortcut {
+    var lookupKeyCode: UInt16 {
+        switch key {
+        case .character:
+            return 0
+        case .special(let special):
+            return special.virtualKeyCode
+        }
+    }
+
+    var lookupCharacters: String? {
+        switch key {
+        case .character(let value):
+            return value
+        case .special:
+            return nil
+        }
     }
 }
