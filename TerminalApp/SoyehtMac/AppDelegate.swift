@@ -1599,12 +1599,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     @IBAction func splitPaneHorizontal(_ sender: Any?) { withActivePaneGrid { $0.splitPaneHorizontal(sender) } }
     @IBAction func closeFocusedPane(_ sender: Any?) { withActivePaneGrid { $0.closeFocusedPane(sender) } }
     @IBAction func undoWindowAction(_ sender: Any?) {
-        let controller = activeMainWindowController
+        let controller = frontmostMainWindowController
         controller?.window?.undoManager?.undo()
         controller?.refreshWorkspaceChromeFromStore()
     }
     @IBAction func redoWindowAction(_ sender: Any?) {
-        let controller = activeMainWindowController
+        let controller = frontmostMainWindowController
         controller?.window?.undoManager?.redo()
         controller?.refreshWorkspaceChromeFromStore()
     }
@@ -1620,14 +1620,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     @IBAction func swapPaneDown(_ sender: Any?) { withActivePaneGrid { $0.swapPaneDown(sender) } }
     @IBAction func rotateFocusedSplit(_ sender: Any?) { withActivePaneGrid { $0.rotateFocusedSplit(sender) } }
     @IBAction func newGroupForActiveWorkspace(_ sender: Any?) {
-        guard let controller = activeMainWindowController else {
+        guard let controller = frontmostMainWindowController else {
             NSSound.beep()
             return
         }
         controller.promptCreateGroupForActiveWorkspace(sender)
     }
     @IBAction func assignActiveWorkspaceToGroup(_ sender: NSMenuItem) {
-        guard let controller = activeMainWindowController else {
+        guard let controller = frontmostMainWindowController else {
             NSSound.beep()
             return
         }
@@ -1843,7 +1843,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     fileprivate static func frontmostMainWindowController() -> SoyehtMainWindowController? {
         mainWindowController(owning: NSApp.keyWindow)
             ?? mainWindowController(owning: NSApp.mainWindow)
-            ?? NSApp.orderedWindows.lazy.compactMap { mainWindowController(owning: $0) }.first
     }
 
     fileprivate static func mainWindowController(owning window: NSWindow?) -> SoyehtMainWindowController? {
