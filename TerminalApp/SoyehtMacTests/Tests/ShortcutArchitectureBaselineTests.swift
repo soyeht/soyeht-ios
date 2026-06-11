@@ -153,17 +153,20 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "@IBAction func showClawStore"
         )
         assertNoArbitraryWindowFallbacks(mutableActions, label: "mutable AppDelegate UI actions")
-        XCTAssertTrue(mutableActions.contains("uiMainWindowController"))
-        XCTAssertTrue(mutableActions.contains("uiMainWindowController?.moveActiveWorkspaceLeft"))
-        XCTAssertTrue(mutableActions.contains("uiMainWindowController?.moveActiveWorkspaceRight"))
+        XCTAssertTrue(mutableActions.contains("windowCommandPerformer.performMoveFocusedPaneToWorkspaceCommand"))
+        XCTAssertTrue(mutableActions.contains("appCommandActionRouter.performAppCommand"))
+        XCTAssertTrue(mutableActions.contains("windowCommandPerformer.performMoveActiveWorkspaceLeftCommand"))
+        XCTAssertTrue(mutableActions.contains("windowCommandPerformer.performMoveActiveWorkspaceRightCommand"))
+        XCTAssertFalse(mutableActions.contains("switch commandID"))
 
-        let paneGridBridge = try slice(
+        let windowActionPerformer = try slice(
             appDelegate,
-            from: "private func withActivePaneGrid",
-            to: "/// Menu item / `⌘⇧C` target."
+            from: "private final class UICommandWindowActionPerformer",
+            to: "// MARK: - WorkspaceSwitchBenchmark"
         )
-        assertNoArbitraryWindowFallbacks(paneGridBridge, label: "AppDelegate pane grid bridge")
-        XCTAssertTrue(paneGridBridge.contains("guard let grid = uiMainWindowController?.activeGridController"))
+        assertNoArbitraryWindowFallbacks(windowActionPerformer, label: "UICommandWindowActionPerformer")
+        XCTAssertTrue(windowActionPerformer.contains("private let targetProvider"))
+        XCTAssertTrue(windowActionPerformer.contains("guard let grid = targetProvider()?.activeGridController"))
 
         let menuContext = try slice(
             mainMenuController,
