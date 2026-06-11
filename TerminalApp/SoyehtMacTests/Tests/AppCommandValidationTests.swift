@@ -2,6 +2,29 @@ import XCTest
 @testable import SoyehtMacDomain
 
 final class AppCommandValidationTests: XCTestCase {
+    func testMainWindowCommandTargetResolverSeparatesUIAndAutomationScopes() {
+        let keyResolver = MainWindowCommandTargetResolver(
+            keyWindowTarget: "key",
+            mainWindowTarget: "main",
+            automationFallbackTarget: "automation"
+        )
+        XCTAssertEqual(keyResolver.uiTarget, "key")
+        XCTAssertEqual(keyResolver.automationTarget, "key")
+
+        let mainResolver = MainWindowCommandTargetResolver<String>(
+            mainWindowTarget: "main",
+            automationFallbackTarget: "automation"
+        )
+        XCTAssertEqual(mainResolver.uiTarget, "main")
+        XCTAssertEqual(mainResolver.automationTarget, "main")
+
+        let automationResolver = MainWindowCommandTargetResolver<String>(
+            automationFallbackTarget: "automation"
+        )
+        XCTAssertNil(automationResolver.uiTarget)
+        XCTAssertEqual(automationResolver.automationTarget, "automation")
+    }
+
     func testNewConversationRequiresFrontmostWindow() throws {
         let command = try command(.newConversation)
 
