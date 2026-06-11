@@ -62,6 +62,28 @@ final class AppCommandRegistryTests: XCTestCase {
         )
     }
 
+    func testShortcutRouterUsesRegistryLookup() {
+        let router = AppCommandShortcutRouter()
+
+        XCTAssertEqual(
+            router.commandID(
+                matchingKeyCode: AppCommandSpecialKey.leftArrow.virtualKeyCode,
+                charactersIgnoringModifiers: nil,
+                modifiers: [.command, .shift],
+                in: .paneGrid
+            ),
+            .focusPaneLeft
+        )
+        XCTAssertNil(
+            router.commandID(
+                matchingKeyCode: AppCommandSpecialKey.leftArrow.virtualKeyCode,
+                charactersIgnoringModifiers: nil,
+                modifiers: [.command, .shift],
+                in: .workspace
+            )
+        )
+    }
+
     func testRemovedTmuxShortcutsAreNotAppCommands() {
         for context in AppCommandContext.allCases {
             XCTAssertNil(command(keyCode: 0, characters: "s", modifiers: [.command, .shift], context: context))

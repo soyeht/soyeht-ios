@@ -890,6 +890,36 @@ enum AppCommandRegistry {
     }
 }
 
+struct AppCommandShortcutRouter: Hashable {
+    func command(
+        matchingKeyCode keyCode: UInt16,
+        charactersIgnoringModifiers: String?,
+        modifiers: AppCommandModifier,
+        in context: AppCommandContext
+    ) -> AppCommand? {
+        AppCommandRegistry.command(
+            matchingKeyCode: keyCode,
+            charactersIgnoringModifiers: charactersIgnoringModifiers,
+            modifiers: modifiers,
+            in: context
+        )
+    }
+
+    func commandID(
+        matchingKeyCode keyCode: UInt16,
+        charactersIgnoringModifiers: String?,
+        modifiers: AppCommandModifier,
+        in context: AppCommandContext
+    ) -> AppCommandID? {
+        command(
+            matchingKeyCode: keyCode,
+            charactersIgnoringModifiers: charactersIgnoringModifiers,
+            modifiers: modifiers,
+            in: context
+        )?.id
+    }
+}
+
 #if canImport(AppKit)
 extension AppCommandModifier {
     init(_ flags: NSEvent.ModifierFlags) {
@@ -911,14 +941,18 @@ extension AppCommandModifier {
     }
 }
 
-extension AppCommandRegistry {
-    static func command(matching event: NSEvent, in context: AppCommandContext) -> AppCommand? {
+extension AppCommandShortcutRouter {
+    func command(matching event: NSEvent, in context: AppCommandContext) -> AppCommand? {
         command(
             matchingKeyCode: event.keyCode,
             charactersIgnoringModifiers: event.charactersIgnoringModifiers,
             modifiers: AppCommandModifier(event.modifierFlags),
             in: context
         )
+    }
+
+    func commandID(matching event: NSEvent, in context: AppCommandContext) -> AppCommandID? {
+        command(matching: event, in: context)?.id
     }
 }
 #endif
