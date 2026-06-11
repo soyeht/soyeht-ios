@@ -10,8 +10,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         let resolver = try slice(
             source,
-            from: "var frontmostMainWindowController",
-            to: "private func withActivePaneGrid"
+            from: "fileprivate static func frontmostMainWindowController()",
+            to: "fileprivate static func mainWindowController"
         )
         let activePaneGridBridge = try slice(
             source,
@@ -22,12 +22,54 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(commandActions.contains("let target = frontmostMainWindowController"))
         XCTAssertTrue(commandActions.contains("frontmostMainWindowController?.moveActiveWorkspaceLeft"))
         XCTAssertTrue(commandActions.contains("frontmostMainWindowController?.moveActiveWorkspaceRight"))
+        XCTAssertTrue(commandActions.contains("let controller = frontmostMainWindowController"))
+        XCTAssertFalse(commandActions.contains("let controller = activeMainWindowController"))
         XCTAssertFalse(commandActions.contains("NSApp.windows"))
 
         XCTAssertTrue(resolver.contains("NSApp.keyWindow"))
         XCTAssertTrue(resolver.contains("NSApp.mainWindow"))
-        XCTAssertTrue(resolver.contains("NSApp.orderedWindows"))
+        XCTAssertFalse(resolver.contains("NSApp.orderedWindows"))
+        XCTAssertFalse(resolver.contains("mainWindowControllers.first"))
         XCTAssertTrue(activePaneGridBridge.contains("guard let grid = frontmostMainWindowController?.activeGridController"))
+    }
+
+    func testPaneGridLocalShortcutMonitorRequiresMatchingKeyWindow() throws {
+        let source = try macSource("PaneGrid/PaneGridController.swift")
+        let installKeyMonitor = try slice(
+            source,
+            from: "private func installKeyMonitor()",
+            to: "private func installMouseMonitor()"
+        )
+        let shortcutGate = try slice(
+            source,
+            from: "private func shouldHandleGridShortcutEvent",
+            to: "private func handleGroupSelectionMouseEvent"
+        )
+
+        XCTAssertTrue(installKeyMonitor.contains("self.shouldHandleGridShortcutEvent(event)"))
+        XCTAssertTrue(shortcutGate.contains("event.window === window"))
+        XCTAssertTrue(shortcutGate.contains("window.isKeyWindow"))
+        XCTAssertTrue(shortcutGate.contains("isFirstResponderInsideGrid"))
+    }
+
+    func testMainMenuValidationUsesOnlyFrontmostWindowForMutableCommandContext() throws {
+        let source = try macSource("MainMenu/MainMenuController.swift")
+        let commandUIContext = try slice(
+            source,
+            from: "private var commandUIContext",
+            to: "private func commandWindowState"
+        )
+        let workspaceSectionState = try slice(
+            source,
+            from: "private var workspaceSectionState",
+            to: "private func workspaceEntries"
+        )
+
+        XCTAssertTrue(commandUIContext.contains("let frontmostController = frontmostMainWindowController"))
+        XCTAssertTrue(commandUIContext.contains("activeWindow: frontmostState"))
+        XCTAssertFalse(commandUIContext.contains("activeMainWindowController"))
+        XCTAssertTrue(workspaceSectionState.contains("let controller = frontmostMainWindowController"))
+        XCTAssertFalse(workspaceSectionState.contains("activeMainWindowController"))
     }
 
     func testMainWindowControllerRoutesPaneCommandsToVisibleWorkspaceContainer() throws {
