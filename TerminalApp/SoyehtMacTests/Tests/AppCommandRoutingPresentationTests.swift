@@ -1,6 +1,60 @@
 import XCTest
+@testable import SoyehtMacDomain
 
 final class AppCommandRoutingPresentationTests: XCTestCase {
+    @MainActor
+    func testAppCommandActionRouterRoutesEveryRegisteredCommandThroughSingleBoundary() {
+        let appActions = AppCommandApplicationActionSpy()
+        let windowActions = AppCommandWindowActionSpy()
+        let router = AppCommandActionRouter(
+            applicationActions: appActions,
+            windowActions: windowActions
+        )
+        let appScopedIDs: Set<AppCommandID> = [
+            .newWindow,
+            .showCommandPalette,
+            .checkForUpdates,
+            .showPreferences,
+            .showAgentVisualPermissions,
+            .showPairedDevices,
+            .showConnectedServers,
+            .uninstallSoyeht,
+            .showClawStore,
+        ]
+
+        for command in AppCommandRegistry.allCommands {
+            let appCount = appActions.calls.count
+            let windowCount = windowActions.calls.count
+            XCTAssertTrue(router.perform(command.id, sender: nil), "\(command.id) should route")
+
+            if appScopedIDs.contains(command.id) {
+                XCTAssertEqual(appActions.calls.count, appCount + 1, "\(command.id) should route to app actions")
+                XCTAssertEqual(windowActions.calls.count, windowCount)
+            } else {
+                XCTAssertEqual(appActions.calls.count, appCount)
+                XCTAssertEqual(windowActions.calls.count, windowCount + 1, "\(command.id) should route to window actions")
+            }
+        }
+
+        XCTAssertEqual(
+            appActions.calls.count + windowActions.calls.count,
+            AppCommandRegistry.allCommands.count
+        )
+    }
+
+    func testAppDelegateDelegatesAppCommandIDDispatchToActionRouter() throws {
+        let source = try macSource("AppDelegate.swift")
+        let dispatch = try slice(
+            source,
+            from: "func performAppCommand(_ commandID: AppCommandID, sender: Any?)",
+            to: "@IBAction func selectWorkspaceByTag"
+        )
+
+        XCTAssertTrue(dispatch.contains("appCommandActionRouter.performAppCommand(commandID, sender: sender)"))
+        XCTAssertFalse(dispatch.contains("switch commandID"))
+        XCTAssertFalse(dispatch.contains("case ."))
+    }
+
     func testPaneAndWorkspaceShortcutsRouteThroughUICommandTarget() throws {
         let source = try macSource("AppDelegate.swift")
         let commandActions = try slice(
@@ -18,16 +72,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "fileprivate static func mainWindowCommandTargetResolver",
             to: "fileprivate static func mainWindowController"
         )
-        let activePaneGridBridge = try slice(
+        let windowActionPerformer = try slice(
             source,
-            from: "private func withActivePaneGrid",
-            to: "/// Menu item / `⌘⇧C` target."
+            from: "private final class UICommandWindowActionPerformer",
+            to: "// MARK: - WorkspaceSwitchBenchmark"
         )
 
-        XCTAssertTrue(commandActions.contains("let target = uiMainWindowController"))
-        XCTAssertTrue(commandActions.contains("uiMainWindowController?.moveActiveWorkspaceLeft"))
-        XCTAssertTrue(commandActions.contains("uiMainWindowController?.moveActiveWorkspaceRight"))
-        XCTAssertTrue(commandActions.contains("let controller = uiMainWindowController"))
+        XCTAssertTrue(commandActions.contains("windowCommandPerformer.performMoveFocusedPaneToWorkspaceCommand"))
+        XCTAssertTrue(commandActions.contains("windowCommandPerformer.performMoveActiveWorkspaceLeftCommand"))
+        XCTAssertTrue(commandActions.contains("windowCommandPerformer.performMoveActiveWorkspaceRightCommand"))
+        XCTAssertTrue(commandActions.contains("windowCommandPerformer.performSelectWorkspaceCommand"))
         XCTAssertFalse(commandActions.contains("let controller = activeMainWindowController"))
         XCTAssertFalse(commandActions.contains("NSApp.windows"))
 
@@ -36,7 +90,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(targetResolver.contains("mainWindowTarget: mainWindowController(owning: NSApp.mainWindow)"))
         XCTAssertFalse(targetResolver.contains("NSApp.orderedWindows"))
         XCTAssertFalse(targetResolver.contains("mainWindowControllers.first"))
-        XCTAssertTrue(activePaneGridBridge.contains("guard let grid = uiMainWindowController?.activeGridController"))
+        XCTAssertTrue(windowActionPerformer.contains("private let targetProvider"))
+        XCTAssertTrue(windowActionPerformer.contains("targetProvider()?.activeGridController"))
+        XCTAssertFalse(windowActionPerformer.contains("activeMainWindowController"))
+        XCTAssertFalse(windowActionPerformer.contains("NSApp.orderedWindows"))
+        XCTAssertFalse(windowActionPerformer.contains("mainWindowControllers.first"))
     }
 
     func testPaneGridLocalShortcutMonitorRequiresMatchingKeyWindow() throws {
@@ -104,5 +162,53 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let tail = source[start.lowerBound...]
         let end = try XCTUnwrap(tail.range(of: endMarker))
         return String(tail[..<end.lowerBound])
+    }
+}
+
+@MainActor
+private final class AppCommandApplicationActionSpy: AppCommandApplicationActionPerforming {
+    var calls: [String] = []
+
+    func performNewWindowCommand(_ sender: Any?) { calls.append("newWindow") }
+    func performShowCommandPaletteCommand(_ sender: Any?) { calls.append("showCommandPalette") }
+    func performCheckForUpdatesCommand(_ sender: Any?) { calls.append("checkForUpdates") }
+    func performShowPreferencesCommand(_ sender: Any?) { calls.append("showPreferences") }
+    func performShowAgentVisualPermissionsCommand(_ sender: Any?) { calls.append("showAgentVisualPermissions") }
+    func performShowPairedDevicesCommand(_ sender: Any?) { calls.append("showPairedDevices") }
+    func performShowConnectedServersCommand(_ sender: Any?) { calls.append("showConnectedServers") }
+    func performUninstallSoyehtCommand(_ sender: Any?) { calls.append("uninstallSoyeht") }
+    func performShowClawStoreCommand(_ sender: Any?) { calls.append("showClawStore") }
+}
+
+@MainActor
+private final class AppCommandWindowActionSpy: AppCommandWindowActionPerforming {
+    var calls: [String] = []
+
+    func performNewConversationCommand(_ sender: Any?) -> Bool { record("newConversation") }
+    func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool { record("showConversationsSidebar") }
+    func performUndoWindowActionCommand(_ sender: Any?) -> Bool { record("undoWindowAction") }
+    func performRedoWindowActionCommand(_ sender: Any?) -> Bool { record("redoWindowAction") }
+    func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool { record("splitPaneVertical") }
+    func performSplitPaneHorizontalCommand(_ sender: Any?) -> Bool { record("splitPaneHorizontal") }
+    func performCloseFocusedPaneCommand(_ sender: Any?) -> Bool { record("closeFocusedPane") }
+    func performFocusPaneLeftCommand(_ sender: Any?) -> Bool { record("focusPaneLeft") }
+    func performFocusPaneRightCommand(_ sender: Any?) -> Bool { record("focusPaneRight") }
+    func performFocusPaneUpCommand(_ sender: Any?) -> Bool { record("focusPaneUp") }
+    func performFocusPaneDownCommand(_ sender: Any?) -> Bool { record("focusPaneDown") }
+    func performToggleZoomFocusedPaneCommand(_ sender: Any?) -> Bool { record("toggleZoomFocusedPane") }
+    func performExitZoomCommand(_ sender: Any?) -> Bool { record("exitZoom") }
+    func performSwapPaneLeftCommand(_ sender: Any?) -> Bool { record("swapPaneLeft") }
+    func performSwapPaneRightCommand(_ sender: Any?) -> Bool { record("swapPaneRight") }
+    func performSwapPaneUpCommand(_ sender: Any?) -> Bool { record("swapPaneUp") }
+    func performSwapPaneDownCommand(_ sender: Any?) -> Bool { record("swapPaneDown") }
+    func performRotateFocusedSplitCommand(_ sender: Any?) -> Bool { record("rotateFocusedSplit") }
+    func performSelectWorkspaceCommand(_ sender: Any?) -> Bool { record("selectWorkspace") }
+    func performMoveFocusedPaneToWorkspaceCommand(_ sender: Any?) -> Bool { record("moveFocusedPaneToWorkspace") }
+    func performMoveActiveWorkspaceLeftCommand(_ sender: Any?) -> Bool { record("moveActiveWorkspaceLeft") }
+    func performMoveActiveWorkspaceRightCommand(_ sender: Any?) -> Bool { record("moveActiveWorkspaceRight") }
+
+    private func record(_ name: String) -> Bool {
+        calls.append(name)
+        return true
     }
 }
