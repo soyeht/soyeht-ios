@@ -749,7 +749,7 @@ final class PaneGridController: NSViewController {
     private func installKeyMonitor() {
         guard keyEventMonitor == nil else { return }
         keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.isFirstResponderInsideGrid else { return event }
+            guard let self, self.shouldHandleGridShortcutEvent(event) else { return event }
             if self.handleGridShortcut(event) { return nil }
             return event
         }
@@ -784,6 +784,16 @@ final class PaneGridController: NSViewController {
             return false
         }
         return firstResponder === view || firstResponder.isDescendant(of: view)
+    }
+
+    private func shouldHandleGridShortcutEvent(_ event: NSEvent) -> Bool {
+        guard let window = view.window,
+              event.window === window,
+              window.isKeyWindow,
+              isFirstResponderInsideGrid else {
+            return false
+        }
+        return true
     }
 
     private func handleGroupSelectionMouseEvent(_ event: NSEvent) -> NSEvent? {

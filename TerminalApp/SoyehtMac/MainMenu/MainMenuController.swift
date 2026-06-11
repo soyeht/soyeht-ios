@@ -6,7 +6,6 @@ import SoyehtCore
 protocol MainMenuRuntimeProviding: AnyObject {
     var workspaceStore: WorkspaceStore { get }
     var frontmostMainWindowController: SoyehtMainWindowController? { get }
-    var activeMainWindowController: SoyehtMainWindowController? { get }
 
     func retainMenuWindowController(_ windowController: NSWindowController)
 }
@@ -205,7 +204,7 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
 
     private var workspaceSectionState: WorkspaceMenuSectionState {
-        let controller = activeMainWindowController
+        let controller = frontmostMainWindowController
         let currentGroupID = controller?.activeWorkspaceGroupID
         let selection: WorkspaceSelectionMenuState
 
@@ -291,10 +290,6 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
         runtime?.frontmostMainWindowController
     }
 
-    private var activeMainWindowController: SoyehtMainWindowController? {
-        runtime?.activeMainWindowController
-    }
-
     private var canMoveFocusedPane: Bool {
         guard let controller = frontmostMainWindowController,
               let grid = controller.activeGridController,
@@ -312,21 +307,12 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
 
     private var commandUIContext: CommandUIContext {
         let frontmostController = frontmostMainWindowController
-        let activeController = activeMainWindowController
         let frontmostState = frontmostController.map {
             commandWindowState(for: $0, includeMoveDestinations: true)
         }
-        let activeState: MainWindowCommandUIState?
-        if let activeController, let frontmostController, activeController === frontmostController {
-            activeState = frontmostState
-        } else {
-            activeState = activeController.map {
-                commandWindowState(for: $0, includeMoveDestinations: false)
-            }
-        }
         return CommandUIContext(
             frontmostWindow: frontmostState,
-            activeWindow: activeState,
+            activeWindow: frontmostState,
             undo: UndoCommandUIState(
                 canUndo: activeUndoManager?.canUndo == true,
                 canRedo: activeUndoManager?.canRedo == true,
