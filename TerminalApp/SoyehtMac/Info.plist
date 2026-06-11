@@ -67,8 +67,6 @@
 	<string>Microphone is used for voice-to-text input in terminal panes.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition is used to convert voice input into terminal text.</string>
-	<key>NSMainStoryboardFile</key>
-	<string>Main</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>

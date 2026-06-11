@@ -8,13 +8,24 @@ private func normalizeProcessWorkingDirectoryBeforeAppKitLaunch() {
     unsetenv("OLDPWD")
 }
 
-normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
+@MainActor
+private var retainedApplicationDelegate: (NSObject & NSApplicationDelegate)?
 
-if Bundle.main.object(forInfoDictionaryKey: "SoyehtUninstallerMode") as? Bool == true {
+@MainActor
+private func runApplication(with delegate: NSObject & NSApplicationDelegate) {
     let app = NSApplication.shared
-    let delegate = UninstallCompanionAppDelegate()
+    // NSApplication does not own its delegate; pin it for the process lifetime.
+    retainedApplicationDelegate = delegate
     app.delegate = delegate
     app.run()
-} else {
-    _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+}
+
+MainActor.assumeIsolated {
+    normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
+
+    if Bundle.main.object(forInfoDictionaryKey: "SoyehtUninstallerMode") as? Bool == true {
+        runApplication(with: UninstallCompanionAppDelegate())
+    } else {
+        runApplication(with: AppDelegate())
+    }
 }

@@ -181,8 +181,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        // The storyboard can still provide a late main-menu instance during app
-        // activation. Keep the programmatic builder as the runtime source.
+        // Keep the programmatic builder as the runtime source before layering
+        // development-only menu items onto it.
         mainMenuController.installProgrammaticMainMenuIfNeeded()
         mainMenuController.installInternalDebugMenuIfNeeded()
     }

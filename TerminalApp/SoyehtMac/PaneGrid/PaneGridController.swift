@@ -402,7 +402,7 @@ final class PaneGridController: NSViewController {
     }
 
     @IBAction func closePaneOrWindow(_ sender: Any?) {
-        // Kept for storyboard/menu compatibility (Main.storyboard:323).
+        // Kept for legacy selector compatibility.
         // Behavior now delegates to `closeFocusedPane` — closing the last
         // pane does NOT tear down the window; host decides what "last pane"
         // means via `onWouldCloseLastPane` (typically close the workspace).
