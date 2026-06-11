@@ -134,12 +134,18 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
         let appDelegate = try macSource("AppDelegate.swift")
         let mainMenuController = try macSource("MainMenu/MainMenuController.swift")
 
-        let frontmostResolver = try slice(
+        let uiResolver = try slice(
             appDelegate,
-            from: "fileprivate static func frontmostMainWindowController()",
+            from: "fileprivate static func uiMainWindowController()",
+            to: "fileprivate static func mainWindowCommandTargetResolver"
+        )
+        let targetResolver = try slice(
+            appDelegate,
+            from: "fileprivate static func mainWindowCommandTargetResolver",
             to: "fileprivate static func mainWindowController"
         )
-        assertNoArbitraryWindowFallbacks(frontmostResolver, label: "frontmostMainWindowController")
+        assertNoArbitraryWindowFallbacks(uiResolver, label: "uiMainWindowController")
+        assertNoArbitraryWindowFallbacks(targetResolver, label: "mainWindowCommandTargetResolver")
 
         let mutableActions = try slice(
             appDelegate,
@@ -147,9 +153,9 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "@IBAction func showClawStore"
         )
         assertNoArbitraryWindowFallbacks(mutableActions, label: "mutable AppDelegate UI actions")
-        XCTAssertTrue(mutableActions.contains("frontmostMainWindowController"))
-        XCTAssertTrue(mutableActions.contains("frontmostMainWindowController?.moveActiveWorkspaceLeft"))
-        XCTAssertTrue(mutableActions.contains("frontmostMainWindowController?.moveActiveWorkspaceRight"))
+        XCTAssertTrue(mutableActions.contains("uiMainWindowController"))
+        XCTAssertTrue(mutableActions.contains("uiMainWindowController?.moveActiveWorkspaceLeft"))
+        XCTAssertTrue(mutableActions.contains("uiMainWindowController?.moveActiveWorkspaceRight"))
 
         let paneGridBridge = try slice(
             appDelegate,
@@ -157,7 +163,7 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "/// Menu item / `⌘⇧C` target."
         )
         assertNoArbitraryWindowFallbacks(paneGridBridge, label: "AppDelegate pane grid bridge")
-        XCTAssertTrue(paneGridBridge.contains("guard let grid = frontmostMainWindowController?.activeGridController"))
+        XCTAssertTrue(paneGridBridge.contains("guard let grid = uiMainWindowController?.activeGridController"))
 
         let menuContext = try slice(
             mainMenuController,
@@ -165,8 +171,8 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "private func commandWindowState"
         )
         assertNoArbitraryWindowFallbacks(menuContext, label: "MainMenuController command UI context")
-        XCTAssertTrue(menuContext.contains("let frontmostController = frontmostMainWindowController"))
-        XCTAssertTrue(menuContext.contains("activeWindow: frontmostState"))
+        XCTAssertTrue(menuContext.contains("let uiController = uiMainWindowController"))
+        XCTAssertTrue(menuContext.contains("activeWindow: uiState"))
 
         let workspaceState = try slice(
             mainMenuController,
@@ -174,10 +180,24 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "private func workspaceEntries"
         )
         assertNoArbitraryWindowFallbacks(workspaceState, label: "MainMenuController workspace dynamic state")
-        XCTAssertTrue(workspaceState.contains("let controller = frontmostMainWindowController"))
+        XCTAssertTrue(workspaceState.contains("let controller = uiMainWindowController"))
     }
 
-    func testCommandPaletteJumpDocumentsRemainingAutomationFallbackException() throws {
+    func testAutomationWindowFallbackIsExplicitlySeparatedFromUIScope() throws {
+        let appDelegate = try macSource("AppDelegate.swift")
+        let activeWindow = try slice(
+            appDelegate,
+            from: "var activeMainWindowController: SoyehtMainWindowController?",
+            to: "func retainMenuWindowController"
+        )
+
+        XCTAssertTrue(activeWindow.contains("automationMainWindowController"))
+        XCTAssertTrue(activeWindow.contains("automationFallback: mainWindowControllers.first"))
+        XCTAssertTrue(activeWindow.contains(".automationTarget"))
+        XCTAssertFalse(activeWindow.contains("NSApp.orderedWindows"))
+    }
+
+    func testCommandPaletteJumpUsesUICommandScopeWithoutAutomationFallback() throws {
         let appDelegate = try macSource("AppDelegate.swift")
         let jump = try slice(
             appDelegate,
@@ -185,14 +205,10 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
             to: "\n    }\n\n"
         )
 
-        XCTAssertTrue(jump.contains("frontmostMainWindowController ?? activeMainWindowController"))
+        XCTAssertTrue(jump.contains("guard let target = uiMainWindowController"))
+        XCTAssertFalse(jump.contains("activeMainWindowController"))
         XCTAssertFalse(jump.contains("NSApp.orderedWindows"))
         XCTAssertFalse(jump.contains("mainWindowControllers.first"))
-
-        // Known PR-0 debt: command palette selection still has an automation
-        // fallback through `activeMainWindowController`. PR-2 should remove it
-        // from the public UI path or formalize it behind separate
-        // UIWindowCommandScope / AutomationCommandScope resolvers.
     }
 
     private static let paneGridCommandIDs: [AppCommandID] = [

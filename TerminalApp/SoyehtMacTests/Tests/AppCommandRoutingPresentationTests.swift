@@ -1,16 +1,21 @@
 import XCTest
 
 final class AppCommandRoutingPresentationTests: XCTestCase {
-    func testPaneAndWorkspaceShortcutsRouteThroughFrontmostMainWindow() throws {
+    func testPaneAndWorkspaceShortcutsRouteThroughUICommandTarget() throws {
         let source = try macSource("AppDelegate.swift")
         let commandActions = try slice(
             source,
             from: "@IBAction func moveFocusedPaneToWorkspaceByTag",
             to: "@IBAction func newGroupForActiveWorkspace"
         )
-        let resolver = try slice(
+        let uiResolver = try slice(
             source,
-            from: "fileprivate static func frontmostMainWindowController()",
+            from: "fileprivate static func uiMainWindowController()",
+            to: "fileprivate static func mainWindowCommandTargetResolver"
+        )
+        let targetResolver = try slice(
+            source,
+            from: "fileprivate static func mainWindowCommandTargetResolver",
             to: "fileprivate static func mainWindowController"
         )
         let activePaneGridBridge = try slice(
@@ -19,18 +24,19 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "/// Menu item / `⌘⇧C` target."
         )
 
-        XCTAssertTrue(commandActions.contains("let target = frontmostMainWindowController"))
-        XCTAssertTrue(commandActions.contains("frontmostMainWindowController?.moveActiveWorkspaceLeft"))
-        XCTAssertTrue(commandActions.contains("frontmostMainWindowController?.moveActiveWorkspaceRight"))
-        XCTAssertTrue(commandActions.contains("let controller = frontmostMainWindowController"))
+        XCTAssertTrue(commandActions.contains("let target = uiMainWindowController"))
+        XCTAssertTrue(commandActions.contains("uiMainWindowController?.moveActiveWorkspaceLeft"))
+        XCTAssertTrue(commandActions.contains("uiMainWindowController?.moveActiveWorkspaceRight"))
+        XCTAssertTrue(commandActions.contains("let controller = uiMainWindowController"))
         XCTAssertFalse(commandActions.contains("let controller = activeMainWindowController"))
         XCTAssertFalse(commandActions.contains("NSApp.windows"))
 
-        XCTAssertTrue(resolver.contains("NSApp.keyWindow"))
-        XCTAssertTrue(resolver.contains("NSApp.mainWindow"))
-        XCTAssertFalse(resolver.contains("NSApp.orderedWindows"))
-        XCTAssertFalse(resolver.contains("mainWindowControllers.first"))
-        XCTAssertTrue(activePaneGridBridge.contains("guard let grid = frontmostMainWindowController?.activeGridController"))
+        XCTAssertTrue(uiResolver.contains("mainWindowCommandTargetResolver().uiTarget"))
+        XCTAssertTrue(targetResolver.contains("keyWindowTarget: mainWindowController(owning: NSApp.keyWindow)"))
+        XCTAssertTrue(targetResolver.contains("mainWindowTarget: mainWindowController(owning: NSApp.mainWindow)"))
+        XCTAssertFalse(targetResolver.contains("NSApp.orderedWindows"))
+        XCTAssertFalse(targetResolver.contains("mainWindowControllers.first"))
+        XCTAssertTrue(activePaneGridBridge.contains("guard let grid = uiMainWindowController?.activeGridController"))
     }
 
     func testPaneGridLocalShortcutMonitorRequiresMatchingKeyWindow() throws {
@@ -52,7 +58,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(shortcutGate.contains("isFirstResponderInsideGrid"))
     }
 
-    func testMainMenuValidationUsesOnlyFrontmostWindowForMutableCommandContext() throws {
+    func testMainMenuValidationUsesOnlyUICommandTargetForMutableCommandContext() throws {
         let source = try macSource("MainMenu/MainMenuController.swift")
         let commandUIContext = try slice(
             source,
@@ -65,10 +71,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "private func workspaceEntries"
         )
 
-        XCTAssertTrue(commandUIContext.contains("let frontmostController = frontmostMainWindowController"))
-        XCTAssertTrue(commandUIContext.contains("activeWindow: frontmostState"))
+        XCTAssertTrue(commandUIContext.contains("let uiController = uiMainWindowController"))
+        XCTAssertTrue(commandUIContext.contains("activeWindow: uiState"))
         XCTAssertFalse(commandUIContext.contains("activeMainWindowController"))
-        XCTAssertTrue(workspaceSectionState.contains("let controller = frontmostMainWindowController"))
+        XCTAssertTrue(workspaceSectionState.contains("let controller = uiMainWindowController"))
         XCTAssertFalse(workspaceSectionState.contains("activeMainWindowController"))
     }
 

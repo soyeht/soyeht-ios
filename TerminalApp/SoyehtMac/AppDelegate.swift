@@ -1511,7 +1511,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
-        let target = frontmostMainWindowController
+        let target = uiMainWindowController
         target?.moveFocusedPaneToWorkspaceByTag(sender)
     }
 
@@ -1583,28 +1583,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
-        let target = frontmostMainWindowController
+        let target = uiMainWindowController
         target?.selectWorkspaceByTag(sender)
     }
 
     @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
-        frontmostMainWindowController?.moveActiveWorkspaceLeft(sender)
+        uiMainWindowController?.moveActiveWorkspaceLeft(sender)
     }
 
     @IBAction func moveActiveWorkspaceRight(_ sender: Any?) {
-        frontmostMainWindowController?.moveActiveWorkspaceRight(sender)
+        uiMainWindowController?.moveActiveWorkspaceRight(sender)
     }
 
     @IBAction func splitPaneVertical(_ sender: Any?) { withActivePaneGrid { $0.splitPaneVertical(sender) } }
     @IBAction func splitPaneHorizontal(_ sender: Any?) { withActivePaneGrid { $0.splitPaneHorizontal(sender) } }
     @IBAction func closeFocusedPane(_ sender: Any?) { withActivePaneGrid { $0.closeFocusedPane(sender) } }
     @IBAction func undoWindowAction(_ sender: Any?) {
-        let controller = frontmostMainWindowController
+        let controller = uiMainWindowController
         controller?.window?.undoManager?.undo()
         controller?.refreshWorkspaceChromeFromStore()
     }
     @IBAction func redoWindowAction(_ sender: Any?) {
-        let controller = frontmostMainWindowController
+        let controller = uiMainWindowController
         controller?.window?.undoManager?.redo()
         controller?.refreshWorkspaceChromeFromStore()
     }
@@ -1620,14 +1620,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     @IBAction func swapPaneDown(_ sender: Any?) { withActivePaneGrid { $0.swapPaneDown(sender) } }
     @IBAction func rotateFocusedSplit(_ sender: Any?) { withActivePaneGrid { $0.rotateFocusedSplit(sender) } }
     @IBAction func newGroupForActiveWorkspace(_ sender: Any?) {
-        guard let controller = frontmostMainWindowController else {
+        guard let controller = uiMainWindowController else {
             NSSound.beep()
             return
         }
         controller.promptCreateGroupForActiveWorkspace(sender)
     }
     @IBAction func assignActiveWorkspaceToGroup(_ sender: NSMenuItem) {
-        guard let controller = frontmostMainWindowController else {
+        guard let controller = uiMainWindowController else {
             NSSound.beep()
             return
         }
@@ -1639,7 +1639,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func closeActiveWorkspace(_ sender: Any?) {
-        guard let controller = frontmostMainWindowController else {
+        guard let controller = uiMainWindowController else {
             NSSound.beep()
             return
         }
@@ -1700,7 +1700,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func newConversation(_ sender: Any?) {
-        guard let controller = frontmostMainWindowController else {
+        guard let controller = uiMainWindowController else {
             NSSound.beep()
             return
         }
@@ -1725,7 +1725,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             showClawStoreComingSoonAlert()
             return
         }
-        if let target = frontmostMainWindowController {
+        if let target = uiMainWindowController {
             target.openClawDrawerOverlay()
             target.window?.makeKeyAndOrderFront(nil)
             return
@@ -1786,7 +1786,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         let alert = NSAlert()
         alert.messageText = String(localized: "clawStore.comingSoon.title", comment: "Alert title shown while Claw Store is disabled for launch.")
         alert.addButton(withTitle: String(localized: "common.button.ok"))
-        if let window = NSApp.keyWindow ?? frontmostMainWindowController?.window {
+        if let window = NSApp.keyWindow ?? uiMainWindowController?.window {
             alert.beginSheetModal(for: window, completionHandler: nil)
         } else {
             alert.runModal()
@@ -1809,18 +1809,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             }
             commandPalette = palette
         }
-        let parent = frontmostMainWindowController?.window
+        let parent = uiMainWindowController?.window
         palette.present(from: parent)
     }
 
-    /// Resolve a palette selection: switch to the key main window (or any
-    /// main window), activate the workspace, and — if a pane was selected —
+    /// Resolve a palette selection against the public UI command target,
+    /// activate the workspace, and — if a pane was selected —
     /// focus it. Mirrors the sidebar's `focusPane(workspaceID:conversationID:)`
     /// path so the behaviour is identical whichever entry point the user
     /// uses.
     private func jump(to item: CommandPaletteItem) {
-        let target = frontmostMainWindowController ?? activeMainWindowController
-        guard let target else { return }
+        guard let target = uiMainWindowController else {
+            NSSound.beep()
+            return
+        }
         if let paneID = item.paneID {
             target.focusPane(workspaceID: item.workspaceID, conversationID: paneID)
         } else {
@@ -1828,21 +1830,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
     }
 
-    var frontmostMainWindowController: SoyehtMainWindowController? {
-        Self.frontmostMainWindowController()
+    var uiMainWindowController: SoyehtMainWindowController? {
+        Self.uiMainWindowController()
     }
 
+    /// Automation/headless requests may target the active UI window or fall
+    /// back to an existing retained main window when no UI window is key/main.
+    /// Public menu and shortcut paths must use `uiMainWindowController`.
     var activeMainWindowController: SoyehtMainWindowController? {
-        frontmostMainWindowController ?? mainWindowControllers.first
+        automationMainWindowController
+    }
+
+    private var automationMainWindowController: SoyehtMainWindowController? {
+        Self.mainWindowCommandTargetResolver(
+            automationFallback: mainWindowControllers.first
+        ).automationTarget
     }
 
     func retainMenuWindowController(_ windowController: NSWindowController) {
         retain(windowController)
     }
 
-    fileprivate static func frontmostMainWindowController() -> SoyehtMainWindowController? {
-        mainWindowController(owning: NSApp.keyWindow)
-            ?? mainWindowController(owning: NSApp.mainWindow)
+    fileprivate static func uiMainWindowController() -> SoyehtMainWindowController? {
+        mainWindowCommandTargetResolver().uiTarget
+    }
+
+    fileprivate static func mainWindowCommandTargetResolver(
+        automationFallback: SoyehtMainWindowController? = nil
+    ) -> MainWindowCommandTargetResolver<SoyehtMainWindowController> {
+        MainWindowCommandTargetResolver(
+            keyWindowTarget: mainWindowController(owning: NSApp.keyWindow),
+            mainWindowTarget: mainWindowController(owning: NSApp.mainWindow),
+            automationFallbackTarget: automationFallback
+        )
     }
 
     fileprivate static func mainWindowController(owning window: NSWindow?) -> SoyehtMainWindowController? {
@@ -1857,7 +1877,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func withActivePaneGrid(_ body: (PaneGridController) -> Void) {
-        guard let grid = frontmostMainWindowController?.activeGridController else {
+        guard let grid = uiMainWindowController?.activeGridController else {
             NSSound.beep()
             return
         }
@@ -1865,12 +1885,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     /// Menu item / `⌘⇧C` target. Toggles the floating sidebar overlay on
-    /// the key main window (or first main window if none is key). The
+    /// the public UI command target. The
     /// overlay lives inside the main window via
     /// `WindowChromeViewController`, NOT as a separate NSWindow — matches
     /// SXnc2 V2 `floatSidebar`.
     @IBAction func showConversationsSidebar(_ sender: Any?) {
-        let target = frontmostMainWindowController
+        let target = uiMainWindowController
         target?.toggleSidebarOverlay()
     }
 
@@ -2123,7 +2143,7 @@ enum WorkspaceSwitchBenchmark {
     }
 
     private static func activeMainWindowController() -> SoyehtMainWindowController? {
-        AppDelegate.frontmostMainWindowController()
+        AppDelegate.uiMainWindowController()
     }
 
     struct Stats {

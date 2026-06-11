@@ -5,7 +5,7 @@ import SoyehtCore
 @MainActor
 protocol MainMenuRuntimeProviding: AnyObject {
     var workspaceStore: WorkspaceStore { get }
-    var frontmostMainWindowController: SoyehtMainWindowController? { get }
+    var uiMainWindowController: SoyehtMainWindowController? { get }
 
     func retainMenuWindowController(_ windowController: NSWindowController)
 }
@@ -180,7 +180,7 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
 
     private var movePaneSectionState: MovePaneMenuSectionState {
-        guard let controller = frontmostMainWindowController,
+        guard let controller = uiMainWindowController,
               canMoveFocusedPane,
               let focusedPaneID = controller.activeGridController?.focusedPaneID,
               controller.store.workspace(controller.activeWorkspaceID)?.layout.contains(focusedPaneID) == true
@@ -204,7 +204,7 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
 
     private var workspaceSectionState: WorkspaceMenuSectionState {
-        let controller = frontmostMainWindowController
+        let controller = uiMainWindowController
         let currentGroupID = controller?.activeWorkspaceGroupID
         let selection: WorkspaceSelectionMenuState
 
@@ -286,12 +286,12 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
         }
     }
 
-    private var frontmostMainWindowController: SoyehtMainWindowController? {
-        runtime?.frontmostMainWindowController
+    private var uiMainWindowController: SoyehtMainWindowController? {
+        runtime?.uiMainWindowController
     }
 
     private var canMoveFocusedPane: Bool {
-        guard let controller = frontmostMainWindowController,
+        guard let controller = uiMainWindowController,
               let grid = controller.activeGridController,
               grid.canActOnFocusedPane,
               controller.store.workspaceCount(in: controller.windowID) > 1
@@ -302,17 +302,17 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
 
     private var activeUndoManager: UndoManager? {
-        frontmostMainWindowController?.window?.undoManager
+        uiMainWindowController?.window?.undoManager
     }
 
     private var commandUIContext: CommandUIContext {
-        let frontmostController = frontmostMainWindowController
-        let frontmostState = frontmostController.map {
+        let uiController = uiMainWindowController
+        let uiState = uiController.map {
             commandWindowState(for: $0, includeMoveDestinations: true)
         }
         return CommandUIContext(
-            frontmostWindow: frontmostState,
-            activeWindow: frontmostState,
+            frontmostWindow: uiState,
+            activeWindow: uiState,
             undo: UndoCommandUIState(
                 canUndo: activeUndoManager?.canUndo == true,
                 canRedo: activeUndoManager?.canRedo == true,

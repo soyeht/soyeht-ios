@@ -122,6 +122,30 @@ struct CommandUIContext: Hashable {
     }
 }
 
+struct MainWindowCommandTargetResolver<Target> {
+    var keyWindowTarget: Target?
+    var mainWindowTarget: Target?
+    var automationFallbackTarget: Target?
+
+    init(
+        keyWindowTarget: Target? = nil,
+        mainWindowTarget: Target? = nil,
+        automationFallbackTarget: Target? = nil
+    ) {
+        self.keyWindowTarget = keyWindowTarget
+        self.mainWindowTarget = mainWindowTarget
+        self.automationFallbackTarget = automationFallbackTarget
+    }
+
+    var uiTarget: Target? {
+        keyWindowTarget ?? mainWindowTarget
+    }
+
+    var automationTarget: Target? {
+        uiTarget ?? automationFallbackTarget
+    }
+}
+
 struct CommandUIValidation: Hashable {
     var isEnabled: Bool
     var title: String?
