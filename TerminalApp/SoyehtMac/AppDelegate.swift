@@ -22,6 +22,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     /// launch time isn't affected by NSPanel instantiation + view build.
     private var commandPalette: CommandPaletteWindowController?
     private var automationService: SoyehtAutomationService?
+    private lazy var windowCommandPerformer = UICommandWindowActionPerformer(
+        targetProvider: { [weak self] in self?.uiMainWindowController }
+    )
+    private lazy var appCommandActionRouter = AppCommandActionRouter(
+        applicationActions: self,
+        windowActions: windowCommandPerformer
+    )
     private lazy var mainMenuController = MainMenuController(runtime: self, actionHandler: self)
     private var isTerminating = false
 
@@ -1511,127 +1518,50 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
-        let target = uiMainWindowController
-        target?.moveFocusedPaneToWorkspaceByTag(sender)
+        windowCommandPerformer.performMoveFocusedPaneToWorkspaceCommand(sender)
     }
 
     func performAppCommand(_ commandID: AppCommandID, sender: Any?) {
-        switch commandID {
-        case .newWindow:
-            newWindow(sender ?? self)
-        case .newConversation:
-            newConversation(sender)
-        case .showCommandPalette:
-            showCommandPalette(sender)
-        case .checkForUpdates:
-            checkForUpdates(sender)
-        case .showPreferences:
-            showPreferences(sender ?? self)
-        case .showAgentVisualPermissions:
-            showAgentVisualPermissions(sender)
-        case .showPairedDevices:
-            showPairedDevices(sender ?? self)
-        case .showConnectedServers:
-            showConnectedServers(sender)
-        case .uninstallSoyeht:
-            uninstallSoyeht(sender)
-        case .showClawStore:
-            showClawStore(sender)
-        case .showConversationsSidebar:
-            showConversationsSidebar(sender)
-        case .undoWindowAction:
-            undoWindowAction(sender)
-        case .redoWindowAction:
-            redoWindowAction(sender)
-        case .splitPaneVertical:
-            splitPaneVertical(sender)
-        case .splitPaneHorizontal:
-            splitPaneHorizontal(sender)
-        case .closeFocusedPane:
-            closeFocusedPane(sender)
-        case .focusPaneLeft:
-            focusPaneLeft(sender)
-        case .focusPaneRight:
-            focusPaneRight(sender)
-        case .focusPaneUp:
-            focusPaneUp(sender)
-        case .focusPaneDown:
-            focusPaneDown(sender)
-        case .toggleZoomFocusedPane:
-            toggleZoomFocusedPane(sender)
-        case .exitZoom:
-            exitZoom(sender)
-        case .swapPaneLeft:
-            swapPaneLeft(sender)
-        case .swapPaneRight:
-            swapPaneRight(sender)
-        case .swapPaneUp:
-            swapPaneUp(sender)
-        case .swapPaneDown:
-            swapPaneDown(sender)
-        case .rotateFocusedSplit:
-            rotateFocusedSplit(sender)
-        case .selectWorkspace:
-            selectWorkspaceByTag(sender)
-        case .moveFocusedPaneToWorkspace:
-            moveFocusedPaneToWorkspaceByTag(sender)
-        case .moveActiveWorkspaceLeft:
-            moveActiveWorkspaceLeft(sender)
-        case .moveActiveWorkspaceRight:
-            moveActiveWorkspaceRight(sender)
-        }
+        appCommandActionRouter.performAppCommand(commandID, sender: sender)
     }
 
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
-        let target = uiMainWindowController
-        target?.selectWorkspaceByTag(sender)
+        windowCommandPerformer.performSelectWorkspaceCommand(sender)
     }
 
     @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
-        uiMainWindowController?.moveActiveWorkspaceLeft(sender)
+        windowCommandPerformer.performMoveActiveWorkspaceLeftCommand(sender)
     }
 
     @IBAction func moveActiveWorkspaceRight(_ sender: Any?) {
-        uiMainWindowController?.moveActiveWorkspaceRight(sender)
+        windowCommandPerformer.performMoveActiveWorkspaceRightCommand(sender)
     }
 
-    @IBAction func splitPaneVertical(_ sender: Any?) { withActivePaneGrid { $0.splitPaneVertical(sender) } }
-    @IBAction func splitPaneHorizontal(_ sender: Any?) { withActivePaneGrid { $0.splitPaneHorizontal(sender) } }
-    @IBAction func closeFocusedPane(_ sender: Any?) { withActivePaneGrid { $0.closeFocusedPane(sender) } }
+    @IBAction func splitPaneVertical(_ sender: Any?) { windowCommandPerformer.performSplitPaneVerticalCommand(sender) }
+    @IBAction func splitPaneHorizontal(_ sender: Any?) { windowCommandPerformer.performSplitPaneHorizontalCommand(sender) }
+    @IBAction func closeFocusedPane(_ sender: Any?) { windowCommandPerformer.performCloseFocusedPaneCommand(sender) }
     @IBAction func undoWindowAction(_ sender: Any?) {
-        let controller = uiMainWindowController
-        controller?.window?.undoManager?.undo()
-        controller?.refreshWorkspaceChromeFromStore()
+        windowCommandPerformer.performUndoWindowActionCommand(sender)
     }
     @IBAction func redoWindowAction(_ sender: Any?) {
-        let controller = uiMainWindowController
-        controller?.window?.undoManager?.redo()
-        controller?.refreshWorkspaceChromeFromStore()
+        windowCommandPerformer.performRedoWindowActionCommand(sender)
     }
-    @IBAction func focusPaneLeft(_ sender: Any?) { withActivePaneGrid { $0.focusPaneLeft(sender) } }
-    @IBAction func focusPaneRight(_ sender: Any?) { withActivePaneGrid { $0.focusPaneRight(sender) } }
-    @IBAction func focusPaneUp(_ sender: Any?) { withActivePaneGrid { $0.focusPaneUp(sender) } }
-    @IBAction func focusPaneDown(_ sender: Any?) { withActivePaneGrid { $0.focusPaneDown(sender) } }
-    @IBAction func toggleZoomFocusedPane(_ sender: Any?) { withActivePaneGrid { $0.toggleZoomFocusedPane(sender) } }
-    @IBAction func exitZoom(_ sender: Any?) { withActivePaneGrid { $0.exitZoom(sender) } }
-    @IBAction func swapPaneLeft(_ sender: Any?) { withActivePaneGrid { $0.swapPaneLeft(sender) } }
-    @IBAction func swapPaneRight(_ sender: Any?) { withActivePaneGrid { $0.swapPaneRight(sender) } }
-    @IBAction func swapPaneUp(_ sender: Any?) { withActivePaneGrid { $0.swapPaneUp(sender) } }
-    @IBAction func swapPaneDown(_ sender: Any?) { withActivePaneGrid { $0.swapPaneDown(sender) } }
-    @IBAction func rotateFocusedSplit(_ sender: Any?) { withActivePaneGrid { $0.rotateFocusedSplit(sender) } }
+    @IBAction func focusPaneLeft(_ sender: Any?) { windowCommandPerformer.performFocusPaneLeftCommand(sender) }
+    @IBAction func focusPaneRight(_ sender: Any?) { windowCommandPerformer.performFocusPaneRightCommand(sender) }
+    @IBAction func focusPaneUp(_ sender: Any?) { windowCommandPerformer.performFocusPaneUpCommand(sender) }
+    @IBAction func focusPaneDown(_ sender: Any?) { windowCommandPerformer.performFocusPaneDownCommand(sender) }
+    @IBAction func toggleZoomFocusedPane(_ sender: Any?) { windowCommandPerformer.performToggleZoomFocusedPaneCommand(sender) }
+    @IBAction func exitZoom(_ sender: Any?) { windowCommandPerformer.performExitZoomCommand(sender) }
+    @IBAction func swapPaneLeft(_ sender: Any?) { windowCommandPerformer.performSwapPaneLeftCommand(sender) }
+    @IBAction func swapPaneRight(_ sender: Any?) { windowCommandPerformer.performSwapPaneRightCommand(sender) }
+    @IBAction func swapPaneUp(_ sender: Any?) { windowCommandPerformer.performSwapPaneUpCommand(sender) }
+    @IBAction func swapPaneDown(_ sender: Any?) { windowCommandPerformer.performSwapPaneDownCommand(sender) }
+    @IBAction func rotateFocusedSplit(_ sender: Any?) { windowCommandPerformer.performRotateFocusedSplitCommand(sender) }
     @IBAction func newGroupForActiveWorkspace(_ sender: Any?) {
-        guard let controller = uiMainWindowController else {
-            NSSound.beep()
-            return
-        }
-        controller.promptCreateGroupForActiveWorkspace(sender)
+        windowCommandPerformer.performNewGroupForActiveWorkspaceCommand(sender)
     }
     @IBAction func assignActiveWorkspaceToGroup(_ sender: NSMenuItem) {
-        guard let controller = uiMainWindowController else {
-            NSSound.beep()
-            return
-        }
-        controller.assignActiveWorkspaceToGroup(sender.representedObject as? Group.ID)
+        windowCommandPerformer.performAssignActiveWorkspaceToGroupCommand(sender)
     }
 
     @IBAction func newWindow(_ sender: Any) {
@@ -1639,11 +1569,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func closeActiveWorkspace(_ sender: Any?) {
-        guard let controller = uiMainWindowController else {
-            NSSound.beep()
-            return
-        }
-        controller.closeActiveWorkspace(sender)
+        windowCommandPerformer.performCloseActiveWorkspaceCommand(sender)
     }
 
     @IBAction func defaultFontSize(_ sender: Any?) {
@@ -1700,11 +1626,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func newConversation(_ sender: Any?) {
-        guard let controller = uiMainWindowController else {
-            NSSound.beep()
-            return
-        }
-        controller.newConversation(sender)
+        windowCommandPerformer.performNewConversationCommand(sender)
     }
 
     // MARK: - Claw Store (Fase 3)
@@ -1876,22 +1798,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         return nil
     }
 
-    private func withActivePaneGrid(_ body: (PaneGridController) -> Void) {
-        guard let grid = uiMainWindowController?.activeGridController else {
-            NSSound.beep()
-            return
-        }
-        body(grid)
-    }
-
     /// Menu item / `⌘⇧C` target. Toggles the floating sidebar overlay on
     /// the public UI command target. The
     /// overlay lives inside the main window via
     /// `WindowChromeViewController`, NOT as a separate NSWindow — matches
     /// SXnc2 V2 `floatSidebar`.
     @IBAction func showConversationsSidebar(_ sender: Any?) {
-        let target = uiMainWindowController
-        target?.toggleSidebarOverlay()
+        windowCommandPerformer.performShowConversationsSidebarCommand(sender)
     }
 
     @IBAction func logout(_ sender: Any) {
@@ -1955,6 +1868,224 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             panel.center()
             panel.makeKeyAndOrderFront(nil)
         }
+    }
+}
+
+extension AppDelegate: AppCommandApplicationActionPerforming {
+    func performNewWindowCommand(_ sender: Any?) {
+        newWindow(sender ?? self)
+    }
+
+    func performShowCommandPaletteCommand(_ sender: Any?) {
+        showCommandPalette(sender)
+    }
+
+    func performCheckForUpdatesCommand(_ sender: Any?) {
+        checkForUpdates(sender)
+    }
+
+    func performShowPreferencesCommand(_ sender: Any?) {
+        showPreferences(sender ?? self)
+    }
+
+    func performShowAgentVisualPermissionsCommand(_ sender: Any?) {
+        showAgentVisualPermissions(sender)
+    }
+
+    func performShowPairedDevicesCommand(_ sender: Any?) {
+        showPairedDevices(sender ?? self)
+    }
+
+    func performShowConnectedServersCommand(_ sender: Any?) {
+        showConnectedServers(sender)
+    }
+
+    func performUninstallSoyehtCommand(_ sender: Any?) {
+        uninstallSoyeht(sender)
+    }
+
+    func performShowClawStoreCommand(_ sender: Any?) {
+        showClawStore(sender)
+    }
+}
+
+@MainActor
+private final class UICommandWindowActionPerformer: AppCommandWindowActionPerforming {
+    private let targetProvider: () -> SoyehtMainWindowController?
+
+    init(targetProvider: @escaping () -> SoyehtMainWindowController?) {
+        self.targetProvider = targetProvider
+    }
+
+    @discardableResult
+    func performNewConversationCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else {
+            NSSound.beep()
+            return false
+        }
+        target.newConversation(sender)
+        return true
+    }
+
+    @discardableResult
+    func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.toggleSidebarOverlay()
+        return true
+    }
+
+    @discardableResult
+    func performUndoWindowActionCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.window?.undoManager?.undo()
+        target.refreshWorkspaceChromeFromStore()
+        return true
+    }
+
+    @discardableResult
+    func performRedoWindowActionCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.window?.undoManager?.redo()
+        target.refreshWorkspaceChromeFromStore()
+        return true
+    }
+
+    @discardableResult
+    func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.splitPaneVertical(sender) }
+    }
+
+    @discardableResult
+    func performSplitPaneHorizontalCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.splitPaneHorizontal(sender) }
+    }
+
+    @discardableResult
+    func performCloseFocusedPaneCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.closeFocusedPane(sender) }
+    }
+
+    @discardableResult
+    func performFocusPaneLeftCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.focusPaneLeft(sender) }
+    }
+
+    @discardableResult
+    func performFocusPaneRightCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.focusPaneRight(sender) }
+    }
+
+    @discardableResult
+    func performFocusPaneUpCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.focusPaneUp(sender) }
+    }
+
+    @discardableResult
+    func performFocusPaneDownCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.focusPaneDown(sender) }
+    }
+
+    @discardableResult
+    func performToggleZoomFocusedPaneCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.toggleZoomFocusedPane(sender) }
+    }
+
+    @discardableResult
+    func performExitZoomCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.exitZoom(sender) }
+    }
+
+    @discardableResult
+    func performSwapPaneLeftCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.swapPaneLeft(sender) }
+    }
+
+    @discardableResult
+    func performSwapPaneRightCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.swapPaneRight(sender) }
+    }
+
+    @discardableResult
+    func performSwapPaneUpCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.swapPaneUp(sender) }
+    }
+
+    @discardableResult
+    func performSwapPaneDownCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.swapPaneDown(sender) }
+    }
+
+    @discardableResult
+    func performRotateFocusedSplitCommand(_ sender: Any?) -> Bool {
+        withActivePaneGrid { $0.rotateFocusedSplit(sender) }
+    }
+
+    @discardableResult
+    func performSelectWorkspaceCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.selectWorkspaceByTag(sender)
+        return true
+    }
+
+    @discardableResult
+    func performMoveFocusedPaneToWorkspaceCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.moveFocusedPaneToWorkspaceByTag(sender)
+        return true
+    }
+
+    @discardableResult
+    func performMoveActiveWorkspaceLeftCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.moveActiveWorkspaceLeft(sender)
+        return true
+    }
+
+    @discardableResult
+    func performMoveActiveWorkspaceRightCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.moveActiveWorkspaceRight(sender)
+        return true
+    }
+
+    @discardableResult
+    func performNewGroupForActiveWorkspaceCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else {
+            NSSound.beep()
+            return false
+        }
+        target.promptCreateGroupForActiveWorkspace(sender)
+        return true
+    }
+
+    @discardableResult
+    func performAssignActiveWorkspaceToGroupCommand(_ sender: NSMenuItem) -> Bool {
+        guard let target = targetProvider() else {
+            NSSound.beep()
+            return false
+        }
+        target.assignActiveWorkspaceToGroup(sender.representedObject as? Group.ID)
+        return true
+    }
+
+    @discardableResult
+    func performCloseActiveWorkspaceCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else {
+            NSSound.beep()
+            return false
+        }
+        target.closeActiveWorkspace(sender)
+        return true
+    }
+
+    @discardableResult
+    private func withActivePaneGrid(_ body: (PaneGridController) -> Void) -> Bool {
+        guard let grid = targetProvider()?.activeGridController else {
+            NSSound.beep()
+            return false
+        }
+        body(grid)
+        return true
     }
 }
 

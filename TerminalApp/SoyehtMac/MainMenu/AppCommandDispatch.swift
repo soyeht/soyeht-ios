@@ -303,6 +303,140 @@ protocol AppCommandPerforming: AnyObject {
     func performAppCommand(_ commandID: AppCommandID, sender: Any?)
 }
 
+@MainActor
+protocol AppCommandApplicationActionPerforming: AnyObject {
+    func performNewWindowCommand(_ sender: Any?)
+    func performShowCommandPaletteCommand(_ sender: Any?)
+    func performCheckForUpdatesCommand(_ sender: Any?)
+    func performShowPreferencesCommand(_ sender: Any?)
+    func performShowAgentVisualPermissionsCommand(_ sender: Any?)
+    func performShowPairedDevicesCommand(_ sender: Any?)
+    func performShowConnectedServersCommand(_ sender: Any?)
+    func performUninstallSoyehtCommand(_ sender: Any?)
+    func performShowClawStoreCommand(_ sender: Any?)
+}
+
+@MainActor
+protocol AppCommandWindowActionPerforming: AnyObject {
+    @discardableResult func performNewConversationCommand(_ sender: Any?) -> Bool
+    @discardableResult func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool
+    @discardableResult func performUndoWindowActionCommand(_ sender: Any?) -> Bool
+    @discardableResult func performRedoWindowActionCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSplitPaneHorizontalCommand(_ sender: Any?) -> Bool
+    @discardableResult func performCloseFocusedPaneCommand(_ sender: Any?) -> Bool
+    @discardableResult func performFocusPaneLeftCommand(_ sender: Any?) -> Bool
+    @discardableResult func performFocusPaneRightCommand(_ sender: Any?) -> Bool
+    @discardableResult func performFocusPaneUpCommand(_ sender: Any?) -> Bool
+    @discardableResult func performFocusPaneDownCommand(_ sender: Any?) -> Bool
+    @discardableResult func performToggleZoomFocusedPaneCommand(_ sender: Any?) -> Bool
+    @discardableResult func performExitZoomCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSwapPaneLeftCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSwapPaneRightCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSwapPaneUpCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSwapPaneDownCommand(_ sender: Any?) -> Bool
+    @discardableResult func performRotateFocusedSplitCommand(_ sender: Any?) -> Bool
+    @discardableResult func performSelectWorkspaceCommand(_ sender: Any?) -> Bool
+    @discardableResult func performMoveFocusedPaneToWorkspaceCommand(_ sender: Any?) -> Bool
+    @discardableResult func performMoveActiveWorkspaceLeftCommand(_ sender: Any?) -> Bool
+    @discardableResult func performMoveActiveWorkspaceRightCommand(_ sender: Any?) -> Bool
+}
+
+@MainActor
+final class AppCommandActionRouter: AppCommandPerforming {
+    weak var applicationActions: AppCommandApplicationActionPerforming?
+    weak var windowActions: AppCommandWindowActionPerforming?
+
+    init(
+        applicationActions: AppCommandApplicationActionPerforming?,
+        windowActions: AppCommandWindowActionPerforming?
+    ) {
+        self.applicationActions = applicationActions
+        self.windowActions = windowActions
+    }
+
+    func performAppCommand(_ commandID: AppCommandID, sender: Any?) {
+        _ = perform(commandID, sender: sender)
+    }
+
+    @discardableResult
+    func perform(_ commandID: AppCommandID, sender: Any?) -> Bool {
+        switch commandID {
+        case .newWindow:
+            applicationActions?.performNewWindowCommand(sender)
+            return applicationActions != nil
+        case .newConversation:
+            return windowActions?.performNewConversationCommand(sender) ?? false
+        case .showCommandPalette:
+            applicationActions?.performShowCommandPaletteCommand(sender)
+            return applicationActions != nil
+        case .checkForUpdates:
+            applicationActions?.performCheckForUpdatesCommand(sender)
+            return applicationActions != nil
+        case .showPreferences:
+            applicationActions?.performShowPreferencesCommand(sender)
+            return applicationActions != nil
+        case .showAgentVisualPermissions:
+            applicationActions?.performShowAgentVisualPermissionsCommand(sender)
+            return applicationActions != nil
+        case .showPairedDevices:
+            applicationActions?.performShowPairedDevicesCommand(sender)
+            return applicationActions != nil
+        case .showConnectedServers:
+            applicationActions?.performShowConnectedServersCommand(sender)
+            return applicationActions != nil
+        case .uninstallSoyeht:
+            applicationActions?.performUninstallSoyehtCommand(sender)
+            return applicationActions != nil
+        case .showClawStore:
+            applicationActions?.performShowClawStoreCommand(sender)
+            return applicationActions != nil
+        case .showConversationsSidebar:
+            return windowActions?.performShowConversationsSidebarCommand(sender) ?? false
+        case .undoWindowAction:
+            return windowActions?.performUndoWindowActionCommand(sender) ?? false
+        case .redoWindowAction:
+            return windowActions?.performRedoWindowActionCommand(sender) ?? false
+        case .splitPaneVertical:
+            return windowActions?.performSplitPaneVerticalCommand(sender) ?? false
+        case .splitPaneHorizontal:
+            return windowActions?.performSplitPaneHorizontalCommand(sender) ?? false
+        case .closeFocusedPane:
+            return windowActions?.performCloseFocusedPaneCommand(sender) ?? false
+        case .focusPaneLeft:
+            return windowActions?.performFocusPaneLeftCommand(sender) ?? false
+        case .focusPaneRight:
+            return windowActions?.performFocusPaneRightCommand(sender) ?? false
+        case .focusPaneUp:
+            return windowActions?.performFocusPaneUpCommand(sender) ?? false
+        case .focusPaneDown:
+            return windowActions?.performFocusPaneDownCommand(sender) ?? false
+        case .toggleZoomFocusedPane:
+            return windowActions?.performToggleZoomFocusedPaneCommand(sender) ?? false
+        case .exitZoom:
+            return windowActions?.performExitZoomCommand(sender) ?? false
+        case .swapPaneLeft:
+            return windowActions?.performSwapPaneLeftCommand(sender) ?? false
+        case .swapPaneRight:
+            return windowActions?.performSwapPaneRightCommand(sender) ?? false
+        case .swapPaneUp:
+            return windowActions?.performSwapPaneUpCommand(sender) ?? false
+        case .swapPaneDown:
+            return windowActions?.performSwapPaneDownCommand(sender) ?? false
+        case .rotateFocusedSplit:
+            return windowActions?.performRotateFocusedSplitCommand(sender) ?? false
+        case .selectWorkspace:
+            return windowActions?.performSelectWorkspaceCommand(sender) ?? false
+        case .moveFocusedPaneToWorkspace:
+            return windowActions?.performMoveFocusedPaneToWorkspaceCommand(sender) ?? false
+        case .moveActiveWorkspaceLeft:
+            return windowActions?.performMoveActiveWorkspaceLeftCommand(sender) ?? false
+        case .moveActiveWorkspaceRight:
+            return windowActions?.performMoveActiveWorkspaceRightCommand(sender) ?? false
+        }
+    }
+}
+
 struct CommandDispatcher {
     static let action = NSSelectorFromString("dispatchAppCommand:")
 
