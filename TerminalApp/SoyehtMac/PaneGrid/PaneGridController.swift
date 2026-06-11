@@ -161,6 +161,7 @@ final class PaneGridController: NSViewController {
     private var mouseEventMonitor: Any?
     private var pendingGroupSelectionClick: (paneID: Conversation.ID, location: NSPoint)?
     private let dockOverlay = PaneDockOverlayView()
+    private let shortcutRouter = AppCommandShortcutRouter()
 
     // Called when the tree is mutated by a pane action (split/close). The
     // host window controller should persist the new tree to WorkspaceStore
@@ -750,7 +751,10 @@ final class PaneGridController: NSViewController {
         guard keyEventMonitor == nil else { return }
         keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.shouldHandleGridShortcutEvent(event) else { return event }
-            if self.handleGridShortcut(event) { return nil }
+            guard let commandID = self.shortcutRouter.commandID(matching: event, in: .paneGrid) else {
+                return event
+            }
+            if self.handleGridShortcut(commandID) { return nil }
             return event
         }
     }
@@ -840,12 +844,8 @@ final class PaneGridController: NSViewController {
         return nil
     }
 
-    private func handleGridShortcut(_ event: NSEvent) -> Bool {
-        guard let command = AppCommandRegistry.command(matching: event, in: .paneGrid) else {
-            return false
-        }
-
-        switch command.id {
+    private func handleGridShortcut(_ commandID: AppCommandID) -> Bool {
+        switch commandID {
         case .toggleZoomFocusedPane:
             toggleZoomFocusedPane(nil)
         case .focusPaneLeft:

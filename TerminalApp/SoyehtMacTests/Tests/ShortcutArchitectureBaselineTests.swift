@@ -32,7 +32,7 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
         )
     }
 
-    func testPaneGridShortcutSurfaceMatchesRegistryAndGridHandler() throws {
+    func testPaneGridShortcutSurfaceMatchesRouterRegistryAndGridHandler() throws {
         let registryIDs = Set(AppCommandRegistry.commands(in: .paneGrid).map(\.id))
         XCTAssertEqual(registryIDs, Set(Self.paneGridCommandIDs))
 
@@ -46,17 +46,50 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
         }
 
         let source = try macSource("PaneGrid/PaneGridController.swift")
+        let installKeyMonitor = try slice(
+            source,
+            from: "private func installKeyMonitor()",
+            to: "private func installMouseMonitor()"
+        )
         let handler = try slice(
             source,
             from: "private func handleGridShortcut",
             to: "\n    }\n}"
         )
+
+        XCTAssertTrue(source.contains("private let shortcutRouter = AppCommandShortcutRouter()"))
+        XCTAssertTrue(installKeyMonitor.contains("shortcutRouter.commandID(matching: event, in: .paneGrid)"))
+        XCTAssertFalse(source.contains("AppCommandRegistry.command(matching: event, in: .paneGrid)"))
+
         let handledCases = Set(try swiftCaseNames(in: handler))
         XCTAssertEqual(
             handledCases,
             Set(Self.paneGridCommandIDs.map(Self.swiftCaseName)),
             "PaneGridController should accept exactly the shortcut commands declared for the paneGrid registry context."
         )
+
+        let registrySource = try macSource("App/AppCommandRegistry.swift")
+        let router = try slice(
+            registrySource,
+            from: "struct AppCommandShortcutRouter",
+            to: "#if canImport(AppKit)"
+        )
+        XCTAssertTrue(router.contains("AppCommandRegistry.command("))
+
+        XCTAssertFalse(
+            registrySource.contains("static func command(matching event"),
+            "NSEvent -> AppCommand lookup should live only in AppCommandShortcutRouter, not AppCommandRegistry."
+        )
+        let appKitRouter = try slice(
+            registrySource,
+            from: "extension AppCommandShortcutRouter",
+            to: "#endif"
+        )
+        XCTAssertTrue(appKitRouter.contains("func command(matching event: NSEvent"))
+        XCTAssertTrue(appKitRouter.contains("matchingKeyCode: event.keyCode"))
+        XCTAssertTrue(appKitRouter.contains("charactersIgnoringModifiers: event.charactersIgnoringModifiers"))
+        XCTAssertTrue(appKitRouter.contains("modifiers: AppCommandModifier(event.modifierFlags)"))
+        XCTAssertFalse(appKitRouter.contains("AppCommandRegistry.command(matching: event"))
     }
 
     func testMutableWindowScopedCommandsHaveBaselineValidationCoverage() throws {
@@ -207,7 +240,7 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
 
     private func lookup(_ command: AppCommand, in context: AppCommandContext) -> AppCommand? {
         guard let shortcut = command.shortcut else { return nil }
-        return AppCommandRegistry.command(
+        return AppCommandShortcutRouter().command(
             matchingKeyCode: shortcut.lookupKeyCode,
             charactersIgnoringModifiers: shortcut.lookupCharacters,
             modifiers: shortcut.modifiers,
