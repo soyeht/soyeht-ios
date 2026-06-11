@@ -3,6 +3,79 @@ import Foundation
 import SoyehtCore
 import os
 
+/// Optional launch-mode used for App Store review hosts. It keeps local shell
+/// panes pointed at a disposable HOME/workspace when the macOS app is running
+/// inside a dedicated review account or VM.
+///
+/// This is intentionally not treated as a security sandbox. Filesystem
+/// isolation must come from the macOS account/VM boundary; these env vars only
+/// make the product experience deterministic for reviewers.
+struct AppReviewDemoEnvironment {
+    static let rootEnvironmentKey = "SOYEHT_APP_REVIEW_DEMO_ROOT"
+    static let shellEnvironmentKey = "SOYEHT_APP_REVIEW_DEMO_SHELL"
+    static let pathEnvironmentKey = "SOYEHT_APP_REVIEW_DEMO_PATH"
+
+    let rootURL: URL
+    let homeURL: URL
+    let workspaceURL: URL
+    let shellPath: String
+    let path: String
+
+    static func configuration(in environment: [String: String] = ProcessInfo.processInfo.environment) -> AppReviewDemoEnvironment? {
+        guard let rawRoot = environment[rootEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawRoot.isEmpty
+        else {
+            return nil
+        }
+        let rootURL = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
+        let shellPath = normalizedPath(environment[shellEnvironmentKey]) ?? "/bin/bash"
+        let path = normalizedPath(environment[pathEnvironmentKey])
+            ?? "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        return AppReviewDemoEnvironment(
+            rootURL: rootURL,
+            homeURL: rootURL.appendingPathComponent("home", isDirectory: true),
+            workspaceURL: rootURL.appendingPathComponent("workspace", isDirectory: true),
+            shellPath: shellPath,
+            path: path
+        )
+    }
+
+    static func effectiveWorkingDirectory(
+        for requestedURL: URL,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        configuration(in: environment)?.workspaceURL ?? requestedURL
+    }
+
+    func prepareFileSystem(fileManager: FileManager = .default) throws {
+        try fileManager.createDirectory(at: homeURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: workspaceURL, withIntermediateDirectories: true)
+    }
+
+    func apply(to environment: inout [String: String]) {
+        environment["HOME"] = homeURL.path
+        environment["PWD"] = workspaceURL.path
+        environment["OLDPWD"] = nil
+        environment["SOYEHT_APP_REVIEW_DEMO"] = "1"
+        environment[Self.rootEnvironmentKey] = rootURL.path
+        environment["BASH_ENV"] = nil
+        environment["ENV"] = nil
+        environment["ZDOTDIR"] = homeURL.path
+    }
+
+    private static func normalizedPath(_ rawValue: String?) -> String? {
+        rawValue?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
+
 /// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
 /// a PTY pair. The picker labels this path as "bash", so the default must not
 /// follow `$SHELL` to a potentially-heavy zsh/fish setup. Callers pass in the
@@ -82,11 +155,15 @@ final class NativePTY {
     ///     inherited PATH (only useful for tests / login-shell mode).
     init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int, loginPath: String? = nil) throws {
         let inheritedEnvironment = ProcessInfo.processInfo.environment
+        let reviewDemo = AppReviewDemoEnvironment.configuration(in: inheritedEnvironment)
+        try reviewDemo?.prepareFileSystem()
+        let effectiveCWD = reviewDemo?.workspaceURL ?? cwd
         let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
         let shell = shellPath
+            ?? reviewDemo?.shellPath
             ?? debugShellOverride
             ?? "/bin/bash"
-        let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
+        let usesDebugShellOverride = shellPath == nil && reviewDemo == nil && debugShellOverride != nil
         let shellName = (shell as NSString).lastPathComponent
 
         // Open a real controlling PTY with the right initial size so the first
@@ -104,7 +181,7 @@ final class NativePTY {
         // interactive non-login shell: bash reads ~/.bashrc but skips heavier
         // login hooks such as conda/rvm in ~/.bash_profile. Set
         // SOYEHT_LOCAL_SHELL_LOGIN=1 when comparing against Terminal.app.
-        let wantsLoginShell = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_SHELL_LOGIN"] == "1"
+        let wantsLoginShell = reviewDemo == nil && ProcessInfo.processInfo.environment["SOYEHT_LOCAL_SHELL_LOGIN"] == "1"
         let argvStrings = Self.argv(forShellName: shellName, login: wantsLoginShell)
         let argv: [UnsafeMutablePointer<CChar>?] = argvStrings.map { strdup($0) } + [nil]
         defer { argv.forEach { if let p = $0 { free(p) } } }
@@ -115,8 +192,9 @@ final class NativePTY {
         // styling from TERM/COLORTERM and TTY detection.
         var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
             inherited: inheritedEnvironment,
-            cwdPath: cwd.path
+            cwdPath: effectiveCWD.path
         )
+        reviewDemo?.apply(to: &envDict)
         if !usesDebugShellOverride {
             envDict["SHELL"] = shell
         }
@@ -125,13 +203,15 @@ final class NativePTY {
             envDict["PS1"] = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_PS1"]
                 ?? Self.defaultBashPrompt
         }
-        if !wantsLoginShell, let loginPath {
+        if let reviewDemo {
+            envDict["PATH"] = reviewDemo.path
+        } else if !wantsLoginShell, let loginPath {
             envDict["PATH"] = loginPath
         }
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }
-        let cwdPath = strdup(cwd.path)
+        let cwdPath = strdup(effectiveCWD.path)
         defer { if let cwdPath { free(cwdPath) } }
 
         // forkpty gives the child a controlling terminal and its own session.
@@ -169,7 +249,11 @@ final class NativePTY {
         self.pid = childPid
         self.masterFD = master
         self.slaveTTYPath = Self.resolveSlaveTTYPath(masterFD: master)
-        Self.logger.info("spawned shell \(shell, privacy: .public) argv=\(argvStrings.joined(separator: " "), privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
+        if let reviewDemo {
+            Self.logger.info("spawned app-review demo shell \(shell, privacy: .public) root=\(reviewDemo.rootURL.path, privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
+        } else {
+            Self.logger.info("spawned shell \(shell, privacy: .public) argv=\(argvStrings.joined(separator: " "), privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
+        }
 
         // Read loop: DispatchSource calls us every time the master FD has
         // bytes. `readAvailable()` drains the buffer non-blockingly.

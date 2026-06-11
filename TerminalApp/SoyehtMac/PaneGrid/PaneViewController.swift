@@ -430,7 +430,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // tmux. Remote agents (claude/codex/hermes) stay on the WebSocket
         // path below.
         if case .shell = agent {
-            let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+            let url = AppReviewDemoEnvironment.effectiveWorkingDirectory(
+                for: resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+            )
             mainWindowController()?.startLocalShell(in: conversationID, cwd: url)
             return
         }
@@ -621,9 +623,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard !terminalView.isLocalSessionActive else { return }
         guard !isRestoringLocalShell else { return }
 
-        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let requestedURL = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? resolvedWorkspaceFolder()
             ?? FileManager.default.homeDirectoryForCurrentUser
+        let url = AppReviewDemoEnvironment.effectiveWorkingDirectory(for: requestedURL)
         let term = terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)

@@ -3239,10 +3239,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let convStore = AppEnvironment.conversationStore else { return }
         let workspaceID = activeWorkspaceID
         guard store.workspace(workspaceID) != nil else { return }
+        let effectiveCWD = AppReviewDemoEnvironment.effectiveWorkingDirectory(for: cwd)
 
         // Persist the folder bookmark so reopens remember the cwd, same as
         // the remote-agent path does.
-        WorkspaceBookmarkStore.shared.save(url: cwd, for: workspaceID)
+        WorkspaceBookmarkStore.shared.save(url: effectiveCWD, for: workspaceID)
         updateSubtitle()
 
         // Auto-handle per C3. Shell panes use a friendly unused handle instead
@@ -3269,7 +3270,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             do {
                 try await self.attachLocalPTY(
                     to: paneID,
-                    cwd: cwd,
+                    cwd: effectiveCWD,
                     initialCommand: nil,
                     prompt: nil,
                     promptDelayMs: nil
