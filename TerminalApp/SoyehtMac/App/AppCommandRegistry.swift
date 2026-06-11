@@ -282,7 +282,7 @@ struct AppCommandShortcutConflict: Hashable {
 }
 
 enum AppCommandMenuTag {
-    /// Values are deliberately negative so they never collide with storyboard
+    /// Values are deliberately negative so they never collide with dynamic
     /// positive tags such as workspace slots 1...9.
     static let paneMoveToWorkspaceHeader = -101
     static let workspaceGroupActiveHeader = -102
