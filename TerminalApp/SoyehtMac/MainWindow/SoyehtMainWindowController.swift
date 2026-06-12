@@ -102,6 +102,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let conversationID: Conversation.ID
         let workspaceID: Workspace.ID
         let handle: String
+        let sourceConversationID: Conversation.ID?
+        let sourceHandle: String?
+        let envelopeApplied: Bool
+        let envelopeReason: String
     }
 
     struct RenamedWorkspaceResult {
@@ -261,10 +265,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case cannotCloseLastWorkspace
         case invalidWorkspaceIDFormat(String)
         case invalidConversationIDFormat(String)
+        case sourceConversationNotFound(String)
+        case sourceHandleNotFound(String, suggestions: [String])
+        case agentEnvelopeSourceRequired
+        case agentEnvelopeCannotTargetSource(String)
         case workspaceNotFound(UUID)
         case conversationNotFound(UUID)
         case conversationNotInWindow(UUID, String)
-        case paneHandleNotFound(String)
+        case paneHandleNotFound(String, suggestions: [String], matchesOutsideTargetWindow: [String])
         case workspaceNameNotFound(String)
         case destinationWorkspaceNotFound(UUID)
         case paneMoveFailed(Conversation.ID)
@@ -312,14 +320,33 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Workspace ID is not a valid UUID: \(value)"
             case .invalidConversationIDFormat(let value):
                 return "Conversation ID is not a valid UUID: \(value)"
+            case .sourceConversationNotFound(let value):
+                return "Source conversation does not exist: \(value). Pass a valid fromConversationID or omit it so Soyeht can infer the source from the calling pane TTY."
+            case .sourceHandleNotFound(let handle, let suggestions):
+                var message = "Source pane handle does not exist: @\(handle). Pass a valid fromHandle/fromConversationID or omit it so Soyeht can infer the source from the calling pane TTY."
+                if !suggestions.isEmpty {
+                    message += " Close known handles: \(suggestions.joined(separator: ", "))."
+                }
+                return message
+            case .agentEnvelopeSourceRequired:
+                return "message_agent requires an identifiable sender. Pass fromHandle or fromConversationID, or call it from inside a live Soyeht pane so Soyeht can infer the source TTY."
+            case .agentEnvelopeCannotTargetSource(let handle):
+                return "message_agent cannot send an agent envelope from \(handle) to itself. Choose a different target pane."
             case .workspaceNotFound(let id):
                 return "Workspace does not exist: \(id.uuidString)"
             case .conversationNotFound(let id):
                 return "Conversation does not exist: \(id.uuidString)"
             case .conversationNotInWindow(let id, let windowID):
                 return "Conversation \(id.uuidString) is not in window \(windowID)."
-            case .paneHandleNotFound(let handle):
-                return "Pane handle does not exist: @\(handle)"
+            case .paneHandleNotFound(let handle, let suggestions, let matchesOutsideTargetWindow):
+                var message = "Pane handle @\(handle) does not exist in the target window. Run list_panes to get current handles before sending; do not open a new pane when you intend to message an existing one."
+                if !matchesOutsideTargetWindow.isEmpty {
+                    message += " A pane with that handle exists outside this target window: \(matchesOutsideTargetWindow.joined(separator: ", ")). Retry with the correct targetWindowID from list_windows/list_panes."
+                }
+                if !suggestions.isEmpty {
+                    message += " Close known handles: \(suggestions.joined(separator: ", "))."
+                }
+                return message
             case .workspaceNameNotFound(let name):
                 return "Workspace does not exist in this window: \(name)"
             case .destinationWorkspaceNotFound(let id):
@@ -1428,7 +1455,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         text: String,
         appendNewline: Bool,
         lineEnding: String? = nil,
-        sourceTTY: String? = nil
+        sourceConversationIDString: String? = nil,
+        sourceHandle: String? = nil,
+        sourceTTY: String? = nil,
+        forceAgentEnvelope: Bool = false,
+        requireAgentEnvelope: Bool = false
     ) throws -> [SentPaneInputResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -1439,18 +1470,42 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handles: handles,
             convStore: convStore
         )
-        let source = sourceConversation(sourceTTY: sourceTTY, convStore: convStore)
-
+        let source = try sourceConversation(
+            sourceConversationIDString: sourceConversationIDString,
+            sourceHandle: sourceHandle,
+            sourceTTY: sourceTTY,
+            convStore: convStore
+        )
+        let explicitSourceProvided = !(sourceConversationIDString?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+            || !(sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let inferredTTYSourceProvided = Self.normalizedTTYName(sourceTTY) != nil
         return try sendResolvedInput(
             to: targets,
             appendNewline: appendNewline,
             lineEnding: lineEnding,
             textForTarget: { target in
-                guard let source,
-                      Self.shouldEnvelopeSoyehtSourceMessage(source: source, target: target) else {
-                    return text
+                let legacyTTYEnvelope = !explicitSourceProvided
+                    && inferredTTYSourceProvided
+                    && !target.agent.isShell
+                let requestsEnvelope = forceAgentEnvelope
+                    || requireAgentEnvelope
+                    || explicitSourceProvided
+                    || legacyTTYEnvelope
+                do {
+                    return try AgentPaneInputPlanner.prepare(
+                        target: target,
+                        source: source,
+                        text: text,
+                        appendNewline: appendNewline,
+                        lineEnding: lineEnding,
+                        requestEnvelope: requestsEnvelope,
+                        requireAgentEnvelope: requireAgentEnvelope
+                    )
+                } catch AgentPaneInputPlanner.Error.sourceRequired {
+                    throw LocalAgentWorkspaceError.agentEnvelopeSourceRequired
+                } catch AgentPaneInputPlanner.Error.cannotTargetSource(let handle) {
+                    throw LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource(handle)
                 }
-                return Self.agentMessageEnvelope(source: source, target: target, text: text)
             }
         )
     }
@@ -1459,43 +1514,55 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         to targets: [Conversation],
         appendNewline: Bool,
         lineEnding: String?,
-        textForTarget: (Conversation) -> String
+        textForTarget: (Conversation) throws -> AgentPaneInputPlanner.Prepared
     ) throws -> [SentPaneInputResult] {
-        let sent = targets.compactMap { conv -> SentPaneInputResult? in
+        let sent = try targets.compactMap { conv -> SentPaneInputResult? in
             guard conv.content.isTerminal else { return nil }
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
                 return nil
             }
-            let outgoingText = textForTarget(conv)
-            let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
+            let prepared = try textForTarget(conv)
             let terminalView = pane.terminalView
-            terminalView.brokerSend(text: outgoingText)
-            let needsTerminator = !outgoingText.hasSuffix("\n") && !outgoingText.hasSuffix("\r")
-            if needsTerminator {
-                switch terminator {
-                case .none:
-                    break
-                case .text(let terminatorText):
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak terminalView] in
-                        terminalView?.brokerSend(text: terminatorText)
-                    }
-                case .enterKey:
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak terminalView] in
-                        terminalView?.brokerSendEnterKey()
-                    }
-                }
-            }
+            terminalView.brokerSend(text: prepared.payload)
             return SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
-                handle: conv.handle
+                handle: conv.handle,
+                sourceConversationID: prepared.source?.id,
+                sourceHandle: prepared.source?.handle,
+                envelopeApplied: prepared.envelopeApplied,
+                envelopeReason: prepared.envelopeReason
             )
         }
         guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
         return sent
     }
 
-    private func sourceConversation(sourceTTY: String?, convStore: ConversationStore) -> Conversation? {
+    private func sourceConversation(
+        sourceConversationIDString: String?,
+        sourceHandle: String?,
+        sourceTTY: String?,
+        convStore: ConversationStore
+    ) throws -> Conversation? {
+        if let rawID = sourceConversationIDString?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawID.isEmpty {
+            guard let id = UUID(uuidString: rawID),
+                  let conversation = convStore.conversation(id) else {
+                throw LocalAgentWorkspaceError.sourceConversationNotFound(rawID)
+            }
+            return conversation
+        }
+        if let rawHandle = sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawHandle.isEmpty {
+            let normalized = ConversationStore.normalize(rawHandle)
+            if let conversation = convStore.all.first(where: { ConversationStore.normalize($0.handle) == normalized }) {
+                return conversation
+            }
+            throw LocalAgentWorkspaceError.sourceHandleNotFound(
+                normalized,
+                suggestions: Self.nearestHandles(to: normalized, in: convStore.all.map(\.handle))
+            )
+        }
         guard let sourceTTYName = Self.normalizedTTYName(sourceTTY) else {
             return nil
         }
@@ -1520,17 +1587,45 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return basename.isEmpty ? trimmed : basename
     }
 
-    private static func shouldEnvelopeSoyehtSourceMessage(source: Conversation, target: Conversation) -> Bool {
-        guard source.id != target.id else { return false }
-        return !target.agent.isShell
+    private static func nearestHandles(to requestedHandle: String, in handles: [String], limit: Int = 3) -> [String] {
+        let requested = ConversationStore.normalize(requestedHandle)
+        guard !requested.isEmpty else { return [] }
+        let uniqueHandles = Array(Set(handles.map { ConversationStore.canonicalHandle($0) })).sorted()
+        let ranked = uniqueHandles.map { handle -> (handle: String, score: Int) in
+            let normalized = ConversationStore.normalize(handle)
+            if normalized == requested { return (handle, 0) }
+            if normalized.hasPrefix(requested) || requested.hasPrefix(normalized) { return (handle, 1) }
+            if normalized.contains(requested) || requested.contains(normalized) { return (handle, 2) }
+            return (handle, 3 + levenshteinDistance(requested, normalized))
+        }
+        return ranked
+            .filter { $0.score <= max(4, requested.count / 2 + 3) }
+            .sorted { lhs, rhs in
+                if lhs.score != rhs.score { return lhs.score < rhs.score }
+                return lhs.handle.localizedStandardCompare(rhs.handle) == .orderedAscending
+            }
+            .prefix(limit)
+            .map(\.handle)
     }
 
-    private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
-        let body = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .joined(separator: " ")
-        return "Sent via Soyeht. From: \(source.handle). To: \(target.handle). Request: \(body)"
+    private static func levenshteinDistance(_ lhs: String, _ rhs: String) -> Int {
+        let a = Array(lhs)
+        let b = Array(rhs)
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        var previous = Array(0...b.count)
+        var current = Array(repeating: 0, count: b.count + 1)
+        for (i, ca) in a.enumerated() {
+            current[0] = i + 1
+            for (j, cb) in b.enumerated() {
+                let deletion = previous[j + 1] + 1
+                let insertion = current[j] + 1
+                let substitution = previous[j] + (ca == cb ? 0 : 1)
+                current[j + 1] = min(deletion, insertion, substitution)
+            }
+            swap(&previous, &current)
+        }
+        return previous[b.count]
     }
 
     @MainActor
@@ -2541,12 +2636,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         if !normalizedHandles.isEmpty {
             let allConversations = convStore.all
             for handle in normalizedHandles {
-                let allMatches = allConversations
-                    .filter { ConversationStore.normalize($0.handle) == handle && isAllowed($0) }
-                guard !allMatches.isEmpty else {
-                    throw LocalAgentWorkspaceError.paneHandleNotFound(handle)
+                let exactMatches = allConversations
+                    .filter { ConversationStore.normalize($0.handle) == handle }
+                let allowedMatches = exactMatches.filter { isAllowed($0) }
+                guard !allowedMatches.isEmpty else {
+                    throw LocalAgentWorkspaceError.paneHandleNotFound(
+                        handle,
+                        suggestions: Self.nearestHandles(to: handle, in: allConversations.map(\.handle)),
+                        matchesOutsideTargetWindow: exactMatches.map(\.handle).sorted()
+                    )
                 }
-                for conv in allMatches where !seen.contains(conv.id) {
+                for conv in allowedMatches where !seen.contains(conv.id) {
                     targets.append(conv)
                     seen.insert(conv.id)
                 }
@@ -2836,26 +2936,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         store.setLayout(workspaceID, layout: newLayout, undoManager: window?.undoManager)
         return newLayout
-    }
-
-    private enum TerminalInputTerminator {
-        case none
-        case text(String)
-        case enterKey
-    }
-
-    private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> TerminalInputTerminator {
-        guard appendNewline else { return .none }
-        switch lineEnding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "none", "false":
-            return .none
-        case "newline", "lf":
-            return .text("\n")
-        case "crlf":
-            return .text("\r\n")
-        default:
-            return .enterKey
-        }
     }
 
     // MARK: - Activation
@@ -3307,7 +3387,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Terminal.app would. Subsequent launches return instantly via the
         // disk cache.
         let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
-        let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows, loginPath: loginPath)
+        let pty = try NativePTY(
+            shellPath: nil,
+            cwd: cwd,
+            cols: cols,
+            rows: rows,
+            loginPath: loginPath,
+            extraEnvironment: convStore.conversation(paneID).map(AgentPaneEnvironment.values(for:)) ?? [:]
+        )
 
         // Flip commander BEFORE configuring the terminal so
         // `updateEmptyStateVisibility` sees `.native` and hides the picker

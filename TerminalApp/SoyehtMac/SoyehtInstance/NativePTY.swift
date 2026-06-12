@@ -80,7 +80,14 @@ final class NativePTY {
     ///     produced by `LoginShellEnvironmentResolver` so the non-login bash
     ///     can find homebrew/npm/per-user shims. `nil` keeps the host's
     ///     inherited PATH (only useful for tests / login-shell mode).
-    init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int, loginPath: String? = nil) throws {
+    init(
+        shellPath: String? = nil,
+        cwd: URL,
+        cols: Int,
+        rows: Int,
+        loginPath: String? = nil,
+        extraEnvironment: [String: String] = [:]
+    ) throws {
         let inheritedEnvironment = ProcessInfo.processInfo.environment
         let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
         let shell = shellPath
@@ -127,6 +134,10 @@ final class NativePTY {
         }
         if !wantsLoginShell, let loginPath {
             envDict["PATH"] = loginPath
+        }
+        for (key, value) in extraEnvironment {
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            envDict[key] = value
         }
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]

@@ -196,9 +196,22 @@ def first_present(*values):
     return None
 
 
-def with_source_context(payload):
+def with_source_context(payload, args=None):
+    args = args or {}
+    explicit_conversation_id = first_present(args.get("fromConversationID"), args.get("sourceConversationID"))
+    explicit_handle = first_present(args.get("fromHandle"), args.get("sourceHandle"))
+    if explicit_conversation_id or explicit_handle:
+        from_conversation_id = explicit_conversation_id
+        from_handle = explicit_handle
+    else:
+        from_conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID")
+        from_handle = os.environ.get("SOYEHT_HANDLE")
+    if from_conversation_id:
+        payload["sourceConversationID"] = from_conversation_id
+    if from_handle:
+        payload["sourceHandle"] = from_handle
     tty = current_tty()
-    if tty:
+    if tty and not from_conversation_id and not from_handle:
         payload["sourceTTY"] = tty
     return payload
 
@@ -753,7 +766,35 @@ def tool_send_pane_input(args):
         "text": text,
         "appendNewline": line_ending != "none",
         "lineEnding": line_ending,
-    }, args))
+        "forceAgentEnvelope": bool(args.get("forceAgentEnvelope", False)),
+        "requireAgentEnvelope": bool(args.get("requireAgentEnvelope", False)),
+    }, args), args)
+    return submit_request(
+        "send_pane_input",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_message_agent(args):
+    text = args.get("text")
+    if text is None or text == "":
+        raise RuntimeError("message_agent requires text.")
+    conversation_ids = args.get("conversationIDs") or []
+    handles = args.get("handles") or []
+    if not conversation_ids and not handles:
+        raise RuntimeError("message_agent requires handles or conversationIDs. Use list_panes first; do not create a new pane when you intend to message an existing agent.")
+    line_ending = args.get("lineEnding") or "enter"
+    payload = with_source_context(with_window_target({
+        "conversationIDs": conversation_ids,
+        "handles": handles,
+        "text": text,
+        "appendNewline": line_ending != "none",
+        "lineEnding": line_ending,
+        "forceAgentEnvelope": True,
+        "requireAgentEnvelope": True,
+    }, args), args)
     return submit_request(
         "send_pane_input",
         payload,
@@ -918,6 +959,28 @@ def tool_list_panes(args):
         payload["workspaceIDs"] = [args["workspaceID"]]
     return submit_request(
         "list_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_identify_agent(args):
+    payload = with_source_context(with_window_target({}, args), args)
+    return submit_request(
+        "identify_agent",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 5.0),
+    )
+
+
+def tool_list_agents(args):
+    payload = with_source_context(with_window_target({}, args), args)
+    if args.get("workspaceID"):
+        payload["workspaceIDs"] = [args["workspaceID"]]
+    return submit_request(
+        "list_agents",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 10.0),
@@ -1411,13 +1474,21 @@ TOOLS = [
     },
     {
         "name": "send_pane_input",
-        "description": "Send text directly to live Soyeht panes by conversation id or pane handle. When this MCP call originates from a local Soyeht pane and targets a non-shell destination pane, Soyeht automatically adds source pane, destination pane, and request metadata before delivering the text. Calls without an identifiable local Soyeht source, self-targeted calls, and shell destinations remain raw automation input.",
+        "description": "Send text directly to live Soyeht panes by conversation id or pane handle. Use this for low-level terminal input. If you intend to talk to another agent, prefer message_agent: it requires an identifiable sender and wraps the message with reply instructions. Before sending by handle, call list_panes if there is any doubt; do not create a new pane when the user asked you to message an existing one. send_pane_input can include fromHandle/fromConversationID to identify the sender, otherwise Soyeht tries to infer the sender from the calling terminal TTY. The response reports whether an agent envelope was applied.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "conversationIDs": {"type": "array", "items": {"type": "string"}},
                 "handles": {"type": "array", "items": {"type": "string"}},
                 "text": {"type": "string"},
+                "fromConversationID": {
+                    "type": "string",
+                    "description": "Explicit sender conversationID. Use this when relaying a message from a known Soyeht pane; it is more reliable than TTY inference.",
+                },
+                "fromHandle": {
+                    "type": "string",
+                    "description": "Explicit sender pane handle, such as @codex. Use this when the recipient should know who sent the message and where to reply.",
+                },
                 "lineEnding": {
                     "type": "string",
                     "enum": ["enter", "newline", "crlf", "none"],
@@ -1428,6 +1499,45 @@ TOOLS = [
                     "type": "boolean",
                     "default": True,
                     "description": "Legacy boolean. false maps to lineEnding=none.",
+                },
+                "forceAgentEnvelope": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Wrap the text with Soyeht From/To/Reply metadata when a sender can be resolved. Prefer message_agent instead of setting this manually.",
+                },
+                "requireAgentEnvelope": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Fail instead of delivering raw text if Soyeht cannot resolve a sender and apply the agent message envelope.",
+                },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["text"],
+        },
+    },
+    {
+        "name": "message_agent",
+        "description": "High-level safe tool for agent-to-agent communication in Soyeht. Use this when the user says 'tell @name', 'ask @name', 'send this to the reviewer', or similar. It never creates panes. It requires handles or conversationIDs for existing panes, identifies the sender via fromHandle/fromConversationID or TTY inference, wraps the message with From/To/Reply instructions, and presses Enter by default. If the target handle is stale or in another window, use list_panes/list_windows and retry with the correct handle or targetWindowID instead of opening a new pane.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "text": {"type": "string"},
+                "fromConversationID": {
+                    "type": "string",
+                    "description": "Explicit sender conversationID. Strongly recommended when you know your own Soyeht pane.",
+                },
+                "fromHandle": {
+                    "type": "string",
+                    "description": "Explicit sender handle. Strongly recommended so the recipient knows where to reply.",
+                },
+                "lineEnding": {
+                    "type": "string",
+                    "enum": ["enter", "newline", "crlf", "none"],
+                    "default": "enter",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -1717,6 +1827,52 @@ TOOLS = [
         },
     },
     {
+        "name": "identify_agent",
+        "description": "Identify the Soyeht pane that is calling this MCP server. Use this before replying to another agent when you do not know your own handle/conversationID. It resolves fromHandle/fromConversationID first, then SOYEHT_CONVERSATION_ID/SOYEHT_HANDLE exported by the pane, then the calling terminal TTY. The response includes sourceIdentity plus a replyTarget other agents can use to message you.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fromConversationID": {
+                    "type": "string",
+                    "description": "Explicit source conversationID. Optional; normally omitted so Soyeht infers the calling pane.",
+                },
+                "fromHandle": {
+                    "type": "string",
+                    "description": "Explicit source handle. Optional; normally omitted so Soyeht infers the calling pane.",
+                },
+                "windowID": WINDOW_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 5.0},
+            },
+        },
+    },
+    {
+        "name": "list_agents",
+        "description": "List the current Soyeht agent/pane directory for reliable multi-agent routing. Prefer this over raw list_panes when the user asks you to talk to another agent. Each listedAgents entry includes handle, conversationID, workspace/window, live status, canReceiveMessage, messageTarget arguments for message_agent, and replyInstructions. Passing fromHandle/fromConversationID personalizes messageTarget so agents can respond without guessing the sender. Never create a new pane when the requested handle is already listed here.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceID": {
+                    "type": "string",
+                    "description": "If provided, only agents/panes in this workspace are returned.",
+                },
+                "fromConversationID": {
+                    "type": "string",
+                    "description": "Explicit source conversationID used to prefill messageTarget.fromConversationID.",
+                },
+                "fromHandle": {
+                    "type": "string",
+                    "description": "Explicit source handle used to prefill messageTarget.fromHandle.",
+                },
+                "windowID": WINDOW_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
         "name": "get_active_context",
         "description": "Return the user's currently-focused Soyeht context: activeContext = { workspaceID, workspaceName, paneID, paneHandle }. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the active workspace explicitly. Note: open_panes/open_shell already default to the active workspace, but this tool lets you confirm what the user is looking at.",
         "inputSchema": {
@@ -1930,6 +2086,7 @@ TOOL_HANDLERS = {
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,
     "send_pane_input": tool_send_pane_input,
+    "message_agent": tool_message_agent,
     "rename_panes": tool_rename_panes,
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,
@@ -1941,6 +2098,8 @@ TOOL_HANDLERS = {
     "list_windows": tool_list_windows,
     "list_workspaces": tool_list_workspaces,
     "list_panes": tool_list_panes,
+    "identify_agent": tool_identify_agent,
+    "list_agents": tool_list_agents,
     "close_pane": tool_close_pane,
     "close_workspace": tool_close_workspace,
     "move_pane": tool_move_pane,
