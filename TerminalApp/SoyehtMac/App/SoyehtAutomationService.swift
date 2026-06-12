@@ -59,6 +59,8 @@ struct SoyehtAutomationRequest: Decodable {
         let conversationIDs: [String]?
         let handles: [String]?
         let text: String?
+        let sourceConversationID: String?
+        let sourceHandle: String?
         let sourceTTY: String?
         let newName: String?
         let nameStyle: String?
@@ -66,6 +68,8 @@ struct SoyehtAutomationRequest: Decodable {
         let workspaceNameStyle: String?
         let appendNewline: Bool?
         let lineEnding: String?
+        let forceAgentEnvelope: Bool?
+        let requireAgentEnvelope: Bool?
         let layout: String?
         let mode: String?
         let ratio: Double?
@@ -156,12 +160,29 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let handle: String
         let windowID: String?
+        let sourceConversationID: String?
+        let sourceHandle: String?
+        let envelopeApplied: Bool
+        let envelopeReason: String
 
-        init(conversationID: String, workspaceID: String, handle: String, windowID: String? = nil) {
+        init(
+            conversationID: String,
+            workspaceID: String,
+            handle: String,
+            windowID: String? = nil,
+            sourceConversationID: String? = nil,
+            sourceHandle: String? = nil,
+            envelopeApplied: Bool = false,
+            envelopeReason: String = "not_requested"
+        ) {
             self.conversationID = conversationID
             self.workspaceID = workspaceID
             self.handle = handle
             self.windowID = windowID
+            self.sourceConversationID = sourceConversationID
+            self.sourceHandle = sourceHandle
+            self.envelopeApplied = envelopeApplied
+            self.envelopeReason = envelopeReason
         }
     }
 

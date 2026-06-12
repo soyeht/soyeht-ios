@@ -19,14 +19,23 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("Do not use declaredAgent", tool["description"])
         self.assertNotIn("agent types", tool["description"])
 
-    def test_send_pane_input_description_describes_automatic_source_metadata(self):
+    def test_send_pane_input_description_describes_agent_messaging_boundary(self):
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "send_pane_input")
 
-        self.assertIn("source pane", tool["description"])
-        self.assertIn("destination pane", tool["description"])
-        self.assertIn("identifiable local Soyeht source", tool["description"])
-        self.assertIn("non-shell destination pane", tool["description"])
-        self.assertIn("shell destinations remain raw", tool["description"])
+        self.assertIn("prefer message_agent", tool["description"])
+        self.assertIn("fromHandle", tool["description"])
+        self.assertIn("fromConversationID", tool["description"])
+        self.assertIn("do not create a new pane", tool["description"])
+        self.assertIn("whether an agent envelope was applied", tool["description"])
+
+    def test_message_agent_handler_is_registered_and_fail_closed_by_schema(self):
+        self.assertIn("message_agent", MODULE["TOOL_HANDLERS"])
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "message_agent")
+
+        self.assertIn("agent-to-agent communication", tool["description"])
+        self.assertIn("never creates panes", tool["description"])
+        self.assertIn("fromHandle", tool["inputSchema"]["properties"])
+        self.assertIn("fromConversationID", tool["inputSchema"]["properties"])
 
     def test_concrete_tty_path_rejects_generic_dev_tty(self):
         self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))
@@ -88,6 +97,69 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["text"], "hello")
         self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-b")
+
+    def test_send_pane_input_explicit_source_suppresses_tty_fallback(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            result = MODULE["tool_send_pane_input"]({
+                "handles": ["@dst"],
+                "text": "hello",
+                "fromHandle": "@sender",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@sender")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_message_agent_requires_existing_target_and_requests_envelope(self):
+        captured = {}
+        globals_ = MODULE["tool_message_agent"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: None
+            result = MODULE["tool_message_agent"]({
+                "handles": ["@reviewer"],
+                "text": "please review",
+                "fromConversationID": "11111111-1111-1111-1111-111111111111",
+                "targetWindowID": "window-a",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["handles"], ["@reviewer"])
+        self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
+        self.assertTrue(captured["payload"]["forceAgentEnvelope"])
+        self.assertTrue(captured["payload"]["requireAgentEnvelope"])
+        self.assertEqual(captured["payload"]["lineEnding"], "enter")
+        self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
+
+    def test_message_agent_refuses_to_create_or_guess_target(self):
+        with self.assertRaisesRegex(RuntimeError, "requires handles or conversationIDs"):
+            MODULE["tool_message_agent"]({"text": "please review"})
 
     def test_move_pane_forwards_source_and_destination_windows(self):
         captured = {}

@@ -60,6 +60,7 @@ enum AIAgentIntegrator {
     enum IntegrationError: Error, LocalizedError {
         case bundledLauncherMissing
         case configWriteFailed(Agent, underlying: Error)
+        case invalidJSONConfig(String, underlying: Error)
 
         var errorDescription: String? {
             switch self {
@@ -67,6 +68,8 @@ enum AIAgentIntegrator {
                 return "Soyeht.app bundle is missing the MCP server script. Reinstall the app."
             case .configWriteFailed(let agent, let underlying):
                 return "Could not update \(agent.displayName) config: \(underlying.localizedDescription)"
+            case .invalidJSONConfig(let path, let underlying):
+                return "Refusing to update malformed JSON config at \(path): \(underlying.localizedDescription)"
             }
         }
     }
@@ -239,18 +242,24 @@ enum AIAgentIntegrator {
 
     // MARK: - JSON helpers
 
-    /// Reads a JSON object file or returns an empty object if missing or
-    /// unparseable. We deliberately never throw on malformed input — the
-    /// integrator should add Soyeht's entry without destroying the user's
-    /// other settings, but a corrupted config is better than refusing to
-    /// install. If parse fails the caller's existing entries are lost,
-    /// which is acceptable given the original was already invalid.
+    /// Reads a JSON object file or returns an empty object if missing/empty.
+    /// Malformed JSON is never overwritten: replacing the user's config with a
+    /// Soyeht-only object would destroy unrelated MCP entries and make install
+    /// behavior differ across machines.
     private static func readJSONObject(at url: URL) throws -> [String: Any] {
-        guard let data = try? Data(contentsOf: url),
-              !data.isEmpty,
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return [:] }
-        return object
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+        let data = try Data(contentsOf: url)
+        guard !data.isEmpty else { return [:] }
+        do {
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw IntegrationError.invalidJSONConfig(url.path, underlying: CocoaError(.fileReadCorruptFile))
+            }
+            return object
+        } catch let error as IntegrationError {
+            throw error
+        } catch {
+            throw IntegrationError.invalidJSONConfig(url.path, underlying: error)
+        }
     }
 
     private static func writeJSONObject(_ object: [String: Any], to url: URL) throws {

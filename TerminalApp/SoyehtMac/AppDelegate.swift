@@ -779,14 +779,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             text: text,
             appendNewline: payload.appendNewline ?? true,
             lineEnding: payload.lineEnding,
-            sourceTTY: payload.sourceTTY
+            sourceConversationIDString: payload.sourceConversationID,
+            sourceHandle: payload.sourceHandle,
+            sourceTTY: payload.sourceTTY,
+            forceAgentEnvelope: payload.forceAgentEnvelope ?? false,
+            requireAgentEnvelope: payload.requireAgentEnvelope ?? false
         )
         return SoyehtAutomationResult(sentPanes: sent.map {
             SoyehtAutomationResponse.SentPane(
                 conversationID: $0.conversationID.uuidString,
                 workspaceID: $0.workspaceID.uuidString,
                 handle: $0.handle,
-                windowID: target.windowID
+                windowID: target.windowID,
+                sourceConversationID: $0.sourceConversationID?.uuidString,
+                sourceHandle: $0.sourceHandle,
+                envelopeApplied: $0.envelopeApplied,
+                envelopeReason: $0.envelopeReason
             )
         })
     }

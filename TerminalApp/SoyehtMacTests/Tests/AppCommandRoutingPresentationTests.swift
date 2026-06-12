@@ -213,6 +213,72 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(activeGridController.contains("containerCache[activeWorkspaceID]?.gridController"))
     }
 
+    func testMCPAgentMessagingUsesExplicitSenderEnvelopeAndAtomicTerminator() throws {
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let sendInput = try slice(
+            source,
+            from: "func sendInputToPanes(",
+            to: "private func sendResolvedInput"
+        )
+        let sendResolvedInput = try slice(
+            source,
+            from: "private func sendResolvedInput",
+            to: "private func sourceConversation"
+        )
+        let sourceResolution = try slice(
+            source,
+            from: "private func sourceConversation",
+            to: "private static func normalizedTTYName"
+        )
+        let envelopeHelpers = try slice(
+            source,
+            from: "private static func shouldEnvelopeSoyehtSourceMessage",
+            to: "@MainActor\n    func renamePanes"
+        )
+
+        XCTAssertTrue(sendInput.contains("sourceConversationIDString"))
+        XCTAssertTrue(sendInput.contains("sourceHandle"))
+        XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("LocalAgentWorkspaceError.agentEnvelopeSourceRequired"))
+        XCTAssertTrue(sendInput.contains("explicitSourceProvided"))
+        XCTAssertTrue(sendInput.contains("legacyTTYEnvelope"))
+        XCTAssertTrue(sendInput.contains("forceAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
+
+        XCTAssertTrue(sourceResolution.contains("sourceConversationIDString"))
+        XCTAssertTrue(sourceResolution.contains("sourceHandle"))
+        XCTAssertTrue(sourceResolution.contains("sourceTTY"))
+        XCTAssertTrue(sourceResolution.contains("sourceConversationNotFound"))
+        XCTAssertTrue(sourceResolution.contains("sourceHandleNotFound"))
+
+        XCTAssertTrue(sendResolvedInput.contains("terminator.textValue"))
+        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: payload)"))
+        XCTAssertFalse(sendResolvedInput.contains("asyncAfter"))
+        XCTAssertFalse(sendResolvedInput.contains("brokerSendEnterKey()"))
+
+        XCTAssertTrue(envelopeHelpers.contains("target.content.isTerminal"))
+        XCTAssertTrue(envelopeHelpers.contains("Reply via Soyeht MCP send_pane_input or message_agent"))
+        XCTAssertFalse(
+            envelopeHelpers.contains("target.agent.isShell"),
+            "Envelope application should not depend on stale declaredAgent shell metadata."
+        )
+    }
+
+    func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
+        let source = try macSource("Installer/AIAgentIntegrator.swift")
+        let readJSONObject = try slice(
+            source,
+            from: "private static func readJSONObject",
+            to: "private static func writeJSONObject"
+        )
+
+        XCTAssertTrue(readJSONObject.contains("FileManager.default.fileExists"))
+        XCTAssertTrue(readJSONObject.contains("invalidJSONConfig"))
+        XCTAssertTrue(readJSONObject.contains("JSONSerialization.jsonObject"))
+        XCTAssertFalse(readJSONObject.contains("try? JSONSerialization.jsonObject"))
+        XCTAssertFalse(readJSONObject.contains("return [:]\n        } catch"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
