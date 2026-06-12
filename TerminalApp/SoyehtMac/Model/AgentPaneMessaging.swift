@@ -1,14 +1,55 @@
 import Foundation
+import SoyehtCore
 
 enum AgentPaneEnvironment {
     static let conversationIDKey = "SOYEHT_CONVERSATION_ID"
     static let handleKey = "SOYEHT_HANDLE"
+    static let automationDirKey = "SOYEHT_AUTOMATION_DIR"
 
-    static func values(for conversation: Conversation) -> [String: String] {
-        [
+    static func values(
+        for conversation: Conversation,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        profile: SoyehtInstallProfile = .current
+    ) -> [String: String] {
+        var values = [
             conversationIDKey: conversation.id.uuidString,
             handleKey: conversation.handle,
         ]
+        if let automationDir = automationDirectoryPath(environment: environment, profile: profile) {
+            values[automationDirKey] = automationDir
+        }
+        return values
+    }
+
+    private static func automationDirectoryPath(
+        environment: [String: String],
+        profile: SoyehtInstallProfile
+    ) -> String? {
+        if let override = AppSupportDirectory.developerEnvironmentOverride(
+            automationDirKey,
+            environment: environment,
+            profile: profile
+        ) {
+            return override
+        }
+        if profile == .current {
+            return try? AppSupportDirectory.subdirectory("Automation").path
+        }
+        return try? automationDirectoryPath(profile: profile)
+    }
+
+    private static func automationDirectoryPath(profile: SoyehtInstallProfile) throws -> String {
+        let appSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let dir = appSupport
+            .appendingPathComponent(profile.supportDirectoryName, isDirectory: true)
+            .appendingPathComponent("Automation", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.path
     }
 }
 
@@ -21,6 +62,7 @@ enum AgentPaneInputPlanner {
     struct Prepared: Equatable {
         let text: String
         let payload: String
+        let shouldSendEnterKey: Bool
         let source: Conversation?
         let envelopeApplied: Bool
         let envelopeReason: String
@@ -68,13 +110,15 @@ enum AgentPaneInputPlanner {
             }
         }
 
+        let terminalInput = terminalPayload(
+            text: outgoingText,
+            appendNewline: appendNewline,
+            lineEnding: lineEnding
+        )
         return Prepared(
             text: outgoingText,
-            payload: terminalPayload(
-                text: outgoingText,
-                appendNewline: appendNewline,
-                lineEnding: lineEnding
-            ),
+            payload: terminalInput.payload,
+            shouldSendEnterKey: terminalInput.shouldSendEnterKey,
             source: source,
             envelopeApplied: envelopeApplied,
             envelopeReason: envelopeReason
@@ -85,23 +129,42 @@ enum AgentPaneInputPlanner {
         text: String,
         appendNewline: Bool,
         lineEnding: String?
-    ) -> String {
+    ) -> (payload: String, shouldSendEnterKey: Bool) {
         let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
+        if case .enterKey = terminator {
+            return (text, true)
+        }
         let needsTerminator = !text.hasSuffix("\n") && !text.hasSuffix("\r")
-        return text + (needsTerminator ? terminator : "")
+        guard needsTerminator else {
+            return (text, false)
+        }
+        switch terminator {
+        case .none:
+            return (text, false)
+        case .text(let value):
+            return (text + value, false)
+        case .enterKey:
+            return (text, true)
+        }
     }
 
-    private static func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> String {
-        guard appendNewline else { return "" }
+    private enum TerminalInputTerminator {
+        case none
+        case text(String)
+        case enterKey
+    }
+
+    private static func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> TerminalInputTerminator {
+        guard appendNewline else { return .none }
         switch lineEnding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "none", "false":
-            return ""
+            return .none
         case "newline", "lf":
-            return "\n"
+            return .text("\n")
         case "crlf":
-            return "\r\n"
+            return .text("\r\n")
         default:
-            return "\r"
+            return .enterKey
         }
     }
 
