@@ -198,8 +198,14 @@ def first_present(*values):
 
 def with_source_context(payload, args=None):
     args = args or {}
-    from_conversation_id = first_present(args.get("fromConversationID"), args.get("sourceConversationID"))
-    from_handle = first_present(args.get("fromHandle"), args.get("sourceHandle"))
+    explicit_conversation_id = first_present(args.get("fromConversationID"), args.get("sourceConversationID"))
+    explicit_handle = first_present(args.get("fromHandle"), args.get("sourceHandle"))
+    if explicit_conversation_id or explicit_handle:
+        from_conversation_id = explicit_conversation_id
+        from_handle = explicit_handle
+    else:
+        from_conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID")
+        from_handle = os.environ.get("SOYEHT_HANDLE")
     if from_conversation_id:
         payload["sourceConversationID"] = from_conversation_id
     if from_handle:
@@ -1822,7 +1828,7 @@ TOOLS = [
     },
     {
         "name": "identify_agent",
-        "description": "Identify the Soyeht pane that is calling this MCP server. Use this before replying to another agent when you do not know your own handle/conversationID. It resolves fromHandle/fromConversationID first, then the calling terminal TTY. The response includes sourceIdentity plus a replyTarget other agents can use to message you.",
+        "description": "Identify the Soyeht pane that is calling this MCP server. Use this before replying to another agent when you do not know your own handle/conversationID. It resolves fromHandle/fromConversationID first, then SOYEHT_CONVERSATION_ID/SOYEHT_HANDLE exported by the pane, then the calling terminal TTY. The response includes sourceIdentity plus a replyTarget other agents can use to message you.",
         "inputSchema": {
             "type": "object",
             "properties": {

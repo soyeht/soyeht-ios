@@ -1479,15 +1479,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let explicitSourceProvided = !(sourceConversationIDString?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
             || !(sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
         let inferredTTYSourceProvided = Self.normalizedTTYName(sourceTTY) != nil
-        if requireAgentEnvelope, source == nil {
-            throw LocalAgentWorkspaceError.agentEnvelopeSourceRequired
-        }
-        if requireAgentEnvelope, let source {
-            for target in targets where source.id == target.id {
-                throw LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource(source.handle)
-            }
-        }
-
         return try sendResolvedInput(
             to: targets,
             appendNewline: appendNewline,
@@ -1500,23 +1491,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     || requireAgentEnvelope
                     || explicitSourceProvided
                     || legacyTTYEnvelope
-                let shouldEnvelope = Self.shouldEnvelopeSoyehtSourceMessage(
-                    source: source,
-                    target: target,
-                    forceAgentEnvelope: requestsEnvelope
-                )
-                guard shouldEnvelope, let source else {
-                    let reason: String
-                    if source == nil {
-                        reason = requestsEnvelope ? "source_unresolved" : "not_requested"
-                    } else if source?.id == target.id {
-                        reason = "self_target"
-                    } else {
-                        reason = "not_requested"
-                    }
-                    return (text, source, false, reason)
+                do {
+                    return try AgentPaneInputPlanner.prepare(
+                        target: target,
+                        source: source,
+                        text: text,
+                        appendNewline: appendNewline,
+                        lineEnding: lineEnding,
+                        requestEnvelope: requestsEnvelope,
+                        requireAgentEnvelope: requireAgentEnvelope
+                    )
+                } catch AgentPaneInputPlanner.Error.sourceRequired {
+                    throw LocalAgentWorkspaceError.agentEnvelopeSourceRequired
+                } catch AgentPaneInputPlanner.Error.cannotTargetSource(let handle) {
+                    throw LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource(handle)
                 }
-                return (Self.agentMessageEnvelope(source: source, target: target, text: text), source, true, "applied")
             }
         )
     }
@@ -1525,20 +1514,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         to targets: [Conversation],
         appendNewline: Bool,
         lineEnding: String?,
-        textForTarget: (Conversation) -> (text: String, source: Conversation?, envelopeApplied: Bool, envelopeReason: String)
+        textForTarget: (Conversation) throws -> AgentPaneInputPlanner.Prepared
     ) throws -> [SentPaneInputResult] {
-        let sent = targets.compactMap { conv -> SentPaneInputResult? in
+        let sent = try targets.compactMap { conv -> SentPaneInputResult? in
             guard conv.content.isTerminal else { return nil }
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
                 return nil
             }
-            let prepared = textForTarget(conv)
-            let outgoingText = prepared.text
-            let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
+            let prepared = try textForTarget(conv)
             let terminalView = pane.terminalView
-            let needsTerminator = !outgoingText.hasSuffix("\n") && !outgoingText.hasSuffix("\r")
-            let payload = outgoingText + (needsTerminator ? terminator.textValue : "")
-            terminalView.brokerSend(text: payload)
+            terminalView.brokerSend(text: prepared.payload)
             return SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
@@ -1641,23 +1626,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             swap(&previous, &current)
         }
         return previous[b.count]
-    }
-
-    private static func shouldEnvelopeSoyehtSourceMessage(
-        source: Conversation?,
-        target: Conversation,
-        forceAgentEnvelope: Bool
-    ) -> Bool {
-        guard forceAgentEnvelope, let source, source.id != target.id else { return false }
-        return target.content.isTerminal
-    }
-
-    private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
-        let body = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .joined(separator: " ")
-        return "Sent via Soyeht. From: \(source.handle) (conversationID: \(source.id.uuidString)). To: \(target.handle) (conversationID: \(target.id.uuidString)). Reply via Soyeht MCP send_pane_input or message_agent to handles=[\"\(source.handle)\"] or conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 
     @MainActor
@@ -2970,37 +2938,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return newLayout
     }
 
-    private enum TerminalInputTerminator {
-        case none
-        case text(String)
-        case enterKey
-
-        var textValue: String {
-            switch self {
-            case .none:
-                return ""
-            case .text(let text):
-                return text
-            case .enterKey:
-                return "\r"
-            }
-        }
-    }
-
-    private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> TerminalInputTerminator {
-        guard appendNewline else { return .none }
-        switch lineEnding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "none", "false":
-            return .none
-        case "newline", "lf":
-            return .text("\n")
-        case "crlf":
-            return .text("\r\n")
-        default:
-            return .enterKey
-        }
-    }
-
     // MARK: - Activation
 
     @discardableResult
@@ -3450,7 +3387,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Terminal.app would. Subsequent launches return instantly via the
         // disk cache.
         let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
-        let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows, loginPath: loginPath)
+        let pty = try NativePTY(
+            shellPath: nil,
+            cwd: cwd,
+            cols: cols,
+            rows: rows,
+            loginPath: loginPath,
+            extraEnvironment: convStore.conversation(paneID).map(AgentPaneEnvironment.values(for:)) ?? [:]
+        )
 
         // Flip commander BEFORE configuring the terminal so
         // `updateEmptyStateVisibility` sees `.native` and hides the picker

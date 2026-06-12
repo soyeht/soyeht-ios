@@ -76,27 +76,41 @@ def main() -> int:
 
         sleep(1)
 
-        identity = mcp.tool_identify_agent({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "fromHandle": source["handle"],
-        })
-        source_identity = identity.get("sourceIdentity")
-        require(source_identity, "identify_agent did not return sourceIdentity.")
-        require(source_identity["handle"] == source["handle"], "identify_agent returned the wrong source handle.")
-        evidence["sourceIdentity"] = source_identity
+        old_env = {
+            "SOYEHT_CONVERSATION_ID": os.environ.get("SOYEHT_CONVERSATION_ID"),
+            "SOYEHT_HANDLE": os.environ.get("SOYEHT_HANDLE"),
+        }
+        os.environ["SOYEHT_CONVERSATION_ID"] = source["conversationID"]
+        os.environ["SOYEHT_HANDLE"] = source["handle"]
+        try:
+            identity = mcp.tool_identify_agent({
+                "automationDir": automation_dir,
+                "timeout": args.timeout,
+            })
+            source_identity = identity.get("sourceIdentity")
+            require(source_identity, "identify_agent did not return sourceIdentity from pane env.")
+            require(source_identity["handle"] == source["handle"], "identify_agent returned the wrong source handle from env.")
+            require(source_identity["conversationID"] == source["conversationID"], "identify_agent returned the wrong source conversationID from env.")
+            evidence["sourceIdentity"] = source_identity
 
-        directory = mcp.tool_list_agents({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "fromHandle": source["handle"],
-            "targetWindowID": target.get("windowID"),
-        })
+            directory = mcp.tool_list_agents({
+                "automationDir": automation_dir,
+                "timeout": args.timeout,
+                "targetWindowID": target.get("windowID"),
+            })
+        finally:
+            for key, value in old_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
         entries = directory.get("listedAgents", [])
         target_entry = next((entry for entry in entries if entry["handle"] == target["handle"]), None)
         require(target_entry, "list_agents did not include the target pane.")
         require(target_entry["canReceiveMessage"], "Target pane is not messageable.")
         require(target_entry["messageTarget"]["fromHandle"] == source["handle"], "messageTarget did not preserve sender handle.")
+        require(target_entry["messageTarget"]["fromConversationID"] == source["conversationID"], "messageTarget did not preserve sender conversationID.")
         evidence["targetDirectoryEntry"] = target_entry
 
         message_args = dict(target_entry["messageTarget"])

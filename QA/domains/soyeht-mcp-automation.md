@@ -236,6 +236,8 @@ created and attached in one request.
 | ST-Q-MCPA-149 | List messageable agents with prefilled reply context. | Direct MCP `list_agents` with `fromHandle` or `fromConversationID`. | Each `listedAgents` entry includes current handle, conversationID, workspace/window, status, `canReceiveMessage`, `messageTarget`, and reply instructions. |
 | ST-Q-MCPA-150 | Send agent-to-agent message using `list_agents.messageTarget`. | `QA/scripts/soyeht_mcp_agent_messaging_smoke.py` against Soyeht Dev. | `message_agent` applies envelope, target capture includes `From`, `Reply via Soyeht MCP`, and original request text; no new pane is created. |
 | ST-Q-MCPA-151 | Stale handle does not create replacement pane. | Direct MCP `message_agent` to a stale handle after `list_agents`. | Tool returns a clear error recommending `list_panes`/`list_agents`; no pane named after the stale handle is opened. |
+| ST-Q-MCPA-152 | Identify source without TTY inference. | `QA/scripts/soyeht_mcp_agent_messaging_smoke.py` setting `SOYEHT_CONVERSATION_ID`/`SOYEHT_HANDLE`, then calling `identify_agent` and `list_agents` without explicit `fromHandle`. | Source resolves from pane environment, `messageTarget` includes the source conversationID/handle, and no `sourceTTY` is required. |
+| ST-Q-MCPA-153 | Pin envelope and Enter behavior in CI. | Swift unit `AppCommandRoutingPresentationTests.testMCPAgentMessagingUsesExplicitSenderEnvelopeAndAtomicTerminator`. | Planner applies From/To/Reply envelope, appends CR in the same payload, fails closed when source is missing, rejects self-targeting, and reports `non_terminal_target` for non-terminal panes. |
 
 ## Execution Reports
 

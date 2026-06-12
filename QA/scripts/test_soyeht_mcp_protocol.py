@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run
 import runpy
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -136,6 +137,69 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceHandle"], "@sender")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_source_environment_is_used_before_tty_when_explicit_source_absent(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            with patch.dict("os.environ", {
+                "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
+                "SOYEHT_HANDLE": "@env-source",
+            }):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_explicit_source_overrides_source_environment(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            with patch.dict("os.environ", {
+                "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
+                "SOYEHT_HANDLE": "@env-source",
+            }):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                    "fromHandle": "@explicit-source",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertNotIn("sourceConversationID", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceHandle"], "@explicit-source")
         self.assertNotIn("sourceTTY", captured["payload"])
 
     def test_message_agent_requires_existing_target_and_requests_envelope(self):

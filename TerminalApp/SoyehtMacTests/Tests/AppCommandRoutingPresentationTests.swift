@@ -214,6 +214,103 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
     }
 
     func testMCPAgentMessagingUsesExplicitSenderEnvelopeAndAtomicTerminator() throws {
+        let sourceConversationID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let targetConversationID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let workspaceID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let sourceConversation = Conversation(
+            id: sourceConversationID,
+            handle: "@sender",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 10)
+        )
+        let targetConversation = Conversation(
+            id: targetConversationID,
+            handle: "@reviewer",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 11)
+        )
+
+        let prepared = try AgentPaneInputPlanner.prepare(
+            target: targetConversation,
+            source: sourceConversation,
+            text: "please review\nthis patch",
+            appendNewline: true,
+            lineEnding: "enter",
+            requestEnvelope: true,
+            requireAgentEnvelope: true
+        )
+
+        XCTAssertTrue(prepared.envelopeApplied)
+        XCTAssertEqual(prepared.envelopeReason, "applied")
+        XCTAssertEqual(prepared.source?.id, sourceConversationID)
+        XCTAssertTrue(prepared.text.contains("From: @sender (conversationID: \(sourceConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("To: @reviewer (conversationID: \(targetConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("message_agent to handles=[\"@sender\"]"))
+        XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
+        XCTAssertTrue(
+            prepared.payload.hasSuffix("\r"),
+            "lineEnding=enter must append the terminal enter CR in the same payload."
+        )
+        XCTAssertEqual(prepared.payload.filter { $0 == "\r" }.count, 1)
+        XCTAssertEqual(
+            AgentPaneEnvironment.values(for: sourceConversation),
+            [
+                AgentPaneEnvironment.conversationIDKey: sourceConversationID.uuidString,
+                AgentPaneEnvironment.handleKey: "@sender",
+            ]
+        )
+
+        XCTAssertThrowsError(
+            try AgentPaneInputPlanner.prepare(
+                target: targetConversation,
+                source: nil,
+                text: "missing source",
+                appendNewline: true,
+                lineEnding: "enter",
+                requestEnvelope: true,
+                requireAgentEnvelope: true
+            )
+        ) { error in
+            XCTAssertEqual(error as? AgentPaneInputPlanner.Error, .sourceRequired)
+        }
+
+        XCTAssertThrowsError(
+            try AgentPaneInputPlanner.prepare(
+                target: sourceConversation,
+                source: sourceConversation,
+                text: "self",
+                appendNewline: true,
+                lineEnding: "enter",
+                requestEnvelope: true,
+                requireAgentEnvelope: true
+            )
+        ) { error in
+            XCTAssertEqual(error as? AgentPaneInputPlanner.Error, .cannotTargetSource("@sender"))
+        }
+
+        let nonTerminalTarget = Conversation(
+            id: targetConversationID,
+            handle: "@notes",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 12),
+            content: .editor(EditorPaneState(rootPath: "/tmp/project"))
+        )
+        let skipped = try AgentPaneInputPlanner.prepare(
+            target: nonTerminalTarget,
+            source: sourceConversation,
+            text: "not terminal",
+            appendNewline: true,
+            lineEnding: "enter",
+            requestEnvelope: true,
+            requireAgentEnvelope: false
+        )
+        XCTAssertFalse(skipped.envelopeApplied)
+        XCTAssertEqual(skipped.envelopeReason, "non_terminal_target")
+        XCTAssertEqual(skipped.payload, "not terminal\r")
+
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(
             source,
@@ -230,20 +327,17 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private func sourceConversation",
             to: "private static func normalizedTTYName"
         )
-        let envelopeHelpers = try slice(
-            source,
-            from: "private static func shouldEnvelopeSoyehtSourceMessage",
-            to: "@MainActor\n    func renamePanes"
-        )
 
         XCTAssertTrue(sendInput.contains("sourceConversationIDString"))
         XCTAssertTrue(sendInput.contains("sourceHandle"))
         XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
         XCTAssertTrue(sendInput.contains("LocalAgentWorkspaceError.agentEnvelopeSourceRequired"))
+        XCTAssertTrue(sendInput.contains("LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource"))
         XCTAssertTrue(sendInput.contains("explicitSourceProvided"))
         XCTAssertTrue(sendInput.contains("legacyTTYEnvelope"))
         XCTAssertTrue(sendInput.contains("forceAgentEnvelope"))
         XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("AgentPaneInputPlanner.prepare"))
 
         XCTAssertTrue(sourceResolution.contains("sourceConversationIDString"))
         XCTAssertTrue(sourceResolution.contains("sourceHandle"))
@@ -251,17 +345,9 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sourceResolution.contains("sourceConversationNotFound"))
         XCTAssertTrue(sourceResolution.contains("sourceHandleNotFound"))
 
-        XCTAssertTrue(sendResolvedInput.contains("terminator.textValue"))
-        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: payload)"))
+        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload)"))
         XCTAssertFalse(sendResolvedInput.contains("asyncAfter"))
         XCTAssertFalse(sendResolvedInput.contains("brokerSendEnterKey()"))
-
-        XCTAssertTrue(envelopeHelpers.contains("target.content.isTerminal"))
-        XCTAssertTrue(envelopeHelpers.contains("Reply via Soyeht MCP send_pane_input or message_agent"))
-        XCTAssertFalse(
-            envelopeHelpers.contains("target.agent.isShell"),
-            "Envelope application should not depend on stale declaredAgent shell metadata."
-        )
     }
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
