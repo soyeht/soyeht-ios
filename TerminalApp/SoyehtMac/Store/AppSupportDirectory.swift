@@ -25,6 +25,23 @@ import SoyehtCore
 /// correct response.
 enum AppSupportDirectory {
 
+    /// Developer/test launches may isolate the app by passing environment
+    /// overrides. The shipping Soyeht.app must ignore those values so a
+    /// stale `launchctl setenv` from QA cannot redirect the user's real app
+    /// into a temporary automation or workspace store.
+    static func developerEnvironmentOverride(
+        _ name: String,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        profile: SoyehtInstallProfile = .current
+    ) -> String? {
+        guard profile.kind == .dev,
+              let value = environment[name],
+              !value.isEmpty else {
+            return nil
+        }
+        return value
+    }
+
     /// Soyeht's root: `~/Library/Application Support/Soyeht/`
     /// (`.../SoyehtDev/` for the developer build).
     /// Created on first call; subsequent calls return the existing dir.

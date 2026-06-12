@@ -1181,8 +1181,7 @@ final class WorkspaceStore {
     }
 
     nonisolated static func defaultStorageURL() -> URL {
-        if let override = ProcessInfo.processInfo.environment["SOYEHT_WORKSPACE_STORE_URL"],
-           !override.isEmpty {
+        if let override = AppSupportDirectory.developerEnvironmentOverride("SOYEHT_WORKSPACE_STORE_URL") {
             return URL(fileURLWithPath: override)
         }
         do {

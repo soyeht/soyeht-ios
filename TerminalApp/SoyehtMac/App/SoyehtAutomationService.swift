@@ -797,8 +797,7 @@ final class SoyehtAutomationService {
     }
 
     nonisolated static func defaultRootURL() throws -> URL {
-        if let override = ProcessInfo.processInfo.environment["SOYEHT_AUTOMATION_DIR"],
-           !override.isEmpty {
+        if let override = AppSupportDirectory.developerEnvironmentOverride("SOYEHT_AUTOMATION_DIR") {
             return URL(fileURLWithPath: override, isDirectory: true)
         }
         // Do not fall back to /tmp here. Automation requests are durable

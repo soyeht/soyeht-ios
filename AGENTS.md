@@ -42,3 +42,13 @@ Release checklist for agents:
 5. If CI notarization fails, inspect the workflow log first. Only use the
    local `soyeht-notary` fallback to publish when CI is blocked and document
    that explicitly in the final status.
+
+## Local Soyeht App Safety
+
+- Never quit, kill, restart, uninstall, overwrite, or otherwise disrupt the
+  user's installed `/Applications/Soyeht.app` process. The user runs real work
+  there. If a task appears to require restarting the shipping app, ask the user
+  to do it manually and wait for confirmation.
+- `Soyeht Dev.app` is the disposable test target. Agents may quit, reinstall,
+  delete, or relaunch the Dev app when validation requires it, as long as the
+  original Soyeht app is left untouched.
