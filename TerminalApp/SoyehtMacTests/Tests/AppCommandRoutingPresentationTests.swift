@@ -279,6 +279,83 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(readJSONObject.contains("return [:]\n        } catch"))
     }
 
+    func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {
+        let service = try macSource("App/SoyehtAutomationService.swift")
+        let requestTypes = try slice(
+            service,
+            from: "enum RequestType",
+            to: "struct Payload"
+        )
+        let responseTypes = try slice(
+            service,
+            from: "struct MessageAgentArguments",
+            to: "struct ClosedPane"
+        )
+        let responseShape = try slice(
+            service,
+            from: "let id: String",
+            to: "struct SoyehtAutomationResult"
+        )
+        let writeResponse = try slice(
+            service,
+            from: "writeResponse(SoyehtAutomationResponse(",
+            to: "} catch"
+        )
+
+        XCTAssertTrue(requestTypes.contains("case identifyAgent = \"identify_agent\""))
+        XCTAssertTrue(requestTypes.contains("case listAgents = \"list_agents\""))
+        XCTAssertTrue(responseTypes.contains("struct SourceIdentity"))
+        XCTAssertTrue(responseTypes.contains("struct ListedAgent"))
+        XCTAssertTrue(responseTypes.contains("let messageTarget: MessageAgentArguments"))
+        XCTAssertTrue(responseTypes.contains("let canReceiveMessage: Bool"))
+        XCTAssertTrue(responseShape.contains("let sourceIdentity: SourceIdentity?"))
+        XCTAssertTrue(responseShape.contains("let listedAgents: [ListedAgent]"))
+        XCTAssertTrue(writeResponse.contains("sourceIdentity: result.sourceIdentity"))
+        XCTAssertTrue(writeResponse.contains("listedAgents: result.listedAgents"))
+    }
+
+    func testMCPAgentDirectoryResolvesSourceAndPrefillsMessageTargets() throws {
+        let source = try macSource("AppDelegate.swift")
+        let switchBody = try slice(
+            source,
+            from: "private func handleAutomationRequest",
+            to: "private var mainWindowControllers"
+        )
+        let listAgents = try slice(
+            source,
+            from: "private func handleListAgents",
+            to: "private func listPanesWithoutActiveWindow"
+        )
+        let sourceResolver = try slice(
+            source,
+            from: "private func resolveAutomationSource",
+            to: "private func sourceIdentity"
+        )
+        let agentEntry = try slice(
+            source,
+            from: "private func listedAgent",
+            to: "private func messageArguments"
+        )
+        let messageArguments = try slice(
+            source,
+            from: "private func messageArguments",
+            to: "private func replyInstructions"
+        )
+
+        XCTAssertTrue(switchBody.contains("case .identifyAgent"))
+        XCTAssertTrue(switchBody.contains("case .listAgents"))
+        XCTAssertTrue(listAgents.contains("resolveAutomationSource(payload: request.payload)"))
+        XCTAssertTrue(listAgents.contains("listedAgents: agents"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceConversationID"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceHandle"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceTTY"))
+        XCTAssertTrue(sourceResolver.contains("localPTYSlaveTTYPathForAutomation"))
+        XCTAssertTrue(agentEntry.contains("canReceiveMessage"))
+        XCTAssertTrue(agentEntry.contains("replyInstructions"))
+        XCTAssertTrue(messageArguments.contains("fromHandle: source?.handle"))
+        XCTAssertTrue(messageArguments.contains("fromConversationID: source?.conversationID"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

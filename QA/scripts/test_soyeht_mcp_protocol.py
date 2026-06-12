@@ -37,6 +37,19 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("fromHandle", tool["inputSchema"]["properties"])
         self.assertIn("fromConversationID", tool["inputSchema"]["properties"])
 
+    def test_agent_directory_tools_are_registered_for_multi_agent_routing(self):
+        self.assertIn("identify_agent", MODULE["TOOL_HANDLERS"])
+        self.assertIn("list_agents", MODULE["TOOL_HANDLERS"])
+
+        identify = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "identify_agent")
+        directory = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_agents")
+
+        self.assertIn("sourceIdentity", identify["description"])
+        self.assertIn("calling terminal TTY", identify["description"])
+        self.assertIn("agent/pane directory", directory["description"])
+        self.assertIn("messageTarget", directory["description"])
+        self.assertIn("Never create a new pane", directory["description"])
+
     def test_concrete_tty_path_rejects_generic_dev_tty(self):
         self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))
         self.assertIsNone(MODULE["concrete_tty_path"]("tty"))
@@ -160,6 +173,61 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_message_agent_refuses_to_create_or_guess_target(self):
         with self.assertRaisesRegex(RuntimeError, "requires handles or conversationIDs"):
             MODULE["tool_message_agent"]({"text": "please review"})
+
+    def test_identify_agent_forwards_explicit_source(self):
+        captured = {}
+        globals_ = MODULE["tool_identify_agent"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=5.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["automation_dir"] = automation_dir
+                captured["timeout"] = timeout
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            result = MODULE["tool_identify_agent"]({
+                "fromHandle": "@codex",
+                "automationDir": "/tmp/soyeht-agent-directory",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "identify_agent")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@codex")
+        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["automation_dir"], "/tmp/soyeht-agent-directory")
+
+    def test_list_agents_forwards_source_workspace_and_window(self):
+        captured = {}
+        globals_ = MODULE["tool_list_agents"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=10.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["timeout"] = timeout
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_list_agents"]({
+                "fromConversationID": "11111111-1111-1111-1111-111111111111",
+                "workspaceID": "22222222-2222-2222-2222-222222222222",
+                "targetWindowID": "window-a",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "list_agents")
+        self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(captured["payload"]["workspaceIDs"], ["22222222-2222-2222-2222-222222222222"])
+        self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
 
     def test_move_pane_forwards_source_and_destination_windows(self):
         captured = {}

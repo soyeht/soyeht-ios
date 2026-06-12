@@ -26,6 +26,8 @@ struct SoyehtAutomationRequest: Decodable {
         case getPaneStatus = "get_pane_status"
         case capturePane = "capture_pane"
         case getActiveContext = "get_active_context"
+        case identifyAgent = "identify_agent"
+        case listAgents = "list_agents"
         case openEditor = "open_editor"
         case openExplorer = "open_explorer"
         case openGit = "open_git"
@@ -335,6 +337,45 @@ struct SoyehtAutomationResponse: Encodable {
         let paneHandle: String?
     }
 
+    struct MessageAgentArguments: Encodable {
+        let handles: [String]
+        let conversationIDs: [String]
+        let fromHandle: String?
+        let fromConversationID: String?
+        let targetWindowID: String?
+        let lineEnding: String
+    }
+
+    struct SourceIdentity: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let workspaceName: String
+        let handle: String
+        let path: String
+        let declaredAgent: String
+        let windowID: String?
+        let resolution: String
+        let replyTarget: MessageAgentArguments
+    }
+
+    struct ListedAgent: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let workspaceName: String
+        let handle: String
+        let path: String
+        let declaredAgent: String
+        let status: String
+        let isLive: Bool
+        let isAttachable: Bool
+        let canReceiveMessage: Bool
+        let isActive: Bool
+        let isActiveWorkspace: Bool
+        let windowID: String?
+        let messageTarget: MessageAgentArguments
+        let replyInstructions: String
+    }
+
     struct ClosedPane: Encodable {
         let conversationID: String
         let workspaceID: String
@@ -463,6 +504,8 @@ struct SoyehtAutomationResponse: Encodable {
     let capturedPanes: [CapturedPane]
     let openedSpecialPanes: [OpenedSpecialPane]
     let activeContext: ActiveContext?
+    let sourceIdentity: SourceIdentity?
+    let listedAgents: [ListedAgent]
 }
 
 struct SoyehtAutomationResult {
@@ -486,6 +529,8 @@ struct SoyehtAutomationResult {
     var capturedPanes: [SoyehtAutomationResponse.CapturedPane] = []
     var openedSpecialPanes: [SoyehtAutomationResponse.OpenedSpecialPane] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
+    var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
+    var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
 }
 
 enum SoyehtAutomationNameKind {
@@ -699,7 +744,9 @@ final class SoyehtAutomationService {
                 paneStatuses: result.paneStatuses,
                 capturedPanes: result.capturedPanes,
                 openedSpecialPanes: result.openedSpecialPanes,
-                activeContext: result.activeContext
+                activeContext: result.activeContext,
+                sourceIdentity: result.sourceIdentity,
+                listedAgents: result.listedAgents
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -728,7 +775,9 @@ final class SoyehtAutomationService {
                 paneStatuses: [],
                 capturedPanes: [],
                 openedSpecialPanes: [],
-                activeContext: nil
+                activeContext: nil,
+                sourceIdentity: nil,
+                listedAgents: []
             ))
         }
     }

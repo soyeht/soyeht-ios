@@ -369,6 +369,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         case missingConversationStore
         case noActiveMainWindow
         case windowNotFound(String)
+        case sourceConversationNotFound(String)
+        case sourceHandleNotFound(String)
+        case sourceIdentityUnavailable
 
         var errorDescription: String? {
             switch self {
@@ -400,6 +403,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 return "No active Soyeht main window is available."
             case .windowNotFound(let id):
                 return "Soyeht window does not exist: \(id)"
+            case .sourceConversationNotFound(let value):
+                return "Source conversation does not exist: \(value). Pass a valid fromConversationID/fromHandle or call identify_agent from inside a live Soyeht pane."
+            case .sourceHandleNotFound(let handle):
+                return "Source pane handle does not exist: \(handle). Run list_agents or list_panes to get current handles before messaging."
+            case .sourceIdentityUnavailable:
+                return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
             }
         }
     }
@@ -450,6 +459,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return try handleCapturePaneRange(request)
         case .getActiveContext:
             return try handleGetActiveContext(request)
+        case .identifyAgent:
+            return try handleIdentifyAgent(request)
+        case .listAgents:
+            return try handleListAgents(request)
         case .openEditor:
             return try handleOpenEditor(request)
         case .openExplorer:
@@ -1080,6 +1093,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         )
     }
 
+    private func handleIdentifyAgent(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        guard let source = try resolveAutomationSource(payload: request.payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        return SoyehtAutomationResult(sourceIdentity: sourceIdentity(source))
+    }
+
+    private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let wsIDStr = request.payload.workspaceIDs?.first
+        let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
+        let panes: [SoyehtMainWindowController.ListedPaneResult]
+        if let target {
+            panes = try target.listPanes(workspaceIDString: wsIDStr).panes
+        } else if let requested = requestedWindowID(request.payload) {
+            _ = try automationWindow(id: requested)
+            panes = []
+        } else {
+            panes = try listPanesWithoutActiveWindow(workspaceIDString: wsIDStr)
+        }
+
+        let source = try resolveAutomationSource(payload: request.payload)
+        let identity = source.map(sourceIdentity)
+        let presence = panePresenceByID()
+        let agents = panes.map { pane in
+            listedAgent(
+                pane,
+                source: identity,
+                presence: presence[pane.conversationID.uuidString]
+            )
+        }
+
+        return SoyehtAutomationResult(
+            activeContext: target.map { makeActiveContext($0) },
+            sourceIdentity: identity,
+            listedAgents: agents
+        )
+    }
+
     private func listPanesWithoutActiveWindow(
         workspaceIDString: String?
     ) throws -> [SoyehtMainWindowController.ListedPaneResult] {
@@ -1117,6 +1168,173 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 windowID: windowByWorkspace[$0.workspaceID]
             )
         }
+    }
+
+    private struct AutomationSourceResolution {
+        let conversation: Conversation
+        let resolution: String
+    }
+
+    private struct PanePresence {
+        let status: String
+        let isLive: Bool
+        let isAttachable: Bool
+    }
+
+    private func resolveAutomationSource(
+        payload: SoyehtAutomationRequest.Payload
+    ) throws -> AutomationSourceResolution? {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw AutomationError.missingConversationStore
+        }
+
+        if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawID.isEmpty {
+            guard let id = UUID(uuidString: rawID),
+                  let conversation = convStore.conversation(id) else {
+                throw AutomationError.sourceConversationNotFound(rawID)
+            }
+            return AutomationSourceResolution(conversation: conversation, resolution: "conversationID")
+        }
+
+        if let rawHandle = payload.sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawHandle.isEmpty {
+            let normalized = ConversationStore.normalize(rawHandle)
+            guard let conversation = convStore.all.first(where: { ConversationStore.normalize($0.handle) == normalized }) else {
+                throw AutomationError.sourceHandleNotFound(ConversationStore.canonicalHandle(rawHandle))
+            }
+            return AutomationSourceResolution(conversation: conversation, resolution: "handle")
+        }
+
+        guard let tty = normalizedTTYName(payload.sourceTTY) else {
+            return nil
+        }
+        for conversation in convStore.all where conversation.content.isTerminal {
+            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController,
+                  let paneTTY = normalizedTTYName(pane.terminalView.localPTYSlaveTTYPathForAutomation),
+                  paneTTY == tty else {
+                continue
+            }
+            return AutomationSourceResolution(conversation: conversation, resolution: "tty")
+        }
+        return nil
+    }
+
+    private func sourceIdentity(
+        _ source: AutomationSourceResolution
+    ) -> SoyehtAutomationResponse.SourceIdentity {
+        let conversation = source.conversation
+        let windowID = windowID(containingWorkspace: conversation.workspaceID)
+        let workspaceName = workspaceStore.workspace(conversation.workspaceID)?.name ?? ""
+        return SoyehtAutomationResponse.SourceIdentity(
+            conversationID: conversation.id.uuidString,
+            workspaceID: conversation.workspaceID.uuidString,
+            workspaceName: workspaceName,
+            handle: conversation.handle,
+            path: conversation.content.primaryPath ?? conversation.workingDirectoryPath ?? "",
+            declaredAgent: conversation.content.isTerminal ? conversation.agent.rawValue : conversation.content.displayKind,
+            windowID: windowID,
+            resolution: source.resolution,
+            replyTarget: messageArguments(
+                toHandle: conversation.handle,
+                conversationID: conversation.id,
+                targetWindowID: windowID,
+                source: nil
+            )
+        )
+    }
+
+    private func listedAgent(
+        _ pane: SoyehtMainWindowController.ListedPaneResult,
+        source: SoyehtAutomationResponse.SourceIdentity?,
+        presence: PanePresence?
+    ) -> SoyehtAutomationResponse.ListedAgent {
+        let isTerminal = AppEnvironment.conversationStore?
+            .conversation(pane.conversationID)?
+            .content
+            .isTerminal ?? false
+        let isLive = presence?.isLive ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) != nil)
+        let isAttachable = presence?.isAttachable ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) as? PaneViewController != nil)
+        let canReceiveMessage = isTerminal && isAttachable
+        let args = messageArguments(
+            toHandle: pane.handle,
+            conversationID: pane.conversationID,
+            targetWindowID: pane.windowID,
+            source: source
+        )
+        return SoyehtAutomationResponse.ListedAgent(
+            conversationID: pane.conversationID.uuidString,
+            workspaceID: pane.workspaceID.uuidString,
+            workspaceName: workspaceStore.workspace(pane.workspaceID)?.name ?? "",
+            handle: pane.handle,
+            path: pane.path,
+            declaredAgent: pane.declaredAgent,
+            status: presence?.status ?? (isLive ? "live" : "not_live"),
+            isLive: isLive,
+            isAttachable: isAttachable,
+            canReceiveMessage: canReceiveMessage,
+            isActive: pane.isActive,
+            isActiveWorkspace: pane.isActiveWorkspace,
+            windowID: pane.windowID,
+            messageTarget: args,
+            replyInstructions: replyInstructions(to: pane.handle, source: source)
+        )
+    }
+
+    private func messageArguments(
+        toHandle: String,
+        conversationID: Conversation.ID,
+        targetWindowID: String?,
+        source: SoyehtAutomationResponse.SourceIdentity?
+    ) -> SoyehtAutomationResponse.MessageAgentArguments {
+        SoyehtAutomationResponse.MessageAgentArguments(
+            handles: [toHandle],
+            conversationIDs: [conversationID.uuidString],
+            fromHandle: source?.handle,
+            fromConversationID: source?.conversationID,
+            targetWindowID: targetWindowID,
+            lineEnding: "enter"
+        )
+    }
+
+    private func replyInstructions(
+        to handle: String,
+        source: SoyehtAutomationResponse.SourceIdentity?
+    ) -> String {
+        if let source {
+            return "Use message_agent with handles=[\"\(handle)\"], fromHandle=\"\(source.handle)\", lineEnding=\"enter\". Do not create a new pane when this handle is present."
+        }
+        return "Use message_agent with handles=[\"\(handle)\"] and pass fromHandle/fromConversationID from identify_agent when available. Do not create a new pane when this handle is present."
+    }
+
+    private func panePresenceByID() -> [String: PanePresence] {
+        Dictionary(
+            uniqueKeysWithValues: PaneStatusTracker.shared.snapshotForWire().compactMap { item in
+                guard let id = item["id"] as? String else { return nil }
+                return (
+                    id,
+                    PanePresence(
+                        status: item["status"] as? String ?? "unknown",
+                        isLive: item["is_live"] as? Bool ?? false,
+                        isAttachable: item["is_attachable"] as? Bool ?? false
+                    )
+                )
+            }
+        )
+    }
+
+    private func windowID(containingWorkspace workspaceID: Workspace.ID) -> String? {
+        mainWindowControllers.first {
+            workspaceStore.workspace(workspaceID, isInWindow: $0.windowID)
+        }?.windowID
+    }
+
+    private func normalizedTTYName(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "??" else { return nil }
+        let basename = (trimmed as NSString).lastPathComponent
+        return basename.isEmpty ? trimmed : basename
     }
 
     private func handleGetActiveContext(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
