@@ -636,7 +636,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
             guard let self else { return }
             do {
-                let pty = try NativePTY(shellPath: nil, cwd: url, cols: cols, rows: rows, loginPath: loginPath)
+                let pty = try NativePTY(
+                    shellPath: nil,
+                    cwd: url,
+                    cols: cols,
+                    rows: rows,
+                    loginPath: loginPath,
+                    extraEnvironment: AgentPaneEnvironment.values(for: conv)
+                )
                 AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
                 self.terminalView.configureLocal(pty: pty)
                 Self.logger.info(

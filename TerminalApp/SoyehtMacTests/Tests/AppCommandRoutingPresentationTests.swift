@@ -213,6 +213,235 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(activeGridController.contains("containerCache[activeWorkspaceID]?.gridController"))
     }
 
+    func testMCPAgentMessagingUsesExplicitSenderEnvelopeAndAtomicTerminator() throws {
+        let sourceConversationID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let targetConversationID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let workspaceID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let sourceConversation = Conversation(
+            id: sourceConversationID,
+            handle: "@sender",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 10)
+        )
+        let targetConversation = Conversation(
+            id: targetConversationID,
+            handle: "@reviewer",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 11)
+        )
+
+        let prepared = try AgentPaneInputPlanner.prepare(
+            target: targetConversation,
+            source: sourceConversation,
+            text: "please review\nthis patch",
+            appendNewline: true,
+            lineEnding: "enter",
+            requestEnvelope: true,
+            requireAgentEnvelope: true
+        )
+
+        XCTAssertTrue(prepared.envelopeApplied)
+        XCTAssertEqual(prepared.envelopeReason, "applied")
+        XCTAssertEqual(prepared.source?.id, sourceConversationID)
+        XCTAssertTrue(prepared.text.contains("From: @sender (conversationID: \(sourceConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("To: @reviewer (conversationID: \(targetConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("message_agent to handles=[\"@sender\"]"))
+        XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
+        XCTAssertTrue(
+            prepared.payload.hasSuffix("\r"),
+            "lineEnding=enter must append the terminal enter CR in the same payload."
+        )
+        XCTAssertEqual(prepared.payload.filter { $0 == "\r" }.count, 1)
+        XCTAssertEqual(
+            AgentPaneEnvironment.values(for: sourceConversation),
+            [
+                AgentPaneEnvironment.conversationIDKey: sourceConversationID.uuidString,
+                AgentPaneEnvironment.handleKey: "@sender",
+            ]
+        )
+
+        XCTAssertThrowsError(
+            try AgentPaneInputPlanner.prepare(
+                target: targetConversation,
+                source: nil,
+                text: "missing source",
+                appendNewline: true,
+                lineEnding: "enter",
+                requestEnvelope: true,
+                requireAgentEnvelope: true
+            )
+        ) { error in
+            XCTAssertEqual(error as? AgentPaneInputPlanner.Error, .sourceRequired)
+        }
+
+        XCTAssertThrowsError(
+            try AgentPaneInputPlanner.prepare(
+                target: sourceConversation,
+                source: sourceConversation,
+                text: "self",
+                appendNewline: true,
+                lineEnding: "enter",
+                requestEnvelope: true,
+                requireAgentEnvelope: true
+            )
+        ) { error in
+            XCTAssertEqual(error as? AgentPaneInputPlanner.Error, .cannotTargetSource("@sender"))
+        }
+
+        let nonTerminalTarget = Conversation(
+            id: targetConversationID,
+            handle: "@notes",
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .native(pid: 12),
+            content: .editor(EditorPaneState(rootPath: "/tmp/project"))
+        )
+        let skipped = try AgentPaneInputPlanner.prepare(
+            target: nonTerminalTarget,
+            source: sourceConversation,
+            text: "not terminal",
+            appendNewline: true,
+            lineEnding: "enter",
+            requestEnvelope: true,
+            requireAgentEnvelope: false
+        )
+        XCTAssertFalse(skipped.envelopeApplied)
+        XCTAssertEqual(skipped.envelopeReason, "non_terminal_target")
+        XCTAssertEqual(skipped.payload, "not terminal\r")
+
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let sendInput = try slice(
+            source,
+            from: "func sendInputToPanes(",
+            to: "private func sendResolvedInput"
+        )
+        let sendResolvedInput = try slice(
+            source,
+            from: "private func sendResolvedInput",
+            to: "private func sourceConversation"
+        )
+        let sourceResolution = try slice(
+            source,
+            from: "private func sourceConversation",
+            to: "private static func normalizedTTYName"
+        )
+
+        XCTAssertTrue(sendInput.contains("sourceConversationIDString"))
+        XCTAssertTrue(sendInput.contains("sourceHandle"))
+        XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("LocalAgentWorkspaceError.agentEnvelopeSourceRequired"))
+        XCTAssertTrue(sendInput.contains("LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource"))
+        XCTAssertTrue(sendInput.contains("explicitSourceProvided"))
+        XCTAssertTrue(sendInput.contains("legacyTTYEnvelope"))
+        XCTAssertTrue(sendInput.contains("forceAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
+        XCTAssertTrue(sendInput.contains("AgentPaneInputPlanner.prepare"))
+
+        XCTAssertTrue(sourceResolution.contains("sourceConversationIDString"))
+        XCTAssertTrue(sourceResolution.contains("sourceHandle"))
+        XCTAssertTrue(sourceResolution.contains("sourceTTY"))
+        XCTAssertTrue(sourceResolution.contains("sourceConversationNotFound"))
+        XCTAssertTrue(sourceResolution.contains("sourceHandleNotFound"))
+
+        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload)"))
+        XCTAssertFalse(sendResolvedInput.contains("asyncAfter"))
+        XCTAssertFalse(sendResolvedInput.contains("brokerSendEnterKey()"))
+    }
+
+    func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
+        let source = try macSource("Installer/AIAgentIntegrator.swift")
+        let readJSONObject = try slice(
+            source,
+            from: "private static func readJSONObject",
+            to: "private static func writeJSONObject"
+        )
+
+        XCTAssertTrue(readJSONObject.contains("FileManager.default.fileExists"))
+        XCTAssertTrue(readJSONObject.contains("invalidJSONConfig"))
+        XCTAssertTrue(readJSONObject.contains("JSONSerialization.jsonObject"))
+        XCTAssertFalse(readJSONObject.contains("try? JSONSerialization.jsonObject"))
+        XCTAssertFalse(readJSONObject.contains("return [:]\n        } catch"))
+    }
+
+    func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {
+        let service = try macSource("App/SoyehtAutomationService.swift")
+        let requestTypes = try slice(
+            service,
+            from: "enum RequestType",
+            to: "struct Payload"
+        )
+        let responseTypes = try slice(
+            service,
+            from: "struct MessageAgentArguments",
+            to: "struct ClosedPane"
+        )
+        let responseShape = try slice(
+            service,
+            from: "let id: String",
+            to: "struct SoyehtAutomationResult"
+        )
+        let writeResponse = try slice(
+            service,
+            from: "writeResponse(SoyehtAutomationResponse(",
+            to: "} catch"
+        )
+
+        XCTAssertTrue(requestTypes.contains("case identifyAgent = \"identify_agent\""))
+        XCTAssertTrue(requestTypes.contains("case listAgents = \"list_agents\""))
+        XCTAssertTrue(responseTypes.contains("struct SourceIdentity"))
+        XCTAssertTrue(responseTypes.contains("struct ListedAgent"))
+        XCTAssertTrue(responseTypes.contains("let messageTarget: MessageAgentArguments"))
+        XCTAssertTrue(responseTypes.contains("let canReceiveMessage: Bool"))
+        XCTAssertTrue(responseShape.contains("let sourceIdentity: SourceIdentity?"))
+        XCTAssertTrue(responseShape.contains("let listedAgents: [ListedAgent]"))
+        XCTAssertTrue(writeResponse.contains("sourceIdentity: result.sourceIdentity"))
+        XCTAssertTrue(writeResponse.contains("listedAgents: result.listedAgents"))
+    }
+
+    func testMCPAgentDirectoryResolvesSourceAndPrefillsMessageTargets() throws {
+        let source = try macSource("AppDelegate.swift")
+        let switchBody = try slice(
+            source,
+            from: "private func handleAutomationRequest",
+            to: "private var mainWindowControllers"
+        )
+        let listAgents = try slice(
+            source,
+            from: "private func handleListAgents",
+            to: "private func listPanesWithoutActiveWindow"
+        )
+        let sourceResolver = try slice(
+            source,
+            from: "private func resolveAutomationSource",
+            to: "private func sourceIdentity"
+        )
+        let agentEntry = try slice(
+            source,
+            from: "private func listedAgent",
+            to: "private func messageArguments"
+        )
+        let messageArguments = try slice(
+            source,
+            from: "private func messageArguments",
+            to: "private func replyInstructions"
+        )
+
+        XCTAssertTrue(switchBody.contains("case .identifyAgent"))
+        XCTAssertTrue(switchBody.contains("case .listAgents"))
+        XCTAssertTrue(listAgents.contains("resolveAutomationSource(payload: request.payload)"))
+        XCTAssertTrue(listAgents.contains("listedAgents: agents"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceConversationID"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceHandle"))
+        XCTAssertTrue(sourceResolver.contains("payload.sourceTTY"))
+        XCTAssertTrue(sourceResolver.contains("localPTYSlaveTTYPathForAutomation"))
+        XCTAssertTrue(agentEntry.contains("canReceiveMessage"))
+        XCTAssertTrue(agentEntry.contains("replyInstructions"))
+        XCTAssertTrue(messageArguments.contains("fromHandle: source?.handle"))
+        XCTAssertTrue(messageArguments.contains("fromConversationID: source?.conversationID"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

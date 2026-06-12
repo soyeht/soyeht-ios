@@ -70,7 +70,7 @@ To ship a deploy, the following levels must be green:
 | macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
 | macOS Window / Workspace Identity | [mac-window-workspace-identity.md](domains/mac-window-workspace-identity.md) | ST-Q-MWID-001..017 | standard | assisted + unit | No |
 | macOS Shortcut Window Scoping | [mac-shortcut-window-scoping.md](domains/mac-shortcut-window-scoping.md) | ST-Q-MSCOP-001..004 | standard | unit + assisted | No |
-| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..140 | full | auto + assisted | No |
+| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..153 | full | auto + assisted | No |
 
 ### macOS (new — feat/claw-store-macos)
 
