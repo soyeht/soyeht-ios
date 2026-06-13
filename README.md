@@ -97,10 +97,31 @@ scripts/install-soyeht-mcp
 
 This creates `~/.local/bin/soyeht-mcp` outside any git worktree. When launched from a Soyeht checkout or worktree, it uses that checkout's `scripts/soyeht-mcp`; otherwise it falls back to the main checkout for the clone where you ran the installer.
 
-### Claude Code
+The macOS onboarding does the same setup automatically. It looks for agent CLIs
+through the login shell and common GUI-missing paths such as `~/.local/bin`,
+`/opt/homebrew/bin`, `/usr/local/bin`, and `/usr/bin`. If the onboarding misses
+an agent, use the manual commands below.
+
+For the shipping app, the automation directory is:
 
 ```bash
-claude mcp add --scope user soyeht ~/.local/bin/soyeht-mcp
+export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht/Automation"
+```
+
+For `Soyeht Dev.app`, use:
+
+```bash
+export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht Dev/Automation"
+```
+
+### Claude Code
+
+Claude Code user-scoped MCP servers are stored in `~/.claude.json`; project-scoped
+servers are stored in `.mcp.json`. Prefer the official CLI command instead of
+editing `~/.claude.json` by hand:
+
+```bash
+claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[],\"env\":{\"SOYEHT_AUTOMATION_DIR\":\"$SOYEHT_AUTOMATION_DIR\"}}"
 claude mcp get soyeht        # expect: Status: ✓ Connected
 ```
 
@@ -109,7 +130,7 @@ claude mcp get soyeht        # expect: Status: ✓ Connected
 ### Codex
 
 ```bash
-codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
+codex mcp add soyeht --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR" -- ~/.local/bin/soyeht-mcp
 ```
 
 Verify:
@@ -128,6 +149,9 @@ Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an
     "soyeht": {
       "type": "local",
       "command": ["/Users/you/.local/bin/soyeht-mcp"],
+      "environment": {
+        "SOYEHT_AUTOMATION_DIR": "/Users/you/Library/Application Support/Soyeht/Automation"
+      },
       "enabled": true
     }
   }
@@ -142,9 +166,47 @@ opencode mcp list            # expect: soyeht ✓ connected
 
 ### Droid
 
+Factory Droid stores user MCP servers in `~/.factory/mcp.json`. The CLI creates
+the same shape that Soyeht writes:
+
 ```bash
-droid mcp add soyeht ~/.local/bin/soyeht-mcp
+droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR"
 ```
+
+### If an agent is not recognized
+
+Ask an agent on that Mac to run this read-only diagnostic before changing any
+configuration:
+
+```text
+Você está no meu MacBook. Não altere arquivos ainda.
+
+Quero saber se o MCP do Soyeht vai funcionar antes de eu tentar reinstalar.
+Faça uma auditoria somente leitura e responda em português:
+
+1. Mostre se estes CLIs existem e onde estão: claude, codex, opencode, droid.
+   Use command -v e também cheque estes caminhos: ~/.local/bin, /opt/homebrew/bin,
+   /usr/local/bin e /usr/bin.
+2. Verifique se ~/.local/bin/soyeht-mcp existe e é executável.
+3. Verifique, sem imprimir segredos, se o servidor "soyeht" está configurado em:
+   - Claude Code: claude mcp get soyeht, e se necessário confirme ~/.claude.json.
+   - Codex: ~/.codex/config.toml, seção [mcp_servers.soyeht].
+   - OpenCode: ~/.config/opencode/opencode.json, chave mcp.soyeht.
+   - Droid: ~/.factory/mcp.json, chave mcpServers.soyeht.
+4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e se
+   SOYEHT_AUTOMATION_DIR aponta para:
+   ~/Library/Application Support/Soyeht/Automation
+5. Não edite nada. Termine com "OK PARA INSTALAR" ou "NAO INSTALAR AINDA" e liste
+   exatamente o que está faltando.
+```
+
+Useful official references:
+
+- Claude Code MCP quickstart: <https://code.claude.com/docs/en/mcp-quickstart>
+- Claude Code settings and config locations: <https://docs.anthropic.com/en/docs/claude-code/settings>
+- Codex MCP configuration: <https://developers.openai.com/codex/mcp>
+- OpenCode config locations and MCP schema: <https://opencode.ai/docs/config/>
+- Factory Droid MCP configuration: <https://docs.factory.ai/cli/configuration/mcp>
 
 ### What the server exposes
 
