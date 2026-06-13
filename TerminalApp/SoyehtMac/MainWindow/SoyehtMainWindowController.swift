@@ -1489,7 +1489,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     && !target.agent.isShell
                 let requestsEnvelope = forceAgentEnvelope
                     || requireAgentEnvelope
-                    || explicitSourceProvided
                     || legacyTTYEnvelope
                 do {
                     return try AgentPaneInputPlanner.prepare(
@@ -1523,7 +1522,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             let prepared = try textForTarget(conv)
             let terminalView = pane.terminalView
-            terminalView.brokerSend(text: prepared.payload)
+            terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
             return SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
@@ -3393,7 +3392,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             cols: cols,
             rows: rows,
             loginPath: loginPath,
-            extraEnvironment: convStore.conversation(paneID).map(AgentPaneEnvironment.values(for:)) ?? [:]
+            extraEnvironment: convStore.conversation(paneID).map { AgentPaneEnvironment.values(for: $0) } ?? [:]
         )
 
         // Flip commander BEFORE configuring the terminal so
@@ -3403,13 +3402,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         pane.terminalView.configureLocal(pty: pty)
         PaneStatusTracker.shared.nudgeRecompute()
         if let initialCommand {
-            pane.terminalView.brokerSend(text: initialCommand.hasSuffix("\n") ? initialCommand : initialCommand + "\n")
+            pane.terminalView.brokerSend(text: initialCommand, submitWithEnter: true)
         }
         if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let delay = UInt64(max(promptDelayMs ?? 1_500, 0)) * 1_000_000
             Task { @MainActor [weak pane] in
                 try? await Task.sleep(nanoseconds: delay)
-                pane?.terminalView.brokerSend(text: prompt.hasSuffix("\n") || prompt.hasSuffix("\r") ? prompt : prompt + "\r")
+                guard let terminalView = pane?.terminalView else { return }
+                let prepared = AgentPaneInputPlanner.terminalPayload(
+                    text: prompt,
+                    appendNewline: true,
+                    lineEnding: "enter"
+                )
+                terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
             }
         }
         Self.logger.info(

@@ -679,6 +679,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         sendInputData(Data(text.utf8))
     }
 
+    /// Sends broker-injected text, then submits it with a separate terminal
+    /// Return byte after the receiving program has had a run-loop turn to
+    /// ingest the text. Keeping CR out of the text payload avoids TUIs such as
+    /// Codex and Claude inserting it into their editor instead of submitting.
+    func brokerSend(text: String, submitWithEnter: Bool) {
+        brokerSend(text: text)
+        guard submitWithEnter else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(120)) { [weak self] in
+            self?.brokerSend(data: Data([0x0D]))
+        }
+    }
+
     /// Public entry point for mirrored group input. Sends the already-encoded
     /// terminal bytes without passing back through SwiftTerm's delegate path.
     func brokerSend(data: Data) {

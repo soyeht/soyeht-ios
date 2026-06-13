@@ -9,6 +9,9 @@ MODULE = runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts" / "s
 
 
 class SoyehtMCPProtocolTests(unittest.TestCase):
+    def setUp(self):
+        MODULE["handle_message"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
+
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
@@ -56,6 +59,120 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIsNone(MODULE["concrete_tty_path"]("tty"))
         self.assertEqual(MODULE["concrete_tty_path"]("ttys057"), "/dev/ttys057")
 
+    def test_resolve_automation_root_prefers_explicit_directory(self):
+        root = MODULE["resolve_automation_root"]("/tmp/explicit-automation", {"sourceTTY": "/dev/ttys123"})
+        self.assertEqual(str(root), "/tmp/explicit-automation")
+
+    def test_default_automation_candidates_use_parent_soyeht_environment(self):
+        globals_ = MODULE["default_automation_candidates"].__globals__
+        original_parent_env = globals_["parent_process_environment"]
+        try:
+            globals_["parent_process_environment"] = lambda: {
+                "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-agent-enter-e2e/Automation"
+            }
+            with patch.dict("os.environ", {}, clear=True):
+                roots = MODULE["default_automation_candidates"]()
+        finally:
+            globals_["parent_process_environment"] = original_parent_env
+
+        self.assertEqual(roots, [Path("/tmp/soyeht-dev-agent-enter-e2e/Automation")])
+
+    def test_parse_soyeht_environment_handles_space_containing_paths(self):
+        output = (
+            "/opt/homebrew/bin/codex "
+            "SOYEHT_AUTOMATION_DIR=/Users/test/Library/Application Support/Soyeht/Automation "
+            "OSLogRateLimit=64 "
+            "SOYEHT_CONVERSATION_ID=11111111-1111-1111-1111-111111111111 "
+            "GIT_PAGER=cat "
+            "SOYEHT_HANDLE=@codex"
+        )
+
+        self.assertEqual(
+            MODULE["parse_soyeht_environment"](output),
+            {
+                "SOYEHT_AUTOMATION_DIR": "/Users/test/Library/Application Support/Soyeht/Automation",
+                "SOYEHT_CONVERSATION_ID": "11111111-1111-1111-1111-111111111111",
+                "SOYEHT_HANDLE": "@codex",
+            },
+        )
+
+    def test_resolve_automation_root_uses_target_window_when_env_is_missing(self):
+        globals_ = MODULE["resolve_automation_root"].__globals__
+        original_candidates = globals_["default_automation_candidates"]
+        original_has_window = globals_["automation_root_has_window"]
+        release = Path("/tmp/soyeht-release/Automation")
+        dev = Path("/tmp/soyeht-dev/Automation")
+        try:
+            globals_["default_automation_candidates"] = lambda: [release, dev]
+            globals_["automation_root_has_window"] = lambda root, window_id: root == dev and window_id == "dev-window"
+
+            root = MODULE["resolve_automation_root"](None, {"targetWindowID": "dev-window"})
+        finally:
+            globals_["default_automation_candidates"] = original_candidates
+            globals_["automation_root_has_window"] = original_has_window
+
+        self.assertEqual(root, dev)
+
+    def test_resolve_automation_root_uses_source_tty_when_env_is_missing(self):
+        globals_ = MODULE["resolve_automation_root"].__globals__
+        original_candidates = globals_["default_automation_candidates"]
+        original_resolves_source = globals_["automation_root_resolves_source"]
+        release = Path("/tmp/soyeht-release/Automation")
+        dev = Path("/tmp/soyeht-dev/Automation")
+        try:
+            globals_["default_automation_candidates"] = lambda: [release, dev]
+            globals_["automation_root_resolves_source"] = lambda root, payload: root == dev and payload.get("sourceTTY") == "/dev/ttys123"
+
+            root = MODULE["resolve_automation_root"](None, {"sourceTTY": "/dev/ttys123"})
+        finally:
+            globals_["default_automation_candidates"] = original_candidates
+            globals_["automation_root_resolves_source"] = original_resolves_source
+
+        self.assertEqual(root, dev)
+
+    def test_resolve_automation_root_uses_calling_tty_for_source_unaware_tools(self):
+        globals_ = MODULE["resolve_automation_root"].__globals__
+        original_candidates = globals_["default_automation_candidates"]
+        original_resolves_source = globals_["automation_root_resolves_source"]
+        original_tty = globals_["current_tty"]
+        release = Path("/tmp/soyeht-release/Automation")
+        dev = Path("/tmp/soyeht-dev/Automation")
+        try:
+            globals_["default_automation_candidates"] = lambda: [release, dev]
+            globals_["current_tty"] = lambda: "/dev/ttys456"
+            globals_["automation_root_resolves_source"] = lambda root, payload: root == dev and payload.get("sourceTTY") == "/dev/ttys456"
+
+            root = MODULE["resolve_automation_root"](None, {})
+        finally:
+            globals_["default_automation_candidates"] = original_candidates
+            globals_["automation_root_resolves_source"] = original_resolves_source
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(root, dev)
+
+    def test_resolve_automation_root_uses_cwd_when_agent_mcp_subprocess_has_no_tty(self):
+        globals_ = MODULE["resolve_automation_root"].__globals__
+        original_candidates = globals_["default_automation_candidates"]
+        original_resolves_source = globals_["automation_root_resolves_source"]
+        original_has_cwd = globals_["automation_root_has_pane_cwd"]
+        original_tty = globals_["current_tty"]
+        release = Path("/tmp/soyeht-release/Automation")
+        dev = Path("/tmp/soyeht-dev/Automation")
+        try:
+            globals_["default_automation_candidates"] = lambda: [release, dev]
+            globals_["current_tty"] = lambda: None
+            globals_["automation_root_resolves_source"] = lambda root, payload: False
+            globals_["automation_root_has_pane_cwd"] = lambda root, cwd: root == dev
+
+            root = MODULE["resolve_automation_root"](None, {})
+        finally:
+            globals_["default_automation_candidates"] = original_candidates
+            globals_["automation_root_resolves_source"] = original_resolves_source
+            globals_["automation_root_has_pane_cwd"] = original_has_cwd
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(root, dev)
+
     def test_window_targets_are_forwarded_to_app_payload(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
@@ -96,11 +213,12 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
             globals_["submit_request"] = fake_submit_request
             globals_["current_tty"] = lambda: "/dev/ttys123"
-            result = MODULE["tool_send_pane_input"]({
-                "handles": ["@dst"],
-                "text": "hello",
-                "targetWindowID": "window-b",
-            })
+            with patch.dict("os.environ", {}, clear=True):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                    "targetWindowID": "window-b",
+                })
         finally:
             globals_["submit_request"] = original_submit
             globals_["current_tty"] = original_tty
@@ -125,11 +243,12 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
             globals_["submit_request"] = fake_submit_request
             globals_["current_tty"] = lambda: "/dev/ttys123"
-            result = MODULE["tool_send_pane_input"]({
-                "handles": ["@dst"],
-                "text": "hello",
-                "fromHandle": "@sender",
-            })
+            with patch.dict("os.environ", {}, clear=True):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                    "fromHandle": "@sender",
+                })
         finally:
             globals_["submit_request"] = original_submit
             globals_["current_tty"] = original_tty
@@ -155,7 +274,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
-            }):
+            }, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
                     "text": "hello",
@@ -168,6 +287,40 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        original_parent_env = globals_["parent_process_environment"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            globals_["parent_process_environment"] = lambda: {
+                "SOYEHT_CONVERSATION_ID": "33333333-3333-3333-3333-333333333333",
+                "SOYEHT_HANDLE": "@parent-codex",
+            }
+            with patch.dict("os.environ", {}, clear=True):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+            globals_["parent_process_environment"] = original_parent_env
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["sourceConversationID"], "33333333-3333-3333-3333-333333333333")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@parent-codex")
         self.assertNotIn("sourceTTY", captured["payload"])
 
     def test_explicit_source_overrides_source_environment(self):
@@ -186,7 +339,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
-            }):
+            }, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
                     "text": "hello",
