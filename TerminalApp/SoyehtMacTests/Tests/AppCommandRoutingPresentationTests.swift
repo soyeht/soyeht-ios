@@ -249,16 +249,47 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(prepared.text.contains("To: @reviewer (conversationID: \(targetConversationID.uuidString))"))
         XCTAssertTrue(prepared.text.contains("message_agent to handles=[\"@sender\"]"))
         XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
-        XCTAssertTrue(
+        XCTAssertFalse(
             prepared.payload.hasSuffix("\r"),
-            "lineEnding=enter must append the terminal enter CR in the same payload."
+            "lineEnding=enter must use the terminal keyboard path, not paste a raw CR into agent TUIs."
         )
-        XCTAssertEqual(prepared.payload.filter { $0 == "\r" }.count, 1)
+        XCTAssertTrue(prepared.shouldSendEnterKey)
+        XCTAssertEqual(prepared.payload.filter { $0 == "\r" }.count, 0)
         XCTAssertEqual(
-            AgentPaneEnvironment.values(for: sourceConversation),
+            AgentPaneInputPlanner.terminalPayload(
+                text: "literal newline",
+                appendNewline: true,
+                lineEnding: "newline"
+            ).payload,
+            "literal newline\n"
+        )
+        XCTAssertFalse(
+            AgentPaneInputPlanner.terminalPayload(
+                text: "literal newline",
+                appendNewline: true,
+                lineEnding: "newline"
+            ).shouldSendEnterKey
+        )
+        XCTAssertTrue(
+            AgentPaneInputPlanner.terminalPayload(
+                text: "already has newline\n",
+                appendNewline: true,
+                lineEnding: "enter"
+            ).shouldSendEnterKey,
+            "lineEnding=enter is a submit action, even when the prompt text already contains trailing newlines."
+        )
+        XCTAssertEqual(
+            AgentPaneEnvironment.values(
+                for: sourceConversation,
+                environment: [
+                    AgentPaneEnvironment.automationDirKey: "/tmp/soyeht-dev-e2e/Automation"
+                ],
+                profile: .dev
+            ),
             [
                 AgentPaneEnvironment.conversationIDKey: sourceConversationID.uuidString,
                 AgentPaneEnvironment.handleKey: "@sender",
+                AgentPaneEnvironment.automationDirKey: "/tmp/soyeht-dev-e2e/Automation",
             ]
         )
 
@@ -309,7 +340,19 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         XCTAssertFalse(skipped.envelopeApplied)
         XCTAssertEqual(skipped.envelopeReason, "non_terminal_target")
-        XCTAssertEqual(skipped.payload, "not terminal\r")
+        XCTAssertEqual(skipped.payload, "not terminal")
+        XCTAssertTrue(skipped.shouldSendEnterKey)
+
+        let terminalViewSource = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        let brokerSend = try slice(
+            terminalViewSource,
+            from: "func brokerSend(text: String, submitWithEnter: Bool)",
+            to: "/// Public entry point for mirrored group input"
+        )
+        XCTAssertTrue(brokerSend.contains("brokerSend(text: text)"))
+        XCTAssertTrue(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
+        XCTAssertFalse(brokerSend.contains("brokerSendEnterKey()"))
+        XCTAssertFalse(brokerSend.contains("text + \"\\r\""))
 
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(
@@ -327,6 +370,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private func sourceConversation",
             to: "private static func normalizedTTYName"
         )
+        let attachLocalPTY = try slice(
+            source,
+            from: "private func attachLocalPTY",
+            to: "private func waitForLivePane"
+        )
 
         XCTAssertTrue(sendInput.contains("sourceConversationIDString"))
         XCTAssertTrue(sendInput.contains("sourceHandle"))
@@ -338,6 +386,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sendInput.contains("forceAgentEnvelope"))
         XCTAssertTrue(sendInput.contains("requireAgentEnvelope"))
         XCTAssertTrue(sendInput.contains("AgentPaneInputPlanner.prepare"))
+        XCTAssertFalse(
+            sendInput.contains("|| explicitSourceProvided"),
+            "send_pane_input is low-level terminal input. A known sender must not automatically wrap shell commands in the agent envelope; message_agent/force/require are the high-level envelope paths."
+        )
 
         XCTAssertTrue(sourceResolution.contains("sourceConversationIDString"))
         XCTAssertTrue(sourceResolution.contains("sourceHandle"))
@@ -345,9 +397,14 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sourceResolution.contains("sourceConversationNotFound"))
         XCTAssertTrue(sourceResolution.contains("sourceHandleNotFound"))
 
-        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload)"))
-        XCTAssertFalse(sendResolvedInput.contains("asyncAfter"))
-        XCTAssertFalse(sendResolvedInput.contains("brokerSendEnterKey()"))
+        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
+        XCTAssertTrue(sendResolvedInput.contains("prepared.shouldSendEnterKey"))
+
+        XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.terminalPayload"))
+        XCTAssertTrue(attachLocalPTY.contains("pane.terminalView.brokerSend(text: initialCommand, submitWithEnter: true)"))
+        XCTAssertTrue(attachLocalPTY.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
+        XCTAssertFalse(attachLocalPTY.contains("initialCommand + \"\\n\""))
+        XCTAssertFalse(attachLocalPTY.contains("prompt + \"\\r\""))
     }
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
@@ -357,12 +414,34 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private static func readJSONObject",
             to: "private static func writeJSONObject"
         )
+        let mcpEnvironment = try slice(
+            source,
+            from: "private static func mcpEnvironment",
+            to: "// MARK: - Claude Code"
+        )
+        let claudeConfig = try slice(
+            source,
+            from: "private static func patchClaudeJSON",
+            to: "// MARK: - Codex"
+        )
+        let codexConfig = try slice(
+            source,
+            from: "private static func patchCodexTOML",
+            to: "private static func tomlString"
+        )
 
         XCTAssertTrue(readJSONObject.contains("FileManager.default.fileExists"))
         XCTAssertTrue(readJSONObject.contains("invalidJSONConfig"))
         XCTAssertTrue(readJSONObject.contains("JSONSerialization.jsonObject"))
         XCTAssertFalse(readJSONObject.contains("try? JSONSerialization.jsonObject"))
         XCTAssertFalse(readJSONObject.contains("return [:]\n        } catch"))
+
+        XCTAssertTrue(mcpEnvironment.contains("SOYEHT_AUTOMATION_DIR"))
+        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.developerEnvironmentOverride"))
+        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.subdirectory(\"Automation\")"))
+        XCTAssertTrue(claudeConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertTrue(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
+        XCTAssertTrue(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
     }
 
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {

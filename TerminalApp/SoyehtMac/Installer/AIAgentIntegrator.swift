@@ -165,7 +165,17 @@ enum AIAgentIntegrator {
         }
     }
 
-    // MARK: - Claude Code: .mcpServers.soyeht = { type:stdio, command, args:[], env:{} }
+    private static func mcpEnvironment() throws -> [String: String] {
+        let automationDir: String
+        if let override = AppSupportDirectory.developerEnvironmentOverride("SOYEHT_AUTOMATION_DIR") {
+            automationDir = override
+        } else {
+            automationDir = try AppSupportDirectory.subdirectory("Automation").path
+        }
+        return ["SOYEHT_AUTOMATION_DIR": automationDir]
+    }
+
+    // MARK: - Claude Code: .mcpServers.soyeht = { type:stdio, command, args:[], env:{...} }
 
     private static func patchClaudeJSON(at url: URL) throws {
         var root = try readJSONObject(at: url)
@@ -174,13 +184,13 @@ enum AIAgentIntegrator {
             "type": "stdio",
             "command": launcherURL.path,
             "args": [String](),
-            "env": [String: String](),
+            "env": try mcpEnvironment(),
         ] as [String: Any]
         root["mcpServers"] = servers
         try writeJSONObject(root, to: url)
     }
 
-    // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = []
+    // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = [], env
 
     /// Idempotently rewrites the `[mcp_servers.soyeht]` block in
     /// `~/.codex/config.toml`. Strips our own table AND any orphan
@@ -191,10 +201,14 @@ enum AIAgentIntegrator {
     /// (`[]` on a tail line after a botched join). Then appends a fresh
     /// canonical block at end-of-file.
     private static func patchCodexTOML(at url: URL) throws {
+        let env = try mcpEnvironment()
         let block = """
         [mcp_servers.\(launcherKey)]
         command = "\(launcherURL.path)"
         args = []
+
+        [mcp_servers.\(launcherKey).env]
+        SOYEHT_AUTOMATION_DIR = "\(tomlString(env["SOYEHT_AUTOMATION_DIR"] ?? ""))"
         """
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         let stripped = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: existing)
@@ -206,6 +220,12 @@ enum AIAgentIntegrator {
             combined = stripped + "\n\n" + block + "\n"
         }
         try combined.data(using: .utf8)!.write(to: url, options: .atomic)
+    }
+
+    private static func tomlString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     // MARK: - OpenCode: .mcp.soyeht = { type:"local", command:[...], enabled:true }

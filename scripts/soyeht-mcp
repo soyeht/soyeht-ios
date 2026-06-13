@@ -65,6 +65,12 @@ SENSITIVE_PATHS = [
     Path.home() / ".soyeht",
     Path.home() / "Library" / "Keychains",
 ]
+SOYEHT_ENV_KEYS = {
+    "SOYEHT_AUTOMATION_DIR",
+    "SOYEHT_CONVERSATION_ID",
+    "SOYEHT_HANDLE",
+}
+_PARENT_PROCESS_ENVIRONMENT = None
 
 
 def run(cmd, cwd=None, check=True):
@@ -147,10 +153,98 @@ def default_worktree_root(repo):
 
 
 def default_automation_root():
-    override = os.environ.get("SOYEHT_AUTOMATION_DIR")
+    override = soyeht_environment_value("SOYEHT_AUTOMATION_DIR")
     if override:
         return Path(override).expanduser()
     return Path.home() / "Library" / "Application Support" / "Soyeht" / "Automation"
+
+
+def default_automation_candidates():
+    override = soyeht_environment_value("SOYEHT_AUTOMATION_DIR")
+    if override:
+        return [Path(override).expanduser()]
+    app_support = Path.home() / "Library" / "Application Support"
+    # Release remains first for normal user launches. Dev is listed so MCP
+    # subprocesses from agents that do not inherit SOYEHT_AUTOMATION_DIR
+    # (notably Codex) can still route back to the Soyeht Dev pane that spawned
+    # them by probing targetWindowID/sourceTTY.
+    roots = [
+        app_support / "Soyeht" / "Automation",
+        app_support / "SoyehtDev" / "Automation",
+        app_support / "Soyeht Dev" / "Automation",
+    ]
+    result = []
+    seen = set()
+    for root in roots:
+        key = str(root.expanduser())
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(root)
+    return result
+
+
+def soyeht_environment_value(key):
+    return os.environ.get(key) or parent_process_environment().get(key)
+
+
+def parent_process_environment(max_depth=4):
+    global _PARENT_PROCESS_ENVIRONMENT
+    if _PARENT_PROCESS_ENVIRONMENT is not None:
+        return _PARENT_PROCESS_ENVIRONMENT
+
+    values = {}
+    pid = os.getppid()
+    for _ in range(max_depth):
+        if pid <= 1:
+            break
+        for key, value in process_environment(pid).items():
+            if key in SOYEHT_ENV_KEYS and key not in values:
+                values[key] = value
+        next_pid = parent_pid(pid)
+        if next_pid is None or next_pid == pid:
+            break
+        pid = next_pid
+
+    _PARENT_PROCESS_ENVIRONMENT = values
+    return values
+
+
+def parent_pid(pid):
+    try:
+        output = subprocess.check_output(
+            ["ps", "-o", "ppid=", "-p", str(pid)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return int(output) if output else None
+    except (subprocess.SubprocessError, ValueError):
+        return None
+
+
+def process_environment(pid):
+    try:
+        output = subprocess.check_output(
+            ["ps", "eww", "-o", "command=", "-p", str(pid)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.SubprocessError:
+        return {}
+    return parse_soyeht_environment(output)
+
+
+def parse_soyeht_environment(output):
+    matches = list(re.finditer(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=", output))
+    values = {}
+    for index, match in enumerate(matches):
+        key = match.group(1)
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(output)
+        value = output[start:end].strip()
+        if key in SOYEHT_ENV_KEYS and value:
+            values[key] = value
+    return values
 
 
 def default_agent_command(agent):
@@ -204,8 +298,8 @@ def with_source_context(payload, args=None):
         from_conversation_id = explicit_conversation_id
         from_handle = explicit_handle
     else:
-        from_conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID")
-        from_handle = os.environ.get("SOYEHT_HANDLE")
+        from_conversation_id = soyeht_environment_value("SOYEHT_CONVERSATION_ID")
+        from_handle = soyeht_environment_value("SOYEHT_HANDLE")
     if from_conversation_id:
         payload["sourceConversationID"] = from_conversation_id
     if from_handle:
@@ -354,8 +448,7 @@ def wait_response(root, request_id, timeout):
     return None
 
 
-def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT):
-    root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
+def submit_request_to_root(root, request_type, payload, timeout=DEFAULT_REQUEST_TIMEOUT, check_status=True):
     request_id = str(uuid.uuid4())
     request = {
         "id": request_id,
@@ -369,9 +462,91 @@ def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_R
             f"Soyeht did not respond before timeout. Make sure the Mac app is running. Request: {request_file}"
         )
     response["requestFile"] = str(request_file)
-    if response.get("status") != "ok":
+    if check_status and response.get("status") != "ok":
         raise RuntimeError(response.get("message", "Soyeht automation failed"))
     return response
+
+
+def probe_request(root, request_type, payload, timeout=1.5):
+    try:
+        return submit_request_to_root(root, request_type, payload, timeout=timeout, check_status=False)
+    except RuntimeError:
+        return None
+
+
+def automation_root_has_window(root, window_id):
+    if not window_id:
+        return False
+    response = probe_request(root, "list_windows", {}, timeout=1.5)
+    if not response or response.get("status") != "ok":
+        return False
+    for window in response.get("listedWindows") or []:
+        if window.get("windowID") == window_id:
+            return True
+    return False
+
+
+def automation_root_resolves_source(root, payload):
+    source_payload = {}
+    for key in ("sourceConversationID", "sourceHandle", "sourceTTY"):
+        if payload.get(key):
+            source_payload[key] = payload[key]
+    if not source_payload:
+        return False
+    response = probe_request(root, "identify_agent", source_payload, timeout=1.5)
+    return bool(response and response.get("status") == "ok" and response.get("sourceIdentity"))
+
+
+def automation_root_has_pane_cwd(root, cwd):
+    if not cwd:
+        return False
+    try:
+        cwd_path = str(Path(cwd).expanduser().resolve())
+    except OSError:
+        cwd_path = str(Path(cwd).expanduser())
+    response = probe_request(root, "list_panes", {}, timeout=1.5)
+    if not response or response.get("status") != "ok":
+        return False
+    for pane in response.get("listedPanes") or []:
+        try:
+            pane_path = str(Path(pane.get("path") or "").expanduser().resolve())
+        except OSError:
+            pane_path = str(Path(pane.get("path") or "").expanduser())
+        if pane_path == cwd_path:
+            return True
+    return False
+
+
+def resolve_automation_root(automation_dir, payload):
+    if automation_dir:
+        return Path(automation_dir).expanduser()
+    candidates = default_automation_candidates()
+    target_window_id = payload.get("targetWindowID") or payload.get("windowID")
+    if target_window_id:
+        for root in candidates:
+            if automation_root_has_window(root, target_window_id):
+                return root
+    if any(payload.get(key) for key in ("sourceConversationID", "sourceHandle", "sourceTTY")):
+        for root in candidates:
+            if automation_root_resolves_source(root, payload):
+                return root
+    tty = current_tty()
+    if tty:
+        tty_payload = {"sourceTTY": tty}
+        for root in candidates:
+            if automation_root_resolves_source(root, tty_payload):
+                return root
+    cwd = os.getcwd()
+    if cwd:
+        for root in candidates:
+            if automation_root_has_pane_cwd(root, cwd):
+                return root
+    return candidates[0]
+
+
+def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT):
+    root = resolve_automation_root(automation_dir, payload)
+    return submit_request_to_root(root, request_type, payload, timeout=timeout, check_status=True)
 
 
 def session_spec(
