@@ -277,7 +277,7 @@ enum AIAgentIntegrator {
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
-    // MARK: - OpenCode: .mcp.soyeht = { type:"local", command:[...], enabled:true }
+    // MARK: - OpenCode: .mcp.soyeht = { type:"local", command:[...], environment:{...}, enabled:true }
 
     private static func patchOpenCodeJSON(at url: URL) throws {
         var root = try readJSONObject(at: url)
@@ -288,13 +288,14 @@ enum AIAgentIntegrator {
         mcp[launcherKey] = [
             "type": "local",
             "command": [launcherURL.path],
+            "environment": try mcpEnvironment(),
             "enabled": true,
         ] as [String: Any]
         root["mcp"] = mcp
         try writeJSONObject(root, to: url)
     }
 
-    // MARK: - Droid: .mcpServers.soyeht = { type:stdio, command, args, disabled:false }
+    // MARK: - Droid: .mcpServers.soyeht = { type:stdio, command, args, env, disabled:false }
 
     private static func patchDroidJSON(at url: URL) throws {
         var root = try readJSONObject(at: url)
@@ -303,6 +304,7 @@ enum AIAgentIntegrator {
             "type": "stdio",
             "command": launcherURL.path,
             "args": [String](),
+            "env": try mcpEnvironment(),
             "disabled": false,
         ] as [String: Any]
         root["mcpServers"] = servers

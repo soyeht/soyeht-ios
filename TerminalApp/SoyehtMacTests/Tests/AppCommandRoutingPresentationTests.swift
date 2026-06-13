@@ -439,6 +439,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private static func patchCodexTOML",
             to: "private static func tomlString"
         )
+        let opencodeConfig = try slice(
+            source,
+            from: "private static func patchOpenCodeJSON",
+            to: "// MARK: - Droid"
+        )
+        let droidConfig = try slice(
+            source,
+            from: "private static func patchDroidJSON",
+            to: "// MARK: - JSON helpers"
+        )
 
         XCTAssertTrue(readJSONObject.contains("FileManager.default.fileExists"))
         XCTAssertTrue(readJSONObject.contains("invalidJSONConfig"))
@@ -452,6 +462,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(detection.contains("/opt/homebrew/bin/\\(agent.cliName)"))
         XCTAssertTrue(detection.contains("/usr/local/bin/\\(agent.cliName)"))
         XCTAssertFalse(detection.contains("command -v \\(agent.cliName) >/dev/null"))
+        XCTAssertTrue(source.contains(".appendingPathComponent(\".factory\", isDirectory: true)"))
+        XCTAssertFalse(source.contains(".appendingPathComponent(\".droid\", isDirectory: true)"))
 
         XCTAssertTrue(mcpEnvironment.contains("SOYEHT_AUTOMATION_DIR"))
         XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.developerEnvironmentOverride"))
@@ -464,6 +476,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(claudeConfig.contains("runAgentCommand("))
         XCTAssertTrue(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
         XCTAssertTrue(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
+        XCTAssertTrue(opencodeConfig.contains("\"environment\": try mcpEnvironment()"))
+        XCTAssertTrue(droidConfig.contains("\"env\": try mcpEnvironment()"))
     }
 
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {
