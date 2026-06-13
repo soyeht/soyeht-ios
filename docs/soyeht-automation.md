@@ -231,17 +231,33 @@ checkout's `scripts/soyeht-mcp` when it is started inside a Soyeht git
 checkout or worktree, and falls back to the main checkout for this clone
 otherwise.
 
+For the shipping app, pin the MCP server to:
+
+```sh
+export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht/Automation"
+```
+
+For `Soyeht Dev.app`, use:
+
+```sh
+export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht Dev/Automation"
+```
+
 ### Codex
 
 ```sh
-codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
+codex mcp add soyeht --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR" -- ~/.local/bin/soyeht-mcp
 ```
 
 ### Claude Code
 
 ```sh
-claude mcp add --scope user soyeht ~/.local/bin/soyeht-mcp
+claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[],\"env\":{\"SOYEHT_AUTOMATION_DIR\":\"$SOYEHT_AUTOMATION_DIR\"}}"
 ```
+
+Claude Code user-scoped MCP servers live in `~/.claude.json`; project-scoped
+servers live in `.mcp.json`. Prefer `claude mcp add-json` over manual edits so
+Claude Code merges the server into the right scope.
 
 ### OpenCode
 
@@ -254,6 +270,9 @@ printed by the installer:
     "soyeht": {
       "type": "local",
       "command": ["/Users/you/.local/bin/soyeht-mcp"],
+      "environment": {
+        "SOYEHT_AUTOMATION_DIR": "/Users/you/Library/Application Support/Soyeht/Automation"
+      },
       "enabled": true
     }
   }
@@ -263,7 +282,36 @@ printed by the installer:
 ### Droid
 
 ```sh
-droid mcp add soyeht ~/.local/bin/soyeht-mcp
+droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR"
+```
+
+Droid stores user MCP servers in `~/.factory/mcp.json`.
+
+### Read-only MacBook diagnostic prompt
+
+Paste this to an agent on a Mac where Soyeht did not recognize every installed
+agent. It should inspect only and avoid writing configs:
+
+```text
+Você está no meu MacBook. Não altere arquivos ainda.
+
+Quero saber se o MCP do Soyeht vai funcionar antes de eu tentar reinstalar.
+Faça uma auditoria somente leitura e responda em português:
+
+1. Mostre se estes CLIs existem e onde estão: claude, codex, opencode, droid.
+   Use command -v e também cheque estes caminhos: ~/.local/bin, /opt/homebrew/bin,
+   /usr/local/bin e /usr/bin.
+2. Verifique se ~/.local/bin/soyeht-mcp existe e é executável.
+3. Verifique, sem imprimir segredos, se o servidor "soyeht" está configurado em:
+   - Claude Code: claude mcp get soyeht, e se necessário confirme ~/.claude.json.
+   - Codex: ~/.codex/config.toml, seção [mcp_servers.soyeht].
+   - OpenCode: ~/.config/opencode/opencode.json, chave mcp.soyeht.
+   - Droid: ~/.factory/mcp.json, chave mcpServers.soyeht.
+4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e se
+   SOYEHT_AUTOMATION_DIR aponta para:
+   ~/Library/Application Support/Soyeht/Automation
+5. Não edite nada. Termine com "OK PARA INSTALAR" ou "NAO INSTALAR AINDA" e liste
+   exatamente o que está faltando.
 ```
 
 ### MCP Call Examples

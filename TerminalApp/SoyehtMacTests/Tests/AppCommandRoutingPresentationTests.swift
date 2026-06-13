@@ -409,6 +409,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
         let source = try macSource("Installer/AIAgentIntegrator.swift")
+        let detection = try slice(
+            source,
+            from: "static func detect(_ agent: Agent) -> Bool",
+            to: "// MARK: - Install"
+        )
+        let writeConfig = try slice(
+            source,
+            from: "private static func writeConfig",
+            to: "private static func mcpEnvironment"
+        )
         let readJSONObject = try slice(
             source,
             from: "private static func readJSONObject",
@@ -421,13 +431,23 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         let claudeConfig = try slice(
             source,
-            from: "private static func patchClaudeJSON",
+            from: "private static func installClaudeCodeMCP",
             to: "// MARK: - Codex"
         )
         let codexConfig = try slice(
             source,
             from: "private static func patchCodexTOML",
             to: "private static func tomlString"
+        )
+        let opencodeConfig = try slice(
+            source,
+            from: "private static func patchOpenCodeJSON",
+            to: "// MARK: - Droid"
+        )
+        let droidConfig = try slice(
+            source,
+            from: "private static func patchDroidJSON",
+            to: "// MARK: - JSON helpers"
         )
 
         XCTAssertTrue(readJSONObject.contains("FileManager.default.fileExists"))
@@ -436,12 +456,28 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(readJSONObject.contains("try? JSONSerialization.jsonObject"))
         XCTAssertFalse(readJSONObject.contains("return [:]\n        } catch"))
 
+        XCTAssertTrue(detection.contains("resolvedCLIURL(for: agent) != nil"))
+        XCTAssertTrue(detection.contains("shellResolvedCLIPath"))
+        XCTAssertTrue(detection.contains(".appendingPathComponent(\".local\""))
+        XCTAssertTrue(detection.contains("/opt/homebrew/bin/\\(agent.cliName)"))
+        XCTAssertTrue(detection.contains("/usr/local/bin/\\(agent.cliName)"))
+        XCTAssertFalse(detection.contains("command -v \\(agent.cliName) >/dev/null"))
+        XCTAssertTrue(source.contains(".appendingPathComponent(\".factory\", isDirectory: true)"))
+        XCTAssertFalse(source.contains(".appendingPathComponent(\".droid\", isDirectory: true)"))
+
         XCTAssertTrue(mcpEnvironment.contains("SOYEHT_AUTOMATION_DIR"))
         XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.developerEnvironmentOverride"))
         XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.subdirectory(\"Automation\")"))
+        XCTAssertTrue(writeConfig.contains("try installClaudeCodeMCP()"))
+        XCTAssertFalse(source.contains("private static func patchClaudeJSON"))
+        XCTAssertTrue(claudeConfig.contains("claudeURL = resolvedCLIURL(for: .claudeCode)"))
         XCTAssertTrue(claudeConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertTrue(claudeConfig.contains("\"mcp\", \"add-json\", \"--scope\", \"user\", launcherKey"))
+        XCTAssertTrue(claudeConfig.contains("runAgentCommand("))
         XCTAssertTrue(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
         XCTAssertTrue(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
+        XCTAssertTrue(opencodeConfig.contains("\"environment\": try mcpEnvironment()"))
+        XCTAssertTrue(droidConfig.contains("\"env\": try mcpEnvironment()"))
     }
 
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {
