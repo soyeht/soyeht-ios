@@ -59,6 +59,8 @@ enum AIAgentIntegrator {
 
     enum IntegrationError: Error, LocalizedError {
         case bundledLauncherMissing
+        case agentCLIMissing(Agent)
+        case agentCommandFailed(Agent, output: String)
         case configWriteFailed(Agent, underlying: Error)
         case invalidJSONConfig(String, underlying: Error)
 
@@ -66,6 +68,10 @@ enum AIAgentIntegrator {
             switch self {
             case .bundledLauncherMissing:
                 return "Soyeht.app bundle is missing the MCP server script. Reinstall the app."
+            case .agentCLIMissing(let agent):
+                return "\(agent.displayName) is not installed or could not be found on this Mac."
+            case .agentCommandFailed(let agent, let output):
+                return "\(agent.displayName) could not register the Soyeht MCP server: \(output)"
             case .configWriteFailed(let agent, let underlying):
                 return "Could not update \(agent.displayName) config: \(underlying.localizedDescription)"
             case .invalidJSONConfig(let path, let underlying):
@@ -83,30 +89,61 @@ enum AIAgentIntegrator {
 
     // MARK: - Detection
 
-    /// Whether the agent's CLI is on the user's PATH. Uses `command -v`
-    /// inside a login-style shell so PATH additions from `.zshrc` /
-    /// `.profile` are honored — without this an agent installed via
-    /// Homebrew that only `eval`s `brew shellenv` from the rc file would
-    /// be invisible.
+    /// Whether the agent's CLI can be found. GUI apps often launch with a
+    /// smaller PATH than Terminal, so detection checks both a login shell and
+    /// the common install locations used by agent CLIs.
     @MainActor
     static func detect(_ agent: Agent) -> Bool {
+        resolvedCLIURL(for: agent) != nil
+    }
+
+    private static func resolvedCLIURL(for agent: Agent) -> URL? {
+        if let shellPath = shellResolvedCLIPath(agent.cliName),
+           isExecutableFile(at: shellPath) {
+            return URL(fileURLWithPath: shellPath)
+        }
+        return candidateCLIURLs(for: agent).first { isExecutableFile(at: $0.path) }
+    }
+
+    private static func shellResolvedCLIPath(_ cliName: String) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "command -v \(agent.cliName) >/dev/null"]
-        process.standardOutput = Pipe()
+        process.arguments = ["-lc", "command -v \(shellQuoted(cliName))"]
+        let output = Pipe()
+        process.standardOutput = output
         process.standardError = Pipe()
         do {
             try process.run()
             process.waitUntilExit()
-            return process.terminationStatus == 0
+            guard process.terminationStatus == 0 else { return nil }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .nilIfEmpty
         } catch {
-            return false
+            return nil
         }
     }
 
     @MainActor
     static func detectAll() -> [Agent: Bool] {
         Agent.allCases.reduce(into: [:]) { $0[$1] = detect($1) }
+    }
+
+    private static func candidateCLIURLs(for agent: Agent) -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            home.appendingPathComponent(".local", isDirectory: true)
+                .appendingPathComponent("bin", isDirectory: true)
+                .appendingPathComponent(agent.cliName),
+            URL(fileURLWithPath: "/opt/homebrew/bin/\(agent.cliName)"),
+            URL(fileURLWithPath: "/usr/local/bin/\(agent.cliName)"),
+            URL(fileURLWithPath: "/usr/bin/\(agent.cliName)"),
+        ]
+    }
+
+    private static func isExecutableFile(at path: String) -> Bool {
+        FileManager.default.isExecutableFile(atPath: path)
     }
 
     // MARK: - Install
@@ -147,6 +184,10 @@ enum AIAgentIntegrator {
     }
 
     private static func writeConfig(for agent: Agent) throws {
+        if agent == .claudeCode {
+            try installClaudeCodeMCP()
+            return
+        }
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configURL = agent.configURL(home: home)
         try FileManager.default.createDirectory(
@@ -155,7 +196,7 @@ enum AIAgentIntegrator {
         )
         switch agent {
         case .claudeCode:
-            try patchClaudeJSON(at: configURL)
+            break
         case .codex:
             try patchCodexTOML(at: configURL)
         case .opencode:
@@ -175,19 +216,27 @@ enum AIAgentIntegrator {
         return ["SOYEHT_AUTOMATION_DIR": automationDir]
     }
 
-    // MARK: - Claude Code: .mcpServers.soyeht = { type:stdio, command, args:[], env:{...} }
+    // MARK: - Claude Code: claude mcp add-json --scope user soyeht ...
 
-    private static func patchClaudeJSON(at url: URL) throws {
-        var root = try readJSONObject(at: url)
-        var servers = (root["mcpServers"] as? [String: Any]) ?? [:]
-        servers[launcherKey] = [
+    private static func installClaudeCodeMCP() throws {
+        guard let claudeURL = resolvedCLIURL(for: .claudeCode) else {
+            throw IntegrationError.agentCLIMissing(.claudeCode)
+        }
+        let server = [
             "type": "stdio",
             "command": launcherURL.path,
             "args": [String](),
             "env": try mcpEnvironment(),
         ] as [String: Any]
-        root["mcpServers"] = servers
-        try writeJSONObject(root, to: url)
+        let serverData = try JSONSerialization.data(withJSONObject: server, options: [.sortedKeys])
+        guard let serverJSON = String(data: serverData, encoding: .utf8) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try runAgentCommand(
+            .claudeCode,
+            executableURL: claudeURL,
+            arguments: ["mcp", "add-json", "--scope", "user", launcherKey, serverJSON]
+        )
     }
 
     // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = [], env
@@ -288,5 +337,38 @@ enum AIAgentIntegrator {
             options: []
         )
         try data.write(to: url, options: .atomic)
+    }
+
+    private static func runAgentCommand(_ agent: Agent, executableURL: URL, arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = executableURL
+        process.arguments = arguments
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = output
+        let data: Data
+        do {
+            try process.run()
+            data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+        } catch {
+            throw IntegrationError.configWriteFailed(agent, underlying: error)
+        }
+        guard process.terminationStatus == 0 else {
+            let message = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .nilIfEmpty ?? "exit status \(process.terminationStatus)"
+            throw IntegrationError.agentCommandFailed(agent, output: message)
+        }
+    }
+
+    private static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
