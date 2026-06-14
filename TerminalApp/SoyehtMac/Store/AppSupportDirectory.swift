@@ -39,28 +39,53 @@ enum AppSupportDirectory {
               !value.isEmpty else {
             return nil
         }
+        guard !pointsAtReleaseSupportDirectory(value) else {
+            return nil
+        }
         return value
+    }
+
+    private static func pointsAtReleaseSupportDirectory(_ value: String) -> Bool {
+        guard let overrideURL = fileURL(fromEnvironmentValue: value),
+              let releaseRoot = try? applicationSupportRoot(for: .release) else {
+            return false
+        }
+        let overridePath = overrideURL.standardizedFileURL.path
+        let releasePath = releaseRoot.standardizedFileURL.path
+        return overridePath == releasePath || overridePath.hasPrefix(releasePath + "/")
+    }
+
+    private static func fileURL(fromEnvironmentValue value: String) -> URL? {
+        if let url = URL(string: value), url.scheme != nil {
+            guard url.isFileURL else { return nil }
+            return url
+        }
+        return URL(fileURLWithPath: value, isDirectory: false)
     }
 
     /// Soyeht's root: `~/Library/Application Support/Soyeht/`
     /// (`.../SoyehtDev/` for the developer build).
     /// Created on first call; subsequent calls return the existing dir.
     static func soyehtRoot() throws -> URL {
+        let root = try applicationSupportRoot(for: .current)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        return root
+    }
+
+    private static func applicationSupportRoot(for profile: SoyehtInstallProfile) throws -> URL {
         let appSupport = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
         )
-        let root = appSupport.appendingPathComponent(
-            SoyehtInstallProfile.current.supportDirectoryName,
+        return appSupport.appendingPathComponent(
+            profile.supportDirectoryName,
             isDirectory: true
         )
-        try FileManager.default.createDirectory(
-            at: root,
-            withIntermediateDirectories: true
-        )
-        return root
     }
 
     /// Subdirectory of `Soyeht/`. Created if absent.

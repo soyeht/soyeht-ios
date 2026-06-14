@@ -251,7 +251,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
         XCTAssertFalse(
             prepared.payload.hasSuffix("\r"),
-            "lineEnding=enter must use the terminal keyboard path, not paste a raw CR into agent TUIs."
+            "lineEnding=enter must keep CR out of the planned prompt body; the transport submits through SwiftTerm's keyboard path."
         )
         XCTAssertTrue(prepared.shouldSendEnterKey)
         XCTAssertEqual(prepared.payload.filter { $0 == "\r" }.count, 0)
@@ -277,6 +277,34 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
                 lineEnding: "enter"
             ).shouldSendEnterKey,
             "lineEnding=enter is a submit action, even when the prompt text already contains trailing newlines."
+        )
+        XCTAssertEqual(
+            AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                initialCommand: "/opt/homebrew/bin/codex --yolo",
+                explicitDelayMs: nil
+            ),
+            40_000
+        )
+        XCTAssertEqual(
+            AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                initialCommand: "/Users/tester/.local/bin/claude",
+                explicitDelayMs: nil
+            ),
+            15_000
+        )
+        XCTAssertEqual(
+            AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                initialCommand: "/bin/bash",
+                explicitDelayMs: nil
+            ),
+            1_500
+        )
+        XCTAssertEqual(
+            AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                initialCommand: "/opt/homebrew/bin/codex --yolo",
+                explicitDelayMs: 250
+            ),
+            250
         )
         XCTAssertEqual(
             AgentPaneEnvironment.values(
@@ -350,9 +378,18 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "/// Public entry point for mirrored group input"
         )
         XCTAssertTrue(brokerSend.contains("brokerSend(text: text)"))
+        XCTAssertTrue(brokerSend.contains("isLongPrompt"))
+        XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
+        XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
+        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey()"))
         XCTAssertTrue(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
-        XCTAssertFalse(brokerSend.contains("brokerSendEnterKey()"))
-        XCTAssertFalse(brokerSend.contains("text + \"\\r\""))
+        let brokerSendEnterKey = try slice(
+            terminalViewSource,
+            from: "func brokerSendEnterKey()",
+            to: "/// Inserts text produced by macOS voice input"
+        )
+        XCTAssertTrue(brokerSendEnterKey.contains("window?.makeFirstResponder(self)"))
+        XCTAssertTrue(brokerSendEnterKey.contains("insertNewline"))
 
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(
@@ -401,10 +438,21 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sendResolvedInput.contains("prepared.shouldSendEnterKey"))
 
         XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.terminalPayload"))
-        XCTAssertTrue(attachLocalPTY.contains("pane.terminalView.brokerSend(text: initialCommand, submitWithEnter: true)"))
+        XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.initialPromptDelayMilliseconds"))
+        XCTAssertTrue(attachLocalPTY.contains("3_000_000_000"))
+        XCTAssertTrue(attachLocalPTY.contains("lineEnding: \"crlf\""))
         XCTAssertTrue(attachLocalPTY.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
         XCTAssertFalse(attachLocalPTY.contains("initialCommand + \"\\n\""))
         XCTAssertFalse(attachLocalPTY.contains("prompt + \"\\r\""))
+
+        let nativePTYSource = try macSource("SoyehtInstance/NativePTY.swift")
+        let nativePTYWrite = try slice(
+            nativePTYSource,
+            from: "func write(_ data: Data)",
+            to: "private func writeSynchronously"
+        )
+        XCTAssertTrue(nativePTYWrite.contains("ioQueue.async"))
+        XCTAssertTrue(nativePTYWrite.contains("writeSynchronously(data)"))
     }
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {

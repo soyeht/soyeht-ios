@@ -209,6 +209,13 @@ final class NativePTY {
     /// Write raw bytes (typed keystrokes, paste content, control sequences)
     /// into the PTY master. No-op after `close()`.
     func write(_ data: Data) {
+        guard !data.isEmpty else { return }
+        ioQueue.async { [weak self] in
+            self?.writeSynchronously(data)
+        }
+    }
+
+    private func writeSynchronously(_ data: Data) {
         guard !closed else { return }
         data.withUnsafeBytes { buf in
             guard let base = buf.baseAddress else { return }

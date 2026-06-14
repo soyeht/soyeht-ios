@@ -34,6 +34,10 @@ DESTINATION_WINDOW_ID_PROPERTY = {
     "type": "string",
     "description": "Stable Soyeht macOS windowID that owns the destination workspace for cross-window moves.",
 }
+PROMPT_DELAY_MS_PROPERTY = {
+    "type": "integer",
+    "description": "Milliseconds to wait after launching a command before sending the initial prompt. If omitted, Soyeht uses a startup-aware default: longer for known agent TUIs such as Codex/Claude, short for plain shells.",
+}
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
 DEFAULT_FILE_PATTERNS = [
@@ -188,6 +192,35 @@ def soyeht_environment_value(key):
     return os.environ.get(key) or parent_process_environment().get(key)
 
 
+def equivalent_automation_dir(left, right):
+    if not left or not right:
+        return False
+    try:
+        left_path = Path(left).expanduser().resolve(strict=False)
+        right_path = Path(right).expanduser().resolve(strict=False)
+    except (OSError, RuntimeError):
+        left_path = Path(str(left)).expanduser()
+        right_path = Path(str(right)).expanduser()
+    return left_path == right_path
+
+
+def source_environment_for_context(args=None):
+    args = args or {}
+    explicit_root = args.get("automationDir")
+    for values in (os.environ, parent_process_environment()):
+        source = {
+            key: values.get(key)
+            for key in ("SOYEHT_AUTOMATION_DIR", "SOYEHT_CONVERSATION_ID", "SOYEHT_HANDLE")
+            if values.get(key)
+        }
+        if not (source.get("SOYEHT_CONVERSATION_ID") or source.get("SOYEHT_HANDLE")):
+            continue
+        if explicit_root and not equivalent_automation_dir(source.get("SOYEHT_AUTOMATION_DIR"), explicit_root):
+            continue
+        return source
+    return {}
+
+
 def parent_process_environment(max_depth=4):
     global _PARENT_PROCESS_ENVIRONMENT
     if _PARENT_PROCESS_ENVIRONMENT is not None:
@@ -298,8 +331,9 @@ def with_source_context(payload, args=None):
         from_conversation_id = explicit_conversation_id
         from_handle = explicit_handle
     else:
-        from_conversation_id = soyeht_environment_value("SOYEHT_CONVERSATION_ID")
-        from_handle = soyeht_environment_value("SOYEHT_HANDLE")
+        source_environment = source_environment_for_context(args)
+        from_conversation_id = source_environment.get("SOYEHT_CONVERSATION_ID")
+        from_handle = source_environment.get("SOYEHT_HANDLE")
     if from_conversation_id:
         payload["sourceConversationID"] = from_conversation_id
     if from_handle:
@@ -1284,7 +1318,7 @@ TOOLS = [
                             "agent": {"type": "string"},
                             "command": {"type": "string"},
                             "prompt": {"type": "string"},
-                            "promptDelayMs": {"type": "integer"},
+                            "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                         },
                         "required": ["name", "path"],
                     },
@@ -1292,7 +1326,7 @@ TOOLS = [
                 "agent": {"type": "string", "default": "codex"},
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1332,7 +1366,7 @@ TOOLS = [
                 },
                 "agent": {"type": "string", "default": "shell"},
                 "prompt": {"type": "string"},
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1514,7 +1548,7 @@ TOOLS = [
                     "type": "string",
                     "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically.",
                 },
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                 "noCreate": {"type": "boolean", "default": False},
                 "newWorkspace": {
                     "type": "boolean",
@@ -1561,7 +1595,7 @@ TOOLS = [
                             "agent": {"type": "string"},
                             "command": {"type": "string"},
                             "prompt": {"type": "string"},
-                            "promptDelayMs": {"type": "integer"},
+                            "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                         },
                         "required": ["name", "path"],
                     },
@@ -1569,7 +1603,7 @@ TOOLS = [
                 "agent": {"type": "string", "default": "shell"},
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1620,11 +1654,7 @@ TOOLS = [
                     "type": "string",
                     "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically so the agent starts executing immediately.",
                 },
-                "promptDelayMs": {
-                    "type": "integer",
-                    "default": 1500,
-                    "description": "Milliseconds to wait after the agent starts before sending the prompt.",
-                },
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                 "noCreate": {"type": "boolean", "default": False},
                 "newWorkspace": {
                     "type": "boolean",

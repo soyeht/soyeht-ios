@@ -3401,20 +3401,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
         pane.terminalView.configureLocal(pty: pty)
         PaneStatusTracker.shared.nudgeRecompute()
-        if let initialCommand {
-            pane.terminalView.brokerSend(text: initialCommand, submitWithEnter: true)
-        }
-        if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let delay = UInt64(max(promptDelayMs ?? 1_500, 0)) * 1_000_000
+        if initialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             Task { @MainActor [weak pane] in
-                try? await Task.sleep(nanoseconds: delay)
-                guard let terminalView = pane?.terminalView else { return }
-                let prepared = AgentPaneInputPlanner.terminalPayload(
-                    text: prompt,
-                    appendNewline: true,
-                    lineEnding: "enter"
-                )
-                terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+                if let initialCommand {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    guard let terminalView = pane?.terminalView else { return }
+                    let prepared = AgentPaneInputPlanner.terminalPayload(
+                        text: initialCommand,
+                        appendNewline: true,
+                        lineEnding: "crlf"
+                    )
+                    terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+                }
+                if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                        initialCommand: initialCommand,
+                        explicitDelayMs: promptDelayMs
+                    )) * 1_000_000
+                    try? await Task.sleep(nanoseconds: delay)
+                    guard let terminalView = pane?.terminalView else { return }
+                    let prepared = AgentPaneInputPlanner.terminalPayload(
+                        text: prompt,
+                        appendNewline: true,
+                        lineEnding: "enter"
+                    )
+                    terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+                }
             }
         }
         Self.logger.info(

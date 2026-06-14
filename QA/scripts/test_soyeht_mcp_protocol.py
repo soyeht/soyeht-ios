@@ -32,6 +32,16 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("do not create a new pane", tool["description"])
         self.assertIn("whether an agent envelope was applied", tool["description"])
 
+    def test_prompt_delay_schema_describes_agent_aware_default(self):
+        prompt_delay = MODULE["PROMPT_DELAY_MS_PROPERTY"]
+
+        self.assertNotIn("default", prompt_delay)
+        self.assertIn("startup-aware", prompt_delay["description"])
+        self.assertIn("Codex/Claude", prompt_delay["description"])
+        for name in ("open_panes", "open_shell", "open_workspace", "create_worktree_panes", "agent_race_panes"):
+            tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
+            self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
+
     def test_message_agent_handler_is_registered_and_fail_closed_by_schema(self):
         self.assertIn("message_agent", MODULE["TOOL_HANDLERS"])
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "message_agent")
@@ -321,6 +331,82 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "33333333-3333-3333-3333-333333333333")
         self.assertEqual(captured["payload"]["sourceHandle"], "@parent-codex")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_explicit_automation_dir_ignores_foreign_parent_source_environment(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        original_parent_env = globals_["parent_process_environment"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["automation_dir"] = automation_dir
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: None
+            globals_["parent_process_environment"] = lambda: {
+                "SOYEHT_AUTOMATION_DIR": "/Users/test/Library/Application Support/Soyeht/Automation",
+                "SOYEHT_CONVERSATION_ID": "33333333-3333-3333-3333-333333333333",
+                "SOYEHT_HANDLE": "@production-codex",
+            }
+            with patch.dict("os.environ", {}, clear=True):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                    "automationDir": "/Users/test/Library/Application Support/SoyehtDev/Automation",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+            globals_["parent_process_environment"] = original_parent_env
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["automation_dir"], "/Users/test/Library/Application Support/SoyehtDev/Automation")
+        self.assertNotIn("sourceConversationID", captured["payload"])
+        self.assertNotIn("sourceHandle", captured["payload"])
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_explicit_automation_dir_uses_matching_parent_source_environment(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        original_parent_env = globals_["parent_process_environment"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["automation_dir"] = automation_dir
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: None
+            globals_["parent_process_environment"] = lambda: {
+                "SOYEHT_AUTOMATION_DIR": "/Users/test/Library/Application Support/SoyehtDev/Automation",
+                "SOYEHT_CONVERSATION_ID": "44444444-4444-4444-4444-444444444444",
+                "SOYEHT_HANDLE": "@dev-codex",
+            }
+            with patch.dict("os.environ", {}, clear=True):
+                result = MODULE["tool_send_pane_input"]({
+                    "handles": ["@dst"],
+                    "text": "hello",
+                    "automationDir": "/Users/test/Library/Application Support/SoyehtDev/Automation",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+            globals_["parent_process_environment"] = original_parent_env
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["automation_dir"], "/Users/test/Library/Application Support/SoyehtDev/Automation")
+        self.assertEqual(captured["payload"]["sourceConversationID"], "44444444-4444-4444-4444-444444444444")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@dev-codex")
         self.assertNotIn("sourceTTY", captured["payload"])
 
     def test_explicit_source_overrides_source_environment(self):
