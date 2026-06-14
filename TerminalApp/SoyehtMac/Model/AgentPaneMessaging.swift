@@ -168,6 +168,23 @@ enum AgentPaneInputPlanner {
         }
     }
 
+    static func initialPromptDelayMilliseconds(
+        initialCommand: String?,
+        explicitDelayMs: Int?
+    ) -> Int {
+        if let explicitDelayMs {
+            return max(explicitDelayMs, 0)
+        }
+        let command = initialCommand?.lowercased() ?? ""
+        if command.contains("codex") {
+            return 40_000
+        }
+        if command.contains("claude") {
+            return 15_000
+        }
+        return 1_500
+    }
+
     private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
         let body = text
             .trimmingCharacters(in: .whitespacesAndNewlines)

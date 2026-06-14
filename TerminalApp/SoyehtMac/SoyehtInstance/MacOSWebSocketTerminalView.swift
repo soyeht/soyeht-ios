@@ -679,15 +679,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         sendInputData(Data(text.utf8))
     }
 
-    /// Sends broker-injected text, then submits it with a separate terminal
-    /// Return byte after the receiving program has had a run-loop turn to
-    /// ingest the text. Keeping CR out of the text payload avoids TUIs such as
-    /// Codex and Claude inserting it into their editor instead of submitting.
+    /// Sends broker-injected text and optionally submits it through SwiftTerm's
+    /// keyboard path. Agent TUIs such as Codex treat raw CR/CRLF as editor
+    /// input in some modes, while `insertNewline(_:)` follows the same path as
+    /// a real Return key.
     func brokerSend(text: String, submitWithEnter: Bool) {
         brokerSend(text: text)
         guard submitWithEnter else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(120)) { [weak self] in
-            self?.brokerSend(data: Data([0x0D]))
+        let isLongPrompt = text.count > 256 || text.contains("\n")
+        let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            if isLongPrompt {
+                self.brokerSend(data: Data([0x0D]))
+            } else {
+                self.brokerSendEnterKey()
+            }
         }
     }
 
@@ -700,6 +707,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Sends Enter through SwiftTerm's keyboard command path, letting active
     /// terminal modes such as Kitty keyboard enhancement decide the bytes.
     func brokerSendEnterKey() {
+        window?.makeFirstResponder(self)
         doCommand(by: #selector(insertNewline(_:)))
     }
 

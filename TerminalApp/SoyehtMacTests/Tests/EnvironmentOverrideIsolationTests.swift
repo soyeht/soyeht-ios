@@ -44,4 +44,33 @@ final class EnvironmentOverrideIsolationTests: XCTestCase {
             "file:///private/tmp/dev/workspaces.json"
         )
     }
+
+    func testDevProfileIgnoresInheritedReleaseSupportOverrides() throws {
+        let appSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: false
+        )
+        let releaseRoot = appSupport.appendingPathComponent("Soyeht", isDirectory: true)
+        let environment = [
+            "SOYEHT_AUTOMATION_DIR": releaseRoot
+                .appendingPathComponent("Automation", isDirectory: true)
+                .path,
+            "SOYEHT_WORKSPACE_STORE_URL": releaseRoot
+                .appendingPathComponent("workspaces.json")
+                .absoluteString,
+        ]
+
+        XCTAssertNil(AppSupportDirectory.developerEnvironmentOverride(
+            "SOYEHT_AUTOMATION_DIR",
+            environment: environment,
+            profile: .dev
+        ))
+        XCTAssertNil(AppSupportDirectory.developerEnvironmentOverride(
+            "SOYEHT_WORKSPACE_STORE_URL",
+            environment: environment,
+            profile: .dev
+        ))
+    }
 }
