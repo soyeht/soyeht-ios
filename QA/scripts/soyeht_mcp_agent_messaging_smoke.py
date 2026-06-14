@@ -77,9 +77,11 @@ def main() -> int:
         sleep(1)
 
         old_env = {
+            "SOYEHT_AUTOMATION_DIR": os.environ.get("SOYEHT_AUTOMATION_DIR"),
             "SOYEHT_CONVERSATION_ID": os.environ.get("SOYEHT_CONVERSATION_ID"),
             "SOYEHT_HANDLE": os.environ.get("SOYEHT_HANDLE"),
         }
+        os.environ["SOYEHT_AUTOMATION_DIR"] = automation_dir
         os.environ["SOYEHT_CONVERSATION_ID"] = source["conversationID"]
         os.environ["SOYEHT_HANDLE"] = source["handle"]
         try:
@@ -123,18 +125,32 @@ def main() -> int:
         require(sent_panes[0].get("sourceHandle") == source["handle"], "message_agent returned the wrong source handle.")
         evidence["sent"] = sent_panes[0]
 
-        sleep(1)
-        capture = mcp.tool_capture_pane_range({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "handles": [target["handle"]],
-            "fromEnd": True,
-            "lineCount": 80,
-        })
-        text = "\n".join(item.get("text", "") for item in capture.get("capturedPanes", []))
-        require(f"From: {source['handle']}" in text, "Captured target pane is missing From metadata.")
-        require("Reply via Soyeht MCP" in text, "Captured target pane is missing reply instructions.")
-        require(f"MCP_AGENT_DIRECTORY_SMOKE_{unique}" in text, "Captured target pane is missing request text.")
+        text = ""
+        capture_deadline = time() + args.timeout
+        while time() < capture_deadline:
+            capture = mcp.tool_capture_pane_range({
+                "automationDir": automation_dir,
+                "timeout": args.timeout,
+                "handles": [target["handle"]],
+                "fromEnd": True,
+                "lineCount": 80,
+            })
+            text = "\n".join(item.get("text", "") for item in capture.get("capturedPanes", []))
+            text = text.replace("\x00", "")
+            search_text = text.replace("\r", "").replace("\n", "")
+            if (
+                f"From: {source['handle']}" in search_text
+                and "Reply via Soyeht MCP" in search_text
+                and "send_pane_input or message_agent" in search_text
+                and f"MCP_AGENT_DIRECTORY_SMOKE_{unique}" in search_text
+            ):
+                break
+            sleep(0.5)
+        search_text = text.replace("\r", "").replace("\n", "")
+        require(f"From: {source['handle']}" in search_text, "Captured target pane is missing From metadata.")
+        require("Reply via Soyeht MCP" in search_text, "Captured target pane is missing reply channel instructions.")
+        require("send_pane_input or message_agent" in search_text, "Captured target pane is missing reply tool instructions.")
+        require(f"MCP_AGENT_DIRECTORY_SMOKE_{unique}" in search_text, "Captured target pane is missing request text.")
         evidence["captureMatched"] = True
 
         print(json.dumps({"status": "ok", "evidence": evidence}, indent=2))
