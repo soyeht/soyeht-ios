@@ -1159,17 +1159,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @MainActor
     func createLocalAgentPanes(
         _ specs: [LocalAgentPaneSpec],
+        workspaceID requestedWorkspaceID: Workspace.ID? = nil,
         batchSeedPaneIDs: [Conversation.ID] = []
     ) async throws -> [LocalAgentPaneResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
-        guard store.workspace(activeWorkspaceID) != nil else { return [] }
+        let workspaceID = requestedWorkspaceID ?? activeWorkspaceID
+        guard store.workspace(workspaceID, isInWindow: windowID) else {
+            throw LocalAgentWorkspaceError.noActiveWorkspace
+        }
 
-        activate(workspaceID: activeWorkspaceID)
+        activate(workspaceID: workspaceID)
         window?.makeKeyAndOrderFront(nil)
 
-        let workspaceID = activeWorkspaceID
         var results: [LocalAgentPaneResult] = []
         var attachJobs: [(Conversation.ID, LocalAgentPaneSpec)] = []
         var batchPaneIDs = batchSeedPaneIDs
@@ -1228,6 +1231,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         rootURL: URL?,
         line: Int?,
         column: Int?,
+        workspaceID: Workspace.ID? = nil,
         attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         let root = rootURL ?? fileURL?.deletingLastPathComponent()
@@ -1244,13 +1248,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             content: .editor(state),
             desiredHandle: name,
             workingDirectoryPath: root.path,
+            workspaceID: workspaceID,
             attachTerminalStack: attachTerminalStack
         )
     }
 
     @MainActor
-    func openExplorerPane(rootURL: URL) throws -> OpenedSpecialPaneResult {
-        try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil)
+    func openExplorerPane(rootURL: URL, workspaceID: Workspace.ID? = nil) throws -> OpenedSpecialPaneResult {
+        try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil, workspaceID: workspaceID)
     }
 
     /// `attachTerminalStack` mirrors `openEditorPane`. UI callers default
@@ -1263,6 +1268,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         selectedFilePath: String?,
         branch: String?,
         compareBase: String?,
+        workspaceID: Workspace.ID? = nil,
         attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         let repoRoot = (try? GitRepositoryService.resolveRepoRoot(from: repoURL))
@@ -1278,6 +1284,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             content: .git(state),
             desiredHandle: "git-\(repoRoot.lastPathComponent)",
             workingDirectoryPath: repoRoot.path,
+            workspaceID: workspaceID,
             attachTerminalStack: attachTerminalStack
         )
     }
@@ -1298,12 +1305,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         content: PaneContent,
         desiredHandle: String,
         workingDirectoryPath: String,
+        workspaceID requestedWorkspaceID: Workspace.ID? = nil,
         attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
-        guard store.workspace(activeWorkspaceID) != nil else {
+        let targetWorkspaceID = requestedWorkspaceID ?? activeWorkspaceID
+        guard store.workspace(targetWorkspaceID, isInWindow: windowID) else {
             throw LocalAgentWorkspaceError.noActiveWorkspace
         }
 
@@ -1335,10 +1344,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             )
         }
 
-        activate(workspaceID: activeWorkspaceID)
+        activate(workspaceID: targetWorkspaceID)
         window?.makeKeyAndOrderFront(nil)
 
-        let workspaceID = activeWorkspaceID
+        let workspaceID = targetWorkspaceID
         let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: true)
         let stored = convStore.add(Conversation(
             id: paneID,
