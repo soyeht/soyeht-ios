@@ -144,6 +144,15 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         XCTAssertTrue(debugBlock.contains("SoyehtFeatureFlags.setClawStoreEnabledOverride(true)"),
             "The debug launch argument must only set the test/E2E override."
         )
+        XCTAssertTrue(appDelegate.contains("@_spi(ClawStoreE2E) import SoyehtCore"),
+            "The E2E override setter must be imported through SPI, not normal public API."
+        )
+        XCTAssertTrue(featureFlags.contains("@_spi(ClawStoreE2E)"),
+            "The E2E override setter must remain SPI-only."
+        )
+        XCTAssertTrue(featureFlags.contains("_isDebugAssertConfiguration()"),
+            "The E2E override must have no effect in optimized Release builds."
+        )
         XCTAssertTrue(featureFlags.contains("private static let clawStoreDefault = false"),
             "The shipped Claw Store feature flag default must remain disabled."
         )

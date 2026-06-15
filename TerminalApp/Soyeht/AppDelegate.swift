@@ -8,7 +8,11 @@
 
 import UIKit
 import SwiftUI
+#if DEBUG
+@_spi(ClawStoreE2E) import SoyehtCore
+#else
 import SoyehtCore
+#endif
 import Security
 import os
 import UserNotifications
