@@ -55,6 +55,7 @@ struct SoyehtAutomationRequest: Decodable {
         let allowAutoPaneNames: Bool?
         let workspaceName: String?
         let workspaceBranch: String?
+        let workspaceID: String?
         let workspaceIDs: [String]?
         let workspaceNames: [String]?
         let workspaces: [SessionSpec]?

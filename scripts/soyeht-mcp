@@ -30,11 +30,15 @@ PANE_CAPTURE_MODE_CHOICES = ["all", "visible", "scrollback"]
 PANE_SCROLL_MODE_CHOICES = ["up", "down", "page_up", "page_down", "top", "bottom", "position", "row"]
 WINDOW_ID_PROPERTY = {
     "type": "string",
-    "description": "Stable Soyeht macOS windowID. Discover with list_windows. Defaults to the active/key Soyeht window.",
+    "description": "Stable Soyeht macOS windowID. Discover with list_windows. When omitted, Soyeht uses explicit pane/source context before falling back to the active/key window.",
 }
 TARGET_WINDOW_ID_PROPERTY = {
     "type": "string",
-    "description": "Stable Soyeht macOS windowID to run this operation in. Discover with list_windows. Defaults to the active/key Soyeht window.",
+    "description": "Stable Soyeht macOS windowID to run this operation in. Discover with list_windows. When omitted, Soyeht uses explicit pane/source context before falling back to the active/key window.",
+}
+WORKSPACE_ID_PROPERTY = {
+    "type": "string",
+    "description": "Stable Soyeht workspaceID. When omitted, Soyeht uses the caller/source pane workspace when available, otherwise the active workspace in the resolved window.",
 }
 DESTINATION_WINDOW_ID_PROPERTY = {
     "type": "string",
@@ -321,6 +325,10 @@ def with_window_target(payload, args):
     for key in ("windowID", "targetWindowID", "destinationWindowID"):
         if args.get(key):
             payload[key] = args.get(key)
+    if args.get("workspaceID"):
+        payload["workspaceID"] = args.get("workspaceID")
+    elif args.get("workspaceIDs") and "workspaceIDs" not in payload:
+        payload["workspaceIDs"] = args.get("workspaceIDs")
     return payload
 
 
@@ -888,12 +896,12 @@ def tool_open_editor(args):
         file_path = choose_file({**args, "directory": str(directory)})
         file_path = require_visible_file(str(file_path))
 
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "file": str(file_path),
         "root": str(directory),
         "line": args.get("line"),
         "column": args.get("column"),
-    }, args)
+    }, args), args)
     return submit_request(
         "open_editor",
         payload,
@@ -906,7 +914,7 @@ def tool_open_explorer(args):
     directory = require_visible_directory(
         args.get("root") or args.get("directory") or args.get("path") or args.get("cwd") or "."
     )
-    payload = with_window_target({"root": str(directory)}, args)
+    payload = with_source_context(with_window_target({"root": str(directory)}, args), args)
     return submit_request(
         "open_explorer",
         payload,
@@ -940,12 +948,12 @@ def tool_open_git(args):
     repo_arg = args.get("repo") or args.get("path") or args.get("root") or "."
     repo = require_visible_directory(repo_arg)
     selected = safe_optional_selected_file(args.get("selectedFile") or args.get("file"), cwd=repo)
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "repo": str(repo),
         "selectedFile": selected,
         "branch": args.get("branch"),
         "compareBase": args.get("compareBase"),
-    }, args)
+    }, args), args)
     return submit_request(
         "open_git",
         payload,
@@ -969,12 +977,12 @@ def tool_open_diff(args):
         repo = repo_root(require_visible_directory(repo_arg))
         selected_file = None
 
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "repo": str(repo),
         "selectedFile": selected_file,
         "branch": args.get("branch"),
         "compareBase": args.get("compareBase"),
-    }, args)
+    }, args), args)
     return submit_request(
         "open_diff",
         payload,
@@ -1166,11 +1174,11 @@ def tool_rename_panes(args):
     new_name = args.get("newName")
     if new_name is None or str(new_name).strip() == "":
         raise RuntimeError("rename_panes requires newName.")
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "newName": str(new_name),
-    }, args), args)
+    }, args), args), args)
     return submit_request(
         "rename_panes",
         payload,
@@ -1183,11 +1191,11 @@ def tool_rename_workspace(args):
     new_name = args.get("newName")
     if new_name is None or str(new_name).strip() == "":
         raise RuntimeError("rename_workspace requires newName.")
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "workspaceIDs": args.get("workspaceIDs") or [],
         "workspaceNames": args.get("workspaceNames") or [],
         "newName": str(new_name),
-    }, args), args)
+    }, args), args), args)
     return submit_request(
         "rename_workspace",
         payload,
@@ -1197,12 +1205,12 @@ def tool_rename_workspace(args):
 
 
 def tool_arrange_panes(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "layout": args.get("layout") or "stack",
         "ratio": args.get("ratio"),
-    }, args)
+    }, args), args)
     return submit_request(
         "arrange_panes",
         payload,
@@ -1212,13 +1220,13 @@ def tool_arrange_panes(args):
 
 
 def tool_emphasize_pane(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "mode": args.get("mode") or "spotlight",
         "ratio": normalize_fraction(args.get("ratio")),
         "position": args.get("position"),
-    }, args)
+    }, args), args)
     return submit_request(
         "emphasize_pane",
         payload,
@@ -1228,14 +1236,14 @@ def tool_emphasize_pane(args):
 
 
 def tool_resize_pane_exact(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "position": args.get("position") or "left",
         "fraction": normalize_fraction(first_present(args.get("fraction"), args.get("ratio"))),
         "widthFraction": normalize_fraction(args.get("widthFraction")),
         "heightFraction": normalize_fraction(args.get("heightFraction")),
-    }, args)
+    }, args), args)
     return submit_request(
         "resize_pane_exact",
         payload,
@@ -1248,11 +1256,11 @@ def tool_set_pane_zoom(args):
     mode = args.get("mode")
     if not mode:
         mode = "zoom" if args.get("zoom", True) else "unzoom"
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "mode": mode,
-    }, args)
+    }, args), args)
     return submit_request(
         "emphasize_pane",
         payload,
@@ -1262,13 +1270,13 @@ def tool_set_pane_zoom(args):
 
 
 def tool_set_pane_font_size(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "fontSize": args.get("fontSize"),
         "delta": args.get("delta"),
         "persist": bool(args.get("persist", False)),
-    }, args)
+    }, args), args)
     return submit_request(
         "set_pane_font_size",
         payload,
@@ -1278,14 +1286,14 @@ def tool_set_pane_font_size(args):
 
 
 def tool_scroll_pane(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "mode": args.get("mode") or args.get("direction"),
         "lines": args.get("lines"),
         "scrollPosition": normalize_fraction(first_present(args.get("scrollPosition"), args.get("position"))),
         "row": args.get("row"),
-    }, args)
+    }, args), args)
     return submit_request(
         "scroll_pane",
         payload,
@@ -1313,7 +1321,7 @@ def tool_list_workspaces(args):
 
 
 def tool_list_panes(args):
-    payload = with_window_target({}, args)
+    payload = with_source_context(with_window_target({}, args), args)
     if args.get("workspaceID"):
         payload["workspaceIDs"] = [args["workspaceID"]]
     return submit_request(
@@ -1351,7 +1359,7 @@ def tool_close_pane(args):
     handles = args.get("handles") or []
     if not cids and not handles:
         raise RuntimeError("close_pane requires conversationIDs or handles.")
-    payload = with_window_target({"conversationIDs": cids, "handles": handles}, args)
+    payload = with_source_context(with_window_target({"conversationIDs": cids, "handles": handles}, args), args)
     return submit_request(
         "close_pane",
         payload,
@@ -1365,7 +1373,7 @@ def tool_close_workspace(args):
     wnames = args.get("workspaceNames") or []
     if not wids and not wnames:
         raise RuntimeError("close_workspace requires workspaceIDs or workspaceNames.")
-    payload = with_window_target({"workspaceIDs": wids, "workspaceNames": wnames}, args)
+    payload = with_source_context(with_window_target({"workspaceIDs": wids, "workspaceNames": wnames}, args), args)
     return submit_request(
         "close_workspace",
         payload,
@@ -1383,12 +1391,12 @@ def tool_move_pane(args):
     dest_name = args.get("destinationWorkspaceName")
     if not dest_id and not dest_name:
         raise RuntimeError("move_pane requires destinationWorkspaceID or destinationWorkspaceName.")
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": cids,
         "handles": handles,
         "destinationWorkspaceID": dest_id,
         "destinationWorkspaceName": dest_name,
-    }, args)
+    }, args), args)
     return submit_request(
         "move_pane",
         payload,
@@ -1398,10 +1406,10 @@ def tool_move_pane(args):
 
 
 def tool_get_pane_status(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
-    }, args)
+    }, args), args)
     return submit_request(
         "get_pane_status",
         payload,
@@ -1411,12 +1419,12 @@ def tool_get_pane_status(args):
 
 
 def tool_capture_pane(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "captureMode": args.get("mode") or args.get("captureMode") or "all",
         "maxLines": args.get("maxLines", 200),
-    }, args)
+    }, args), args)
     return submit_request(
         "capture_pane",
         payload,
@@ -1426,14 +1434,14 @@ def tool_capture_pane(args):
 
 
 def tool_capture_pane_range(args):
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "captureMode": args.get("mode") or args.get("captureMode") or "all",
         "startLine": args.get("startLine"),
         "lineCount": first_present(args.get("lineCount"), args.get("lines")),
         "fromEnd": bool(args.get("fromEnd", False)),
-    }, args)
+    }, args), args)
     return submit_request(
         "capture_pane_range",
         payload,
@@ -1445,7 +1453,7 @@ def tool_capture_pane_range(args):
 def tool_get_active_context(args):
     return submit_request(
         "get_active_context",
-        with_window_target({}, args),
+        with_source_context(with_window_target({}, args), args),
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 5.0),
     )
@@ -1454,7 +1462,7 @@ def tool_get_active_context(args):
 TOOLS = [
     {
         "name": "open_panes",
-        "description": "Open new Soyeht panes/tabs in the active workspace using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
+        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1488,6 +1496,7 @@ TOOLS = [
                     "description": "Pane/tab names default to short hyphen names, e.g. 'Bug Login' becomes @bug-login. Use verbatim when the user asks for an exact name.",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
@@ -1496,7 +1505,7 @@ TOOLS = [
     },
     {
         "name": "open_shell",
-        "description": "Open a new Soyeht shell pane/tab in the active workspace. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only when simulating a user typing literal input.",
+        "description": "Open a new Soyeht shell pane/tab in the caller/source workspace when available, otherwise the active workspace in the resolved window. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only when simulating a user typing literal input.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1531,6 +1540,7 @@ TOOLS = [
                     "description": "Pane/tab names default to short hyphen names.",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1595,6 +1605,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Pane/tab names default to short hyphen names.",
                 },
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1615,6 +1626,7 @@ TOOLS = [
                 "patterns": {"type": "array", "items": {"type": "string"}, "default": DEFAULT_FILE_PATTERNS},
                 "maxDepth": {"type": "integer", "default": 4},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1631,6 +1643,7 @@ TOOLS = [
                 "directory": {"type": "string", "description": "Alias for path."},
                 "cwd": {"type": "string", "description": "Alias for path."},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1650,6 +1663,7 @@ TOOLS = [
                 "branch": {"type": "string"},
                 "compareBase": {"type": "string"},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1669,6 +1683,7 @@ TOOLS = [
                 "branch": {"type": "string"},
                 "compareBase": {"type": "string"},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
@@ -1680,7 +1695,7 @@ TOOLS = [
             "Create one or more git worktrees and open each as a new Soyeht tab/pane. "
             "All panes run the same single agent (default: codex). "
             "To open different agents per pane (e.g. claude + opencode + codex), use agent_race_panes instead. "
-            "By default panes are added to the active workspace. "
+            "By default panes are added to the caller/source workspace when available, otherwise the active workspace in the resolved window. "
             "Set newWorkspace=true to open them in a brand-new workspace instead. "
             "Pass prompt to send an initial message to each agent — Enter is pressed automatically so the agent starts immediately."
         ),
@@ -1726,6 +1741,7 @@ TOOLS = [
                     "description": "Pane/tab names default to short hyphen names, e.g. 'Fix Login Bug' becomes @fix-login.",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
@@ -1795,8 +1811,8 @@ TOOLS = [
             "Use this whenever the user asks to start multiple AI agents side by side, "
             "'create 3 worktrees with different agents', or 'open claude + opencode + codex'. "
             "Pass prompt to send an initial message to every agent — Enter is pressed automatically so they start working immediately. "
-            "By default panes are added to the active workspace. "
-            "Set newWorkspace=true to open all agent panes in a brand-new workspace instead of the current one."
+            "By default panes are added to the caller/source workspace when available, otherwise the active workspace in the resolved window. "
+            "Set newWorkspace=true to open all agent panes in a brand-new workspace instead."
         ),
         "inputSchema": {
             "type": "object",
@@ -1840,6 +1856,7 @@ TOOLS = [
                     "description": "Pane/tab names default to short hyphen names.",
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
@@ -2004,7 +2021,7 @@ TOOLS = [
                 "conversationIDs": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Target pane conversation ID. Uses the first target. Omit to use the active pane.",
+                    "description": "Target pane conversation ID. Uses the first target. Omit to use the caller/source pane when available, otherwise the active pane.",
                 },
                 "handles": {
                     "type": "array",
@@ -2036,14 +2053,14 @@ TOOLS = [
     },
     {
         "name": "resize_pane_exact",
-        "description": "Place one Soyeht pane at an exact share of the workspace on the left, right, top, or bottom. Use fraction=0.5 for 50% of the workspace. Omit targets to resize the active pane.",
+        "description": "Place one Soyeht pane at an exact share of the workspace on the left, right, top, or bottom. Use fraction=0.5 for 50% of the workspace. Omit targets to resize the caller/source pane when available, otherwise the active pane.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "conversationIDs": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Target pane conversation ID. Uses the first target. Omit with handles to use the active pane.",
+                    "description": "Target pane conversation ID. Uses the first target. Omit with handles to use the caller/source pane when available, otherwise the active pane.",
                 },
                 "handles": {
                     "type": "array",
@@ -2077,7 +2094,7 @@ TOOLS = [
     },
     {
         "name": "set_pane_zoom",
-        "description": "Zoom one Soyeht pane so only that pane is visible, or unzoom to restore the split layout. Omit targets to use the active pane.",
+        "description": "Zoom one Soyeht pane so only that pane is visible, or unzoom to restore the split layout. Omit targets to use the caller/source pane when available, otherwise the active pane.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2101,7 +2118,7 @@ TOOLS = [
     },
     {
         "name": "set_pane_font_size",
-        "description": "Set or adjust the font size of live Soyeht terminal panes. Omit targets to use the active pane.",
+        "description": "Set or adjust the font size of live Soyeht terminal panes. Omit targets to use the caller/source pane when available, otherwise the active pane.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2128,7 +2145,7 @@ TOOLS = [
     },
     {
         "name": "scroll_pane",
-        "description": "Scroll live Soyeht terminal panes without mouse or screen automation. Omit targets to use the active pane.",
+        "description": "Scroll live Soyeht terminal panes without mouse or screen automation. Omit targets to use the caller/source pane when available, otherwise the active pane.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2184,7 +2201,7 @@ TOOLS = [
     },
     {
         "name": "list_panes",
-        "description": "List Soyeht panes with conversationIDs, handles, paths, declaredAgent (pane launch metadata, not runtime process identity), and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. Do not use declaredAgent to decide whether a pane can respond as an AI agent. The result also carries an activeContext block identifying the user's currently-focused workspace and pane. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
+        "description": "List Soyeht panes with conversationIDs, handles, paths, declaredAgent (pane launch metadata, not runtime process identity), and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. Do not use declaredAgent to decide whether a pane can respond as an AI agent. The result also carries an activeContext block for the resolved target window/workspace; when called from a Soyeht pane, that is the caller/source workspace unless targetWindowID points elsewhere. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2247,12 +2264,13 @@ TOOLS = [
     },
     {
         "name": "get_active_context",
-        "description": "Return the user's currently-focused Soyeht context: activeContext = { workspaceID, workspaceName, paneID, paneHandle }. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the active workspace explicitly. Note: open_panes/open_shell already default to the active workspace, but this tool lets you confirm what the user is looking at.",
+        "description": "Return the resolved Soyeht context: activeContext = { windowID, workspaceID, workspaceName, paneID, paneHandle }. When called from a Soyeht pane this resolves to the caller/source workspace unless targetWindowID points elsewhere; otherwise it falls back to the user's active window/workspace. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the workspace explicitly.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "windowID": WINDOW_ID_PROPERTY,
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 5.0},
             },
@@ -2366,7 +2384,7 @@ TOOLS = [
         "description": (
             "Read text directly from a live Soyeht terminal pane without using screen recording, "
             "Accessibility, screenshots, or clipboard automation. Omit conversationIDs and handles "
-            "to capture the active pane in the active Soyeht window."
+            "to capture the caller/source pane when available, otherwise the active pane in the resolved window."
         ),
         "inputSchema": {
             "type": "object",
@@ -2374,12 +2392,12 @@ TOOLS = [
                 "conversationIDs": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "UUIDs of panes to capture. Omit with handles to capture the active pane.",
+                    "description": "UUIDs of panes to capture. Omit with handles to capture the caller/source pane when available, otherwise the active pane.",
                 },
                 "handles": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the active pane.",
+                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the caller/source pane when available, otherwise the active pane.",
                 },
                 "mode": {
                     "type": "string",
@@ -2402,7 +2420,7 @@ TOOLS = [
         "name": "capture_pane_range",
         "description": (
             "Read a specific line range from a live Soyeht terminal pane without using screen recording, "
-            "Accessibility, screenshots, or clipboard automation. Omit targets to capture the active pane."
+            "Accessibility, screenshots, or clipboard automation. Omit targets to capture the caller/source pane when available, otherwise the active pane."
         ),
         "inputSchema": {
             "type": "object",
@@ -2410,12 +2428,12 @@ TOOLS = [
                 "conversationIDs": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "UUIDs of panes to capture. Omit with handles to capture the active pane.",
+                    "description": "UUIDs of panes to capture. Omit with handles to capture the caller/source pane when available, otherwise the active pane.",
                 },
                 "handles": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the active pane.",
+                    "description": "Handles of panes to capture, e.g. ['@codex']. Omit with conversationIDs to capture the caller/source pane when available, otherwise the active pane.",
                 },
                 "mode": {
                     "type": "string",
