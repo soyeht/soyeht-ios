@@ -36,7 +36,7 @@ final class PairedMacRegistry: ObservableObject {
     init(
         store: PairedMacsStore? = nil,
         tailnetAddressProvider: @escaping () -> String? = { TailnetAddressResolver.currentTailnetIPv4() },
-        localNetworkProvider: @escaping () -> Bool = { LocalNetworkInterfaceResolver.hasActiveWiFiIPv4() },
+        localNetworkProvider: @escaping () -> Bool = { DeviceNetworkState.hasActiveWiFiIPv4() },
         clientFactory: ClientFactory? = nil
     ) {
         self.store = store ?? .shared
@@ -115,7 +115,11 @@ final class PairedMacRegistry: ObservableObject {
         // `lastHost` stored during Fase 1 includes "host:port". Strip any port
         // suffix so the base host (IPv4 / Tailscale / DNS name) is reused.
         let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
-        let labelCandidates = Self.hostLabelCandidates(for: mac, bareHost: bareHost)
+        let labelCandidates = ServerEndpointResolver.hostLabelCandidates(from: [
+            mac.name,
+            mac.displayName,
+            bareHost
+        ])
         let magicDNSCandidates = labelCandidates
         let localCandidates = labelCandidates.map { "\($0).local" }
         let resolved = ServerEndpointResolver.resolve(
@@ -139,48 +143,9 @@ final class PairedMacRegistry: ObservableObject {
             hostCandidates: resolved.orderedHosts
         )
     }
-
-    private static func hostLabelCandidates(for mac: PairedMac, bareHost: String) -> [String] {
-        let rawCandidates = [mac.name, mac.displayName, bareHost]
-        var seen = Set<String>()
-        var labels: [String] = []
-        for raw in rawCandidates {
-            guard let label = normalizedHostLabel(from: raw),
-                  seen.insert(label).inserted else { continue }
-            labels.append(label)
-        }
-        return labels
-    }
-
-    private static func normalizedHostLabel(from raw: String) -> String? {
-        let host = MacLocalWebSocketEndpoint.bareHost(from: raw)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard !host.isEmpty, !isIPAddressLiteral(host) else { return nil }
-
-        let firstLabel = host.split(separator: ".").first.map(String.init) ?? host
-        let normalized = firstLabel.lowercased().filter { character in
-            character.isASCII
-                && (character.isLetter || character.isNumber || character == "-")
-        }
-        return normalized.isEmpty ? nil : normalized
-    }
-
-    private static func isIPAddressLiteral(_ host: String) -> Bool {
-        if host.contains(":") {
-            return true
-        }
-        let octets = host.split(separator: ".", omittingEmptySubsequences: false)
-        guard octets.count == 4 else { return false }
-        return octets.allSatisfy { part in
-            guard let value = Int(part) else { return false }
-            return (0...255).contains(value)
-        }
-    }
-
 }
 
-private enum LocalNetworkInterfaceResolver {
+enum DeviceNetworkState {
     static func hasActiveWiFiIPv4() -> Bool {
         var ifaddrPointer: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddrPointer) == 0, let first = ifaddrPointer else {

@@ -105,7 +105,9 @@ enum ClawInstallTargetResolver {
     static func resolve(
         _ target: ClawInstallTarget,
         registry: ServerRegistry? = nil,
-        sessionStore: SessionStore? = nil
+        sessionStore: SessionStore? = nil,
+        localNetworkActive: Bool? = nil,
+        tailnetActive: Bool? = nil
     ) -> Resolution {
         let registry = registry ?? ServerRegistry.shared
         let sessionStore = sessionStore ?? SessionStore.shared
@@ -119,20 +121,54 @@ enum ClawInstallTargetResolver {
         // household Claw routes on their own bootstrap listener, so use
         // the selected Mac's endpoint instead of the aggregate
         // `ActiveHouseholdState.endpoint`.
-        if server.kind == .mac, let endpoint = Self.householdEndpoint(for: server) {
+        if server.kind == .mac,
+           let endpoint = Self.householdEndpoint(
+                for: server,
+                localNetworkActive: localNetworkActive,
+                tailnetActive: tailnetActive
+           ) {
             return .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
         }
         return .unavailable(.missingContext)
     }
 
-    static func householdEndpoint(for server: Server) -> URL? {
+    static func householdEndpoint(
+        for server: Server,
+        localNetworkActive: Bool? = nil,
+        tailnetActive: Bool? = nil
+    ) -> URL? {
         if let endpoint = server.bootstrapEndpoint {
-            return endpoint.normalizedHouseholdEndpoint
+            return endpoint.normalizedHouseholdEndpoint()
         }
-        if let host = server.lastHost, let endpoint = URL.householdEndpoint(fromHost: host) {
-            return endpoint
+
+        let rawHost = server.lastHost ?? server.hostname
+        if let explicit = URL.explicitHouseholdEndpoint(fromHost: rawHost) {
+            return explicit
         }
-        return URL.householdEndpoint(fromHost: server.hostname)
+        guard let hostParts = URL.householdHostParts(fromHost: rawHost) else {
+            return nil
+        }
+        if hostParts.port != nil {
+            return URL.householdEndpoint(fromHost: rawHost)
+        }
+
+        let labelCandidates = ServerEndpointResolver.hostLabelCandidates(from: [
+            server.hostname,
+            server.displayName,
+            hostParts.host
+        ])
+        let resolved = ServerEndpointResolver.resolve(
+            bareHost: hostParts.host,
+            localLabels: labelCandidates.map { "\($0).local" },
+            magicDNSLabels: labelCandidates,
+            localNetworkActive: localNetworkActive ?? DeviceNetworkState.hasActiveWiFiIPv4(),
+            tailnetActive: tailnetActive ?? (TailnetAddressResolver.currentTailnetIPv4() != nil),
+            bootstrapPort: hostParts.port ?? ServerEndpointResolver.defaultBootstrapPort
+        )
+        let host = resolved.orderedHosts.first ?? hostParts.host
+        // Install currently dials one household endpoint; unlike presence it
+        // does not retry the rest of `orderedHosts`.
+        return URL.householdEndpoint(fromHost: host, defaultPort: resolved.bootstrapPort)
     }
 
     /// Builds the deploy choices for Claw Setup without leaking wire
@@ -215,7 +251,7 @@ extension ClawInstallTargetResolver.Resolution {
 }
 
 private extension URL {
-    var normalizedHouseholdEndpoint: URL {
+    func normalizedHouseholdEndpoint(defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort) -> URL {
         var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
         components?.path = ""
         components?.query = nil
@@ -224,12 +260,15 @@ private extension URL {
             components?.scheme = "http"
         }
         if components?.port == nil {
-            components?.port = 8091
+            components?.port = defaultPort
         }
         return components?.url ?? self
     }
 
-    static func householdEndpoint(fromHost rawHost: String) -> URL? {
+    static func explicitHouseholdEndpoint(
+        fromHost rawHost: String,
+        defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort
+    ) -> URL? {
         let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -237,9 +276,14 @@ private extension URL {
            let scheme = url.scheme?.lowercased(),
            (scheme == "http" || scheme == "https"),
            url.host != nil {
-            return url.normalizedHouseholdEndpoint
+            return url.normalizedHouseholdEndpoint(defaultPort: defaultPort)
         }
+        return nil
+    }
 
+    static func householdHostParts(fromHost rawHost: String) -> (host: String, port: Int?)? {
+        let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
         var host = trimmed
         var port: Int? = nil
         if !trimmed.hasPrefix("["),
@@ -251,11 +295,22 @@ private extension URL {
                 port = parsed
             }
         }
+        host = host
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        guard !host.isEmpty else { return nil }
+        return (host, port)
+    }
 
+    static func householdEndpoint(
+        fromHost rawHost: String,
+        defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort
+    ) -> URL? {
+        guard let parts = householdHostParts(fromHost: rawHost) else { return nil }
         var components = URLComponents()
         components.scheme = "http"
-        components.host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        components.port = port ?? 8091
+        components.host = parts.host
+        components.port = parts.port ?? defaultPort
         return components.url
     }
 }
