@@ -2,10 +2,18 @@ import Foundation
 
 public enum SoyehtFeatureFlags {
     private static let clawStoreDefault = false
+    private static let clawStoreDevBundleIdentifier = "com.soyeht.app.dev"
+    private static let clawStoreE2ELaunchArgument = "-SoyehtClawStoreE2E"
     private static let clawStoreOverrideLock = NSLock()
     private nonisolated(unsafe) static var clawStoreEnabledOverride: Bool?
 
     public static var clawStoreEnabled: Bool {
+        if isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: Bundle.main.bundleIdentifier,
+            arguments: ProcessInfo.processInfo.arguments
+        ) {
+            return true
+        }
         guard debugAssertionsEnabled() else {
             return clawStoreDefault
         }
@@ -22,6 +30,15 @@ public enum SoyehtFeatureFlags {
         clawStoreOverrideLock.lock()
         defer { clawStoreOverrideLock.unlock() }
         clawStoreEnabledOverride = enabled
+    }
+
+    @_spi(ClawStoreE2E)
+    public static func isClawStoreE2ELaunchArgumentEnabled(
+        bundleIdentifier: String?,
+        arguments: [String]
+    ) -> Bool {
+        bundleIdentifier == clawStoreDevBundleIdentifier
+            && arguments.contains(clawStoreE2ELaunchArgument)
     }
 
     public static let onboardingCarouselEnabled = false

@@ -26,4 +26,19 @@ struct SoyehtFeatureFlagsTests {
         SoyehtFeatureFlags.setClawStoreEnabledOverride(false)
         #expect(SoyehtFeatureFlags.clawStoreEnabled == false)
     }
+
+    @Test func e2eLaunchArgumentOnlyEnablesDevBundle() {
+        #expect(SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app",
+            arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht"]
+        ))
+    }
 }
