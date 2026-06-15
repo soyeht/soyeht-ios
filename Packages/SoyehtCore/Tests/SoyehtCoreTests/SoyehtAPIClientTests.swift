@@ -2,6 +2,41 @@ import Testing
 import Foundation
 @testable import SoyehtCore
 
+@Suite struct SoyehtInstanceOnlineTests {
+    @Test("Missing status fails closed")
+    func missingStatusIsOffline() {
+        #expect(!makeInstance(status: nil).isOnline)
+    }
+
+    @Test("Active and running statuses are online")
+    func activeAndRunningAreOnline() {
+        #expect(makeInstance(status: "active").isOnline)
+        #expect(makeInstance(status: "running").isOnline)
+    }
+
+    @Test("Inactive statuses are offline")
+    func inactiveStatusesAreOffline() {
+        #expect(!makeInstance(status: "stopped").isOnline)
+        #expect(!makeInstance(status: "provisioning").isOnline)
+    }
+
+    private func makeInstance(status: String?) -> SoyehtInstance {
+        SoyehtInstance(
+            id: "instance-id",
+            name: "Instance",
+            container: "container",
+            clawType: nil,
+            fqdn: nil,
+            status: status,
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
+    }
+}
+
 /// Pinning tests for `SoyehtAPIClient.isLocalHost`. The classifier drives
 /// the http/https and ws/wss decision app-wide — a false positive here
 /// silently downgrades remote traffic to plaintext. These cases lock in

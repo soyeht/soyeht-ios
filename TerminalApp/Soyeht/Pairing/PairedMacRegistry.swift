@@ -118,34 +118,25 @@ final class PairedMacRegistry: ObservableObject {
         let labelCandidates = Self.hostLabelCandidates(for: mac, bareHost: bareHost)
         let magicDNSCandidates = labelCandidates
         let localCandidates = labelCandidates.map { "\($0).local" }
-        let tailnetIsActive = tailnetAddressProvider() != nil
-        let localNetworkIsActive = localNetworkProvider()
-
-        var hostCandidates: [String] = []
-        if localNetworkIsActive {
-            if Self.isLocalNetworkHost(bareHost) {
-                hostCandidates.append(bareHost)
-                hostCandidates.append(contentsOf: localCandidates)
-            } else {
-                hostCandidates.append(contentsOf: localCandidates)
-                hostCandidates.append(bareHost)
-            }
-            hostCandidates.append(contentsOf: magicDNSCandidates)
-        } else if tailnetIsActive {
-            hostCandidates.append(contentsOf: magicDNSCandidates)
-            hostCandidates.append(bareHost)
-            hostCandidates.append(contentsOf: localCandidates)
-        } else {
-            hostCandidates.append(bareHost)
-            hostCandidates.append(contentsOf: localCandidates)
-            hostCandidates.append(contentsOf: magicDNSCandidates)
+        let resolved = ServerEndpointResolver.resolve(
+            bareHost: bareHost,
+            localLabels: localCandidates,
+            magicDNSLabels: magicDNSCandidates,
+            localNetworkActive: localNetworkProvider(),
+            tailnetActive: tailnetAddressProvider() != nil,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+        guard let resolvedPresencePort = resolved.presencePort,
+              let resolvedAttachPort = resolved.attachPort else {
+            return nil
         }
 
         return MacPresenceClient.Endpoint(
-            host: hostCandidates.first ?? bareHost,
-            presencePort: presencePort,
-            attachPort: attachPort,
-            hostCandidates: hostCandidates
+            host: resolved.orderedHosts.first ?? bareHost,
+            presencePort: resolvedPresencePort,
+            attachPort: resolvedAttachPort,
+            hostCandidates: resolved.orderedHosts
         )
     }
 
@@ -187,37 +178,6 @@ final class PairedMacRegistry: ObservableObject {
         }
     }
 
-    private static func isLocalNetworkHost(_ host: String) -> Bool {
-        let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        if bareHost.hasSuffix(".local") {
-            return true
-        }
-        guard let octets = ipv4Octets(from: bareHost) else {
-            return false
-        }
-        let b0 = octets[0]
-        let b1 = octets[1]
-        if b0 == 10 { return true }
-        if b0 == 127 { return true }
-        if b0 == 192 && b1 == 168 { return true }
-        if b0 == 172 && (16...31).contains(b1) { return true }
-        if b0 == 169 && b1 == 254 { return true }
-        return false
-    }
-
-    private static func ipv4Octets(from host: String) -> [UInt8]? {
-        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 4 else { return nil }
-        var octets: [UInt8] = []
-        octets.reserveCapacity(4)
-        for part in parts {
-            guard let value = UInt8(part) else { return nil }
-            octets.append(value)
-        }
-        return octets
-    }
 }
 
 private enum LocalNetworkInterfaceResolver {
