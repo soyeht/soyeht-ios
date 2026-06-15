@@ -50,8 +50,8 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_pairedServer_toServer_engineBecomesMac() {
         let legacy = PairedServer(
             id: "srv-mac-1",
-            host: "mac.local",
-            name: "macStudio",
+            host: "mac-alpha.test",
+            name: "machine-alpha",
             role: nil,
             pairedAt: Date(timeIntervalSince1970: 1_000_000),
             expiresAt: nil,
@@ -61,8 +61,9 @@ final class ServerStoreMigrationTests: XCTestCase {
         let s = legacy.toServer()
         XCTAssertEqual(s.id, "srv-mac-1")
         XCTAssertEqual(s.kind, .mac)
-        XCTAssertEqual(s.hostname, "macStudio")
-        XCTAssertEqual(s.lastHost, "mac.local")
+        XCTAssertEqual(s.hostname, "machine-alpha")
+        XCTAssertEqual(s.lastHost, "mac-alpha.test")
+        XCTAssertNil(s.engineMachineId)
         XCTAssertNil(s.alias)
         XCTAssertEqual(s.theyOS.status, .unknown)
     }
@@ -70,8 +71,8 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_pairedServer_toServer_adminHostBecomesLinux() {
         let legacy = PairedServer(
             id: "srv-linux-1",
-            host: "linux.tailnet.ts.net",
-            name: "bignix",
+            host: "linux-alpha.test",
+            name: "linux-alpha",
             role: "admin",
             pairedAt: Date(timeIntervalSince1970: 2_000_000),
             expiresAt: "2026-12-31T00:00:00Z",
@@ -81,8 +82,9 @@ final class ServerStoreMigrationTests: XCTestCase {
         let s = legacy.toServer()
         XCTAssertEqual(s.id, "srv-linux-1")
         XCTAssertEqual(s.kind, .linux)
-        XCTAssertEqual(s.hostname, "bignix")
-        XCTAssertEqual(s.lastHost, "linux.tailnet.ts.net")
+        XCTAssertEqual(s.hostname, "linux-alpha")
+        XCTAssertEqual(s.lastHost, "linux-alpha.test")
+        XCTAssertNil(s.engineMachineId)
         XCTAssertEqual(s.role, "admin")
         XCTAssertEqual(s.sessionExpiresAt, "2026-12-31T00:00:00Z")
     }
@@ -90,7 +92,7 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_pairedServer_toServer_linuxPlatformWinsOverLegacyEngineKind() {
         let legacy = PairedServer(
             id: "srv-linux-legacy-mobile-1",
-            host: "nixos.tailnet.ts.net",
+            host: "linux-alpha.test",
             name: "Linux",
             role: nil,
             pairedAt: Date(timeIntervalSince1970: 2_100_000),
@@ -103,28 +105,29 @@ final class ServerStoreMigrationTests: XCTestCase {
 
         XCTAssertEqual(s.kind, .linux)
         XCTAssertEqual(s.hostname, "Linux")
-        XCTAssertEqual(s.lastHost, "nixos.tailnet.ts.net")
+        XCTAssertEqual(s.lastHost, "linux-alpha.test")
+        XCTAssertNil(s.engineMachineId)
     }
 
     // MARK: - displayName / needsAlias
 
     func test_displayName_prefersAliasOverHostname() {
-        var s = makeServer(id: "s1", hostname: "macStudio")
-        s.alias = "Caio's Studio"
-        XCTAssertEqual(s.displayName, "Caio's Studio")
+        var s = makeServer(id: "s1", hostname: "machine-alpha")
+        s.alias = "Alpha Mac"
+        XCTAssertEqual(s.displayName, "Alpha Mac")
         XCTAssertFalse(s.needsAlias)
     }
 
     func test_displayName_fallsBackToHostnameWhenAliasNil() {
-        let s = makeServer(id: "s1", hostname: "macStudio")
-        XCTAssertEqual(s.displayName, "macStudio")
+        let s = makeServer(id: "s1", hostname: "machine-alpha")
+        XCTAssertEqual(s.displayName, "machine-alpha")
         XCTAssertTrue(s.needsAlias)
     }
 
     func test_displayName_treatsWhitespaceAliasAsEmpty() {
-        var s = makeServer(id: "s1", hostname: "macStudio")
+        var s = makeServer(id: "s1", hostname: "machine-alpha")
         s.alias = "   "
-        XCTAssertEqual(s.displayName, "macStudio")
+        XCTAssertEqual(s.displayName, "machine-alpha")
         XCTAssertTrue(s.needsAlias)
     }
 
@@ -133,7 +136,7 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_store_upsert_thenLoad_roundTrips() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let s = makeServer(id: "s1", hostname: "macStudio")
+        let s = makeServer(id: "s1", hostname: "machine-alpha")
         store.upsert(s)
         XCTAssertEqual(store.load().count, 1)
         XCTAssertEqual(store.load().first?.id, "s1")
@@ -142,7 +145,7 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_store_upsert_replacesExistingById() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let original = makeServer(id: "s1", hostname: "macStudio")
+        let original = makeServer(id: "s1", hostname: "machine-alpha")
         store.upsert(original)
         var updated = original
         updated.alias = "Renamed"
@@ -155,8 +158,8 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_store_remove_dropsById() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        store.upsert(makeServer(id: "s1", hostname: "macStudio"))
-        store.upsert(makeServer(id: "s2", hostname: "bignix"))
+        store.upsert(makeServer(id: "s1", hostname: "machine-alpha"))
+        store.upsert(makeServer(id: "s2", hostname: "linux-alpha"))
         store.remove(id: "s1")
         let loaded = store.load()
         XCTAssertEqual(loaded.count, 1)
@@ -169,8 +172,8 @@ final class ServerStoreMigrationTests: XCTestCase {
         let (store, teardown) = makeStore()
         defer { teardown() }
         let seed = [
-            makeServer(id: "s1", hostname: "macStudio"),
-            makeServer(id: "s2", hostname: "bignix", kind: .linux),
+            makeServer(id: "s1", hostname: "machine-alpha"),
+            makeServer(id: "s2", hostname: "linux-alpha", kind: .linux),
         ]
         store.migrateLegacyIfNeeded(seed: seed)
         XCTAssertEqual(store.load().count, 2)
@@ -188,23 +191,23 @@ final class ServerStoreMigrationTests: XCTestCase {
         // is older, so existing alias wins.
         var fresh = makeServer(
             id: "s1",
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 9_000_000)
         )
-        fresh.alias = "Caio's Studio"
+        fresh.alias = "Alpha Mac"
         store.upsert(fresh)
         store.resetMigrationSentinelForTesting()
 
         let legacy = makeServer(
             id: "s1",
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 1_000_000)
         )
         store.migrateLegacyIfNeeded(seed: [legacy])
 
         let loaded = store.load()
         XCTAssertEqual(loaded.count, 1)
-        XCTAssertEqual(loaded.first?.alias, "Caio's Studio",
+        XCTAssertEqual(loaded.first?.alias, "Alpha Mac",
                        "newer lastSeenAt (with alias) must survive a stale legacy seed")
     }
 
@@ -224,6 +227,7 @@ final class ServerStoreMigrationTests: XCTestCase {
         kind: Server.Kind = .mac,
         lastSeenAt: Date = Date(timeIntervalSince1970: 1_000_000),
         lastHost: String? = nil,
+        engineMachineId: String? = nil,
         alias: String? = nil,
         presencePort: Int? = nil,
         attachPort: Int? = nil
@@ -236,6 +240,7 @@ final class ServerStoreMigrationTests: XCTestCase {
             alias: alias,
             hostname: hostname,
             lastHost: lastHost,
+            engineMachineId: engineMachineId,
             presencePort: presencePort,
             attachPort: attachPort
         )
@@ -256,17 +261,17 @@ final class ServerStoreMigrationTests: XCTestCase {
         let serverID = "srv-1234"
         let macFromPairedMacsStore = makeServer(
             id: macUUID,
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
-            lastHost: "mac.local",
+            lastHost: "mac-alpha.test",
             presencePort: 7000
         )
         let macFromSessionStore = makeServer(
             id: serverID,
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
-            lastHost: "mac.local",
-            alias: "Caio's Studio"
+            lastHost: "mac-alpha.test",
+            alias: "Alpha Mac"
         )
         store.migrateLegacyIfNeeded(seed: [macFromPairedMacsStore, macFromSessionStore])
 
@@ -274,7 +279,7 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(loaded.count, 1, "host collision must collapse to one server")
         let only = try? XCTUnwrap(loaded.first)
         XCTAssertEqual(only?.id, macUUID, "UUID id must win even when the other entry is newer")
-        XCTAssertEqual(only?.alias, "Caio's Studio", "newer alias survives the merge")
+        XCTAssertEqual(only?.alias, "Alpha Mac", "newer alias survives the merge")
         XCTAssertEqual(only?.presencePort, 7000, "non-nil field from older entry merges in")
     }
 
@@ -286,15 +291,15 @@ final class ServerStoreMigrationTests: XCTestCase {
         defer { teardown() }
         let older = makeServer(
             id: "srv-old",
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
-            lastHost: "mac.local"
+            lastHost: "mac-alpha.test"
         )
         let newer = makeServer(
             id: "srv-new",
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
-            lastHost: "mac.local"
+            lastHost: "mac-alpha.test"
         )
         store.migrateLegacyIfNeeded(seed: [older, newer])
         let loaded = store.load()
@@ -311,13 +316,13 @@ final class ServerStoreMigrationTests: XCTestCase {
         let macUUID = "BBBBBBBB-0000-0000-0000-000000000001"
         let a = makeServer(
             id: macUUID,
-            hostname: "macStudio",
-            lastHost: "Mac.Local"
+            hostname: "machine-alpha",
+            lastHost: "Mac-Alpha.Test"
         )
         let b = makeServer(
             id: "srv-other",
-            hostname: "macStudio",
-            lastHost: "mac.local"
+            hostname: "machine-alpha",
+            lastHost: "mac-alpha.test"
         )
         store.migrateLegacyIfNeeded(seed: [a, b])
         XCTAssertEqual(store.load().count, 1)
@@ -332,14 +337,14 @@ final class ServerStoreMigrationTests: XCTestCase {
         defer { teardown() }
         let mac = makeServer(
             id: "CCCCCCCC-0000-0000-0000-000000000001",
-            hostname: "macStudio",
-            lastHost: "shared.local"
+            hostname: "machine-alpha",
+            lastHost: "shared-alpha.test"
         )
         let linux = makeServer(
             id: "srv-linux-1",
-            hostname: "bignix",
+            hostname: "linux-alpha",
             kind: .linux,
-            lastHost: "shared.local"
+            lastHost: "shared-alpha.test"
         )
         store.migrateLegacyIfNeeded(seed: [mac, linux])
         XCTAssertEqual(store.load().count, 2, "Linux + Mac with same host must coexist")
@@ -352,16 +357,204 @@ final class ServerStoreMigrationTests: XCTestCase {
         defer { teardown() }
         let macA = makeServer(
             id: "DDDDDDDD-0000-0000-0000-000000000001",
-            hostname: "macStudio",
+            hostname: "machine-alpha",
             lastHost: nil
         )
         let macB = makeServer(
             id: "DDDDDDDD-0000-0000-0000-000000000002",
-            hostname: "macMini",
-            lastHost: "mini.local"
+            hostname: "machine-beta",
+            lastHost: "mac-beta.test"
         )
         store.migrateLegacyIfNeeded(seed: [macA, macB])
         XCTAssertEqual(store.load().count, 2)
+    }
+
+    /// Stable machine identity wins before host matching. This lets the
+    /// same Mac collapse even when LAN and tailnet hosts diverge.
+    func test_reconcile_collapsesMacsByEngineMachineIdAcrossDifferentHosts() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let older = makeServer(
+            id: "srv-old-machine",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+        let newer = makeServer(
+            id: "AAAAAAAA-0000-0000-0000-000000000002",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "100.64.0.10",
+            engineMachineId: "machine-alpha"
+        )
+
+        let reconciled = store.reconcile(with: [older, newer])
+
+        XCTAssertEqual(reconciled.count, 1)
+        XCTAssertEqual(reconciled.first?.id, "AAAAAAAA-0000-0000-0000-000000000002")
+        XCTAssertEqual(reconciled.first?.lastHost, "100.64.0.10")
+        XCTAssertEqual(reconciled.first?.engineMachineId, "machine-alpha")
+    }
+
+    /// PR3 does not attempt transitive collapse between id-bearing and
+    /// id-less host aliases. PR4 must make adapters populate
+    /// `engineMachineId` uniformly so this mixed rollout shape disappears.
+    func test_reconcile_mixedMachineIdAndHostAliasLeavesLegacyResidual() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let a = makeServer(
+            id: "srv-engine-old",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+        let b = makeServer(
+            id: "srv-engine-new",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "192.0.2.10",
+            engineMachineId: "machine-alpha"
+        )
+        let c = makeServer(
+            id: "srv-host-only",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_500_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: nil
+        )
+
+        let reconciled = store.reconcile(with: [a, b, c])
+
+        XCTAssertEqual(reconciled.count, 2)
+        XCTAssertEqual(Set(reconciled.map(\.id)), ["srv-engine-new", "srv-host-only"])
+        XCTAssertTrue(reconciled.contains { $0.id == "srv-engine-new" && $0.lastHost == "192.0.2.10" })
+        XCTAssertTrue(reconciled.contains { $0.id == "srv-host-only" && $0.lastHost == "mac-alpha.test" })
+    }
+
+    /// A server id that owns the pairing secret must win before UUID or
+    /// recency preference, otherwise the merge can orphan the secret.
+    func test_reconcile_secretOwnedIDWinsOverUUIDAndRecency() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let secretOwner = makeServer(
+            id: "secret-owned-machine-alpha",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha",
+            presencePort: 7000
+        )
+        let newerUUID = makeServer(
+            id: "AAAAAAAA-0000-0000-0000-000000000003",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "100.64.0.10",
+            engineMachineId: "machine-alpha",
+            alias: "Alpha Mac"
+        )
+
+        let reconciled = store.reconcile(
+            with: [secretOwner, newerUUID],
+            secretOwnedIDs: ["secret-owned-machine-alpha"]
+        )
+
+        XCTAssertEqual(reconciled.count, 1)
+        XCTAssertEqual(reconciled.first?.id, "secret-owned-machine-alpha")
+        XCTAssertEqual(reconciled.first?.alias, "Alpha Mac")
+        XCTAssertEqual(reconciled.first?.presencePort, 7000)
+    }
+
+    /// Legacy data has `engineMachineId == nil`; with an empty
+    /// `secretOwnedIDs` set, host collision still follows the old
+    /// UUID-over-non-UUID rule.
+    func test_reconcile_allNilMachineIdsAndNoSecretOwnersPreservesLegacyHostBehavior() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let uuidID = "AAAAAAAA-0000-0000-0000-000000000004"
+        let seed = [
+            makeServer(id: uuidID, hostname: "machine-alpha", lastHost: "mac-alpha.test"),
+            makeServer(
+                id: "srv-from-legacy",
+                hostname: "machine-alpha",
+                lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+                lastHost: "mac-alpha.test"
+            ),
+        ]
+
+        let reconciled = store.reconcile(with: seed, secretOwnedIDs: [])
+
+        XCTAssertEqual(reconciled.count, 1)
+        XCTAssertEqual(reconciled.first?.id, uuidID)
+    }
+
+    func test_reconcile_linuxServersDoNotCollapseByEngineMachineId() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let first = makeServer(
+            id: "linux-a",
+            hostname: "linux-alpha",
+            kind: .linux,
+            lastHost: "linux-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+        let second = makeServer(
+            id: "linux-b",
+            hostname: "linux-beta",
+            kind: .linux,
+            lastHost: "linux-beta.test",
+            engineMachineId: "machine-alpha"
+        )
+
+        let reconciled = store.reconcile(with: [first, second])
+
+        XCTAssertEqual(Set(reconciled.map(\.id)), ["linux-a", "linux-b"])
+    }
+
+    func test_serverDecode_legacyPayloadWithoutEngineMachineIdDefaultsNil() throws {
+        let json = """
+        {
+          "id": "srv-legacy",
+          "kind": "mac",
+          "pairedAt": 1000,
+          "lastSeenAt": 2000,
+          "alias": null,
+          "hostname": "machine-alpha",
+          "lastHost": "mac-alpha.test",
+          "theyOS": {
+            "status": "unknown",
+            "version": null,
+            "lastCheckedAt": 0
+          },
+          "apiEndpoint": null,
+          "bootstrapEndpoint": null,
+          "presencePort": null,
+          "attachPort": null,
+          "role": null,
+          "sessionExpiresAt": null
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(Server.self, from: json)
+
+        XCTAssertNil(decoded.engineMachineId)
+    }
+
+    func test_serverEquatableAndHashableIncludeEngineMachineId() {
+        let first = makeServer(
+            id: "srv-same-id",
+            hostname: "machine-alpha",
+            engineMachineId: "machine-alpha"
+        )
+        let second = makeServer(
+            id: "srv-same-id",
+            hostname: "machine-alpha",
+            engineMachineId: "machine-beta"
+        )
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(Set([first, second]).count, 2)
     }
 
     // MARK: - reconcile(with:) — used by ServerRegistry.refreshFromLegacyStores
@@ -373,8 +566,8 @@ final class ServerStoreMigrationTests: XCTestCase {
         let (store, teardown) = makeStore()
         defer { teardown() }
         let seed = [
-            makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local"),
-            makeServer(id: "srv-linux-1", hostname: "bignix", kind: .linux, lastHost: "bignix.tail.ts.net"),
+            makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "machine-alpha", lastHost: "mac-alpha.test"),
+            makeServer(id: "srv-linux-1", hostname: "linux-alpha", kind: .linux, lastHost: "linux-alpha.test"),
         ]
         let first = store.reconcile(with: seed)
         let second = store.reconcile(with: seed)
@@ -387,8 +580,8 @@ final class ServerStoreMigrationTests: XCTestCase {
     func test_reconcile_removesEntriesAbsentFromSeed() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let mac1 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local")
-        let mac2 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000002", hostname: "macMini", lastHost: "mini.local")
+        let mac1 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "machine-alpha", lastHost: "mac-alpha.test")
+        let mac2 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000002", hostname: "machine-beta", lastHost: "mac-beta.test")
         // Initial reconcile loads both.
         _ = store.reconcile(with: [mac1, mac2])
         XCTAssertEqual(store.load().count, 2)
@@ -408,8 +601,8 @@ final class ServerStoreMigrationTests: XCTestCase {
         let uuidID = "FFFFFFFF-0000-0000-0000-000000000001"
         let nonUUIDID = "srv-from-qr-flow"
         let seed = [
-            makeServer(id: uuidID, hostname: "macStudio", lastHost: "studio.local"),
-            makeServer(id: nonUUIDID, hostname: "macStudio", lastHost: "studio.local"),
+            makeServer(id: uuidID, hostname: "machine-alpha", lastHost: "mac-alpha.test"),
+            makeServer(id: nonUUIDID, hostname: "machine-alpha", lastHost: "mac-alpha.test"),
         ]
         _ = store.reconcile(with: seed)
         let loaded = store.load()
@@ -427,9 +620,9 @@ final class ServerStoreMigrationTests: XCTestCase {
         let (storeB, teardownB) = makeStore()
         defer { teardownB() }
         let seed = [
-            makeServer(id: "AAAAAAAA-1111-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local"),
-            makeServer(id: "non-uuid", hostname: "macStudio", lastHost: "studio.local"),
-            makeServer(id: "srv-linux", hostname: "bignix", kind: .linux, lastHost: "bignix.tail.ts.net"),
+            makeServer(id: "AAAAAAAA-1111-0000-0000-000000000001", hostname: "machine-alpha", lastHost: "mac-alpha.test"),
+            makeServer(id: "non-uuid", hostname: "machine-alpha", lastHost: "mac-alpha.test"),
+            makeServer(id: "srv-linux", hostname: "linux-alpha", kind: .linux, lastHost: "linux-alpha.test"),
         ]
         _ = storeA.reconcile(with: seed)
         storeB.migrateLegacyIfNeeded(seed: seed)

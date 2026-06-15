@@ -10,11 +10,11 @@ private let pairingLogger = Logger(subsystem: "com.soyeht.mobile", category: "pa
 // A `PairedMac` has TWO name fields with distinct roles:
 //
 //   - `name`  — the hostname the Mac engine sent at pairing time
-//               (e.g. "macStudio"). Useful for diagnostics, logs, and as a
+//               (e.g. "machine-alpha"). Useful for diagnostics, logs, and as a
 //               default suggestion when the user has not chosen an alias yet.
 //               NEVER render this directly in a SwiftUI view.
 //
-//   - `alias` — the user-typed display name (e.g. "Caio's Studio"). Set via
+//   - `alias` — the user-typed display name (e.g. "Alpha Mac"). Set via
 //               `PairedMacsStore.setAlias(macID:alias:)` which enforces:
 //                 * non-empty + length ≤ `MacAliasRules.maxLength`,
 //                 * no forbidden characters (`MacAliasRules.forbiddenChars`),
@@ -189,6 +189,12 @@ final class PairedMacsStore {
 
     func hasSecret(for macID: UUID) -> Bool {
         secret(for: macID) != nil
+    }
+
+    func macIDsWithSecret() -> Set<String> {
+        Set(macs.compactMap { mac in
+            secret(for: mac.macID) == nil ? nil : mac.macID.uuidString
+        })
     }
 
     func storeSecret(_ secret: Data, for macID: UUID) {
