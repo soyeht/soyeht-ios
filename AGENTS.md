@@ -52,3 +52,18 @@ Release checklist for agents:
 - `Soyeht Dev.app` is the disposable test target. Agents may quit, reinstall,
   delete, or relaunch the Dev app when validation requires it, as long as the
   original Soyeht app is left untouched.
+
+## Local Test Data Privacy
+
+- Never commit, paste, print, or include real user machine names, account names,
+  device names, SSH hostnames, LAN IPs, tailnet IPs, or other personal
+  infrastructure identifiers in code, tests, fixtures, documentation, PR bodies,
+  comments, screenshots, logs, or agent messages that may become public.
+- Public examples must use neutral aliases and documentation-safe addresses only,
+  such as `mac-alpha`, `linux-alpha`, `device-alpha`, `192.0.2.10`,
+  `198.51.100.10`, `203.0.113.10`, or `100.64.0.10`.
+- Real local values needed for E2E validation must live only in ignored local
+  files such as `.env`, `.env.local`, or `.env.*.local`, or in an OS/user secret
+  store. Scripts may read those values, but must log only neutral aliases.
+- Before committing or opening a PR, scan the diff for accidental personal
+  identifiers and replace them with neutral aliases or reserved example values.
