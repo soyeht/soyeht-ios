@@ -182,7 +182,8 @@ enum ClawInstallTargetResolver {
             pairedAt: server.pairedAt,
             expiresAt: server.sessionExpiresAt,
             platform: server.kind == .mac ? "macos" : "linux",
-            kind: server.kind == .mac ? .engine : .adminHost
+            kind: server.kind == .mac ? .engine : .adminHost,
+            engineMachineId: server.engineMachineId
         )
     }
 }

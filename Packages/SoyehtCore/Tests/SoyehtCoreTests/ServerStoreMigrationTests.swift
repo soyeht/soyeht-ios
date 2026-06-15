@@ -56,14 +56,15 @@ final class ServerStoreMigrationTests: XCTestCase {
             pairedAt: Date(timeIntervalSince1970: 1_000_000),
             expiresAt: nil,
             platform: "macos",
-            kind: .engine
+            kind: .engine,
+            engineMachineId: "machine-alpha"
         )
         let s = legacy.toServer()
         XCTAssertEqual(s.id, "srv-mac-1")
         XCTAssertEqual(s.kind, .mac)
         XCTAssertEqual(s.hostname, "machine-alpha")
         XCTAssertEqual(s.lastHost, "mac-alpha.test")
-        XCTAssertNil(s.engineMachineId)
+        XCTAssertEqual(s.engineMachineId, "machine-alpha")
         XCTAssertNil(s.alias)
         XCTAssertEqual(s.theyOS.status, .unknown)
     }
@@ -397,9 +398,10 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(reconciled.first?.engineMachineId, "machine-alpha")
     }
 
-    /// PR3 does not attempt transitive collapse between id-bearing and
-    /// id-less host aliases. PR4 must make adapters populate
-    /// `engineMachineId` uniformly so this mixed rollout shape disappears.
+    /// Mixed id-bearing and id-less host aliases remain intentionally
+    /// unmerged. Forward-only pair-time population handles new records
+    /// that carry `engineMachineId`; legacy or QR id-less records keep
+    /// the PR3 residual instead of union-finding by host.
     func test_reconcile_mixedMachineIdAndHostAliasLeavesLegacyResidual() {
         let (store, teardown) = makeStore()
         defer { teardown() }
@@ -431,6 +433,38 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(Set(reconciled.map(\.id)), ["srv-engine-new", "srv-host-only"])
         XCTAssertTrue(reconciled.contains { $0.id == "srv-engine-new" && $0.lastHost == "192.0.2.10" })
         XCTAssertTrue(reconciled.contains { $0.id == "srv-host-only" && $0.lastHost == "mac-alpha.test" })
+    }
+
+    func test_reconcile_newRecordsWithSameEngineMachineIdCollapseMixedHostsToOne() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let a = makeServer(
+            id: "srv-engine-old",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+        let b = makeServer(
+            id: "srv-engine-new",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "192.0.2.10",
+            engineMachineId: "machine-alpha"
+        )
+        let c = makeServer(
+            id: "AAAAAAAA-0000-0000-0000-000000000005",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_500_000),
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+
+        let reconciled = store.reconcile(with: [a, b, c])
+
+        XCTAssertEqual(reconciled.count, 1)
+        XCTAssertEqual(reconciled.first?.id, "AAAAAAAA-0000-0000-0000-000000000005")
+        XCTAssertEqual(reconciled.first?.engineMachineId, "machine-alpha")
     }
 
     /// A server id that owns the pairing secret must win before UUID or

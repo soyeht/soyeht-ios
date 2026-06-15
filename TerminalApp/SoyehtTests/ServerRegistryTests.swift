@@ -244,6 +244,44 @@ final class ServerRegistryTests: XCTestCase {
         XCTAssertNotNil(UUID(uuidString: canonical.id).flatMap { pairedMacs.secret(for: $0) })
     }
 
+    func testRefreshFromLegacyStoresCollapsesNewMacRecordsWithSameEngineMachineId() throws {
+        let unique = UUID().uuidString.lowercased()
+        let machineID = "machine-alpha-\(unique)"
+        let macID = UUID()
+        let shadowID = "srt-shadow-\(unique)"
+
+        pairedMacs.upsertMac(
+            macID: macID,
+            name: "machine-alpha",
+            host: "mac-alpha-\(unique).test",
+            engineMachineId: machineID
+        )
+        pairedMacs.storeSecret(Data([0x11, 0x22, 0x33, 0x44]), for: macID)
+        createdMacIDs.append(macID)
+
+        let shadow = PairedServer(
+            id: shadowID,
+            host: "mac-alpha-alt-\(unique).test",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine,
+            engineMachineId: machineID
+        )
+        sessionStore.addServer(shadow, token: "srt-token-\(shadowID)")
+        createdSessionServerIDs.append(shadowID)
+
+        registry.refreshFromLegacyStores()
+
+        let matches = registry.servers.filter { $0.kind == .mac && $0.engineMachineId == machineID }
+        XCTAssertEqual(matches.count, 1)
+        let canonical = try XCTUnwrap(matches.first)
+        XCTAssertEqual(canonical.id, macID.uuidString)
+        XCTAssertNotNil(UUID(uuidString: canonical.id).flatMap { pairedMacs.secret(for: $0) })
+    }
+
     // MARK: - Helpers
 
     @discardableResult

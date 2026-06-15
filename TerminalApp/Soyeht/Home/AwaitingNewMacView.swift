@@ -355,7 +355,8 @@ final class AwaitingNewMacViewModel: ObservableObject {
                     name: pairing.macName,
                     host: pairing.host,
                     presencePort: pairing.presencePort,
-                    attachPort: pairing.attachPort
+                    attachPort: pairing.attachPort,
+                    engineMachineId: final.machineId
                 )
                 PairedMacRegistry.shared.reconcileClients()
             }

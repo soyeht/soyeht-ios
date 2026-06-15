@@ -24,7 +24,7 @@ extension PairedMac {
             alias: alias,
             hostname: name,
             lastHost: lastHost,
-            engineMachineId: nil,
+            engineMachineId: engineMachineId,
             theyOS: TheyOSSnapshot(),
             apiEndpoint: nil,
             bootstrapEndpoint: nil,

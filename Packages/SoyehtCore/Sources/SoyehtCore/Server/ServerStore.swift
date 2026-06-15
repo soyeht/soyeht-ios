@@ -169,11 +169,10 @@ public struct ServerStore: Sendable {
     ///   2. Legacy `lastHost`, for records where the engine id is not
     ///      available yet.
     ///
-    /// PR3 intentionally does not solve mixed id-bearing/id-less
-    /// transitive host aliases; a first-pass machine-id merge can leave
-    /// a host-only residual. PR4 should populate `engineMachineId`
-    /// uniformly in adapters and handle host aliases carefully, without
-    /// union-find by host.
+    /// Mixed id-bearing/id-less transitive host aliases can still leave
+    /// a host-only residual. Forward-only pair-time population makes new
+    /// records collapse through `engineMachineId`; legacy or QR records
+    /// without that id must not be union-found through host aliases.
     ///
     /// When collapsing a collision we first preserve an id known to own
     /// a pairing secret, then a UUID-shaped id, then the newer entry id.

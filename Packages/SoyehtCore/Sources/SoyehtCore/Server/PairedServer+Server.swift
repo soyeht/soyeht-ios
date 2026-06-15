@@ -39,7 +39,7 @@ public extension PairedServer {
             alias: nil,
             hostname: name,
             lastHost: host,
-            engineMachineId: nil,
+            engineMachineId: engineMachineId,
             theyOS: TheyOSSnapshot(),
             apiEndpoint: nil,
             bootstrapEndpoint: nil,
