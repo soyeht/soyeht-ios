@@ -30,9 +30,11 @@ enum MainWorkspaceTabPreferences {
 class PreferencesWindowController: NSWindowController {
 
     static let shared = PreferencesWindowController()
+    private let tabs: PreferencesTabViewController
 
     private init() {
         let contentVC = PreferencesTabViewController()
+        tabs = contentVC
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 720, height: 500),
             styleMask: [.titled, .closable],
@@ -46,6 +48,12 @@ class PreferencesWindowController: NSWindowController {
     }
 
     required init?(coder: NSCoder) { fatalError("Use PreferencesWindowController.shared") }
+
+    func showDevicesTab() {
+        _ = tabs.view
+        tabs.selectDevicesTab()
+        showWindow(nil)
+    }
 }
 
 // MARK: -

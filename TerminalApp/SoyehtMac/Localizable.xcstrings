@@ -925,99 +925,99 @@
       }
     },
     "appMenu.pairedDevices": {
-      "comment": "App menu item that opens the Paired Devices window.",
+      "comment": "App menu item that opens the Devices tab in Settings.",
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "الأجهزة المقترنة…"
+            "value": "الأجهزة…"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "পেয়ার করা ডিভাইস…"
+            "value": "ডিভাইস…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gekoppelte Geräte…"
+            "value": "Geräte…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paired Devices…"
+            "value": "Devices…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dispositivos emparejados…"
+            "value": "Dispositivos…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appareils appairés…"
+            "value": "Appareils…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पेयर किए गए डिवाइस…"
+            "value": "डिवाइस…"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Perangkat Berpasangan…"
+            "value": "Perangkat…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ペア済みデバイス…"
+            "value": "デバイス…"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "페어링된 기기…"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "已配对设备…"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "기기…"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "设备…"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "जोडलेली डिव्हायसेस…"
+            "value": "डिव्हायसेस…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dispositivos pareados…"
+            "value": "Dispositivos…"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dispositivos emparelhados…"
+            "value": "Dispositivos…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сопряжённые устройства…"
+            "value": "Устройства…"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "జత చేయబడిన పరికరాలు…"
+            "value": "పరికరాలు…"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "جوڑی شدہ آلات…"
+            "value": "آلات…"
           }
         }
       }

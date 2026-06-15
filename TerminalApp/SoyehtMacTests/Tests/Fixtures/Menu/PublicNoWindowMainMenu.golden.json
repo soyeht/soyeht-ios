@@ -46,7 +46,7 @@
             ]
           },
           "targetPolicy" : "explicitTarget",
-          "title" : "Paired Devices…"
+          "title" : "Devices…"
         },
         {
           "action" : "dispatchAppCommand:",

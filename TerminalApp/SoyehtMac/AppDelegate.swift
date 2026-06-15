@@ -1653,7 +1653,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     @IBAction func showPairedDevices(_ sender: Any) {
-        PairedDevicesWindowController.shared.showWindow(nil)
+        PreferencesWindowController.shared.showDevicesTab()
     }
 
     @IBAction func showConnectedServers(_ sender: Any?) {
