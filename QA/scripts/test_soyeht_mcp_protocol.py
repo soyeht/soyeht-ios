@@ -343,6 +343,78 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["sourceHandle"], "@parent-codex")
         self.assertNotIn("sourceTTY", captured["payload"])
 
+    def test_capture_pane_forwards_source_context_before_active_window_fallback(self):
+        captured = {}
+        globals_ = MODULE["tool_capture_pane"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=10.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["timeout"] = timeout
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys999"
+            with patch.dict("os.environ", {
+                "SOYEHT_CONVERSATION_ID": "55555555-5555-5555-5555-555555555555",
+                "SOYEHT_HANDLE": "@caller",
+            }, clear=True):
+                result = MODULE["tool_capture_pane"]({
+                    "mode": "visible",
+                    "maxLines": 40,
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "capture_pane")
+        self.assertEqual(captured["payload"]["conversationIDs"], [])
+        self.assertEqual(captured["payload"]["handles"], [])
+        self.assertEqual(captured["payload"]["captureMode"], "visible")
+        self.assertEqual(captured["payload"]["maxLines"], 40)
+        self.assertEqual(captured["payload"]["sourceConversationID"], "55555555-5555-5555-5555-555555555555")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@caller")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_open_shell_forwards_workspace_target_and_source_context(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["timeout"] = timeout
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys777"
+            with patch.dict("os.environ", {
+                "SOYEHT_CONVERSATION_ID": "77777777-7777-7777-7777-777777777777",
+                "SOYEHT_HANDLE": "@caller",
+            }, clear=True):
+                result = MODULE["tool_open_shell"]({
+                    "path": ".",
+                    "agent": "shell",
+                    "workspaceID": "88888888-8888-8888-8888-888888888888",
+                    "targetWindowID": "window-alpha",
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertEqual(captured["payload"]["workspaceID"], "88888888-8888-8888-8888-888888888888")
+        self.assertEqual(captured["payload"]["targetWindowID"], "window-alpha")
+        self.assertEqual(captured["payload"]["sourceConversationID"], "77777777-7777-7777-7777-777777777777")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@caller")
+        self.assertNotIn("sourceTTY", captured["payload"])
+
     def test_explicit_automation_dir_ignores_foreign_parent_source_environment(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
