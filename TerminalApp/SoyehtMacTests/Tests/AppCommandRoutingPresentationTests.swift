@@ -231,6 +231,20 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             workspaceID: workspaceID,
             commander: .native(pid: 11)
         )
+        let aiTargetConversation = Conversation(
+            id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+            handle: "@claude",
+            agent: .claw("claude"),
+            workspaceID: workspaceID,
+            commander: .native(pid: 12)
+        )
+
+        XCTAssertTrue(AgentPaneInputPlanner.InitialPromptMode(rawValue: nil)?.resolvesToMessage(for: aiTargetConversation) == true)
+        XCTAssertTrue(AgentPaneInputPlanner.InitialPromptMode(rawValue: "auto")?.resolvesToMessage(for: aiTargetConversation) == true)
+        XCTAssertTrue(AgentPaneInputPlanner.InitialPromptMode(rawValue: "message")?.resolvesToMessage(for: targetConversation) == true)
+        XCTAssertTrue(AgentPaneInputPlanner.InitialPromptMode(rawValue: "raw")?.resolvesToMessage(for: aiTargetConversation) == false)
+        XCTAssertTrue(AgentPaneInputPlanner.InitialPromptMode(rawValue: nil)?.resolvesToMessage(for: targetConversation) == false)
+        XCTAssertNil(AgentPaneInputPlanner.InitialPromptMode(rawValue: "unsupported"))
 
         let prepared = try AgentPaneInputPlanner.prepare(
             target: targetConversation,
@@ -283,7 +297,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
                 initialCommand: "/opt/homebrew/bin/codex --yolo",
                 explicitDelayMs: nil
             ),
-            40_000
+            8_000
         )
         XCTAssertEqual(
             AgentPaneInputPlanner.initialPromptDelayMilliseconds(
@@ -437,6 +451,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
         XCTAssertTrue(sendResolvedInput.contains("prepared.shouldSendEnterKey"))
 
+        XCTAssertTrue(attachLocalPTY.contains("promptMode"))
+        XCTAssertTrue(attachLocalPTY.contains("promptSourceConversationIDString"))
+        XCTAssertTrue(attachLocalPTY.contains("initialPromptPayload"))
+        XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.prepare"))
+        XCTAssertTrue(attachLocalPTY.contains("requestEnvelope: true"))
+        XCTAssertTrue(attachLocalPTY.contains("requireAgentEnvelope: true"))
         XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.terminalPayload"))
         XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.initialPromptDelayMilliseconds"))
         XCTAssertTrue(attachLocalPTY.contains("3_000_000_000"))

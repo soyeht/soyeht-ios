@@ -42,6 +42,7 @@ struct SoyehtAutomationRequest: Decodable {
             let agent: String?
             let command: String?
             let prompt: String?
+            let promptMode: String?
             let promptDelayMs: Int?
         }
 
@@ -49,6 +50,7 @@ struct SoyehtAutomationRequest: Decodable {
         let agent: String?
         let command: String?
         let prompt: String?
+        let promptMode: String?
         let promptDelayMs: Int?
         let allowAutoPaneNames: Bool?
         let workspaceName: String?

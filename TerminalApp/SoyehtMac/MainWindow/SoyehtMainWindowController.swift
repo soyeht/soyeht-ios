@@ -78,7 +78,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let agentName: String
         let initialCommand: String?
         let prompt: String?
+        let promptMode: String?
         let promptDelayMs: Int?
+        let promptSourceConversationIDString: String?
+        let promptSourceHandle: String?
+        let promptSourceTTY: String?
     }
 
     struct LocalAgentPaneResult {
@@ -258,6 +262,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case invalidPaneEmphasisMode(String)
         case invalidPaneCaptureMode(String)
         case invalidPaneScrollMode(String)
+        case invalidPromptMode(String)
         case missingPaneFontSize
         case paneLayoutTargetMissing(Conversation.ID)
         case paneIsLastInWorkspace
@@ -306,6 +311,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Unsupported pane capture mode: \(mode)"
             case .invalidPaneScrollMode(let mode):
                 return "Unsupported pane scroll mode: \(mode)"
+            case .invalidPromptMode(let mode):
+                return "Unsupported promptMode: \(mode). Use auto, message, or raw."
             case .missingPaneFontSize:
                 return "set_pane_font_size requires fontSize or delta."
             case .paneLayoutTargetMissing(let id):
@@ -1096,6 +1103,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         initialCommand: String?,
         prompt: String?,
         promptDelayMs: Int?,
+        promptMode: String?,
+        promptSourceConversationIDString: String?,
+        promptSourceHandle: String?,
+        promptSourceTTY: String?,
         branch: String?
     ) async throws -> LocalAgentWorkspaceResult {
         guard let convStore = AppEnvironment.conversationStore else {
@@ -1129,7 +1140,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             cwd: projectURL,
             initialCommand: initialCommand,
             prompt: prompt,
-            promptDelayMs: promptDelayMs
+            promptDelayMs: promptDelayMs,
+            promptMode: promptMode,
+            promptSourceConversationIDString: promptSourceConversationIDString,
+            promptSourceHandle: promptSourceHandle,
+            promptSourceTTY: promptSourceTTY
         )
         updateSubtitle()
         refreshWorkspaceChromeFromStore()
@@ -1191,7 +1206,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 cwd: spec.projectURL,
                 initialCommand: spec.initialCommand,
                 prompt: spec.prompt,
-                promptDelayMs: spec.promptDelayMs
+                promptDelayMs: spec.promptDelayMs,
+                promptMode: spec.promptMode,
+                promptSourceConversationIDString: spec.promptSourceConversationIDString,
+                promptSourceHandle: spec.promptSourceHandle,
+                promptSourceTTY: spec.promptSourceTTY
             )
         }
         return results
@@ -3351,7 +3370,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     cwd: cwd,
                     initialCommand: nil,
                     prompt: nil,
-                    promptDelayMs: nil
+                    promptDelayMs: nil,
+                    promptMode: nil,
+                    promptSourceConversationIDString: nil,
+                    promptSourceHandle: nil,
+                    promptSourceTTY: nil
                 )
             } catch {
                 Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
@@ -3365,7 +3388,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         cwd: URL,
         initialCommand: String?,
         prompt: String?,
-        promptDelayMs: Int?
+        promptDelayMs: Int?,
+        promptMode: String?,
+        promptSourceConversationIDString: String?,
+        promptSourceHandle: String?,
+        promptSourceTTY: String?
     ) async throws {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -3401,6 +3428,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
         pane.terminalView.configureLocal(pty: pty)
         PaneStatusTracker.shared.nudgeRecompute()
+        let plannedPrompt = try initialPromptPayload(
+            for: paneID,
+            prompt: prompt,
+            promptMode: promptMode,
+            sourceConversationIDString: promptSourceConversationIDString,
+            sourceHandle: promptSourceHandle,
+            sourceTTY: promptSourceTTY,
+            convStore: convStore
+        )
         if initialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             Task { @MainActor [weak pane] in
                 if let initialCommand {
@@ -3413,25 +3449,70 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     )
                     terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
                 }
-                if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if let plannedPrompt {
                     let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
                         initialCommand: initialCommand,
                         explicitDelayMs: promptDelayMs
                     )) * 1_000_000
                     try? await Task.sleep(nanoseconds: delay)
                     guard let terminalView = pane?.terminalView else { return }
-                    let prepared = AgentPaneInputPlanner.terminalPayload(
-                        text: prompt,
-                        appendNewline: true,
-                        lineEnding: "enter"
-                    )
-                    terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+                    terminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
                 }
             }
         }
         Self.logger.info(
             "local pty started pane=\(paneID.uuidString, privacy: .public) pid=\(pty.pid)"
         )
+    }
+
+    private func initialPromptPayload(
+        for paneID: Conversation.ID,
+        prompt: String?,
+        promptMode: String?,
+        sourceConversationIDString: String?,
+        sourceHandle: String?,
+        sourceTTY: String?,
+        convStore: ConversationStore
+    ) throws -> (payload: String, shouldSendEnterKey: Bool)? {
+        guard let prompt,
+              !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        guard let target = convStore.conversation(paneID) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        guard let mode = AgentPaneInputPlanner.InitialPromptMode(rawValue: promptMode) else {
+            throw LocalAgentWorkspaceError.invalidPromptMode(promptMode ?? "")
+        }
+        guard mode.resolvesToMessage(for: target) else {
+            return AgentPaneInputPlanner.terminalPayload(
+                text: prompt,
+                appendNewline: true,
+                lineEnding: "enter"
+            )
+        }
+        let source = try sourceConversation(
+            sourceConversationIDString: sourceConversationIDString,
+            sourceHandle: sourceHandle,
+            sourceTTY: sourceTTY,
+            convStore: convStore
+        )
+        do {
+            let prepared = try AgentPaneInputPlanner.prepare(
+                target: target,
+                source: source,
+                text: prompt,
+                appendNewline: true,
+                lineEnding: "enter",
+                requestEnvelope: true,
+                requireAgentEnvelope: true
+            )
+            return (prepared.payload, prepared.shouldSendEnterKey)
+        } catch AgentPaneInputPlanner.Error.sourceRequired {
+            throw LocalAgentWorkspaceError.agentEnvelopeSourceRequired
+        } catch AgentPaneInputPlanner.Error.cannotTargetSource(let handle) {
+            throw LocalAgentWorkspaceError.agentEnvelopeCannotTargetSource(handle)
+        }
     }
 
     private func waitForLivePane(_ paneID: Conversation.ID) async -> PaneViewController? {

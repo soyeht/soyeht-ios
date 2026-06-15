@@ -19,6 +19,12 @@ NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "ful
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 KNOWN_AGENTS = {"claude", "opencode", "codex", "shell"}
+PROMPT_MODE_CHOICES = ["auto", "message", "raw"]
+DEFAULT_INITIAL_PROMPT_DELAYS_MS = {
+    "codex": 8_000,
+    "claude": 15_000,
+}
+INITIAL_COMMAND_START_DELAY_MS = 3_000
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
 PANE_CAPTURE_MODE_CHOICES = ["all", "visible", "scrollback"]
 PANE_SCROLL_MODE_CHOICES = ["up", "down", "page_up", "page_down", "top", "bottom", "position", "row"]
@@ -37,6 +43,20 @@ DESTINATION_WINDOW_ID_PROPERTY = {
 PROMPT_DELAY_MS_PROPERTY = {
     "type": "integer",
     "description": "Milliseconds to wait after launching a command before sending the initial prompt. If omitted, Soyeht uses a startup-aware default: longer for known agent TUIs such as Codex/Claude, short for plain shells.",
+}
+PROMPT_MODE_PROPERTY = {
+    "type": "string",
+    "enum": PROMPT_MODE_CHOICES,
+    "default": "auto",
+    "description": "How to deliver an initial prompt after opening a pane. auto sends a Soyeht agent message with From/To/Reply metadata for AI agents and raw terminal input for shell panes. Use raw only for literal terminal/menu input.",
+}
+FROM_CONVERSATION_ID_PROPERTY = {
+    "type": "string",
+    "description": "Explicit sender conversationID for initial agent prompts. Usually omitted because Soyeht infers it from the calling pane.",
+}
+FROM_HANDLE_PROPERTY = {
+    "type": "string",
+    "description": "Explicit sender pane handle for initial agent prompts. Usually omitted because Soyeht infers it from the calling pane.",
 }
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
@@ -323,6 +343,79 @@ def first_present(*values):
     return None
 
 
+def normalize_prompt_mode(value):
+    if value is None:
+        return None
+    mode = str(value).strip().lower().replace("-", "_")
+    aliases = {
+        "default": "auto",
+        "agent": "message",
+        "agent_message": "message",
+        "envelope": "message",
+        "enveloped": "message",
+        "terminal": "raw",
+        "literal": "raw",
+        "input": "raw",
+    }
+    mode = aliases.get(mode, mode)
+    if mode not in PROMPT_MODE_CHOICES:
+        valid = ", ".join(PROMPT_MODE_CHOICES)
+        raise RuntimeError(f"Invalid promptMode: {value!r}. Valid values: {valid}.")
+    return mode
+
+
+def resolved_prompt_mode(agent, prompt, explicit_mode=None):
+    mode = normalize_prompt_mode(explicit_mode)
+    if prompt is None or str(prompt).strip() == "":
+        return mode
+    if mode and mode != "auto":
+        return mode
+    agent_name = str(agent or "").strip().lower()
+    return "raw" if agent_name == "shell" else "message"
+
+
+def initial_prompt_delay_ms(agent, command=None):
+    command_text = str(command or "").strip().lower()
+    for name, delay in DEFAULT_INITIAL_PROMPT_DELAYS_MS.items():
+        if name in command_text:
+            return delay
+    return DEFAULT_INITIAL_PROMPT_DELAYS_MS.get(str(agent or "").strip().lower(), 1_500)
+
+
+def resolved_prompt_delay_ms(agent, command, prompt, explicit_delay_ms=None):
+    if prompt is None or str(prompt).strip() == "":
+        return explicit_delay_ms
+    if explicit_delay_ms is not None:
+        return max(int(explicit_delay_ms), 0)
+    return initial_prompt_delay_ms(agent, command)
+
+
+def prompt_delivery_wait_ms(payload):
+    waits = []
+    for spec in payload.get("panes") or []:
+        prompt = spec.get("prompt")
+        if prompt is None or str(prompt).strip() == "":
+            continue
+        delay = spec.get("promptDelayMs")
+        if delay is None:
+            delay = initial_prompt_delay_ms(spec.get("agent"), spec.get("command"))
+        command = spec.get("command")
+        if command is not None and str(command).strip() != "":
+            delay = int(delay) + INITIAL_COMMAND_START_DELAY_MS
+        waits.append(max(int(delay), 0))
+    return max(waits) if waits else 0
+
+
+def wait_for_initial_prompt_delivery(payload, response):
+    wait_ms = prompt_delivery_wait_ms(payload)
+    if wait_ms <= 0:
+        return response
+    time.sleep((wait_ms / 1000.0) + 0.5)
+    response["promptDeliveryWaitMs"] = wait_ms
+    response["promptDeliveryStatus"] = "waited"
+    return response
+
+
 def with_source_context(payload, args=None):
     args = args or {}
     explicit_conversation_id = first_present(args.get("fromConversationID"), args.get("sourceConversationID"))
@@ -589,6 +682,7 @@ def session_spec(
     default_command=None,
     default_prompt=None,
     default_prompt_delay_ms=None,
+    default_prompt_mode=None,
     require_name=True,
 ):
     name = spec.get("name")
@@ -613,11 +707,19 @@ def session_spec(
     prompt = spec.get("prompt") if spec.get("prompt") is not None else default_prompt
     if prompt is not None:
         result["prompt"] = prompt
+        prompt_mode = resolved_prompt_mode(
+            agent,
+            prompt,
+            first_present(spec.get("promptMode"), spec.get("promptDelivery"), default_prompt_mode),
+        )
+        if prompt_mode:
+            result["promptMode"] = prompt_mode
     prompt_delay = (
         spec.get("promptDelayMs")
         if spec.get("promptDelayMs") is not None
         else default_prompt_delay_ms
     )
+    prompt_delay = resolved_prompt_delay_ms(agent, command, prompt, prompt_delay)
     if prompt_delay is not None:
         result["promptDelayMs"] = int(prompt_delay)
     return result
@@ -630,29 +732,38 @@ def tool_open_panes(args):
 
     default_agent = args.get("agent") or "codex"
     explicit_default_command = args.get("command")
+    default_command = explicit_default_command or default_agent_command(default_agent)
+    default_prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
 
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "agent": default_agent,
-        "command": explicit_default_command or default_agent_command(default_agent),
+        "command": default_command,
         "prompt": args.get("prompt"),
-        "promptDelayMs": args.get("promptDelayMs"),
+        "promptMode": resolved_prompt_mode(default_agent, args.get("prompt"), default_prompt_mode),
+        "promptDelayMs": resolved_prompt_delay_ms(
+            default_agent,
+            default_command,
+            args.get("prompt"),
+            args.get("promptDelayMs"),
+        ),
         "panes": [
             session_spec(
                 pane,
                 default_agent=default_agent,
-                default_command=explicit_default_command,
+                default_command=default_command,
                 default_prompt=args.get("prompt"),
                 default_prompt_delay_ms=args.get("promptDelayMs"),
+                default_prompt_mode=default_prompt_mode,
             )
             for pane in panes
         ],
-    }, args), args)
-    return submit_request(
+    }, args), args), args)
+    return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
-    )
+    ))
 
 
 def tool_open_workspace(args):
@@ -662,31 +773,40 @@ def tool_open_workspace(args):
 
     default_agent = args.get("agent") or "shell"
     explicit_default_command = args.get("command")
+    default_command = explicit_default_command or default_agent_command(default_agent)
+    default_prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
 
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "workspaceName": args.get("name") or panes[0].get("name") or "Workspace",
         "workspaceBranch": args.get("branch"),
         "agent": default_agent,
-        "command": explicit_default_command or default_agent_command(default_agent),
+        "command": default_command,
         "prompt": args.get("prompt"),
-        "promptDelayMs": args.get("promptDelayMs"),
+        "promptMode": resolved_prompt_mode(default_agent, args.get("prompt"), default_prompt_mode),
+        "promptDelayMs": resolved_prompt_delay_ms(
+            default_agent,
+            default_command,
+            args.get("prompt"),
+            args.get("promptDelayMs"),
+        ),
         "panes": [
             session_spec(
                 pane,
                 default_agent=default_agent,
-                default_command=explicit_default_command,
+                default_command=default_command,
                 default_prompt=args.get("prompt"),
                 default_prompt_delay_ms=args.get("promptDelayMs"),
+                default_prompt_mode=default_prompt_mode,
             )
             for pane in panes
         ],
-    }, args), args)
-    return submit_request(
+    }, args), args), args)
+    return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_workspace_panes",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
-    )
+    ))
 
 
 def tool_open_shell(args):
@@ -696,20 +816,23 @@ def tool_open_shell(args):
     if command is None:
         command = default_agent_command(agent)
     name = args.get("name") or args.get("paneName")
+    prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
     spec = {
         "path": str(directory),
         "agent": agent,
         "command": command,
         "prompt": args.get("prompt"),
+        "promptMode": prompt_mode,
         "promptDelayMs": args.get("promptDelayMs"),
     }
     if name:
         spec["name"] = name
 
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "allowAutoPaneNames": True,
         "agent": agent,
         "command": command,
+        "promptMode": resolved_prompt_mode(agent, args.get("prompt"), prompt_mode),
         "panes": [
             session_spec(
                 spec,
@@ -717,16 +840,17 @@ def tool_open_shell(args):
                 default_command=command,
                 default_prompt=args.get("prompt"),
                 default_prompt_delay_ms=args.get("promptDelayMs"),
+                default_prompt_mode=prompt_mode,
                 require_name=False,
             )
         ],
-    }, args), args)
-    return submit_request(
+    }, args), args), args)
+    return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
-    )
+    ))
 
 
 def tool_open_file(args):
@@ -869,6 +993,7 @@ def tool_create_worktree_panes(args):
     base = args.get("base", "HEAD")
     default_agent = args.get("agent") or "codex"
     explicit_default_command = args.get("command")
+    prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
     if default_agent not in KNOWN_AGENTS and not explicit_default_command:
         valid = ", ".join(sorted(KNOWN_AGENTS))
         raise RuntimeError(
@@ -889,25 +1014,37 @@ def tool_create_worktree_panes(args):
             "agent": default_agent,
             "command": default_command,
             "prompt": args.get("prompt"),
-            "promptDelayMs": args.get("promptDelayMs"),
+            "promptMode": resolved_prompt_mode(default_agent, args.get("prompt"), prompt_mode),
+            "promptDelayMs": resolved_prompt_delay_ms(
+                default_agent,
+                default_command,
+                args.get("prompt"),
+                args.get("promptDelayMs"),
+            ),
         })
 
     request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "repoPath": str(repo),
         "workspaceName": args.get("workspaceName"),
         "agent": default_agent,
         "command": default_command,
         "prompt": args.get("prompt"),
-        "promptDelayMs": args.get("promptDelayMs"),
+        "promptMode": resolved_prompt_mode(default_agent, args.get("prompt"), prompt_mode),
+        "promptDelayMs": resolved_prompt_delay_ms(
+            default_agent,
+            default_command,
+            args.get("prompt"),
+            args.get("promptDelayMs"),
+        ),
         "panes": panes,
-    }, args), args)
-    return submit_request(
+    }, args), args), args)
+    return wait_for_initial_prompt_delivery(payload, submit_request(
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
-    )
+    ))
 
 
 def tool_agent_race_panes(args):
@@ -918,6 +1055,7 @@ def tool_agent_race_panes(args):
     prefix = args.get("prefix", "bug")
     no_create = bool(args.get("noCreate", False))
     new_workspace = bool(args.get("newWorkspace", False))
+    prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
 
     unknown = [a for a in agents if a not in KNOWN_AGENTS]
     if unknown:
@@ -943,23 +1081,35 @@ def tool_agent_race_panes(args):
             "agent": agent,
             "command": default_agent_command(agent),
             "prompt": args.get("prompt"),
-            "promptDelayMs": args.get("promptDelayMs"),
+            "promptMode": resolved_prompt_mode(agent, args.get("prompt"), prompt_mode),
+            "promptDelayMs": resolved_prompt_delay_ms(
+                agent,
+                default_agent_command(agent),
+                args.get("prompt"),
+                args.get("promptDelayMs"),
+            ),
         })
 
     request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
-    payload = with_window_target(with_name_styles({
+    payload = with_source_context(with_window_target(with_name_styles({
         "repoPath": str(repo),
         "workspaceName": args.get("workspaceName"),
         "prompt": args.get("prompt"),
-        "promptDelayMs": args.get("promptDelayMs"),
+        "promptMode": resolved_prompt_mode(agents[0] if agents else "codex", args.get("prompt"), prompt_mode),
+        "promptDelayMs": resolved_prompt_delay_ms(
+            agents[0] if agents else "codex",
+            default_agent_command(agents[0]) if agents else default_agent_command("codex"),
+            args.get("prompt"),
+            args.get("promptDelayMs"),
+        ),
         "panes": panes,
-    }, args), args)
-    return submit_request(
+    }, args), args), args)
+    return wait_for_initial_prompt_delivery(payload, submit_request(
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
-    )
+    ))
 
 
 def tool_send_pane_input(args):
@@ -1304,7 +1454,7 @@ def tool_get_active_context(args):
 TOOLS = [
     {
         "name": "open_panes",
-        "description": "Open new Soyeht panes/tabs in the active workspace using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript.",
+        "description": "Open new Soyeht panes/tabs in the active workspace using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1318,6 +1468,7 @@ TOOLS = [
                             "agent": {"type": "string"},
                             "command": {"type": "string"},
                             "prompt": {"type": "string"},
+                            "promptMode": PROMPT_MODE_PROPERTY,
                             "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                         },
                         "required": ["name", "path"],
@@ -1326,7 +1477,10 @@ TOOLS = [
                 "agent": {"type": "string", "default": "codex"},
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
+                "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1342,7 +1496,7 @@ TOOLS = [
     },
     {
         "name": "open_shell",
-        "description": "Open a new Soyeht shell pane/tab in the active workspace. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent.",
+        "description": "Open a new Soyeht shell pane/tab in the active workspace. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only when simulating a user typing literal input.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1366,7 +1520,10 @@ TOOLS = [
                 },
                 "agent": {"type": "string", "default": "shell"},
                 "prompt": {"type": "string"},
+                "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1546,9 +1703,12 @@ TOOLS = [
                 "command": {"type": "string"},
                 "prompt": {
                     "type": "string",
-                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically.",
+                    "description": "Initial prompt sent to every agent after startup. For AI agents this is a Soyeht agent message with sender/reply metadata by default. Enter is pressed automatically.",
                 },
+                "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
                 "noCreate": {"type": "boolean", "default": False},
                 "newWorkspace": {
                     "type": "boolean",
@@ -1578,7 +1738,8 @@ TOOLS = [
             "Create a brand-new Soyeht workspace and open multiple panes inside it. "
             "Each pane uses an existing directory path — no git worktree creation is done here. "
             "Use this when you already have directories ready, or when the user asks to open a new workspace. "
-            "To create git worktrees AND open them in a new workspace in one call, use agent_race_panes with newWorkspace=true instead."
+            "To create git worktrees AND open them in a new workspace in one call, use agent_race_panes with newWorkspace=true instead. "
+            "If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input."
         ),
         "inputSchema": {
             "type": "object",
@@ -1595,6 +1756,7 @@ TOOLS = [
                             "agent": {"type": "string"},
                             "command": {"type": "string"},
                             "prompt": {"type": "string"},
+                            "promptMode": PROMPT_MODE_PROPERTY,
                             "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
                         },
                         "required": ["name", "path"],
@@ -1603,7 +1765,10 @@ TOOLS = [
                 "agent": {"type": "string", "default": "shell"},
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
+                "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -1652,9 +1817,12 @@ TOOLS = [
                 "worktreeRoot": {"type": "string"},
                 "prompt": {
                     "type": "string",
-                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically so the agent starts executing immediately.",
+                    "description": "Initial prompt sent to every agent after startup. For AI agents this is a Soyeht agent message with sender/reply metadata by default. Enter is pressed automatically so the agent starts executing immediately.",
                 },
+                "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
                 "noCreate": {"type": "boolean", "default": False},
                 "newWorkspace": {
                     "type": "boolean",
