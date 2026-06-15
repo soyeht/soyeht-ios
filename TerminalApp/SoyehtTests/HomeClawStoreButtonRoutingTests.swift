@@ -121,6 +121,37 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
+    func test_clawStoreE2ELaunchArgument_isDebugOnlyAndDefaultOff() throws {
+        let appDelegate = try iosSource("AppDelegate.swift")
+        let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
+        let argumentRange = try XCTUnwrap(appDelegate.range(of: "\"-SoyehtClawStoreE2E\""))
+        let beforeArgument = appDelegate[..<argumentRange.lowerBound]
+        let debugStart = try XCTUnwrap(beforeArgument.range(of: "#if DEBUG", options: .backwards))
+        let previousEndif = beforeArgument.range(of: "#endif", options: .backwards)
+        if let previousEndif {
+            XCTAssertGreaterThan(debugStart.lowerBound, previousEndif.lowerBound,
+                "The Claw Store E2E launch argument must be guarded by the nearest active `#if DEBUG`."
+            )
+        }
+
+        let afterArgument = appDelegate[argumentRange.upperBound...]
+        let debugEnd = try XCTUnwrap(afterArgument.range(of: "#endif"))
+        let debugBlock = String(appDelegate[debugStart.lowerBound..<debugEnd.upperBound])
+
+        XCTAssertTrue(debugBlock.contains("ProcessInfo.processInfo.arguments.contains(\"-SoyehtClawStoreE2E\")"),
+            "Debug E2E enablement must be driven by the explicit launch argument."
+        )
+        XCTAssertTrue(debugBlock.contains("SoyehtFeatureFlags.setClawStoreEnabledOverride(true)"),
+            "The debug launch argument must only set the test/E2E override."
+        )
+        XCTAssertTrue(featureFlags.contains("private static let clawStoreDefault = false"),
+            "The shipped Claw Store feature flag default must remain disabled."
+        )
+        XCTAssertTrue(featureFlags.contains("public static var clawStoreEnabled: Bool"),
+            "The Claw Store feature flag should be computed so Debug/E2E can override it without changing the shipped default."
+        )
+    }
+
     func test_macHomeRowsExposeStableAutomationIdentifier() throws {
         let source = try iosSource("InstanceListView.swift")
         let accessibilityIDs = try iosSource("AccessibilityID.swift")

@@ -35,6 +35,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // install with orphan keychain → purge.
         FreshInstallKeychainSweeper.sweepIfNeeded()
 
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-SoyehtClawStoreE2E") {
+            SoyehtFeatureFlags.setClawStoreEnabledOverride(true)
+        }
+        #endif
+
         Typography.bootstrap()
         UNUserNotificationCenter.current().delegate = self
         #if DEBUG
