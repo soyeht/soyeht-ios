@@ -625,6 +625,77 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(messageArguments.contains("fromConversationID: source?.conversationID"))
     }
 
+    func testMCPAutomationResolvesPaneAndSourceWindowBeforeActiveFallback() throws {
+        let source = try macSource("AppDelegate.swift")
+        let targetResolver = try slice(
+            source,
+            from: "private func automationTargetWindow",
+            to: "private func automationMoveDestinationWindow"
+        )
+        let paneResolver = try slice(
+            source,
+            from: "private func automationWindowForPaneTargets",
+            to: "private func automationWindowForSource"
+        )
+        let workspaceWindowResolver = try slice(
+            source,
+            from: "private func automationWindowForWorkspace",
+            to: "private func automationWindowForPaneTargets"
+        )
+        let sourceResolver = try slice(
+            source,
+            from: "private func automationWindowForSource",
+            to: "private func uniqueAutomationWindow"
+        )
+        let workspaceResolver = try slice(
+            source,
+            from: "private func requestedWorkspaceID",
+            to: "private func automationDisplayName"
+        )
+        let createPanes = try slice(
+            source,
+            from: "private func handleCreateWorktreePanes",
+            to: "private func handleCreateWorkspacePanes"
+        )
+        let capture = try slice(
+            source,
+            from: "private func handleCapturePane",
+            to: "private func normalizeInheritedWorkingDirectory"
+        )
+
+        let requestedWindow = try XCTUnwrap(targetResolver.range(of: "requestedWindowID(payload)"))
+        let workspaceTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForWorkspace(payload)"))
+        let paneTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForPaneTargets(payload)"))
+        let sourceTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForSource(payload)"))
+        let activeFallback = try XCTUnwrap(targetResolver.range(of: "activeMainWindowController"))
+        XCTAssertLessThan(requestedWindow.lowerBound, workspaceTarget.lowerBound)
+        XCTAssertLessThan(workspaceTarget.lowerBound, paneTarget.lowerBound)
+        XCTAssertLessThan(requestedWindow.lowerBound, paneTarget.lowerBound)
+        XCTAssertLessThan(paneTarget.lowerBound, sourceTarget.lowerBound)
+        XCTAssertLessThan(sourceTarget.lowerBound, activeFallback.lowerBound)
+
+        XCTAssertTrue(workspaceWindowResolver.contains("requestedWorkspaceID(payload)"))
+        XCTAssertTrue(workspaceWindowResolver.contains("windowID(containingWorkspace: workspaceID)"))
+        XCTAssertTrue(workspaceWindowResolver.contains("automationWindow(id: windowID)"))
+        XCTAssertTrue(paneResolver.contains("payload.conversationIDs"))
+        XCTAssertTrue(paneResolver.contains("payload.handles"))
+        XCTAssertTrue(paneResolver.contains("ConversationStore.normalize"))
+        XCTAssertTrue(paneResolver.contains("windowID(containingWorkspace:"))
+        XCTAssertTrue(sourceResolver.contains("resolveAutomationSource(payload: payload)"))
+        XCTAssertTrue(sourceResolver.contains("source.conversation.workspaceID"))
+        XCTAssertTrue(workspaceResolver.contains("payload.workspaceID ?? payload.workspaceIDs?.first"))
+        XCTAssertTrue(workspaceResolver.contains("workspaceStore.workspace(explicitWorkspaceID, isInWindow: target.windowID)"))
+        XCTAssertTrue(workspaceResolver.contains("sourceWindowID == target.windowID"))
+        XCTAssertTrue(createPanes.contains("let workspaceID = try automationWorkspaceID(payload: payload, in: target)"))
+        XCTAssertTrue(createPanes.contains("target.createLocalAgentPanes(specs, workspaceID: workspaceID)"))
+        XCTAssertTrue(capture.contains("let targets = captureTargetArguments(payload, in: target)"))
+        XCTAssertTrue(capture.contains("conversationIDStrings: targets.conversationIDs"))
+        XCTAssertTrue(capture.contains("resolveAutomationSource(payload: payload)"))
+        XCTAssertTrue(capture.contains("windowID(containingWorkspace: source.conversation.workspaceID)"))
+        XCTAssertTrue(capture.contains("sourceWindowID == target.windowID"))
+        XCTAssertTrue(capture.contains("source.conversation.id.uuidString"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
