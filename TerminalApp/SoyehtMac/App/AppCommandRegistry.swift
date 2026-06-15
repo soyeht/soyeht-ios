@@ -595,8 +595,8 @@ enum AppCommandRegistry {
                 id: .showPairedDevices,
                 title: String(
                     localized: "appMenu.pairedDevices",
-                    defaultValue: "Paired Devices…",
-                    comment: "App menu item that opens the Paired Devices window."
+                    defaultValue: "Devices…",
+                    comment: "App menu item that opens the Devices tab in Settings."
                 ),
                 action: .showPairedDevices,
                 shortcut: AppCommandShortcut(.character("d"), modifiers: [.command, .shift]),

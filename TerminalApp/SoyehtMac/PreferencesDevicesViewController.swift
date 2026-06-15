@@ -5,6 +5,10 @@ import SwiftUI
 import SoyehtCore
 
 final class PreferencesTabViewController: NSTabViewController {
+    private enum TabIndex {
+        static let devices = 1
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -23,6 +27,11 @@ final class PreferencesTabViewController: NSTabViewController {
             comment: "Preferences tab title for Mac and iPhone device settings."
         )
         addTabViewItem(devices)
+    }
+
+    func selectDevicesTab() {
+        guard tabViewItems.indices.contains(TabIndex.devices) else { return }
+        selectedTabViewItemIndex = TabIndex.devices
     }
 }
 
