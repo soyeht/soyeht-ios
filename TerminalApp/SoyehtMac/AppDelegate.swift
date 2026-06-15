@@ -624,6 +624,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
                 prompt: prompt,
                 promptDelayMs: promptDelayMs,
+                promptMode: workspace.promptMode ?? payload.promptMode,
+                promptSourceConversationIDString: payload.sourceConversationID,
+                promptSourceHandle: payload.sourceHandle,
+                promptSourceTTY: payload.sourceTTY,
                 branch: workspace.branch
             )
             created.append(SoyehtAutomationResponse.CreatedWorkspace(
@@ -673,7 +677,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 agentName: agent,
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
                 prompt: pane.prompt ?? payload.prompt,
-                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+                promptMode: pane.promptMode ?? payload.promptMode,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs,
+                promptSourceConversationIDString: payload.sourceConversationID,
+                promptSourceHandle: payload.sourceHandle,
+                promptSourceTTY: payload.sourceTTY
             ))
         }
 
@@ -723,7 +731,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 agentName: agent,
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
                 prompt: pane.prompt ?? payload.prompt,
-                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+                promptMode: pane.promptMode ?? payload.promptMode,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs,
+                promptSourceConversationIDString: payload.sourceConversationID,
+                promptSourceHandle: payload.sourceHandle,
+                promptSourceTTY: payload.sourceTTY
             )
         }
 
@@ -742,6 +754,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             initialCommand: first.initialCommand,
             prompt: first.prompt,
             promptDelayMs: first.promptDelayMs,
+            promptMode: first.promptMode,
+            promptSourceConversationIDString: first.promptSourceConversationIDString,
+            promptSourceHandle: first.promptSourceHandle,
+            promptSourceTTY: first.promptSourceTTY,
             branch: payload.workspaceBranch
         )
         let additionalResults = try await target.createLocalAgentPanes(

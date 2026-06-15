@@ -11,6 +11,11 @@ MODULE = runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts" / "s
 class SoyehtMCPProtocolTests(unittest.TestCase):
     def setUp(self):
         MODULE["handle_message"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
+        self.sleep_patch = patch.object(MODULE["time"], "sleep", lambda _seconds: None)
+        self.sleep_patch.start()
+
+    def tearDown(self):
+        self.sleep_patch.stop()
 
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
@@ -34,13 +39,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
     def test_prompt_delay_schema_describes_agent_aware_default(self):
         prompt_delay = MODULE["PROMPT_DELAY_MS_PROPERTY"]
+        prompt_mode = MODULE["PROMPT_MODE_PROPERTY"]
 
         self.assertNotIn("default", prompt_delay)
         self.assertIn("startup-aware", prompt_delay["description"])
         self.assertIn("Codex/Claude", prompt_delay["description"])
+        self.assertEqual(prompt_mode["enum"], ["auto", "message", "raw"])
+        self.assertIn("agent message", prompt_mode["description"])
+        self.assertIn("raw", prompt_mode["description"])
         for name in ("open_panes", "open_shell", "open_workspace", "create_worktree_panes", "agent_race_panes"):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
+            self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
 
     def test_message_agent_handler_is_registered_and_fail_closed_by_schema(self):
         self.assertIn("message_agent", MODULE["TOOL_HANDLERS"])
@@ -476,6 +486,116 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_message_agent_refuses_to_create_or_guess_target(self):
         with self.assertRaisesRegex(RuntimeError, "requires handles or conversationIDs"):
             MODULE["tool_message_agent"]({"text": "please review"})
+
+    def test_open_shell_agent_prompt_defaults_to_message_mode_with_source(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            result = MODULE["tool_open_shell"]({
+                "path": ".",
+                "agent": "claude",
+                "prompt": "please review this",
+                "fromHandle": "@codex",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@codex")
+        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["promptMode"], "message")
+        self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "message")
+        self.assertEqual(captured["payload"]["panes"][0]["prompt"], "please review this")
+        self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
+        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
+        self.assertEqual(result["promptDeliveryStatus"], "waited")
+
+    def test_open_shell_raw_prompt_mode_preserves_literal_agent_input(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_open_shell"]({
+                "path": ".",
+                "agent": "claude",
+                "prompt": "act like the user typed this",
+                "promptMode": "raw",
+                "fromHandle": "@driver",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["payload"]["sourceHandle"], "@driver")
+        self.assertEqual(captured["payload"]["promptMode"], "raw")
+        self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
+        self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
+        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
+
+    def test_open_shell_codex_prompt_waits_for_default_delivery_delay(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_open_shell"]({
+                "path": ".",
+                "agent": "codex",
+                "command": "codex --yolo",
+                "prompt": "ask another agent",
+                "fromHandle": "@driver",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["payload"]["promptMode"], "message")
+        self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 8_000)
+        self.assertEqual(result["promptDeliveryWaitMs"], 11_000)
+
+    def test_shell_prompt_defaults_to_raw_mode(self):
+        captured = {}
+        globals_ = MODULE["tool_open_shell"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_open_shell"]({
+                "path": ".",
+                "agent": "shell",
+                "prompt": "printf ok",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["payload"]["promptMode"], "raw")
+        self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
+        self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 1_500)
+        self.assertEqual(result["promptDeliveryWaitMs"], 1_500)
 
     def test_identify_agent_forwards_explicit_source(self):
         captured = {}

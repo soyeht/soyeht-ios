@@ -54,9 +54,48 @@ enum AgentPaneEnvironment {
 }
 
 enum AgentPaneInputPlanner {
+    enum InitialPromptMode: String {
+        case auto
+        case message
+        case raw
+
+        init?(rawValue value: String?) {
+            guard let value else {
+                self = .auto
+                return
+            }
+            let normalized = value
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+                .replacingOccurrences(of: "-", with: "_")
+            switch normalized {
+            case "", "auto", "default":
+                self = .auto
+            case "message", "agent", "agent_message", "envelope", "enveloped":
+                self = .message
+            case "raw", "terminal", "literal", "input":
+                self = .raw
+            default:
+                return nil
+            }
+        }
+
+        func resolvesToMessage(for target: Conversation) -> Bool {
+            switch self {
+            case .auto:
+                return !target.agent.isShell
+            case .message:
+                return true
+            case .raw:
+                return false
+            }
+        }
+    }
+
     enum Error: Swift.Error, Equatable {
         case sourceRequired
         case cannotTargetSource(String)
+        case invalidPromptMode(String)
     }
 
     struct Prepared: Equatable {
@@ -177,7 +216,7 @@ enum AgentPaneInputPlanner {
         }
         let command = initialCommand?.lowercased() ?? ""
         if command.contains("codex") {
-            return 40_000
+            return 8_000
         }
         if command.contains("claude") {
             return 15_000
