@@ -366,6 +366,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         case invalidWorkspaceIDFormat(String)
         case missingPaneName(String)
         case workspaceNotFound(UUID)
+        case workspaceNotInWindow(UUID, String)
         case missingConversationStore
         case noActiveMainWindow
         case windowNotFound(String)
@@ -397,6 +398,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 return "Automation pane is missing a name: \(path)"
             case .workspaceNotFound(let id):
                 return "Workspace does not exist: \(id.uuidString)"
+            case .workspaceNotInWindow(let id, let windowID):
+                return "Workspace \(id.uuidString) is not in window \(windowID)."
             case .missingConversationStore:
                 return "Conversation store is not available."
             case .noActiveMainWindow:
@@ -510,6 +513,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    private func requestedWorkspaceID(_ payload: SoyehtAutomationRequest.Payload) throws -> Workspace.ID? {
+        let raw = payload.workspaceID ?? payload.workspaceIDs?.first
+        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+        guard let id = Workspace.ID(uuidString: trimmed) else {
+            throw AutomationError.invalidWorkspaceIDFormat(trimmed)
+        }
+        return id
+    }
+
     private func automationWindow(id: String) throws -> SoyehtMainWindowController {
         guard let controller = mainWindowControllers.first(where: { $0.windowID == id }) else {
             throw AutomationError.windowNotFound(id)
@@ -524,6 +537,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         if let id = requestedWindowID(payload) {
             return try automationWindow(id: id)
         }
+        if let target = try automationWindowForWorkspace(payload) {
+            return target
+        }
+        if let target = automationWindowForPaneTargets(payload) {
+            return target
+        }
+        if let target = automationWindowForSource(payload) {
+            return target
+        }
         if let target = activeMainWindowController {
             return target
         }
@@ -531,6 +553,68 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return openNewMainWindow()
         }
         throw AutomationError.noActiveMainWindow
+    }
+
+    private func automationWindowForWorkspace(
+        _ payload: SoyehtAutomationRequest.Payload
+    ) throws -> SoyehtMainWindowController? {
+        guard let workspaceID = try requestedWorkspaceID(payload),
+              let windowID = windowID(containingWorkspace: workspaceID) else {
+            return nil
+        }
+        return try automationWindow(id: windowID)
+    }
+
+    private func automationWindowForPaneTargets(
+        _ payload: SoyehtAutomationRequest.Payload
+    ) -> SoyehtMainWindowController? {
+        var windowIDs: Set<String> = []
+
+        for rawID in payload.conversationIDs ?? [] {
+            guard let id = UUID(uuidString: rawID.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  let conversation = conversationStore.conversation(id),
+                  let windowID = windowID(containingWorkspace: conversation.workspaceID) else {
+                continue
+            }
+            windowIDs.insert(windowID)
+        }
+
+        let normalizedHandles = (payload.handles ?? [])
+            .map { ConversationStore.normalize($0) }
+            .filter { !$0.isEmpty }
+        for handle in normalizedHandles {
+            let matches = conversationStore.all.filter {
+                ConversationStore.normalize($0.handle) == handle
+            }
+            let matchWindowIDs = Set(matches.compactMap {
+                windowID(containingWorkspace: $0.workspaceID)
+            })
+            guard matchWindowIDs.count == 1 else {
+                continue
+            }
+            windowIDs.formUnion(matchWindowIDs)
+        }
+
+        return uniqueAutomationWindow(for: windowIDs)
+    }
+
+    private func automationWindowForSource(
+        _ payload: SoyehtAutomationRequest.Payload
+    ) -> SoyehtMainWindowController? {
+        guard let source = try? resolveAutomationSource(payload: payload),
+              let windowID = windowID(containingWorkspace: source.conversation.workspaceID) else {
+            return nil
+        }
+        return try? automationWindow(id: windowID)
+    }
+
+    private func uniqueAutomationWindow(
+        for windowIDs: Set<String>
+    ) -> SoyehtMainWindowController? {
+        guard windowIDs.count == 1, let windowID = windowIDs.first else {
+            return nil
+        }
+        return try? automationWindow(id: windowID)
     }
 
     private func automationMoveDestinationWindow(
@@ -541,6 +625,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return try automationWindow(id: raw)
         }
         return try automationTargetWindow(payload: payload)
+    }
+
+    private func automationWorkspaceID(
+        payload: SoyehtAutomationRequest.Payload,
+        in target: SoyehtMainWindowController
+    ) throws -> Workspace.ID? {
+        if let explicitWorkspaceID = try requestedWorkspaceID(payload) {
+            guard workspaceStore.workspace(explicitWorkspaceID, isInWindow: target.windowID) else {
+                throw AutomationError.workspaceNotInWindow(explicitWorkspaceID, target.windowID)
+            }
+            return explicitWorkspaceID
+        }
+
+        guard let source = try? resolveAutomationSource(payload: payload),
+              let sourceWindowID = windowID(containingWorkspace: source.conversation.workspaceID),
+              sourceWindowID == target.windowID else {
+            return nil
+        }
+        return source.conversation.workspaceID
     }
 
     private func automationDisplayName(
@@ -651,6 +754,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
         let target = try automationTargetWindow(payload: payload)
         target.window?.makeKeyAndOrderFront(nil)
+        let workspaceID = try automationWorkspaceID(payload: payload, in: target)
 
         var specs: [SoyehtMainWindowController.LocalAgentPaneSpec] = []
         for pane in panes {
@@ -685,7 +789,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             ))
         }
 
-        let results = try await target.createLocalAgentPanes(specs)
+        let results = try await target.createLocalAgentPanes(specs, workspaceID: workspaceID)
         let created = results.map {
             SoyehtAutomationResponse.CreatedPane(
                 name: $0.name,
@@ -762,6 +866,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         )
         let additionalResults = try await target.createLocalAgentPanes(
             Array(specs.dropFirst()),
+            workspaceID: firstResult.workspaceID,
             batchSeedPaneIDs: [firstResult.conversationID]
         )
         let createdWorkspace = SoyehtAutomationResponse.CreatedWorkspace(
@@ -1050,7 +1155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             let target = try automationWindow(id: requested)
             return SoyehtAutomationResult(
                 listedWorkspaces: target.listWorkspaces().map { listedWorkspace($0, windowID: target.windowID) },
-                activeContext: makeActiveContext(target)
+                activeContext: try makeActiveContext(target, payload: request.payload)
             )
         }
 
@@ -1073,14 +1178,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             }
         }
 
+        let contextTarget = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         return SoyehtAutomationResult(
             listedWorkspaces: listed,
-            activeContext: activeMainWindowController.map { makeActiveContext($0) }
+            activeContext: try contextTarget.map { try makeActiveContext($0, payload: request.payload) }
         )
     }
 
     private func handleListPanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let wsIDStr = request.payload.workspaceIDs?.first
+        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         let panes: [SoyehtMainWindowController.ListedPaneResult]
         if let target {
@@ -1105,7 +1211,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
         return SoyehtAutomationResult(
             listedPanes: listed,
-            activeContext: target.map { makeActiveContext($0) }
+            activeContext: try target.map { try makeActiveContext($0, payload: request.payload) }
         )
     }
 
@@ -1117,7 +1223,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let wsIDStr = request.payload.workspaceIDs?.first
+        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         let panes: [SoyehtMainWindowController.ListedPaneResult]
         if let target {
@@ -1141,7 +1247,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
 
         return SoyehtAutomationResult(
-            activeContext: target.map { makeActiveContext($0) },
+            activeContext: try target.map { try makeActiveContext($0, payload: request.payload) },
             sourceIdentity: identity,
             listedAgents: agents
         )
@@ -1355,7 +1461,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     private func handleGetActiveContext(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let target = try automationTargetWindow(payload: request.payload, createIfMissing: false)
-        return SoyehtAutomationResult(activeContext: makeActiveContext(target))
+        return SoyehtAutomationResult(activeContext: try makeActiveContext(target, payload: request.payload))
     }
 
     private func handleOpenEditor(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
@@ -1370,6 +1476,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             rootURL: rootURL,
             line: payload.line,
             column: payload.column,
+            workspaceID: try automationWorkspaceID(payload: payload, in: target),
             attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
@@ -1383,7 +1490,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             throw AutomationError.invalidDirectory("")
         }
         let target = try automationTargetWindow(payload: payload)
-        let opened = try target.openExplorerPane(rootURL: try existingDirectoryURL(rawPath))
+        let opened = try target.openExplorerPane(
+            rootURL: try existingDirectoryURL(rawPath),
+            workspaceID: try automationWorkspaceID(payload: payload, in: target)
+        )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)
         ])
@@ -1401,6 +1511,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             selectedFilePath: payload.selectedFile,
             branch: payload.branch,
             compareBase: payload.compareBase,
+            workspaceID: try automationWorkspaceID(payload: payload, in: target),
             attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
@@ -1428,6 +1539,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             selectedFilePath: selectedPath,
             branch: payload.branch,
             compareBase: payload.compareBase,
+            workspaceID: try automationWorkspaceID(payload: payload, in: target),
             attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
@@ -1488,8 +1600,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func makeActiveContext(
-        _ target: SoyehtMainWindowController
-    ) -> SoyehtAutomationResponse.ActiveContext {
+        _ target: SoyehtMainWindowController,
+        payload: SoyehtAutomationRequest.Payload? = nil
+    ) throws -> SoyehtAutomationResponse.ActiveContext {
+        if let payload,
+           let workspaceID = try automationWorkspaceID(payload: payload, in: target),
+           let workspace = workspaceStore.workspace(workspaceID) {
+            let paneID = workspace.activePaneID
+            let handle = paneID.flatMap { conversationStore.conversation($0)?.handle }
+            return SoyehtAutomationResponse.ActiveContext(
+                windowID: target.windowID,
+                workspaceID: workspaceID.uuidString,
+                workspaceName: workspace.name,
+                paneID: paneID?.uuidString,
+                paneHandle: handle
+            )
+        }
         let ctx = target.getActiveContext()
         return SoyehtAutomationResponse.ActiveContext(
             windowID: target.windowID,
@@ -1595,9 +1721,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private func handleCapturePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         let target = try automationTargetWindow(payload: payload, createIfMissing: false)
+        let targets = captureTargetArguments(payload, in: target)
         let captured = try target.capturePanes(
-            conversationIDStrings: payload.conversationIDs ?? [],
-            handles: payload.handles ?? [],
+            conversationIDStrings: targets.conversationIDs,
+            handles: targets.handles,
             mode: payload.captureMode,
             maxLines: payload.maxLines
         )
@@ -1619,9 +1746,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private func handleCapturePaneRange(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         let target = try automationTargetWindow(payload: payload, createIfMissing: false)
+        let targets = captureTargetArguments(payload, in: target)
         let captured = try target.capturePaneRange(
-            conversationIDStrings: payload.conversationIDs ?? [],
-            handles: payload.handles ?? [],
+            conversationIDStrings: targets.conversationIDs,
+            handles: targets.handles,
             mode: payload.captureMode,
             startLine: payload.startLine,
             lineCount: payload.lineCount,
@@ -1642,6 +1770,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 windowID: target.windowID
             )
         })
+    }
+
+    private func captureTargetArguments(
+        _ payload: SoyehtAutomationRequest.Payload,
+        in target: SoyehtMainWindowController
+    ) -> (conversationIDs: [String], handles: [String]) {
+        let conversationIDs = payload.conversationIDs ?? []
+        let handles = payload.handles ?? []
+        guard conversationIDs.isEmpty, handles.isEmpty,
+              let source = try? resolveAutomationSource(payload: payload),
+              let sourceWindowID = windowID(containingWorkspace: source.conversation.workspaceID),
+              sourceWindowID == target.windowID else {
+            return (conversationIDs, handles)
+        }
+        return ([source.conversation.id.uuidString], [])
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under
