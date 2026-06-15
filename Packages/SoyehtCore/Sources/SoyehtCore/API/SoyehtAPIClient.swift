@@ -54,7 +54,7 @@ public struct SoyehtInstance: Codable, Identifiable, Sendable {
     }
 
     public var isOnline: Bool {
-        guard let s = status else { return true }
+        guard let s = status else { return false }
         return s == "running" || s == "active"
     }
     public var isProvisioning: Bool { status == "provisioning" }
