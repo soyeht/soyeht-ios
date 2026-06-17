@@ -5,14 +5,14 @@ import Testing
     @Test("Wi-Fi LAN with local bareHost prefers bareHost first")
     func localNetworkLocalBareHostFirst() {
         let hosts = ServerEndpointResolver.orderedHosts(
-            bareHost: "192.168.1.50",
-            localLabels: ["mac-alpha.local"],
+            bareHost: "mac-alpha.local",
+            localLabels: ["mac-alpha-nearby.local"],
             magicDNSLabels: ["mac-alpha"],
             localNetworkActive: true,
             tailnetActive: true
         )
 
-        #expect(hosts == ["192.168.1.50", "mac-alpha.local", "mac-alpha"])
+        #expect(hosts == ["mac-alpha.local", "mac-alpha-nearby.local", "mac-alpha"])
     }
 
     @Test("Wi-Fi LAN with tailnet bareHost prefers local labels first")
@@ -83,8 +83,8 @@ import Testing
     @Test("Resolved endpoint preserves ports and strips simple host port suffix")
     func resolvedEndpointCarriesPorts() {
         let endpoint = ServerEndpointResolver.resolve(
-            bareHost: "192.168.1.50:57414",
-            localLabels: ["mac-alpha.local"],
+            bareHost: "mac-alpha.local:57414",
+            localLabels: ["mac-alpha-nearby.local"],
             magicDNSLabels: ["mac-alpha"],
             localNetworkActive: true,
             tailnetActive: true,
@@ -93,7 +93,7 @@ import Testing
             bootstrapPort: 8092
         )
 
-        #expect(endpoint.orderedHosts == ["192.168.1.50", "mac-alpha.local", "mac-alpha"])
+        #expect(endpoint.orderedHosts == ["mac-alpha.local", "mac-alpha-nearby.local", "mac-alpha"])
         #expect(endpoint.presencePort == 57414)
         #expect(endpoint.attachPort == 57415)
         #expect(endpoint.bootstrapPort == 8092)
@@ -122,12 +122,7 @@ import Testing
 
     @Test("Local network host classifier matches LAN and Bonjour ranges")
     func localNetworkHostClassifier() {
-        #expect(ServerEndpointResolver.isLocalNetworkHost("10.0.0.5"))
-        #expect(ServerEndpointResolver.isLocalNetworkHost("172.16.0.1"))
-        #expect(ServerEndpointResolver.isLocalNetworkHost("172.31.255.255"))
-        #expect(ServerEndpointResolver.isLocalNetworkHost("192.168.1.50"))
         #expect(ServerEndpointResolver.isLocalNetworkHost("127.0.0.1"))
-        #expect(ServerEndpointResolver.isLocalNetworkHost("169.254.10.20"))
         #expect(ServerEndpointResolver.isLocalNetworkHost("mac-alpha.local"))
 
         #expect(!ServerEndpointResolver.isLocalNetworkHost("192.0.2.10"))

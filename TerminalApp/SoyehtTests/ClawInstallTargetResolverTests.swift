@@ -193,7 +193,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
     }
 
     func testHouseholdEndpoint_wifiActiveLocalHostPreservesLocalHost() {
-        let server = makeMacServer(hostname: "mac-alpha", lastHost: "192.168.1.50")
+        let server = makeMacServer(hostname: "mac-alpha", lastHost: "mac-alpha.local")
 
         let endpoint = ClawInstallTargetResolver.householdEndpoint(
             for: server,
@@ -202,7 +202,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(endpoint?.scheme, "http")
-        XCTAssertEqual(endpoint?.host, "192.168.1.50")
+        XCTAssertEqual(endpoint?.host, "mac-alpha.local")
         XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
