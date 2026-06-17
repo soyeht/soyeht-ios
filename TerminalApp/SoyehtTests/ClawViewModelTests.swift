@@ -1355,4 +1355,551 @@ struct ClawSetupViewModelInjectedServersTests {
             "An empty deployable list must yield canDeploy == false; the View shows the placeholder."
         )
     }
+
+    @Test("deploy calls household-created handler only for household endpoint targets")
+    @MainActor
+    func deploy_householdCreatedHandlerOnlyForHouseholdEndpoint() async {
+        let capture = HouseholdCreatedCapture()
+        let mac = PairedServer(
+            id: "mac-alpha",
+            host: "mac-alpha.test",
+            name: "mac-alpha",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos"
+        )
+        let householdEndpoint = URL(string: "http://mac-alpha.test:8091")!
+        let householdOption = ClawDeployOption(
+            server: mac,
+            target: CreateInstanceTarget.householdEndpoint(householdEndpoint)
+        )
+        let householdVM = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            deployOptions: [householdOption],
+            householdInstanceCreatedHandler: { _, request, response in
+                capture.records.append(HouseholdCreatedInstanceRecord(request: request, response: response))
+            },
+            createInstanceHandler: { request, target in
+                guard case .householdEndpoint(let endpoint) = target else {
+                    Issue.record("Expected household endpoint target")
+                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: "failed", jobId: nil)
+                }
+                #expect(endpoint == householdEndpoint)
+                return CreateInstanceResponse(
+                    id: "inst-mac-alpha",
+                    name: request.name,
+                    container: "picoclaw-mac-alpha",
+                    clawType: request.clawType,
+                    status: "provisioning",
+                    jobId: "job-mac-alpha"
+                )
+            }
+        )
+
+        await householdVM.deploy()
+
+        #expect(capture.records.map(\.id) == ["inst-mac-alpha"])
+        #expect(capture.records.first?.clawType == "picoclaw")
+
+        capture.records.removeAll()
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let linux = PairedServer(
+            id: "linux-alpha",
+            host: "linux-alpha.test",
+            name: "linux-alpha",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
+        store.addServer(linux, token: "token-linux-alpha")
+        guard let context = store.context(for: linux.id) else {
+            Issue.record("Expected test context for linux-alpha")
+            return
+        }
+        let serverOption = ClawDeployOption(server: linux, target: .server(context))
+        let serverVM = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            deployOptions: [serverOption],
+            store: store,
+            householdInstanceCreatedHandler: { _, request, response in
+                capture.records.append(HouseholdCreatedInstanceRecord(request: request, response: response))
+            },
+            createInstanceHandler: { request, target in
+                guard case .server = target else {
+                    Issue.record("Expected server target")
+                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: "failed", jobId: nil)
+                }
+                return CreateInstanceResponse(
+                    id: "inst-linux-alpha",
+                    name: request.name,
+                    container: "picoclaw-linux-alpha",
+                    clawType: request.clawType,
+                    status: "active",
+                    jobId: "job-linux-alpha"
+                )
+            }
+        )
+
+        await serverVM.deploy()
+
+        #expect(serverVM.deploySucceeded == true)
+        #expect(capture.records.isEmpty)
+    }
+}
+
+@MainActor
+private final class HouseholdCreatedCapture {
+    var records: [HouseholdCreatedInstanceRecord] = []
+}
+
+@Suite("HouseholdCreatedInstancesStore")
+struct HouseholdCreatedInstancesStoreTests {
+    @Test("round trip, upsert, isolation, prune, and remove")
+    func roundTripIsolationPruneAndRemove() {
+        let defaults = makeDefaults("HouseholdCreatedInstancesStoreTests")
+        let store = HouseholdCreatedInstancesStore(defaults: defaults)
+
+        let first = HouseholdCreatedInstanceRecord(
+            id: "inst-alpha",
+            name: "alpha workspace",
+            container: "alpha-container",
+            clawType: "picoclaw"
+        )
+        let updated = HouseholdCreatedInstanceRecord(
+            id: "inst-alpha",
+            name: "renamed workspace",
+            container: "alpha-container",
+            clawType: "picoclaw"
+        )
+        let second = HouseholdCreatedInstanceRecord(
+            id: "inst-beta",
+            name: "beta workspace",
+            container: "beta-container",
+            clawType: "ironclaw"
+        )
+
+        store.upsert(first, serverID: "server-alpha")
+        store.upsert(second, serverID: "server-beta")
+        #expect(store.list(serverID: "server-alpha") == [first])
+        #expect(store.list(serverID: "server-beta") == [second])
+
+        let reloaded = HouseholdCreatedInstancesStore(defaults: defaults)
+        #expect(reloaded.list(serverID: "server-alpha") == [first])
+        #expect(reloaded.list(serverID: "server-beta") == [second])
+
+        reloaded.upsert(updated, serverID: "server-alpha")
+        #expect(reloaded.list(serverID: "server-alpha") == [updated])
+        #expect(reloaded.list(serverID: "server-beta") == [second])
+
+        reloaded.prune(serverID: "server-alpha", keeping: [])
+        #expect(reloaded.list(serverID: "server-alpha").isEmpty)
+        #expect(reloaded.list(serverID: "server-beta") == [second])
+
+        reloaded.remove(instanceID: "inst-beta", serverID: "server-beta")
+        #expect(reloaded.list(serverID: "server-beta").isEmpty)
+    }
+}
+
+@Suite("HouseholdCreatedInstancesLoader")
+struct HouseholdCreatedInstancesLoaderTests {
+    @Test("Mac without context loads household-created status and caches under server id")
+    @MainActor
+    func macWithoutContextSynthesizesEntry() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.success")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.success.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-alpha")
+        recordStore.upsert(
+            HouseholdCreatedInstanceRecord(
+                id: "inst-alpha",
+                name: "alpha workspace",
+                container: "alpha-container",
+                clawType: "picoclaw"
+            ),
+            serverID: server.id
+        )
+
+        let endpoint = URL(string: "http://mac-alpha.test:8091")!
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
+            },
+            listFetcher: { _ in
+                throw SoyehtAPIClient.APIError.httpError(404, nil)
+            },
+            statusFetcher: { id, resolvedEndpoint in
+                #expect(id == "inst-alpha")
+                #expect(resolvedEndpoint == endpoint)
+                return InstanceStatusResponse(
+                    status: "active",
+                    provisioningMessage: "ready",
+                    provisioningError: nil,
+                    provisioningPhase: "complete"
+                )
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.count == 1)
+        #expect(entries.first?.server.id == server.id)
+        #expect(entries.first?.instance.id == "inst-alpha")
+        #expect(entries.first?.instance.status == "active")
+        #expect(entries.first?.instance.provisioningMessage == "ready")
+        #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-alpha"])
+    }
+
+    @Test("Mac without context uses household list without local records")
+    @MainActor
+    func macWithoutContextLoadsHouseholdList() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.list")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.list.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-list")
+        let endpoint = URL(string: "http://mac-list.test:8091")!
+        let listed = SoyehtInstance(
+            id: "inst-listed",
+            name: "listed workspace",
+            container: "listed-container",
+            clawType: "picoclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: "ready",
+            provisioningPhase: "complete",
+            provisioningError: nil
+        )
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
+            },
+            listFetcher: { resolvedEndpoint in
+                #expect(resolvedEndpoint == endpoint)
+                return [listed]
+            },
+            statusFetcher: { _, _ in
+                Issue.record("Status fallback should not run for listed instance")
+                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.map(\.instance.id) == ["inst-listed"])
+        #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-listed"])
+        #expect(recordStore.list(serverID: server.id).isEmpty)
+        #expect(InstanceListView.terminalUnavailableReason(serverKind: server.kind, hasContext: false) != nil)
+    }
+
+    @Test("household list is unioned with local records that still have status")
+    @MainActor
+    func householdListUnionsWithLocalStatusFallback() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.union")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.union.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-union")
+        let endpoint = URL(string: "http://mac-union.test:8091")!
+        let listed = SoyehtInstance(
+            id: "inst-listed",
+            name: "listed workspace",
+            container: "listed-container",
+            clawType: "picoclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
+        recordStore.upsert(
+            HouseholdCreatedInstanceRecord(
+                id: "inst-local",
+                name: "local workspace",
+                container: "local-container",
+                clawType: "picoclaw"
+            ),
+            serverID: server.id
+        )
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
+            },
+            listFetcher: { _ in [listed] },
+            statusFetcher: { id, _ in
+                #expect(id == "inst-local")
+                return InstanceStatusResponse(
+                    status: "provisioning",
+                    provisioningMessage: "starting",
+                    provisioningError: nil,
+                    provisioningPhase: "starting"
+                )
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.map(\.instance.id) == ["inst-listed", "inst-local"])
+        #expect(entries.last?.instance.status == "provisioning")
+        #expect(recordStore.list(serverID: server.id).map(\.id) == ["inst-local"])
+        #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-listed", "inst-local"])
+    }
+
+    @Test("404 prunes household-created record and clears server cache")
+    @MainActor
+    func notFoundPrunesRecord() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.notFound")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.notFound.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-beta")
+        let cached = SoyehtInstance(
+            id: "inst-missing",
+            name: "missing workspace",
+            container: "missing-container",
+            clawType: "picoclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
+        sessionStore.saveInstances([cached], serverId: server.id)
+        recordStore.upsert(
+            HouseholdCreatedInstanceRecord(
+                id: "inst-missing",
+                name: "missing workspace",
+                container: "missing-container",
+                clawType: "picoclaw"
+            ),
+            serverID: server.id
+        )
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(
+                    serverID: target.serverID,
+                    endpoint: URL(string: "http://mac-beta.test:8091")!
+                )
+            },
+            listFetcher: { _ in
+                throw SoyehtAPIClient.APIError.httpError(404, nil)
+            },
+            statusFetcher: { _, _ in
+                throw SoyehtAPIClient.APIError.httpError(404, nil)
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.isEmpty)
+        #expect(recordStore.list(serverID: server.id).isEmpty)
+        #expect(sessionStore.loadInstances(serverId: server.id).isEmpty)
+    }
+
+    @Test("transient status error keeps cached household-created line")
+    @MainActor
+    func transientStatusErrorKeepsCachedRecordAndCache() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.transient")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.transient.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-delta")
+        let cached = SoyehtInstance(
+            id: "inst-delta",
+            name: "delta workspace",
+            container: "delta-container",
+            clawType: "picoclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
+        sessionStore.saveInstances([cached], serverId: server.id)
+        recordStore.upsert(
+            HouseholdCreatedInstanceRecord(
+                id: "inst-delta",
+                name: "delta workspace",
+                container: "delta-container",
+                clawType: "picoclaw"
+            ),
+            serverID: server.id
+        )
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(
+                    serverID: target.serverID,
+                    endpoint: URL(string: "http://mac-delta.test:8091")!
+                )
+            },
+            listFetcher: { _ in
+                throw SoyehtAPIClient.APIError.httpError(404, nil)
+            },
+            statusFetcher: { _, _ in
+                throw SoyehtAPIClient.APIError.httpError(500, nil)
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.map(\.instance.id) == ["inst-delta"])
+        #expect(recordStore.list(serverID: server.id).map(\.id) == ["inst-delta"])
+        #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-delta"])
+    }
+
+    @Test("transient household list error keeps cached line without local records")
+    @MainActor
+    func transientListErrorKeepsCachedInstances() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.listTransient")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.listTransient.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-list-transient")
+        let cached = SoyehtInstance(
+            id: "inst-cached",
+            name: "cached workspace",
+            container: "cached-container",
+            clawType: "picoclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
+        sessionStore.saveInstances([cached], serverId: server.id)
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { target in
+                .householdEndpoint(
+                    serverID: target.serverID,
+                    endpoint: URL(string: "http://mac-list-transient.test:8091")!
+                )
+            },
+            listFetcher: { _ in
+                throw SoyehtAPIClient.APIError.httpError(500, nil)
+            },
+            statusFetcher: { _, _ in
+                Issue.record("No local records should require status fallback")
+                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.map(\.instance.id) == ["inst-cached"])
+        #expect(recordStore.list(serverID: server.id).isEmpty)
+        #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-cached"])
+    }
+
+    @Test("Mac with ServerContext skips household-created loader")
+    @MainActor
+    func macWithContextSkipsHouseholdCreatedLoader() async {
+        let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.context")
+        let sessionStore = SoyehtCore.SessionStore(
+            defaults: defaults,
+            keychainService: "HouseholdCreatedInstancesLoaderTests.context.\(UUID().uuidString)"
+        )
+        let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
+        let server = makeMacServer(id: "mac-gamma")
+        recordStore.upsert(
+            HouseholdCreatedInstanceRecord(
+                id: "inst-gamma",
+                name: "gamma workspace",
+                container: "gamma-container",
+                clawType: "picoclaw"
+            ),
+            serverID: server.id
+        )
+        sessionStore.addServer(
+            PairedServer(
+                id: server.id,
+                host: "mac-gamma.test",
+                name: "mac-gamma",
+                role: "admin",
+                pairedAt: Date(),
+                expiresAt: nil,
+                platform: "macos",
+                kind: .engine
+            ),
+            token: "token-mac-gamma"
+        )
+
+        let loader = HouseholdCreatedInstancesLoader(
+            recordStore: recordStore,
+            sessionStore: sessionStore,
+            resolver: { _ in
+                Issue.record("Resolver should not be called for a server with context")
+                return .unavailable(.missingContext)
+            },
+            statusFetcher: { _, _ in
+                Issue.record("Status fetcher should not be called for a server with context")
+                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+            }
+        )
+
+        let entries = await loader.load(for: [server])
+
+        #expect(entries.isEmpty)
+        #expect(recordStore.list(serverID: server.id).map(\.id) == ["inst-gamma"])
+    }
+}
+
+private func makeDefaults(_ prefix: String) -> UserDefaults {
+    let suiteName = "\(prefix).\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
+    return defaults
+}
+
+private func makeMacServer(id: String) -> Server {
+    Server(
+        id: id,
+        kind: .mac,
+        pairedAt: Date(),
+        lastSeenAt: Date(),
+        alias: nil,
+        hostname: "\(id).test",
+        lastHost: "\(id).test"
+    )
 }

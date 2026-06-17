@@ -43,6 +43,13 @@ import SoyehtCore
 /// thread-safe but consistent with the rest of the iOS UI layer).
 @MainActor
 enum ClawInstallTargetResolver {
+    nonisolated static var defaultBootstrapPort: Int {
+        defaultBootstrapPort(for: .current)
+    }
+
+    nonisolated static func defaultBootstrapPort(for profile: SoyehtInstallProfile) -> Int {
+        profile.bootstrapPort
+    }
 
     /// The decision for a given install target.
     enum Resolution: Equatable {
@@ -135,21 +142,23 @@ enum ClawInstallTargetResolver {
     static func householdEndpoint(
         for server: Server,
         localNetworkActive: Bool? = nil,
-        tailnetActive: Bool? = nil
+        tailnetActive: Bool? = nil,
+        installProfile: SoyehtInstallProfile? = nil
     ) -> URL? {
+        let defaultPort = defaultBootstrapPort(for: installProfile ?? .current)
         if let endpoint = server.bootstrapEndpoint {
-            return endpoint.normalizedHouseholdEndpoint()
+            return endpoint.normalizedHouseholdEndpoint(defaultPort: defaultPort)
         }
 
         let rawHost = server.lastHost ?? server.hostname
-        if let explicit = URL.explicitHouseholdEndpoint(fromHost: rawHost) {
+        if let explicit = URL.explicitHouseholdEndpoint(fromHost: rawHost, defaultPort: defaultPort) {
             return explicit
         }
         guard let hostParts = URL.householdHostParts(fromHost: rawHost) else {
             return nil
         }
         if hostParts.port != nil {
-            return URL.householdEndpoint(fromHost: rawHost)
+            return URL.householdEndpoint(fromHost: rawHost, defaultPort: defaultPort)
         }
 
         let labelCandidates = ServerEndpointResolver.hostLabelCandidates(from: [
@@ -163,7 +172,7 @@ enum ClawInstallTargetResolver {
             magicDNSLabels: labelCandidates,
             localNetworkActive: localNetworkActive ?? DeviceNetworkState.hasActiveWiFiIPv4(),
             tailnetActive: tailnetActive ?? (TailnetAddressResolver.currentTailnetIPv4() != nil),
-            bootstrapPort: hostParts.port ?? ServerEndpointResolver.defaultBootstrapPort
+            bootstrapPort: hostParts.port ?? defaultPort
         )
         let host = resolved.orderedHosts.first ?? hostParts.host
         // Install currently dials one household endpoint; unlike presence it
@@ -252,7 +261,7 @@ extension ClawInstallTargetResolver.Resolution {
 }
 
 private extension URL {
-    func normalizedHouseholdEndpoint(defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort) -> URL {
+    func normalizedHouseholdEndpoint(defaultPort: Int = ClawInstallTargetResolver.defaultBootstrapPort) -> URL {
         var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
         components?.path = ""
         components?.query = nil
@@ -268,7 +277,7 @@ private extension URL {
 
     static func explicitHouseholdEndpoint(
         fromHost rawHost: String,
-        defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort
+        defaultPort: Int = ClawInstallTargetResolver.defaultBootstrapPort
     ) -> URL? {
         let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -305,7 +314,7 @@ private extension URL {
 
     static func householdEndpoint(
         fromHost rawHost: String,
-        defaultPort: Int = ServerEndpointResolver.defaultBootstrapPort
+        defaultPort: Int = ClawInstallTargetResolver.defaultBootstrapPort
     ) -> URL? {
         guard let parts = householdHostParts(fromHost: rawHost) else { return nil }
         var components = URLComponents()

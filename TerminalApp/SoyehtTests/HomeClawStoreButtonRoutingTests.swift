@@ -1,4 +1,6 @@
+import SoyehtCore
 import XCTest
+@testable import Soyeht
 
 /// PR-3 source-slice. The home Claw Store button must branch by
 /// `ServerRegistry.count`:
@@ -173,6 +175,214 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
+    func test_macHouseholdTerminalCardFlipRequiresEndpoint() {
+        XCTAssertNil(InstanceListView.terminalUnavailableReason(
+            serverKind: .mac,
+            hasContext: false,
+            hasHouseholdEndpoint: true
+        ))
+        XCTAssertNotNil(InstanceListView.terminalUnavailableReason(
+            serverKind: .mac,
+            hasContext: false,
+            hasHouseholdEndpoint: false
+        ))
+        XCTAssertNil(InstanceListView.terminalUnavailableReason(
+            serverKind: .linux,
+            hasContext: false,
+            hasHouseholdEndpoint: false
+        ))
+        XCTAssertNil(InstanceListView.terminalUnavailableReason(
+            serverKind: .mac,
+            hasContext: true,
+            hasHouseholdEndpoint: false
+        ))
+    }
+
+    func test_instanceActionsRouteContextFirstThenMacHouseholdEndpoint() {
+        XCTAssertEqual(InstanceListView.instanceActionRoute(
+            serverKind: .linux,
+            hasContext: true,
+            hasHouseholdEndpoint: false
+        ), .context)
+        XCTAssertEqual(InstanceListView.instanceActionRoute(
+            serverKind: .mac,
+            hasContext: true,
+            hasHouseholdEndpoint: true
+        ), .context)
+        XCTAssertEqual(InstanceListView.instanceActionRoute(
+            serverKind: .mac,
+            hasContext: false,
+            hasHouseholdEndpoint: true
+        ), .householdEndpoint)
+        XCTAssertEqual(InstanceListView.instanceActionRoute(
+            serverKind: .mac,
+            hasContext: false,
+            hasHouseholdEndpoint: false
+        ), .unavailable)
+        XCTAssertEqual(InstanceListView.instanceActionRoute(
+            serverKind: .linux,
+            hasContext: false,
+            hasHouseholdEndpoint: true
+        ), .unavailable)
+    }
+
+    func test_instanceActionsMenuIsCapabilityGatedAndPerformerIsDualMode() throws {
+        let source = try iosSource("InstanceListView.swift")
+        let row = try slice(
+            source,
+            from: "private func instanceRow(for entry: InstanceEntry)",
+            to: "private func terminalUnavailableReason"
+        )
+        XCTAssertTrue(row.contains("if instanceActionTarget(for: entry) != nil"),
+            "Instance action menus must be shown only when a context or Mac household endpoint can route the action."
+        )
+        XCTAssertFalse(row.contains("if store.context(for: entry.server.id) != nil"),
+            "Mac household cards without ServerContext need the actions menu once the household endpoint is available."
+        )
+
+        let performer = try slice(
+            source,
+            from: "private func performInstanceAction",
+            to: "private func instanceActionsUnavailableMessage"
+        )
+        XCTAssertTrue(performer.contains("case .context(let context):"),
+            "Linux/context-backed actions must keep the legacy context route."
+        )
+        XCTAssertTrue(performer.contains("apiClient.instanceAction(id: entry.instance.id, action: action, context: context)"),
+            "Context-backed actions must keep calling the context API."
+        )
+        XCTAssertTrue(performer.contains("case .householdEndpoint(let endpoint):"),
+            "Mac household actions must route through the household endpoint when no context exists."
+        )
+        XCTAssertTrue(performer.contains("householdEndpoint: endpoint"),
+            "Mac household actions must call the household endpoint API."
+        )
+        XCTAssertFalse(performer.contains("instancelist.error.missingSession"),
+            "Action fallback should present an unavailable state instead of the old generic Missing session error."
+        )
+        XCTAssertTrue(performer.contains("if action == .delete"),
+            "Successful delete should prune the local row/cache before refreshing the home list."
+        )
+    }
+
+    func test_deleteActionPrunesLocalHomeRowsAndCacheByInstanceIdentity() {
+        let server = Server(
+            id: "mac-alpha",
+            kind: .mac,
+            pairedAt: Date(timeIntervalSince1970: 0),
+            lastSeenAt: Date(timeIntervalSince1970: 0),
+            alias: "mac-alpha",
+            hostname: "mac-alpha.test"
+        )
+        let keep = makeInstance(id: "inst-keep", name: "keep workspace")
+        let delete = makeInstance(id: "inst-delete", name: "delete workspace")
+        let keepEntry = InstanceEntry(server: server, instance: keep)
+        let deleteEntry = InstanceEntry(server: server, instance: delete)
+
+        let remainingEntries = InstanceListView.entriesAfterLocalDelete(
+            [keepEntry, deleteEntry],
+            deleting: deleteEntry
+        )
+        XCTAssertEqual(remainingEntries.map(\.id), [keepEntry.id])
+
+        let remainingInstances = InstanceListView.instancesAfterLocalDelete(
+            [keep, delete],
+            deleting: delete.id
+        )
+        XCTAssertEqual(remainingInstances.map(\.id), [keep.id])
+    }
+
+    func test_householdTerminalUsesRequestModeWithoutChangingStringMode() throws {
+        let source = try iosSource("TerminalHostViewController.swift")
+
+        XCTAssertTrue(source.contains("case websocket(String)"),
+            "Existing context-backed terminal mode must remain the String URL mode."
+        )
+        XCTAssertTrue(source.contains("case websocketRequest(URLRequest)"),
+            "Household terminal attach must use a separate URLRequest mode."
+        )
+        XCTAssertTrue(source.contains("func updateWebSocket(_ wsUrl: String)"),
+            "Existing updateWebSocket(String) entry point must remain."
+        )
+        XCTAssertTrue(source.contains("func updateWebSocketRequest(_ request: URLRequest)"),
+            "Household attach needs a request entry point for the token header."
+        )
+        XCTAssertTrue(source.contains("wsView.configure(wsUrl: wsUrl)"),
+            "String mode must continue to configure WebSocketTerminalView by URL string."
+        )
+        XCTAssertTrue(source.contains("wsView.configure(request: request)"),
+            "Request mode must configure WebSocketTerminalView with URLRequest."
+        )
+    }
+
+    func test_householdTerminalReconnectUsesFreshRequest() throws {
+        let source = try iosSource("WebSocketTerminalView.swift")
+        let stringConnect = try slice(
+            source,
+            from: "private func connect(wsUrl: String)",
+            to: "private func connect(request: URLRequest)"
+        )
+        let requestConnect = try slice(
+            source,
+            from: "private func connect(request: URLRequest)",
+            to: "private func disconnect()"
+        )
+        let reconnect = try slice(
+            source,
+            from: "private func resolveReconnectEndpoint()",
+            to: "private func attemptReconnect()"
+        )
+
+        XCTAssertTrue(stringConnect.contains("webSocketTask(with: url)"),
+            "The existing String URL path must keep using URLSession.webSocketTask(with: URL)."
+        )
+        XCTAssertFalse(stringConnect.contains("webSocketTask(with: request)"),
+            "The existing String URL path must not be converted to URLRequest."
+        )
+        XCTAssertTrue(requestConnect.contains("webSocketTask(with: request)"),
+            "Household attach must preserve the token header by opening with URLRequest."
+        )
+        XCTAssertTrue(reconnect.contains("attachRequestRefresher"),
+            "Household reconnect must mint/build a fresh URLRequest instead of reusing the single-use token."
+        )
+        XCTAssertTrue(reconnect.contains("return .request(fresh)"),
+            "Fresh household attach requests must be used for reconnect."
+        )
+    }
+
+    func test_householdAttachMintsThenConnectsWithoutPreflight() throws {
+        let source = try iosSource("InstanceListView.swift")
+        let contextAttach = try slice(
+            source,
+            from: "private func attachContextWorkspace",
+            to: "private func attachHouseholdWorkspace"
+        )
+        let householdAttach = try slice(
+            source,
+            from: "private func attachHouseholdWorkspace",
+            to: "private func resetAttachProgress"
+        )
+
+        XCTAssertTrue(contextAttach.contains("TerminalWebSocketHandshake.verify"),
+            "Context-backed terminal attach should keep its existing preflight path."
+        )
+        XCTAssertTrue(contextAttach.contains("onAttach(wsUrl, sessionName, context)"),
+            "Context-backed terminal attach must still route through the legacy callback."
+        )
+        XCTAssertTrue(householdAttach.contains("mintHouseholdTerminalAttachToken"),
+            "Household terminal attach must mint a short-lived token immediately before connect."
+        )
+        XCTAssertTrue(householdAttach.contains("makeHouseholdTerminalWebSocketRequest"),
+            "Household terminal attach must build a URLRequest with the token header."
+        )
+        XCTAssertTrue(householdAttach.contains("onHouseholdAttach(request, sessionName, endpoint)"),
+            "Household terminal attach must navigate with URLRequest."
+        )
+        XCTAssertFalse(householdAttach.contains("TerminalWebSocketHandshake.verify"),
+            "Household terminal attach must not consume the single-use token in a preflight."
+        )
+    }
+
     // MARK: - Helpers
 
     private func iosSource(_ relativePath: String) throws -> String {
@@ -192,6 +402,22 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
             .appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore")
             .appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func makeInstance(id: String, name: String) -> SoyehtInstance {
+        SoyehtInstance(
+            id: id,
+            name: name,
+            container: "\(id)-container",
+            clawType: "ironclaw",
+            fqdn: nil,
+            status: "active",
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: nil,
+            provisioningPhase: nil,
+            provisioningError: nil
+        )
     }
 
     private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
