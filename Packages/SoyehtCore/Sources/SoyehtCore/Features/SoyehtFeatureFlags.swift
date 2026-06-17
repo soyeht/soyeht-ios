@@ -2,7 +2,10 @@ import Foundation
 
 public enum SoyehtFeatureFlags {
     private static let clawStoreDefault = false
-    private static let clawStoreDevBundleIdentifier = "com.soyeht.app.dev"
+    private static let clawStoreE2EDevBundleIdentifiers: Set<String> = [
+        "com.soyeht.app.dev",
+        "com.soyeht.mac.dev",
+    ]
     private static let clawStoreE2ELaunchArgument = "-SoyehtClawStoreE2E"
     private static let clawStoreOverrideLock = NSLock()
     private nonisolated(unsafe) static var clawStoreEnabledOverride: Bool?
@@ -37,7 +40,8 @@ public enum SoyehtFeatureFlags {
         bundleIdentifier: String?,
         arguments: [String]
     ) -> Bool {
-        bundleIdentifier == clawStoreDevBundleIdentifier
+        guard let bundleIdentifier else { return false }
+        return clawStoreE2EDevBundleIdentifiers.contains(bundleIdentifier)
             && arguments.contains(clawStoreE2ELaunchArgument)
     }
 

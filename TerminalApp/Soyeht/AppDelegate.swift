@@ -40,7 +40,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FreshInstallKeychainSweeper.sweepIfNeeded()
 
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-SoyehtClawStoreE2E") {
+        if SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: Bundle.main.bundleIdentifier,
+            arguments: ProcessInfo.processInfo.arguments
+        ) {
             SoyehtFeatureFlags.setClawStoreEnabledOverride(true)
         }
         #endif

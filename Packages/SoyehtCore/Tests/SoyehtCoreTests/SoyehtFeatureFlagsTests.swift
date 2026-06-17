@@ -27,9 +27,13 @@ struct SoyehtFeatureFlagsTests {
         #expect(SoyehtFeatureFlags.clawStoreEnabled == false)
     }
 
-    @Test func e2eLaunchArgumentOnlyEnablesDevBundle() {
+    @Test func e2eLaunchArgumentOnlyEnablesAllowedDevBundles() {
         #expect(SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
+        ))
+        #expect(SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac.dev",
             arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
         ))
         #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
@@ -37,7 +41,15 @@ struct SoyehtFeatureFlagsTests {
             arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
         ))
         #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac",
+            arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht"]
+        ))
+        #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac.dev",
             arguments: ["Soyeht"]
         ))
     }
