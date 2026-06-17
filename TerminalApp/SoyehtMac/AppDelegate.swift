@@ -2064,7 +2064,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             existing.window?.makeKeyAndOrderFront(nil)
             return
         }
-        let wc = ClawStoreWindowController(context: context)
+        let wc = ClawStoreWindowController(
+            context: context,
+            onOpenTerminal: { [weak self] clawName in
+                self?.openClawTerminalFromStore(clawName: clawName)
+            },
+            onConnectThisMac: { [weak self] in
+                self?.connectThisMacFromClawStore()
+            },
+            onShowConnectedServers: { [weak self] in
+                self?.showConnectedServers(nil)
+            }
+        )
         // Singleton window: the property is the only strong reference.
         // Don't also call `retain(_:)` — that would double-register close
         // observers (array + the one below) and leak both.
@@ -2087,6 +2098,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func connectThisMacFromClawStore() {
+        guard let localServer = SessionStore.shared.pairedServers.first(where: isLocalEngineServer) else {
+            openWelcomeWindow()
+            return
+        }
+
+        closeStandaloneClawStoreWindow()
+        SessionStore.shared.setActiveServer(id: localServer.id)
+        DispatchQueue.main.async { [weak self] in
+            guard let context = SessionStore.shared.currentContext() else { return }
+            self?.showStandaloneClawStore(context: context)
+        }
+    }
+
+    private func closeStandaloneClawStoreWindow() {
+        guard let wc = clawStoreWindowController else { return }
+        if let token = clawStoreCloseObserver {
+            NotificationCenter.default.removeObserver(token)
+            clawStoreCloseObserver = nil
+        }
+        clawStoreWindowController = nil
+        wc.close()
+    }
+
+    private func isLocalEngineServer(_ server: PairedServer) -> Bool {
+        guard server.kind == .engine else { return false }
+        guard let host = normalizedServerHost(server.host) else { return false }
+        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+    }
+
+    private func normalizedServerHost(_ rawHost: String) -> String? {
+        let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let host = URLComponents(string: trimmed)?.host {
+            return host.lowercased()
+        }
+
+        return URLComponents(string: "soyeht://\(trimmed)")?.host?.lowercased()
+    }
+
+    private func openClawTerminalFromStore(clawName: String) {
+        let target = uiMainWindowController ?? mainWindowControllers.first ?? openNewMainWindow()
+        target.openClawTerminal(clawName: clawName)
     }
 
     private func showClawStoreComingSoonAlert() {
@@ -2290,7 +2347,7 @@ extension AppDelegate: AppCommandApplicationActionPerforming {
     }
 
     func performShowClawStoreCommand(_ sender: Any?) {
-        showClawStore(sender)
+        showStandaloneClawStore(sender)
     }
 }
 

@@ -120,6 +120,115 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(dispatch.contains("case ."))
     }
 
+    func testClawStoreAppCommandOpensStandaloneStoreWindow() throws {
+        let source = try macSource("AppDelegate.swift")
+        let command = try slice(
+            source,
+            from: "func performShowClawStoreCommand(_ sender: Any?)",
+            to: "@MainActor\nprivate final class UICommandWindowActionPerformer"
+        )
+
+        XCTAssertTrue(command.contains("showStandaloneClawStore(sender)"))
+        XCTAssertFalse(command.contains("showClawStore(sender)"))
+    }
+
+    func testMacClawStoreDetailOpenTerminalUsesContextBackedMainWindowPath() throws {
+        let appDelegate = try macSource("AppDelegate.swift")
+        let showStore = try slice(
+            appDelegate,
+            from: "private func showStandaloneClawStore(context: ServerContext)",
+            to: "private func showClawStoreComingSoonAlert"
+        )
+        XCTAssertTrue(showStore.contains("ClawStoreWindowController("))
+        XCTAssertTrue(showStore.contains("context: context"))
+        XCTAssertTrue(showStore.contains("openClawTerminalFromStore(clawName: clawName)"))
+        XCTAssertTrue(showStore.contains("uiMainWindowController ?? mainWindowControllers.first ?? openNewMainWindow()"))
+        XCTAssertTrue(showStore.contains("target.openClawTerminal(clawName: clawName)"))
+
+        let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
+        XCTAssertTrue(rootView.contains("onOpenTerminal: onOpenTerminal"))
+
+        let detailView = try macSource("ClawStore/MacClawDetailView.swift")
+        XCTAssertTrue(detailView.contains("claw.detail.button.openTerminal"))
+        XCTAssertTrue(detailView.contains("onOpenTerminal?(viewModel.claw.name)"))
+        XCTAssertTrue(detailView.contains("soyeht.macClawDetail.openTerminal"))
+
+        let mainWindow = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let openTerminal = try slice(
+            mainWindow,
+            from: "func openClawTerminal(clawName: String)",
+            to: "/// Public entry point invoked by the in-pane empty-state picker"
+        )
+        XCTAssertTrue(openTerminal.contains("AppEnvironment.resolveContainer(forClaw: clawName)"))
+        XCTAssertTrue(openTerminal.contains("NewConversationRequest("))
+        XCTAssertTrue(openTerminal.contains("instanceContainer: container"))
+        XCTAssertTrue(openTerminal.contains("self.applyNewConversation(req)"))
+
+        let macOSPatch = showStore + rootView + detailView + openTerminal
+        XCTAssertFalse(macOSPatch.contains("householdRequest"))
+        XCTAssertFalse(macOSPatch.contains("HouseholdPoP"))
+        XCTAssertFalse(macOSPatch.contains("ClawInstallTarget"))
+        XCTAssertFalse(macOSPatch.contains("householdEndpoint"))
+        XCTAssertFalse(macOSPatch.contains("X-Soyeht-Household"))
+    }
+
+    func testMacClawStoreWindowShowsPinnedServerNameStatusAndRecoveryActions() throws {
+        let appDelegate = try macSource("AppDelegate.swift")
+        let showStore = try slice(
+            appDelegate,
+            from: "private func showStandaloneClawStore(context: ServerContext)",
+            to: "private func showClawStoreComingSoonAlert"
+        )
+        XCTAssertTrue(showStore.contains("onConnectThisMac: { [weak self] in"))
+        XCTAssertTrue(showStore.contains("self?.connectThisMacFromClawStore()"))
+        XCTAssertTrue(showStore.contains("onShowConnectedServers: { [weak self] in"))
+        XCTAssertTrue(showStore.contains("self?.showConnectedServers(nil)"))
+        XCTAssertTrue(showStore.contains("private func connectThisMacFromClawStore()"))
+        XCTAssertTrue(showStore.contains("SessionStore.shared.pairedServers.first(where: isLocalEngineServer)"))
+        XCTAssertTrue(showStore.contains("closeStandaloneClawStoreWindow()"))
+        XCTAssertTrue(showStore.contains("SessionStore.shared.setActiveServer(id: localServer.id)"))
+        XCTAssertTrue(showStore.contains("DispatchQueue.main.async { [weak self] in"))
+        XCTAssertTrue(showStore.contains("self?.showStandaloneClawStore(context: context)"))
+        XCTAssertTrue(showStore.contains("openWelcomeWindow()"))
+        XCTAssertTrue(showStore.contains("private func closeStandaloneClawStoreWindow()"))
+        XCTAssertTrue(showStore.contains("NotificationCenter.default.removeObserver(token)"))
+        XCTAssertTrue(showStore.contains("clawStoreWindowController = nil"))
+        XCTAssertTrue(showStore.contains("wc.close()"))
+        XCTAssertTrue(showStore.contains("private func isLocalEngineServer(_ server: PairedServer) -> Bool"))
+        XCTAssertTrue(showStore.contains("guard server.kind == .engine else { return false }"))
+        XCTAssertTrue(showStore.contains("guard let host = normalizedServerHost(server.host) else { return false }"))
+        XCTAssertTrue(showStore.contains("host == \"localhost\" || host == \"127.0.0.1\" || host == \"::1\""))
+        XCTAssertTrue(showStore.contains("private func normalizedServerHost(_ rawHost: String) -> String?"))
+        XCTAssertTrue(showStore.contains("URLComponents(string: \"soyeht://\\(trimmed)\")?.host?.lowercased()"))
+
+        let windowController = try macSource("ClawStore/ClawStoreWindowController.swift")
+        XCTAssertTrue(windowController.contains("window.title = \"\\(storeTitle) - \\(context.server.displayName)\""))
+        XCTAssertTrue(windowController.contains("onConnectThisMac: @escaping () -> Void = {}"))
+        XCTAssertTrue(windowController.contains("onShowConnectedServers: @escaping () -> Void = {}"))
+
+        let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
+        XCTAssertTrue(rootView.contains("ToolbarItem(placement: .principal)"))
+        XCTAssertTrue(rootView.contains("serverStatusPill"))
+        XCTAssertTrue(rootView.contains("context.server.displayName"))
+        XCTAssertTrue(rootView.contains("soyeht.macClawStore.serverStatus"))
+        XCTAssertTrue(rootView.contains("claw.store.serverStatus.checking"))
+        XCTAssertTrue(rootView.contains("claw.store.serverStatus.online"))
+        XCTAssertTrue(rootView.contains("claw.store.serverStatus.offline"))
+        XCTAssertTrue(rootView.contains("claw.store.error.connectThisMac"))
+        XCTAssertTrue(rootView.contains("soyeht.macClawStore.connectThisMac"))
+        XCTAssertTrue(rootView.contains("onConnectThisMac()"))
+        XCTAssertTrue(rootView.contains("claw.store.error.openServers"))
+        XCTAssertTrue(rootView.contains("soyeht.macClawStore.openServers"))
+        XCTAssertTrue(rootView.contains("onShowConnectedServers()"))
+
+        let macOSPatch = showStore + windowController + rootView
+        XCTAssertFalse(macOSPatch.contains("householdRequest"))
+        XCTAssertFalse(macOSPatch.contains("HouseholdPoP"))
+        XCTAssertFalse(macOSPatch.contains("ClawInstallTarget"))
+        XCTAssertFalse(macOSPatch.contains("householdEndpoint"))
+        XCTAssertFalse(macOSPatch.contains("X-Soyeht-Household"))
+    }
+
     func testPaneAndWorkspaceShortcutsRouteThroughUICommandTarget() throws {
         let source = try macSource("AppDelegate.swift")
         let commandActions = try slice(
