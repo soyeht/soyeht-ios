@@ -398,6 +398,32 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(reconciled.first?.engineMachineId, "machine-alpha")
     }
 
+    /// A shared host hint is not enough to merge two modern Macs that
+    /// already carry distinct stable machine identities.
+    func test_reconcile_preservesDistinctEngineMachineIdsOnSharedHost() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let alpha = makeServer(
+            id: "srv-alpha",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "shared-host.test",
+            engineMachineId: "machine-alpha"
+        )
+        let beta = makeServer(
+            id: "srv-beta",
+            hostname: "machine-beta",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "shared-host.test",
+            engineMachineId: "machine-beta"
+        )
+
+        let reconciled = store.reconcile(with: [alpha, beta])
+
+        XCTAssertEqual(reconciled.count, 2)
+        XCTAssertEqual(Set(reconciled.map(\.id)), ["srv-alpha", "srv-beta"])
+    }
+
     /// Mixed id-bearing and id-less host aliases remain intentionally
     /// unmerged. Forward-only pair-time population handles new records
     /// that carry `engineMachineId`; legacy or QR id-less records keep

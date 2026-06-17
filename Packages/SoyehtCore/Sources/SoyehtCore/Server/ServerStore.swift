@@ -202,7 +202,11 @@ public struct ServerStore: Sendable {
         droppedCount += collapseMacDuplicates(
             in: &keyed,
             secretOwnedIDs: normalizedSecretOwnedIDs,
-            key: { Self.hostIdentityKey($0.lastHost) }
+            key: {
+                Self.engineMachineIdentityKey($0.engineMachineId) == nil
+                    ? Self.hostIdentityKey($0.lastHost)
+                    : nil
+            }
         )
         return MacDedupResult(servers: Array(keyed.values), droppedCount: droppedCount)
     }
