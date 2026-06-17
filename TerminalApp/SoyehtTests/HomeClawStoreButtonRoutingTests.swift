@@ -126,22 +126,25 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
     func test_clawStoreE2ELaunchArgument_isDebugOnlyAndDefaultOff() throws {
         let appDelegate = try iosSource("AppDelegate.swift")
         let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
-        let argumentRange = try XCTUnwrap(appDelegate.range(of: "\"-SoyehtClawStoreE2E\""))
-        let beforeArgument = appDelegate[..<argumentRange.lowerBound]
-        let debugStart = try XCTUnwrap(beforeArgument.range(of: "#if DEBUG", options: .backwards))
-        let previousEndif = beforeArgument.range(of: "#endif", options: .backwards)
+        let helperRange = try XCTUnwrap(appDelegate.range(of: "SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled("))
+        let beforeHelper = appDelegate[..<helperRange.lowerBound]
+        let debugStart = try XCTUnwrap(beforeHelper.range(of: "#if DEBUG", options: .backwards))
+        let previousEndif = beforeHelper.range(of: "#endif", options: .backwards)
         if let previousEndif {
             XCTAssertGreaterThan(debugStart.lowerBound, previousEndif.lowerBound,
                 "The Claw Store E2E launch argument must be guarded by the nearest active `#if DEBUG`."
             )
         }
 
-        let afterArgument = appDelegate[argumentRange.upperBound...]
-        let debugEnd = try XCTUnwrap(afterArgument.range(of: "#endif"))
+        let afterHelper = appDelegate[helperRange.upperBound...]
+        let debugEnd = try XCTUnwrap(afterHelper.range(of: "#endif"))
         let debugBlock = String(appDelegate[debugStart.lowerBound..<debugEnd.upperBound])
 
-        XCTAssertTrue(debugBlock.contains("ProcessInfo.processInfo.arguments.contains(\"-SoyehtClawStoreE2E\")"),
-            "Debug E2E enablement must be driven by the explicit launch argument."
+        XCTAssertTrue(debugBlock.contains("bundleIdentifier: Bundle.main.bundleIdentifier"),
+            "Debug E2E enablement must be scoped to the running bundle."
+        )
+        XCTAssertTrue(debugBlock.contains("arguments: ProcessInfo.processInfo.arguments"),
+            "Debug E2E enablement must be driven by process launch arguments."
         )
         XCTAssertTrue(debugBlock.contains("SoyehtFeatureFlags.setClawStoreEnabledOverride(true)"),
             "The debug launch argument must only set the test/E2E override."
@@ -149,6 +152,11 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         XCTAssertTrue(appDelegate.contains("@_spi(ClawStoreE2E) import SoyehtCore"),
             "The E2E override setter must be imported through SPI, not normal public API."
         )
+        XCTAssertTrue(featureFlags.contains("\"-SoyehtClawStoreE2E\""),
+            "The E2E launch argument literal must live in the shared feature flag helper."
+        )
+        XCTAssertTrue(featureFlags.contains("\"com.soyeht.app.dev\""))
+        XCTAssertTrue(featureFlags.contains("\"com.soyeht.mac.dev\""))
         XCTAssertTrue(featureFlags.contains("@_spi(ClawStoreE2E)"),
             "The E2E override setter must remain SPI-only."
         )

@@ -133,7 +133,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         }
         XCTAssertEqual(id, macID.uuidString)
         XCTAssertEqual(endpoint.scheme, "http")
-        XCTAssertEqual(endpoint.port, 8091)
+        XCTAssertEqual(endpoint.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testResolve_macNoContext_withMultipleServers_returnsHouseholdEndpoint() {
@@ -153,7 +153,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
             return XCTFail("Multi-server household + Mac without context MUST resolve to .householdEndpoint, got \(resolution)")
         }
         XCTAssertEqual(id, macID.uuidString)
-        XCTAssertEqual(endpoint.port, 8091)
+        XCTAssertEqual(endpoint.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testResolve_macLastHostWithDNSPort_returnsHouseholdEndpointHostAndPort() {
@@ -203,7 +203,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(endpoint?.scheme, "http")
         XCTAssertEqual(endpoint?.host, "192.168.1.50")
-        XCTAssertEqual(endpoint?.port, 8091)
+        XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testHouseholdEndpoint_wifiActiveTailnetHostPrefersLocalLabel() {
@@ -217,7 +217,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(endpoint?.scheme, "http")
         XCTAssertEqual(endpoint?.host?.lowercased(), "mac-alpha.local")
-        XCTAssertEqual(endpoint?.port, 8091)
+        XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testHouseholdEndpoint_tailnetActiveWithoutLANPrefersMagicDNSLabel() {
@@ -231,7 +231,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(endpoint?.scheme, "http")
         XCTAssertEqual(endpoint?.host?.lowercased(), "mac-alpha")
-        XCTAssertEqual(endpoint?.port, 8091)
+        XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testHouseholdEndpoint_noNetworkSignalsPreservesStoredHost() {
@@ -245,7 +245,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(endpoint?.scheme, "http")
         XCTAssertEqual(endpoint?.host, "100.64.0.10")
-        XCTAssertEqual(endpoint?.port, 8091)
+        XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
     func testHouseholdEndpoint_hostPortPreservesCustomBootstrapPort() {
@@ -321,7 +321,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(endpoint?.scheme, "https")
         XCTAssertEqual(endpoint?.host?.lowercased(), "mac-bootstrap.test")
-        XCTAssertEqual(endpoint?.port, 8091)
+        XCTAssertEqual(endpoint?.port, SoyehtInstallProfile.current.bootstrapPort)
         XCTAssertTrue(endpoint?.path.isEmpty ?? false)
         XCTAssertNil(endpoint.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.query })
     }
