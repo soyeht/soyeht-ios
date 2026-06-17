@@ -997,6 +997,18 @@ public final class SoyehtAPIClient {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
+        guard let scheme = components.scheme?.lowercased(),
+              let host = components.host else {
+            throw APIError.invalidURL
+        }
+        switch scheme {
+        case "http", "ws":
+            components.scheme = Self.isHouseholdPlaintextAllowedHost(host) ? "http" : "https"
+        case "https", "wss":
+            components.scheme = "https"
+        default:
+            throw APIError.invalidURL
+        }
         let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
         let endpointPath = components.path == "/" ? "" : components.path
         components.path = endpointPath + normalizedPath
@@ -1030,6 +1042,25 @@ public final class SoyehtAPIClient {
             || h.hasPrefix("192.168.")
             || h.hasPrefix("10.")
             || (h.hasPrefix("172.") && isPrivate172(h))
+    }
+
+    private static func isHouseholdPlaintextAllowedHost(_ host: String) -> Bool {
+        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+        return h == "localhost"
+            || h == "127.0.0.1"
+            || h == "::1"
+            || isHouseholdMeshIPv4(h)
+    }
+
+    private static func isHouseholdMeshIPv4(_ host: String) -> Bool {
+        let parts = host.split(separator: ".")
+        guard parts.count == 4,
+              parts[0] == "10",
+              parts[1] == "44",
+              parts.allSatisfy({ Int($0).map { (0...255).contains($0) } ?? false }) else {
+            return false
+        }
+        return true
     }
 
     private static func isPrivate172(_ host: String) -> Bool {

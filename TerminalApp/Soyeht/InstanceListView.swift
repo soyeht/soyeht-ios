@@ -108,20 +108,6 @@ final class HouseholdCreatedInstancesStore: @unchecked Sendable {
         }
     }
 
-    func prune(serverID: Server.ID, keeping allowedIDs: Set<String>) {
-        lock.withLock {
-            var snapshot = snapshot()
-            let records = (snapshot.recordsByServerID[serverID] ?? [])
-                .filter { allowedIDs.contains($0.id) }
-            if records.isEmpty {
-                snapshot.recordsByServerID.removeValue(forKey: serverID)
-            } else {
-                snapshot.recordsByServerID[serverID] = records
-            }
-            save(snapshot)
-        }
-    }
-
     func removeAll(serverID: Server.ID) {
         lock.withLock {
             var snapshot = snapshot()

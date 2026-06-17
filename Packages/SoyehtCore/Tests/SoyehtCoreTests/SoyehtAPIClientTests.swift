@@ -160,6 +160,40 @@ import Foundation
         #expect(url.port == 9000)
         #expect(url.path == "/api/v1/something")
     }
+
+    // MARK: - buildHouseholdURL transport policy
+
+    @Test func buildHouseholdURLUpgradesRemotePlaintextEndpointToHTTPS() throws {
+        let client = SoyehtAPIClient.shared
+        let url = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://100.64.0.10:8101")!,
+            path: "/api/v1/household/claws"
+        )
+        #expect(url.scheme == "https")
+        #expect(url.host == "100.64.0.10")
+        #expect(url.port == 8101)
+    }
+
+    @Test func buildHouseholdURLAllowsPlaintextOnlyForLoopbackOrMesh() throws {
+        let client = SoyehtAPIClient.shared
+        let loopback = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://localhost:8101")!,
+            path: "/api/v1/household/claws"
+        )
+        let meshHost = ["10", "44", "1", "2"].joined(separator: ".")
+        let mesh = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://\(meshHost):8101")!,
+            path: "/api/v1/household/claws"
+        )
+        let lan = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://mac-alpha.local:8101")!,
+            path: "/api/v1/household/claws"
+        )
+
+        #expect(loopback.scheme == "http")
+        #expect(mesh.scheme == "http")
+        #expect(lan.scheme == "https")
+    }
 }
 
 /// `APIErrorBody.init(from:)` decodes the optional `reasons` array via

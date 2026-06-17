@@ -1494,10 +1494,6 @@ struct HouseholdCreatedInstancesStoreTests {
         #expect(reloaded.list(serverID: "server-alpha") == [updated])
         #expect(reloaded.list(serverID: "server-beta") == [second])
 
-        reloaded.prune(serverID: "server-alpha", keeping: [])
-        #expect(reloaded.list(serverID: "server-alpha").isEmpty)
-        #expect(reloaded.list(serverID: "server-beta") == [second])
-
         reloaded.remove(instanceID: "inst-beta", serverID: "server-beta")
         #expect(reloaded.list(serverID: "server-beta").isEmpty)
     }

@@ -40,6 +40,7 @@ public enum SoyehtFeatureFlags {
         bundleIdentifier: String?,
         arguments: [String]
     ) -> Bool {
+        guard debugAssertionsEnabled() else { return false }
         guard let bundleIdentifier else { return false }
         return clawStoreE2EDevBundleIdentifiers.contains(bundleIdentifier)
             && arguments.contains(clawStoreE2ELaunchArgument)

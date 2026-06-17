@@ -7,17 +7,14 @@
 - iOS Claw Store flows speak `ClawInstallTarget` (= `Server.ID`). New
   iOS code must not introduce new uses of `ClawAPITarget.household`.
   The currently allowed sites are:
-    - `ClawStore/ClawInstallTargetResolver.swift` — the temporary
-      single-Mac household fallback resolver.
-    - `ClawStore/ClawStoreView.swift` and
-      `ClawStore/ClawDetailView.swift` — two legacy `?? .household`
-      ViewModel fallbacks created by PR-3 for the `.unavailable`
-      resolution path. Both are documented and locked in place by
-      `SoyehtTests/LegacyBoundaryUsageTests`
-      (`test_clawAPITargetHouseholdFallback_onlyInDocumentedSites` plus
-      a per-file exactly-1 count). They are follow-up for removal once
-      the ViewModels accept an optional target — see the TODO in
-      `docs/architecture.md`.
+    - `ClawStore/ClawInstallTargetResolver.swift` — the only iOS
+      production file that may translate a selected `Server.ID` into a
+      household wire target.
+  Hidden `?? .household` fallbacks in iOS UI are forbidden. The UI must
+  render an unavailable state before constructing Claw ViewModels, or
+  route through `ClawInstallTargetResolver` when a household endpoint is
+  available. `SoyehtTests/LegacyBoundaryUsageTests` enforces this with
+  `test_clawAPITargetHouseholdFallback_doesNotExistInIOSUI`.
   The `.householdStore` / `.householdDetail` route cases stay alive in
   `ClawRoute` for macOS but iOS must never construct them. See
   `docs/claw-install-target.md` and `docs/architecture.md`. Note: PR-3
