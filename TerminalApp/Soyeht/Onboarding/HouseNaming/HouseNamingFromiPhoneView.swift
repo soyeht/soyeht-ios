@@ -7,6 +7,7 @@ import SoyehtCore
 struct HouseNamingFromiPhoneView: View {
     let macEngineBaseURL: URL
     let claimToken: Data
+    let localPairing: SetupInvitationMacLocalPairing?
     let onNamed: () -> Void
     let onBack: () -> Void
 
@@ -291,6 +292,11 @@ struct HouseNamingFromiPhoneView: View {
                     url: pairURL,
                     displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
                 )
+                await MainActor.run {
+                    if let localPairing {
+                        installMacLocalPairing(localPairing)
+                    }
+                }
                 try Task.checkCancellation()
                 await MainActor.run { onNamed() }
             } catch is CancellationError {

@@ -17,7 +17,13 @@ struct ClawSetupView: View {
         _viewModel = StateObject(wrappedValue: ClawSetupViewModel(
             claw: claw,
             deployOptions: deployOptions,
-            initialServerId: serverId
+            initialServerId: serverId,
+            householdInstanceCreatedHandler: { option, request, response in
+                HouseholdCreatedInstancesStore.shared.upsert(
+                    HouseholdCreatedInstanceRecord(request: request, response: response),
+                    serverID: option.server.id
+                )
+            }
         ))
     }
 

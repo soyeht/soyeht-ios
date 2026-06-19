@@ -159,6 +159,115 @@ struct SessionStoreTests {
         #expect(store.loadInstances(serverId: first.id).first?.id == "inst-a")
     }
 
+    @Test("legacy paired server payload without engine machine id decodes as nil")
+    func legacyPairedServerPayloadWithoutEngineMachineIdDecodesNil() throws {
+        let json = """
+        {
+          "id": "srv-legacy",
+          "host": "https://mac-alpha.test",
+          "name": "machine-alpha",
+          "role": null,
+          "pairedAt": 1000,
+          "expiresAt": null,
+          "platform": "macos",
+          "kind": "engine"
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(PairedServer.self, from: json)
+
+        #expect(decoded.engineMachineId == nil)
+    }
+
+    @Test("paired server codable round-trips engine machine id")
+    func pairedServerCodableRoundTripsEngineMachineId() throws {
+        let server = PairedServer(
+            id: "srv-alpha",
+            host: "https://mac-alpha.test",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 1_000),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine,
+            engineMachineId: "machine-alpha"
+        )
+
+        let data = try JSONEncoder().encode(server)
+        let decoded = try JSONDecoder().decode(PairedServer.self, from: data)
+
+        #expect(decoded == server)
+        #expect(decoded.engineMachineId == "machine-alpha")
+    }
+
+    @Test("re-pairing a host preserves existing engine machine id when incoming is nil")
+    func rePairingHostPreservesExistingEngineMachineIdWhenIncomingNil() {
+        let store = makeIsolatedSessionStore()
+        let first = PairedServer(
+            id: "srv-original",
+            host: "https://mac-alpha.test",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine,
+            engineMachineId: "machine-alpha"
+        )
+        store.addServer(first, token: "old-token")
+
+        let incoming = PairedServer(
+            id: "srv-new",
+            host: "https://mac-alpha.test/",
+            name: "Mac",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 20),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
+
+        let stored = store.addServer(incoming, token: "new-token")
+
+        #expect(stored.id == first.id)
+        #expect(stored.engineMachineId == "machine-alpha")
+        #expect(store.pairedServers.first?.engineMachineId == "machine-alpha")
+    }
+
+    @Test("re-pairing a host updates engine machine id when incoming is non-nil")
+    func rePairingHostUpdatesEngineMachineIdWhenIncomingNonNil() {
+        let store = makeIsolatedSessionStore()
+        let first = PairedServer(
+            id: "srv-original",
+            host: "https://mac-alpha.test",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
+        store.addServer(first, token: "old-token")
+
+        let incoming = PairedServer(
+            id: "srv-new",
+            host: "https://mac-alpha.test/",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 20),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine,
+            engineMachineId: "machine-alpha"
+        )
+
+        let stored = store.addServer(incoming, token: "new-token")
+
+        #expect(stored.id == first.id)
+        #expect(stored.engineMachineId == "machine-alpha")
+        #expect(store.pairedServers.first?.engineMachineId == "machine-alpha")
+    }
+
     @Test("generic server names use platform display names")
     func genericServerNamesUsePlatformDisplayNames() {
         let mac = PairedServer(
@@ -219,6 +328,77 @@ struct SessionStoreTests {
         #expect(refreshedCustom.name == "Studio Host")
         #expect(refreshedCustom.displayName == "Studio Host")
         #expect(refreshedCustom.platform == "linux")
+    }
+
+    @Test("server metadata refresh stores and preserves engine machine id")
+    func serverMetadataRefreshStoresAndPreservesEngineMachineId() throws {
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(
+            id: "srv-alpha",
+            host: "https://mac-alpha.test",
+            name: "Mac",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
+        store.addServer(server, token: "token-alpha")
+
+        store.updateServerMetadata(
+            id: server.id,
+            name: "machine-alpha",
+            platform: "macos",
+            engineMachineId: " machine-alpha "
+        )
+        var refreshed = try #require(store.pairedServers.first(where: { $0.id == server.id }))
+        #expect(refreshed.engineMachineId == "machine-alpha")
+
+        store.updateServerMetadata(id: server.id, name: "Mac", platform: "macos")
+        refreshed = try #require(store.pairedServers.first(where: { $0.id == server.id }))
+        #expect(refreshed.engineMachineId == "machine-alpha")
+    }
+
+    @Test("admin host kind survives rename metadata refresh and host merge")
+    func adminHostKindSurvivesServerRebuilds() throws {
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(
+            id: "linux-alpha",
+            host: "https://linux-alpha.test",
+            name: "linux-alpha",
+            role: "admin",
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
+        store.addServer(server, token: "token-alpha")
+
+        store.renameServer(id: server.id, name: "Linux Alpha")
+        var refreshed = try #require(store.pairedServers.first(where: { $0.id == server.id }))
+        #expect(refreshed.kind == .adminHost)
+
+        store.updateServerMetadata(id: server.id, name: "theyos", platform: "linux")
+        refreshed = try #require(store.pairedServers.first(where: { $0.id == server.id }))
+        #expect(refreshed.kind == .adminHost)
+
+        let incoming = PairedServer(
+            id: "linux-alpha-new",
+            host: "https://linux-alpha.test/",
+            name: "linux-alpha",
+            role: "admin",
+            pairedAt: Date(timeIntervalSince1970: 20),
+            expiresAt: "2099-01-01T00:00:00Z",
+            platform: "linux",
+            kind: .adminHost
+        )
+
+        let merged = store.addServer(incoming, token: "token-beta")
+
+        #expect(merged.id == server.id)
+        #expect(merged.kind == .adminHost)
+        #expect(store.pairedServers.count == 1)
+        #expect(store.pairedServers.first?.kind == .adminHost)
     }
 
     @Test("auth writes paired server, active id, token and cache into the client store")

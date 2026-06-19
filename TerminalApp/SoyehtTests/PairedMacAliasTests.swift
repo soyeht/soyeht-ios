@@ -37,11 +37,73 @@ struct PairedMacAliasTests {
     private func seedMac(
         _ store: PairedMacsStore,
         macID: UUID = UUID(),
-        name: String = "macStudio",
-        host: String? = nil
+        name: String = "mac-alpha",
+        host: String? = nil,
+        engineMachineId: String? = nil
     ) -> UUID {
-        store.upsertMac(macID: macID, name: name, host: host)
+        store.upsertMac(macID: macID, name: name, host: host, engineMachineId: engineMachineId)
         return macID
+    }
+
+    // MARK: - engineMachineId persistence
+
+    @Test func legacyPairedMacPayloadWithoutEngineMachineIdDecodesNil() throws {
+        let json = """
+        {
+          "macID": "AAAAAAAA-0000-0000-0000-000000000101",
+          "name": "machine-alpha",
+          "alias": null,
+          "lastHost": "mac-alpha.test",
+          "presencePort": 7000,
+          "attachPort": 7001,
+          "firstPairedAt": "2026-01-01T00:00:00Z",
+          "lastSeenAt": "2026-01-01T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder.pairingMobile.decode(PairedMac.self, from: json)
+
+        #expect(decoded.engineMachineId == nil)
+    }
+
+    @Test func upsertMacStoresEngineMachineIdAndDoesNotClearWithNilIncomingValue() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let macID = UUID()
+
+        store.upsertMac(
+            macID: macID,
+            name: "machine-alpha",
+            host: "mac-alpha.test",
+            engineMachineId: "machine-alpha"
+        )
+        store.upsertMac(macID: macID, name: "machine-alpha", host: "mac-alpha.test")
+
+        #expect(store.macs.first(where: { $0.macID == macID })?.engineMachineId == "machine-alpha")
+    }
+
+    @Test func setEngineMachineIdIsIdempotent() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let macID = seedMac(store, name: "machine-alpha", host: "mac-alpha.test")
+
+        #expect(store.setEngineMachineId(macID: macID, engineMachineId: " machine-alpha ") == true)
+        #expect(store.macs.first(where: { $0.macID == macID })?.engineMachineId == "machine-alpha")
+        #expect(store.setEngineMachineId(macID: macID, engineMachineId: "machine-alpha") == false)
+        #expect(store.setEngineMachineId(macID: macID, engineMachineId: "   ") == false)
+    }
+
+    @Test func pairedMacToServerEmitsEngineMachineId() {
+        let mac = PairedMac(
+            macID: UUID(),
+            name: "machine-alpha",
+            lastHost: "mac-alpha.test",
+            engineMachineId: "machine-alpha",
+            firstPairedAt: Date(),
+            lastSeenAt: Date()
+        )
+
+        #expect(mac.toServer().engineMachineId == "machine-alpha")
     }
 
     // MARK: - displayName
@@ -49,34 +111,34 @@ struct PairedMacAliasTests {
     @Test func displayNamePrefersAliasOverHostname() {
         let mac = PairedMac(
             macID: UUID(),
-            name: "macStudio",
-            alias: "Caio's Studio",
+            name: "mac-alpha",
+            alias: "Team's Studio",
             firstPairedAt: Date(),
             lastSeenAt: Date()
         )
-        #expect(mac.displayName == "Caio's Studio")
+        #expect(mac.displayName == "Team's Studio")
     }
 
     @Test func displayNameFallsBackToHostnameWhenAliasNil() {
         let mac = PairedMac(
             macID: UUID(),
-            name: "macStudio",
+            name: "mac-alpha",
             firstPairedAt: Date(),
             lastSeenAt: Date()
         )
-        #expect(mac.displayName == "macStudio")
+        #expect(mac.displayName == "mac-alpha")
         #expect(mac.needsAlias == true)
     }
 
     @Test func displayNameTreatsWhitespaceAliasAsEmpty() {
         let mac = PairedMac(
             macID: UUID(),
-            name: "macStudio",
+            name: "mac-alpha",
             alias: "   ",
             firstPairedAt: Date(),
             lastSeenAt: Date()
         )
-        #expect(mac.displayName == "macStudio")
+        #expect(mac.displayName == "mac-alpha")
         #expect(mac.needsAlias == true)
     }
 
@@ -98,8 +160,8 @@ struct PairedMacAliasTests {
     }
 
     @Test func validatorAcceptsAccentsApostropheAndSpaces() {
-        #expect(MacAliasValidator.validate("Caio's Home") == .success("Caio's Home"))
-        #expect(MacAliasValidator.validate("Caío Studio") == .success("Caío Studio"))
+        #expect(MacAliasValidator.validate("Team's Home") == .success("Team's Home"))
+        #expect(MacAliasValidator.validate("Café Studio") == .success("Café Studio"))
     }
 
     @Test func validatorTrimsLeadingTrailingWhitespace() {
@@ -113,9 +175,9 @@ struct PairedMacAliasTests {
         defer { teardown() }
         let id = seedMac(store)
 
-        #expect(store.setAlias(macID: id, alias: "Caio's Studio") == .success)
-        #expect(store.macs.first?.alias == "Caio's Studio")
-        #expect(store.macs.first?.displayName == "Caio's Studio")
+        #expect(store.setAlias(macID: id, alias: "Team's Studio") == .success)
+        #expect(store.macs.first?.alias == "Team's Studio")
+        #expect(store.macs.first?.displayName == "Team's Studio")
     }
 
     @Test func setAliasReturnsUnknownMacWhenIDMissing() {
@@ -138,8 +200,8 @@ struct PairedMacAliasTests {
     @Test func setAliasRejectsDuplicateOnOtherMac() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let macA = seedMac(store, name: "macStudio")
-        let macB = seedMac(store, name: "macMini")
+        let macA = seedMac(store, name: "mac-alpha")
+        let macB = seedMac(store, name: "mac-beta")
         #expect(store.setAlias(macID: macA, alias: "Home Base") == .success)
 
         let result = store.setAlias(macID: macB, alias: "Home Base")
@@ -150,8 +212,8 @@ struct PairedMacAliasTests {
     @Test func setAliasRejectsDuplicateCaseInsensitively() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let macA = seedMac(store, name: "macStudio")
-        let macB = seedMac(store, name: "macMini")
+        let macA = seedMac(store, name: "mac-alpha")
+        let macB = seedMac(store, name: "mac-beta")
         #expect(store.setAlias(macID: macA, alias: "Studio") == .success)
 
         // Different case must still be detected as duplicate.
@@ -173,32 +235,32 @@ struct PairedMacAliasTests {
     @Test func setDefaultAliasIfNeededUsesMacNameWhenUnnamed() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let id = seedMac(store, name: "macStudio")
+        let id = seedMac(store, name: "mac-alpha")
 
-        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "macStudio") == .success)
-        #expect(store.macs.first(where: { $0.macID == id })?.alias == "macStudio")
+        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "mac-alpha") == .success)
+        #expect(store.macs.first(where: { $0.macID == id })?.alias == "mac-alpha")
         #expect(store.macs.first(where: { $0.macID == id })?.needsAlias == false)
     }
 
     @Test func setDefaultAliasIfNeededPreservesUserAlias() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let id = seedMac(store, name: "macStudio")
+        let id = seedMac(store, name: "mac-alpha")
         #expect(store.setAlias(macID: id, alias: "Studio") == .success)
 
-        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "macStudio") == .success)
+        #expect(store.setDefaultAliasIfNeeded(macID: id, suggestedAlias: "mac-alpha") == .success)
         #expect(store.macs.first(where: { $0.macID == id })?.alias == "Studio")
     }
 
     @Test func setDefaultAliasIfNeededCreatesUniqueFallback() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let first = seedMac(store, name: "macStudio")
-        let second = seedMac(store, name: "macMini")
-        #expect(store.setDefaultAliasIfNeeded(macID: first, suggestedAlias: "macStudio") == .success)
+        let first = seedMac(store, name: "mac-alpha")
+        let second = seedMac(store, name: "mac-beta")
+        #expect(store.setDefaultAliasIfNeeded(macID: first, suggestedAlias: "mac-alpha") == .success)
 
-        #expect(store.setDefaultAliasIfNeeded(macID: second, suggestedAlias: "macStudio") == .success)
-        #expect(store.macs.first(where: { $0.macID == second })?.alias == "macStudio 2")
+        #expect(store.setDefaultAliasIfNeeded(macID: second, suggestedAlias: "mac-alpha") == .success)
+        #expect(store.macs.first(where: { $0.macID == second })?.alias == "mac-alpha 2")
     }
 
     // MARK: - paired(forServer:)
@@ -206,12 +268,12 @@ struct PairedMacAliasTests {
     @Test func pairedForServerMatchesHostForEngineKind() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let macID = seedMac(store, name: "macStudio", host: "10.0.0.42")
+        let macID = seedMac(store, name: "mac-alpha", host: "192.0.2.10")
 
         let server = PairedServer(
             id: "srv-1",
-            host: "10.0.0.42",
-            name: "macStudio",
+            host: "192.0.2.10",
+            name: "mac-alpha",
             role: nil,
             pairedAt: Date(),
             expiresAt: nil,
@@ -226,12 +288,12 @@ struct PairedMacAliasTests {
     @Test func pairedForServerReturnsNilForAdminHost() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        _ = seedMac(store, host: "10.0.0.42")
+        _ = seedMac(store, host: "192.0.2.10")
 
         let server = PairedServer(
             id: "srv-admin",
-            host: "10.0.0.42",
-            name: "linux-box",
+            host: "192.0.2.10",
+            name: "linux-alpha",
             role: nil,
             pairedAt: Date(),
             expiresAt: nil,
@@ -245,13 +307,13 @@ struct PairedMacAliasTests {
     @Test func displayNameForServerPrefersMacAlias() {
         let (store, teardown) = makeStore()
         defer { teardown() }
-        let macID = seedMac(store, name: "macStudio", host: "10.0.0.42")
-        #expect(store.setAlias(macID: macID, alias: "Caio's Studio") == .success)
+        let macID = seedMac(store, name: "mac-alpha", host: "192.0.2.10")
+        #expect(store.setAlias(macID: macID, alias: "Team's Studio") == .success)
 
         let server = PairedServer(
             id: "srv-1",
-            host: "10.0.0.42",
-            name: "macStudio",
+            host: "192.0.2.10",
+            name: "mac-alpha",
             role: nil,
             pairedAt: Date(),
             expiresAt: nil,
@@ -259,6 +321,6 @@ struct PairedMacAliasTests {
             kind: .engine
         )
 
-        #expect(store.displayName(forServer: server) == "Caio's Studio")
+        #expect(store.displayName(forServer: server) == "Team's Studio")
     }
 }

@@ -8,11 +8,22 @@ import SoyehtCore
 /// surfaces the core install lifecycle directly.
 struct MacClawStoreRootView: View {
     let context: ServerContext
+    let onOpenTerminal: (String) -> Void
+    let onConnectThisMac: () -> Void
+    let onShowConnectedServers: () -> Void
     @StateObject private var viewModel: ClawStoreViewModel
     @State private var path: [ClawRoute] = []
 
-    init(context: ServerContext) {
+    init(
+        context: ServerContext,
+        onOpenTerminal: @escaping (String) -> Void = { _ in },
+        onConnectThisMac: @escaping () -> Void = {},
+        onShowConnectedServers: @escaping () -> Void = {}
+    ) {
         self.context = context
+        self.onOpenTerminal = onOpenTerminal
+        self.onConnectThisMac = onConnectThisMac
+        self.onShowConnectedServers = onShowConnectedServers
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
     }
 
@@ -21,6 +32,9 @@ struct MacClawStoreRootView: View {
             content
                 .navigationTitle("claw.store.navigationTitle")
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        serverStatusPill
+                    }
                     ToolbarItem(placement: .automatic) {
                         Button {
                             Task { await viewModel.loadClaws() }
@@ -44,9 +58,14 @@ struct MacClawStoreRootView: View {
                         // should ship before that flip.
                         content
                     case .detail(let claw, _):
-                        MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
-                            Task { await viewModel.loadClaws() }
-                        })
+                        MacClawDetailView(
+                            claw: claw,
+                            context: context,
+                            onInstallStateChanged: {
+                                Task { await viewModel.loadClaws() }
+                            },
+                            onOpenTerminal: onOpenTerminal
+                        )
                     case .setup(let claw, let serverId):
                         MacClawSetupView(claw: claw, serverId: serverId)
                     case .serverPicker:
@@ -97,8 +116,40 @@ struct MacClawStoreRootView: View {
                     .font(MacTypography.Fonts.clawStoreStatus)
                     .foregroundColor(MacClawStoreTheme.textWarning)
                     .multilineTextAlignment(.center)
-                Button("common.button.retry") { Task { await viewModel.loadClaws() } }
+                HStack(spacing: 8) {
+                    Button("common.button.retry") { Task { await viewModel.loadClaws() } }
+                        .buttonStyle(.bordered)
+                    Button {
+                        onConnectThisMac()
+                    } label: {
+                        Label {
+                            Text(LocalizedStringResource(
+                                "claw.store.error.connectThisMac",
+                                defaultValue: "Connect This Mac",
+                                comment: "Button shown when the macOS Claw Store cannot reach the selected server."
+                            ))
+                        } icon: {
+                            Image(systemName: "desktopcomputer")
+                        }
+                    }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier("soyeht.macClawStore.connectThisMac")
+                    Button {
+                        onShowConnectedServers()
+                    } label: {
+                        Label {
+                            Text(LocalizedStringResource(
+                                "claw.store.error.openServers",
+                                defaultValue: "Open Servers",
+                                comment: "Button shown when the macOS Claw Store cannot reach the selected server."
+                            ))
+                        } icon: {
+                            Image(systemName: "server.rack")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("soyeht.macClawStore.openServers")
+                }
             }
             .padding(40)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -123,6 +174,57 @@ struct MacClawStoreRootView: View {
             grid
                 .accessibilityIdentifier("soyeht.macClawStore.grid")
         }
+    }
+
+    private var serverStatusPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(serverStatus.color)
+                .frame(width: 7, height: 7)
+            Text(verbatim: context.server.displayName)
+                .font(MacTypography.Fonts.clawDetailMeta)
+                .foregroundColor(MacClawStoreTheme.textPrimary)
+                .lineLimit(1)
+            Text(serverStatus.label)
+                .font(MacTypography.Fonts.clawDetailMeta)
+                .foregroundColor(MacClawStoreTheme.textMuted)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(MacClawStoreTheme.bgCard)
+        .clipShape(Capsule())
+        .accessibilityIdentifier("soyeht.macClawStore.serverStatus")
+    }
+
+    private var serverStatus: (label: LocalizedStringResource, color: Color) {
+        if viewModel.isLoading && viewModel.claws.isEmpty {
+            return (
+                LocalizedStringResource(
+                    "claw.store.serverStatus.checking",
+                    defaultValue: "Checking",
+                    comment: "Status label shown while the macOS Claw Store checks the connected server."
+                ),
+                MacClawStoreTheme.textMuted
+            )
+        }
+        if viewModel.errorMessage != nil {
+            return (
+                LocalizedStringResource(
+                    "claw.store.serverStatus.offline",
+                    defaultValue: "Offline",
+                    comment: "Status label shown when the macOS Claw Store cannot reach the connected server."
+                ),
+                MacClawStoreTheme.textWarning
+            )
+        }
+        return (
+            LocalizedStringResource(
+                "claw.store.serverStatus.online",
+                defaultValue: "Online",
+                comment: "Status label shown when the macOS Claw Store has loaded from the connected server."
+            ),
+            MacClawStoreTheme.statusGreen
+        )
     }
 
     private var grid: some View {

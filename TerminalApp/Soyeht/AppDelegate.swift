@@ -8,7 +8,11 @@
 
 import UIKit
 import SwiftUI
+#if DEBUG
+@_spi(ClawStoreE2E) import SoyehtCore
+#else
 import SoyehtCore
+#endif
 import Security
 import os
 import UserNotifications
@@ -34,6 +38,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Missing marker + non-empty keychain household entry = fresh
         // install with orphan keychain → purge.
         FreshInstallKeychainSweeper.sweepIfNeeded()
+
+        #if DEBUG
+        if SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
+            bundleIdentifier: Bundle.main.bundleIdentifier,
+            arguments: ProcessInfo.processInfo.arguments
+        ) {
+            SoyehtFeatureFlags.setClawStoreEnabledOverride(true)
+        }
+        #endif
 
         Typography.bootstrap()
         UNUserNotificationCenter.current().delegate = self
@@ -465,8 +478,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onMacFound: { [weak self, weak window] result in
                     guard let self, let window else { return }
                     switch result {
-                    case .needsNaming(let engineURL, let tokenBytes):
-                        self.showHouseNaming(engineURL: engineURL, tokenBytes: tokenBytes, in: window)
+                    case .needsNaming(let engineURL, let tokenBytes, let localPairing):
+                        self.showHouseNaming(
+                            engineURL: engineURL,
+                            tokenBytes: tokenBytes,
+                            localPairing: localPairing,
+                            in: window
+                        )
                     case .connectedToExistingMac:
                         self.showMainStoryboard(in: window)
                     }
@@ -489,11 +507,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
     }
 
-    private func showHouseNaming(engineURL: URL, tokenBytes: Data, in window: UIWindow) {
+    private func showHouseNaming(
+        engineURL: URL,
+        tokenBytes: Data,
+        localPairing: SetupInvitationMacLocalPairing?,
+        in window: UIWindow
+    ) {
         window.rootViewController = UIHostingController(rootView:
             HouseNamingFromiPhoneView(
                 macEngineBaseURL: engineURL,
                 claimToken: tokenBytes,
+                localPairing: localPairing,
                 onNamed: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showMainStoryboard(in: window)
@@ -728,7 +752,10 @@ enum DebugLocalStateResetter {
         return true
     }
 
+    @MainActor
     private static func reset() {
+        PairedMacsStore.shared.removeAll()
+
         let defaults = UserDefaults.standard
         if let bundleID = Bundle.main.bundleIdentifier {
             defaults.removePersistentDomain(forName: bundleID)
@@ -753,6 +780,8 @@ enum DebugLocalStateResetter {
         // historical pair) are all purged in this debug-reset pass.
         deleteAllOwnerKeys(tokenID: kSecAttrTokenIDSecureEnclave)
         deleteAllOwnerKeys(tokenID: nil)
+
+        ServerRegistry.shared.refreshFromLegacyStores()
 
         appDelegateLogger.log("local state reset completed")
     }
@@ -803,7 +832,11 @@ private enum DebugLocalStateReporter {
             householdDescription = "household=unavailable reason=decoding_failed"
         }
 
-        let message = "\(householdDescription) macs=\(ServerRegistry.shared.macs.count)"
+        let legacyMacCount = PairedMacsStore.shared.macs.count
+        let pairedServerCount = SessionStore.shared.pairedServers.count
+        let registryServerCount = ServerRegistry.shared.servers.count
+        let registryMacCount = ServerRegistry.shared.macs.count
+        let message = "\(householdDescription) legacyMacs=\(legacyMacCount) pairedServers=\(pairedServerCount) registryServers=\(registryServerCount) registryMacs=\(registryMacCount)"
         appDelegateLogger.log("soyeht_diag debug_local_state \(message, privacy: .public)")
         let alert = UIAlertController(
             title: "Debug local state",

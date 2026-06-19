@@ -7,6 +7,7 @@ import SwiftTerm
 enum TerminalMode {
     case ssh(SSHConnectionInfo)
     case websocket(String) // wsUrl
+    case websocketRequest(URLRequest)
 }
 
 // MARK: - Terminal Host View Controller
@@ -79,6 +80,16 @@ final class TerminalHostViewController: UIViewController {
         if isViewLoaded { setupTerminal(mode: newMode) }
     }
 
+    func updateWebSocketRequest(_ request: URLRequest) {
+        if case .websocketRequest(let existing) = mode,
+           Self.requestsMatch(existing, request) {
+            return
+        }
+        let newMode = TerminalMode.websocketRequest(request)
+        mode = newMode
+        if isViewLoaded { setupTerminal(mode: newMode) }
+    }
+
     /// For Fase 2 attach URLs: called by `WebSocketTerminalView` before each
     /// reconnect attempt to obtain a fresh single-use attach nonce. Without
     /// this, `policyViolation` rejects every retry. Wired via the SwiftUI
@@ -87,6 +98,14 @@ final class TerminalHostViewController: UIViewController {
         didSet {
             if let wsView = activeTerminalView as? WebSocketTerminalView {
                 wsView.attachURLRefresher = attachURLRefresher
+            }
+        }
+    }
+
+    var attachRequestRefresher: (@MainActor () async throws -> URLRequest)? {
+        didSet {
+            if let wsView = activeTerminalView as? WebSocketTerminalView {
+                wsView.attachRequestRefresher = attachRequestRefresher
             }
         }
     }
@@ -198,6 +217,15 @@ final class TerminalHostViewController: UIViewController {
             wsView.attachURLRefresher = attachURLRefresher
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
+
+        case .websocketRequest(let request):
+            let wsView = WebSocketTerminalView(frame: .zero)
+            wsView.onConnectionFailed = { _ in
+                NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
+            }
+            wsView.attachRequestRefresher = attachRequestRefresher
+            wsView.configure(request: request)
+            terminalView = wsView
         }
 
         SoyehtTerminalAppearance.apply(to: terminalView)
@@ -284,6 +312,12 @@ final class TerminalHostViewController: UIViewController {
 
         let bracketedPaste = "\u{001B}[200~" + text + "\u{001B}[201~"
         activeTerminalView?.send(txt: bracketedPaste)
+    }
+
+    private static func requestsMatch(_ lhs: URLRequest, _ rhs: URLRequest) -> Bool {
+        lhs.url == rhs.url
+            && lhs.httpMethod == rhs.httpMethod
+            && lhs.allHTTPHeaderFields == rhs.allHTTPHeaderFields
     }
 }
 

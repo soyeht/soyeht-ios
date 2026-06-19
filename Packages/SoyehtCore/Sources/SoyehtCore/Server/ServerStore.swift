@@ -89,11 +89,12 @@ public struct ServerStore: Sendable {
     /// Behaviour:
     ///   - No-op if the sentinel `com.soyeht.serverstore.migrated.v1` is set.
     ///   - Otherwise merges `seed` with any existing `Server[]` already in
-    ///     this store, dedupes by `id`, persists, and sets the sentinel.
+    ///     this store, dedupes by `id`, collapses Mac duplicates, persists,
+    ///     and sets the sentinel.
     ///   - Legacy stores are NOT cleared. They remain authoritative for
     ///     anyone reading the old keys until a follow-up release removes
     ///     them (Phase 7 in the plan).
-    public func migrateLegacyIfNeeded(seed: [Server]) {
+    public func migrateLegacyIfNeeded(seed: [Server], secretOwnedIDs: Set<String> = []) {
         if defaults.bool(forKey: Self.migrationSentinel) {
             return
         }
@@ -110,16 +111,16 @@ public struct ServerStore: Sendable {
             }
             merged[s.id] = s
         }
-        let dedup = collapseHostDuplicates(Array(merged.values))
+        let dedup = collapseMacDuplicates(Array(merged.values), secretOwnedIDs: secretOwnedIDs)
         save(dedup.servers)
         defaults.set(true, forKey: Self.migrationSentinel)
         serverStoreLogger.info(
-            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dedup.droppedCount, privacy: .public) host duplicates; sentinel set"
+            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dedup.droppedCount, privacy: .public) Mac duplicates; sentinel set"
         )
     }
 
     /// Replaces the v1 store contents with `seed`, after collapsing
-    /// host-collisions on `kind == .mac`. Idempotent — calling it twice
+    /// duplicate `kind == .mac` entries. Idempotent — calling it twice
     /// with the same `seed` produces the same persisted state. Unlike
     /// `migrateLegacyIfNeeded`, this runs every time (no sentinel) and
     /// does NOT preserve v1-only entries that aren't in `seed`. Used by
@@ -128,10 +129,10 @@ public struct ServerStore: Sendable {
     ///
     /// `seed` should be the union of every legacy store's current
     /// state, converted to `Server` via the per-store `toServer()`
-    /// adapters. The host-collapse rules are the same as the migration
-    /// path — see `collapseHostDuplicates` below.
+    /// adapters. The Mac-collapse rules are the same as the migration
+    /// path — see `collapseMacDuplicates` below.
     @discardableResult
-    public func reconcile(with seed: [Server]) -> [Server] {
+    public func reconcile(with seed: [Server], secretOwnedIDs: Set<String> = []) -> [Server] {
         var unique: [String: Server] = [:]
         for s in seed {
             if let prior = unique[s.id], prior.lastSeenAt >= s.lastSeenAt {
@@ -139,75 +140,118 @@ public struct ServerStore: Sendable {
             }
             unique[s.id] = s
         }
-        let dedup = collapseHostDuplicates(Array(unique.values))
+        let dedup = collapseMacDuplicates(Array(unique.values), secretOwnedIDs: secretOwnedIDs)
         save(dedup.servers)
         return dedup.servers
     }
 
     // MARK: - Internals
 
-    /// Result of the host-collapse pass — the deduped server array and
+    /// Result of the Mac-collapse pass — the deduped server array and
     /// how many entries were collapsed (for telemetry only).
-    private struct HostDedupResult {
+    private struct MacDedupResult {
         let servers: [Server]
         let droppedCount: Int
     }
 
-    /// Host-based dedup for `kind == .mac`. The same physical Mac can
-    /// land in the input twice with *different* ids when both pairing
-    /// paths fire for it:
+    /// Machine-identity and host-based dedup for `kind == .mac`. The
+    /// same physical Mac can land in the input twice with *different*
+    /// ids when both pairing paths fire for it:
     ///
     ///   - `PairedMacsStore` (`PairedMac.macID.uuidString` — always a UUID)
     ///   - `SessionStore.pairedServers` (`PairedServer.id` — varies; may
     ///     be a UUID, may be a server-assigned string from QR pair)
     ///
     /// Without this pass the same Mac would render twice in the home
-    /// `// apps` section. When collapsing a host-collision we PRESERVE
-    /// the UUID-shaped id (PairedMac's `macID.uuidString`) because:
+    /// `// apps` section. Collapse runs in two passes:
+    ///
+    ///   1. Stable `engineMachineId`, when present.
+    ///   2. Legacy `lastHost`, for records where the engine id is not
+    ///      available yet.
+    ///
+    /// Mixed id-bearing/id-less transitive host aliases can still leave
+    /// a host-only residual. Forward-only pair-time population makes new
+    /// records collapse through `engineMachineId`; legacy or QR records
+    /// without that id must not be union-found through host aliases.
+    ///
+    /// When collapsing a collision we first preserve an id known to own
+    /// a pairing secret, then a UUID-shaped id, then the newer entry id.
+    /// Preserving the secret owner matters because:
     ///
     ///   - `KeychainHelper.loadString(account: "pairing_secret.{id}")`
     ///     uses that id literally — changing it would orphan the
     ///     pairing secret.
-    ///   - `MacPresenceClient(macID: UUID(uuidString: id)!)` and
-    ///     `PairedMacRegistry` look up clients by UUID — a non-UUID
-    ///     winner would break presence + mirror.
+    ///   - If no secret-owning id is known, `MacPresenceClient` and
+    ///     `PairedMacRegistry` are most likely to keep resolving through
+    ///     the UUID-shaped id.
     ///
     /// Linux servers never collapse, even if they share a host with a
     /// Mac (different network presence + auth surfaces — see
     /// `ServerStoreMigrationTests.test_migration_linuxServersAreNotDedupedByHost`).
-    private func collapseHostDuplicates(_ input: [Server]) -> HostDedupResult {
+    private func collapseMacDuplicates(_ input: [Server], secretOwnedIDs: Set<String>) -> MacDedupResult {
         var keyed: [String: Server] = [:]
         for s in input { keyed[s.id] = s }
 
-        var byMacHost: [String: Server] = [:]
+        let normalizedSecretOwnedIDs = Set(secretOwnedIDs.compactMap { Self.normalizedIdentifier($0) })
+        var droppedCount = 0
+        droppedCount += collapseMacDuplicates(
+            in: &keyed,
+            secretOwnedIDs: normalizedSecretOwnedIDs,
+            key: { Self.engineMachineIdentityKey($0.engineMachineId) }
+        )
+        droppedCount += collapseMacDuplicates(
+            in: &keyed,
+            secretOwnedIDs: normalizedSecretOwnedIDs,
+            key: {
+                Self.engineMachineIdentityKey($0.engineMachineId) == nil
+                    ? Self.hostIdentityKey($0.lastHost)
+                    : nil
+            }
+        )
+        return MacDedupResult(servers: Array(keyed.values), droppedCount: droppedCount)
+    }
+
+    private func collapseMacDuplicates(
+        in keyed: inout [String: Server],
+        secretOwnedIDs: Set<String>,
+        key keyForServer: (Server) -> String?
+    ) -> Int {
+        var byKey: [String: Server] = [:]
         var dropped: Set<String> = []
         for server in keyed.values where server.kind == .mac {
-            guard let host = server.lastHost?.lowercased() else { continue }
-            if let prior = byMacHost[host] {
-                let winner = mergeMacsPreservingCanonicalID(prior, server)
+            guard let key = keyForServer(server) else { continue }
+            if let prior = byKey[key] {
+                let winner = mergeMacsPreservingCanonicalID(prior, server, secretOwnedIDs: secretOwnedIDs)
                 let loserID = winner.id == prior.id ? server.id : prior.id
-                byMacHost[host] = winner
+                byKey[key] = winner
                 dropped.insert(loserID)
             } else {
-                byMacHost[host] = server
+                byKey[key] = server
             }
         }
         for id in dropped { keyed.removeValue(forKey: id) }
-        for (_, winner) in byMacHost { keyed[winner.id] = winner }
-        return HostDedupResult(servers: Array(keyed.values), droppedCount: dropped.count)
+        for (_, winner) in byKey { keyed[winner.id] = winner }
+        return dropped.count
     }
 
-    /// Merges two Mac-kind `Server`s that share the same `lastHost`,
-    /// preferring the UUID-shaped id (`PairedMac.macID.uuidString`) so
-    /// downstream Keychain + presence lookups keep working. Field-wise
-    /// the merge takes the entry with the newer `lastSeenAt`, falling
-    /// back to the other for any `nil` field.
-    private func mergeMacsPreservingCanonicalID(_ a: Server, _ b: Server) -> Server {
+    /// Merges two Mac-kind `Server`s that represent the same machine,
+    /// preserving the id most likely to keep Keychain + presence lookups
+    /// working. Field-wise the merge takes the entry with the newer
+    /// `lastSeenAt`, falling back to the other for any `nil` field.
+    private func mergeMacsPreservingCanonicalID(
+        _ a: Server,
+        _ b: Server,
+        secretOwnedIDs: Set<String>
+    ) -> Server {
         let newer = a.lastSeenAt >= b.lastSeenAt ? a : b
         let older = a.lastSeenAt >= b.lastSeenAt ? b : a
         let preferredID: String = {
-            if UUID(uuidString: a.id) != nil { return a.id }
-            if UUID(uuidString: b.id) != nil { return b.id }
+            let aHasSecret = Self.idHasSecret(a.id, secretOwnedIDs: secretOwnedIDs)
+            let bHasSecret = Self.idHasSecret(b.id, secretOwnedIDs: secretOwnedIDs)
+            if aHasSecret != bHasSecret { return aHasSecret ? a.id : b.id }
+            let aIsUUID = UUID(uuidString: a.id) != nil
+            let bIsUUID = UUID(uuidString: b.id) != nil
+            if aIsUUID != bIsUUID { return aIsUUID ? a.id : b.id }
             return newer.id
         }()
         return Server(
@@ -218,6 +262,7 @@ public struct ServerStore: Sendable {
             alias: newer.alias ?? older.alias,
             hostname: newer.hostname,
             lastHost: newer.lastHost ?? older.lastHost,
+            engineMachineId: newer.engineMachineId ?? older.engineMachineId,
             theyOS: newer.theyOS,
             apiEndpoint: newer.apiEndpoint ?? older.apiEndpoint,
             bootstrapEndpoint: newer.bootstrapEndpoint ?? older.bootstrapEndpoint,
@@ -226,6 +271,26 @@ public struct ServerStore: Sendable {
             role: nil,
             sessionExpiresAt: nil
         )
+    }
+
+    private static func engineMachineIdentityKey(_ value: String?) -> String? {
+        normalizedIdentifier(value)
+    }
+
+    private static func hostIdentityKey(_ value: String?) -> String? {
+        normalizedIdentifier(value)
+    }
+
+    private static func idHasSecret(_ id: String, secretOwnedIDs: Set<String>) -> Bool {
+        guard let normalized = normalizedIdentifier(id) else { return false }
+        return secretOwnedIDs.contains(normalized)
+    }
+
+    private static func normalizedIdentifier(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
     }
 
     // MARK: - Test helpers

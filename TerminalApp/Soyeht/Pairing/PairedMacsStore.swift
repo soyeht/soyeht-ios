@@ -10,11 +10,11 @@ private let pairingLogger = Logger(subsystem: "com.soyeht.mobile", category: "pa
 // A `PairedMac` has TWO name fields with distinct roles:
 //
 //   - `name`  — the hostname the Mac engine sent at pairing time
-//               (e.g. "macStudio"). Useful for diagnostics, logs, and as a
+//               (e.g. "machine-alpha"). Useful for diagnostics, logs, and as a
 //               default suggestion when the user has not chosen an alias yet.
 //               NEVER render this directly in a SwiftUI view.
 //
-//   - `alias` — the user-typed display name (e.g. "Caio's Studio"). Set via
+//   - `alias` — the user-typed display name (e.g. "Alpha Mac"). Set via
 //               `PairedMacsStore.setAlias(macID:alias:)` which enforces:
 //                 * non-empty + length ≤ `MacAliasRules.maxLength`,
 //                 * no forbidden characters (`MacAliasRules.forbiddenChars`),
@@ -33,6 +33,7 @@ public struct PairedMac: Codable, Identifiable, Sendable, Hashable {
     public var lastHost: String?
     public var presencePort: Int?
     public var attachPort: Int?
+    public var engineMachineId: String?
     public let firstPairedAt: Date
     public var lastSeenAt: Date
 
@@ -58,6 +59,7 @@ public struct PairedMac: Codable, Identifiable, Sendable, Hashable {
         lastHost: String? = nil,
         presencePort: Int? = nil,
         attachPort: Int? = nil,
+        engineMachineId: String? = nil,
         firstPairedAt: Date,
         lastSeenAt: Date
     ) {
@@ -67,8 +69,42 @@ public struct PairedMac: Codable, Identifiable, Sendable, Hashable {
         self.lastHost = lastHost
         self.presencePort = presencePort
         self.attachPort = attachPort
+        self.engineMachineId = Self.normalizedEngineMachineId(engineMachineId)
         self.firstPairedAt = firstPairedAt
         self.lastSeenAt = lastSeenAt
+    }
+
+    static func normalizedEngineMachineId(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case macID
+        case name
+        case alias
+        case lastHost
+        case presencePort
+        case attachPort
+        case engineMachineId
+        case firstPairedAt
+        case lastSeenAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.macID = try container.decode(UUID.self, forKey: .macID)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.alias = try container.decodeIfPresent(String.self, forKey: .alias)
+        self.lastHost = try container.decodeIfPresent(String.self, forKey: .lastHost)
+        self.presencePort = try container.decodeIfPresent(Int.self, forKey: .presencePort)
+        self.attachPort = try container.decodeIfPresent(Int.self, forKey: .attachPort)
+        self.engineMachineId = Self.normalizedEngineMachineId(
+            try container.decodeIfPresent(String.self, forKey: .engineMachineId)
+        )
+        self.firstPairedAt = try container.decode(Date.self, forKey: .firstPairedAt)
+        self.lastSeenAt = try container.decode(Date.self, forKey: .lastSeenAt)
     }
 }
 
@@ -191,6 +227,12 @@ final class PairedMacsStore {
         secret(for: macID) != nil
     }
 
+    func macIDsWithSecret() -> Set<String> {
+        Set(macs.compactMap { mac in
+            secret(for: mac.macID) == nil ? nil : mac.macID.uuidString
+        })
+    }
+
     func storeSecret(_ secret: Data, for macID: UUID) {
         let base64 = PairingCrypto.base64URLEncode(secret)
         keychain.saveString(base64, account: KeychainAccount.secret(macID: macID))
@@ -199,14 +241,25 @@ final class PairedMacsStore {
 
     // MARK: - Mac registry
 
-    func upsertMac(macID: UUID, name: String, host: String?, presencePort: Int? = nil, attachPort: Int? = nil) {
+    func upsertMac(
+        macID: UUID,
+        name: String,
+        host: String?,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil,
+        engineMachineId: String? = nil
+    ) {
         let now = Date()
+        let normalizedEngineMachineId = PairedMac.normalizedEngineMachineId(engineMachineId)
         if let idx = macs.firstIndex(where: { $0.macID == macID }) {
             macs[idx].name = name
             macs[idx].lastSeenAt = now
             if let host { macs[idx].lastHost = host }
             if let presencePort { macs[idx].presencePort = presencePort }
             if let attachPort { macs[idx].attachPort = attachPort }
+            if let normalizedEngineMachineId {
+                macs[idx].engineMachineId = normalizedEngineMachineId
+            }
         } else {
             macs.append(PairedMac(
                 macID: macID,
@@ -214,12 +267,26 @@ final class PairedMacsStore {
                 lastHost: host,
                 presencePort: presencePort,
                 attachPort: attachPort,
+                engineMachineId: normalizedEngineMachineId,
                 firstPairedAt: now,
                 lastSeenAt: now
             ))
         }
         persist()
         onChange?()
+    }
+
+    @discardableResult
+    func setEngineMachineId(macID: UUID, engineMachineId: String?) -> Bool {
+        guard let normalized = PairedMac.normalizedEngineMachineId(engineMachineId),
+              let idx = macs.firstIndex(where: { $0.macID == macID }) else {
+            return false
+        }
+        guard macs[idx].engineMachineId != normalized else { return false }
+        macs[idx].engineMachineId = normalized
+        persist()
+        onChange?()
+        return true
     }
 
     func updateDisplayName(macID: UUID, name: String) {
