@@ -240,6 +240,32 @@ final class SoyehtIdentityTests: XCTestCase {
         )
     }
 
+    // MARK: - C6 profile-scoped cleanup plans
+
+    func testFreshInstallSweeperDoesNotTargetShippingHouseholdFromDevProfile() {
+        let devServices = FreshInstallKeychainSweeper.keychainServicesToDelete(for: .dev)
+        XCTAssertTrue(devServices.contains("com.soyeht.household.dev"))
+        XCTAssertFalse(devServices.contains("com.soyeht.household"))
+        XCTAssertEqual(
+            FreshInstallKeychainSweeper.ownerKeyPrefixToDelete(for: .dev),
+            "com.soyeht.household.dev.owner"
+        )
+        XCTAssertFalse(
+            FreshInstallKeychainSweeper.ownerKeyPrefixToDelete(for: .dev)
+                .hasPrefix(FreshInstallKeychainSweeper.ownerKeyPrefixToDelete(for: .release) + ".")
+        )
+    }
+
+    func testDebugResetterDoesNotTargetShippingHouseholdFromDevProfile() {
+        let devServices = DebugLocalStateResetter.keychainServicesToDelete(for: .dev)
+        XCTAssertTrue(devServices.contains("com.soyeht.household.dev"))
+        XCTAssertFalse(devServices.contains("com.soyeht.household"))
+        XCTAssertEqual(
+            DebugLocalStateResetter.ownerKeyPrefixToDelete(for: .dev),
+            "com.soyeht.household.dev.owner"
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeIdentity(

@@ -22,6 +22,11 @@ struct CRLStoreTests {
         )
     }
 
+    @Test func defaultStorageUsesProfileHouseholdNamespace() {
+        #expect(CRLStore.defaultStorage(for: .release).service == "com.soyeht.household")
+        #expect(CRLStore.defaultStorage(for: .dev).service == "com.soyeht.household.dev")
+    }
+
     @Test func appendDedupesBySubjectId() async throws {
         let storage = InMemoryHouseholdStorage()
         let store = try CRLStore(storage: storage, account: Self.account)
