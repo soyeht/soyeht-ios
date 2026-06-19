@@ -166,10 +166,9 @@ struct WelcomeRootView: View {
     ///      brings the engine up. A one-shot status fetch in that window
     ///      fails and leaves the user on the initial `.bootstrap` card with
     ///      no recovery.
-    ///   2. **Listener race** — `SetupInvitationListener.listen()` gives up
-    ///      after `discoveryTimeout` (5s). If the Mac.app is open before the
-    ///      user reaches `AwaitingMacView` on iPhone, a single listener pass
-    ///      misses the invitation entirely.
+    ///   2. **Listener race** — if the Mac.app is open before the user reaches
+    ///      `AwaitingMacView` on iPhone, a single listener pass can miss the
+    ///      invitation entirely.
     ///
     /// The loop retries engine status until reachable, then re-runs the
     /// listener while `keepListening` is true. The first manual action
