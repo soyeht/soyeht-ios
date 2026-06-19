@@ -11,7 +11,12 @@ final class ClawStoreWindowController: NSWindowController {
     private let context: ServerContext
     private var activeServerObserver: NSObjectProtocol?
 
-    init(context: ServerContext) {
+    init(
+        context: ServerContext,
+        onOpenTerminal: @escaping (String) -> Void = { _ in },
+        onConnectThisMac: @escaping () -> Void = {},
+        onShowConnectedServers: @escaping () -> Void = {}
+    ) {
         self.context = context
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 840, height: 620),
@@ -19,12 +24,18 @@ final class ClawStoreWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = String(localized: "claw.store.window.title", comment: "Title of the dedicated Claw Store macOS window.")
+        let storeTitle = String(localized: "claw.store.window.title", comment: "Title of the dedicated Claw Store macOS window.")
+        window.title = "\(storeTitle) - \(context.server.displayName)"
         window.titlebarAppearsTransparent = true
         window.center()
         window.setFrameAutosaveName("SoyehtClawStoreWindow")
         super.init(window: window)
-        window.contentViewController = NSHostingController(rootView: MacClawStoreRootView(context: context))
+        window.contentViewController = NSHostingController(rootView: MacClawStoreRootView(
+            context: context,
+            onOpenTerminal: onOpenTerminal,
+            onConnectThisMac: onConnectThisMac,
+            onShowConnectedServers: onShowConnectedServers
+        ))
 
         // The view tree is pinned to `context` at init. When the active
         // server changes we can't rebuild the view hierarchy cleanly (the

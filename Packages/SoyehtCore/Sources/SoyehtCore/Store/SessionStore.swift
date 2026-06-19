@@ -38,6 +38,7 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     public let expiresAt: String?
     public let platform: String?
     public let kind: ServerKind
+    public let engineMachineId: String?
 
     public init(
         id: String,
@@ -47,7 +48,8 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
         pairedAt: Date,
         expiresAt: String?,
         platform: String? = nil,
-        kind: ServerKind = .engine
+        kind: ServerKind = .engine,
+        engineMachineId: String? = nil
     ) {
         self.id = id
         self.host = host
@@ -57,6 +59,7 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
         self.expiresAt = expiresAt
         self.platform = platform
         self.kind = kind
+        self.engineMachineId = Self.normalizedEngineMachineId(engineMachineId)
     }
 
     // Backward-compatible decoder: records persisted before `kind` was
@@ -64,7 +67,7 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     // and we restore them as `.engine` — the only kind the Mac supported
     // before this PR. Encoder always writes the field.
     private enum CodingKeys: String, CodingKey {
-        case id, host, name, role, pairedAt, expiresAt, platform, kind
+        case id, host, name, role, pairedAt, expiresAt, platform, kind, engineMachineId
     }
 
     public init(from decoder: Decoder) throws {
@@ -77,6 +80,9 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
         self.expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt)
         self.platform = try c.decodeIfPresent(String.self, forKey: .platform)
         self.kind = try c.decodeIfPresent(ServerKind.self, forKey: .kind) ?? .engine
+        self.engineMachineId = Self.normalizedEngineMachineId(
+            try c.decodeIfPresent(String.self, forKey: .engineMachineId)
+        )
     }
 
     public var normalizedPlatform: String? {
@@ -135,6 +141,12 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
         if normalized.contains("mac") { return "macos" }
         if normalized.contains("linux") { return "linux" }
         return normalized
+    }
+
+    public static func normalizedEngineMachineId(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func hostStem(from rawHost: String) -> String {
@@ -340,7 +352,9 @@ public final class SessionStore: ObservableObject {
                     role: server.role ?? existing.role,
                     pairedAt: existing.pairedAt,
                     expiresAt: server.expiresAt ?? existing.expiresAt,
-                    platform: server.platform ?? existing.platform
+                    platform: server.platform ?? existing.platform,
+                    kind: server.kind,
+                    engineMachineId: server.engineMachineId ?? existing.engineMachineId
                 )
                 servers[index] = stored
             } else {
@@ -369,7 +383,9 @@ public final class SessionStore: ObservableObject {
                 role: existing.role,
                 pairedAt: existing.pairedAt,
                 expiresAt: existing.expiresAt,
-                platform: existing.platform
+                platform: existing.platform,
+                kind: existing.kind,
+                engineMachineId: existing.engineMachineId
             )
             pairedServers = servers
             return true
@@ -377,7 +393,7 @@ public final class SessionStore: ObservableObject {
         if didMutate { onServersDidChange?() }
     }
 
-    public func updateServerMetadata(id: String, name: String?, platform: String?) {
+    public func updateServerMetadata(id: String, name: String?, platform: String?, engineMachineId: String? = nil) {
         let didMutate: Bool = withStorageLock {
             var servers = pairedServers
             guard let index = servers.firstIndex(where: { $0.id == id }) else { return false }
@@ -400,7 +416,9 @@ public final class SessionStore: ObservableObject {
                 role: existing.role,
                 pairedAt: existing.pairedAt,
                 expiresAt: existing.expiresAt,
-                platform: resolvedPlatform
+                platform: resolvedPlatform,
+                kind: existing.kind,
+                engineMachineId: PairedServer.normalizedEngineMachineId(engineMachineId) ?? existing.engineMachineId
             )
             pairedServers = servers
             return true

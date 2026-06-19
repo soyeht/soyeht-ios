@@ -10,11 +10,18 @@ struct MacClawDetailView: View {
     /// Called after any install/uninstall action so the parent store view model
     /// can reload and begin its own window-lifetime polling (surviving back-nav).
     var onInstallStateChanged: (() -> Void)?
+    var onOpenTerminal: ((String) -> Void)?
     @StateObject private var viewModel: ClawDetailViewModel
 
-    init(claw: Claw, context: ServerContext, onInstallStateChanged: (() -> Void)? = nil) {
+    init(
+        claw: Claw,
+        context: ServerContext,
+        onInstallStateChanged: (() -> Void)? = nil,
+        onOpenTerminal: ((String) -> Void)? = nil
+    ) {
         self.context = context
         self.onInstallStateChanged = onInstallStateChanged
+        self.onOpenTerminal = onOpenTerminal
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
     }
 
@@ -141,6 +148,23 @@ struct MacClawDetailView: View {
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
+                Button {
+                    onOpenTerminal?(viewModel.claw.name)
+                } label: {
+                    Label {
+                        Text(LocalizedStringResource(
+                            "claw.detail.button.openTerminal",
+                            defaultValue: "Open Terminal",
+                            comment: "Button on macOS Claw detail that opens a terminal pane attached to an installed claw."
+                        ))
+                        .font(MacTypography.Fonts.clawActionButton)
+                    } icon: {
+                        Image(systemName: "terminal")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(onOpenTerminal == nil)
+                .accessibilityIdentifier("soyeht.macClawDetail.openTerminal")
                 Button {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 } label: {

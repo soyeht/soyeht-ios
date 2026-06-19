@@ -18,6 +18,17 @@ public struct ClawDeployOption: Sendable {
     }
 }
 
+public typealias ClawHouseholdInstanceCreatedHandler = @MainActor @Sendable (
+    _ option: ClawDeployOption,
+    _ request: CreateInstanceRequest,
+    _ response: CreateInstanceResponse
+) -> Void
+
+public typealias ClawCreateInstanceHandler = (
+    _ request: CreateInstanceRequest,
+    _ target: CreateInstanceTarget
+) async throws -> CreateInstanceResponse
+
 public final class ClawSetupViewModel: ObservableObject {
     public let claw: Claw
 
@@ -55,6 +66,8 @@ public final class ClawSetupViewModel: ObservableObject {
     private let store: SessionStore
     private let deployMonitor: ClawDeployMonitor
     private let injectedDeployOptions: [ClawDeployOption]?
+    private let householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler?
+    private let createInstanceHandler: ClawCreateInstanceHandler
 
     /// Legacy init — preserved for macOS callers and existing tests.
     /// Reads `store.pairedServers` lazily via the `servers` computed.
@@ -63,13 +76,19 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared
+        deployMonitor: ClawDeployMonitor = .shared,
+        householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
+        createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
         self.injectedDeployOptions = nil
+        self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
+        self.createInstanceHandler = createInstanceHandler ?? { request, target in
+            try await apiClient.createInstance(request, target: target)
+        }
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
@@ -94,12 +113,18 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared
+        deployMonitor: ClawDeployMonitor = .shared,
+        householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
+        createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
+        self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
+        self.createInstanceHandler = createInstanceHandler ?? { request, target in
+            try await apiClient.createInstance(request, target: target)
+        }
         self.injectedDeployOptions = servers.map { server in
             let target = store.context(for: server.id).map(CreateInstanceTarget.server)
             return ClawDeployOption(server: server, target: target)
@@ -121,13 +146,19 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared
+        deployMonitor: ClawDeployMonitor = .shared,
+        householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
+        createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
         self.injectedDeployOptions = deployOptions
+        self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
+        self.createInstanceHandler = createInstanceHandler ?? { request, target in
+            try await apiClient.createInstance(request, target: target)
+        }
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = deployOptions.firstIndex(where: { $0.server.id == initialServerId }) {
@@ -391,7 +422,11 @@ public final class ClawSetupViewModel: ObservableObject {
         )
 
         do {
-            let response = try await apiClient.createInstance(request, target: target)
+            let response = try await createInstanceHandler(request, target)
+
+            if case .householdEndpoint = target {
+                householdInstanceCreatedHandler?(option, request, response)
+            }
 
             deployMonitor.monitor(
                 instanceId: response.id,

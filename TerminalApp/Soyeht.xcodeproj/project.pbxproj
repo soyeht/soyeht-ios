@@ -299,6 +299,7 @@
 		49CAFA010000000000000101 /* house-created.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/house-created.caf"; sourceTree = SOURCE_ROOT; };
 		49CAFA020000000000000101 /* resident-paired.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/resident-paired.caf"; sourceTree = SOURCE_ROOT; };
 		49ENT001000000000000E001 /* Soyeht.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Soyeht.entitlements; sourceTree = "<group>"; };
+		49ENT002000000000000E002 /* SoyehtDev.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtDev.entitlements; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA001 /* PairedMacsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStore.swift; sourceTree = "<group>"; };
@@ -627,6 +628,7 @@
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
 				49ENT001000000000000E001 /* Soyeht.entitlements */,
+				49ENT002000000000000E002 /* SoyehtDev.entitlements */,
 				49SEC0002F5A000100SECRETS /* Secrets.plist */,
 				4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */,
 				49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */,
@@ -1058,7 +1060,7 @@
 				49BD1A57224207B5005A2252 /* Frameworks */,
 				49BD1A58224207B5005A2252 /* Resources */,
 				498666E52574A727006BFFA0 /* Embed Frameworks */,
-				49SEC0022F5A000200SECRETS /* Copy Secrets (Debug) */,
+				49SEC0022F5A000200SECRETS /* Copy Secrets (Debug/Dev) */,
 				49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */,
 				5C79246E87CF102B15A2FC73 /* Embed App Extensions */,
 				49XAT00FIX000200APPSTRIP /* Strip Provenance xattrs (pre-Codesign) */,
@@ -1237,7 +1239,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		49SEC0022F5A000200SECRETS /* Copy Secrets (Debug) */ = {
+		49SEC0022F5A000200SECRETS /* Copy Secrets (Debug/Dev) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1247,7 +1249,7 @@
 			inputPaths = (
 				"$(SRCROOT)/Soyeht/Secrets.plist",
 			);
-			name = "Copy Secrets (Debug)";
+			name = "Copy Secrets (Debug/Dev)";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -1255,7 +1257,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (debug build)\"\nelse\n    echo \"Skipping Secrets.plist (non-debug build or file missing)\"\nfi\n";
+			shellScript = "if { [ \"$CONFIGURATION\" = \"Debug\" ] || [ \"$CONFIGURATION\" = \"Dev\" ]; } && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (debug/dev build)\"\nelse\n    echo \"Skipping Secrets.plist (non-debug/dev build or file missing)\"\nfi\n";
 		};
 		49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1659,6 +1661,68 @@
 			};
 			name = Debug;
 		};
+		49BD1A7A224207B7005A2252 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Dev;
+		};
 		49BD1A76224207B7005A2252 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1733,10 +1797,35 @@
 				MARKETING_VERSION = 0.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SOYEHT_DISPLAY_NAME = Soyeht;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		49BD1A7B224207B7005A2252 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Soyeht/SoyehtDev.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.19;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SOYEHT_DISPLAY_NAME = "Soyeht Dev";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Dev;
 		};
 		49BD1A79224207B7005A2252 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1755,6 +1844,7 @@
 				MARKETING_VERSION = 0.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SOYEHT_DISPLAY_NAME = Soyeht;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1797,6 +1887,26 @@
 			};
 			name = Debug;
 		};
+		5487CDFE23358A41F1F22DF2 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 0.1.19;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.HouseCreatedNotificationService;
+				PRODUCT_NAME = HouseCreatedNotificationService;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Dev;
+		};
 		62D70A4F8E7CCBB1999FC058 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1814,6 +1924,24 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Soyeht.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Soyeht";
 			};
 			name = Debug;
+		};
+		62D70A508E7CCBB1999FC058 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iOSTerminalTests;
+				PRODUCT_NAME = SoyehtTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Soyeht.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Soyeht";
+			};
+			name = Dev;
 		};
 		8842FCAA98167C272F392940 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1836,6 +1964,27 @@
 			};
 			name = Debug;
 		};
+		8842FCAB98167C272F392940 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 0.1.19;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.SoyehtLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Dev;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1843,6 +1992,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				49BD1A75224207B7005A2252 /* Debug */,
+				49BD1A7A224207B7005A2252 /* Dev */,
 				49BD1A76224207B7005A2252 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1852,6 +2002,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				49BD1A78224207B7005A2252 /* Debug */,
+				49BD1A7B224207B7005A2252 /* Dev */,
 				49BD1A79224207B7005A2252 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1862,6 +2013,7 @@
 			buildConfigurations = (
 				25E29B63DE7DA03C0C6D2493 /* Release */,
 				62D70A4F8E7CCBB1999FC058 /* Debug */,
+				62D70A508E7CCBB1999FC058 /* Dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1871,6 +2023,7 @@
 			buildConfigurations = (
 				222FF1B69153393E089A96D9 /* Release */,
 				8842FCAA98167C272F392940 /* Debug */,
+				8842FCAB98167C272F392940 /* Dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1880,6 +2033,7 @@
 			buildConfigurations = (
 				4AECBA26F26EB46CD414DB03 /* Release */,
 				5487CDFD23358A41F1F22DF2 /* Debug */,
+				5487CDFE23358A41F1F22DF2 /* Dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

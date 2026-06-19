@@ -34,7 +34,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(overlay.contains("DevicePairConfirmationCardHost"))
     }
 
-    func test_localMacPairingClaimOpensMacMirrorWithoutWaitingForHouseholdPairing() throws {
+    func test_localMacPairingClaimStillRunsBootstrapDecisionBeforeOpeningMacMirror() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let claimHandler = try slice(
             source,
@@ -47,12 +47,91 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             to: "// MARK: - Private"
         )
 
-        XCTAssertTrue(claimHandler.contains("if let pairing = claim.macLocalPairing"))
-        XCTAssertTrue(claimHandler.contains("if claim.macLocalPairing != nil"))
-        XCTAssertTrue(claimHandler.contains("self.onMacFoundHandler?(.connectedToExistingMac)"))
+        XCTAssertTrue(claimHandler.contains("engineURLMatchesCurrentInstallProfile(claim.macEngineURL)"))
+        XCTAssertTrue(claimHandler.contains("direct_claim_ignored_profile_mismatch"))
+        XCTAssertTrue(claimHandler.contains("await self.resolveDiscoveredMac("))
+        XCTAssertTrue(claimHandler.contains("localPairing: claim.macLocalPairing"))
+        XCTAssertFalse(claimHandler.contains("if let pairing = claim.macLocalPairing"))
+        XCTAssertFalse(claimHandler.contains("self.installedLocalPairingForDiscovery = true"))
+        XCTAssertFalse(claimHandler.contains("installMacLocalPairing(pairing)"))
+        XCTAssertFalse(claimHandler.contains("if claim.macLocalPairing != nil"))
+        XCTAssertFalse(claimHandler.contains("self.diagnosticMessage = \"Connected to Mac\""))
         XCTAssertTrue(claimHandler.contains("deferredLocalPairing: claim.macLocalPairing"))
+        XCTAssertTrue(source.contains("presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: localPairing)"))
         XCTAssertTrue(connectFlow.contains("if let pairing = house.deferredLocalPairing"))
         XCTAssertTrue(connectFlow.contains("installMacLocalPairing(pairing)"))
+    }
+
+    func test_firstSetupFiltersDirectAndBonjourMacDiscoveryByInstallProfile() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let claimHandler = try slice(
+            source,
+            from: "publisher.onMacClaimed",
+            to: "func stop()"
+        )
+        let resolver = try slice(
+            source,
+            from: "private func resolveDiscoveredMac(",
+            to: "private func probeRawError"
+        )
+
+        XCTAssertTrue(source.contains("private static func engineURLMatchesCurrentInstallProfile"))
+        XCTAssertTrue(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(claimHandler.contains("engineURLMatchesCurrentInstallProfile(claim.macEngineURL)"))
+        XCTAssertTrue(claimHandler.contains("direct_claim_ignored_profile_mismatch"))
+        XCTAssertTrue(resolver.contains("engineURLMatchesCurrentInstallProfile(engineURL)"))
+        XCTAssertTrue(resolver.contains("mac_browser_ignored_profile_mismatch"))
+    }
+
+    func test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let startMacBrowser = try slice(
+            source,
+            from: "private func startMacBrowser()",
+            to: "private func scheduleMacBrowserResolutionPolls"
+        )
+        let resolutionPolls = try slice(
+            source,
+            from: "private func scheduleMacBrowserResolutionPolls",
+            to: "nonisolated private static func macEngineURLs"
+        )
+        let fastExtractor = try slice(
+            source,
+            from: "private func awaitingMacExtractEngineURL",
+            to: "private enum AwaitingMacBootstrapDecision"
+        )
+        let dnssdFallback = try slice(
+            source,
+            from: "nonisolated private static func macEngineURLsViaDNSSD",
+            to: "nonisolated private static func deduplicatedMacEngineURLs"
+        )
+        let profileEndpointCheck = try slice(
+            source,
+            from: "nonisolated private static func containsCurrentInstallProfileEndpoint",
+            to: "/// After the Mac POSTs"
+        )
+
+        XCTAssertTrue(startMacBrowser.contains("containsCurrentInstallProfileEndpoint(engineURLs)"))
+        XCTAssertTrue(resolutionPolls.contains("containsCurrentInstallProfileEndpoint(engineURLs)"))
+        XCTAssertFalse(fastExtractor.contains("defaultPort: SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(dnssdFallback.contains("defaultPort: SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(profileEndpointCheck.contains("url.port == SoyehtInstallProfile.current.bootstrapPort"))
+    }
+
+    func test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes() throws {
+        let source = try iosSource("Onboarding/HouseNaming/HouseNamingFromiPhoneView.swift")
+        let submitBody = try slice(
+            source,
+            from: "private func submit()",
+            to: "private func cancelSubmission()"
+        )
+
+        let householdPair = try XCTUnwrap(submitBody.range(of: "HouseholdPairingService("))
+        let installLocalPairing = try XCTUnwrap(submitBody.range(of: "installMacLocalPairing(localPairing)"))
+        let onNamed = try XCTUnwrap(submitBody.range(of: "onNamed()"))
+        XCTAssertLessThan(householdPair.lowerBound, installLocalPairing.lowerBound)
+        XCTAssertLessThan(installLocalPairing.lowerBound, onNamed.lowerBound)
+        XCTAssertTrue(source.contains("let localPairing: SetupInvitationMacLocalPairing?"))
     }
 
     func test_devicePairingPublishesSetupInvitationForLocalMacPairing() throws {
@@ -145,6 +224,79 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("ignoredDeviceIDs.contains(deviceID)"))
         XCTAssertFalse(directFlow.contains("try? await SetupInvitationDirectProbe.notifyClaimed"))
         XCTAssertTrue(directFlow.contains("try await SetupInvitationDirectProbe.notifyClaimed"))
+    }
+
+    func test_addMacFiltersSetupClaimsByInstallProfileBeforeIgnoringExistingHouse() throws {
+        let source = try iosSource("Home/AwaitingNewMacView.swift")
+        let claimHandler = try slice(
+            source,
+            from: "publisher.onMacClaimed",
+            to: "self.alreadyOrchestrating = true"
+        )
+
+        let profileFilter = try XCTUnwrap(claimHandler.range(of: "claimMatchesCurrentInstallProfile"))
+        let existingHouseBranch = try XCTUnwrap(claimHandler.range(of: "claim.existingHouse != nil"))
+        XCTAssertLessThan(profileFilter.lowerBound, existingHouseBranch.lowerBound)
+        XCTAssertTrue(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(source.contains("claim.macEngineURL.port"))
+    }
+
+    func test_addMacIgnoresExistingHouseClaimAndKeepsLookingForFreshMac() throws {
+        let source = try iosSource("Home/AwaitingNewMacView.swift")
+        let claimHandler = try slice(
+            source,
+            from: "publisher.onMacClaimed",
+            to: "self.orchestrationTask = Task"
+        )
+        let existingHouseBranch = try slice(
+            claimHandler,
+            from: "if claim.existingHouse != nil",
+            to: "self.alreadyOrchestrating = true"
+        )
+
+        XCTAssertTrue(existingHouseBranch.contains("setup_claim_ignored_existing_house"))
+        XCTAssertTrue(existingHouseBranch.contains("return"))
+        XCTAssertFalse(existingHouseBranch.contains(".failure"))
+        XCTAssertFalse(existingHouseBranch.contains("awaitingNewMac.failure.notFresh"))
+        XCTAssertTrue(claimHandler.contains("setup_claim_fresh_run_dance"))
+        XCTAssertTrue(claimHandler.contains("self.alreadyOrchestrating = true"))
+        XCTAssertTrue(claimHandler.contains("self.phase = .orchestrating"))
+        XCTAssertTrue(source.contains("await self?.runDance(claim: claim)"))
+    }
+
+    func test_debugLocalStateResetClearsLegacyMacStoreAndRegistryMirror() throws {
+        let source = try iosSource("AppDelegate.swift")
+        let resetBody = try slice(
+            source,
+            from: "private static func reset()",
+            to: "appDelegateLogger.log(\"local state reset completed\")"
+        )
+
+        let clearMacs = try XCTUnwrap(resetBody.range(of: "PairedMacsStore.shared.removeAll()"))
+        let removeDomain = try XCTUnwrap(resetBody.range(of: "defaults.removePersistentDomain"))
+        let refreshRegistry = try XCTUnwrap(resetBody.range(of: "ServerRegistry.shared.refreshFromLegacyStores()"))
+        let deleteOwnerKeys = try XCTUnwrap(resetBody.range(of: "deleteAllOwnerKeys(tokenID: nil)"))
+
+        XCTAssertLessThan(clearMacs.lowerBound, removeDomain.lowerBound)
+        XCTAssertGreaterThan(refreshRegistry.lowerBound, deleteOwnerKeys.lowerBound)
+    }
+
+    func test_debugLocalStateReportBreaksDownServerSources() throws {
+        let source = try iosSource("AppDelegate.swift")
+        let reporterBody = try slice(
+            source,
+            from: "private enum DebugLocalStateReporter",
+            to: "presenter.present(alert, animated: true)"
+        )
+
+        XCTAssertTrue(reporterBody.contains("PairedMacsStore.shared.macs.count"))
+        XCTAssertTrue(reporterBody.contains("SessionStore.shared.pairedServers.count"))
+        XCTAssertTrue(reporterBody.contains("ServerRegistry.shared.servers.count"))
+        XCTAssertTrue(reporterBody.contains("ServerRegistry.shared.macs.count"))
+        XCTAssertTrue(reporterBody.contains("legacyMacs="))
+        XCTAssertTrue(reporterBody.contains("pairedServers="))
+        XCTAssertTrue(reporterBody.contains("registryServers="))
+        XCTAssertTrue(reporterBody.contains("registryMacs="))
     }
 
     private func iosSource(_ relativePath: String) throws -> String {

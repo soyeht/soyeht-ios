@@ -10,7 +10,7 @@ private let awaitingMacLogger = Logger(subsystem: "com.soyeht.mobile", category:
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
     enum Result {
-        case needsNaming(engineURL: URL, claimToken: Data)
+        case needsNaming(engineURL: URL, claimToken: Data, localPairing: SetupInvitationMacLocalPairing?)
         case connectedToExistingMac
     }
 
@@ -368,14 +368,10 @@ final class AwaitingMacViewModel: ObservableObject {
                 awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
                 self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
                 guard !self.alreadyFound else { return }
-                if let pairing = claim.macLocalPairing {
-                    installMacLocalPairing(pairing)
-                    self.installedLocalPairingForDiscovery = true
-                }
-                if claim.macLocalPairing != nil {
-                    self.alreadyFound = true
-                    self.diagnosticMessage = "Connected to Mac"
-                    self.onMacFoundHandler?(.connectedToExistingMac)
+                guard Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else {
+                    awaitingMacLogger.info(
+                        "direct_claim_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    )
                     return
                 }
                 if let existingHouse = claim.existingHouse {
@@ -388,7 +384,11 @@ final class AwaitingMacViewModel: ObservableObject {
                     )
                     return
                 }
-                await self.resolveDiscoveredMac(engineURL: claim.macEngineURL, claimToken: self.tokenBytes)
+                await self.resolveDiscoveredMac(
+                    engineURL: claim.macEngineURL,
+                    claimToken: self.tokenBytes,
+                    localPairing: claim.macLocalPairing
+                )
             }
         }
         publisher.start()
@@ -493,7 +493,7 @@ final class AwaitingMacViewModel: ObservableObject {
         let tokenBytes = self.tokenBytes
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             let engineURLs = Self.macEngineURLs(in: results, phase: "browseChanged")
-            if !engineURLs.isEmpty {
+            if Self.containsCurrentInstallProfileEndpoint(engineURLs) {
                 Task { @MainActor [weak self] in
                     guard let self, !self.alreadyFound else { return }
                     await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: tokenBytes)
@@ -538,13 +538,13 @@ final class AwaitingMacViewModel: ObservableObject {
             guard !Task.isCancelled, !self.alreadyFound else { return }
 
             var engineURLs = Self.macEngineURLs(in: results, phase: "metadataPoll+0ms")
-            if !engineURLs.isEmpty {
+            if Self.containsCurrentInstallProfileEndpoint(engineURLs) {
                 await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
                 return
             }
 
             engineURLs = await Self.macEngineURLsViaDNSSD(in: results)
-            if !engineURLs.isEmpty {
+            if Self.containsCurrentInstallProfileEndpoint(engineURLs) {
                 guard !Task.isCancelled, !self.alreadyFound else { return }
                 await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
                 return
@@ -554,7 +554,14 @@ final class AwaitingMacViewModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 guard !Task.isCancelled, !self.alreadyFound else { return }
                 engineURLs = Self.macEngineURLs(in: results, phase: "metadataPoll+\(delayMs)ms")
-                if !engineURLs.isEmpty {
+                if Self.containsCurrentInstallProfileEndpoint(engineURLs) {
+                    await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
+                    return
+                }
+
+                engineURLs = await Self.macEngineURLsViaDNSSD(in: results)
+                if Self.containsCurrentInstallProfileEndpoint(engineURLs) {
+                    guard !Task.isCancelled, !self.alreadyFound else { return }
                     await self.resolveDiscoveredMac(engineURLs: engineURLs, claimToken: self.tokenBytes)
                     return
                 }
@@ -584,7 +591,10 @@ final class AwaitingMacViewModel: ObservableObject {
     ) async -> [URL] {
         var urls: [URL] = []
         for result in results {
-            if let engineURL = await HouseholdBonjourBrowser.resolveEngineEndpointViaDNSSD(from: result) {
+            if let engineURL = await HouseholdBonjourBrowser.resolveEngineEndpointViaDNSSD(
+                from: result,
+                defaultPort: SoyehtInstallProfile.current.bootstrapPort
+            ) {
                 awaitingMacLogger.info("mac_browser.endpoint phase=DNSServiceResolve endpoint=\(engineURL.absoluteString, privacy: .public)")
                 urls.append(engineURL)
             }
@@ -606,6 +616,12 @@ final class AwaitingMacViewModel: ObservableObject {
         return result
     }
 
+    nonisolated private static func containsCurrentInstallProfileEndpoint(_ urls: [URL]) -> Bool {
+        urls.contains { url in
+            url.port == SoyehtInstallProfile.current.bootstrapPort
+        }
+    }
+
     /// After the Mac POSTs `/setup-invitation/claimed`, the iPhone must reach
     /// the Mac's engine to decide where to route next (house naming, existing
     /// house card, or already-paired). The previous behaviour treated a single
@@ -617,12 +633,32 @@ final class AwaitingMacViewModel: ObservableObject {
     /// finishing claim, Tailnet route not yet settled, Wi-Fi roam) recover.
     /// Persistent failures surface a real error so the user can pick the
     /// download-link / Linux fallback instead of staring at a spinner.
-    private func resolveDiscoveredMac(engineURL: URL, claimToken: Data) async {
-        await resolveDiscoveredMac(engineURLs: [engineURL], claimToken: claimToken)
+    private func resolveDiscoveredMac(
+        engineURL: URL,
+        claimToken: Data,
+        localPairing: SetupInvitationMacLocalPairing? = nil
+    ) async {
+        await resolveDiscoveredMac(
+            engineURLs: [engineURL],
+            claimToken: claimToken,
+            localPairing: localPairing
+        )
     }
 
-    private func resolveDiscoveredMac(engineURLs: [URL], claimToken: Data) async {
-        let engineURLs = Self.deduplicatedMacEngineURLs(engineURLs)
+    private func resolveDiscoveredMac(
+        engineURLs: [URL],
+        claimToken: Data,
+        localPairing: SetupInvitationMacLocalPairing? = nil
+    ) async {
+        let engineURLs = Self.deduplicatedMacEngineURLs(engineURLs).filter { engineURL in
+            let matches = Self.engineURLMatchesCurrentInstallProfile(engineURL)
+            if !matches {
+                awaitingMacLogger.info(
+                    "mac_browser_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) endpoint_port=\(engineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                )
+            }
+            return matches
+        }
         awaitingMacLogger.info("resolveDiscoveredMac.entry engines=\(engineURLs.map(\.absoluteString).joined(separator: ","), privacy: .public) already_found=\(self.alreadyFound, privacy: .public) can_open_existing=\(self.installedLocalPairingForDiscovery, privacy: .public)")
         diagnosticMessage = "Connecting to Mac..."
         guard !alreadyFound else { return }
@@ -638,7 +674,7 @@ final class AwaitingMacViewModel: ObservableObject {
                 diagnosticMessage = "Reaching Mac (attempt \(attempts))..."
                 let decision = await awaitingMacBootstrapDecision(
                     at: engineURL,
-                    canOpenExistingMac: installedLocalPairingForDiscovery
+                    canOpenExistingMac: installedLocalPairingForDiscovery || localPairing != nil
                 )
                 awaitingMacLogger.info("resolveDiscoveredMac.decision attempt=\(attempts, privacy: .public) engine=\(engineURL.absoluteString, privacy: .public) result=\(String(describing: decision), privacy: .public)")
                 guard !alreadyFound else { return }
@@ -647,9 +683,13 @@ final class AwaitingMacViewModel: ObservableObject {
                 case .existingHouse(let house):
                     alreadyFound = true
                     diagnosticMessage = "Mac already has a household — joining"
-                    presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
+                    presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: localPairing)
                     return
                 case .connectedToExistingMac:
+                    if let localPairing {
+                        installMacLocalPairing(localPairing)
+                        installedLocalPairingForDiscovery = true
+                    }
                     alreadyFound = true
                     diagnosticMessage = "Connected to existing Mac"
                     onMacFoundHandler?(.connectedToExistingMac)
@@ -659,7 +699,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     diagnosticMessage = "Mac engine ready — naming the home"
                     onMacFoundHandler?(.needsNaming(
                         engineURL: engineURL,
-                        claimToken: claimToken
+                        claimToken: claimToken,
+                        localPairing: localPairing
                     ))
                     return
                 case .retryLater:
@@ -675,6 +716,11 @@ final class AwaitingMacViewModel: ObservableObject {
         }
         diagnosticMessage = "Couldn't reach Mac engine after \(attempts) attempts"
         awaitingMacLogger.error("resolveDiscoveredMac.gave_up_after_attempts attempts=\(attempts, privacy: .public)")
+    }
+
+    private static func engineURLMatchesCurrentInstallProfile(_ engineURL: URL) -> Bool {
+        guard let port = engineURL.port else { return false }
+        return port == SoyehtInstallProfile.current.bootstrapPort
     }
 
     /// Bypasses `BootstrapStatusClient`'s `.networkDrop` wrapping to expose the

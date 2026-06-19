@@ -30,10 +30,239 @@ private struct InstanceSection: Identifiable {
     var id: String { server.id }
 }
 
+struct HouseholdCreatedInstanceRecord: Codable, Equatable, Sendable {
+    let id: String
+    let name: String
+    let container: String
+    let clawType: String?
+
+    init(id: String, name: String, container: String, clawType: String?) {
+        self.id = id
+        self.name = name
+        self.container = container
+        self.clawType = clawType
+    }
+
+    init(request: CreateInstanceRequest, response: CreateInstanceResponse) {
+        self.init(
+            id: response.id,
+            name: response.name,
+            container: response.container,
+            clawType: response.clawType ?? request.clawType
+        )
+    }
+}
+
+final class HouseholdCreatedInstancesStore: @unchecked Sendable {
+    static let shared = HouseholdCreatedInstancesStore()
+
+    private struct Snapshot: Codable {
+        var recordsByServerID: [String: [HouseholdCreatedInstanceRecord]] = [:]
+    }
+
+    private let defaults: UserDefaults
+    private let key: String
+    private let lock = NSLock()
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    init(
+        defaults: UserDefaults = .standard,
+        key: String = "com.soyeht.householdCreatedInstances.v1"
+    ) {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    func list(serverID: Server.ID) -> [HouseholdCreatedInstanceRecord] {
+        lock.withLock {
+            snapshot().recordsByServerID[serverID] ?? []
+        }
+    }
+
+    func upsert(_ record: HouseholdCreatedInstanceRecord, serverID: Server.ID) {
+        lock.withLock {
+            var snapshot = snapshot()
+            var records = snapshot.recordsByServerID[serverID] ?? []
+            if let index = records.firstIndex(where: { $0.id == record.id }) {
+                records[index] = record
+            } else {
+                records.append(record)
+            }
+            snapshot.recordsByServerID[serverID] = records
+            save(snapshot)
+        }
+    }
+
+    func remove(instanceID: String, serverID: Server.ID) {
+        lock.withLock {
+            var snapshot = snapshot()
+            var records = snapshot.recordsByServerID[serverID] ?? []
+            records.removeAll { $0.id == instanceID }
+            if records.isEmpty {
+                snapshot.recordsByServerID.removeValue(forKey: serverID)
+            } else {
+                snapshot.recordsByServerID[serverID] = records
+            }
+            save(snapshot)
+        }
+    }
+
+    func removeAll(serverID: Server.ID) {
+        lock.withLock {
+            var snapshot = snapshot()
+            snapshot.recordsByServerID.removeValue(forKey: serverID)
+            save(snapshot)
+        }
+    }
+
+    private func snapshot() -> Snapshot {
+        guard let data = defaults.data(forKey: key),
+              let decoded = try? decoder.decode(Snapshot.self, from: data) else {
+            return Snapshot()
+        }
+        return decoded
+    }
+
+    private func save(_ snapshot: Snapshot) {
+        guard let data = try? encoder.encode(snapshot) else { return }
+        defaults.set(data, forKey: key)
+    }
+}
+
+@MainActor
+struct HouseholdCreatedInstancesLoader {
+    typealias Resolver = @MainActor (ClawInstallTarget) -> ClawInstallTargetResolver.Resolution
+    typealias ListFetcher = (URL) async throws -> [SoyehtInstance]
+    typealias StatusFetcher = (String, URL) async throws -> InstanceStatusResponse
+
+    private let recordStore: HouseholdCreatedInstancesStore
+    private let sessionStore: SessionStore
+    private let resolver: Resolver
+    private let listFetcher: ListFetcher
+    private let statusFetcher: StatusFetcher
+
+    init(
+        recordStore: HouseholdCreatedInstancesStore = .shared,
+        sessionStore: SessionStore = .shared,
+        apiClient: SoyehtAPIClient = .shared,
+        resolver: @escaping Resolver = { ClawInstallTargetResolver.resolve($0) },
+        listFetcher: ListFetcher? = nil,
+        statusFetcher: StatusFetcher? = nil
+    ) {
+        self.recordStore = recordStore
+        self.sessionStore = sessionStore
+        self.resolver = resolver
+        self.listFetcher = listFetcher ?? { endpoint in
+            try await apiClient.getInstances(householdEndpoint: endpoint)
+        }
+        self.statusFetcher = statusFetcher ?? { id, endpoint in
+            try await apiClient.getInstanceStatus(
+                id: id,
+                target: CreateInstanceTarget.householdEndpoint(endpoint)
+            )
+        }
+    }
+
+    func load(for servers: [Server]) async -> [InstanceEntry] {
+        var entries: [InstanceEntry] = []
+        for server in servers where server.kind == .mac && sessionStore.context(for: server.id) == nil {
+            guard case .householdEndpoint(_, let endpoint) = resolver(ClawInstallTarget(serverID: server.id)) else {
+                continue
+            }
+
+            let records = recordStore.list(serverID: server.id)
+            let cachedByID = Dictionary(uniqueKeysWithValues:
+                sessionStore.loadInstances(serverId: server.id).map { ($0.id, $0) }
+            )
+            var instancesByID: [String: SoyehtInstance] = [:]
+            var orderedIDs: [String] = []
+            var listFailed = false
+
+            func append(_ instance: SoyehtInstance) {
+                if instancesByID[instance.id] == nil {
+                    orderedIDs.append(instance.id)
+                }
+                instancesByID[instance.id] = instance
+            }
+
+            do {
+                let listed = try await listFetcher(endpoint)
+                listed.forEach(append)
+            } catch {
+                listFailed = true
+            }
+
+            for record in records {
+                if instancesByID[record.id] != nil { continue }
+                do {
+                    let status = try await statusFetcher(record.id, endpoint)
+                    append(Self.instance(from: record, status: status))
+                } catch {
+                    if Self.isNotFound(error) {
+                        recordStore.remove(instanceID: record.id, serverID: server.id)
+                    } else if let cached = cachedByID[record.id] {
+                        append(cached)
+                    }
+                }
+            }
+
+            if listFailed, records.isEmpty {
+                cachedByID.values
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                    .forEach(append)
+            }
+
+            let instances = orderedIDs.compactMap { instancesByID[$0] }
+            sessionStore.saveInstances(instances, serverId: server.id)
+            entries.append(contentsOf: instances.map { InstanceEntry(server: server, instance: $0) })
+        }
+        return entries
+    }
+
+    private static func instance(
+        from record: HouseholdCreatedInstanceRecord,
+        status: InstanceStatusResponse
+    ) -> SoyehtInstance {
+        SoyehtInstance(
+            id: record.id,
+            name: record.name,
+            container: record.container,
+            clawType: record.clawType,
+            fqdn: nil,
+            status: status.status,
+            port: nil,
+            capabilities: nil,
+            provisioningMessage: status.provisioningMessage,
+            provisioningPhase: status.provisioningPhase,
+            provisioningError: status.provisioningError
+        )
+    }
+
+    private static func isNotFound(_ error: Error) -> Bool {
+        if case SoyehtAPIClient.APIError.httpError(404, _) = error {
+            return true
+        }
+        return false
+    }
+}
+
 // MARK: - Instance List View
 
 struct InstanceListView: View {
+    enum InstanceActionRoute: Equatable {
+        case context
+        case householdEndpoint
+        case unavailable
+    }
+
+    private enum InstanceActionTarget {
+        case context(ServerContext)
+        case householdEndpoint(URL)
+    }
+
     let onConnect: (String, SoyehtInstance, String, ServerContext) -> Void // (wsUrl, instance, sessionName, context)
+    let onHouseholdConnect: (URLRequest, SoyehtInstance, String, String, URL) -> Void
     let onAddInstance: () -> Void
     let onLogout: () -> Void
     /// New in Fase 2. Called when user taps a pane inside a paired Mac detail
@@ -66,6 +295,7 @@ struct InstanceListView: View {
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
+    private let householdCreatedInstancesStore = HouseholdCreatedInstancesStore.shared
     @ObservedObject private var identity = SoyehtIdentity.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -270,41 +500,7 @@ struct InstanceListView: View {
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.serverSection(section.server.id))
 
                                     ForEach(section.entries) { entry in
-                                        let instance = entry.instance
-                                        Button {
-                                            guard instance.isOnline else { return }
-                                            selectedEntry = entry
-                                        } label: {
-                                            InstanceCard(instance: instance, serverName: nil)
-                                                .contentShape(Rectangle())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(!instance.isOnline)
-                                        .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
-                                        .contextMenu {
-                                            if instance.isOnline {
-                                                Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
-                                                    Label("instancelist.action.stop", systemImage: "stop.circle")
-                                                }
-                                                Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                    Label("instancelist.action.restart", systemImage: "arrow.clockwise.circle")
-                                                }
-                                                Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
-                                                    Label("instancelist.action.rebuild", systemImage: "arrow.triangle.2.circlepath")
-                                                }
-                                            } else if !instance.isProvisioning {
-                                                // Only offer "start" for stopped instances — a provisioning
-                                                // instance has no meaningful action yet (the create job is
-                                                // running in the background). Delete stays available below.
-                                                Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                    Label("instancelist.action.start", systemImage: "play.circle")
-                                                }
-                                            }
-                                            Divider()
-                                            Button(role: .destructive) { confirmDelete = entry } label: {
-                                                Label("instancelist.action.delete", systemImage: "trash")
-                                            }
-                                        }
+                                        instanceRow(for: entry)
                                     }
                                 }
 
@@ -477,6 +673,9 @@ struct InstanceListView: View {
                 onAttach: { wsUrl, sessionName, context in
                     onConnect(wsUrl, entry.instance, sessionName, context)
                 },
+                onHouseholdAttach: { request, sessionName, endpoint in
+                    onHouseholdConnect(request, entry.instance, sessionName, entry.server.id, endpoint)
+                },
                 preselectedSession: pendingSessionName
             )
         }
@@ -632,6 +831,160 @@ struct InstanceListView: View {
     // only by `ClawInstallTargetResolver`; `identity` is still observed
     // elsewhere for UI affordances unrelated to Claw routing.
 
+    @ViewBuilder
+    private func instanceRow(for entry: InstanceEntry) -> some View {
+        let instance = entry.instance
+        let terminalUnavailableReason = terminalUnavailableReason(for: entry)
+        if terminalUnavailableReason == nil {
+            Button {
+                guard instance.isOnline else { return }
+                selectedEntry = entry
+            } label: {
+                InstanceCard(
+                    instance: instance,
+                    serverName: nil,
+                    terminalUnavailableReason: nil
+                )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!instance.isOnline)
+            .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
+            .contextMenu {
+                if instanceActionTarget(for: entry) != nil {
+                    instanceActionsMenu(for: entry)
+                }
+            }
+        } else {
+            InstanceCard(
+                instance: instance,
+                serverName: nil,
+                terminalUnavailableReason: terminalUnavailableReason
+            )
+            .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
+        }
+    }
+
+    private func terminalUnavailableReason(for entry: InstanceEntry) -> String? {
+        if Self.terminalUnavailableReason(
+            serverKind: entry.server.kind,
+            hasContext: store.context(for: entry.server.id) != nil,
+            hasHouseholdEndpoint: householdEndpoint(for: entry) != nil
+        ) == nil {
+            return nil
+        }
+        return Self.terminalUnavailableReason(
+            serverKind: entry.server.kind,
+            hasContext: store.context(for: entry.server.id) != nil
+        )
+    }
+
+    static func terminalUnavailableReason(
+        serverKind: Server.Kind,
+        hasContext: Bool,
+        hasHouseholdEndpoint: Bool
+    ) -> String? {
+        guard serverKind == .mac, !hasContext, !hasHouseholdEndpoint else {
+            return nil
+        }
+        return terminalUnavailableReason(serverKind: serverKind, hasContext: hasContext)
+    }
+
+    static func terminalUnavailableReason(serverKind: Server.Kind, hasContext: Bool) -> String? {
+        guard serverKind == .mac, !hasContext else {
+            return nil
+        }
+        return String(
+            localized: "instancelist.terminalUnavailable.householdMac",
+            defaultValue: "terminal unavailable on this Mac yet",
+            comment: "Shown on Mac household-created claw cards until household terminal attach exists."
+        )
+    }
+
+    @MainActor
+    private func householdEndpoint(for entry: InstanceEntry) -> URL? {
+        guard entry.server.kind == .mac,
+              store.context(for: entry.server.id) == nil else {
+            return nil
+        }
+        if case .householdEndpoint(_, let endpoint) = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: entry.server.id)
+        ) {
+            return endpoint
+        }
+        return nil
+    }
+
+    static func instanceActionRoute(
+        serverKind: Server.Kind,
+        hasContext: Bool,
+        hasHouseholdEndpoint: Bool
+    ) -> InstanceActionRoute {
+        if hasContext {
+            return .context
+        }
+        if serverKind == .mac, hasHouseholdEndpoint {
+            return .householdEndpoint
+        }
+        return .unavailable
+    }
+
+    static func entriesAfterLocalDelete(
+        _ entries: [InstanceEntry],
+        deleting entry: InstanceEntry
+    ) -> [InstanceEntry] {
+        entries.filter { $0.id != entry.id }
+    }
+
+    static func instancesAfterLocalDelete(
+        _ instances: [SoyehtInstance],
+        deleting instanceID: String
+    ) -> [SoyehtInstance] {
+        instances.filter { $0.id != instanceID }
+    }
+
+    @MainActor
+    private func instanceActionTarget(for entry: InstanceEntry) -> InstanceActionTarget? {
+        if let context = store.context(for: entry.server.id) {
+            return .context(context)
+        }
+        if let endpoint = householdEndpoint(for: entry),
+           Self.instanceActionRoute(
+            serverKind: entry.server.kind,
+            hasContext: false,
+            hasHouseholdEndpoint: true
+           ) == .householdEndpoint {
+            return .householdEndpoint(endpoint)
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func instanceActionsMenu(for entry: InstanceEntry) -> some View {
+        let instance = entry.instance
+        if instance.isOnline {
+            Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
+                Label("instancelist.action.stop", systemImage: "stop.circle")
+            }
+            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
+                Label("instancelist.action.restart", systemImage: "arrow.clockwise.circle")
+            }
+            Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
+                Label("instancelist.action.rebuild", systemImage: "arrow.triangle.2.circlepath")
+            }
+        } else if !instance.isProvisioning {
+            // Only offer "start" for stopped instances; provisioning is already
+            // driven by the create job.
+            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
+                Label("instancelist.action.start", systemImage: "play.circle")
+            }
+        }
+        Divider()
+        Button(role: .destructive) { confirmDelete = entry } label: {
+            Label("instancelist.action.delete", systemImage: "trash")
+        }
+    }
+
     /// 3s polling loop active only while there are deploys in flight. Cancels
     /// itself when `deployMonitor.activeDeploys` empties. Re-entrant-safe:
     /// bails if a task is already running.
@@ -648,28 +1001,52 @@ struct InstanceListView: View {
 
     // MARK: - Instance Actions
 
-    /// Route the action to whichever server owns the instance via the
-    /// `ServerContext` carried on the `InstanceEntry`. Never mutates
+    /// Route the action to whichever server owns the instance. Context-backed
+    /// Linux/Mac rows keep the legacy `ServerContext` path; Mac household rows
+    /// without context use the resolved household endpoint. Never mutates
     /// `activeServerId` — routing is explicit per call.
+    @MainActor
     private func performInstanceAction(_ entry: InstanceEntry, action: InstanceAction) async {
-        guard let context = store.context(for: entry.server.id) else {
-            await MainActor.run {
-                instanceActionError = String(
-                    localized: "instancelist.error.missingSession",
-                    defaultValue: "Missing session for \(entry.server.displayName)",
-                    comment: "Error shown when the app has no saved session for a server. %@ = server name."
-                )
-            }
+        guard let target = instanceActionTarget(for: entry) else {
+            instanceActionError = instanceActionsUnavailableMessage(for: entry)
             return
         }
         do {
-            try await apiClient.instanceAction(id: entry.instance.id, action: action, context: context)
+            switch target {
+            case .context(let context):
+                try await apiClient.instanceAction(id: entry.instance.id, action: action, context: context)
+            case .householdEndpoint(let endpoint):
+                try await apiClient.instanceAction(
+                    id: entry.instance.id,
+                    action: action,
+                    householdEndpoint: endpoint
+                )
+            }
+            if action == .delete {
+                removeDeletedInstanceLocally(entry)
+            }
             await loadInstances()
         } catch {
-            await MainActor.run {
-                instanceActionError = error.localizedDescription
-            }
+            instanceActionError = error.localizedDescription
         }
+    }
+
+    private func instanceActionsUnavailableMessage(for entry: InstanceEntry) -> String {
+        String(
+            localized: "instancelist.error.instanceActionsUnavailable",
+            defaultValue: "Instance actions are unavailable for \(entry.server.displayName)",
+            comment: "Error shown when no context or household endpoint can route an instance action. %@ = server name."
+        )
+    }
+
+    private func removeDeletedInstanceLocally(_ entry: InstanceEntry) {
+        householdCreatedInstancesStore.remove(instanceID: entry.instance.id, serverID: entry.server.id)
+        let cached = Self.instancesAfterLocalDelete(
+            store.loadInstances(serverId: entry.server.id),
+            deleting: entry.instance.id
+        )
+        store.saveInstances(cached, serverId: entry.server.id)
+        entries = Self.entriesAfterLocalDelete(entries, deleting: entry)
     }
 
     /// Cold-start: aggregate each paired server's own cache (per-server
@@ -736,6 +1113,13 @@ struct InstanceListView: View {
                 }
             }
         }
+
+        let householdEntries = await HouseholdCreatedInstancesLoader(
+            recordStore: householdCreatedInstancesStore,
+            sessionStore: store,
+            apiClient: apiClient
+        ).load(for: servers)
+        aggregated.append(contentsOf: householdEntries)
 
         entries = aggregated
         isLoading = false
@@ -979,6 +1363,7 @@ private struct InstanceServerPlatformBadge: View {
 private struct InstanceCard: View {
     let instance: SoyehtInstance
     let serverName: String?
+    let terminalUnavailableReason: String?
 
     // Human-friendly label for the provisioning phase. Backend sends raw
     // identifiers ("queuing", "pulling", "starting") — we lowercase-display
@@ -1011,11 +1396,17 @@ private struct InstanceCard: View {
         if instance.isProvisioning {
             return instance.provisioningMessage ?? provisioningPhaseLabel
         }
+        if let terminalUnavailableReason {
+            return terminalUnavailableReason
+        }
         return serverName ?? instance.displayFqdn
     }
 
     private var secondaryColor: Color {
-        instance.isProvisioning ? SoyehtTheme.accentAmber : SoyehtTheme.textSecondary
+        if terminalUnavailableReason != nil, !instance.isProvisioning {
+            return SoyehtTheme.textWarning
+        }
+        return instance.isProvisioning ? SoyehtTheme.accentAmber : SoyehtTheme.textSecondary
     }
 
     private var statusDotColor: Color {
@@ -1055,7 +1446,7 @@ private struct InstanceCard: View {
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
-            if !instance.isProvisioning {
+            if !instance.isProvisioning, terminalUnavailableReason == nil {
                 Text(verbatim: ">>")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textComment)
@@ -1079,6 +1470,7 @@ private struct InstanceCard: View {
 private struct SessionListSheet: View {
     let entry: InstanceEntry
     let onAttach: (String, String, ServerContext) -> Void // (wsUrl, sessionName, context)
+    let onHouseholdAttach: (URLRequest, String, URL) -> Void
     var preselectedSession: String? = nil
 
     private var instance: SoyehtInstance { entry.instance }
@@ -1102,11 +1494,28 @@ private struct SessionListSheet: View {
     private let store = SessionStore.shared
     private let prefs = TerminalPreferences.shared
 
+    private enum AttachTarget {
+        case server(ServerContext)
+        case householdEndpoint(URL)
+    }
+
     /// Resolved `ServerContext` for every API call inside this sheet.
     /// Recomputed on each access so a just-refreshed token flows through
     /// (token rotation is handled by `SessionStore.saveTokenForServer`).
     private var context: ServerContext? {
         store.context(for: entry.server.id)
+    }
+
+    private var attachTarget: AttachTarget? {
+        if let context {
+            return .server(context)
+        }
+        if case .householdEndpoint(_, let endpoint) = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: entry.server.id)
+        ) {
+            return .householdEndpoint(endpoint)
+        }
+        return nil
     }
 
     var body: some View {
@@ -1297,7 +1706,7 @@ private struct SessionListSheet: View {
     private func loadWorkspaces() async {
         isLoadingWorkspaces = true
         errorMessage = nil
-        guard let context = context else {
+        guard let target = attachTarget else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
                 defaultValue: "Missing session for \(entry.server.displayName)",
@@ -1307,7 +1716,15 @@ private struct SessionListSheet: View {
             return
         }
         do {
-            workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
+            switch target {
+            case .server(let context):
+                workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
+            case .householdEndpoint(let endpoint):
+                workspaces = try await apiClient.listWorkspaces(
+                    container: instance.container,
+                    householdEndpoint: endpoint
+                )
+            }
             isLoadingWorkspaces = false
             let target = workspaces.first(where: { $0.sessionName == preselectedSession })
                 ?? workspaces.first
@@ -1325,7 +1742,7 @@ private struct SessionListSheet: View {
         errorMessage = nil
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = (trimmedName?.isEmpty ?? true) ? nil : trimmedName
-        guard let context = context else {
+        guard let target = attachTarget else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
                 defaultValue: "Missing session for \(entry.server.displayName)",
@@ -1335,7 +1752,21 @@ private struct SessionListSheet: View {
             return
         }
         do {
-            let newWs = try await apiClient.createNewWorkspace(container: instance.container, name: finalName, context: context)
+            let newWs: SoyehtWorkspace
+            switch target {
+            case .server(let context):
+                newWs = try await apiClient.createNewWorkspace(
+                    container: instance.container,
+                    name: finalName,
+                    context: context
+                )
+            case .householdEndpoint(let endpoint):
+                newWs = try await apiClient.createNewWorkspace(
+                    container: instance.container,
+                    name: finalName,
+                    householdEndpoint: endpoint
+                )
+            }
             workspaces.append(newWs)
             selectedWorkspace = newWs
             isCreating = false
@@ -1349,7 +1780,7 @@ private struct SessionListSheet: View {
 
     private func deleteWorkspace(_ ws: SoyehtWorkspace) async {
         errorMessage = nil
-        guard let context = context else {
+        guard let target = attachTarget else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
                 defaultValue: "Missing session for \(entry.server.displayName)",
@@ -1358,14 +1789,27 @@ private struct SessionListSheet: View {
             return
         }
         do {
-            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id, context: context)
+            switch target {
+            case .server(let context):
+                try await apiClient.deleteWorkspace(
+                    container: instance.container,
+                    workspaceId: ws.id,
+                    context: context
+                )
+            case .householdEndpoint(let endpoint):
+                try await apiClient.deleteWorkspace(
+                    container: instance.container,
+                    workspaceId: ws.id,
+                    householdEndpoint: endpoint
+                )
+            }
             workspaces.removeAll { $0.id == ws.id }
             if selectedWorkspace?.id == ws.id {
                 selectedWorkspace = workspaces.first
             }
         } catch {
             errorMessage = error.localizedDescription
-            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container, context: context) {
+            if let refreshed = try? await refreshedWorkspaces(for: target) {
                 workspaces = refreshed
                 if selectedWorkspace.map({ ws in !refreshed.contains { $0.id == ws.id } }) ?? false {
                     selectedWorkspace = workspaces.first
@@ -1378,7 +1822,7 @@ private struct SessionListSheet: View {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         errorMessage = nil
-        guard let context = context else {
+        guard let target = attachTarget else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
                 defaultValue: "Missing session for \(entry.server.displayName)",
@@ -1387,8 +1831,23 @@ private struct SessionListSheet: View {
             return
         }
         do {
-            try await apiClient.renameWorkspace(container: instance.container, workspaceId: workspace.id, newName: trimmed, context: context)
-            workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
+            switch target {
+            case .server(let context):
+                try await apiClient.renameWorkspace(
+                    container: instance.container,
+                    workspaceId: workspace.id,
+                    newName: trimmed,
+                    context: context
+                )
+            case .householdEndpoint(let endpoint):
+                try await apiClient.renameWorkspace(
+                    container: instance.container,
+                    workspaceId: workspace.id,
+                    newName: trimmed,
+                    householdEndpoint: endpoint
+                )
+            }
+            workspaces = try await refreshedWorkspaces(for: target)
             selectedWorkspace = workspaces.first { $0.id == workspace.id }
         } catch {
             errorMessage = error.localizedDescription
@@ -1401,7 +1860,7 @@ private struct SessionListSheet: View {
         withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
         errorMessage = nil
 
-        guard let context = context else {
+        guard let attachTarget = attachTarget else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
                 defaultValue: "Missing session for \(entry.server.displayName)",
@@ -1414,6 +1873,49 @@ private struct SessionListSheet: View {
         }
 
         if let sessionName = target?.sessionName {
+            switch attachTarget {
+            case .server(let context):
+                await attachContextWorkspace(sessionName: sessionName, context: context)
+            case .householdEndpoint(let endpoint):
+                await attachHouseholdWorkspace(sessionName: sessionName, endpoint: endpoint)
+            }
+        } else {
+            do {
+                switch attachTarget {
+                case .server(let context):
+                    let workspace = try await apiClient.createWorkspace(
+                        container: instance.container,
+                        context: context
+                    )
+                    await attachContextWorkspace(sessionName: workspace.workspace.sessionId, context: context)
+                case .householdEndpoint(let endpoint):
+                    let workspace = try await apiClient.createNewWorkspace(
+                        container: instance.container,
+                        householdEndpoint: endpoint
+                    )
+                    workspaces.append(workspace)
+                    selectedWorkspace = workspace
+                    await attachHouseholdWorkspace(sessionName: workspace.sessionName, endpoint: endpoint)
+                }
+            } catch {
+                resetAttachProgress(error: error.localizedDescription)
+            }
+        }
+    }
+
+    private func refreshedWorkspaces(for target: AttachTarget) async throws -> [SoyehtWorkspace] {
+        switch target {
+        case .server(let context):
+            return try await apiClient.listWorkspaces(container: instance.container, context: context)
+        case .householdEndpoint(let endpoint):
+            return try await apiClient.listWorkspaces(
+                container: instance.container,
+                householdEndpoint: endpoint
+            )
+        }
+    }
+
+    private func attachContextWorkspace(sessionName: String, context: ServerContext) async {
             let wsUrl = apiClient.buildWebSocketURL(
                 container: instance.container,
                 sessionId: sessionName,
@@ -1431,57 +1933,49 @@ private struct SessionListSheet: View {
             let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 10)
             switch result {
             case .success:
-                connectingWorkspaceId = nil
-                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                progressBarOffset = -200
+                resetAttachProgress()
                 onAttach(wsUrl, sessionName, context)
             case .failure(let error):
-                connectingWorkspaceId = nil
-                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                progressBarOffset = -200
-                errorMessage = error.localizedDescription
+                resetAttachProgress(error: error.localizedDescription)
             }
-        } else {
-            do {
-                let workspace = try await apiClient.createWorkspace(
-                    container: instance.container,
-                    context: context
-                )
-                let sessionName = workspace.workspace.sessionId
-                let wsUrl = apiClient.buildWebSocketURL(
-                    container: instance.container,
-                    sessionId: sessionName,
-                    context: context
-                )
+    }
 
-                guard let wsURL = URL(string: wsUrl) else {
-                    errorMessage = String(localized: "instancelist.error.invalidWebSocketURL")
-                    connectingWorkspaceId = nil
-                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                    progressBarOffset = -200
-                    return
-                }
-
-                let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 10)
-                switch result {
-                case .success:
-                    connectingWorkspaceId = nil
-                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                    progressBarOffset = -200
-                    onAttach(wsUrl, sessionName, context)
-                case .failure(let error):
-                    connectingWorkspaceId = nil
-                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                    progressBarOffset = -200
-                    errorMessage = error.localizedDescription
-                }
-            } catch {
-                connectingWorkspaceId = nil
-                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
-                progressBarOffset = -200
-                errorMessage = error.localizedDescription
-            }
+    private func attachHouseholdWorkspace(sessionName: String, endpoint: URL) async {
+        do {
+            let token = try await apiClient.mintHouseholdTerminalAttachToken(
+                container: instance.container,
+                workspaceId: sessionName,
+                householdEndpoint: endpoint
+            )
+            let request = try apiClient.makeHouseholdTerminalWebSocketRequest(
+                endpoint: endpoint,
+                container: instance.container,
+                workspaceId: sessionName,
+                attachToken: token.token
+            )
+            resetAttachProgress()
+            onHouseholdAttach(request, sessionName, endpoint)
+        } catch {
+            resetAttachProgress(error: householdTerminalErrorMessage(for: error))
         }
+    }
+
+    private func resetAttachProgress(error: String? = nil) {
+        connectingWorkspaceId = nil
+        withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+        progressBarOffset = -200
+        errorMessage = error
+    }
+
+    private func householdTerminalErrorMessage(for error: Error) -> String {
+        if case SoyehtAPIClient.APIError.httpError(404, _) = error {
+            return String(
+                localized: "instancelist.error.householdTerminalUnsupported",
+                defaultValue: "Terminal is not supported on this Mac yet.",
+                comment: "Shown when a Mac household engine does not expose terminal attach routes yet."
+            )
+        }
+        return error.localizedDescription
     }
 }
 

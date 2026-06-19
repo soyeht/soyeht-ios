@@ -7,17 +7,14 @@
 - iOS Claw Store flows speak `ClawInstallTarget` (= `Server.ID`). New
   iOS code must not introduce new uses of `ClawAPITarget.household`.
   The currently allowed sites are:
-    - `ClawStore/ClawInstallTargetResolver.swift` — the temporary
-      single-Mac household fallback resolver.
-    - `ClawStore/ClawStoreView.swift` and
-      `ClawStore/ClawDetailView.swift` — two legacy `?? .household`
-      ViewModel fallbacks created by PR-3 for the `.unavailable`
-      resolution path. Both are documented and locked in place by
-      `SoyehtTests/LegacyBoundaryUsageTests`
-      (`test_clawAPITargetHouseholdFallback_onlyInDocumentedSites` plus
-      a per-file exactly-1 count). They are follow-up for removal once
-      the ViewModels accept an optional target — see the TODO in
-      `docs/architecture.md`.
+    - `ClawStore/ClawInstallTargetResolver.swift` — the only iOS
+      production file that may translate a selected `Server.ID` into a
+      household wire target.
+  Hidden `?? .household` fallbacks in iOS UI are forbidden. The UI must
+  render an unavailable state before constructing Claw ViewModels, or
+  route through `ClawInstallTargetResolver` when a household endpoint is
+  available. `SoyehtTests/LegacyBoundaryUsageTests` enforces this with
+  `test_clawAPITargetHouseholdFallback_doesNotExistInIOSUI`.
   The `.householdStore` / `.householdDetail` route cases stay alive in
   `ClawRoute` for macOS but iOS must never construct them. See
   `docs/claw-install-target.md` and `docs/architecture.md`. Note: PR-3
@@ -89,6 +86,21 @@ Release checklist for agents:
 - `Soyeht Dev.app` is the disposable test target. Agents may quit, reinstall,
   delete, or relaunch the Dev app when validation requires it, as long as the
   original Soyeht app is left untouched.
+
+## Local Test Data Privacy
+
+- Never commit, paste, print, or include real user machine names, account names,
+  device names, SSH hostnames, LAN IPs, tailnet IPs, or other personal
+  infrastructure identifiers in code, tests, fixtures, documentation, PR bodies,
+  comments, screenshots, logs, or agent messages that may become public.
+- Public examples must use neutral aliases and documentation-safe addresses only,
+  such as `mac-alpha`, `linux-alpha`, `device-alpha`, `192.0.2.10`,
+  `198.51.100.10`, `203.0.113.10`, or `100.64.0.10`.
+- Real local values needed for E2E validation must live only in ignored local
+  files such as `.env`, `.env.local`, or `.env.*.local`, or in an OS/user secret
+  store. Scripts may read those values, but must log only neutral aliases.
+- Before committing or opening a PR, scan the diff for accidental personal
+  identifiers and replace them with neutral aliases or reserved example values.
 
 ## iOS / Mac Onboarding Rules
 

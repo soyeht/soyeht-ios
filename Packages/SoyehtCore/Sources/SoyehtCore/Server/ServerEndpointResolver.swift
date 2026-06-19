@@ -102,6 +102,59 @@ public enum ServerEndpointResolver {
         return false
     }
 
+    /// Normalizes caller-supplied network labels while preserving caller-defined
+    /// source priority. User-facing aliases should stay out of this list unless
+    /// the caller knows they also represent resolvable DNS labels.
+    public static func hostLabelCandidates(from rawCandidates: [String]) -> [String] {
+        var seen = Set<String>()
+        var labels: [String] = []
+        for raw in rawCandidates {
+            guard let label = normalizedHostLabel(from: raw),
+                  seen.insert(label).inserted else { continue }
+            labels.append(label)
+        }
+        return labels
+    }
+
+    public static func normalizedHostLabel(from raw: String) -> String? {
+        let host = bareHost(from: raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !host.isEmpty, !isIPAddressLiteral(host) else { return nil }
+
+        let firstLabel = host.split(separator: ".").first.map(String.init) ?? host
+        let normalized = firstLabel.lowercased().filter { character in
+            character.isASCII
+                && (character.isLetter || character.isNumber || character == "-")
+        }
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    public static func isIPAddressLiteral(_ host: String) -> Bool {
+        let bareHost = bareHost(from: host)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if bareHost.contains(":") {
+            return true
+        }
+        return ipv4Octets(from: bareHost) != nil
+    }
+
+    private static func bareHost(from host: String) -> String {
+        let trimmed = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed),
+           let scheme = url.scheme,
+           !scheme.isEmpty,
+           let urlHost = url.host {
+            return urlHost
+        }
+        let unbracketed = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if let colon = unbracketed.lastIndex(of: ":"), !unbracketed.contains("::") {
+            return String(unbracketed[..<colon])
+        }
+        return unbracketed
+    }
+
     private static func uniqueHosts(_ hosts: [String]) -> [String] {
         var seen = Set<String>()
         var ordered: [String] = []
@@ -113,13 +166,6 @@ public enum ServerEndpointResolver {
             ordered.append(host)
         }
         return ordered
-    }
-
-    private static func bareHost(from host: String) -> String {
-        if let colon = host.lastIndex(of: ":"), !host.contains("::") {
-            return String(host[..<colon])
-        }
-        return host
     }
 
     private static func ipv4Octets(from host: String) -> [UInt8]? {

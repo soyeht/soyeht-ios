@@ -41,10 +41,10 @@ The resolver inspects `ServerRegistry.shared` and
 2. **No context AND the server is a Mac with a reachable household
    endpoint** → `.householdEndpoint(serverID, endpoint)`. Catalog
    browse and install/uninstall route to that Mac's own
-   `/api/v1/household/claws*` routes using owner PoP auth. The endpoint,
-   not an implicit aggregate, identifies the selected Mac. **Deploy is
-   never offered** in this resolution because `createInstance` requires
-   a `ServerContext`.
+   `/api/v1/household/claws*` routes using owner PoP auth. Instance
+   create/list/status/actions/workspaces/terminal use the same selected
+   Mac household endpoint. The endpoint, not an implicit aggregate,
+   identifies the selected Mac.
 
 3. **Anything else** → `.unavailable(...)`. The Claw Store renders
    `MacClawUnavailableView` with copy that tells the user Soyeht cannot

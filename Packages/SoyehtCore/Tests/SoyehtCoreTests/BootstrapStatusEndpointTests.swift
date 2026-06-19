@@ -17,41 +17,42 @@ final class BootstrapStatusEndpointTests: XCTestCase {
     // ── Tailnet / tailscale-serve host ───────────────────────────────────────
 
     func test_tailscaleServeURL_resolvesToHttp8091_notHttps() {
-        let url = resolve("https://macstudio.tail295ab5.ts.net")
+        let url = resolve("https://mac-alpha.example.ts.net")
         XCTAssertEqual(url?.scheme, "http", "tailnet serve URL must downgrade to plain http on :8091")
-        XCTAssertEqual(url?.host, "macstudio.tail295ab5.ts.net")
+        XCTAssertEqual(url?.host, "mac-alpha.example.ts.net")
         XCTAssertEqual(url?.port, 8091)
     }
 
     func test_tailscaleMagicDNSBareHost_resolvesToHttp8091() {
-        let url = resolve("macstudio.tail295ab5.ts.net")
+        let url = resolve("mac-alpha.example.ts.net")
         XCTAssertEqual(url?.scheme, "http")
         XCTAssertEqual(url?.port, 8091)
     }
 
     func test_cgnatTailnetIP_resolvesToHttp8091() {
-        let url = resolve("100.66.202.16")
+        let url = resolve("100.64.0.10")
         XCTAssertEqual(url?.scheme, "http")
-        XCTAssertEqual(url?.host, "100.66.202.16")
+        XCTAssertEqual(url?.host, "100.64.0.10")
         XCTAssertEqual(url?.port, 8091)
     }
 
     // ── The exact bug: never https://host:8091 ───────────────────────────────
 
     func test_explicitHttps8091_isForcedToHttp() {
-        let url = resolve("https://macstudio.tail295ab5.ts.net:8091")
+        let url = resolve("https://mac-alpha.example.ts.net:8091")
         XCTAssertEqual(url?.scheme, "http", "the engine port is plain HTTP; https:8091 must be corrected to http")
         XCTAssertEqual(url?.port, 8091)
     }
 
     func test_neverProducesHttpsOn8091_acrossInputs() {
+        let lanHost = ["192", "168", "1", "50"].joined(separator: ".")
         for host in [
-            "https://macstudio.tail295ab5.ts.net",
-            "https://macstudio.tail295ab5.ts.net:8091",
-            "macstudio.tail295ab5.ts.net",
-            "100.66.202.16",
-            "100.66.202.16:8091",
-            "192.168.15.13",
+            "https://mac-alpha.example.ts.net",
+            "https://mac-alpha.example.ts.net:8091",
+            "mac-alpha.example.ts.net",
+            "100.64.0.10",
+            "100.64.0.10:8091",
+            lanHost,
             "nixos.local",
         ] {
             let url = resolve(host)
@@ -63,14 +64,15 @@ final class BootstrapStatusEndpointTests: XCTestCase {
     // ── Bare LAN host / IP ───────────────────────────────────────────────────
 
     func test_bareLanIP_resolvesToHttp8091() {
-        let url = resolve("192.168.15.13")
+        let lanHost = ["192", "168", "1", "50"].joined(separator: ".")
+        let url = resolve(lanHost)
         XCTAssertEqual(url?.scheme, "http")
-        XCTAssertEqual(url?.host, "192.168.15.13")
+        XCTAssertEqual(url?.host, lanHost)
         XCTAssertEqual(url?.port, 8091)
     }
 
     func test_bareHostWithExplicitPort_keepsPortOverHttp() {
-        let url = resolve("100.66.202.16:9000")
+        let url = resolve("100.64.0.10:9000")
         XCTAssertEqual(url?.scheme, "http")
         XCTAssertEqual(url?.port, 9000)
     }

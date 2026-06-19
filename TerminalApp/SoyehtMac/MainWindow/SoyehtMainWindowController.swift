@@ -3275,6 +3275,44 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         chromeVC.presentAsSheet(sheet)
     }
 
+    /// Claw Store detail action: open a terminal pane for the selected
+    /// installed claw without forcing the user through Shell > New Conversation.
+    /// This remains the existing context-backed Bearer path; the selected claw
+    /// name only drives container resolution before `wireTerminal`.
+    @MainActor
+    func openClawTerminal(clawName: String) {
+        let agent = AgentType.claw(clawName)
+        let workspaceID = activeWorkspaceID
+        window?.makeKeyAndOrderFront(nil)
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard self.store.workspace(workspaceID, isInWindow: self.windowID) else { return }
+
+            let container: String
+            do {
+                container = try await AppEnvironment.resolveContainer(forClaw: clawName)
+            } catch {
+                self.surfaceNoInstancesAlert(error)
+                return
+            }
+
+            guard let convStore = AppEnvironment.conversationStore else { return }
+            let handle = convStore.nextAvailableHandle(for: agent, in: workspaceID)
+            let req = NewConversationRequest(
+                handle: handle,
+                agent: agent,
+                workspaceID: workspaceID,
+                workspaceName: "",
+                projectPath: nil,
+                useWorktree: false,
+                instanceContainer: container,
+                attachSessionId: nil
+            )
+            self.applyNewConversation(req)
+        }
+    }
+
     /// Public entry point invoked by the in-pane empty-state picker (driQx)
     /// and its RgdJh session dialog. Hydrates the placeholder conversation at
     /// `paneID` in place (C1: the leaf UUID never changes), resolves the

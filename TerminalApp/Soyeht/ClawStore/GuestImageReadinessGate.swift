@@ -173,7 +173,7 @@ final class GuestImageReadinessClient {
             case .server(let context):
                 rawHost = server?.lastHost ?? context.host
             case .householdEndpoint(_, let endpoint):
-                rawHost = server?.lastHost ?? endpoint.absoluteString
+                rawHost = endpoint.absoluteString
             case .unavailable:
                 rawHost = server?.lastHost ?? server?.hostname
             }

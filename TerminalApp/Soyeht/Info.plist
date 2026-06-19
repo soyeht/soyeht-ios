@@ -13,7 +13,7 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Soyeht</string>
+	<string>$(SOYEHT_DISPLAY_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -102,28 +102,16 @@
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!--
-			The app needs cleartext loads to arbitrary Tailnet CGNAT IPs
-			(the theyOS engine's `mac_engine_url`, in 100.64.0.0/10) and
-			to Bonjour `.local.` hosts — neither is a registered domain
-			we can enumerate up-front, so a single `NSAllowsArbitraryLoads`
-			covers both.
+			The app needs cleartext loads for private household bootstrap
+			endpoints and Bonjour `.local.` hosts. These are not registered
+			domains we can enumerate up front, so a single
+			`NSAllowsArbitraryLoads` covers both.
 
-			A previous revision of this file paired
-			`NSAllowsArbitraryLoads=true` with `NSAllowsLocalNetworking=true`
-			as "belt-and-suspenders". Apple's documentation for
-			`NSAllowsArbitraryLoads` says the opposite: when ANY of
-			`NSAllowsArbitraryLoadsForMedia`, `NSAllowsArbitraryLoadsInWebContent`,
-			or `NSAllowsLocalNetworking` is also set, `NSAllowsArbitraryLoads`
-			is treated as `false`. See:
+			Apple documents that `NSAllowsArbitraryLoads` is treated as
+			`false` when any of `NSAllowsArbitraryLoadsForMedia`,
+			`NSAllowsArbitraryLoadsInWebContent`, or
+			`NSAllowsLocalNetworking` is also set. See:
 			https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSAppTransportSecurity/NSAllowsArbitraryLoads
-
-			Live-repro 2026-05-21 (iPhone Devs, iOS 26.4.1, post-PR-#109
-			build with the combo above): `URLError.-1022` fired on every
-			retry against `http://100.103.149.48:8091/bootstrap/status`
-			during iPhone→Mac Caso B, even with the bundled Info.plist
-			showing both keys true. Dropping `NSAllowsLocalNetworking`
-			leaves only `NSAllowsArbitraryLoads=true`, which the OS
-			actually honors for CGNAT IPv4 literals.
 
 			Future improvement: validate URL targets per request and
 			reject anything outside Tailnet / loopback / .local before

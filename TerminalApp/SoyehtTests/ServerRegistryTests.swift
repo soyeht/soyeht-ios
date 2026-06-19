@@ -36,17 +36,17 @@ final class ServerRegistryTests: XCTestCase {
     private let sessionStore = SessionStore.shared
 
     private var createdMacIDs: [UUID] = []
-    private var createdLinuxIDs: [String] = []
+    private var createdSessionServerIDs: [String] = []
 
     override func tearDown() async throws {
         for id in createdMacIDs {
             pairedMacs.remove(macID: id)
         }
-        for id in createdLinuxIDs {
+        for id in createdSessionServerIDs {
             sessionStore.removeServer(id: id)
         }
         createdMacIDs.removeAll()
-        createdLinuxIDs.removeAll()
+        createdSessionServerIDs.removeAll()
         // Drain the mirror so the next test starts from a registry
         // that already reflects the cleanup.
         registry.refreshFromLegacyStores()
@@ -195,7 +195,7 @@ final class ServerRegistryTests: XCTestCase {
 
         registry.remove(serverID: linuxID)
         registry.refreshFromLegacyStores()
-        createdLinuxIDs.removeAll { $0 == linuxID }
+        createdSessionServerIDs.removeAll { $0 == linuxID }
 
         XCTAssertFalse(sessionStore.pairedServers.contains(where: { $0.id == linuxID }),
             "Linux removal must propagate to `SessionStore.removeServer(id:)`."
@@ -211,6 +211,77 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    // MARK: - secret-aware mirror
+
+    func testRefreshFromLegacyStoresKeepsSecretOwningMacIDCanonical() throws {
+        let macID = UUID()
+        let host = "srt-secret-owner-\(macID.uuidString.lowercased()).test"
+        let shadowID = UUID().uuidString
+
+        pairedMacs.upsertMac(macID: macID, name: "machine-alpha", host: host)
+        pairedMacs.storeSecret(Data([0x01, 0x02, 0x03, 0x04]), for: macID)
+        createdMacIDs.append(macID)
+
+        let shadow = PairedServer(
+            id: shadowID,
+            host: host,
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
+        sessionStore.addServer(shadow, token: "srt-token-\(shadowID)")
+        createdSessionServerIDs.append(shadowID)
+
+        registry.refreshFromLegacyStores()
+
+        let matches = registry.servers.filter { $0.kind == .mac && $0.lastHost == host }
+        XCTAssertEqual(matches.count, 1)
+        let canonical = try XCTUnwrap(matches.first)
+        XCTAssertEqual(canonical.id, macID.uuidString)
+        XCTAssertNotNil(UUID(uuidString: canonical.id).flatMap { pairedMacs.secret(for: $0) })
+    }
+
+    func testRefreshFromLegacyStoresCollapsesNewMacRecordsWithSameEngineMachineId() throws {
+        let unique = UUID().uuidString.lowercased()
+        let machineID = "machine-alpha-\(unique)"
+        let macID = UUID()
+        let shadowID = "srt-shadow-\(unique)"
+
+        pairedMacs.upsertMac(
+            macID: macID,
+            name: "machine-alpha",
+            host: "mac-alpha-\(unique).test",
+            engineMachineId: machineID
+        )
+        pairedMacs.storeSecret(Data([0x11, 0x22, 0x33, 0x44]), for: macID)
+        createdMacIDs.append(macID)
+
+        let shadow = PairedServer(
+            id: shadowID,
+            host: "mac-alpha-alt-\(unique).test",
+            name: "machine-alpha",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine,
+            engineMachineId: machineID
+        )
+        sessionStore.addServer(shadow, token: "srt-token-\(shadowID)")
+        createdSessionServerIDs.append(shadowID)
+
+        registry.refreshFromLegacyStores()
+
+        let matches = registry.servers.filter { $0.kind == .mac && $0.engineMachineId == machineID }
+        XCTAssertEqual(matches.count, 1)
+        let canonical = try XCTUnwrap(matches.first)
+        XCTAssertEqual(canonical.id, macID.uuidString)
+        XCTAssertNotNil(UUID(uuidString: canonical.id).flatMap { pairedMacs.secret(for: $0) })
+    }
+
     // MARK: - Helpers
 
     @discardableResult
@@ -218,7 +289,7 @@ final class ServerRegistryTests: XCTestCase {
         let macID = UUID()
         // Append the macID to the host so each test's Mac has a
         // unique `lastHost`. Without this, `ServerStore.reconcile`'s
-        // host-collapse pass can merge our Mac with a Mac left in
+        // Mac-collapse pass can merge our Mac with a Mac left in
         // UserDefaults by a prior test run (simulator UserDefaults
         // persists across xcodebuild invocations), dropping our
         // entry from the unified registry and causing `remove`
@@ -248,7 +319,7 @@ final class ServerRegistryTests: XCTestCase {
             kind: .adminHost
         )
         sessionStore.addServer(server, token: "srt-token-\(id)")
-        createdLinuxIDs.append(id)
+        createdSessionServerIDs.append(id)
         registry.refreshFromLegacyStores()
         return id
     }

@@ -45,7 +45,7 @@ public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
     /// fallback. UI MUST read `displayName`, not `alias`.
     public var alias: String?
 
-    /// Engine-supplied hostname (e.g. `"macStudio"` from the Mac engine
+    /// Engine-supplied hostname (e.g. `"machine-alpha"` from the Mac engine
     /// at pair time, `host` field from `PairedServer` for Linux). Stable
     /// fallback when the user has not chosen an alias yet.
     public var hostname: String
@@ -54,6 +54,10 @@ public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
     /// for Macs, `PairedServer.host` for Linux). May change between
     /// sessions when DHCP or Tailscale magic-DNS shifts.
     public var lastHost: String?
+
+    /// Engine-issued stable machine identifier. `nil` for legacy data and
+    /// until the engine starts populating it.
+    public var engineMachineId: String?
 
     /// Latest known status of the theyOS engine running on this server.
     /// Updated by `TheyOSStatusPoller` (Phase 5).
@@ -117,6 +121,7 @@ public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
         alias: String? = nil,
         hostname: String,
         lastHost: String? = nil,
+        engineMachineId: String? = nil,
         theyOS: TheyOSSnapshot = TheyOSSnapshot(),
         apiEndpoint: URL? = nil,
         bootstrapEndpoint: URL? = nil,
@@ -132,6 +137,7 @@ public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
         self.alias = alias
         self.hostname = hostname
         self.lastHost = lastHost
+        self.engineMachineId = engineMachineId
         self.theyOS = theyOS
         self.apiEndpoint = apiEndpoint
         self.bootstrapEndpoint = bootstrapEndpoint

@@ -9,6 +9,8 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var configuredURL: String?
+    private var configuredRequest: URLRequest?
+    private var configuredRequestSignature: String?
     private var pairingCoordinator: PairingCoordinator?
     private var pingTask: Task<Void, Never>?
 
@@ -69,6 +71,12 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     /// Set this on attach-type URLs to fetch a fresh nonce before each
     /// reconnect. Invoked from `MainActor`; returns the new ws URL.
     var attachURLRefresher: (@MainActor () async throws -> String)?
+    var attachRequestRefresher: (@MainActor () async throws -> URLRequest)?
+
+    private enum ReconnectEndpoint {
+        case url(String)
+        case request(URLRequest)
+    }
 
     // MARK: - Connection State Machine
 
@@ -132,6 +140,8 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     func configure(wsUrl: String) {
         guard configuredURL != wsUrl else { return }
         configuredURL = wsUrl
+        configuredRequest = nil
+        configuredRequestSignature = nil
         pairingCoordinator = nil
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
@@ -140,6 +150,22 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
         disconnect()
         connect(wsUrl: wsUrl)
+    }
+
+    func configure(request: URLRequest) {
+        let signature = Self.requestSignature(request)
+        guard configuredRequestSignature != signature else { return }
+        configuredURL = nil
+        configuredRequest = request
+        configuredRequestSignature = signature
+        pairingCoordinator = nil
+        reconnectAttempt = 0
+        didNotifyConnectionFailure = false
+        isPairingTerminal = false
+        Self.logger.info("[WS] Configure new request")
+
+        disconnect()
+        connect(request: request)
     }
 
     private func connect(wsUrl: String) {
@@ -163,6 +189,30 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         schedulePingsIfNeeded()
 
         // Start receive loop immediately — it buffers until handshake completes
+        receiveLoop()
+
+        DispatchQueue.main.async { [weak self] in
+            _ = self?.becomeFirstResponder()
+        }
+    }
+
+    private func connect(request: URLRequest) {
+        guard let url = request.url else {
+            feed(text: "[ERROR] Invalid WebSocket URL\r\n")
+            state = .closed
+            return
+        }
+
+        state = .connecting
+        Self.logger.info("[WS] Connecting to \(url.host ?? "unknown", privacy: .public)...\(url.path, privacy: .public)")
+
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 360
+        urlSession = URLSession(configuration: config, delegate: self, delegateQueue: .main)
+        webSocketTask = urlSession?.webSocketTask(with: request)
+        webSocketTask?.resume()
+        schedulePingsIfNeeded()
+
         receiveLoop()
 
         DispatchQueue.main.async { [weak self] in
@@ -248,23 +298,38 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     /// refresher is wired, we fetch a fresh grant before each reconnect and
     /// update `configuredURL` so subsequent attempts also use the new nonce.
     @MainActor
-    private func resolveReconnectURL() async -> String? {
-        guard let current = configuredURL else { return nil }
-        if attachParams != nil, let refresher = attachURLRefresher {
+    private func resolveReconnectEndpoint() async -> ReconnectEndpoint? {
+        if let current = configuredURL {
+            if attachParams != nil, let refresher = attachURLRefresher {
+                do {
+                    let fresh = try await refresher()
+                    configuredURL = fresh
+                    return .url(fresh)
+                } catch {
+                    Self.logger.error("[WS] Attach URL refresh failed: \(error.localizedDescription, privacy: .public)")
+                    return nil
+                }
+            }
+            return .url(current)
+        }
+        guard let current = configuredRequest else { return nil }
+        if let refresher = attachRequestRefresher {
             do {
                 let fresh = try await refresher()
-                configuredURL = fresh
-                return fresh
+                configuredRequest = fresh
+                configuredRequestSignature = Self.requestSignature(fresh)
+                return .request(fresh)
             } catch {
-                Self.logger.error("[WS] Attach URL refresh failed: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error("[WS] Attach request refresh failed: \(error.localizedDescription, privacy: .public)")
                 return nil
             }
         }
-        return current
+        return .request(current)
     }
 
     private func attemptReconnect() {
-        guard configuredURL != nil, case .reconnecting(let attempt) = state else { return }
+        guard (configuredURL != nil || configuredRequest != nil),
+              case .reconnecting(let attempt) = state else { return }
         guard !isPairingTerminal else {
             Self.logger.info("[WS] Reconnect suppressed — pairing denied")
             state = .closed
@@ -281,8 +346,8 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
-            let url = await self.resolveReconnectURL()
-            guard let url else {
+            let endpoint = await self.resolveReconnectEndpoint()
+            guard let endpoint else {
                 await MainActor.run {
                     self.state = .closed
                     self.feed(text: "\r\n[WS] Reconnect failed: could not refresh attach credentials.\r\n")
@@ -299,7 +364,12 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
                 self.urlSession = nil
-                self.connect(wsUrl: url)
+                switch endpoint {
+                case .url(let url):
+                    self.connect(wsUrl: url)
+                case .request(let request):
+                    self.connect(request: request)
+                }
             }
         }
     }
@@ -308,13 +378,13 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     @objc private func appWillEnterForeground() {
         guard case .closed = state,
-              configuredURL != nil,
+              (configuredURL != nil || configuredRequest != nil),
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App foregrounded — reconnecting...")
         reconnectAttempt = 0
         feed(text: "\r\n[WS] Reconnecting...\r\n")
         Task { @MainActor [weak self] in
-            guard let self, let url = await self.resolveReconnectURL() else {
+            guard let self, let endpoint = await self.resolveReconnectEndpoint() else {
                 await MainActor.run {
                     guard let self else { return }
                     self.feed(text: "\r\n[WS] Reconnect failed: could not refresh attach credentials.\r\n")
@@ -325,7 +395,12 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 }
                 return
             }
-            self.connect(wsUrl: url)
+            switch endpoint {
+            case .url(let url):
+                self.connect(wsUrl: url)
+            case .request(let request):
+                self.connect(request: request)
+            }
         }
     }
 
@@ -455,6 +530,18 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 comment: "Generic pairing rejection fallback. %@ = raw server reason code."
             )
         }
+    }
+
+    private static func requestSignature(_ request: URLRequest) -> String {
+        let headers = request.allHTTPHeaderFields?
+            .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+            .map { "\($0.key):\($0.value)" }
+            .joined(separator: "\n") ?? ""
+        return [
+            request.httpMethod ?? "GET",
+            request.url?.absoluteString ?? "",
+            headers,
+        ].joined(separator: "\n")
     }
 
     private func handleReceiveResult(_ result: Result<URLSessionWebSocketTask.Message, any Error>) {

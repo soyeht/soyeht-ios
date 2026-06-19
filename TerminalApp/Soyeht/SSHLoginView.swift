@@ -100,6 +100,13 @@ struct SoyehtAppView: View {
         case recoveryMessage(SoyehtIdentitySnapshot)
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
+        case householdTerminal(
+            request: URLRequest,
+            SoyehtInstance,
+            sessionName: String,
+            serverId: String,
+            endpoint: URL
+        )
         /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
         /// can refresh the single-use attach nonce via `PairedMacRegistry`
         /// on reconnect. Fase 1 local-handoff QR leaves both nil.
@@ -318,6 +325,23 @@ struct SoyehtAppView: View {
                                 appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
                             }
                         },
+                        onHouseholdConnect: { request, instance, sessionName, serverId, endpoint in
+                            store.saveNavigationState(NavigationState(
+                                serverId: serverId,
+                                instanceId: instance.id,
+                                sessionName: sessionName,
+                                savedAt: Date()
+                            ))
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                appState = .householdTerminal(
+                                    request: request,
+                                    instance,
+                                    sessionName: sessionName,
+                                    serverId: serverId,
+                                    endpoint: endpoint
+                                )
+                            }
+                        },
                         onAddInstance: {
                             showAddDeviceSheet = true
                         },
@@ -373,6 +397,37 @@ struct SoyehtAppView: View {
                             appState = .instanceList
                         }
                     }
+                )
+                .transition(.opacity)
+
+            case .householdTerminal(let request, let instance, let sessionName, let serverId, let endpoint):
+                HouseholdTerminalContainerView(
+                    request: request,
+                    instance: instance,
+                    sessionName: sessionName,
+                    onDisconnect: {
+                        autoSelectInstance = instance
+                        autoSelectServerId = serverId
+                        autoSelectSessionName = sessionName
+                        store.clearNavigationState()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .instanceList
+                        }
+                    },
+                    onConnectionLost: {
+                        autoSelectInstance = instance
+                        autoSelectServerId = serverId
+                        autoSelectSessionName = sessionName
+                        store.clearNavigationState()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .instanceList
+                        }
+                    },
+                    attachRequestRefresher: Self.makeHouseholdAttachRequestRefresher(
+                        endpoint: endpoint,
+                        container: instance.container,
+                        workspaceId: sessionName
+                    )
                 )
                 .transition(.opacity)
 
@@ -1142,6 +1197,27 @@ struct SoyehtAppView: View {
         }
     }
 
+    @MainActor
+    static func makeHouseholdAttachRequestRefresher(
+        endpoint: URL,
+        container: String,
+        workspaceId: String
+    ) -> (@MainActor () async throws -> URLRequest) {
+        return { @MainActor in
+            let token = try await SoyehtAPIClient.shared.mintHouseholdTerminalAttachToken(
+                container: container,
+                workspaceId: workspaceId,
+                householdEndpoint: endpoint
+            )
+            return try SoyehtAPIClient.shared.makeHouseholdTerminalWebSocketRequest(
+                endpoint: endpoint,
+                container: container,
+                workspaceId: workspaceId,
+                attachToken: token.token
+            )
+        }
+    }
+
     private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {
         if let target = localHandoffTarget(from: sourceURL),
            let local = await resolveLocalHandoff(target: target) {
@@ -1578,10 +1654,59 @@ private struct LocalTerminalContainerView: View {
     }
 }
 
+private struct HouseholdTerminalContainerView: View {
+    let request: URLRequest
+    let instance: SoyehtInstance
+    let sessionName: String
+    let onDisconnect: () -> Void
+    let onConnectionLost: () -> Void
+    var attachRequestRefresher: (@MainActor () async throws -> URLRequest)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button(action: onDisconnect) {
+                    Image(systemName: "chevron.left")
+                        .font(Typography.sansNav)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(instance.name)
+                        .font(Typography.monoBodyLargeMedium)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Text(sessionName)
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            WebSocketTerminalRepresentable(
+                request: request,
+                attachRequestRefresher: attachRequestRefresher
+            )
+        }
+        .background(SoyehtTheme.bgPrimary)
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
+            onConnectionLost()
+        }
+    }
+}
+
 // MARK: - WebSocket Terminal Representable
 
 private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
-    let wsUrl: String
+    enum Connection {
+        case url(String)
+        case request(URLRequest)
+    }
+
+    let connection: Connection
     var container: String = ""
     var sessionName: String = ""
     var serverContext: ServerContext? = nil
@@ -1590,25 +1715,62 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     /// to obtain a fresh single-use nonce — otherwise retries loop against
     /// `policyViolation`. Optional; leave nil for non-attach flows.
     var attachURLRefresher: (@MainActor () async throws -> String)? = nil
+    var attachRequestRefresher: (@MainActor () async throws -> URLRequest)? = nil
+
+    init(
+        wsUrl: String,
+        container: String = "",
+        sessionName: String = "",
+        serverContext: ServerContext? = nil,
+        onFileBrowserRequested: (() -> Void)? = nil,
+        attachURLRefresher: (@MainActor () async throws -> String)? = nil
+    ) {
+        self.connection = .url(wsUrl)
+        self.container = container
+        self.sessionName = sessionName
+        self.serverContext = serverContext
+        self.onFileBrowserRequested = onFileBrowserRequested
+        self.attachURLRefresher = attachURLRefresher
+    }
+
+    init(
+        request: URLRequest,
+        attachRequestRefresher: (@MainActor () async throws -> URLRequest)? = nil
+    ) {
+        self.connection = .request(request)
+        self.attachRequestRefresher = attachRequestRefresher
+    }
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
         controller.onFileBrowserRequested = onFileBrowserRequested
         controller.attachURLRefresher = attachURLRefresher
+        controller.attachRequestRefresher = attachRequestRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             controller.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
         }
-        controller.updateWebSocket(wsUrl)
+        switch connection {
+        case .url(let wsUrl):
+            controller.updateWebSocket(wsUrl)
+        case .request(let request):
+            controller.updateWebSocketRequest(request)
+        }
         return controller
     }
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onFileBrowserRequested = onFileBrowserRequested
         uiViewController.attachURLRefresher = attachURLRefresher
+        uiViewController.attachRequestRefresher = attachRequestRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             uiViewController.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
         }
-        uiViewController.updateWebSocket(wsUrl)
+        switch connection {
+        case .url(let wsUrl):
+            uiViewController.updateWebSocket(wsUrl)
+        case .request(let request):
+            uiViewController.updateWebSocketRequest(request)
+        }
     }
 }
 

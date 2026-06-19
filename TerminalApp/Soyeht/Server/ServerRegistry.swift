@@ -223,7 +223,10 @@ final class ServerRegistry: ObservableObject {
     /// ServerRegistry.shared.migrateLegacy(seed: seed)
     /// ```
     func migrateLegacy(seed: [Server]) {
-        store.migrateLegacyIfNeeded(seed: seed)
+        store.migrateLegacyIfNeeded(
+            seed: seed,
+            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
+        )
         servers = store.load()
         serverRegistryLogger.info(
             "ServerRegistry post-migration count: \(self.servers.count, privacy: .public)"
@@ -245,14 +248,17 @@ final class ServerRegistry: ObservableObject {
     ///     `PairedMacsStore`; that store's `onChange` callback fires
     ///     this method via `PairedMacsStoreObservable`.
     ///
-    /// The host-collapse rules are the same as the initial migration
-    /// path — see `ServerStore.reconcile(with:)`. Mac UUID ids are
-    /// preserved on collision so Keychain pairing secrets and presence
-    /// clients keep resolving.
+    /// The Mac-collapse rules are the same as the initial migration
+    /// path — see `ServerStore.reconcile(with:)`. IDs with pairing
+    /// secrets are preserved on collision so Keychain pairing secrets
+    /// and presence clients keep resolving.
     func refreshFromLegacyStores() {
         let macSeed = PairedMacsStore.shared.macs.map { $0.toServer() }
         let serverSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
-        let reconciled = store.reconcile(with: macSeed + serverSeed)
+        let reconciled = store.reconcile(
+            with: macSeed + serverSeed,
+            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
+        )
         if reconciled != servers {
             servers = reconciled
             serverRegistryLogger.info(
