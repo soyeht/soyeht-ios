@@ -108,8 +108,39 @@ struct AwaitingNewMacView: View {
                 .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
                 .multilineTextAlignment(.center)
+
+                if viewModel.existingHouseNoticeVisible {
+                    existingHouseNotice
+                }
             }
         }
+    }
+
+    private var existingHouseNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(BrandColors.accentAmber)
+                .accessibilityHidden(true)
+
+            Text(LocalizedStringResource(
+                "awaitingNewMac.looking.existingHouseNotice",
+                defaultValue: "Found a Mac that already has a home. To add that Mac here, reset its Soyeht home first. Otherwise, open Soyeht on the Mac you want to add.",
+                comment: "Guidance shown when Add Mac sees only already-configured Macs for a short period."
+            ))
+            .font(OnboardingFonts.footnote)
+            .foregroundColor(BrandColors.textMuted)
+            .multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(BrandColors.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(BrandColors.accentAmber.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.top, 8)
     }
 
     private var orchestratingContent: some View {
@@ -232,6 +263,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .looking
+    @Published private(set) var existingHouseNoticeVisible = false
 
     private let invitation: SetupInvitationPayload
     private let identity: SoyehtIdentitySnapshot
@@ -239,7 +271,11 @@ final class AwaitingNewMacViewModel: ObservableObject {
     private let publisher: SetupInvitationPublisher
     private var onCompleted: (() -> Void)?
     private var orchestrationTask: Task<Void, Never>?
+    private var existingHouseNoticeTask: Task<Void, Never>?
+    private var sawExistingHouseClaim = false
     private var alreadyOrchestrating = false
+
+    private static let existingHouseNoticeDelay: Duration = .seconds(4)
 
     init(invitation: SetupInvitationPayload, identity: SoyehtIdentitySnapshot) {
         self.invitation = invitation
@@ -275,8 +311,10 @@ final class AwaitingNewMacViewModel: ObservableObject {
                     awaitingNewMacLogger.info(
                         "setup_claim_ignored_existing_house profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                     )
+                    self.noteExistingHouseClaim()
                     return
                 }
+                self.clearExistingHouseNotice()
                 awaitingNewMacLogger.info(
                     "setup_claim_fresh_run_dance profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                 )
@@ -300,13 +338,46 @@ final class AwaitingNewMacViewModel: ObservableObject {
         publisher.onMacClaimed = nil
         orchestrationTask?.cancel()
         orchestrationTask = nil
+        clearExistingHouseNotice()
     }
 
     func retry() {
         alreadyOrchestrating = false
         orchestrationTask?.cancel()
         orchestrationTask = nil
+        clearExistingHouseNotice()
         phase = .looking
+    }
+
+    private func noteExistingHouseClaim() {
+        sawExistingHouseClaim = true
+        guard existingHouseNoticeTask == nil,
+              !existingHouseNoticeVisible
+        else { return }
+        existingHouseNoticeTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.existingHouseNoticeDelay)
+            } catch {
+                return
+            }
+            guard let self else { return }
+            self.existingHouseNoticeTask = nil
+            guard self.phase == .looking,
+                  !self.alreadyOrchestrating,
+                  self.sawExistingHouseClaim
+            else { return }
+            self.existingHouseNoticeVisible = true
+            awaitingNewMacLogger.info(
+                "setup_claim_existing_house_notice_shown profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public)"
+            )
+        }
+    }
+
+    private func clearExistingHouseNotice() {
+        sawExistingHouseClaim = false
+        existingHouseNoticeVisible = false
+        existingHouseNoticeTask?.cancel()
+        existingHouseNoticeTask = nil
     }
 
     private func runDance(claim: SetupInvitationDirectClaim) async {
