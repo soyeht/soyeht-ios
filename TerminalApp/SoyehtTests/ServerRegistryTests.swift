@@ -303,6 +303,23 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testRefreshFromLegacyStoresPreservesCanonicalTheyOSStatus() async throws {
+        let macID = try await seedMac(host: "srt-host-status-refresh.test", name: "status-source")
+        let serverID = macID.uuidString
+
+        registry.updateTheyOSStatus(serverID: serverID, status: .running, version: "0.1.21")
+        let updated = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertEqual(updated.theyOS.status, .running)
+
+        registry.refreshFromLegacyStores()
+
+        let refreshed = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertEqual(refreshed.theyOS.status, .running,
+            "Legacy mirror refreshes must not erase canonical theyOS status written by the registry."
+        )
+        XCTAssertEqual(refreshed.theyOS.version, "0.1.21")
+    }
+
     // MARK: - secret-aware mirror
 
     func testRefreshFromLegacyStoresKeepsSecretOwningMacIDCanonical() throws {

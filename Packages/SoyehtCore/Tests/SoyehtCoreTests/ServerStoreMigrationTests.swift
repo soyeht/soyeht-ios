@@ -652,6 +652,54 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(loaded.first?.id, mac1.id)
     }
 
+    func test_reconcile_preservesCanonicalEnrichmentForSeedPresentEntry() throws {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        var existing = makeServer(
+            id: "EEEEEEEE-0000-0000-0000-000000000003",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "100.64.0.10",
+            alias: "Alpha Mac"
+        )
+        existing.theyOS = TheyOSSnapshot(
+            status: .running,
+            version: "0.1.21",
+            lastCheckedAt: Date(timeIntervalSince1970: 2_000_100)
+        )
+        existing.apiEndpoint = URL(string: "http://100.64.0.10:8101/api")
+        existing.bootstrapEndpoint = URL(string: "http://100.64.0.10:8101")
+        store.save([existing])
+
+        let seed = makeServer(
+            id: existing.id,
+            hostname: "machine-alpha-renamed",
+            lastSeenAt: Date(timeIntervalSince1970: 1_900_000),
+            lastHost: "100.64.0.11"
+        )
+
+        let reconciled = store.reconcile(with: [seed])
+
+        let canonical = try XCTUnwrap(reconciled.first)
+        XCTAssertEqual(canonical.id, existing.id)
+        XCTAssertEqual(canonical.hostname, "machine-alpha-renamed",
+            "Legacy membership fields still update during reconcile."
+        )
+        XCTAssertEqual(canonical.alias, "Alpha Mac",
+            "Canonical user metadata must not be erased by a legacy projection without an alias."
+        )
+        XCTAssertEqual(canonical.lastHost, "100.64.0.11")
+        XCTAssertEqual(canonical.lastSeenAt, existing.lastSeenAt,
+            "Newer canonical last-seen data must survive stale legacy projections."
+        )
+        XCTAssertEqual(canonical.theyOS.status, .running,
+            "Legacy mirror refreshes must not erase status written through ServerRegistry.updateTheyOSStatus."
+        )
+        XCTAssertEqual(canonical.theyOS.version, "0.1.21")
+        XCTAssertEqual(canonical.apiEndpoint, existing.apiEndpoint)
+        XCTAssertEqual(canonical.bootstrapEndpoint, existing.bootstrapEndpoint)
+    }
+
     /// `reconcile` applies the same host-collapse pass as the migration
     /// path — Macs with the same `lastHost` but different ids collapse
     /// to one entry, preserving the UUID id.
