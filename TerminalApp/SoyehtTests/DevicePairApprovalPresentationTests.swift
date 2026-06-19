@@ -205,21 +205,23 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(devicePairObserver.contains("for await _ in stream"))
     }
 
-    func test_macExistingHouseSetupUsesDirectNotificationPath() throws {
+    func test_macSetupInvitationUsesDirectNotificationPath() throws {
         let source = try macSource("Welcome/SetupInvitationListener/SetupInvitationListener.swift")
         let listenFlow = try slice(
             source,
             from: "func listen() async -> Outcome",
-            to: "private func listenViaBonjour()"
+            to: "private func listenViaTailscalePeerProbe()"
         )
         let directFlow = try slice(
             source,
             from: "private func listenViaTailscalePeerProbe()",
-            to: "private final class ResumeOnce"
+            to: "/// Wraps `claimClient.claim`"
         )
 
-        XCTAssertTrue(listenFlow.contains("if existingHouse != nil"))
-        XCTAssertTrue(listenFlow.contains("return await listenViaTailscalePeerProbe()"))
+        XCTAssertTrue(listenFlow.contains("await listenViaTailscalePeerProbe()"))
+        XCTAssertFalse(source.contains("listenViaBonjour"))
+        XCTAssertFalse(listenFlow.contains("withTaskGroup"))
+        XCTAssertFalse(listenFlow.contains("group.addTask"))
         XCTAssertTrue(directFlow.contains("findFirstInvitation("))
         XCTAssertFalse(source.contains("ignoredDeviceIDs.contains(deviceID)"))
         XCTAssertFalse(directFlow.contains("try? await SetupInvitationDirectProbe.notifyClaimed"))
