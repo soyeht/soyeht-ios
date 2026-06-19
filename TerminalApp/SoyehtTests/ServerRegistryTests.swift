@@ -138,6 +138,46 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testRename_macWritesCanonicalStoreSynchronously() async throws {
+        let macID = try await seedMac(host: "srt-host-rename-canonical-mac.test", name: "canonical-source")
+
+        let result = registry.rename(serverID: macID.uuidString, to: "Canonical Mac")
+        XCTAssertEqual(result, .success)
+
+        let published = try XCTUnwrap(registry.server(id: macID.uuidString))
+        XCTAssertEqual(published.alias, "Canonical Mac",
+            "Registry-initiated Mac renames must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == macID.uuidString }))
+        XCTAssertEqual(persisted.alias, "Canonical Mac",
+            "Registry-initiated Mac renames must write the canonical ServerStore synchronously."
+        )
+        let legacy = try XCTUnwrap(pairedMacs.macs.first(where: { $0.macID == macID }))
+        XCTAssertEqual(legacy.alias, "Canonical Mac",
+            "The legacy Mac store still receives the mutation for pairing-secret compatibility."
+        )
+    }
+
+    func testRename_linuxWritesCanonicalStoreSynchronously() async throws {
+        let linuxID = try await seedLinux(host: "srt-host-rename-canonical-linux.test", name: "linux-canonical-source")
+
+        let result = registry.rename(serverID: linuxID, to: "Canonical Linux")
+        XCTAssertEqual(result, .success)
+
+        let published = try XCTUnwrap(registry.server(id: linuxID))
+        XCTAssertEqual(published.displayName, "Canonical Linux",
+            "Registry-initiated Linux renames must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == linuxID }))
+        XCTAssertEqual(persisted.displayName, "Canonical Linux",
+            "Registry-initiated Linux renames must write the canonical ServerStore synchronously."
+        )
+        let legacy = try XCTUnwrap(sessionStore.pairedServers.first(where: { $0.id == linuxID }))
+        XCTAssertEqual(legacy.name, "Canonical Linux",
+            "The legacy session store still receives the mutation for credential compatibility."
+        )
+    }
+
     func testRename_rejectsDuplicateAcrossKinds() async throws {
         let macID = try await seedMac(host: "srt-host-rename-dup-mac.test", name: "dup-source")
         let linuxID = try await seedLinux(host: "srt-host-rename-dup-linux.test", name: "linux-dup-source")
@@ -149,6 +189,23 @@ final class ServerRegistryTests: XCTestCase {
         guard case .duplicate = result else {
             return XCTFail("Cross-kind alias collision must yield .duplicate, got \(result). The Mac kept the alias; the Linux rename must be rejected.")
         }
+    }
+
+    func testRename_rejectsDuplicateVisibleNameAcrossKinds() async throws {
+        let macID = try await seedMac(host: "srt-host-rename-visible-dup-mac.test", name: "Visible Name")
+        let linuxID = try await seedLinux(host: "srt-host-rename-visible-dup-linux.test", name: "linux-visible-source")
+
+        let result = registry.rename(serverID: linuxID, to: "Visible Name")
+        guard case .duplicate = result else {
+            return XCTFail("Cross-kind display-name collision must yield .duplicate, got \(result).")
+        }
+
+        let mac = try XCTUnwrap(registry.server(id: macID.uuidString))
+        XCTAssertEqual(mac.displayName, "Visible Name")
+        let linux = try XCTUnwrap(registry.server(id: linuxID))
+        XCTAssertEqual(linux.displayName, "linux-visible-source",
+            "Rejected duplicate renames must not mutate the canonical registry row."
+        )
     }
 
     func testRename_rejectsEmptyAlias() async throws {
@@ -201,6 +258,41 @@ final class ServerRegistryTests: XCTestCase {
             "Linux removal must propagate to `SessionStore.removeServer(id:)`."
         )
         XCTAssertFalse(registry.servers.contains(where: { $0.id == linuxID }))
+    }
+
+    func testRemove_macDropsCanonicalStoreSynchronously() async throws {
+        let macID = try await seedMac(host: "srt-host-remove-canonical-mac.test", name: "remove-canonical-source")
+        let serverID = macID.uuidString
+
+        registry.remove(serverID: serverID)
+        createdMacIDs.removeAll { $0 == macID }
+
+        XCTAssertFalse(registry.servers.contains(where: { $0.id == serverID }),
+            "Registry-initiated Mac removals must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        XCTAssertFalse(ServerStore().load().contains(where: { $0.id == serverID }),
+            "Registry-initiated Mac removals must drop the canonical ServerStore row synchronously."
+        )
+        XCTAssertFalse(pairedMacs.macs.contains(where: { $0.macID == macID }),
+            "The legacy Mac store still receives the removal for pairing-secret cleanup."
+        )
+    }
+
+    func testRemove_linuxDropsCanonicalStoreSynchronously() async throws {
+        let linuxID = try await seedLinux(host: "srt-host-remove-canonical-linux.test", name: "remove-canonical-linux")
+
+        registry.remove(serverID: linuxID)
+        createdSessionServerIDs.removeAll { $0 == linuxID }
+
+        XCTAssertFalse(registry.servers.contains(where: { $0.id == linuxID }),
+            "Registry-initiated Linux removals must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        XCTAssertFalse(ServerStore().load().contains(where: { $0.id == linuxID }),
+            "Registry-initiated Linux removals must drop the canonical ServerStore row synchronously."
+        )
+        XCTAssertFalse(sessionStore.pairedServers.contains(where: { $0.id == linuxID }),
+            "The legacy session store still receives the removal for credential cleanup."
+        )
     }
 
     func testRemove_unknownIDIsNoOp() {
