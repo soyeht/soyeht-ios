@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Single source of truth for turning a server host string into the base URL of
@@ -69,10 +70,14 @@ public enum BootstrapStatusEndpoint {
     }
 
     /// A tailnet address: a MagicDNS name (`*.ts.net`) or a CGNAT IPv4 in
-    /// `100.64.0.0/10`. The tailscale-serve HTTPS proxy on such hosts does not
-    /// expose `/bootstrap/*`, so the raw engine port must be used over plain HTTP.
+    /// `100.64.0.0/10`, or a Tailscale ULA IPv6 address in
+    /// `fd7a:115c:a1e0::/48`. The tailscale-serve HTTPS proxy on such hosts
+    /// does not expose `/bootstrap/*`, so the raw engine port must be used over
+    /// plain HTTP.
     static func isTailnetHost(_ host: String) -> Bool {
-        let lower = host.lowercased()
+        let lower = host
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            .lowercased()
         if lower.hasSuffix(".ts.net") { return true }
         let parts = lower.split(separator: ".", omittingEmptySubsequences: false)
         if parts.count == 4,
@@ -81,6 +86,25 @@ public enum BootstrapStatusEndpoint {
            a == 100, (64...127).contains(b) {
             return true
         }
+        if isTailscaleIPv6(lower) {
+            return true
+        }
         return false
+    }
+
+    private static func isTailscaleIPv6(_ host: String) -> Bool {
+        var address = in6_addr()
+        guard host.withCString({ inet_pton(AF_INET6, $0, &address) }) == 1 else {
+            return false
+        }
+        return withUnsafeBytes(of: address) { bytes in
+            guard bytes.count >= 6 else { return false }
+            return bytes[0] == 0xfd
+                && bytes[1] == 0x7a
+                && bytes[2] == 0x11
+                && bytes[3] == 0x5c
+                && bytes[4] == 0xa1
+                && bytes[5] == 0xe0
+        }
     }
 }

@@ -1016,6 +1016,7 @@ public final class SoyehtAPIClient {
         guard let url = components.url else {
             throw APIError.invalidURL
         }
+        Self.logger.info("household_url path=\(normalizedPath, privacy: .public) input_scheme=\(scheme, privacy: .public) output_scheme=\(components.scheme ?? "<nil>", privacy: .public) port=\(components.port ?? -1, privacy: .public) host_class=\(Self.householdDebugHostClass(host), privacy: .public)")
         return url
     }
 
@@ -1049,18 +1050,24 @@ public final class SoyehtAPIClient {
         return h == "localhost"
             || h == "127.0.0.1"
             || h == "::1"
-            || isHouseholdMeshIPv4(h)
+            || BootstrapStatusEndpoint.isTailnetHost(h)
     }
 
-    private static func isHouseholdMeshIPv4(_ host: String) -> Bool {
-        let parts = host.split(separator: ".")
-        guard parts.count == 4,
-              parts[0] == "10",
-              parts[1] == "44",
-              parts.allSatisfy({ Int($0).map { (0...255).contains($0) } ?? false }) else {
-            return false
+    private static func householdDebugHostClass(_ host: String) -> String {
+        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+        if h == "localhost" || h == "127.0.0.1" || h == "::1" {
+            return "loopback"
         }
-        return true
+        if BootstrapStatusEndpoint.isTailnetHost(h) {
+            return "tailnet"
+        }
+        if h.hasSuffix(".local")
+            || h.hasPrefix("192.168.")
+            || h.hasPrefix("10.")
+            || (h.hasPrefix("172.") && isPrivate172(h)) {
+            return "lan"
+        }
+        return "other"
     }
 
     private static func isPrivate172(_ host: String) -> Bool {

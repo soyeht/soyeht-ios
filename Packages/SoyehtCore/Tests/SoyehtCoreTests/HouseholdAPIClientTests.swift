@@ -105,7 +105,7 @@ struct HouseholdAPIClientTests {
     )
 
     let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
-    #expect(request.url?.scheme == "https")
+    #expect(request.url?.scheme == "http")
     #expect(request.url?.host == "100.64.0.10")
     #expect(request.url?.port == 8091)
     #expect(request.url?.path == "/api/v1/household/claws")
@@ -133,7 +133,7 @@ struct HouseholdAPIClientTests {
 
     #expect(claws.isEmpty)
     let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
-    #expect(request.url?.scheme == "https")
+    #expect(request.url?.scheme == "http")
     #expect(request.url?.host == "100.64.0.10")
     #expect(request.url?.port == 8091)
     #expect(request.url?.path == "/api/v1/household/claws")
@@ -296,7 +296,7 @@ struct HouseholdAPIClientTests {
     #expect(token.expiresAt == 1_810_000_000)
     let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
     #expect(request.httpMethod == "POST")
-    #expect(request.url?.scheme == "https")
+    #expect(request.url?.scheme == "http")
     #expect(request.url?.path == "/api/v1/household/terminals/picoclaw-alpha/attach-token")
     let authorization = try #require(request.value(forHTTPHeaderField: "Authorization"))
     #expect(authorization.contains("Soyeht-PoP v1:"))
@@ -346,7 +346,7 @@ struct HouseholdAPIClientTests {
       rows: 40
     )
 
-    #expect(request.url?.scheme == "wss")
+    #expect(request.url?.scheme == "ws")
     #expect(request.url?.host == "100.64.0.10")
     #expect(request.url?.port == 8101)
     #expect(request.url?.path == "/api/v1/household/terminals/picoclaw-alpha/pty")
@@ -362,7 +362,7 @@ struct HouseholdAPIClientTests {
         == "attach-token-alpha")
   }
 
-  @Test func householdTerminalWebSocketRequestKeepsPlaintextOnlyForLoopbackOrMesh() throws {
+  @Test func householdTerminalWebSocketRequestKeepsPlaintextOnlyForLoopbackOrTailnet() throws {
     let client = makeClient(
       householdStore: HouseholdSessionStore(storage: InMemoryHouseholdStorage()),
       ownerKey: P256.Signing.PrivateKey())
@@ -375,14 +375,30 @@ struct HouseholdAPIClientTests {
     )
     #expect(loopback.url?.scheme == "ws")
 
-    let meshHost = ["10", "44", "1", "2"].joined(separator: ".")
-    let mesh = try client.makeHouseholdTerminalWebSocketRequest(
-      endpoint: URL(string: "http://\(meshHost):8101")!,
+    let tailnet = try client.makeHouseholdTerminalWebSocketRequest(
+      endpoint: URL(string: "http://100.64.0.10:8101")!,
       container: "picoclaw-alpha",
       workspaceId: "ws-alpha",
       attachToken: "attach-token-alpha"
     )
-    #expect(mesh.url?.scheme == "ws")
+    #expect(tailnet.url?.scheme == "ws")
+
+    let magicDNS = try client.makeHouseholdTerminalWebSocketRequest(
+      endpoint: URL(string: "http://mac-alpha.example.ts.net:8101")!,
+      container: "picoclaw-alpha",
+      workspaceId: "ws-alpha",
+      attachToken: "attach-token-alpha"
+    )
+    #expect(magicDNS.url?.scheme == "ws")
+
+    let tailnetIPv6 = try client.makeHouseholdTerminalWebSocketRequest(
+      endpoint: URL(string: "http://[fd7a:115c:a1e0::10]:8101")!,
+      container: "picoclaw-alpha",
+      workspaceId: "ws-alpha",
+      attachToken: "attach-token-alpha"
+    )
+    #expect(tailnetIPv6.url?.scheme == "ws")
+    #expect(tailnetIPv6.url?.host == "fd7a:115c:a1e0::10")
 
     let lan = try client.makeHouseholdTerminalWebSocketRequest(
       endpoint: URL(string: "http://mac-alpha.local:8101")!,
@@ -391,6 +407,14 @@ struct HouseholdAPIClientTests {
       attachToken: "attach-token-alpha"
     )
     #expect(lan.url?.scheme == "wss")
+
+    let publicHost = try client.makeHouseholdTerminalWebSocketRequest(
+      endpoint: URL(string: "http://192.0.2.10:8101")!,
+      container: "picoclaw-alpha",
+      workspaceId: "ws-alpha",
+      attachToken: "attach-token-alpha"
+    )
+    #expect(publicHost.url?.scheme == "wss")
   }
 
   @Test func householdTerminalWebSocketRequestUsesWssForHttpsEndpoint() throws {

@@ -31,11 +31,11 @@ struct SoyehtFeatureFlagsTests {
         #expect(SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.app.dev",
             arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
-        ) == _isDebugAssertConfiguration())
+        ))
         #expect(SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.mac.dev",
             arguments: ["Soyeht", "-SoyehtClawStoreE2E"]
-        ) == _isDebugAssertConfiguration())
+        ))
         #expect(!SoyehtFeatureFlags.isClawStoreE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.app",
             arguments: ["Soyeht", "-SoyehtClawStoreE2E"]

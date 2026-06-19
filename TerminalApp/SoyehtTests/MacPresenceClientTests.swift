@@ -64,9 +64,7 @@ private enum Fixture {
     /// `192.0.2.0/24` is RFC 5737 TEST-NET-1, reserved for documentation
     /// and test fixtures. Routes nowhere on the public internet, never
     /// gets assigned to a real device, and signals "this is a stand-in"
-    /// to anyone reading the source. Replaces a previously committed
-    /// real LAN address (`192.168.15.17`) that leaked the contributor's
-    /// home network shape into the public repository.
+    /// to anyone reading the source.
     static let testHost = "192.0.2.17:57423"
     static let testHostBare = "192.0.2.17"
 }
@@ -93,7 +91,7 @@ struct PairingCoordinatorTests {
         let coordinator = PairingCoordinator(
             config: .init(
                 macID: Fixture.macID,
-                macName: "macStudio",
+                macName: "mac-alpha",
                 pairToken: "unused-on-resume",
                 paneNonce: Data(repeating: 0x22, count: 16),
                 lastHost: Fixture.testHost
@@ -117,7 +115,7 @@ struct PairingCoordinatorTests {
         #expect(handled)
         #expect(store.macs.count == 1)
         #expect(store.macs.first?.macID == Fixture.macID)
-        #expect(store.macs.first?.name == "macStudio")
+        #expect(store.macs.first?.name == "mac-alpha")
         #expect(store.macs.first?.lastHost == Fixture.testHost)
         #expect(store.macs.first?.presencePort == 57414)
         #expect(store.macs.first?.attachPort == 57415)
@@ -137,7 +135,7 @@ struct PairingCoordinatorTests {
         store.storeSecret(Fixture.secret, for: Fixture.macID)
         store.upsertMac(
             macID: Fixture.macID,
-            name: "macStudio",
+            name: "mac-alpha",
             host: Fixture.testHost,
             presencePort: 57414,
             attachPort: 57415
@@ -147,7 +145,7 @@ struct PairingCoordinatorTests {
         let coordinator = PairingCoordinator(
             config: .init(
                 macID: Fixture.macID,
-                macName: "macStudio",
+                macName: "mac-alpha",
                 pairToken: "unused-on-resume",
                 paneNonce: Data(repeating: 0x22, count: 16),
                 lastHost: Fixture.testHost
@@ -183,7 +181,7 @@ struct PairedMacRegistryTests {
         store.storeSecret(Fixture.secret, for: Fixture.macID)
         store.upsertMac(
             macID: Fixture.macID,
-            name: "macStudio",
+            name: "mac-alpha",
             host: Fixture.testHost
         )
 
@@ -247,14 +245,14 @@ struct PairedMacRegistryTests {
         store.storeSecret(Fixture.secret, for: Fixture.macID)
         store.upsertMac(
             macID: Fixture.macID,
-            name: "Mac Studio",
+            name: "mac-alpha",
             host: Fixture.testHost,
             presencePort: 57414,
             attachPort: 57415
         )
 
         var capturedEndpoint: MacPresenceClient.Endpoint?
-        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.66.202.16" }, localNetworkProvider: { false }) { mac, secret, deviceID, endpoint in
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.64.0.20" }, localNetworkProvider: { false }) { mac, secret, deviceID, endpoint in
             capturedEndpoint = endpoint
             return MacPresenceClient(
                 macID: mac.macID,
@@ -272,9 +270,9 @@ struct PairedMacRegistryTests {
         registry.bootstrap()
 
         let endpoint = try #require(capturedEndpoint)
-        #expect(endpoint.host == "macstudio")
+        #expect(endpoint.host == "mac-alpha")
         #expect(endpoint.hostCandidates.contains(Fixture.testHostBare))
-        #expect(endpoint.hostCandidates.contains("macstudio.local"))
+        #expect(endpoint.hostCandidates.contains("mac-alpha.local"))
     }
 
     @Test("wifi active prefers local DNS before tailnet candidates")
@@ -291,14 +289,14 @@ struct PairedMacRegistryTests {
         store.storeSecret(Fixture.secret, for: Fixture.macID)
         store.upsertMac(
             macID: Fixture.macID,
-            name: "Mac Studio",
-            host: "100.103.149.48:57414",
+            name: "mac-alpha",
+            host: "100.64.0.10:57414",
             presencePort: 57414,
             attachPort: 57415
         )
 
         var capturedEndpoint: MacPresenceClient.Endpoint?
-        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.66.202.16" }, localNetworkProvider: { true }) { mac, secret, deviceID, endpoint in
+        let registry = PairedMacRegistry(store: store, tailnetAddressProvider: { "100.64.0.20" }, localNetworkProvider: { true }) { mac, secret, deviceID, endpoint in
             capturedEndpoint = endpoint
             return MacPresenceClient(
                 macID: mac.macID,
@@ -316,8 +314,8 @@ struct PairedMacRegistryTests {
         registry.bootstrap()
 
         let endpoint = try #require(capturedEndpoint)
-        #expect(endpoint.host == "macstudio.local")
-        #expect(endpoint.hostCandidates == ["macstudio.local", "100.103.149.48", "macstudio"])
+        #expect(endpoint.host == "mac-alpha.local")
+        #expect(endpoint.hostCandidates == ["mac-alpha.local", "100.64.0.10", "mac-alpha"])
     }
 
     @Test("tailnet inactive prefers stored LAN host while preserving DNS fallback")
@@ -334,7 +332,7 @@ struct PairedMacRegistryTests {
         store.storeSecret(Fixture.secret, for: Fixture.macID)
         store.upsertMac(
             macID: Fixture.macID,
-            name: "Mac Studio",
+            name: "mac-alpha",
             host: Fixture.testHost,
             presencePort: 57414,
             attachPort: 57415
@@ -360,7 +358,7 @@ struct PairedMacRegistryTests {
 
         let endpoint = try #require(capturedEndpoint)
         #expect(endpoint.host == Fixture.testHostBare)
-        #expect(endpoint.hostCandidates == [Fixture.testHostBare, "macstudio.local", "macstudio"])
+        #expect(endpoint.hostCandidates == [Fixture.testHostBare, "mac-alpha.local", "mac-alpha"])
     }
 
     @Test("Tailscale MagicDNS endpoints use the Mac-local plain WebSocket listener")
@@ -376,7 +374,7 @@ struct PairedMacRegistryTests {
                 presencePort: 57414,
                 attachPort: 57415
             ),
-            displayName: "macStudio",
+            displayName: "mac-alpha",
             webSocketFactory: { url in
                 connectURL = url
                 return fake

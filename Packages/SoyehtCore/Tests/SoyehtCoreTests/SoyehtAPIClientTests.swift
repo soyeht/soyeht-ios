@@ -163,36 +163,76 @@ import Foundation
 
     // MARK: - buildHouseholdURL transport policy
 
-    @Test func buildHouseholdURLUpgradesRemotePlaintextEndpointToHTTPS() throws {
+    @Test func buildHouseholdURLKeepsTailnetPlaintextEndpoint() throws {
         let client = SoyehtAPIClient.shared
         let url = try client.buildHouseholdURL(
             endpoint: URL(string: "http://100.64.0.10:8101")!,
             path: "/api/v1/household/claws"
         )
-        #expect(url.scheme == "https")
+        #expect(url.scheme == "http")
         #expect(url.host == "100.64.0.10")
         #expect(url.port == 8101)
     }
 
-    @Test func buildHouseholdURLAllowsPlaintextOnlyForLoopbackOrMesh() throws {
+    @Test func buildHouseholdURLAllowsPlaintextOnlyForLoopbackOrTailnet() throws {
         let client = SoyehtAPIClient.shared
         let loopback = try client.buildHouseholdURL(
             endpoint: URL(string: "http://localhost:8101")!,
             path: "/api/v1/household/claws"
         )
-        let meshHost = ["10", "44", "1", "2"].joined(separator: ".")
-        let mesh = try client.buildHouseholdURL(
-            endpoint: URL(string: "http://\(meshHost):8101")!,
+        let tailnet = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://100.64.0.10:8101")!,
+            path: "/api/v1/household/claws"
+        )
+        let magicDNS = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://mac-alpha.example.ts.net:8101")!,
             path: "/api/v1/household/claws"
         )
         let lan = try client.buildHouseholdURL(
             endpoint: URL(string: "http://mac-alpha.local:8101")!,
             path: "/api/v1/household/claws"
         )
+        let publicHost = try client.buildHouseholdURL(
+            endpoint: URL(string: "http://192.0.2.10:8101")!,
+            path: "/api/v1/household/claws"
+        )
 
         #expect(loopback.scheme == "http")
-        #expect(mesh.scheme == "http")
+        #expect(tailnet.scheme == "http")
+        #expect(magicDNS.scheme == "http")
         #expect(lan.scheme == "https")
+        #expect(publicHost.scheme == "https")
+    }
+}
+
+@Suite struct SoyehtHouseholdTransportBoundaryTests {
+    @Test func noExperimentalTransportBleedInHouseholdSources() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let relativePaths = [
+            "Sources/SoyehtCore/API/SoyehtAPIClient.swift",
+            "Tests/SoyehtCoreTests/SoyehtAPIClientTests.swift",
+            "Tests/SoyehtCoreTests/HouseholdAPIClientTests.swift",
+            "Tests/SoyehtCoreTests/BootstrapStatusEndpointTests.swift",
+        ]
+        let forbiddenTokens = [
+            ["10", ".", "44"].joined(),
+            ["Product", " ", "A"].joined(),
+            ["n", "v", "p", "n"].joined(),
+            ["Claw", "Share", "Bridge"].joined(),
+            ["isHousehold", "Mesh"].joined(),
+            ["mesh", "-only"].joined(),
+        ]
+
+        for relativePath in relativePaths {
+            let url = packageRoot.appendingPathComponent(relativePath)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            for token in forbiddenTokens {
+                #expect(!source.contains(token), "\(relativePath) must not reintroduce \(token)")
+            }
+        }
     }
 }
 

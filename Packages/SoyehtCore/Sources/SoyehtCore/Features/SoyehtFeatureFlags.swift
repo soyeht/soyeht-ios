@@ -40,7 +40,9 @@ public enum SoyehtFeatureFlags {
         bundleIdentifier: String?,
         arguments: [String]
     ) -> Bool {
-        guard debugAssertionsEnabled() else { return false }
+        // This path intentionally does not depend on debug assertions: Xcode can
+        // compile SoyehtCore optimized inside the Dev app. Shipping safety comes
+        // from the explicit dev-bundle allowlist plus the launch argument.
         guard let bundleIdentifier else { return false }
         return clawStoreE2EDevBundleIdentifiers.contains(bundleIdentifier)
             && arguments.contains(clawStoreE2ELaunchArgument)

@@ -249,6 +249,9 @@ final class AwaitingNewMacViewModel: ObservableObject {
 
     func start(onCompleted: @escaping () -> Void) {
         self.onCompleted = onCompleted
+        awaitingNewMacLogger.info(
+            "setup_claim_profile_active profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) bootstrap_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public)"
+        )
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -258,17 +261,25 @@ final class AwaitingNewMacViewModel: ObservableObject {
                 // NOT flip the UI back into orchestration without the user
                 // explicitly tapping "Try again".
                 guard self.phase == .looking, !self.alreadyOrchestrating else { return }
-                // The fresh Mac may also publish an existing-house card
-                // (it's not really "ours" then). Don't accept-household
-                // into a Mac that already belongs to someone else.
-                guard claim.existingHouse == nil else {
-                    self.phase = .failure(message: String(localized: LocalizedStringResource(
-                        "awaitingNewMac.failure.notFresh",
-                        defaultValue: "That Mac already has a home. Choose a different Mac or reset it first.",
-                        comment: "Error shown when the Mac being added is not in a fresh Uninitialized state."
-                    )))
+                guard Self.claimMatchesCurrentInstallProfile(claim) else {
+                    awaitingNewMacLogger.info(
+                        "setup_claim_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    )
                     return
                 }
+                // A nearby Mac that already belongs to a household can publish
+                // first. It is not the fresh target for this flow; keep
+                // listening so a later setup-ready claim can run the real
+                // direct-claim dance and persist the `.mac` surface.
+                if claim.existingHouse != nil {
+                    awaitingNewMacLogger.info(
+                        "setup_claim_ignored_existing_house profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    )
+                    return
+                }
+                awaitingNewMacLogger.info(
+                    "setup_claim_fresh_run_dance profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                )
                 self.alreadyOrchestrating = true
                 self.phase = .orchestrating
                 self.orchestrationTask = Task { [weak self] in
@@ -277,6 +288,11 @@ final class AwaitingNewMacViewModel: ObservableObject {
             }
         }
         publisher.start()
+    }
+
+    private static func claimMatchesCurrentInstallProfile(_ claim: SetupInvitationDirectClaim) -> Bool {
+        guard let claimPort = claim.macEngineURL.port else { return false }
+        return claimPort == SoyehtInstallProfile.current.bootstrapPort
     }
 
     func stop() {

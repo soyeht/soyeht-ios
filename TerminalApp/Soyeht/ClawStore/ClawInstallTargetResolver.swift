@@ -1,5 +1,9 @@
+import Darwin
 import Foundation
+import os
 import SoyehtCore
+
+private let clawInstallTargetLogger = Logger(subsystem: "com.soyeht.mobile", category: "claw-install-target")
 
 /// Decides which `ClawAPITarget` to use for a given `ClawInstallTarget`.
 ///
@@ -119,9 +123,11 @@ enum ClawInstallTargetResolver {
         let registry = registry ?? ServerRegistry.shared
         let sessionStore = sessionStore ?? SessionStore.shared
         guard let server = registry.server(id: target.serverID) else {
+            clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=unknown_server")
             return .unavailable(.unknownServer)
         }
         if let context = sessionStore.context(for: target.serverID) {
+            clawInstallTargetLogger.info("claw_target_resolve result=server kind=\(server.kind.rawValue, privacy: .public) host_class=\(debugHostClass(context.host), privacy: .public)")
             return .server(context)
         }
         // No legacy mobile token. Macs still expose PoP-gated
@@ -134,8 +140,10 @@ enum ClawInstallTargetResolver {
                 localNetworkActive: localNetworkActive,
                 tailnetActive: tailnetActive
            ) {
+            clawInstallTargetLogger.info("claw_target_resolve result=household_endpoint kind=\(server.kind.rawValue, privacy: .public) scheme=\(endpoint.scheme ?? "<nil>", privacy: .public) port=\(endpoint.port ?? -1, privacy: .public) host_class=\(debugHostClass(endpoint.host ?? ""), privacy: .public)")
             return .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
         }
+        clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=missing_context kind=\(server.kind.rawValue, privacy: .public) host_class=\(debugHostClass(server.lastHost ?? server.hostname), privacy: .public)")
         return .unavailable(.missingContext)
     }
 
@@ -159,6 +167,9 @@ enum ClawInstallTargetResolver {
         }
         if hostParts.port != nil {
             return URL.householdEndpoint(fromHost: rawHost, defaultPort: defaultPort)
+        }
+        if isTailnetHouseholdHost(hostParts.host) {
+            return URL.householdEndpoint(fromHost: hostParts.host, defaultPort: defaultPort)
         }
 
         let labelCandidates = ServerEndpointResolver.hostLabelCandidates(from: [
@@ -231,6 +242,33 @@ enum ClawInstallTargetResolver {
             engineMachineId: server.engineMachineId
         )
     }
+
+    private static func isTailnetHouseholdHost(_ host: String) -> Bool {
+        let normalized = host
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            .lowercased()
+        guard !normalized.isEmpty else { return false }
+        return normalized.hasSuffix(".ts.net")
+            || TailnetAddressResolver.isTailnetIPv4(normalized)
+            || isTailscaleIPv6HouseholdHost(normalized)
+    }
+
+    private static func isTailscaleIPv6HouseholdHost(_ host: String) -> Bool {
+        var address = in6_addr()
+        guard host.withCString({ inet_pton(AF_INET6, $0, &address) }) == 1 else {
+            return false
+        }
+        return withUnsafeBytes(of: address) { bytes in
+            guard bytes.count >= 6 else { return false }
+            return bytes[0] == 0xfd
+                && bytes[1] == 0x7a
+                && bytes[2] == 0x11
+                && bytes[3] == 0x5c
+                && bytes[4] == 0xa1
+                && bytes[5] == 0xe0
+        }
+    }
 }
 
 extension ClawInstallTargetResolver.Resolution {
@@ -258,6 +296,53 @@ extension ClawInstallTargetResolver.Resolution {
             return false
         }
     }
+}
+
+private func debugHostClass(_ host: String) -> String {
+    let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+    if h == "localhost" || h == "127.0.0.1" || h == "::1" {
+        return "loopback"
+    }
+    if isTailnetDebugHost(h) {
+        return "tailnet"
+    }
+    if h.hasSuffix(".local")
+        || h.hasPrefix("192.168.")
+        || h.hasPrefix("10.")
+        || (h.hasPrefix("172.") && isPrivate172DebugHost(h)) {
+        return "lan"
+    }
+    return "other"
+}
+
+private func isTailnetDebugHost(_ host: String) -> Bool {
+    if host.hasSuffix(".ts.net") { return true }
+    let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+    if parts.count == 4,
+       let a = Int(parts[0]), let b = Int(parts[1]),
+       Int(parts[2]) != nil, Int(parts[3]) != nil,
+       a == 100, (64...127).contains(b) {
+        return true
+    }
+    var address = in6_addr()
+    guard host.withCString({ inet_pton(AF_INET6, $0, &address) }) == 1 else {
+        return false
+    }
+    return withUnsafeBytes(of: address) { bytes in
+        guard bytes.count >= 6 else { return false }
+        return bytes[0] == 0xfd
+            && bytes[1] == 0x7a
+            && bytes[2] == 0x11
+            && bytes[3] == 0x5c
+            && bytes[4] == 0xa1
+            && bytes[5] == 0xe0
+    }
+}
+
+private func isPrivate172DebugHost(_ host: String) -> Bool {
+    let parts = host.split(separator: ".")
+    guard parts.count >= 2, let second = Int(parts[1]) else { return false }
+    return second >= 16 && second <= 31
 }
 
 private extension URL {
@@ -296,9 +381,16 @@ private extension URL {
         guard !trimmed.isEmpty else { return nil }
         var host = trimmed
         var port: Int? = nil
-        if !trimmed.hasPrefix("["),
-           let colon = trimmed.lastIndex(of: ":"),
-           trimmed[..<colon].contains(":") == false {
+        if trimmed.hasPrefix("["),
+           let end = trimmed.firstIndex(of: "]") {
+            host = String(trimmed[trimmed.index(after: trimmed.startIndex)..<end])
+            let suffix = trimmed[trimmed.index(after: end)...]
+            if suffix.hasPrefix(":"),
+               let parsed = Int(suffix.dropFirst()) {
+                port = parsed
+            }
+        } else if let colon = trimmed.lastIndex(of: ":"),
+                  trimmed[..<colon].contains(":") == false {
             let suffix = trimmed[trimmed.index(after: colon)...]
             if let parsed = Int(suffix) {
                 host = String(trimmed[..<colon])
@@ -319,7 +411,7 @@ private extension URL {
         guard let parts = householdHostParts(fromHost: rawHost) else { return nil }
         var components = URLComponents()
         components.scheme = "http"
-        components.host = parts.host
+        components.host = parts.host.contains(":") ? "[\(parts.host)]" : parts.host
         components.port = parts.port ?? defaultPort
         return components.url
     }
