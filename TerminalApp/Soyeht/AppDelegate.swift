@@ -641,30 +641,29 @@ private extension Data {
 enum FreshInstallKeychainSweeper {
     private static let installMarkerKey = "soyeht.install.markerV1"
 
+    static func keychainServicesToDelete(
+        for profile: SoyehtInstallProfile = .current
+    ) -> [String] {
+        ["com.soyeht.mobile", profile.householdKeychainService]
+    }
+
+    static func ownerKeyPrefixToDelete(
+        for profile: SoyehtInstallProfile = .current
+    ) -> String {
+        profile.householdOwnerKeyPrefix
+    }
+
     static func sweepIfNeeded() {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: installMarkerKey) != nil {
             return
         }
         appDelegateLogger.log("fresh-install detected: sweeping orphan keychain entries")
-        KeychainHelper(service: "com.soyeht.mobile").deleteAll()
-        KeychainHelper(service: "com.soyeht.household").deleteAll()
-        for tokenID in [kSecAttrTokenIDSecureEnclave, nil as CFString?] {
-            var query: [String: Any] = [
-                kSecClass as String: kSecClassKey,
-                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-                kSecMatchLimit as String: kSecMatchLimitAll,
-            ]
-            if let tokenID {
-                query[kSecAttrTokenID as String] = tokenID
-            }
-            var status = errSecSuccess
-            var iterations = 0
-            repeat {
-                status = SecItemDelete(query as CFDictionary)
-                iterations += 1
-            } while status == errSecSuccess && iterations < 8
+        let profile = SoyehtInstallProfile.current
+        for service in keychainServicesToDelete(for: profile) {
+            KeychainHelper(service: service).deleteAll()
         }
+        OwnerIdentityKeychainCleaner.deleteOwnerKeys(matchingPrefix: ownerKeyPrefixToDelete(for: profile))
         defaults.set(UUID().uuidString, forKey: installMarkerKey)
         defaults.synchronize()
         appDelegateLogger.log("fresh-install sweep completed")
@@ -723,6 +722,18 @@ enum DebugLocalStateResetter {
     /// anything else (external caller, replayed URL) is refused.
     @MainActor static var armedFromSettings = false
 
+    static func keychainServicesToDelete(
+        for profile: SoyehtInstallProfile = .current
+    ) -> [String] {
+        ["com.soyeht.mobile", profile.householdKeychainService]
+    }
+
+    static func ownerKeyPrefixToDelete(
+        for profile: SoyehtInstallProfile = .current
+    ) -> String {
+        profile.householdOwnerKeyPrefix
+    }
+
     @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
         guard url.scheme == "soyeht",
               url.host == "debug",
@@ -762,48 +773,86 @@ enum DebugLocalStateResetter {
         }
         defaults.synchronize()
 
-        KeychainHelper(service: "com.soyeht.mobile").deleteAll()
-        KeychainHelper(service: "com.soyeht.household").deleteAll()
+        let profile = SoyehtInstallProfile.current
+        for service in keychainServicesToDelete(for: profile) {
+            KeychainHelper(service: service).deleteAll()
+        }
 
-        // Delete BOTH Secure-Enclave-resident and software-keychain owner
-        // identity P-256 keys. Two separate queries because `kSecAttrTokenID`
-        // is a match criterion — a single query without it matches only
-        // software keys; with `kSecAttrTokenIDSecureEnclave` it matches only
-        // SE-resident keys. The prior single-query reset left SE-resident
-        // owner keys behind, which caused `loadOwnerIdentity` to find a
-        // stale key after subsequent pair-device runs and produced
-        // "This iPhone could not sign the join approval" because the
-        // signing path returned `keyCreationFailed("key reference not found")`
-        // when the cached personId pointer no longer matched any live key.
-        //
-        // Loop until `errSecItemNotFound` so multiple entries (one per
-        // historical pair) are all purged in this debug-reset pass.
-        deleteAllOwnerKeys(tokenID: kSecAttrTokenIDSecureEnclave)
-        deleteAllOwnerKeys(tokenID: nil)
+        // Delete only this profile's owner-identity P-256 keys. The cleaner
+        // scans both Secure Enclave and software-keychain entries, then deletes
+        // exact application tags that match the profile prefix.
+        OwnerIdentityKeychainCleaner.deleteOwnerKeys(matchingPrefix: ownerKeyPrefixToDelete(for: profile))
 
         ServerRegistry.shared.refreshFromLegacyStores()
 
         appDelegateLogger.log("local state reset completed")
     }
+}
 
-    private static func deleteAllOwnerKeys(tokenID: CFString?) {
+private enum OwnerIdentityKeychainCleaner {
+    static func deleteOwnerKeys(matchingPrefix prefix: String) {
+        for tokenID in [kSecAttrTokenIDSecureEnclave, nil as CFString?] {
+            let deleted = deleteOwnerKeys(matchingPrefix: prefix, tokenID: tokenID)
+            if deleted > 0 {
+                appDelegateLogger.log("deleted \(deleted, privacy: .public) owner P-256 key(s) with profile prefix (tokenID=\(tokenID != nil ? "secureEnclave" : "software", privacy: .public))")
+            }
+        }
+    }
+
+    private static func deleteOwnerKeys(matchingPrefix prefix: String, tokenID: CFString?) -> Int {
+        let tags = ownerKeyTags(matchingPrefix: prefix, tokenID: tokenID)
+        var deleted = 0
+        for tag in tags {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassKey,
+                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecAttrApplicationTag as String: tag,
+            ]
+            if let tokenID {
+                query[kSecAttrTokenID as String] = tokenID
+            }
+            let status = SecItemDelete(query as CFDictionary)
+            if status == errSecSuccess || status == errSecItemNotFound {
+                deleted += 1
+            }
+        }
+        return deleted
+    }
+
+    private static func ownerKeyTags(matchingPrefix prefix: String, tokenID: CFString?) -> Set<Data> {
+        let tagPrefix = "\(prefix)."
         var query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecReturnAttributes as String: true,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
         ]
         if let tokenID {
             query[kSecAttrTokenID as String] = tokenID
         }
-        var status = errSecSuccess
-        var iterations = 0
-        repeat {
-            status = SecItemDelete(query as CFDictionary)
-            iterations += 1
-        } while status == errSecSuccess && iterations < 8
-        if iterations > 1 {
-            appDelegateLogger.log("deleted \(iterations - 1, privacy: .public) batch(es) of owner P-256 keys (tokenID=\(tokenID != nil ? "secureEnclave" : "software", privacy: .public))")
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else {
+            return []
         }
+
+        let rawItems: [[String: Any]]
+        if let items = result as? [[String: Any]] {
+            rawItems = items
+        } else if let item = result as? [String: Any] {
+            rawItems = [item]
+        } else {
+            return []
+        }
+
+        return Set(rawItems.compactMap { item in
+            guard let tag = item[kSecAttrApplicationTag as String] as? Data,
+                  let string = String(data: tag, encoding: .utf8),
+                  string.hasPrefix(tagPrefix) else {
+                return nil
+            }
+            return tag
+        })
     }
 }
 

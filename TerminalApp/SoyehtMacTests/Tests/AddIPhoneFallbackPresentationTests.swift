@@ -165,6 +165,33 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         XCTAssertTrue(listener.contains("private static func isLANReachableIPv4"))
     }
 
+    func test_uninstallerClearsOnlyCurrentProfileKeychainNamespaces() throws {
+        let source = try macSource("Welcome/TheyOSUninstaller.swift")
+        let clear = try slice(
+            source,
+            from: "private func clearSoyehtKeychainServices()",
+            to: "private func deleteGenericPasswordService"
+        )
+
+        XCTAssertTrue(clear.contains("let profile = SoyehtInstallProfile.current"))
+        XCTAssertTrue(clear.contains("profile.keychainService"))
+        XCTAssertTrue(clear.contains("profile.householdKeychainService"))
+        XCTAssertFalse(clear.contains("\"com.soyeht.mac\", \"com.soyeht.mac.dev\""))
+        XCTAssertFalse(clear.contains("\"com.soyeht.household\""))
+    }
+
+    func test_uninstallerClearsOnlyCurrentBundlePreferenceDomain() throws {
+        let source = try macSource("Welcome/TheyOSUninstaller.swift")
+        let clear = try slice(
+            source,
+            from: "private func clearPreferenceDomains()",
+            to: "private func clearSoyehtKeychainServices()"
+        )
+
+        XCTAssertTrue(clear.contains("Bundle.main.bundleIdentifier"))
+        XCTAssertFalse(clear.contains("for domain in [\"com.soyeht.mac\", \"com.soyeht.mac.dev\"]"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()  // Tests/

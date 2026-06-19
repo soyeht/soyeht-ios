@@ -30,6 +30,8 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.engineLaunchAgentPlistName, "com.soyeht.engine.plist")
         XCTAssertEqual(p.engineLaunchdLabel, "com.soyeht.engine")
         XCTAssertEqual(p.keychainService, "com.soyeht.mac")
+        XCTAssertEqual(p.householdKeychainService, "com.soyeht.household")
+        XCTAssertEqual(p.householdOwnerKeyPrefix, "com.soyeht.household.owner")
         XCTAssertEqual(p.adminPort, 8892)
         XCTAssertEqual(p.bootstrapPort, 8091)
         XCTAssertEqual(p.adminHost, "localhost:8892")
@@ -44,6 +46,8 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.engineLaunchAgentPlistName, "com.soyeht.engine.dev.plist")
         XCTAssertEqual(p.engineLaunchdLabel, "com.soyeht.engine.dev")
         XCTAssertEqual(p.keychainService, "com.soyeht.mac.dev")
+        XCTAssertEqual(p.householdKeychainService, "com.soyeht.household.dev")
+        XCTAssertEqual(p.householdOwnerKeyPrefix, "com.soyeht.household.dev.owner")
         XCTAssertEqual(p.adminPort, 8902)
         XCTAssertEqual(p.bootstrapPort, 8101)
         XCTAssertEqual(p.adminHost, "localhost:8902")
@@ -71,6 +75,12 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertNotEqual(r.engineLaunchAgentPlistName, d.engineLaunchAgentPlistName)
         XCTAssertNotEqual(r.engineLaunchdLabel, d.engineLaunchdLabel)
         XCTAssertNotEqual(r.keychainService, d.keychainService)
+        XCTAssertNotEqual(r.householdKeychainService, d.householdKeychainService)
+        XCTAssertNotEqual(r.householdOwnerKeyPrefix, d.householdOwnerKeyPrefix)
+        XCTAssertFalse(
+            d.householdOwnerKeyPrefix.hasPrefix(r.householdOwnerKeyPrefix + "."),
+            "dev owner-key tags must not match release prefix-scoped deletes"
+        )
         XCTAssertNotEqual(r.adminPort, d.adminPort)
         XCTAssertNotEqual(r.bootstrapPort, d.bootstrapPort)
         XCTAssertNotEqual(r.engineLogPath, d.engineLogPath)

@@ -80,11 +80,17 @@ public struct HouseholdSessionStore {
     private let storage: any HouseholdSecureStoring
     private let account: String
 
-    public init(
-        storage: any HouseholdSecureStoring = KeychainHelper(
-            service: "com.soyeht.household",
+    public static func defaultStorage(
+        for profile: SoyehtInstallProfile = .current
+    ) -> KeychainHelper {
+        KeychainHelper(
+            service: profile.householdKeychainService,
             accessibility: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ),
+        )
+    }
+
+    public init(
+        storage: any HouseholdSecureStoring = HouseholdSessionStore.defaultStorage(),
         account: String = Self.activeSessionAccount
     ) {
         self.storage = storage

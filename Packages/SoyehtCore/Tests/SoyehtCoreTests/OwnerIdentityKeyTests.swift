@@ -68,4 +68,13 @@ struct OwnerIdentityKeyTests {
         let other = NSError(domain: NSOSStatusErrorDomain, code: -25291)
         #expect(!OwnerIdentityKey.isBiometryLockout(other))
     }
+
+    @Test func defaultServicePrefixFollowsInstallProfile() {
+        #expect(SecureEnclaveOwnerIdentityKeyProvider.defaultServicePrefix(for: .release) == "com.soyeht.household.owner")
+        #expect(SecureEnclaveOwnerIdentityKeyProvider.defaultServicePrefix(for: .dev) == "com.soyeht.household.dev.owner")
+        #expect(
+            !SecureEnclaveOwnerIdentityKeyProvider.defaultServicePrefix(for: .dev)
+                .hasPrefix(SecureEnclaveOwnerIdentityKeyProvider.defaultServicePrefix(for: .release) + ".")
+        )
+    }
 }

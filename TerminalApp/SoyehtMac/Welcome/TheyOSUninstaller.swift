@@ -566,18 +566,18 @@ final class TheyOSUninstaller: ObservableObject {
     }
 
     private func clearPreferenceDomains() {
-        for domain in ["com.soyeht.mac", "com.soyeht.mac.dev"] {
-            UserDefaults.standard.removePersistentDomain(forName: domain)
-            CFPreferencesAppSynchronize(domain as CFString)
-            append(log: "[prefs] cleared \(domain)")
-        }
+        let domain = Bundle.main.bundleIdentifier
+            ?? (SoyehtInstallProfile.current.kind == .dev ? "com.soyeht.mac.dev" : "com.soyeht.mac")
+        UserDefaults.standard.removePersistentDomain(forName: domain)
+        CFPreferencesAppSynchronize(domain as CFString)
+        append(log: "[prefs] cleared \(domain)")
     }
 
     private func clearSoyehtKeychainServices() {
-        // Both Mac bundle services (shipping + developer build) are cleared so a
-        // full uninstall leaves no pairing secrets behind regardless of which
-        // build runs it — mirrors clearPreferenceDomains().
-        for service in ["com.soyeht.mobile", "com.soyeht.mac", "com.soyeht.mac.dev", "com.soyeht.household"] {
+        // Clear only the current install profile's keychain namespaces. Soyeht
+        // Dev must not delete shipping pairing or household state.
+        let profile = SoyehtInstallProfile.current
+        for service in ["com.soyeht.mobile", profile.keychainService, profile.householdKeychainService] {
             deleteGenericPasswordService(service, dataProtection: true)
             deleteGenericPasswordService(service, dataProtection: false)
         }

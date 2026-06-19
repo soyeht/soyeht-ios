@@ -275,10 +275,25 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         let clearMacs = try XCTUnwrap(resetBody.range(of: "PairedMacsStore.shared.removeAll()"))
         let removeDomain = try XCTUnwrap(resetBody.range(of: "defaults.removePersistentDomain"))
         let refreshRegistry = try XCTUnwrap(resetBody.range(of: "ServerRegistry.shared.refreshFromLegacyStores()"))
-        let deleteOwnerKeys = try XCTUnwrap(resetBody.range(of: "deleteAllOwnerKeys(tokenID: nil)"))
+        let deleteOwnerKeys = try XCTUnwrap(resetBody.range(of: "OwnerIdentityKeychainCleaner.deleteOwnerKeys(matchingPrefix: ownerKeyPrefixToDelete(for: profile))"))
 
         XCTAssertLessThan(clearMacs.lowerBound, removeDomain.lowerBound)
         XCTAssertGreaterThan(refreshRegistry.lowerBound, deleteOwnerKeys.lowerBound)
+    }
+
+    func test_debugResetUsesProfileScopedHouseholdKeychainDeletionPlan() throws {
+        let source = try iosSource("AppDelegate.swift")
+        let resetterBody = try slice(
+            source,
+            from: "enum DebugLocalStateResetter",
+            to: "private enum OwnerIdentityKeychainCleaner"
+        )
+
+        XCTAssertTrue(resetterBody.contains("profile.householdKeychainService"))
+        XCTAssertTrue(resetterBody.contains("profile.householdOwnerKeyPrefix"))
+        XCTAssertTrue(resetterBody.contains("OwnerIdentityKeychainCleaner.deleteOwnerKeys(matchingPrefix: ownerKeyPrefixToDelete(for: profile))"))
+        XCTAssertFalse(resetterBody.contains("KeychainHelper(service: \"com.soyeht.household\")"))
+        XCTAssertFalse(resetterBody.contains("deleteAllOwnerKeys(tokenID:"))
     }
 
     func test_debugLocalStateReportBreaksDownServerSources() throws {

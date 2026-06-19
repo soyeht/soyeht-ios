@@ -1,6 +1,9 @@
 import Foundation
 import Security
 
+// Release-only uninstall helper. It targets the shipping
+// `com.soyeht.household` namespace; Dev cleanup must use the app's
+// profile-scoped reset/uninstaller paths instead.
 let dryRun = CommandLine.arguments.contains("--dry-run")
 
 private func itemCount(_ result: AnyObject?) -> Int {
