@@ -282,7 +282,7 @@ final class ServerRegistry: ObservableObject {
     ///
     ///   1. Every mutation against `PairedMacsStore` (add a new Mac,
     ///      rename, remove) fires `onChange` → composed callback →
-    ///      this registry refreshes.
+    ///      this registry refreshes synchronously on the main actor.
     ///   2. Every mutation against `SessionStore.pairedServers` fires
     ///      `onServersDidChange` → this registry refreshes.
     ///
@@ -295,13 +295,12 @@ final class ServerRegistry: ObservableObject {
         // (typically PairedMacsStoreObservable.shared).
         let priorPairedMacsCallback = PairedMacsStore.shared.onChange
         PairedMacsStore.shared.onChange = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.refreshFromLegacyStores()
-                priorPairedMacsCallback?()
-            }
+            self?.refreshFromLegacyStores()
+            priorPairedMacsCallback?()
         }
         // SessionStore — new hook added for this purpose, no prior
-        // composition needed.
+        // composition needed. This callback may fire off the main
+        // actor, so it still hops before touching the registry.
         SessionStore.shared.onServersDidChange = { [weak self] in
             Task { @MainActor [weak self] in
                 self?.refreshFromLegacyStores()

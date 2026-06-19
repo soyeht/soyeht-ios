@@ -84,6 +84,20 @@ final class ServerRegistryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(registry.count, baseline + 2)
     }
 
+    func testPairedMacLegacyMutationRefreshesRegistrySynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+        pairedMacs.upsertMac(macID: macID, name: "sync-mac", host: "srt-host-sync-mirror.test")
+        createdMacIDs.append(macID)
+
+        XCTAssertTrue(registry.servers.contains(where: { $0.id == serverID }),
+            "PairedMacsStore changes originate on the main actor, so the legacy adapter should refresh ServerRegistry synchronously instead of waiting for another Task turn."
+        )
+        XCTAssertTrue(ServerStore().load().contains(where: { $0.id == serverID }),
+            "The synchronous adapter refresh must also publish the canonical ServerStore row."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {
