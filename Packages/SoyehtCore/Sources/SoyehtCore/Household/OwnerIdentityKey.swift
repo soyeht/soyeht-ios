@@ -171,7 +171,7 @@ public enum SecureEnclaveOwnerIdentityKeyProtection: Sendable {
 }
 
 public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
-    private let servicePrefix: String
+    let servicePrefix: String
     private let protection: SecureEnclaveOwnerIdentityKeyProtection
 
     /// Process-wide LAContext used for biometry-protected owner-identity
@@ -228,7 +228,7 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
     private static func probeSecKeyCreation(
         protection: SecureEnclaveOwnerIdentityKeyProtection
     ) -> Bool {
-        let tag = "com.soyeht.household.owner.probe.\(UUID().uuidString)"
+        let tag = "\(defaultServicePrefix()).probe.\(UUID().uuidString)"
         let accessControlFlags: SecAccessControlCreateFlags = (protection == .biometryCurrentSet)
             ? [.privateKeyUsage, .biometryCurrentSet]
             : [.privateKeyUsage]
@@ -261,8 +261,14 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
     }
     #endif
 
+    public static func defaultServicePrefix(
+        for profile: SoyehtInstallProfile = .current
+    ) -> String {
+        profile.householdOwnerKeyPrefix
+    }
+
     public init(
-        servicePrefix: String = "com.soyeht.household.owner",
+        servicePrefix: String = SecureEnclaveOwnerIdentityKeyProvider.defaultServicePrefix(),
         protection: SecureEnclaveOwnerIdentityKeyProtection = .biometryCurrentSet
     ) {
         self.servicePrefix = servicePrefix

@@ -59,11 +59,17 @@ public actor CRLStore {
     private var lastUpdatedAt: Date?
     private var continuations: [UUID: AsyncStream<RevocationEntry>.Continuation] = [:]
 
-    public init(
-        storage: any HouseholdSecureStoring = KeychainHelper(
-            service: "com.soyeht.household",
+    public static func defaultStorage(
+        for profile: SoyehtInstallProfile = .current
+    ) -> KeychainHelper {
+        KeychainHelper(
+            service: profile.householdKeychainService,
             accessibility: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ),
+        )
+    }
+
+    public init(
+        storage: any HouseholdSecureStoring = CRLStore.defaultStorage(),
         account: String = CRLStore.defaultAccount
     ) throws {
         self.storage = storage

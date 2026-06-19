@@ -22,6 +22,35 @@ final class InMemoryHouseholdStorage: HouseholdSecureStoring, @unchecked Sendabl
     }
 }
 
+final class NamespacedInMemoryHouseholdStorage: HouseholdSecureStoring, @unchecked Sendable {
+    final class Backing: @unchecked Sendable {
+        var valuesByService: [String: [String: Data]] = [:]
+    }
+
+    let service: String
+    private let backing: Backing
+
+    init(service: String, backing: Backing) {
+        self.service = service
+        self.backing = backing
+    }
+
+    func save(_ data: Data, account: String) -> Bool {
+        var values = backing.valuesByService[service] ?? [:]
+        values[account] = data
+        backing.valuesByService[service] = values
+        return true
+    }
+
+    func load(account: String) -> Data? {
+        backing.valuesByService[service]?[account]
+    }
+
+    func delete(account: String) {
+        backing.valuesByService[service]?.removeValue(forKey: account)
+    }
+}
+
 @Suite("HouseholdSessionStore")
 struct HouseholdSessionTests {
     @Test func savesLoadsAndClearsActiveHouseholdState() throws {
@@ -93,5 +122,62 @@ struct HouseholdSessionTests {
         } catch {
             Issue.record("Unexpected error \(error)")
         }
+    }
+
+    @Test func defaultStorageUsesProfileHouseholdNamespace() {
+        #expect(HouseholdSessionStore.defaultStorage(for: .release).service == "com.soyeht.household")
+        #expect(HouseholdSessionStore.defaultStorage(for: .dev).service == "com.soyeht.household.dev")
+    }
+
+    @Test func devAndReleaseSessionStateDoNotShareStorageNamespace() throws {
+        let backing = NamespacedInMemoryHouseholdStorage.Backing()
+        let releaseStorage = NamespacedInMemoryHouseholdStorage(
+            service: SoyehtInstallProfile.release.householdKeychainService,
+            backing: backing
+        )
+        let devStorage = NamespacedInMemoryHouseholdStorage(
+            service: SoyehtInstallProfile.dev.householdKeychainService,
+            backing: backing
+        )
+        let releaseStore = HouseholdSessionStore(storage: releaseStorage, account: "active")
+        let devStore = HouseholdSessionStore(storage: devStorage, account: "active")
+
+        let devState = try makeState(name: "Dev Home", seed: 0x33)
+        let releaseState = try makeState(name: "Release Home", seed: 0x44)
+
+        try devStore.save(devState)
+        #expect(try devStore.load() == devState)
+        #expect(try releaseStore.load() == nil)
+
+        try releaseStore.save(releaseState)
+        #expect(try releaseStore.load() == releaseState)
+        #expect(try devStore.load() == devState)
+
+        devStore.clear()
+        #expect(try devStore.load() == nil)
+        #expect(try releaseStore.load() == releaseState)
+    }
+
+    private func makeState(name: String, seed: UInt8) throws -> ActiveHouseholdState {
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let householdPublicKey = householdKey.publicKey.compressedRepresentation
+        let ownerPublicKey = ownerKey.publicKey.compressedRepresentation
+        let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: ownerPublicKey
+        )
+        return ActiveHouseholdState(
+            householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
+            householdName: name,
+            householdPublicKey: householdPublicKey,
+            endpoint: URL(string: "https://household-\(seed).example")!,
+            ownerPersonId: try HouseholdIdentifiers.personIdentifier(for: ownerPublicKey),
+            ownerPublicKey: ownerPublicKey,
+            ownerKeyReference: "owner-key-\(seed)",
+            personCert: try PersonCert(cbor: certCBOR),
+            pairedAt: Date(timeIntervalSince1970: TimeInterval(seed)),
+            lastSeenAt: nil
+        )
     }
 }
