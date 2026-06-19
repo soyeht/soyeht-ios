@@ -255,13 +255,47 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(existingHouseBranch.contains("setup_claim_ignored_existing_house"))
+        XCTAssertTrue(existingHouseBranch.contains("self.noteExistingHouseClaim()"))
         XCTAssertTrue(existingHouseBranch.contains("return"))
         XCTAssertFalse(existingHouseBranch.contains(".failure"))
         XCTAssertFalse(existingHouseBranch.contains("awaitingNewMac.failure.notFresh"))
+        XCTAssertTrue(claimHandler.contains("self.clearExistingHouseNotice()"))
         XCTAssertTrue(claimHandler.contains("setup_claim_fresh_run_dance"))
         XCTAssertTrue(claimHandler.contains("self.alreadyOrchestrating = true"))
         XCTAssertTrue(claimHandler.contains("self.phase = .orchestrating"))
         XCTAssertTrue(source.contains("await self?.runDance(claim: claim)"))
+    }
+
+    func test_addMacExistingHouseNoticeAppearsOnlyAfterGraceWhileStillLooking() throws {
+        let source = try iosSource("Home/AwaitingNewMacView.swift")
+        let lookingContent = try slice(
+            source,
+            from: "private var lookingContent: some View",
+            to: "private var existingHouseNotice: some View"
+        )
+        let noticeScheduler = try slice(
+            source,
+            from: "private func noteExistingHouseClaim()",
+            to: "private func clearExistingHouseNotice()"
+        )
+        let noticeClearer = try slice(
+            source,
+            from: "private func clearExistingHouseNotice()",
+            to: "private func runDance"
+        )
+
+        XCTAssertTrue(source.contains("@Published private(set) var existingHouseNoticeVisible = false"))
+        XCTAssertTrue(source.contains("private static let existingHouseNoticeDelay: Duration = .seconds(4)"))
+        XCTAssertTrue(lookingContent.contains("viewModel.existingHouseNoticeVisible"))
+        XCTAssertTrue(source.contains("awaitingNewMac.looking.existingHouseNotice"))
+        XCTAssertTrue(noticeScheduler.contains("Task.sleep(for: Self.existingHouseNoticeDelay)"))
+        XCTAssertTrue(noticeScheduler.contains("self.phase == .looking"))
+        XCTAssertTrue(noticeScheduler.contains("!self.alreadyOrchestrating"))
+        XCTAssertTrue(noticeScheduler.contains("self.existingHouseNoticeVisible = true"))
+        XCTAssertTrue(noticeScheduler.contains("setup_claim_existing_house_notice_shown"))
+        XCTAssertTrue(noticeClearer.contains("sawExistingHouseClaim = false"))
+        XCTAssertTrue(noticeClearer.contains("existingHouseNoticeVisible = false"))
+        XCTAssertTrue(noticeClearer.contains("existingHouseNoticeTask?.cancel()"))
     }
 
     func test_debugLocalStateResetClearsLegacyMacStoreAndRegistryMirror() throws {
