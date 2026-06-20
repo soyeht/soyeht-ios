@@ -165,6 +165,32 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
+    func testInstancePickerServerMenuReadsCanonicalInventoryBeforeSessionCredentials() throws {
+        let source = try macSource("InstancePicker/InstancePickerViewController.swift")
+        let buildUI = try slice(
+            source,
+            from: "private func buildUI()",
+            to: "// MARK: - Data Loading"
+        )
+        let serverChanged = try slice(
+            source,
+            from: "@objc private func serverChanged",
+            to: "// MARK: - NSTableViewDataSource"
+        )
+
+        XCTAssertTrue(buildUI.contains("serverChoices = store.canonicalServers().compactMap"))
+        XCTAssertTrue(buildUI.contains("store.context(for: canonicalServer)?.server"))
+        XCTAssertTrue(serverChanged.contains("serverChoices[selectedIdx]"))
+        XCTAssertFalse(
+            buildUI.contains("store.pairedServers"),
+            "The instance picker must enumerate ServerStore canonical inventory and use SessionStore only for credentials."
+        )
+        XCTAssertFalse(
+            serverChanged.contains("store.pairedServers"),
+            "Changing the selected server must use the canonical popup model, not index into legacy pairedServers."
+        )
+    }
+
     func testMacClawStoreDetailOpenTerminalUsesContextBackedMainWindowPath() throws {
         let appDelegate = try macSource("AppDelegate.swift")
         let showStore = try slice(
