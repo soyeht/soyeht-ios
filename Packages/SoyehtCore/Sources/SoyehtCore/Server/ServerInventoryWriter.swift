@@ -2,10 +2,10 @@ import Foundation
 
 // MARK: - Server inventory writer
 //
-// Goal D D3 facade shell. This type centralizes the Core-owned inventory writer
-// surface without changing runtime authority. Existing app call sites are not
-// wired to this type in D3; tests pin parity with the current ServerStore v1
-// behavior before any later adoption slice can move callers behind it.
+// Goal D inventory facade. This type centralizes the Core-owned writer surface
+// without changing live v1 authority. Runtime adoption remains slice-gated:
+// approved callers use v1 parity methods, while shadow/v2 helpers stay
+// read-only.
 
 public struct ServerInventoryWriter: Sendable {
     private let store: ServerStore
