@@ -38,6 +38,27 @@ public final class ClawDetailViewModel: ObservableObject {
         }
     }
 
+    public convenience init(
+        claw: Claw,
+        machineTarget: ClawMachineTarget,
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
+        pairedServerCountProvider: @escaping () -> Int = { ServerStore().load().count }
+    ) {
+        guard let target = machineTarget.apiTarget else {
+            preconditionFailure("ClawDetailViewModel requires a resolved ClawMachineTarget")
+        }
+        self.init(
+            claw: claw,
+            target: target,
+            apiClient: apiClient,
+            sleeper: sleeper,
+            onInstallComplete: onInstallComplete,
+            pairedServerCountProvider: pairedServerCountProvider
+        )
+    }
+
     public init(
         claw: Claw,
         target: ClawAPITarget,

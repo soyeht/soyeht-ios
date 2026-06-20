@@ -29,6 +29,23 @@ public final class ClawStoreViewModel: ObservableObject {
         self.onInstallComplete = onInstallComplete
     }
 
+    public convenience init(
+        machineTarget: ClawMachineTarget,
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+    ) {
+        guard let target = machineTarget.apiTarget else {
+            preconditionFailure("ClawStoreViewModel requires a resolved ClawMachineTarget")
+        }
+        self.init(
+            target: target,
+            apiClient: apiClient,
+            sleeper: sleeper,
+            onInstallComplete: onInstallComplete
+        )
+    }
+
     public init(
         target: ClawAPITarget,
         apiClient: SoyehtAPIClient = .shared,

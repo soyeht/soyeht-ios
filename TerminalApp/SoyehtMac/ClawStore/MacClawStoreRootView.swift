@@ -8,6 +8,7 @@ import SoyehtCore
 /// surfaces the core install lifecycle directly.
 struct MacClawStoreRootView: View {
     let context: ServerContext
+    let target: ClawMachineTarget
     let onOpenTerminal: (String) -> Void
     let onConnectThisMac: () -> Void
     let onShowConnectedServers: () -> Void
@@ -20,11 +21,13 @@ struct MacClawStoreRootView: View {
         onConnectThisMac: @escaping () -> Void = {},
         onShowConnectedServers: @escaping () -> Void = {}
     ) {
+        let target = ClawMachineTarget.server(context)
         self.context = context
+        self.target = target
         self.onOpenTerminal = onOpenTerminal
         self.onConnectThisMac = onConnectThisMac
         self.onShowConnectedServers = onShowConnectedServers
-        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(machineTarget: target))
     }
 
     var body: some View {
@@ -61,6 +64,7 @@ struct MacClawStoreRootView: View {
                         MacClawDetailView(
                             claw: claw,
                             context: context,
+                            target: target,
                             onInstallStateChanged: {
                                 Task { await viewModel.loadClaws() }
                             },
