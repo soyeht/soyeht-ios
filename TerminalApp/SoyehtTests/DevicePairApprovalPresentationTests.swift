@@ -429,6 +429,16 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(resetterBody.contains("deleteAllOwnerKeys(tokenID:"))
     }
 
+    func test_mobileCredentialStoresUseProfileScopedKeychainService() throws {
+        let sessionStore = try coreSource("Store/SessionStore.swift")
+        let pairedMacsStore = try iosSource("Pairing/PairedMacsStore.swift")
+
+        XCTAssertTrue(sessionStore.contains("keychainService: String = SoyehtInstallProfile.current.mobileKeychainService"))
+        XCTAssertTrue(pairedMacsStore.contains("service: SoyehtInstallProfile.current.mobileKeychainService"))
+        XCTAssertFalse(sessionStore.contains("keychainService: String = \"com.soyeht.mobile\""))
+        XCTAssertFalse(pairedMacsStore.contains("service: \"com.soyeht.mobile\""))
+    }
+
     func test_debugLocalStateReportBreaksDownServerSources() throws {
         let source = try iosSource("AppDelegate.swift")
         let reporterBody = try slice(
@@ -460,6 +470,17 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             .deletingLastPathComponent()  // SoyehtTests/
             .deletingLastPathComponent()  // TerminalApp/
         let url = terminalApp.appendingPathComponent("SoyehtMac").appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func coreSource(_ relativePath: String) throws -> String {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // SoyehtTests/
+            .deletingLastPathComponent()  // TerminalApp/
+            .deletingLastPathComponent()  // repo root
+        let url = repoRoot
+            .appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore")
+            .appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
     }
 
