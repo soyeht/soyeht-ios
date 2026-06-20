@@ -160,6 +160,54 @@ final class InstalledClawsProviderTests: XCTestCase {
                        "Claws without a running instance must not appear in the picker — nothing to connect to")
     }
 
+    func test_refresh_fetchesInstancesFromPinnedProviderContextNotApiClientActiveServer() async throws {
+        let providerStore = makeIsolatedSessionStore()
+        let providerServer = PairedServer(
+            id: "provider-server",
+            host: "provider.example.test",
+            name: "provider",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        providerStore.addServer(providerServer, token: "provider-token")
+        providerStore.setActiveServer(id: providerServer.id)
+
+        let apiClientStore = makeIsolatedSessionStore()
+        let activeServer = PairedServer(
+            id: "active-server",
+            host: "active.example.test",
+            name: "active",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        apiClientStore.addServer(activeServer, token: "active-token")
+        apiClientStore.setActiveServer(id: activeServer.id)
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [InstalledClawsMockProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = SoyehtAPIClient(session: session, store: apiClientStore)
+        let provider = InstalledClawsProvider(apiClient: client, sessionStore: providerStore)
+
+        InstalledClawsMockProtocol.configure(
+            clawsJSON: clawsJSONBody(names: ["codex"]),
+            instancesJSON: instancesJSONBody(clawTypes: ["codex"])
+        )
+
+        provider.refresh()
+        await waitUntilLoaded(provider)
+
+        XCTAssertEqual(provider.claws.map(\.name), ["codex"])
+        XCTAssertEqual(InstalledClawsMockProtocol.host(forPathSuffix: "/claws"), "provider.example.test")
+        XCTAssertEqual(
+            InstalledClawsMockProtocol.host(forPathSuffix: "/instances"),
+            "provider.example.test",
+            "InstalledClawsProvider must fetch instances through the same pinned ServerContext used for claws, not SoyehtAPIClient.store's active server."
+        )
+    }
+
     // MARK: - Helpers
 
     /// Builds a provider wired to an isolated SessionStore (populated with
@@ -287,6 +335,7 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var clawsBody: Data = Data("{\"data\":[]}".utf8)
     nonisolated(unsafe) private static var instancesBody: Data = Data("[]".utf8)
     nonisolated(unsafe) private static var statusCode = 200
+    nonisolated(unsafe) private static var hostsByPathSuffix: [String: String] = [:]
 
     static func configure(clawsJSON: Data, instancesJSON: Data, status: Int = 200) {
         lock.lock(); defer { lock.unlock() }
@@ -307,6 +356,12 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
         clawsBody = Data("{\"data\":[]}".utf8)
         instancesBody = Data("[]".utf8)
         statusCode = 200
+        hostsByPathSuffix = [:]
+    }
+
+    static func host(forPathSuffix suffix: String) -> String? {
+        lock.lock(); defer { lock.unlock() }
+        return hostsByPathSuffix[suffix]
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -316,6 +371,12 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
         InstalledClawsMockProtocol.lock.lock()
         let status = InstalledClawsMockProtocol.statusCode
         let path = request.url?.path ?? ""
+        if path.hasSuffix("/claws") {
+            InstalledClawsMockProtocol.hostsByPathSuffix["/claws"] = request.url?.host
+        }
+        if path.hasSuffix("/instances") {
+            InstalledClawsMockProtocol.hostsByPathSuffix["/instances"] = request.url?.host
+        }
         let body: Data = {
             if path.hasSuffix("/claws") { return InstalledClawsMockProtocol.clawsBody }
             if path.hasSuffix("/instances") { return InstalledClawsMockProtocol.instancesBody }
