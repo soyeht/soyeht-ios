@@ -16,6 +16,17 @@ final class JoinExistingSoyehtPresentationTests: XCTestCase {
         XCTAssertFalse(try slice(resolver, from: "case .namedAwaitingPair:", to: "case .recovering:").contains(".chooseJoinOrStart"))
     }
 
+    func test_welcomeRootUsesCredentialedCanonicalServersForPairedState() throws {
+        let source = try macSource("Welcome/WelcomeRootView.swift")
+
+        XCTAssertTrue(source.contains("SessionStore.shared.credentialedCanonicalServers().isEmpty"))
+        XCTAssertTrue(source.contains("!SessionStore.shared.credentialedCanonicalServers().isEmpty"))
+        XCTAssertFalse(
+            source.contains("SessionStore.shared.pairedServers.isEmpty"),
+            "Welcome should decide paired state from canonical ServerStore rows with SessionStore credentials, not the legacy pairedServers list."
+        )
+    }
+
     func test_joinExistingCapabilityUsesStatusVersionOnlyAsSideEffectFreeProbe() throws {
         let source = try macSource("Welcome/Join/JoinExistingCapability.swift")
 
