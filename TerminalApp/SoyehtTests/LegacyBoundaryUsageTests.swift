@@ -342,6 +342,23 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         }
     }
 
+    /// Goal D: detail screens may render native controls, but install/retry/
+    /// deploy/uninstall policy must be shared in SoyehtCore instead of
+    /// re-derived independently by the iOS and macOS detail views.
+    func test_clawDetailViewsUseSharedActionAvailabilityPolicy() throws {
+        let iosDetail = try XCTUnwrap(
+            iosSwiftFiles().first { $0.lastPathComponent == "ClawDetailView.swift" },
+            "expected iOS ClawDetailView.swift"
+        )
+        let macDetail = try XCTUnwrap(
+            macSwiftFiles().first { $0.lastPathComponent == "MacClawDetailView.swift" },
+            "expected macOS MacClawDetailView.swift"
+        )
+
+        XCTAssertTrue(try codeOnly(at: iosDetail).contains("ClawDetailActionAvailability("))
+        XCTAssertTrue(try codeOnly(at: macDetail).contains("ClawDetailActionAvailability("))
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so
