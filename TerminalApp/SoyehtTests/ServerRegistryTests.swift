@@ -222,6 +222,29 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testUpdateMacPairingDisplayNameWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "old-hostname",
+            host: "srt-host-display-name.test"
+        )
+        createdMacIDs.append(macID)
+
+        registry.updateMacPairingDisplayName(macID: macID, name: "new-hostname")
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.name, "new-hostname")
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.hostname, "new-hostname")
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.hostname, "new-hostname",
+            "Presence display-name updates must write the canonical ServerStore synchronously."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {

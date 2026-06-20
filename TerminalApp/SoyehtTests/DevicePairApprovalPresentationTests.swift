@@ -167,6 +167,19 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
     }
 
+    func test_macPresenceClientWritesMacMutationsThroughServerRegistry() throws {
+        let source = try iosSource("Pairing/MacPresenceClient.swift")
+
+        XCTAssertTrue(source.contains("ServerRegistry.shared.updateMacPairingDisplayName(macID: macID, name: name)"))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.remove(serverID: macID.uuidString)"))
+        XCTAssertFalse(source.contains("PairedMacsStore.shared.updateDisplayName("),
+            "Presence display-name updates must publish through ServerRegistry so ServerStore stays canonical."
+        )
+        XCTAssertFalse(source.contains("PairedMacsStore.shared.remove(macID: macID)"),
+            "Presence revocation must remove through ServerRegistry so ServerStore and legacy cleanup stay in one funnel."
+        )
+    }
+
     func test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let startMacBrowser = try slice(

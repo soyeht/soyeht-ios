@@ -168,6 +168,15 @@ final class ServerRegistry: ObservableObject {
         refreshFromLegacyStores()
     }
 
+    /// Updates the diagnostic hostname/display label reported by the
+    /// Mac presence stream. User-facing aliases are still changed only
+    /// through `rename`; this mutator keeps the legacy hostname and
+    /// canonical `Server.hostname` projection in sync.
+    func updateMacPairingDisplayName(macID: UUID, name: String) {
+        PairedMacsStore.shared.updateDisplayName(macID: macID, name: name)
+        refreshFromLegacyStores()
+    }
+
     /// Renames a paired server (Mac or Linux). Dispatches to the
     /// owning legacy store so its Keychain entries and adapters stay
     /// consistent, then writes the canonical `ServerStore`
