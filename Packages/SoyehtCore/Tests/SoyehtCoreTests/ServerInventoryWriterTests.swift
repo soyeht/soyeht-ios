@@ -257,10 +257,11 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertFalse(source.contains("saveV2Envelope"))
     }
 
-    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToServerRegistryInD4() throws {
+    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedD5Files() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
+            "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
             "TerminalApp/Soyeht/Server/ServerRegistry.swift",
         ]
         let offenders = try productionSwiftFiles(root: root).filter { relativePath in
@@ -270,7 +271,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "D4 may adopt ServerInventoryWriter only inside ServerRegistry. Offending files: \(offenders)"
+            "D5 may adopt ServerInventoryWriter only inside approved inventory boundaries. Offending files: \(offenders)"
         )
     }
 
@@ -303,6 +304,40 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    func test_sessionStoreUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift")
+        )
+        let required = [
+            "private let inventoryWriter: ServerInventoryWriter",
+            "ServerInventoryWriter(store:",
+            "inventoryWriter.upsertLegacyProjection(",
+            "inventoryWriter.remove(id:",
+            "inventoryWriter.load()",
+        ]
+        let forbidden = [
+            "serverStore.upsertLegacyProjection(",
+            "serverStore.remove(id:",
+            "serverStore.load(",
+            "serverStore.upsert(",
+            "serverStore.migrateLegacyIfNeeded(",
+            "serverStore.reconcile(with:",
+            "shadowCompare(",
+            "makeV2Envelope(",
+            "projectV1Servers(",
+            "loadV2Envelope(",
+            "saveV2Envelope(",
+        ]
+
+        XCTAssertFalse(required.contains { !source.contains($0) },
+            "SessionStore must delegate v1 inventory reads/writes through ServerInventoryWriter in D5."
+        )
+        XCTAssertFalse(forbidden.contains { source.contains($0) },
+            "SessionStore must not directly call ServerStore writes/reads or v2/shadow helpers in D5."
+        )
+    }
+
     func test_serverStoreWriteCallsStayOnKnownBoundaryFiles() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
@@ -328,7 +363,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "ServerStore write calls must stay behind known boundaries in D3. Offending files: \(offenders)"
+            "ServerStore write calls must stay behind known boundaries in D5. Offending files: \(offenders)"
         )
     }
 
