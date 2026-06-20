@@ -67,6 +67,23 @@ public struct ServerStore: Sendable {
         return current
     }
 
+    /// Upserts a projection emitted by a legacy adapter such as
+    /// `SessionStore.pairedServers`. If a canonical row already exists,
+    /// preserve fields owned by the canonical store (`theyOS`, explicit
+    /// endpoints, newer `lastSeenAt`) using the same merge semantics as
+    /// `reconcile(with:)`.
+    @discardableResult
+    public func upsertLegacyProjection(_ server: Server) -> [Server] {
+        var current = load()
+        if let idx = current.firstIndex(where: { $0.id == server.id }) {
+            current[idx] = mergeLegacySeed(server, preservingCanonicalFieldsFrom: current[idx])
+        } else {
+            current.append(server)
+        }
+        save(current)
+        return current
+    }
+
     @discardableResult
     public func remove(id: String) -> [Server] {
         var current = load()
@@ -119,13 +136,19 @@ public struct ServerStore: Sendable {
         )
     }
 
-    /// Replaces the v1 store contents with `seed`, after collapsing
+    /// Replaces the v1 store membership with `seed`, after collapsing
     /// duplicate `kind == .mac` entries. Idempotent — calling it twice
     /// with the same `seed` produces the same persisted state. Unlike
-    /// `migrateLegacyIfNeeded`, this runs every time (no sentinel) and
-    /// does NOT preserve v1-only entries that aren't in `seed`. Used by
-    /// `ServerRegistry.refreshFromLegacyStores()` to mirror the legacy
-    /// stores after each external mutation (new pair, rename, remove).
+    /// `migrateLegacyIfNeeded`, this runs every time (no sentinel).
+    ///
+    /// Entries absent from `seed` are removed, but entries present in
+    /// both `seed` and the canonical v1 store preserve fields owned by
+    /// the canonical store (`theyOS`, explicit endpoints, and newer
+    /// last-seen data). This lets legacy stores remain membership /
+    /// credential adapters without allowing a mirror refresh to erase
+    /// status data written through `ServerRegistry.updateTheyOSStatus`.
+    /// Used by `ServerRegistry.refreshFromLegacyStores()` after each
+    /// external legacy mutation (new pair, rename, remove).
     ///
     /// `seed` should be the union of every legacy store's current
     /// state, converted to `Server` via the per-store `toServer()`
@@ -133,12 +156,19 @@ public struct ServerStore: Sendable {
     /// path — see `collapseMacDuplicates` below.
     @discardableResult
     public func reconcile(with seed: [Server], secretOwnedIDs: Set<String> = []) -> [Server] {
+        let existingByID = Dictionary(uniqueKeysWithValues: load().map { ($0.id, $0) })
         var unique: [String: Server] = [:]
         for s in seed {
-            if let prior = unique[s.id], prior.lastSeenAt >= s.lastSeenAt {
+            let candidate: Server
+            if let existing = existingByID[s.id] {
+                candidate = mergeLegacySeed(s, preservingCanonicalFieldsFrom: existing)
+            } else {
+                candidate = s
+            }
+            if let prior = unique[candidate.id], prior.lastSeenAt >= candidate.lastSeenAt {
                 continue
             }
-            unique[s.id] = s
+            unique[candidate.id] = candidate
         }
         let dedup = collapseMacDuplicates(Array(unique.values), secretOwnedIDs: secretOwnedIDs)
         save(dedup.servers)
@@ -146,6 +176,32 @@ public struct ServerStore: Sendable {
     }
 
     // MARK: - Internals
+
+    /// Merges a legacy-store projection into an existing canonical row.
+    /// Legacy fields still own membership and credentials-facing values
+    /// such as host/name/ports, while canonical-only enrichment survives
+    /// refreshes from legacy stores.
+    private func mergeLegacySeed(_ seed: Server, preservingCanonicalFieldsFrom existing: Server) -> Server {
+        Server(
+            id: seed.id,
+            kind: seed.kind,
+            pairedAt: min(seed.pairedAt, existing.pairedAt),
+            lastSeenAt: max(seed.lastSeenAt, existing.lastSeenAt),
+            alias: seed.alias ?? existing.alias,
+            hostname: seed.hostname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? existing.hostname
+                : seed.hostname,
+            lastHost: seed.lastHost ?? existing.lastHost,
+            engineMachineId: seed.engineMachineId ?? existing.engineMachineId,
+            theyOS: existing.theyOS,
+            apiEndpoint: seed.apiEndpoint ?? existing.apiEndpoint,
+            bootstrapEndpoint: seed.bootstrapEndpoint ?? existing.bootstrapEndpoint,
+            presencePort: seed.presencePort ?? existing.presencePort,
+            attachPort: seed.attachPort ?? existing.attachPort,
+            role: seed.role ?? existing.role,
+            sessionExpiresAt: seed.sessionExpiresAt ?? existing.sessionExpiresAt
+        )
+    }
 
     /// Result of the Mac-collapse pass — the deduped server array and
     /// how many entries were collapsed (for telemetry only).

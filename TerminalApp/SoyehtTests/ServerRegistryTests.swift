@@ -84,6 +84,167 @@ final class ServerRegistryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(registry.count, baseline + 2)
     }
 
+    func testPairedMacLegacyMutationRefreshesRegistrySynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+        pairedMacs.upsertMac(macID: macID, name: "sync-mac", host: "srt-host-sync-mirror.test")
+        createdMacIDs.append(macID)
+
+        XCTAssertTrue(registry.servers.contains(where: { $0.id == serverID }),
+            "PairedMacsStore changes originate on the main actor, so the legacy adapter should refresh ServerRegistry synchronously instead of waiting for another Task turn."
+        )
+        XCTAssertTrue(ServerStore().load().contains(where: { $0.id == serverID }),
+            "The synchronous adapter refresh must also publish the canonical ServerStore row."
+        )
+    }
+
+    func testUpsertMacPairingWritesLegacyAndCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "funnel-mac",
+            host: "srt-host-upsert-funnel.test",
+            presencePort: 1234,
+            attachPort: 5678,
+            engineMachineId: "machine-funnel"
+        )
+        createdMacIDs.append(macID)
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.name, "funnel-mac",
+            "The registry funnel must keep the legacy Mac adapter populated for pairing-secret and presence-client compatibility."
+        )
+        XCTAssertEqual(legacy?.presencePort, 1234)
+        XCTAssertEqual(legacy?.attachPort, 5678)
+
+        let canonical = registry.server(id: serverID)
+        XCTAssertEqual(canonical?.displayName, "funnel-mac")
+        XCTAssertEqual(canonical?.lastHost, "srt-host-upsert-funnel.test")
+        XCTAssertEqual(canonical?.presencePort, 1234)
+        XCTAssertEqual(canonical?.attachPort, 5678)
+        XCTAssertEqual(canonical?.engineMachineId, "machine-funnel")
+        XCTAssertTrue(ServerStore().load().contains(where: { $0.id == serverID }),
+            "Mac pairing through the registry must publish a canonical ServerStore row synchronously."
+        )
+    }
+
+    func testDefaultMacAliasWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "default-alias-source",
+            host: "srt-host-default-alias.test"
+        )
+        createdMacIDs.append(macID)
+
+        let result = registry.setDefaultMacAliasIfNeeded(
+            macID: macID,
+            suggestedAlias: "Studio Mac"
+        )
+        XCTAssertEqual(result, .success)
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.alias, "Studio Mac",
+            "The registry funnel must still delegate generated Mac aliases to the legacy alias validator."
+        )
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.alias, "Studio Mac",
+            "Generated pairing aliases must publish to ServerRegistry synchronously."
+        )
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.alias, "Studio Mac",
+            "Generated pairing aliases must write the canonical ServerStore synchronously."
+        )
+    }
+
+    func testUpdateMacPairingEndpointsWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "endpoint-source",
+            host: nil
+        )
+        createdMacIDs.append(macID)
+
+        registry.updateMacPairingEndpoints(
+            macID: macID,
+            host: "srt-host-updated-endpoint.test",
+            presencePort: 2468,
+            attachPort: 3579
+        )
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(legacy?.presencePort, 2468)
+        XCTAssertEqual(legacy?.attachPort, 3579)
+
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(published?.presencePort, 2468)
+        XCTAssertEqual(published?.attachPort, 3579)
+
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(persisted?.presencePort, 2468)
+        XCTAssertEqual(persisted?.attachPort, 3579)
+    }
+
+    func testMarkMacPairingSeenWritesCanonicalStoreSynchronously() throws {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "last-seen-source",
+            host: "srt-host-last-seen.test"
+        )
+        createdMacIDs.append(macID)
+        let before = try XCTUnwrap(registry.server(id: serverID)?.lastSeenAt)
+
+        Thread.sleep(forTimeInterval: 0.01)
+        registry.markMacPairingSeen(macID: macID)
+
+        let legacy = try XCTUnwrap(pairedMacs.macs.first(where: { $0.macID == macID }))
+        XCTAssertGreaterThan(legacy.lastSeenAt, before)
+        let published = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertGreaterThan(published.lastSeenAt, before,
+            "Mac pairing lastSeen updates must publish to ServerRegistry synchronously."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == serverID }))
+        XCTAssertGreaterThan(persisted.lastSeenAt, before,
+            "Mac pairing lastSeen updates must write ServerStore synchronously."
+        )
+    }
+
+    func testUpdateMacPairingDisplayNameWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "old-hostname",
+            host: "srt-host-display-name.test"
+        )
+        createdMacIDs.append(macID)
+
+        registry.updateMacPairingDisplayName(macID: macID, name: "new-hostname")
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.name, "new-hostname")
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.hostname, "new-hostname")
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.hostname, "new-hostname",
+            "Presence display-name updates must write the canonical ServerStore synchronously."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {
@@ -138,6 +299,46 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testRename_macWritesCanonicalStoreSynchronously() async throws {
+        let macID = try await seedMac(host: "srt-host-rename-canonical-mac.test", name: "canonical-source")
+
+        let result = registry.rename(serverID: macID.uuidString, to: "Canonical Mac")
+        XCTAssertEqual(result, .success)
+
+        let published = try XCTUnwrap(registry.server(id: macID.uuidString))
+        XCTAssertEqual(published.alias, "Canonical Mac",
+            "Registry-initiated Mac renames must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == macID.uuidString }))
+        XCTAssertEqual(persisted.alias, "Canonical Mac",
+            "Registry-initiated Mac renames must write the canonical ServerStore synchronously."
+        )
+        let legacy = try XCTUnwrap(pairedMacs.macs.first(where: { $0.macID == macID }))
+        XCTAssertEqual(legacy.alias, "Canonical Mac",
+            "The legacy Mac store still receives the mutation for pairing-secret compatibility."
+        )
+    }
+
+    func testRename_linuxWritesCanonicalStoreSynchronously() async throws {
+        let linuxID = try await seedLinux(host: "srt-host-rename-canonical-linux.test", name: "linux-canonical-source")
+
+        let result = registry.rename(serverID: linuxID, to: "Canonical Linux")
+        XCTAssertEqual(result, .success)
+
+        let published = try XCTUnwrap(registry.server(id: linuxID))
+        XCTAssertEqual(published.displayName, "Canonical Linux",
+            "Registry-initiated Linux renames must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == linuxID }))
+        XCTAssertEqual(persisted.displayName, "Canonical Linux",
+            "Registry-initiated Linux renames must write the canonical ServerStore synchronously."
+        )
+        let legacy = try XCTUnwrap(sessionStore.pairedServers.first(where: { $0.id == linuxID }))
+        XCTAssertEqual(legacy.name, "Canonical Linux",
+            "The legacy session store still receives the mutation for credential compatibility."
+        )
+    }
+
     func testRename_rejectsDuplicateAcrossKinds() async throws {
         let macID = try await seedMac(host: "srt-host-rename-dup-mac.test", name: "dup-source")
         let linuxID = try await seedLinux(host: "srt-host-rename-dup-linux.test", name: "linux-dup-source")
@@ -149,6 +350,23 @@ final class ServerRegistryTests: XCTestCase {
         guard case .duplicate = result else {
             return XCTFail("Cross-kind alias collision must yield .duplicate, got \(result). The Mac kept the alias; the Linux rename must be rejected.")
         }
+    }
+
+    func testRename_rejectsDuplicateVisibleNameAcrossKinds() async throws {
+        let macID = try await seedMac(host: "srt-host-rename-visible-dup-mac.test", name: "Visible Name")
+        let linuxID = try await seedLinux(host: "srt-host-rename-visible-dup-linux.test", name: "linux-visible-source")
+
+        let result = registry.rename(serverID: linuxID, to: "Visible Name")
+        guard case .duplicate = result else {
+            return XCTFail("Cross-kind display-name collision must yield .duplicate, got \(result).")
+        }
+
+        let mac = try XCTUnwrap(registry.server(id: macID.uuidString))
+        XCTAssertEqual(mac.displayName, "Visible Name")
+        let linux = try XCTUnwrap(registry.server(id: linuxID))
+        XCTAssertEqual(linux.displayName, "linux-visible-source",
+            "Rejected duplicate renames must not mutate the canonical registry row."
+        )
     }
 
     func testRename_rejectsEmptyAlias() async throws {
@@ -203,12 +421,64 @@ final class ServerRegistryTests: XCTestCase {
         XCTAssertFalse(registry.servers.contains(where: { $0.id == linuxID }))
     }
 
+    func testRemove_macDropsCanonicalStoreSynchronously() async throws {
+        let macID = try await seedMac(host: "srt-host-remove-canonical-mac.test", name: "remove-canonical-source")
+        let serverID = macID.uuidString
+
+        registry.remove(serverID: serverID)
+        createdMacIDs.removeAll { $0 == macID }
+
+        XCTAssertFalse(registry.servers.contains(where: { $0.id == serverID }),
+            "Registry-initiated Mac removals must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        XCTAssertFalse(ServerStore().load().contains(where: { $0.id == serverID }),
+            "Registry-initiated Mac removals must drop the canonical ServerStore row synchronously."
+        )
+        XCTAssertFalse(pairedMacs.macs.contains(where: { $0.macID == macID }),
+            "The legacy Mac store still receives the removal for pairing-secret cleanup."
+        )
+    }
+
+    func testRemove_linuxDropsCanonicalStoreSynchronously() async throws {
+        let linuxID = try await seedLinux(host: "srt-host-remove-canonical-linux.test", name: "remove-canonical-linux")
+
+        registry.remove(serverID: linuxID)
+        createdSessionServerIDs.removeAll { $0 == linuxID }
+
+        XCTAssertFalse(registry.servers.contains(where: { $0.id == linuxID }),
+            "Registry-initiated Linux removals must publish immediately instead of waiting for the legacy mirror callback."
+        )
+        XCTAssertFalse(ServerStore().load().contains(where: { $0.id == linuxID }),
+            "Registry-initiated Linux removals must drop the canonical ServerStore row synchronously."
+        )
+        XCTAssertFalse(sessionStore.pairedServers.contains(where: { $0.id == linuxID }),
+            "The legacy session store still receives the removal for credential cleanup."
+        )
+    }
+
     func testRemove_unknownIDIsNoOp() {
         let countBefore = registry.count
         registry.remove(serverID: "srt-id-that-does-not-exist")
         XCTAssertEqual(registry.count, countBefore,
             "Removing an unknown id silently no-ops; matches the legacy stores' contract."
         )
+    }
+
+    func testRefreshFromLegacyStoresPreservesCanonicalTheyOSStatus() async throws {
+        let macID = try await seedMac(host: "srt-host-status-refresh.test", name: "status-source")
+        let serverID = macID.uuidString
+
+        registry.updateTheyOSStatus(serverID: serverID, status: .running, version: "0.1.21")
+        let updated = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertEqual(updated.theyOS.status, .running)
+
+        registry.refreshFromLegacyStores()
+
+        let refreshed = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertEqual(refreshed.theyOS.status, .running,
+            "Legacy mirror refreshes must not erase canonical theyOS status written by the registry."
+        )
+        XCTAssertEqual(refreshed.theyOS.version, "0.1.21")
     }
 
     // MARK: - secret-aware mirror

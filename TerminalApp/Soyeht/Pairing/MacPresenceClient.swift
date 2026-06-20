@@ -353,7 +353,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
         reconnectAttempt = 0
         if let name = json["display_name"] as? String, !name.isEmpty {
             displayName = name
-            PairedMacsStore.shared.updateDisplayName(macID: macID, name: name)
+            ServerRegistry.shared.updateMacPairingDisplayName(macID: macID, name: name)
         }
         presenceClientLogger.log("presence_authenticated mac_id=\(self.macID.uuidString, privacy: .public)")
     }
@@ -361,7 +361,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
     private func handlePanesSnapshot(_ json: [String: Any]) {
         if let name = json["display_name"] as? String, !name.isEmpty {
             displayName = name
-            PairedMacsStore.shared.updateDisplayName(macID: macID, name: name)
+            ServerRegistry.shared.updateMacPairingDisplayName(macID: macID, name: name)
         }
         let list = (json["panes"] as? [[String: Any]]) ?? []
         panes = list.compactMap { PaneEntry.from(json: $0) }
@@ -457,7 +457,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
         status = .offline("denied:\(reason)")
         // Unknown device / revoked → drop local secret so a fresh QR can re-pair.
         if reason == PairingDenyReason.revoked || reason == PairingDenyReason.unknownDevice {
-            PairedMacsStore.shared.remove(macID: macID)
+            ServerRegistry.shared.remove(serverID: macID.uuidString)
         }
         cancelled = true
         disconnect()

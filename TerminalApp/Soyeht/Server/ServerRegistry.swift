@@ -98,10 +98,90 @@ final class ServerRegistry: ObservableObject {
         servers = store.upsert(server)
     }
 
+    /// Records a Mac learned through the legacy local-pairing protocol.
+    /// `PairedMacsStore` remains the credential/secret adapter, but the
+    /// registry is the mutation funnel for the unified server list. This
+    /// keeps pairing flows from depending on an async mirror turn before
+    /// `ServerStore` reflects the new Mac.
+    func upsertMacPairing(
+        macID: UUID,
+        name: String,
+        host: String?,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil,
+        engineMachineId: String? = nil
+    ) {
+        PairedMacsStore.shared.upsertMac(
+            macID: macID,
+            name: name,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort,
+            engineMachineId: engineMachineId
+        )
+        // `PairedMacsStore.onChange` is wired in production, but this
+        // explicit refresh makes the funnel synchronous even in tests
+        // and early-startup call sites where the mirror is not installed.
+        refreshFromLegacyStores()
+    }
+
+    /// Sets the generated first-pairing alias for a Mac that still
+    /// needs a user-facing name. The legacy Mac store still owns the
+    /// alias validator and generated-name collision handling, but the
+    /// registry remains the public mutation funnel and publishes the
+    /// resulting `ServerStore` row synchronously.
+    @discardableResult
+    func setDefaultMacAliasIfNeeded(macID: UUID, suggestedAlias: String) -> SetAliasResult {
+        let result = PairedMacsStore.shared.setDefaultAliasIfNeeded(
+            macID: macID,
+            suggestedAlias: suggestedAlias
+        )
+        guard result == .success else { return result }
+        refreshFromLegacyStores()
+        return .success
+    }
+
+    /// Updates the Mac-local pairing endpoints learned during resume /
+    /// pair-accept. The legacy store still persists the transport hints
+    /// used by the presence client, but the canonical `ServerStore`
+    /// projection is refreshed in the same turn.
+    func updateMacPairingEndpoints(
+        macID: UUID,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        PairedMacsStore.shared.updateEndpoints(
+            macID: macID,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+        refreshFromLegacyStores()
+    }
+
+    /// Records a successful Mac-local pairing/resume observation.
+    /// Kept as a registry mutator so `Server.lastSeenAt` advances
+    /// synchronously with the legacy Mac adapter.
+    func markMacPairingSeen(macID: UUID) {
+        PairedMacsStore.shared.updateLastSeen(macID: macID)
+        refreshFromLegacyStores()
+    }
+
+    /// Updates the diagnostic hostname/display label reported by the
+    /// Mac presence stream. User-facing aliases are still changed only
+    /// through `rename`; this mutator keeps the legacy hostname and
+    /// canonical `Server.hostname` projection in sync.
+    func updateMacPairingDisplayName(macID: UUID, name: String) {
+        PairedMacsStore.shared.updateDisplayName(macID: macID, name: name)
+        refreshFromLegacyStores()
+    }
+
     /// Renames a paired server (Mac or Linux). Dispatches to the
     /// owning legacy store so its Keychain entries and adapters stay
-    /// consistent; the registry mirror picks up the change via
-    /// `installLegacyMirror()` and re-publishes `servers`.
+    /// consistent, then writes the canonical `ServerStore`
+    /// synchronously. The legacy mirror remains a compatibility
+    /// fallback for changes that originate outside the registry.
     ///
     /// Validation runs at this layer (`MacAliasValidator` + case-
     /// insensitive uniqueness across **all** kinds) BEFORE the
@@ -126,7 +206,7 @@ final class ServerRegistry: ObservableObject {
         }
         if let conflict = servers.first(where: {
             $0.id != serverID
-                && ($0.alias?.localizedCaseInsensitiveCompare(trimmed) == .orderedSame)
+                && $0.displayName.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
         }) {
             return .duplicate(conflictingMacID: UUID(uuidString: conflict.id) ?? UUID())
         }
@@ -142,15 +222,21 @@ final class ServerRegistry: ObservableObject {
             // expected; any other result is forwarded as-is so the
             // call site sees a consistent error surface.
             let result = PairedMacsStore.shared.setAlias(macID: macUUID, alias: trimmed)
-            return result
+            guard result == .success else { return result }
+            var updated = target
+            updated.alias = trimmed
+            servers = store.upsert(updated)
+            return .success
         case .linux:
-            // SessionStore.renameServer is a `void` mutator; absence
-            // of a typed result enum means we infer success from the
-            // mirror picking up the change. Trim-empty was already
-            // rejected by `MacAliasValidator` above, so the rename
-            // can't be a no-op silently. The mirror callback handles
-            // republishing `servers`.
+            // SessionStore.renameServer is still called for legacy
+            // credentials/context compatibility, but the registry no
+            // longer waits for its mirror callback to publish the
+            // canonical rename.
             SessionStore.shared.renameServer(id: target.id, name: trimmed)
+            var updated = target
+            updated.hostname = trimmed
+            updated.alias = nil
+            servers = store.upsert(updated)
             return .success
         }
     }
@@ -160,7 +246,8 @@ final class ServerRegistry: ObservableObject {
     /// (Keychain `pairing_secret.{macID}` for Macs, `server_tokens`
     /// row for Linux, local commander claims, navigation state
     /// cleanup) all fire through the existing well-tested paths. The
-    /// registry mirror picks up the change.
+    /// canonical `ServerStore` removal is published synchronously; the
+    /// registry mirror remains for legacy-originated removals.
     ///
     /// Returns silently for unknown ids — matches the existing
     /// `SessionStore.removeServer` and `PairedMacsStore.remove`
@@ -170,11 +257,13 @@ final class ServerRegistry: ObservableObject {
         guard let target = server(id: serverID) else { return }
         switch target.kind {
         case .mac:
-            guard let macUUID = UUID(uuidString: target.id) else { return }
-            PairedMacsStore.shared.remove(macID: macUUID)
+            if let macUUID = UUID(uuidString: target.id) {
+                PairedMacsStore.shared.remove(macID: macUUID)
+            }
         case .linux:
             SessionStore.shared.removeServer(id: target.id)
         }
+        servers = store.remove(id: target.id)
     }
 
     /// Updates the cached theyOS snapshot for a server. Called by
@@ -272,7 +361,7 @@ final class ServerRegistry: ObservableObject {
     ///
     ///   1. Every mutation against `PairedMacsStore` (add a new Mac,
     ///      rename, remove) fires `onChange` → composed callback →
-    ///      this registry refreshes.
+    ///      this registry refreshes synchronously on the main actor.
     ///   2. Every mutation against `SessionStore.pairedServers` fires
     ///      `onServersDidChange` → this registry refreshes.
     ///
@@ -285,13 +374,12 @@ final class ServerRegistry: ObservableObject {
         // (typically PairedMacsStoreObservable.shared).
         let priorPairedMacsCallback = PairedMacsStore.shared.onChange
         PairedMacsStore.shared.onChange = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.refreshFromLegacyStores()
-                priorPairedMacsCallback?()
-            }
+            self?.refreshFromLegacyStores()
+            priorPairedMacsCallback?()
         }
         // SessionStore — new hook added for this purpose, no prior
-        // composition needed.
+        // composition needed. This callback may fire off the main
+        // actor, so it still hops before touching the registry.
         SessionStore.shared.onServersDidChange = { [weak self] in
             Task { @MainActor [weak self] in
                 self?.refreshFromLegacyStores()

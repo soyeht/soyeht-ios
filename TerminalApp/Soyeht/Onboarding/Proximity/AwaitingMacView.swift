@@ -828,14 +828,17 @@ final class AwaitingMacViewModel: ObservableObject {
 func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
     let store = PairedMacsStore.shared
     store.storeSecret(pairing.secret, for: pairing.macID)
-    store.upsertMac(
+    ServerRegistry.shared.upsertMacPairing(
         macID: pairing.macID,
         name: pairing.macName,
         host: pairing.host,
         presencePort: pairing.presencePort,
         attachPort: pairing.attachPort
     )
-    _ = store.setDefaultAliasIfNeeded(macID: pairing.macID, suggestedAlias: pairing.macName)
+    _ = ServerRegistry.shared.setDefaultMacAliasIfNeeded(
+        macID: pairing.macID,
+        suggestedAlias: pairing.macName
+    )
     PairedMacRegistry.shared.reconcileClients()
 }
 

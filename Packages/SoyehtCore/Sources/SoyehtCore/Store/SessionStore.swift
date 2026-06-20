@@ -257,6 +257,7 @@ public final class SessionStore: ObservableObject {
     private let keychainTokenKey = "session_token"
     private let keychainServerTokensKey = "server_tokens"
     private let defaults: UserDefaults
+    private let serverStore: ServerStore
 
     private func withStorageLock<T>(_ body: () throws -> T) rethrows -> T {
         Self.storageLock.lock()
@@ -274,9 +275,14 @@ public final class SessionStore: ObservableObject {
         static let navigationState = "soyeht.navigationState"
     }
 
-    public init(defaults: UserDefaults = .standard, keychainService: String = "com.soyeht.mobile") {
+    public init(
+        defaults: UserDefaults = .standard,
+        keychainService: String = "com.soyeht.mobile",
+        serverStore: ServerStore? = nil
+    ) {
         self.defaults = defaults
         self.keychainService = keychainService
+        self.serverStore = serverStore ?? ServerStore(defaults: defaults)
         migrateIfNeeded()
     }
 
@@ -365,18 +371,19 @@ public final class SessionStore: ObservableObject {
             saveTokenForServer(id: stored.id, token: token)
             return stored
         }
+        serverStore.upsertLegacyProjection(result.toServer())
         onServersDidChange?()
         return result
     }
 
     public func renameServer(id: String, name: String) {
-        let didMutate: Bool = withStorageLock {
+        let updated: PairedServer? = withStorageLock {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return false }
+            guard !trimmed.isEmpty else { return nil }
             var servers = pairedServers
-            guard let index = servers.firstIndex(where: { $0.id == id }) else { return false }
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return nil }
             let existing = servers[index]
-            servers[index] = PairedServer(
+            let stored = PairedServer(
                 id: existing.id,
                 host: existing.host,
                 name: trimmed,
@@ -387,16 +394,20 @@ public final class SessionStore: ObservableObject {
                 kind: existing.kind,
                 engineMachineId: existing.engineMachineId
             )
+            servers[index] = stored
             pairedServers = servers
-            return true
+            return stored
         }
-        if didMutate { onServersDidChange?() }
+        if let updated {
+            serverStore.upsertLegacyProjection(updated.toServer())
+            onServersDidChange?()
+        }
     }
 
     public func updateServerMetadata(id: String, name: String?, platform: String?, engineMachineId: String? = nil) {
-        let didMutate: Bool = withStorageLock {
+        let updated: PairedServer? = withStorageLock {
             var servers = pairedServers
-            guard let index = servers.firstIndex(where: { $0.id == id }) else { return false }
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return nil }
 
             let existing = servers[index]
             let resolvedPlatform = platform ?? existing.platform
@@ -409,7 +420,7 @@ public final class SessionStore: ObservableObject {
                 ? resolvedName
                 : existing.name
 
-            servers[index] = PairedServer(
+            let stored = PairedServer(
                 id: existing.id,
                 host: existing.host,
                 name: storedName,
@@ -420,10 +431,14 @@ public final class SessionStore: ObservableObject {
                 kind: existing.kind,
                 engineMachineId: PairedServer.normalizedEngineMachineId(engineMachineId) ?? existing.engineMachineId
             )
+            servers[index] = stored
             pairedServers = servers
-            return true
+            return stored
         }
-        if didMutate { onServersDidChange?() }
+        if let updated {
+            serverStore.upsertLegacyProjection(updated.toServer())
+            onServersDidChange?()
+        }
     }
 
     public func removeServer(id: String) {
@@ -444,7 +459,10 @@ public final class SessionStore: ObservableObject {
             }
             return true
         }
-        if didMutate { onServersDidChange?() }
+        if didMutate {
+            serverStore.remove(id: id)
+            onServersDidChange?()
+        }
     }
 
     public func setActiveServer(id: String) {

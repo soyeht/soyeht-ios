@@ -34,11 +34,11 @@ hostname while the user has not chosen one. The only place `mac.name`
 appears in the UI is the **pre-fill value of the naming field**, and that
 is already handled inside `MacAliasView.init`.
 
-### Rule 2 — Always mutate alias through `PairedMacsStore.setAlias`
+### Rule 2 — UI alias changes go through `ServerRegistry.rename`
 
 ```swift
 // CORRECT
-switch PairedMacsStore.shared.setAlias(macID: mac.macID, alias: input) {
+switch ServerRegistry.shared.rename(serverID: mac.macID.uuidString, to: input) {
 case .success: ...
 case .duplicate(let conflictingMacID): show duplicate-name error
 case .invalid(let reason): show validation error
@@ -49,7 +49,9 @@ case .unknownMac: dismiss
 store.macs[idx].alias = "..."   // bypasses validation + dedup
 ```
 
-`setAlias` is the single funnel that enforces:
+`ServerRegistry.rename` is the UI-facing funnel. It delegates Mac rows to
+`PairedMacsStore.setAlias` for the legacy validation contract, then writes the
+canonical `ServerStore` row synchronously. The legacy `setAlias` still enforces:
 
 1. trim + non-empty + length ≤ `MacAliasRules.maxLength` + no forbidden
    characters (validation lives in `MacAliasValidator.validate`);
@@ -87,7 +89,7 @@ servers with no matching Mac.
   add a test, update the error switch in `MacAliasView.submit`. Do not
   scatter validation across views.
 - Adding a new duplicate-detection scope (e.g. across households): extend
-  the check inside `PairedMacsStore.setAlias` — single mutator.
+  the check inside `ServerRegistry.rename` and the legacy Mac adapter.
 
 ## Files
 
