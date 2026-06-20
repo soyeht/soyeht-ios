@@ -130,6 +130,37 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testDefaultMacAliasWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "default-alias-source",
+            host: "srt-host-default-alias.test"
+        )
+        createdMacIDs.append(macID)
+
+        let result = registry.setDefaultMacAliasIfNeeded(
+            macID: macID,
+            suggestedAlias: "Studio Mac"
+        )
+        XCTAssertEqual(result, .success)
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.alias, "Studio Mac",
+            "The registry funnel must still delegate generated Mac aliases to the legacy alias validator."
+        )
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.alias, "Studio Mac",
+            "Generated pairing aliases must publish to ServerRegistry synchronously."
+        )
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.alias, "Studio Mac",
+            "Generated pairing aliases must write the canonical ServerStore synchronously."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {

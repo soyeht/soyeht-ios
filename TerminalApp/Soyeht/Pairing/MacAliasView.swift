@@ -8,10 +8,10 @@ import SoyehtCore
 // surface ever shows the hostname (e.g. "macStudio") after onboarding —
 // every Mac the user sees must already have a user-typed name.
 //
-// The single mutator is `PairedMacsStore.setAlias`, which enforces validation
-// rules (see `MacAliasValidator`) and duplicate detection across all paired
-// Macs in the same household. This view delegates entirely to that contract;
-// do not duplicate the rules here.
+// The single UI mutation funnel is `ServerRegistry.rename`, which delegates to
+// the legacy Mac alias validator and publishes the canonical ServerStore row
+// synchronously. This view delegates entirely to that contract; do not
+// duplicate the rules here.
 //
 // Presentation: full-screen cover from `InstanceListView` whenever any mac
 // in `PairedMacsStoreObservable.shared.macs` needs naming. Multiple unnamed
@@ -174,7 +174,7 @@ struct MacAliasView: View {
     }
 
     private func submit() {
-        switch PairedMacsStore.shared.setAlias(macID: mac.macID, alias: alias) {
+        switch ServerRegistry.shared.rename(serverID: mac.macID.uuidString, to: alias) {
         case .success:
             onNamed()
         case .duplicate:

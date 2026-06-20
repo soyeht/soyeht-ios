@@ -125,6 +125,22 @@ final class ServerRegistry: ObservableObject {
         refreshFromLegacyStores()
     }
 
+    /// Sets the generated first-pairing alias for a Mac that still
+    /// needs a user-facing name. The legacy Mac store still owns the
+    /// alias validator and generated-name collision handling, but the
+    /// registry remains the public mutation funnel and publishes the
+    /// resulting `ServerStore` row synchronously.
+    @discardableResult
+    func setDefaultMacAliasIfNeeded(macID: UUID, suggestedAlias: String) -> SetAliasResult {
+        let result = PairedMacsStore.shared.setDefaultAliasIfNeeded(
+            macID: macID,
+            suggestedAlias: suggestedAlias
+        )
+        guard result == .success else { return result }
+        refreshFromLegacyStores()
+        return .success
+    }
+
     /// Renames a paired server (Mac or Linux). Dispatches to the
     /// owning legacy store so its Keychain entries and adapters stay
     /// consistent, then writes the canonical `ServerStore`

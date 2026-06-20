@@ -85,7 +85,7 @@ final class PairingCoordinator {
                 // Reinstalling the iOS app clears UserDefaults but can leave
                 // this app's Keychain pairing secret behind. In that case the
                 // resume handshake succeeds, but the Mac row must be rebuilt.
-                store.upsertMac(
+                upsertMacPairing(
                     macID: config.macID,
                     name: config.macName,
                     host: config.lastHost,
@@ -175,7 +175,7 @@ final class PairingCoordinator {
         // persistent presence WS can open without a fresh QR.
         let presencePort = payload["presence_port"] as? Int
         let attachPort   = payload["attach_port"] as? Int
-        store.upsertMac(
+        upsertMacPairing(
             macID: config.macID,
             name: macName,
             host: config.lastHost,
@@ -197,6 +197,33 @@ final class PairingCoordinator {
             store.remove(macID: config.macID)
         }
         onDenied?(reason)
+    }
+
+    private func upsertMacPairing(
+        macID: UUID,
+        name: String,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        guard store === PairedMacsStore.shared else {
+            store.upsertMac(
+                macID: macID,
+                name: name,
+                host: host,
+                presencePort: presencePort,
+                attachPort: attachPort
+            )
+            return
+        }
+
+        ServerRegistry.shared.upsertMacPairing(
+            macID: macID,
+            name: name,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
     }
 
     private func markDone() {

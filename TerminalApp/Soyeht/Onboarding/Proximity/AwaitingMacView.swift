@@ -835,7 +835,10 @@ func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
         presencePort: pairing.presencePort,
         attachPort: pairing.attachPort
     )
-    _ = store.setDefaultAliasIfNeeded(macID: pairing.macID, suggestedAlias: pairing.macName)
+    _ = ServerRegistry.shared.setDefaultMacAliasIfNeeded(
+        macID: pairing.macID,
+        suggestedAlias: pairing.macName
+    )
     PairedMacRegistry.shared.reconcileClients()
 }
 
