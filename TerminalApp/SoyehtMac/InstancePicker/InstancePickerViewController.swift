@@ -80,9 +80,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     private func buildUI() {
         // Server picker (if multiple servers)
         let store = SessionStore.shared
-        serverChoices = store.canonicalServers().compactMap { canonicalServer in
-            store.context(for: canonicalServer)?.server
-        }
+        serverChoices = store.credentialedCanonicalServers()
         if serverChoices.count > 1 {
             let popUp = NSPopUpButton()
             popUp.translatesAutoresizingMaskIntoConstraints = false

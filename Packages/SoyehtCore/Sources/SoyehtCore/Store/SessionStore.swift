@@ -480,6 +480,16 @@ public final class SessionStore: ObservableObject {
         serverStore.load()
     }
 
+    /// Canonical inventory rows that still have a credential in this
+    /// SessionStore. UI surfaces should use this when they need to show
+    /// actionable connected servers while keeping ServerStore as the list
+    /// authority and SessionStore as the credential authority.
+    public func credentialedCanonicalServers() -> [PairedServer] {
+        canonicalServers().compactMap { canonicalServer in
+            context(for: canonicalServer)?.server
+        }
+    }
+
     // MARK: - ServerContext
 
     /// Build the `(server, token)` pair needed to route an API call to a
