@@ -78,6 +78,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         WorkspaceSwitchBenchmark.scheduleIfRequestedByEnvironment()
         #endif
+        // One-shot import of legacy macOS paired servers into the
+        // unified ServerStore. SessionStore remains the credential and
+        // active-context adapter, but the machine inventory must be
+        // present in ServerStore even for servers paired before this
+        // migration shipped.
+        ServerStore().migrateLegacyIfNeeded(
+            seed: SessionStore.shared.pairedServers.map { $0.toServer() }
+        )
         SoyehtUpdater.shared.startIfConfigured()
         // Boot the app-level WebSocket server so paired iPhones can reach us
         // as soon as the app launches, without a QR scan. Presence + pane
