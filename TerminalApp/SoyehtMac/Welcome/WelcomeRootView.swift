@@ -240,7 +240,7 @@ struct WelcomeRootView: View {
                 mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                 return
             case .ready:
-                if SessionStore.shared.pairedServers.isEmpty {
+                if SessionStore.shared.credentialedCanonicalServers().isEmpty {
                     mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                 } else {
                     onPaired()
@@ -273,7 +273,7 @@ struct WelcomeRootView: View {
                 mode = .recover
             case .ready:
                 keepListening = false
-                if SessionStore.shared.pairedServers.isEmpty {
+                if SessionStore.shared.credentialedCanonicalServers().isEmpty {
                     return await autoPairExistingSoyeht()
                 }
                 onPaired()
@@ -292,7 +292,7 @@ struct WelcomeRootView: View {
         // `AddLinuxServerSheet` registers a remote Linux admin host and
         // then routes back through `continueOnMac` — there is nothing to
         // auto-pair; go straight home with the server they just added.
-        if !SessionStore.shared.pairedServers.isEmpty {
+        if !SessionStore.shared.credentialedCanonicalServers().isEmpty {
             onPaired()
             return nil
         }
@@ -414,7 +414,7 @@ struct WelcomeRootView: View {
             return true
         case .ready:
             bootstrapPath.removeAll()
-            if SessionStore.shared.pairedServers.isEmpty {
+            if SessionStore.shared.credentialedCanonicalServers().isEmpty {
                 mode = .existingSoyeht(ExistingSoyehtContext(status: status))
             } else {
                 onPaired()
