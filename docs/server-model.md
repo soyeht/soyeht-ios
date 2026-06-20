@@ -87,13 +87,19 @@ theyOS poll heartbeat. Both kinds get the same alias UX through
 
 ## Migration and legacy adapters
 
-Triggered once per install in `AppDelegate.application(_:didFinishLaunchingWithOptions:)`:
+Triggered once per install at app launch:
 
 ```swift
 let legacyMacSeed    = PairedMacsStore.shared.macs.map { $0.toServer() }
 let legacyServerSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
 ServerRegistry.shared.migrateLegacy(seed: legacyMacSeed + legacyServerSeed)
 ```
+
+The iOS app imports both `PairedMacsStore` and
+`SessionStore.pairedServers` through `ServerRegistry`. The macOS app has
+no `PairedMacsStore` / `ServerRegistry` facade yet, so it imports the
+`SessionStore.pairedServers` seed directly into `ServerStore` before it
+decides whether to show Welcome or restore main windows.
 
 Idempotent. A sentinel inside `ServerStore` makes subsequent calls
 no-ops. The legacy stores stay intact — no destructive cleanup runs in
