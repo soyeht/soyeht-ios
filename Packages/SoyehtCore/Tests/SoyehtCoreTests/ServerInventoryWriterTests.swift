@@ -257,11 +257,12 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertFalse(source.contains("saveV2Envelope"))
     }
 
-    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedD5Files() throws {
+    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedD6Files() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
+            "TerminalApp/SoyehtMac/AppDelegate.swift",
             "TerminalApp/Soyeht/Server/ServerRegistry.swift",
         ]
         let offenders = try productionSwiftFiles(root: root).filter { relativePath in
@@ -271,7 +272,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "D5 may adopt ServerInventoryWriter only inside approved inventory boundaries. Offending files: \(offenders)"
+            "D6 may adopt ServerInventoryWriter only inside approved inventory boundaries. Offending files: \(offenders)"
         )
     }
 
@@ -338,6 +339,29 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    func test_macOSStartupMigrationUsesWriterWithoutDirectServerStoreOrV2RuntimeHelpers() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/SoyehtMac/AppDelegate.swift")
+        )
+        let forbidden = [
+            "ServerStore().migrateLegacyIfNeeded(",
+            "ServerStore().reconcile(",
+            "ServerStore().upsert(",
+            "ServerStore().remove(id:",
+            "shadowCompare(",
+            "makeV2Envelope(",
+            "projectV1Servers(",
+            "loadV2Envelope(",
+            "saveV2Envelope(",
+        ]
+
+        XCTAssertTrue(source.contains("ServerInventoryWriter().migrateLegacyIfNeeded("))
+        XCTAssertFalse(forbidden.contains { source.contains($0) },
+            "macOS startup migration must use only the writer v1 migration parity method in D6."
+        )
+    }
+
     func test_serverStoreWriteCallsStayOnKnownBoundaryFiles() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
@@ -345,7 +369,6 @@ final class ServerInventoryWriterTests: XCTestCase {
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStoreV2.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
-            "TerminalApp/SoyehtMac/AppDelegate.swift",
         ]
         let writePatterns = [
             "upsertLegacyProjection(",
@@ -363,7 +386,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "ServerStore write calls must stay behind known boundaries in D5. Offending files: \(offenders)"
+            "ServerStore write calls must stay behind known boundaries in D6. Offending files: \(offenders)"
         )
     }
 
