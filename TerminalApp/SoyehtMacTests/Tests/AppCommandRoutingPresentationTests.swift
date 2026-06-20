@@ -157,8 +157,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "private func probeServers()"
         )
 
-        XCTAssertTrue(reload.contains("store.canonicalServers().compactMap"))
-        XCTAssertTrue(reload.contains("store.context(for: canonicalServer)?.server"))
+        XCTAssertTrue(reload.contains("store.credentialedCanonicalServers().sorted"))
         XCTAssertFalse(
             reload.contains("store.pairedServers"),
             "The connected servers window must enumerate ServerStore canonical inventory and use SessionStore only for credentials."
@@ -178,8 +177,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "// MARK: - NSTableViewDataSource"
         )
 
-        XCTAssertTrue(buildUI.contains("serverChoices = store.canonicalServers().compactMap"))
-        XCTAssertTrue(buildUI.contains("store.context(for: canonicalServer)?.server"))
+        XCTAssertTrue(buildUI.contains("serverChoices = store.credentialedCanonicalServers()"))
         XCTAssertTrue(serverChanged.contains("serverChoices[selectedIdx]"))
         XCTAssertFalse(
             buildUI.contains("store.pairedServers"),
