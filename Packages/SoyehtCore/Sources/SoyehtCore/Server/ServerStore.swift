@@ -28,7 +28,7 @@ public struct ServerStore: Sendable {
     public static let storageKey = "com.soyeht.serverstore.v1"
     public static let migrationSentinel = "com.soyeht.serverstore.migrated.v1"
 
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
