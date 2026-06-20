@@ -83,6 +83,40 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(resolver.contains("mac_browser_ignored_profile_mismatch"))
     }
 
+    func test_localMacPairingWritesServerListThroughRegistryFunnel() throws {
+        let awaitingMac = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let installLocalPairing = try slice(
+            awaitingMac,
+            from: "func installMacLocalPairing",
+            to: "// MARK: - URL extraction"
+        )
+
+        XCTAssertTrue(installLocalPairing.contains("store.storeSecret(pairing.secret, for: pairing.macID)"))
+        XCTAssertTrue(installLocalPairing.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertFalse(installLocalPairing.contains("store.upsertMac("),
+            "Local pairing may keep secrets in PairedMacsStore, but the paired-server list must be written through ServerRegistry."
+        )
+
+        let awaitingNewMac = try iosSource("Home/AwaitingNewMacView.swift")
+        let addMacPairing = try slice(
+            awaitingNewMac,
+            from: "if let pairing = claim.macLocalPairing",
+            to: "// `runDance` is reached"
+        )
+        XCTAssertTrue(addMacPairing.contains("store.storeSecret(pairing.secret, for: pairing.macID)"))
+        XCTAssertTrue(addMacPairing.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertFalse(addMacPairing.contains("store.upsertMac("))
+
+        let sshLogin = try iosSource("SSHLoginView.swift")
+        let localHandoff = try slice(
+            sshLogin,
+            from: "private func rememberLocalHandoffMac",
+            to: "private static func hostPort"
+        )
+        XCTAssertTrue(localHandoff.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertFalse(localHandoff.contains("store.upsertMac("))
+    }
+
     func test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let startMacBrowser = try slice(

@@ -98,6 +98,33 @@ final class ServerRegistry: ObservableObject {
         servers = store.upsert(server)
     }
 
+    /// Records a Mac learned through the legacy local-pairing protocol.
+    /// `PairedMacsStore` remains the credential/secret adapter, but the
+    /// registry is the mutation funnel for the unified server list. This
+    /// keeps pairing flows from depending on an async mirror turn before
+    /// `ServerStore` reflects the new Mac.
+    func upsertMacPairing(
+        macID: UUID,
+        name: String,
+        host: String?,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil,
+        engineMachineId: String? = nil
+    ) {
+        PairedMacsStore.shared.upsertMac(
+            macID: macID,
+            name: name,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort,
+            engineMachineId: engineMachineId
+        )
+        // `PairedMacsStore.onChange` is wired in production, but this
+        // explicit refresh makes the funnel synchronous even in tests
+        // and early-startup call sites where the mirror is not installed.
+        refreshFromLegacyStores()
+    }
+
     /// Renames a paired server (Mac or Linux). Dispatches to the
     /// owning legacy store so its Keychain entries and adapters stay
     /// consistent, then writes the canonical `ServerStore`

@@ -98,6 +98,38 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testUpsertMacPairingWritesLegacyAndCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "funnel-mac",
+            host: "srt-host-upsert-funnel.test",
+            presencePort: 1234,
+            attachPort: 5678,
+            engineMachineId: "machine-funnel"
+        )
+        createdMacIDs.append(macID)
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.name, "funnel-mac",
+            "The registry funnel must keep the legacy Mac adapter populated for pairing-secret and presence-client compatibility."
+        )
+        XCTAssertEqual(legacy?.presencePort, 1234)
+        XCTAssertEqual(legacy?.attachPort, 5678)
+
+        let canonical = registry.server(id: serverID)
+        XCTAssertEqual(canonical?.displayName, "funnel-mac")
+        XCTAssertEqual(canonical?.lastHost, "srt-host-upsert-funnel.test")
+        XCTAssertEqual(canonical?.presencePort, 1234)
+        XCTAssertEqual(canonical?.attachPort, 5678)
+        XCTAssertEqual(canonical?.engineMachineId, "machine-funnel")
+        XCTAssertTrue(ServerStore().load().contains(where: { $0.id == serverID }),
+            "Mac pairing through the registry must publish a canonical ServerStore row synchronously."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {
