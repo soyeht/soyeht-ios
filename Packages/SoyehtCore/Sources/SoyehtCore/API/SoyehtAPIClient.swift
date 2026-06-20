@@ -1010,8 +1010,8 @@ public final class SoyehtAPIClient {
             throw APIError.invalidURL
         }
         let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
-        let endpointPath = components.path == "/" ? "" : components.path
-        components.path = endpointPath + normalizedPath
+        let endpointPath = components.percentEncodedPath == "/" ? "" : components.percentEncodedPath
+        components.percentEncodedPath = endpointPath + normalizedPath
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         guard let url = components.url else {
             throw APIError.invalidURL
