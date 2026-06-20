@@ -622,7 +622,15 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         popSigner: HouseholdPoPSigner
     ) throws -> URLRequest {
         var components = URLComponents(url: household.endpoint, resolvingAgainstBaseURL: false)!
-        components.scheme = components.scheme == "http" ? "ws" : "wss"
+        guard let scheme = components.scheme,
+              let host = components.host,
+              let webSocketScheme = EndpointPolicy.householdWebSocketScheme(
+                inputScheme: scheme,
+                host: host
+              ) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        components.scheme = webSocketScheme
         let basePath = components.percentEncodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         components.percentEncodedPath = basePath.isEmpty
             ? "/api/v1/household/gossip"

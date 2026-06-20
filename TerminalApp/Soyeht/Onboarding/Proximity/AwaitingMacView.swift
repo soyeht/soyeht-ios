@@ -370,7 +370,7 @@ final class AwaitingMacViewModel: ObservableObject {
                 guard !self.alreadyFound else { return }
                 guard Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else {
                     awaitingMacLogger.info(
-                        "direct_claim_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                        "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                     )
                     return
                 }
@@ -593,7 +593,7 @@ final class AwaitingMacViewModel: ObservableObject {
         for result in results {
             if let engineURL = await HouseholdBonjourBrowser.resolveEngineEndpointViaDNSSD(
                 from: result,
-                defaultPort: SoyehtInstallProfile.current.bootstrapPort
+                defaultPort: EndpointPolicy.defaultBootstrapPort()
             ) {
                 awaitingMacLogger.info("mac_browser.endpoint phase=DNSServiceResolve endpoint=\(engineURL.absoluteString, privacy: .public)")
                 urls.append(engineURL)
@@ -618,7 +618,7 @@ final class AwaitingMacViewModel: ObservableObject {
 
     nonisolated private static func containsCurrentInstallProfileEndpoint(_ urls: [URL]) -> Bool {
         urls.contains { url in
-            url.port == SoyehtInstallProfile.current.bootstrapPort
+            url.port == EndpointPolicy.defaultBootstrapPort()
         }
     }
 
@@ -654,7 +654,7 @@ final class AwaitingMacViewModel: ObservableObject {
             let matches = Self.engineURLMatchesCurrentInstallProfile(engineURL)
             if !matches {
                 awaitingMacLogger.info(
-                    "mac_browser_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) endpoint_port=\(engineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    "mac_browser_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) endpoint_port=\(engineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                 )
             }
             return matches
@@ -720,7 +720,7 @@ final class AwaitingMacViewModel: ObservableObject {
 
     private static func engineURLMatchesCurrentInstallProfile(_ engineURL: URL) -> Bool {
         guard let port = engineURL.port else { return false }
-        return port == SoyehtInstallProfile.current.bootstrapPort
+        return port == EndpointPolicy.defaultBootstrapPort()
     }
 
     /// Bypasses `BootstrapStatusClient`'s `.networkDrop` wrapping to expose the

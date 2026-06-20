@@ -286,7 +286,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
     func start(onCompleted: @escaping () -> Void) {
         self.onCompleted = onCompleted
         awaitingNewMacLogger.info(
-            "setup_claim_profile_active profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) bootstrap_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public)"
+            "setup_claim_profile_active profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) bootstrap_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public)"
         )
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
@@ -299,7 +299,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
                 guard self.phase == .looking, !self.alreadyOrchestrating else { return }
                 guard Self.claimMatchesCurrentInstallProfile(claim) else {
                     awaitingNewMacLogger.info(
-                        "setup_claim_ignored_profile_mismatch expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                        "setup_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                     )
                     return
                 }
@@ -309,14 +309,14 @@ final class AwaitingNewMacViewModel: ObservableObject {
                 // direct-claim dance and persist the `.mac` surface.
                 if claim.existingHouse != nil {
                     awaitingNewMacLogger.info(
-                        "setup_claim_ignored_existing_house profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                        "setup_claim_ignored_existing_house profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                     )
                     self.noteExistingHouseClaim()
                     return
                 }
                 self.clearExistingHouseNotice()
                 awaitingNewMacLogger.info(
-                    "setup_claim_fresh_run_dance profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    "setup_claim_fresh_run_dance profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                 )
                 self.alreadyOrchestrating = true
                 self.phase = .orchestrating
@@ -330,7 +330,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
 
     private static func claimMatchesCurrentInstallProfile(_ claim: SetupInvitationDirectClaim) -> Bool {
         guard let claimPort = claim.macEngineURL.port else { return false }
-        return claimPort == SoyehtInstallProfile.current.bootstrapPort
+        return claimPort == EndpointPolicy.defaultBootstrapPort()
     }
 
     func stop() {
@@ -368,7 +368,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
             else { return }
             self.existingHouseNoticeVisible = true
             awaitingNewMacLogger.info(
-                "setup_claim_existing_house_notice_shown profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(SoyehtInstallProfile.current.bootstrapPort, privacy: .public)"
+                "setup_claim_existing_house_notice_shown profile=\(SoyehtInstallProfile.current.kind.rawValue, privacy: .public) expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public)"
             )
         }
     }

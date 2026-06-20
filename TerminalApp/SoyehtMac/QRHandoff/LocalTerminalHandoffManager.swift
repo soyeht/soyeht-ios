@@ -722,26 +722,27 @@ private final class Session: @unchecked Sendable {
         let nonceB64 = PairingCrypto.base64URLEncode(paneNonce)
         var urls: [String] = []
         for host in candidateHosts() {
-            var components = URLComponents()
-            components.scheme = "ws"
-            components.host = host
-            components.port = Int(port)
-            components.path = "/local-handoff"
-            components.queryItems = [
-                URLQueryItem(name: "pair_token", value: pairToken),
-                URLQueryItem(name: "pane_nonce", value: nonceB64),
-                URLQueryItem(name: "mac_id", value: macID.uuidString),
-                URLQueryItem(name: "mac_name", value: macName),
-            ]
-            if let value = components.string {
-                urls.append(value)
+            if let url = EndpointPolicy.macLocalControlPlaneWebSocketURL(
+                host: host,
+                port: Int(port),
+                path: "/local-handoff",
+                queryItems: [
+                    URLQueryItem(name: "pair_token", value: pairToken),
+                    URLQueryItem(name: "pane_nonce", value: nonceB64),
+                    URLQueryItem(name: "mac_id", value: macID.uuidString),
+                    URLQueryItem(name: "mac_name", value: macName),
+                ]
+            ) {
+                urls.append(url.absoluteString)
             }
         }
         return urls
     }
 
     private func makeDeepLink(wsCandidates: [String], port: UInt16) -> String {
-        let hostValue = candidateHosts().first.map { "http://\($0):\(port)" } ?? "http://localhost:\(port)"
+        let hostValue = candidateHosts().first.flatMap {
+            EndpointPolicy.macLocalControlPlaneHTTPURL(host: $0, port: Int(port))?.absoluteString
+        } ?? EndpointPolicy.macLocalControlPlaneHTTPURL(host: "localhost", port: Int(port))!.absoluteString
         let nonceB64 = PairingCrypto.base64URLEncode(paneNonce)
         var components = URLComponents()
         components.scheme = PairingQueryKey.scheme
@@ -814,46 +815,13 @@ private final class Session: @unchecked Sendable {
     }
 
     /// Returns true when `host` (as printed by `NWEndpoint.Host.debugDescription`)
-    /// is inside a trusted LAN range: 10/8, 172.16/12, 192.168/16, 100.64/10
-    /// (Tailscale CGNAT), 127/8, IPv6 loopback/link-local/ULA.
+    /// is a trusted local-control-plane peer according to the shared endpoint
+    /// policy.
     static func isPrivateRemoteHost(_ host: String) -> Bool {
         // NWEndpoint.Host printed forms include an optional interface suffix like
-        // "fe80::1%en0" — drop it before parsing.
+        // "fe80::1%en0" — EndpointPolicy normalizes that before parsing.
         let stripped = host.split(separator: "%").first.map(String.init) ?? host
-
-        if let v4 = IPv4Address(stripped) {
-            let bytes = v4.rawValue
-            guard bytes.count == 4 else { return false }
-            let b0 = bytes[0]
-            let b1 = bytes[1]
-            if b0 == 10 { return true }
-            if b0 == 127 { return true }
-            if b0 == 192 && b1 == 168 { return true }
-            if b0 == 172 && (16...31).contains(b1) { return true }
-            if b0 == 100 && (64...127).contains(b1) { return true }
-            if b0 == 169 && b1 == 254 { return true } // link-local
-            return false
-        }
-
-        if let v6 = IPv6Address(stripped) {
-            let bytes = v6.rawValue
-            guard bytes.count == 16 else { return false }
-            // ::1 loopback
-            let isLoopback = bytes.prefix(15).allSatisfy { $0 == 0 } && bytes[15] == 1
-            if isLoopback { return true }
-            // IPv4-mapped ::ffff:a.b.c.d → recurse
-            if bytes.prefix(10).allSatisfy({ $0 == 0 }), bytes[10] == 0xff, bytes[11] == 0xff {
-                let mapped = "\(bytes[12]).\(bytes[13]).\(bytes[14]).\(bytes[15])"
-                return isPrivateRemoteHost(mapped)
-            }
-            let b0 = bytes[0]
-            let b1 = bytes[1]
-            if b0 == 0xfe && (b1 & 0xc0) == 0x80 { return true } // fe80::/10 link-local
-            if (b0 & 0xfe) == 0xfc { return true }                // fc00::/7 ULA
-            return false
-        }
-
-        return false
+        return EndpointPolicy.acceptsMacLocalControlPlaneHost(stripped)
     }
 
     /// Tailscale MagicDNS gives the iPhone a stable, ATS-exception-friendly
@@ -885,7 +853,7 @@ private final class Session: @unchecked Sendable {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .trimmingCharacters(in: CharacterSet(charactersIn: "."))
                 .lowercased()
-            guard suffix.hasSuffix(".ts.net"), seen.insert(suffix).inserted else { return }
+            guard EndpointPolicy.isTailnetHost(suffix), seen.insert(suffix).inserted else { return }
             suffixes.append(suffix)
         }
 
@@ -951,29 +919,6 @@ private final class Session: @unchecked Sendable {
     }
 
     private static func priority(for host: String) -> Int {
-        if isTailscaleCGNAT(host) {
-            return 0
-        }
-        if host.hasPrefix("192.168.") || host.hasPrefix("10.") {
-            return 1
-        }
-        if host.hasPrefix("172.") {
-            let parts = host.split(separator: ".")
-            if parts.count > 1, let second = Int(parts[1]), (16...31).contains(second) {
-                return 1
-            }
-        }
-        return 3
-    }
-
-    /// True when `host` is an IPv4 address inside Tailscale's CGNAT
-    /// allocation (100.64.0.0/10). These addresses are safe local-handoff
-    /// candidates because Tailscale provides the encrypted underlay and the
-    /// app-level pairing handshake still gates terminal access.
-    private static func isTailscaleCGNAT(_ host: String) -> Bool {
-        guard let v4 = IPv4Address(host) else { return false }
-        let bytes = v4.rawValue
-        guard bytes.count == 4 else { return false }
-        return bytes[0] == 100 && (64...127).contains(bytes[1])
+        HostClassifier.localInterfaceIPv4Rank(host) ?? 3
     }
 }

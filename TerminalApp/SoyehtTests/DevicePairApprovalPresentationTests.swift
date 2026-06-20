@@ -76,7 +76,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains("private static func engineURLMatchesCurrentInstallProfile"))
-        XCTAssertTrue(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(source.contains("EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertFalse(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
         XCTAssertTrue(claimHandler.contains("engineURLMatchesCurrentInstallProfile(claim.macEngineURL)"))
         XCTAssertTrue(claimHandler.contains("direct_claim_ignored_profile_mismatch"))
         XCTAssertTrue(resolver.contains("engineURLMatchesCurrentInstallProfile(engineURL)"))
@@ -211,8 +212,9 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(startMacBrowser.contains("containsCurrentInstallProfileEndpoint(engineURLs)"))
         XCTAssertTrue(resolutionPolls.contains("containsCurrentInstallProfileEndpoint(engineURLs)"))
         XCTAssertFalse(fastExtractor.contains("defaultPort: SoyehtInstallProfile.current.bootstrapPort"))
-        XCTAssertTrue(dnssdFallback.contains("defaultPort: SoyehtInstallProfile.current.bootstrapPort"))
-        XCTAssertTrue(profileEndpointCheck.contains("url.port == SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(dnssdFallback.contains("defaultPort: EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertTrue(profileEndpointCheck.contains("url.port == EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertFalse(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
     }
 
     func test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes() throws {
@@ -336,7 +338,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         let profileFilter = try XCTUnwrap(claimHandler.range(of: "claimMatchesCurrentInstallProfile"))
         let existingHouseBranch = try XCTUnwrap(claimHandler.range(of: "claim.existingHouse != nil"))
         XCTAssertLessThan(profileFilter.lowerBound, existingHouseBranch.lowerBound)
-        XCTAssertTrue(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
+        XCTAssertTrue(source.contains("EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertFalse(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
         XCTAssertTrue(source.contains("claim.macEngineURL.port"))
     }
 

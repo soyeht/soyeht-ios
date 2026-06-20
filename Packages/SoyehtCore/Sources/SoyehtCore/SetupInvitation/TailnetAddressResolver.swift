@@ -41,17 +41,7 @@ public enum TailnetAddressResolver {
     /// Exposed for unit tests; production callers should use
     /// `currentTailnetIPv4()` instead.
     public static func isTailnetIPv4(_ address: String) -> Bool {
-        let parts = address.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 4 else { return false }
-        var octets: [UInt8] = []
-        octets.reserveCapacity(4)
-        for part in parts {
-            guard let value = UInt8(part) else { return false }
-            octets.append(value)
-        }
-        // 100.64.0.0/10 covers 100.64.0.0 through 100.127.255.255.
-        guard octets[0] == 100 else { return false }
-        return (64...127).contains(octets[1])
+        HostClassifier.isTailnetIPv4(address)
     }
 
     // MARK: - Private
