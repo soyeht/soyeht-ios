@@ -7,6 +7,7 @@ import SoyehtCore
 /// deploy). Deploy opens `MacClawSetupView` via the shared NavigationStack.
 struct MacClawDetailView: View {
     let context: ServerContext
+    let target: ClawMachineTarget
     /// Called after any install/uninstall action so the parent store view model
     /// can reload and begin its own window-lifetime polling (surviving back-nav).
     var onInstallStateChanged: (() -> Void)?
@@ -16,13 +17,16 @@ struct MacClawDetailView: View {
     init(
         claw: Claw,
         context: ServerContext,
+        target: ClawMachineTarget? = nil,
         onInstallStateChanged: (() -> Void)? = nil,
         onOpenTerminal: ((String) -> Void)? = nil
     ) {
+        let target = target ?? .server(context)
         self.context = context
+        self.target = target
         self.onInstallStateChanged = onInstallStateChanged
         self.onOpenTerminal = onOpenTerminal
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, machineTarget: target))
     }
 
     var body: some View {
