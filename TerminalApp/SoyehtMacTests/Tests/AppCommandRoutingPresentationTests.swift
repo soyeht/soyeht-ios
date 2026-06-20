@@ -132,6 +132,23 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(command.contains("showClawStore(sender)"))
     }
 
+    func testMacAppImportsLegacySessionServersIntoServerStoreAtLaunch() throws {
+        let source = try macSource("AppDelegate.swift")
+        let launch = try slice(
+            source,
+            from: "func applicationDidFinishLaunching(_ aNotification: Notification)",
+            to: "Task { [weak self] in"
+        )
+
+        XCTAssertTrue(launch.contains("ServerStore().migrateLegacyIfNeeded("))
+        XCTAssertTrue(launch.contains("seed: SessionStore.shared.pairedServers.map { $0.toServer() }"))
+        XCTAssertLessThan(
+            try XCTUnwrap(source.range(of: "ServerStore().migrateLegacyIfNeeded(")?.lowerBound),
+            try XCTUnwrap(source.range(of: "openInitialWindow")?.lowerBound),
+            "macOS must import legacy paired servers before deciding whether to show Welcome or restore main windows."
+        )
+    }
+
     func testMacClawStoreDetailOpenTerminalUsesContextBackedMainWindowPath() throws {
         let appDelegate = try macSource("AppDelegate.swift")
         let showStore = try slice(
