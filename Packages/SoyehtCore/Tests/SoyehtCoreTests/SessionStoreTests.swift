@@ -401,6 +401,54 @@ struct SessionStoreTests {
         #expect(store.pairedServers.first?.kind == .adminHost)
     }
 
+    @Test("credentialed canonical servers use ServerStore metadata and SessionStore tokens")
+    func credentialedCanonicalServersUseCanonicalMetadataAndCredentials() throws {
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(
+            id: "srv-canonical",
+            host: "https://canonical.example.test",
+            name: "theyos",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
+        store.addServer(server, token: "canonical-token")
+        store.renameServer(id: server.id, name: "Linux Canonical")
+
+        let rows = store.credentialedCanonicalServers()
+
+        let row = try #require(rows.first(where: { $0.id == server.id }))
+        #expect(row.name == "Linux Canonical")
+        #expect(row.host == server.host)
+        #expect(row.kind == .adminHost)
+        #expect(store.context(for: row.id)?.token == "canonical-token")
+    }
+
+    @Test("credentialed canonical servers omit inventory rows without tokens")
+    func credentialedCanonicalServersOmitRowsWithoutTokens() throws {
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(
+            id: "srv-no-token",
+            host: "https://no-token.example.test",
+            name: "Linux",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
+        store.addServer(server, token: "temporary-token")
+
+        #expect(store.credentialedCanonicalServers().map(\.id) == [server.id])
+
+        store.clearSession()
+
+        #expect(store.canonicalServers().contains(where: { $0.id == server.id }))
+        #expect(store.credentialedCanonicalServers().isEmpty)
+    }
+
     @Test("auth writes paired server, active id, token and cache into the client store")
     func authWritesIntoClientStore() async throws {
         SessionStoreTestURLProtocol.reset()
