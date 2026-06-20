@@ -33,6 +33,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     private let statusLabel = NSTextField(labelWithString: String(localized: "instancePicker.status.loading", comment: "Initial status label shown while fetching the instance list."))
     private let spinner = NSProgressIndicator()
     private var serverPopUp: NSPopUpButton?
+    private var serverChoices: [PairedServer] = []
 
     // Called after an instance tab is opened so the popover can close
     var onDismiss: (() -> Void)?
@@ -79,14 +80,17 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     private func buildUI() {
         // Server picker (if multiple servers)
         let store = SessionStore.shared
-        if store.pairedServers.count > 1 {
+        serverChoices = store.canonicalServers().compactMap { canonicalServer in
+            store.context(for: canonicalServer)?.server
+        }
+        if serverChoices.count > 1 {
             let popUp = NSPopUpButton()
             popUp.translatesAutoresizingMaskIntoConstraints = false
-            for server in store.pairedServers {
+            for server in serverChoices {
                 popUp.addItem(withTitle: server.name)
             }
-            if let active = store.activeServer,
-               let idx = store.pairedServers.firstIndex(where: { $0.id == active.id }) {
+            if let activeId = store.activeServerId,
+               let idx = serverChoices.firstIndex(where: { $0.id == activeId }) {
                 popUp.selectItem(at: idx)
             }
             popUp.target = self
@@ -216,8 +220,8 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     @objc private func serverChanged(_ sender: NSPopUpButton) {
         let store = SessionStore.shared
         let selectedIdx = sender.indexOfSelectedItem
-        guard selectedIdx >= 0 && selectedIdx < store.pairedServers.count else { return }
-        let server = store.pairedServers[selectedIdx]
+        guard selectedIdx >= 0 && selectedIdx < serverChoices.count else { return }
+        let server = serverChoices[selectedIdx]
         store.setActiveServer(id: server.id)
         instances = []
         tableView.reloadData()
