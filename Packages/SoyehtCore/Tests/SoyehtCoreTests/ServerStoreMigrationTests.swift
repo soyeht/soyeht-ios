@@ -110,6 +110,54 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertNil(s.engineMachineId)
     }
 
+    func test_server_toPairedServer_usesCanonicalInventoryFields() {
+        let canonical = Server(
+            id: "srv-linux-1",
+            kind: .linux,
+            pairedAt: Date(timeIntervalSince1970: 2_000_000),
+            lastSeenAt: Date(timeIntervalSince1970: 2_100_000),
+            alias: "Canonical Linux",
+            hostname: "linux-alpha",
+            lastHost: "canonical.host",
+            engineMachineId: "machine-linux-alpha",
+            role: "admin",
+            sessionExpiresAt: "2026-12-31T00:00:00Z"
+        )
+
+        let paired = canonical.toPairedServer()
+
+        XCTAssertEqual(paired.id, "srv-linux-1")
+        XCTAssertEqual(paired.kind, .adminHost)
+        XCTAssertEqual(paired.platform, "linux")
+        XCTAssertEqual(paired.host, "canonical.host")
+        XCTAssertEqual(paired.name, "Canonical Linux")
+        XCTAssertEqual(paired.role, "admin")
+        XCTAssertEqual(paired.expiresAt, "2026-12-31T00:00:00Z")
+        XCTAssertEqual(paired.engineMachineId, "machine-linux-alpha")
+    }
+
+    func test_server_toPairedServer_mapsMacAndFallsBackToHostname() {
+        let canonical = Server(
+            id: "srv-mac-1",
+            kind: .mac,
+            pairedAt: Date(timeIntervalSince1970: 2_000_000),
+            lastSeenAt: Date(timeIntervalSince1970: 2_100_000),
+            alias: nil,
+            hostname: "mac-alpha",
+            lastHost: nil,
+            engineMachineId: "machine-mac-alpha"
+        )
+
+        let paired = canonical.toPairedServer()
+
+        XCTAssertEqual(paired.id, "srv-mac-1")
+        XCTAssertEqual(paired.kind, .engine)
+        XCTAssertEqual(paired.platform, "macos")
+        XCTAssertEqual(paired.host, "mac-alpha")
+        XCTAssertEqual(paired.name, "mac-alpha")
+        XCTAssertEqual(paired.engineMachineId, "machine-mac-alpha")
+    }
+
     // MARK: - displayName / needsAlias
 
     func test_displayName_prefersAliasOverHostname() {
@@ -979,5 +1027,46 @@ final class SessionStoreCallbackTests: XCTestCase {
         store.removeServer(id: "linux-alpha")
 
         XCTAssertFalse(serverStore.load().contains { $0.id == "linux-alpha" })
+    }
+
+    func test_contextForCanonicalServer_usesServerStoreMetadataAndSessionToken() throws {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        let legacy = sampleLinuxServer(
+            id: "linux-alpha",
+            host: "legacy.host",
+            name: "Legacy Linux"
+        )
+        _ = store.addServer(legacy, token: "tok-canonical")
+        var canonical = legacy.toServer()
+        canonical.alias = "Canonical Linux"
+        canonical.lastHost = "canonical.host"
+        serverStore.upsert(canonical)
+
+        let context = try XCTUnwrap(store.context(for: canonical))
+
+        XCTAssertEqual(context.token, "tok-canonical")
+        XCTAssertEqual(context.server.id, "linux-alpha")
+        XCTAssertEqual(context.server.name, "Canonical Linux")
+        XCTAssertEqual(context.server.host, "canonical.host")
+        XCTAssertEqual(context.server.kind, .adminHost)
+    }
+
+    func test_contextForCanonicalServer_returnsNilWithoutCredential() {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        let canonical = Server(
+            id: "linux-alpha",
+            kind: .linux,
+            pairedAt: Date(timeIntervalSince1970: 2_000_000),
+            lastSeenAt: Date(timeIntervalSince1970: 2_100_000),
+            alias: "Canonical Linux",
+            hostname: "linux-alpha",
+            lastHost: "canonical.host"
+        )
+        serverStore.upsert(canonical)
+
+        XCTAssertNil(store.context(for: canonical),
+            "ServerStore owns inventory, but SessionStore must still gate deploy contexts on credentials.")
     }
 }
