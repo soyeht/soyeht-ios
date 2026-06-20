@@ -83,7 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // active-context adapter, but the machine inventory must be
         // present in ServerStore even for servers paired before this
         // migration shipped.
-        ServerStore().migrateLegacyIfNeeded(
+        ServerInventoryWriter().migrateLegacyIfNeeded(
             seed: SessionStore.shared.pairedServers.map { $0.toServer() }
         )
         SoyehtUpdater.shared.startIfConfigured()
