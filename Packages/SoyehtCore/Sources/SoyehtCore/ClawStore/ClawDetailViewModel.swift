@@ -24,7 +24,7 @@ public final class ClawDetailViewModel: ObservableObject {
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
         onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
-        pairedServerCountProvider: @escaping () -> Int = { SessionStore.shared.pairedServers.count }
+        pairedServerCountProvider: @escaping () -> Int = { ServerStore().load().count }
     ) {
         self.claw = claw
         self.target = .server(context)
@@ -44,7 +44,7 @@ public final class ClawDetailViewModel: ObservableObject {
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
         onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
-        pairedServerCountProvider: @escaping () -> Int = { SessionStore.shared.pairedServers.count }
+        pairedServerCountProvider: @escaping () -> Int = { ServerStore().load().count }
     ) {
         self.claw = claw
         self.target = target

@@ -12,11 +12,11 @@ struct ClawDetailView: View {
     /// PR-3 init. The resolver computes the `ClawAPITarget` and the
     /// gating state used to decide whether to show the Deploy button.
     ///
-    /// `pairedServerCountProvider` is intentionally left at its default
-    /// in `SoyehtCore` — the per-server footer never reads it since
-    /// PR-2's host-collapse comment landed, and removing the public
-    /// parameter from `ClawDetailViewModel` is left for a follow-up
-    /// (per PR-3 review comments).
+    /// `pairedServerCountProvider` is intentionally left at the
+    /// SoyehtCore default (`ServerStore` canonical inventory) — the
+    /// per-server footer never reads it on iOS since PR-2's
+    /// host-collapse comment landed, and removing the public parameter
+    /// from `ClawDetailViewModel` is left for a follow-up.
     init(claw: Claw, installTarget: ClawInstallTarget) {
         self.claw = claw
         self.installTarget = installTarget

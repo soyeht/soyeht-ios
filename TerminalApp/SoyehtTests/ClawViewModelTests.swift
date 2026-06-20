@@ -573,7 +573,11 @@ struct ClawDetailViewModelTests {
             "picoclaw",
             state: .installedButBlocked(reasons: [.maintenanceMode(retryAfterSecs: 60)])
         )
-        let vm = ClawDetailViewModel(claw: claw, context: makeTestServerContext())
+        let vm = ClawDetailViewModel(
+            claw: claw,
+            context: makeTestServerContext(),
+            pairedServerCountProvider: { 2 }
+        )
         // These flags drive the action-button branch selection in ClawDetailView:
         // isInstalled=true → footer count includes this claw
         // canCreate=false → deploy button hidden
@@ -581,7 +585,16 @@ struct ClawDetailViewModelTests {
         #expect(vm.claw.installState.isInstalled)
         #expect(!vm.claw.installState.canCreate)
         #expect(vm.claw.installState.canUninstall)
-        #expect(vm.installedServerCount > 0 || SoyehtCore.SessionStore.shared.pairedServers.isEmpty)
+        #expect(vm.installedServerCount == 2)
+        #expect(vm.totalServerCount == 2)
+    }
+
+    @Test("detail count default reads canonical ServerStore inventory")
+    func detailCountDefaultUsesServerStoreInventory() throws {
+        let source = try coreSource("ClawStore/ClawDetailViewModel.swift")
+
+        #expect(source.contains("ServerStore().load().count"))
+        #expect(!source.contains("SessionStore.shared.pairedServers.count"))
     }
 }
 
@@ -1898,4 +1911,15 @@ private func makeMacServer(id: String) -> Server {
         hostname: "\(id).test",
         lastHost: "\(id).test"
     )
+}
+
+private func coreSource(_ relativePath: String) throws -> String {
+    let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()  // SoyehtTests/
+        .deletingLastPathComponent()  // TerminalApp/
+        .deletingLastPathComponent()  // repo root
+    let url = repoRoot
+        .appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore")
+        .appendingPathComponent(relativePath)
+    return try String(contentsOf: url, encoding: .utf8)
 }
