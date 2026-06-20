@@ -94,7 +94,7 @@ final class InstalledClawsProvider: ObservableObject {
             }
             do {
                 async let clawsFetch = self.apiClient.getClaws(context: context)
-                async let instancesFetch = self.apiClient.getInstances()
+                async let instancesFetch = self.apiClient.getInstances(context: context)
                 let (allClaws, instances) = try await (clawsFetch, instancesFetch)
 
                 let onlineClawNames = Set(
