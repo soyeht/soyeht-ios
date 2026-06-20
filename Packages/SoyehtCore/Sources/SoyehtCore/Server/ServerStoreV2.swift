@@ -5,10 +5,10 @@ private let serverStoreV2Logger = Logger(subsystem: "com.soyeht.core", category:
 
 // MARK: - ServerStore v2
 //
-// Additive, shadow-only schema for Goal D D1. This file intentionally does not
+// Additive, shadow-only schema for Goal D. This file intentionally does not
 // change the live v1 `ServerStore` authority. Callers may encode/decode v2
 // envelopes and isolated tests may persist them under the v2 key, but no app
-// startup or mutation path reads this schema in D1.
+// startup or mutation path reads this schema in D1/D2.
 
 public struct ServerStoreV2Envelope: Codable, Equatable, Sendable {
     public static let schemaVersion = 2
@@ -59,6 +59,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
     public var capabilities: ServerStoreV2Capabilities
     public var credentials: [ServerStoreV2CredentialReference]
     public var legacyProvenance: [ServerStoreV2LegacyProvenance]
+    public var v1Projection: ServerStoreV2V1Projection
     public var pairedAt: Date
     public var lastSeenAt: Date
     public var theyOS: TheyOSSnapshot
@@ -72,6 +73,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
         capabilities: ServerStoreV2Capabilities = ServerStoreV2Capabilities(),
         credentials: [ServerStoreV2CredentialReference] = [],
         legacyProvenance: [ServerStoreV2LegacyProvenance] = [],
+        v1Projection: ServerStoreV2V1Projection = ServerStoreV2V1Projection(),
         pairedAt: Date,
         lastSeenAt: Date,
         theyOS: TheyOSSnapshot = TheyOSSnapshot()
@@ -84,6 +86,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
         self.capabilities = capabilities
         self.credentials = credentials.sortedForV2()
         self.legacyProvenance = legacyProvenance.sortedForV2()
+        self.v1Projection = v1Projection
         self.pairedAt = pairedAt
         self.lastSeenAt = lastSeenAt
         self.theyOS = theyOS
@@ -108,6 +111,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
             capabilities: capabilities,
             credentials: credentials,
             legacyProvenance: legacyProvenance,
+            v1Projection: ServerStoreV2V1Projection(server: server),
             pairedAt: server.pairedAt,
             lastSeenAt: server.lastSeenAt,
             theyOS: server.theyOS
@@ -123,6 +127,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
         case capabilities
         case credentials
         case legacyProvenance
+        case v1Projection
         case pairedAt
         case lastSeenAt
         case theyOS
@@ -149,6 +154,10 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
             [ServerStoreV2LegacyProvenance].self,
             forKey: .legacyProvenance
         )?.sortedForV2() ?? []
+        self.v1Projection = try container.decodeIfPresent(
+            ServerStoreV2V1Projection.self,
+            forKey: .v1Projection
+        ) ?? ServerStoreV2V1Projection()
         self.pairedAt = try container.decode(Date.self, forKey: .pairedAt)
         self.lastSeenAt = try container.decode(Date.self, forKey: .lastSeenAt)
         self.theyOS = try container.decodeIfPresent(TheyOSSnapshot.self, forKey: .theyOS)
@@ -165,6 +174,7 @@ public struct ServerStoreV2Record: Codable, Equatable, Identifiable, Sendable {
         try container.encode(capabilities, forKey: .capabilities)
         try container.encode(credentials.sortedForV2(), forKey: .credentials)
         try container.encode(legacyProvenance.sortedForV2(), forKey: .legacyProvenance)
+        try container.encode(v1Projection, forKey: .v1Projection)
         try container.encode(pairedAt, forKey: .pairedAt)
         try container.encode(lastSeenAt, forKey: .lastSeenAt)
         try container.encode(theyOS, forKey: .theyOS)
@@ -401,6 +411,46 @@ public struct ServerStoreV2LegacyProvenance: Codable, Equatable, Sendable {
     public init(source: Source, legacyID: String) {
         self.source = source
         self.legacyID = legacyID
+    }
+}
+
+public struct ServerStoreV2V1Projection: Codable, Equatable, Sendable {
+    public var lastHost: String?
+    public var apiEndpoint: URL?
+    public var bootstrapEndpoint: URL?
+    public var presencePort: Int?
+    public var attachPort: Int?
+    public var role: String?
+    public var sessionExpiresAt: String?
+
+    public init(
+        lastHost: String? = nil,
+        apiEndpoint: URL? = nil,
+        bootstrapEndpoint: URL? = nil,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil,
+        role: String? = nil,
+        sessionExpiresAt: String? = nil
+    ) {
+        self.lastHost = lastHost
+        self.apiEndpoint = apiEndpoint
+        self.bootstrapEndpoint = bootstrapEndpoint
+        self.presencePort = presencePort
+        self.attachPort = attachPort
+        self.role = role
+        self.sessionExpiresAt = sessionExpiresAt
+    }
+
+    public init(server: Server) {
+        self.init(
+            lastHost: server.lastHost,
+            apiEndpoint: server.apiEndpoint,
+            bootstrapEndpoint: server.bootstrapEndpoint,
+            presencePort: server.presencePort,
+            attachPort: server.attachPort,
+            role: server.role,
+            sessionExpiresAt: server.sessionExpiresAt
+        )
     }
 }
 
