@@ -7,6 +7,7 @@
 # Usage:
 #   scripts/sync-cross-repo-fixtures.sh
 #   THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
+#   SOYEHT_SYNC_ONLY=claw-store THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +21,29 @@ if [[ ! -d "${THEYOS_DIR}" ]]; then
 fi
 
 TESTS="${REPO_ROOT}/Packages/SoyehtCore/Tests/SoyehtCoreTests"
+
+# ── C4: Claw Store v1 route/wire contract (admin/contracts/claw-store/v1/) ───
+sync_claw_store_contract() {
+    local src_contract="${THEYOS_DIR}/admin/contracts/claw-store/v1/contract.json"
+    local dest_dir="${TESTS}/Fixtures/claw-store/v1"
+
+    if [[ ! -f "${src_contract}" ]]; then
+        echo "error: Claw Store v1 contract not found at ${src_contract}" >&2
+        exit 1
+    fi
+
+    mkdir -p "${dest_dir}"
+    cp "${src_contract}" "${dest_dir}/contract.json"
+    echo "✓ claw-store/v1/contract.json"
+}
+
+sync_claw_store_contract
+
+if [[ "${SOYEHT_SYNC_ONLY:-}" == "claw-store" ]]; then
+    echo ""
+    echo "Sync complete. Commit the updated fixture files if they changed."
+    exit 0
+fi
 
 # ── T039e: avatar derivation (specs/005-soyeht-onboarding/contracts/) ─────────
 SRC_CONTRACTS="${THEYOS_DIR}/specs/005-soyeht-onboarding/contracts"
