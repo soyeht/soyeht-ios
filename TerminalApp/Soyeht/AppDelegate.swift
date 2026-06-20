@@ -59,13 +59,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Bootstrap presence clients for every already-paired Mac so the home
         // list starts populating as soon as the user opens the app.
         PairedMacRegistry.shared.bootstrap()
-        // One-shot legacy import into the unified ServerStore (Phase 3 of the
-        // Server-unification plan). Idempotent: a sentinel inside
-        // `ServerStore` makes this a no-op after the first successful run,
-        // so it is safe to call on every launch. Legacy stores
-        // (`PairedMacsStore.macs`, `SessionStore.pairedServers`) stay
-        // authoritative until Phase 7 cleanup; this just mirrors them into
-        // the new model so future views can consume `ServerRegistry`.
+        // One-shot legacy import into the unified ServerStore (see
+        // docs/server-model.md). Idempotent: a sentinel inside
+        // `ServerStore` makes this a no-op after the first successful
+        // run, so it is safe to call on every launch. Legacy stores
+        // remain as credential/protocol adapters during the migration;
+        // the UI-facing list and mutation funnel is `ServerRegistry`.
         let legacyMacSeed = PairedMacsStore.shared.macs.map { $0.toServer() }
         let legacyServerSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
         ServerRegistry.shared.migrateLegacy(seed: legacyMacSeed + legacyServerSeed)

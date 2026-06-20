@@ -27,7 +27,7 @@ import Foundation
 //
 // See `docs/server-model.md` (Phase 6) for the rendering contract:
 // every UI surface reads `server.displayName`; every mutation goes
-// through `ServerRegistry.setAlias / addServer / removeServer /
+// through `ServerRegistry.rename / upsertMacPairing / remove /
 // updateTheyOSStatus`; status is consumed via `server.theyOS.status`.
 public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
     /// Stable identifier. UUID-as-String for Macs (legacy `PairedMac.macID`),
