@@ -257,7 +257,7 @@ public final class SessionStore: ObservableObject {
     private let keychainTokenKey = "session_token"
     private let keychainServerTokensKey = "server_tokens"
     private let defaults: UserDefaults
-    private let serverStore: ServerStore
+    private let inventoryWriter: ServerInventoryWriter
 
     private func withStorageLock<T>(_ body: () throws -> T) rethrows -> T {
         Self.storageLock.lock()
@@ -282,7 +282,7 @@ public final class SessionStore: ObservableObject {
     ) {
         self.defaults = defaults
         self.keychainService = keychainService
-        self.serverStore = serverStore ?? ServerStore(defaults: defaults)
+        self.inventoryWriter = ServerInventoryWriter(store: serverStore ?? ServerStore(defaults: defaults))
         migrateIfNeeded()
     }
 
@@ -371,7 +371,7 @@ public final class SessionStore: ObservableObject {
             saveTokenForServer(id: stored.id, token: token)
             return stored
         }
-        serverStore.upsertLegacyProjection(result.toServer())
+        inventoryWriter.upsertLegacyProjection(result.toServer())
         onServersDidChange?()
         return result
     }
@@ -399,7 +399,7 @@ public final class SessionStore: ObservableObject {
             return stored
         }
         if let updated {
-            serverStore.upsertLegacyProjection(updated.toServer())
+            inventoryWriter.upsertLegacyProjection(updated.toServer())
             onServersDidChange?()
         }
     }
@@ -436,7 +436,7 @@ public final class SessionStore: ObservableObject {
             return stored
         }
         if let updated {
-            serverStore.upsertLegacyProjection(updated.toServer())
+            inventoryWriter.upsertLegacyProjection(updated.toServer())
             onServersDidChange?()
         }
     }
@@ -460,7 +460,7 @@ public final class SessionStore: ObservableObject {
             return true
         }
         if didMutate {
-            serverStore.remove(id: id)
+            inventoryWriter.remove(id: id)
             onServersDidChange?()
         }
     }
@@ -477,7 +477,7 @@ public final class SessionStore: ObservableObject {
     /// to list machines should enumerate `ServerStore`, while this store
     /// remains responsible for credential lookup.
     public func canonicalServers() -> [Server] {
-        serverStore.load()
+        inventoryWriter.load()
     }
 
     /// Canonical inventory rows that still have a credential in this
