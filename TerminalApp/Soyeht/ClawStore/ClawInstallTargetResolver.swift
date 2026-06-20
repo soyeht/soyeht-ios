@@ -55,53 +55,11 @@ enum ClawInstallTargetResolver {
         profile.bootstrapPort
     }
 
-    /// The decision for a given install target.
-    enum Resolution: Equatable {
-        /// Preferred path. The caller routes Claw API calls via
-        /// `ClawAPITarget.server(ctx)` and may show the Deploy button.
-        case server(ServerContext)
-
-        /// A Mac paired via the household pair-machine flow and
-        /// therefore lacking a legacy mobile session token. Catalog
-        /// browse and install/uninstall route via the selected Mac's
-        /// own `/api/v1/household/claws*` endpoints (PoP-signed). Deploy
-        /// is supported through the same selected-Mac endpoint when the
-        /// engine exposes the household create-instance route.
-        ///
-        /// The endpoint is the chosen Mac's bootstrap/household
-        /// listener, usually `http://<tailscale-or-lan-ip>:8091`.
-        /// Because the endpoint itself identifies the target Mac, the
-        /// household wire path no longer needs a `serverId` parameter.
-        case householdEndpoint(serverID: String, endpoint: URL)
-
-        /// The resolver can't honor this install target.
-        case unavailable(MissingReason)
-
-        static func == (lhs: Resolution, rhs: Resolution) -> Bool {
-            switch (lhs, rhs) {
-            case (.server(let a), .server(let b)):
-                return a.serverId == b.serverId && a.token == b.token
-            case (.householdEndpoint(let aID, let aEndpoint), .householdEndpoint(let bID, let bEndpoint)):
-                return aID == bID && aEndpoint == bEndpoint
-            case (.unavailable(let a), .unavailable(let b)):
-                return a == b
-            default:
-                return false
-            }
-        }
-    }
-
-    enum MissingReason: Equatable, Sendable {
-        /// `ServerRegistry` has no server with the given id (server was
-        /// unpaired or the id was malformed).
-        case unknownServer
-
-        /// The server exists in `ServerRegistry` but has no
-        /// `ServerContext` and no usable selected-Mac household
-        /// endpoint.
-        /// UI surfaces this as `MacClawUnavailableView`.
-        case missingContext
-    }
+    /// The decision for a given install target. Kept as a local alias so the
+    /// existing iOS call sites remain readable while the target vocabulary
+    /// lives in SoyehtCore for both iOS and macOS.
+    typealias Resolution = ClawMachineTarget
+    typealias MissingReason = ClawMachineTarget.MissingReason
 
     /// Resolves the wire-level decision for an install target.
     ///
@@ -267,33 +225,6 @@ enum ClawInstallTargetResolver {
                 && bytes[3] == 0x5c
                 && bytes[4] == 0xa1
                 && bytes[5] == 0xe0
-        }
-    }
-}
-
-extension ClawInstallTargetResolver.Resolution {
-    /// Convenience: `ClawAPITarget` for the resolution, if any. Returns
-    /// nil for `.unavailable`. Callers that need to drive the existing
-    /// `SoyehtCore` Claw APIs use this; callers that need to render
-    /// affordance state (deploy button visibility, copy) switch on the
-    /// resolution directly.
-    var apiTarget: ClawAPITarget? {
-        switch self {
-        case .server(let ctx): return .server(ctx)
-        case .householdEndpoint(_, let endpoint): return .householdEndpoint(endpoint)
-        case .unavailable: return nil
-        }
-    }
-
-    /// True when this resolution supports the Deploy flow. `.server`
-    /// routes through the legacy per-server token; `.householdEndpoint`
-    /// routes through the selected Mac's PoP-gated household endpoint.
-    var supportsDeploy: Bool {
-        switch self {
-        case .server, .householdEndpoint:
-            return true
-        case .unavailable:
-            return false
         }
     }
 }

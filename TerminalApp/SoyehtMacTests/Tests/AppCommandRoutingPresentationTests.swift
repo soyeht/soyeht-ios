@@ -231,8 +231,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
         let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
         XCTAssertTrue(rootView.contains("onOpenTerminal: onOpenTerminal"))
+        XCTAssertTrue(rootView.contains("ClawMachineTarget.server(context)"))
+        XCTAssertTrue(rootView.contains("ClawStoreViewModel(machineTarget: target)"))
 
         let detailView = try macSource("ClawStore/MacClawDetailView.swift")
+        XCTAssertTrue(detailView.contains("ClawDetailViewModel(claw: claw, machineTarget: target)"))
         XCTAssertTrue(detailView.contains("claw.detail.button.openTerminal"))
         XCTAssertTrue(detailView.contains("onOpenTerminal?(viewModel.claw.name)"))
         XCTAssertTrue(detailView.contains("soyeht.macClawDetail.openTerminal"))
