@@ -273,7 +273,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func openInitialWindow() async {
-        if !SessionStore.shared.pairedServers.isEmpty {
+        if !SessionStore.shared.credentialedCanonicalServers().isEmpty {
             restoreMainWindowsOrOpenDefault()
             return
         }
@@ -2109,7 +2109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func connectThisMacFromClawStore() {
-        guard let localServer = SessionStore.shared.pairedServers.first(where: isLocalEngineServer) else {
+        guard let localServer = SessionStore.shared.credentialedCanonicalServers().first(where: isLocalEngineServer) else {
             openWelcomeWindow()
             return
         }
@@ -2259,7 +2259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     @IBAction func logout(_ sender: Any) {
         let store = SessionStore.shared
-        guard !store.pairedServers.isEmpty else { return }
+        guard !store.credentialedCanonicalServers().isEmpty else { return }
 
         let alert = NSAlert()
         alert.messageText = String(localized: "appMenu.logout.alert.title", comment: "Logout confirmation alert title.")
@@ -2279,7 +2279,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // same onboarding flow the first launch uses, instead of the legacy
         // LoginViewController sheet. If the user still has other paired
         // servers, the main window stays and the sheet is never opened.
-        if store.pairedServers.isEmpty {
+        if store.credentialedCanonicalServers().isEmpty {
             closeAllMainWindows()
             openWelcomeWindow()
         }

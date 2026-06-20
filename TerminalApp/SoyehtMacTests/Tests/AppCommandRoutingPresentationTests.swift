@@ -189,6 +189,33 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
+    func testMacAppShellServerPresenceUsesCredentialedCanonicalInventory() throws {
+        let appDelegate = try macSource("AppDelegate.swift")
+        let openInitialWindow = try slice(
+            appDelegate,
+            from: "private func openInitialWindow() async",
+            to: "private func finishWelcome()"
+        )
+        let logout = try slice(
+            appDelegate,
+            from: "@IBAction func logout",
+            to: "private func closeAllMainWindows()"
+        )
+        let mainMenu = try macSource("MainMenu/MainMenuController.swift")
+        let commandUIContext = try slice(
+            mainMenu,
+            from: "private var commandUIContext",
+            to: "private func commandWindowState"
+        )
+
+        XCTAssertTrue(openInitialWindow.contains("SessionStore.shared.credentialedCanonicalServers().isEmpty"))
+        XCTAssertFalse(openInitialWindow.contains(".pairedServers"))
+        XCTAssertTrue(logout.contains("store.credentialedCanonicalServers().isEmpty"))
+        XCTAssertFalse(logout.contains("store.pairedServers"))
+        XCTAssertTrue(commandUIContext.contains("SessionStore.shared.credentialedCanonicalServers().isEmpty"))
+        XCTAssertFalse(commandUIContext.contains("SessionStore.shared.pairedServers"))
+    }
+
     func testMacClawStoreDetailOpenTerminalUsesContextBackedMainWindowPath() throws {
         let appDelegate = try macSource("AppDelegate.swift")
         let showStore = try slice(
@@ -241,7 +268,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(showStore.contains("onShowConnectedServers: { [weak self] in"))
         XCTAssertTrue(showStore.contains("self?.showConnectedServers(nil)"))
         XCTAssertTrue(showStore.contains("private func connectThisMacFromClawStore()"))
-        XCTAssertTrue(showStore.contains("SessionStore.shared.pairedServers.first(where: isLocalEngineServer)"))
+        XCTAssertTrue(showStore.contains("SessionStore.shared.credentialedCanonicalServers().first(where: isLocalEngineServer)"))
         XCTAssertTrue(showStore.contains("closeStandaloneClawStoreWindow()"))
         XCTAssertTrue(showStore.contains("SessionStore.shared.setActiveServer(id: localServer.id)"))
         XCTAssertTrue(showStore.contains("DispatchQueue.main.async { [weak self] in"))
