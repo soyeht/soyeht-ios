@@ -86,6 +86,11 @@ private func pair(
     return stored
 }
 
+private func percentEncodedPath(_ request: URLRequest) -> String? {
+    guard let url = request.url else { return nil }
+    return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath
+}
+
 // MARK: - Routing tests
 
 // Serialized because `KindRoutingTestProtocol` keeps captured request +
@@ -390,6 +395,40 @@ struct SoyehtAPIClientKindTests {
         #expect(req.httpMethod == "POST")
     }
 
+    @Test
+    func clawNamePathSegmentsArePercentEncodedForAdminKind() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"job_id":"job-encoded","message":"queued"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        _ = try await client.installClaw(name: "hermes/agent", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(percentEncodedPath(req) == "/api/v1/claws/hermes%2Fagent/install")
+    }
+
+    @Test
+    func clawNamePathSegmentsArePercentEncodedForEngineKind() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"job_id":"job-encoded","message":"queued"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .engine, host: "engine.example.test", token: "B")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "B")
+
+        _ = try await client.installClaw(name: "hermes/agent", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(percentEncodedPath(req) == "/api/v1/mobile/claws/hermes%2Fagent/install")
+    }
+
     // MARK: - Fallback endpoints (no admin-host route exists)
 
     @Test
@@ -503,6 +542,37 @@ struct SoyehtAPIClientKindTests {
         #expect(req.url?.path == "/api/v1/mobile/instances/i-2/status")
         #expect(response.status == "active")
         #expect(response.provisioningMessage == nil)
+    }
+
+    @Test
+    func instanceIdPathSegmentsArePercentEncodedForStatusActionAndFetch() async throws {
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"instance":{"id":"inst-alpha","name":"hermes","container":"hermes-1","claw_type":"hermes","status":"provisioning","provisioning_message":"booting","provisioning_phase":"vm_start","provisioning_error":null,"tokens_24h":0,"memory_mb":0,"cpu_pct":0,"uptime_hours":0,"auto_update":false,"created_at":"2026-05-19T00:00:00Z","guest_os":"linux"},"job":null}
+        """.utf8)
+        _ = try await client.getInstanceStatus(id: "inst/alpha", context: context)
+        var req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(percentEncodedPath(req) == "/api/v1/instances/inst%2Falpha/status")
+
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.statusCode = 204
+        KindRoutingTestProtocol.responseBody = Data()
+        try await client.instanceAction(id: "inst/alpha", action: .restart, context: context)
+        req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(percentEncodedPath(req) == "/api/v1/instances/inst%2Falpha/restart")
+
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"id":"inst-alpha","name":"hermes","container":"hermes-1","claw_type":"hermes","status":"active","tokens_24h":0,"memory_mb":0,"cpu_pct":0,"uptime_hours":0,"auto_update":false,"created_at":"2026-05-19T00:00:00Z","guest_os":"linux"}
+        """.utf8)
+        _ = try await client.getInstance(id: "inst/alpha", context: context)
+        req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(percentEncodedPath(req) == "/api/v1/instances/inst%2Falpha")
     }
 
     // MARK: - Logout

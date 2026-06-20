@@ -40,11 +40,19 @@ extension ServerKind {
             switch endpoint {
             case .instancesList:           return "/api/v1/mobile/instances"
             case .createInstance:          return "/api/v1/mobile/instances"
-            case .instanceStatus(let id):  return "/api/v1/mobile/instances/\(id)/status"
+            case .instanceStatus(let id):
+                guard let id = SoyehtAPIPath.segmentOrNil(id) else { return nil }
+                return "/api/v1/mobile/instances/\(id)/status"
             case .claws:                   return "/api/v1/mobile/claws"
-            case .clawAvailability(let n): return "/api/v1/mobile/claws/\(n)/availability"
-            case .installClaw(let n):      return "/api/v1/mobile/claws/\(n)/install"
-            case .uninstallClaw(let n):    return "/api/v1/mobile/claws/\(n)/uninstall"
+            case .clawAvailability(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/mobile/claws/\(n)/availability"
+            case .installClaw(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/mobile/claws/\(n)/install"
+            case .uninstallClaw(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/mobile/claws/\(n)/uninstall"
             case .resourceOptions:         return "/api/v1/mobile/resource-options"
             case .users:                   return "/api/v1/mobile/users"
             case .sessionStatus:           return "/api/v1/mobile/status"
@@ -54,11 +62,19 @@ extension ServerKind {
             switch endpoint {
             case .instancesList:           return "/api/v1/instances"
             case .createInstance:          return "/api/v1/instances"
-            case .instanceStatus(let id):  return "/api/v1/instances/\(id)/status"
+            case .instanceStatus(let id):
+                guard let id = SoyehtAPIPath.segmentOrNil(id) else { return nil }
+                return "/api/v1/instances/\(id)/status"
             case .claws:                   return "/api/v1/claws"
-            case .clawAvailability(let n): return "/api/v1/claws/\(n)/availability"
-            case .installClaw(let n):      return "/api/v1/claws/\(n)/install"
-            case .uninstallClaw(let n):    return "/api/v1/claws/\(n)/uninstall"
+            case .clawAvailability(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/claws/\(n)/availability"
+            case .installClaw(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/claws/\(n)/install"
+            case .uninstallClaw(let n):
+                guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
+                return "/api/v1/claws/\(n)/uninstall"
             case .resourceOptions:         return nil   // not exposed on admin
             case .users:                   return nil   // not exposed on admin
             case .sessionStatus:           return "/api/v1/instances"   // liveness probe (see validateSession)

@@ -47,6 +47,11 @@ private final class HouseholdAPIClientTestURLProtocol: URLProtocol, @unchecked S
   }
 }
 
+private func percentEncodedPath(_ request: URLRequest) -> String? {
+  guard let url = request.url else { return nil }
+  return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath
+}
+
 private struct HouseholdAPIClientOwnerKeyProvider: OwnerIdentityKeyCreating {
   let key: P256.Signing.PrivateKey
 
@@ -464,6 +469,29 @@ struct HouseholdAPIClientTests {
     #expect(request.url?.path == "/api/v1/household/claws/hermes/install")
   }
 
+  @Test func householdClawNamesArePercentEncodedInPaths() async throws {
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = Data(
+      """
+      {"job_id":"job-encoded","message":"queued"}
+      """.utf8)
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+    _ = try await client.installClaw(
+      name: "hermes/agent",
+      target: .householdEndpoint(URL(string: "http://100.64.0.10:8091")!)
+    )
+
+    let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+    #expect(percentEncodedPath(request) == "/api/v1/household/claws/hermes%2Fagent/install")
+  }
+
   @Test func createInstanceWithHouseholdEndpointUsesSelectedMacEndpoint() async throws {
     HouseholdAPIClientTestURLProtocol.reset()
     HouseholdAPIClientTestURLProtocol.responseData = Data(
@@ -532,6 +560,40 @@ struct HouseholdAPIClientTests {
     #expect(request.url?.host == "100.64.0.10")
     #expect(request.url?.port == 8091)
     #expect(request.url?.path == "/api/v1/household/instances/inst-openclaw/status")
+  }
+
+  @Test func householdInstanceIdsArePercentEncodedInStatusAndActionPaths() async throws {
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+    let endpoint = URL(string: "http://100.64.0.10:8091")!
+
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = Data(
+      """
+      {"status":"active","provisioning_message":"ready","provisioning_error":null,"provisioning_phase":"complete"}
+      """.utf8)
+    _ = try await client.getInstanceStatus(
+      id: "inst/openclaw",
+      target: .householdEndpoint(endpoint)
+    )
+    var request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+    #expect(percentEncodedPath(request) == "/api/v1/household/instances/inst%2Fopenclaw/status")
+
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = Data()
+    HouseholdAPIClientTestURLProtocol.statusCode = 204
+    try await client.instanceAction(
+      id: "inst/openclaw",
+      action: .delete,
+      householdEndpoint: endpoint
+    )
+    request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+    #expect(percentEncodedPath(request) == "/api/v1/household/instances/inst%2Fopenclaw")
   }
 
   @Test func instanceActionsWithHouseholdEndpointUseIdKeyedRoutes() async throws {
