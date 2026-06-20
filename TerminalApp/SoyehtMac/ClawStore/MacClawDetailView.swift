@@ -135,9 +135,14 @@ struct MacClawDetailView: View {
 
     @ViewBuilder
     private var actions: some View {
+        let actionAvailability = ClawDetailActionAvailability(
+            installState: viewModel.claw.installState,
+            installability: viewModel.claw.installability,
+            supportsDeploy: target.supportsDeploy
+        )
+
         HStack(spacing: 8) {
-            switch viewModel.claw.installState {
-            case .notInstalled:
+            if actionAvailability.showsInstall {
                 Button {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 } label: {
@@ -146,12 +151,15 @@ struct MacClawDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
-            case .installed:
+            }
+
+            if actionAvailability.showsDeploy {
                 NavigationLink(value: ClawRoute.setup(viewModel.claw, serverId: context.serverId)) {
                     Text("claw.detail.button.createInstance")
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
+
                 Button {
                     onOpenTerminal?(viewModel.claw.name)
                 } label: {
@@ -169,6 +177,9 @@ struct MacClawDetailView: View {
                 .buttonStyle(.bordered)
                 .disabled(onOpenTerminal == nil)
                 .accessibilityIdentifier("soyeht.macClawDetail.openTerminal")
+            }
+
+            if actionAvailability.showsUninstall {
                 Button {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 } label: {
@@ -177,16 +188,9 @@ struct MacClawDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
-            case .installedButBlocked:
-                Button {
-                    Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
-                } label: {
-                    Text("claw.detail.button.uninstall")
-                        .font(MacTypography.Fonts.clawActionButton)
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.isPerformingAction)
-            case .installFailed:
+            }
+
+            if actionAvailability.showsRetryInstall {
                 Button {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 } label: {
@@ -195,8 +199,6 @@ struct MacClawDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
-            case .installing, .uninstalling, .unknown:
-                EmptyView()
             }
         }
     }
