@@ -50,3 +50,33 @@ public extension PairedServer {
         )
     }
 }
+
+public extension Server {
+    /// Materializes the credential-layer `PairedServer` shape from the
+    /// canonical inventory row. Used during the ServerStore migration
+    /// while APIs still accept `ServerContext(server: PairedServer, ...)`.
+    func toPairedServer() -> PairedServer {
+        let pairedKind: ServerKind
+        let platform: String
+        switch kind {
+        case .mac:
+            pairedKind = .engine
+            platform = "macos"
+        case .linux:
+            pairedKind = .adminHost
+            platform = "linux"
+        }
+
+        return PairedServer(
+            id: id,
+            host: lastHost ?? hostname,
+            name: displayName,
+            role: role,
+            pairedAt: pairedAt,
+            expiresAt: sessionExpiresAt,
+            platform: platform,
+            kind: pairedKind,
+            engineMachineId: engineMachineId
+        )
+    }
+}
