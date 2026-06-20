@@ -35,10 +35,11 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
         var data = VMTestURLProtocol.mockResponseData
 
         if let path = request.url?.path {
+            let hostPath = "\(request.url?.host ?? "")\(path)"
             var bestMatch: (Int, Data)?
             var bestLen = 0
             for (prefix, override_) in VMTestURLProtocol.routeOverrides {
-                if path.contains(prefix) && prefix.count > bestLen {
+                if (hostPath.contains(prefix) || path.contains(prefix)) && prefix.count > bestLen {
                     bestMatch = override_
                     bestLen = prefix.count
                 }
@@ -65,7 +66,10 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
     static func reset() {
         mockResponseData = Data("{}".utf8)
         mockStatusCode = 200
-        routeOverrides = [:]
+        // Keep host-scoped overrides (`host/path`) stable across resets:
+        // these tests run alongside other suites, and a generic reset in a
+        // parallel test must not erase another test's unique host route.
+        routeOverrides = routeOverrides.filter { !$0.key.hasPrefix("/") }
         capturedRequest = nil
     }
 }
@@ -247,6 +251,10 @@ private func makeVMTestClient(store: SoyehtCore.SessionStore? = nil) -> (SoyehtC
     s.addServer(server, token: "test-token-123")
     s.setActiveServer(id: server.id)
     return (SoyehtCore.SoyehtAPIClient(session: session, store: s), s)
+}
+
+private func vmRoute(host: String, _ pathSuffix: String) -> String {
+    "\(host)/api/v1/mobile\(pathSuffix)"
 }
 
 // Fixture helper — generates a Claw JSON object with embedded availability.
@@ -753,19 +761,35 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func loadOptions_setsResourceDefaults() async {
         VMTestURLProtocol.reset()
+        let host = "load-options.example.test"
         let resourceJSON = Data("""
         {"cpu_cores":{"min":1,"max":10,"default":4},"ram_mb":{"min":1024,"max":12288,"default":3072},"disk_gb":{"min":10,"max":120,"default":25,"disabled":false}}
         """.utf8)
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = resourceJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-load-options", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-load-options",
+            host: host,
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
         store.addServer(server, token: "test-token-123")
         store.setActiveServer(id: server.id)
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
+        vm.serverType = "linux"
         await vm.loadOptions()
 
         #expect(vm.cpuCores == 4)
@@ -781,19 +805,35 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func performanceProfiles_applyLiveResourcePolicy() async {
         VMTestURLProtocol.reset()
+        let host = "profile-options.example.test"
         let resourceJSON = Data("""
         {"cpu_cores":{"min":1,"max":10,"default":4},"ram_mb":{"min":1024,"max":12288,"default":3072},"disk_gb":{"min":10,"max":120,"default":25,"disabled":false}}
         """.utf8)
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = resourceJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-profile-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-profile-test",
+            host: host,
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
         store.addServer(server, token: "test-token-123")
         store.setActiveServer(id: server.id)
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
+        vm.serverType = "linux"
 
         await vm.loadOptions()
         #expect(vm.performanceProfile == .standard)
@@ -869,8 +909,9 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func loadOptions_failurePreservesCurrentResourceValues() async {
         VMTestURLProtocol.reset()
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server error\"}".utf8))
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        let host = "resource-failure.example.test"
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (500, Data("{\"error\":\"server error\"}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockStatusCode = 500
         VMTestURLProtocol.mockResponseData = Data("{\"error\":\"server error\"}".utf8)
 
@@ -898,13 +939,26 @@ struct ClawViewModelAsyncTests {
         """.utf8)
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-deploy-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-deploy-test",
+            host: "test.example.com",
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
 
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
-        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-deploy-test" }) ?? 0
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
 
         await vm.deploy()
 
@@ -1132,14 +1186,28 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = createJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-monitor-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-monitor-test",
+            host: "test.example.com",
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
 
         let monitor = ClawDeployMonitor(apiClient: .shared)
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store, deployMonitor: monitor)
-        vm.selectedServerIndex = 0
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store,
+            deployMonitor: monitor
+        )
 
         await vm.deploy()
 
@@ -1155,21 +1223,35 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func deploy_macosOmitsDiskGBWithoutLiveLimits() async {
         VMTestURLProtocol.reset()
+        let host = "mac-fallback.example.test"
         let createJSON = Data("""
         {"id":"inst_mac","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server down\"}".utf8))
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (500, Data("{\"error\":\"server down\"}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-mac-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-mac-test",
+            host: host,
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
         store.addServer(server, token: "test-token-123")
-        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+        store.saveSession(token: "test-token-123", host: host, expiresAt: "2099-01-01T00:00:00Z")
 
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
-        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-mac-test" }) ?? 0
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
         vm.serverType = "macos"
         vm.cpuCores = 8
         vm.ramMB = 16384
@@ -1192,21 +1274,35 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func deploy_usesCurrentValuesWithoutLiveLimits() async {
         VMTestURLProtocol.reset()
+        let host = "linux-fallback.example.test"
         let createJSON = Data("""
         {"id":"inst_linux_fallback","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server down\"}".utf8))
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (500, Data("{\"error\":\"server down\"}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-linux-fallback-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-linux-fallback-test",
+            host: host,
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .adminHost
+        )
         store.addServer(server, token: "test-token-123")
-        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+        store.saveSession(token: "test-token-123", host: host, expiresAt: "2099-01-01T00:00:00Z")
 
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
-        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-linux-fallback-test" }) ?? 0
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
         vm.serverType = "linux"
         vm.cpuCores = 9
         vm.ramMB = 14336
@@ -1230,24 +1326,38 @@ struct ClawViewModelAsyncTests {
     @MainActor
     func deploy_omitsDiskGBWhenDisabledByResourceOptions() async {
         VMTestURLProtocol.reset()
+        let host = "disk-disabled.example.test"
         let resourceJSON = Data("""
         {"cpu_cores":{"min":1,"max":16,"default":6},"ram_mb":{"min":1024,"max":32768,"default":4096},"disk_gb":{"min":20,"max":240,"default":60,"disabled":true}}
         """.utf8)
         let createJSON = Data("""
         {"id":"inst_linux","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
-        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/resource-options")] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides[vmRoute(host: host, "/users")] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
         let store = makeIsolatedSoyehtCoreSessionStore()
-        let server = PairedServer(id: "s-linux-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(
+            id: "s-linux-test",
+            host: host,
+            name: "test",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
         store.addServer(server, token: "test-token-123")
-        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+        store.saveSession(token: "test-token-123", host: host, expiresAt: "2099-01-01T00:00:00Z")
 
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
-        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-linux-test" }) ?? 0
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: server.id,
+            apiClient: client,
+            store: store
+        )
         vm.serverType = "linux"
 
         await vm.loadOptions()
@@ -1273,6 +1383,19 @@ struct ClawViewModelAsyncTests {
 
 @Suite("ClawSetupViewModel injected servers")
 struct ClawSetupViewModelInjectedServersTests {
+
+    private func makeStoreAndServerStore() -> (SessionStore, ServerStore) {
+        let suiteName = "com.soyeht.tests.clawsetup.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let serverStore = ServerStore(defaults: defaults)
+        let store = SessionStore(
+            defaults: defaults,
+            keychainService: "com.soyeht.tests.clawsetup.\(UUID().uuidString)",
+            serverStore: serverStore
+        )
+        return (store, serverStore)
+    }
 
     @Test("servers reads from the injected list when provided")
     func injected_servers_overrideStorePairedServers() {
@@ -1314,9 +1437,9 @@ struct ClawSetupViewModelInjectedServersTests {
         )
     }
 
-    @Test("legacy init keeps reading from store.pairedServers")
-    func legacy_init_stillReadsStorePairedServers() {
-        let store = makeIsolatedSoyehtCoreSessionStore()
+    @Test("default init reads from canonical ServerStore inventory")
+    func defaultInit_readsCanonicalServerStoreInventory() {
+        let (store, serverStore) = makeStoreAndServerStore()
         let server = PairedServer(
             id: "legacy-server",
             host: "legacy.host",
@@ -1327,13 +1450,57 @@ struct ClawSetupViewModelInjectedServersTests {
             platform: "linux"
         )
         store.addServer(server, token: "tok-legacy")
+        var canonical = server.toServer()
+        canonical.alias = "Canonical Linux"
+        canonical.lastHost = "canonical.host"
+        serverStore.upsert(canonical)
 
         let vm = ClawSetupViewModel(
             claw: makeClaw("picoclaw", description: "test"),
             store: store
         )
         #expect(vm.servers.first?.id == "legacy-server",
-            "Legacy init must remain source-compatible — macOS callers depend on this."
+            "Default deploy picker should still include servers that have credentials."
+        )
+        #expect(vm.servers.first?.name == "Canonical Linux",
+            "Default deploy picker must render the canonical ServerStore display name, not stale legacy metadata."
+        )
+        #expect(vm.servers.first?.host == "canonical.host",
+            "Default deploy picker must route through the canonical ServerStore host."
+        )
+    }
+
+    @Test("default init ignores legacy pairedServers that are not in ServerStore")
+    func defaultInit_ignoresLegacyRowsMissingFromServerStore() {
+        let (store, serverStore) = makeStoreAndServerStore()
+        let server = PairedServer(
+            id: "legacy-only",
+            host: "legacy-only.host",
+            name: "legacy only",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux"
+        )
+        store.addServer(server, token: "tok-legacy-only")
+        serverStore.save([])
+
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            store: store
+        )
+
+        #expect(vm.servers.isEmpty,
+            "SessionStore may still hold credentials, but the deploy picker inventory must come from ServerStore."
+        )
+    }
+
+    @Test("default deploy options enumerate canonical inventory source")
+    func defaultDeployOptionsUseCanonicalInventorySource() throws {
+        let source = try coreSource("ClawStore/ClawSetupViewModel.swift")
+        #expect(source.contains("store.canonicalServers()"))
+        #expect(!source.contains("store.pairedServers.compactMap"),
+            "The default deploy picker must not enumerate the legacy SessionStore server list directly."
         )
     }
 

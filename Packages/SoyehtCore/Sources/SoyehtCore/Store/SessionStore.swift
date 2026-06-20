@@ -472,6 +472,14 @@ public final class SessionStore: ObservableObject {
         NotificationCenter.default.post(name: ClawStoreNotifications.activeServerChanged, object: nil)
     }
 
+    /// Canonical machine inventory associated with this store's
+    /// UserDefaults suite. This is a transition helper: callers that need
+    /// to list machines should enumerate `ServerStore`, while this store
+    /// remains responsible for credential lookup.
+    public func canonicalServers() -> [Server] {
+        serverStore.load()
+    }
+
     // MARK: - ServerContext
 
     /// Build the `(server, token)` pair needed to route an API call to a
@@ -485,6 +493,16 @@ public final class SessionStore: ObservableObject {
                 return nil
             }
             return ServerContext(server: server, token: token)
+        }
+    }
+
+    /// Build a context using the canonical inventory row as the source of
+    /// server metadata and this store only as the credential lookup. This
+    /// is the preferred bridge during the ServerStore migration.
+    public func context(for server: Server) -> ServerContext? {
+        withStorageLock {
+            guard let token = tokenForServer(id: server.id) else { return nil }
+            return ServerContext(server: server.toPairedServer(), token: token)
         }
     }
 

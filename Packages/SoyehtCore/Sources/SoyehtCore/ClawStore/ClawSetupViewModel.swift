@@ -69,8 +69,10 @@ public final class ClawSetupViewModel: ObservableObject {
     private let householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler?
     private let createInstanceHandler: ClawCreateInstanceHandler
 
-    /// Legacy init — preserved for macOS callers and existing tests.
-    /// Reads `store.pairedServers` lazily via the `servers` computed.
+    /// Default init for context-backed deploy targets. Enumerates the
+    /// canonical `ServerStore` inventory associated with `store`, then
+    /// asks `SessionStore` only for the credential context for each
+    /// server.
     public init(
         claw: Claw,
         initialServerId: String? = nil,
@@ -91,7 +93,8 @@ public final class ClawSetupViewModel: ObservableObject {
         }
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
-           let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
+           let index = Self.deployOptions(from: store.canonicalServers(), store: store)
+            .firstIndex(where: { $0.server.id == initialServerId }) {
             self.selectedServerIndex = index
         }
         setDefaultServerTypeFromSelectedServer()
@@ -104,7 +107,7 @@ public final class ClawSetupViewModel: ObservableObject {
     /// household pair-machine flow without a per-Mac token are absent).
     ///
     /// The model itself is platform-agnostic: any caller that wants to
-    /// override the default `store.pairedServers` list uses this init.
+    /// override the default `ServerStore` inventory uses this init.
     /// Empty `servers` is valid and renders the "no deployable servers"
     /// placeholder.
     public init(
@@ -196,10 +199,7 @@ public final class ClawSetupViewModel: ObservableObject {
     }
 
     private var deployOptions: [ClawDeployOption] {
-        injectedDeployOptions ?? store.pairedServers.compactMap { server in
-            let target = store.context(for: server.id).map(CreateInstanceTarget.server)
-            return ClawDeployOption(server: server, target: target)
-        }
+        injectedDeployOptions ?? Self.deployOptions(from: store.canonicalServers(), store: store)
     }
 
     private var selectedDeployOption: ClawDeployOption? {
@@ -459,6 +459,13 @@ public final class ClawSetupViewModel: ObservableObject {
             return true
         case .householdEndpoint:
             return true
+        }
+    }
+
+    private static func deployOptions(from servers: [Server], store: SessionStore) -> [ClawDeployOption] {
+        servers.compactMap { server in
+            guard let context = store.context(for: server) else { return nil }
+            return ClawDeployOption(server: context.server, target: .server(context))
         }
     }
 
