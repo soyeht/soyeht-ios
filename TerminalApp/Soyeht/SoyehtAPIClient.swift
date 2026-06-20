@@ -245,7 +245,7 @@ extension SoyehtAPIClient {
             throw APIError.invalidURL
         }
 
-        components.scheme = SoyehtAPIClient.isLocalHost(context.host) ? "ws" : "wss"
+        components.scheme = EndpointPolicy.adminWebSocketScheme(for: context.host)
         guard let webSocketURL = components.url else {
             throw APIError.invalidURL
         }

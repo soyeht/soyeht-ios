@@ -1,26 +1,9 @@
 import Foundation
 
-public struct ResolvedServerEndpoint: Sendable, Equatable {
-    public let orderedHosts: [String]
-    public let presencePort: Int?
-    public let attachPort: Int?
-    public let bootstrapPort: Int
-
-    public init(
-        orderedHosts: [String],
-        presencePort: Int?,
-        attachPort: Int?,
-        bootstrapPort: Int
-    ) {
-        self.orderedHosts = orderedHosts
-        self.presencePort = presencePort
-        self.attachPort = attachPort
-        self.bootstrapPort = bootstrapPort
-    }
-}
-
 public enum ServerEndpointResolver {
-    public static let defaultBootstrapPort = 8091
+    public static var defaultBootstrapPort: Int {
+        EndpointPolicy.defaultBootstrapPort()
+    }
 
     /// Builds the ordered connection candidates for a server without doing any
     /// network probing. `bareHost` may include a simple `:port` suffix; labels
@@ -36,14 +19,12 @@ public enum ServerEndpointResolver {
         attachPort: Int? = nil,
         bootstrapPort: Int = defaultBootstrapPort
     ) -> ResolvedServerEndpoint {
-        ResolvedServerEndpoint(
-            orderedHosts: orderedHosts(
-                bareHost: bareHost,
-                localLabels: localLabels,
-                magicDNSLabels: magicDNSLabels,
-                localNetworkActive: localNetworkActive,
-                tailnetActive: tailnetActive
-            ),
+        EndpointPolicy.resolveServerEndpoint(
+            bareHost: bareHost,
+            localLabels: localLabels,
+            magicDNSLabels: magicDNSLabels,
+            localNetworkActive: localNetworkActive,
+            tailnetActive: tailnetActive,
             presencePort: presencePort,
             attachPort: attachPort,
             bootstrapPort: bootstrapPort
@@ -57,126 +38,31 @@ public enum ServerEndpointResolver {
         localNetworkActive: Bool,
         tailnetActive: Bool
     ) -> [String] {
-        let host = Self.bareHost(from: bareHost).trimmingCharacters(in: .whitespacesAndNewlines)
-        var candidates: [String] = []
-
-        if localNetworkActive {
-            if isLocalNetworkHost(host) {
-                candidates.append(host)
-                candidates.append(contentsOf: localLabels)
-            } else {
-                candidates.append(contentsOf: localLabels)
-                candidates.append(host)
-            }
-            candidates.append(contentsOf: magicDNSLabels)
-        } else if tailnetActive {
-            candidates.append(contentsOf: magicDNSLabels)
-            candidates.append(host)
-            candidates.append(contentsOf: localLabels)
-        } else {
-            candidates.append(host)
-            candidates.append(contentsOf: localLabels)
-            candidates.append(contentsOf: magicDNSLabels)
-        }
-
-        return uniqueHosts(candidates)
+        EndpointPolicy.orderedHosts(
+            bareHost: bareHost,
+            localLabels: localLabels,
+            magicDNSLabels: magicDNSLabels,
+            localNetworkActive: localNetworkActive,
+            tailnetActive: tailnetActive
+        )
     }
 
     public static func isLocalNetworkHost(_ host: String) -> Bool {
-        let bareHost = Self.bareHost(from: host)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        if bareHost.hasSuffix(".local") {
-            return true
-        }
-        guard let octets = ipv4Octets(from: bareHost) else {
-            return false
-        }
-        let b0 = octets[0]
-        let b1 = octets[1]
-        if b0 == 10 { return true }
-        if b0 == 127 { return true }
-        if b0 == 192 && b1 == 168 { return true }
-        if b0 == 172 && (16...31).contains(b1) { return true }
-        if b0 == 169 && b1 == 254 { return true }
-        return false
+        EndpointPolicy.isLocalNetworkHost(host)
     }
 
     /// Normalizes caller-supplied network labels while preserving caller-defined
     /// source priority. User-facing aliases should stay out of this list unless
     /// the caller knows they also represent resolvable DNS labels.
     public static func hostLabelCandidates(from rawCandidates: [String]) -> [String] {
-        var seen = Set<String>()
-        var labels: [String] = []
-        for raw in rawCandidates {
-            guard let label = normalizedHostLabel(from: raw),
-                  seen.insert(label).inserted else { continue }
-            labels.append(label)
-        }
-        return labels
+        EndpointPolicy.hostLabelCandidates(from: rawCandidates)
     }
 
     public static func normalizedHostLabel(from raw: String) -> String? {
-        let host = bareHost(from: raw)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard !host.isEmpty, !isIPAddressLiteral(host) else { return nil }
-
-        let firstLabel = host.split(separator: ".").first.map(String.init) ?? host
-        let normalized = firstLabel.lowercased().filter { character in
-            character.isASCII
-                && (character.isLetter || character.isNumber || character == "-")
-        }
-        return normalized.isEmpty ? nil : normalized
+        EndpointPolicy.normalizedHostLabel(from: raw)
     }
 
     public static func isIPAddressLiteral(_ host: String) -> Bool {
-        let bareHost = bareHost(from: host)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if bareHost.contains(":") {
-            return true
-        }
-        return ipv4Octets(from: bareHost) != nil
-    }
-
-    private static func bareHost(from host: String) -> String {
-        let trimmed = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: trimmed),
-           let scheme = url.scheme,
-           !scheme.isEmpty,
-           let urlHost = url.host {
-            return urlHost
-        }
-        let unbracketed = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if let colon = unbracketed.lastIndex(of: ":"), !unbracketed.contains("::") {
-            return String(unbracketed[..<colon])
-        }
-        return unbracketed
-    }
-
-    private static func uniqueHosts(_ hosts: [String]) -> [String] {
-        var seen = Set<String>()
-        var ordered: [String] = []
-        for raw in hosts {
-            let host = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !host.isEmpty else { continue }
-            let key = host.lowercased()
-            guard seen.insert(key).inserted else { continue }
-            ordered.append(host)
-        }
-        return ordered
-    }
-
-    private static func ipv4Octets(from host: String) -> [UInt8]? {
-        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 4 else { return nil }
-        var octets: [UInt8] = []
-        octets.reserveCapacity(4)
-        for part in parts {
-            guard let value = UInt8(part) else { return nil }
-            octets.append(value)
-        }
-        return octets
+        EndpointPolicy.isIPAddressLiteral(host)
     }
 }

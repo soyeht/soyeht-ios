@@ -668,26 +668,15 @@ public final class SoyehtAPIClient {
     // MARK: - WebSocket URL Builder
 
     public func buildWebSocketURL(host: String, container: String, sessionId: String, token: String) -> String {
-        let scheme = Self.isLocalHost(host) ? "ws" : "wss"
-        var components = URLComponents()
-        components.scheme = scheme
-
-        let stripped = host
-            .replacingOccurrences(of: "https://", with: "")
-            .replacingOccurrences(of: "http://", with: "")
-        let parts = stripped.split(separator: ":", maxSplits: 1)
-        components.host = String(parts.first ?? Substring(stripped))
-        if parts.count > 1, let port = Int(parts.last ?? "") {
-            components.port = port
-        }
-
-        components.path = "/api/v1/terminals/\(container)/pty"
-        components.queryItems = [
-            URLQueryItem(name: "session", value: sessionId),
-            URLQueryItem(name: "token", value: token),
-            URLQueryItem(name: "client", value: "mobile"),
-        ]
-        return components.string ?? "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
+        EndpointPolicy.adminWebSocketURL(
+            host: host,
+            path: "/api/v1/terminals/\(container)/pty",
+            queryItems: [
+                URLQueryItem(name: "session", value: sessionId),
+                URLQueryItem(name: "token", value: token),
+                URLQueryItem(name: "client", value: "mobile"),
+            ]
+        )?.absoluteString ?? ""
     }
 
     /// Kind-aware variant of `buildWebSocketURL`. Returns the URL string
@@ -710,37 +699,30 @@ public final class SoyehtAPIClient {
         token: String,
         kind: ServerKind
     ) -> WebSocketAttachment {
-        let scheme = Self.isLocalHost(host) ? "ws" : "wss"
-        var components = URLComponents()
-        components.scheme = scheme
-
-        let stripped = host
-            .replacingOccurrences(of: "https://", with: "")
-            .replacingOccurrences(of: "http://", with: "")
-        let parts = stripped.split(separator: ":", maxSplits: 1)
-        components.host = String(parts.first ?? Substring(stripped))
-        if parts.count > 1, let port = Int(parts.last ?? "") {
-            components.port = port
-        }
-
-        components.path = "/api/v1/terminals/\(container)/pty"
+        let path = "/api/v1/terminals/\(container)/pty"
         switch kind {
         case .engine:
-            components.queryItems = [
-                URLQueryItem(name: "session", value: sessionId),
-                URLQueryItem(name: "token", value: token),
-                URLQueryItem(name: "client", value: "mobile"),
-            ]
-            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
-            return WebSocketAttachment(url: components.string ?? fallback, cookieHeader: nil)
+            let url = EndpointPolicy.adminWebSocketURL(
+                host: host,
+                path: path,
+                queryItems: [
+                    URLQueryItem(name: "session", value: sessionId),
+                    URLQueryItem(name: "token", value: token),
+                    URLQueryItem(name: "client", value: "mobile"),
+                ]
+            )?.absoluteString ?? ""
+            return WebSocketAttachment(url: url, cookieHeader: nil)
         case .adminHost:
-            components.queryItems = [
-                URLQueryItem(name: "session", value: sessionId),
-                URLQueryItem(name: "client", value: "mobile"),
-            ]
-            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&client=mobile"
+            let url = EndpointPolicy.adminWebSocketURL(
+                host: host,
+                path: path,
+                queryItems: [
+                    URLQueryItem(name: "session", value: sessionId),
+                    URLQueryItem(name: "client", value: "mobile"),
+                ]
+            )?.absoluteString ?? ""
             return WebSocketAttachment(
-                url: components.string ?? fallback,
+                url: url,
                 cookieHeader: "soyeht_session=\(token)"
             )
         }
@@ -982,8 +964,7 @@ public final class SoyehtAPIClient {
         } else {
             bareHost = host
         }
-        let scheme = Self.isLocalHost(bareHost) ? "http" : "https"
-        guard let url = URL(string: "\(scheme)://\(bareHost)\(path)") else {
+        guard let url = EndpointPolicy.adminHTTPURL(host: bareHost, path: path) else {
             throw APIError.invalidURL
         }
         return url
@@ -1001,14 +982,10 @@ public final class SoyehtAPIClient {
               let host = components.host else {
             throw APIError.invalidURL
         }
-        switch scheme {
-        case "http", "ws":
-            components.scheme = Self.isHouseholdPlaintextAllowedHost(host) ? "http" : "https"
-        case "https", "wss":
-            components.scheme = "https"
-        default:
+        guard let resolvedScheme = EndpointPolicy.householdHTTPScheme(inputScheme: scheme, host: host) else {
             throw APIError.invalidURL
         }
+        components.scheme = resolvedScheme
         let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
         let endpointPath = components.percentEncodedPath == "/" ? "" : components.percentEncodedPath
         components.percentEncodedPath = endpointPath + normalizedPath
@@ -1016,7 +993,7 @@ public final class SoyehtAPIClient {
         guard let url = components.url else {
             throw APIError.invalidURL
         }
-        Self.logger.info("household_url path=\(normalizedPath, privacy: .public) input_scheme=\(scheme, privacy: .public) output_scheme=\(components.scheme ?? "<nil>", privacy: .public) port=\(components.port ?? -1, privacy: .public) host_class=\(Self.householdDebugHostClass(host), privacy: .public)")
+        Self.logger.info("household_url path=\(normalizedPath, privacy: .public) input_scheme=\(scheme, privacy: .public) output_scheme=\(components.scheme ?? "<nil>", privacy: .public) port=\(components.port ?? -1, privacy: .public) host_class=\(EndpointPolicy.hostClassName(for: host), privacy: .public)")
         return url
     }
 
@@ -1029,7 +1006,6 @@ public final class SoyehtAPIClient {
     }
 
     public static func isLocalHost(_ host: String) -> Bool {
-        let h = host.components(separatedBy: ":").first ?? host
         // Tailscale (CGNAT 100.64.0.0/10 + MagicDNS *.ts.net) is intentionally
         // NOT classified as local. The Tailscale overlay encrypts traffic on
         // the wire, but the app cannot verify the daemon is active and the
@@ -1037,43 +1013,7 @@ public final class SoyehtAPIClient {
         // layer. Tailscale-reachable hosts must serve TLS — generate a cert
         // with `tailscale cert <hostname>.<tailnet>.ts.net`.
         // Bonjour `.local` stays local because it is loopback/LAN only.
-        return h == "localhost"
-            || h == "127.0.0.1"
-            || h.hasSuffix(".local")
-            || h.hasPrefix("192.168.")
-            || h.hasPrefix("10.")
-            || (h.hasPrefix("172.") && isPrivate172(h))
-    }
-
-    private static func isHouseholdPlaintextAllowedHost(_ host: String) -> Bool {
-        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
-        return h == "localhost"
-            || h == "127.0.0.1"
-            || h == "::1"
-            || BootstrapStatusEndpoint.isTailnetHost(h)
-    }
-
-    private static func householdDebugHostClass(_ host: String) -> String {
-        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
-        if h == "localhost" || h == "127.0.0.1" || h == "::1" {
-            return "loopback"
-        }
-        if BootstrapStatusEndpoint.isTailnetHost(h) {
-            return "tailnet"
-        }
-        if h.hasSuffix(".local")
-            || h.hasPrefix("192.168.")
-            || h.hasPrefix("10.")
-            || (h.hasPrefix("172.") && isPrivate172(h)) {
-            return "lan"
-        }
-        return "other"
-    }
-
-    private static func isPrivate172(_ host: String) -> Bool {
-        let parts = host.split(separator: ".")
-        guard parts.count >= 2, let second = Int(parts[1]) else { return false }
-        return second >= 16 && second <= 31
+        return EndpointPolicy.isLocalNetworkHost(host)
     }
 
     private static func encodePathSegment(_ value: String) -> String {

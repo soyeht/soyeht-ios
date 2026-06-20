@@ -235,20 +235,18 @@ extension SoyehtAPIClient {
       ]
     )
     guard var components = URLComponents(url: httpURL, resolvingAgainstBaseURL: false),
-      let scheme = components.scheme
+      let scheme = components.scheme,
+      let host = components.host
     else {
       throw APIError.invalidURL
     }
-    switch scheme.lowercased() {
-    case "http":
-      components.scheme = "ws"
-    case "https":
-      components.scheme = "wss"
-    case "ws", "wss":
-      break
-    default:
+    guard let resolvedScheme = EndpointPolicy.householdWebSocketScheme(
+      inputScheme: scheme,
+      host: host
+    ) else {
       throw APIError.invalidURL
     }
+    components.scheme = resolvedScheme
     guard let url = components.url else { throw APIError.invalidURL }
     var request = URLRequest(url: url)
     request.setValue(attachToken, forHTTPHeaderField: Self.householdTerminalAttachTokenHeader)

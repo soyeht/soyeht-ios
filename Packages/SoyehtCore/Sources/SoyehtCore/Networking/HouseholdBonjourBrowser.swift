@@ -62,7 +62,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
 
     public static func engineEndpointURL(
         from result: NWBrowser.Result,
-        defaultPort: Int = 8091
+        defaultPort: Int = EndpointPolicy.defaultBootstrapPort()
     ) -> URL? {
         guard case let .service(name, _, domain, _) = result.endpoint else {
             return nil
@@ -80,7 +80,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         serviceName: String,
         domain: String,
         txt: [String: String],
-        defaultPort: Int = 8091
+        defaultPort: Int = EndpointPolicy.defaultBootstrapPort()
     ) -> URL? {
         explicitEngineEndpointURL(
             serviceName: serviceName,
@@ -92,7 +92,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
 
     public static func resolveEngineEndpointViaDNSSD(
         from result: NWBrowser.Result,
-        defaultPort: Int = 8091,
+        defaultPort: Int = EndpointPolicy.defaultBootstrapPort(),
         timeout: TimeInterval = 2.0
     ) async -> URL? {
         guard case let .service(name, _, domain, _) = result.endpoint else {
@@ -114,7 +114,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? resolved.port ?? defaultPort
         if let hostTarget = resolved.hostTarget,
            let ip = await resolveIPv4Address(hostname: hostTarget, timeout: min(1.0, timeout)),
-           let url = URL(string: "http://\(ip):\(port)") {
+           let url = EndpointPolicy.bonjourEngineEndpointURL(host: ip, port: port, defaultPort: defaultPort) {
             bonjourBrowserDiscoveryLogger.info("DNSServiceGetAddrInfo endpoint hostTarget=\(hostTarget, privacy: .public) ip=\(ip, privacy: .public) url=\(url.absoluteString, privacy: .public)")
             return url
         }
@@ -464,7 +464,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         }
 
         func add(_ ip: String) {
-            guard let rank = endpointRank(forIPv4: ip) else { return }
+            guard let rank = EndpointPolicy.bonjourIPv4EndpointRank(ip) else { return }
             lock.lock()
             if !values.contains(where: { $0.ip == ip }) {
                 values.append((rank: rank, ip: ip))
@@ -669,29 +669,6 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         }
     }
 
-    private static func endpointRank(forIPv4 ip: String) -> Int? {
-        let parts = ip.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 4 else { return nil }
-        let octets = parts.compactMap { UInt8($0) }
-        guard octets.count == 4 else { return nil }
-        switch octets[0] {
-        case 0, 127:
-            return nil
-        case 100 where (64...127).contains(octets[1]):
-            return 0
-        case 10:
-            return 1
-        case 172 where (16...31).contains(octets[1]):
-            return 1
-        case 192 where octets[1] == 168:
-            return 1
-        case 169 where octets[1] == 254:
-            return nil
-        default:
-            return 2
-        }
-    }
-
     private static func resolveTXTViaDNSSDBlocking(
         serviceName: String,
         domain: String,
@@ -783,13 +760,13 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         serviceName: String,
         domain: String,
         txt: [String: String],
-        defaultPort: Int = 8091
+        defaultPort: Int = EndpointPolicy.defaultBootstrapPort()
     ) -> URL? {
         if let urlString = txt["url"], let url = URL(string: urlString) {
             return url
         }
-        let scheme = txt["scheme"] ?? "http"
-        let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? defaultPort
+        let scheme = txt["scheme"]
+        let port = Int(txt["port"] ?? txt["hh_port"] ?? "")
         let domainName = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let hostDomain = domainName.isEmpty ? "local" : domainName
         let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])
@@ -814,11 +791,12 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         } else {
             host = "\(hostLabel).\(hostDomain)"
         }
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = host
-        components.port = port
-        let result = components.url
+        let result = EndpointPolicy.bonjourEngineEndpointURL(
+            host: host,
+            scheme: scheme,
+            port: port,
+            defaultPort: defaultPort
+        )
         bonjourBrowserDiscoveryLogger.info("endpointURL serviceName=\(serviceName, privacy: .public) domain=\(domain, privacy: .public) hostLabel=\(hostLabel, privacy: .public) host=\(host, privacy: .public) url=\(result?.absoluteString ?? "nil", privacy: .public)")
         return result
     }
@@ -847,11 +825,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
     }
 
     private static func acceptsBonjourEngineHost(_ host: String) -> Bool {
-        let normalized = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return false }
-        if endpointRank(forIPv4: normalized) != nil { return true }
-        let withoutTrailingDot = normalized.hasSuffix(".") ? String(normalized.dropLast()) : normalized
-        return withoutTrailingDot.hasSuffix(".local") || !withoutTrailingDot.contains(".")
+        EndpointPolicy.acceptsBonjourEngineHost(host)
     }
 
     private static func inferredHostLabel(serviceName: String, householdId: String?) -> String {

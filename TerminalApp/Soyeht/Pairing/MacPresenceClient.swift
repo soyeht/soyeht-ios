@@ -173,8 +173,11 @@ final class MacPresenceClient: NSObject, ObservableObject {
             return
         }
         let host = hosts[hostCandidateIndex % hosts.count]
-        let scheme = MacLocalWebSocketEndpoint.scheme
-        guard let url = URL(string: "\(scheme)://\(host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
+        guard let url = MacLocalWebSocketEndpoint.presenceURL(
+            host: host,
+            presencePort: endpoint.presencePort,
+            macID: macID
+        ) else {
             status = .offline("invalid_url")
             advanceHostCandidate()
             return
@@ -547,18 +550,23 @@ final class MacPresenceClient: NSObject, ObservableObject {
 }
 
 enum MacLocalWebSocketEndpoint {
-    /// The Mac app's local handoff, presence and pane attach listeners are
-    /// plain NWListener WebSockets. Remote API hosts still go through
-    /// SoyehtAPIClient's HTTPS policy; this helper is intentionally scoped to
-    /// the already-paired Mac-local control plane.
-    static let scheme = "ws"
-
-    static func bareHost(from host: String) -> String {
-        if let colon = host.lastIndex(of: ":"), !host.contains("::") {
-            return String(host[..<colon])
-        }
-        return host
+    static func presenceURL(host: String, presencePort: Int, macID: UUID) -> URL? {
+        EndpointPolicy.macLocalPresenceWebSocketURL(
+            host: host,
+            presencePort: presencePort,
+            macID: macID
+        )
     }
+
+    static func paneAttachURL(host: String, port: Int, paneID: String, nonce: String) -> URL? {
+        EndpointPolicy.macLocalPaneAttachWebSocketURL(
+            host: host,
+            attachPort: port,
+            paneID: paneID,
+            nonce: nonce
+        )
+    }
+
 }
 
 /// URLSessionWebSocketDelegate is nonisolated by default; we need to hop back

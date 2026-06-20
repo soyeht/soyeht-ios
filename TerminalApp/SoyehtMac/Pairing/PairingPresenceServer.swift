@@ -381,48 +381,10 @@ final class PairingPresenceServer {
 
     // MARK: - LAN filter
 
-    /// Copy of `LocalTerminalHandoffManager.isPrivateRemoteHost`. Kept here
-    /// (deliberately duplicated, ~20 lines) to avoid exposing internals of
-    /// that file. Will converge if/when we extract a shared NetworkRanges helper.
     private static func shouldAcceptRemote(connection: NWConnection) -> Bool {
         guard case let .hostPort(host, _) = connection.endpoint else { return true }
         let raw = host.debugDescription
         let stripped = raw.split(separator: "%").first.map(String.init) ?? raw
-
-        if let v4 = IPv4Address(stripped) {
-            let bytes = v4.rawValue
-            guard bytes.count == 4 else { return false }
-            let b0 = bytes[0], b1 = bytes[1]
-            if b0 == 10 { return true }
-            if b0 == 127 { return true }
-            if b0 == 192 && b1 == 168 { return true }
-            if b0 == 172 && (16...31).contains(b1) { return true }
-            if b0 == 100 && (64...127).contains(b1) { return true }
-            if b0 == 169 && b1 == 254 { return true }
-            return false
-        }
-        if let v6 = IPv6Address(stripped) {
-            let bytes = v6.rawValue
-            guard bytes.count == 16 else { return false }
-            let loopback = bytes.prefix(15).allSatisfy { $0 == 0 } && bytes[15] == 1
-            if loopback { return true }
-            if bytes.prefix(10).allSatisfy({ $0 == 0 }), bytes[10] == 0xff, bytes[11] == 0xff {
-                let mapped = "\(bytes[12]).\(bytes[13]).\(bytes[14]).\(bytes[15])"
-                if let v4 = IPv4Address(mapped) {
-                    let b0 = v4.rawValue[0], b1 = v4.rawValue[1]
-                    if b0 == 10 { return true }
-                    if b0 == 127 { return true }
-                    if b0 == 192 && b1 == 168 { return true }
-                    if b0 == 172 && (16...31).contains(b1) { return true }
-                    if b0 == 100 && (64...127).contains(b1) { return true }
-                }
-                return false
-            }
-            let b0 = bytes[0], b1 = bytes[1]
-            if b0 == 0xfe && (b1 & 0xc0) == 0x80 { return true }
-            if (b0 & 0xfe) == 0xfc { return true }
-            return false
-        }
-        return false
+        return EndpointPolicy.acceptsMacLocalControlPlaneHost(stripped)
     }
 }

@@ -112,17 +112,17 @@ final class PairedMacRegistry: ObservableObject {
               let attachPort = mac.attachPort else {
             return nil
         }
-        // `lastHost` stored during Fase 1 includes "host:port". Strip any port
-        // suffix so the base host (IPv4 / Tailscale / DNS name) is reused.
-        let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
-        let labelCandidates = ServerEndpointResolver.hostLabelCandidates(from: [
+        // `lastHost` stored during Fase 1 can include "host:port". EndpointPolicy
+        // owns host parsing so IPv6, bracketed hosts, and ports stay consistent.
+        let bareHost = EndpointPolicy.normalizedHost(from: host) ?? host
+        let labelCandidates = EndpointPolicy.hostLabelCandidates(from: [
             mac.name,
             mac.displayName,
             bareHost
         ])
         let magicDNSCandidates = labelCandidates
         let localCandidates = labelCandidates.map { "\($0).local" }
-        let resolved = ServerEndpointResolver.resolve(
+        let resolved = EndpointPolicy.resolveServerEndpoint(
             bareHost: bareHost,
             localLabels: localCandidates,
             magicDNSLabels: magicDNSCandidates,

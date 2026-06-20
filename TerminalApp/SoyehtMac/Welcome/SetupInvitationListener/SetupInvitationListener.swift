@@ -305,9 +305,9 @@ private enum SetupInvitationDirectProbe {
     static func reachableMacEngineURL(localEngineBaseURL: URL) async -> URL? {
         guard let status = await tailscaleStatus(),
               let node = status.selfNode else {
-            return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? 8091) ?? localEngineBaseURL
+            return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()) ?? localEngineBaseURL
         }
-        let port = localEngineBaseURL.port ?? 8091
+        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
         // Prefer the raw Tailscale IPv4 over the MagicDNS name. The
         // engine's source-IP guard (`post_initialize`) requires the
         // iPhone to connect from a Tailnet address; on iOS, system
@@ -316,12 +316,12 @@ private enum SetupInvitationDirectProbe {
         // DNS-named URL falls through to WiFi and the engine rejects
         // with `tailnet_required`. Hitting the literal Tailnet IP
         // routes deterministically through the Tailscale tun device.
-        if let ip = node.tailscaleIPs.first(where: isTailscaleIPv4),
-           let url = URL(string: "http://\(ip):\(port)") {
+        if let ip = node.tailscaleIPs.first(where: HostClassifier.isTailnetIPv4),
+           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)") {
             return url
         }
         if let dnsName = normalizedDNSName(node.dnsName),
-           let url = URL(string: "http://\(dnsName):\(port)") {
+           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(dnsName):\(port)") {
             return url
         }
         return localEngineBaseURL
@@ -442,13 +442,16 @@ private enum SetupInvitationDirectProbe {
 
         func append(host: String, addresses: [String]) {
             guard !host.isEmpty, seen.insert(host).inserted else { return }
-            guard let url = URL(string: "http://\(host):\(SetupInvitationPublisher.directPort)") else { return }
+            guard let url = EndpointPolicy.setupInvitationHTTPURL(
+                host: host,
+                port: Int(SetupInvitationPublisher.directPort)
+            ) else { return }
             candidates.append(Candidate(baseURL: url, addresses: addresses))
         }
 
         for node in status.peers.values where node.online == true {
             guard node.os?.lowercased() == "ios" else { continue }
-            let addresses = node.tailscaleIPs.filter(isTailscaleIPv4)
+            let addresses = node.tailscaleIPs.filter(HostClassifier.isTailnetIPv4)
             if let dnsName = normalizedDNSName(node.dnsName) {
                 append(host: dnsName, addresses: addresses)
             }
@@ -518,10 +521,10 @@ private enum SetupInvitationDirectProbe {
             }
             let resolvedIPs = await resolveBonjourIPv4Addresses(hostname: host, timeout: 0.8)
             for ip in resolvedIPs {
-                guard let url = URL(string: "http://\(ip):\(port)") else { continue }
+                guard let url = EndpointPolicy.setupInvitationHTTPURL(host: ip, port: Int(port)) else { continue }
                 candidates.append(Candidate(baseURL: url, addresses: [ip, host]))
             }
-            if let url = URL(string: "http://\(host):\(port)") {
+            if let url = EndpointPolicy.setupInvitationHTTPURL(host: host, port: Int(port)) {
                 candidates.append(Candidate(baseURL: url, addresses: resolvedIPs + [host]))
             }
         }
@@ -539,7 +542,7 @@ private enum SetupInvitationDirectProbe {
     private static func localNetworkMacEngineURL(port: Int) -> URL? {
         let ips = localNetworkIPv4Addresses()
         guard let ip = ips.first else { return nil }
-        return URL(string: "http://\(ip):\(port)")
+        return EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)")
     }
 
     private static func localNetworkIPv4Addresses() -> [String] {
@@ -758,31 +761,13 @@ private enum SetupInvitationDirectProbe {
         }
     }
 
-    private static func isTailscaleIPv4(_ value: String) -> Bool {
-        let parts = value.split(separator: ".").compactMap { UInt8($0) }
-        guard parts.count == 4 else { return false }
-        return parts[0] == 100 && (64...127).contains(parts[1])
-    }
-
     private static func directProbeAddressRank(forIPv4 value: String) -> Int? {
-        let parts = value.split(separator: ".").compactMap { UInt8($0) }
-        guard parts.count == 4 else { return nil }
-        if parts[0] == 0 || parts[0] == 127 { return nil }
-        if parts[0] == 169 && parts[1] == 254 { return nil }
-        if isTailscaleIPv4(value) { return 0 }
-        if parts[0] == 10 { return 1 }
-        if parts[0] == 172 && (16...31).contains(parts[1]) { return 1 }
-        if parts[0] == 192 && parts[1] == 168 { return 1 }
-        return 2
+        HostClassifier.bonjourIPv4EndpointRank(value)
     }
 
     private static func isLANReachableIPv4(_ value: String) -> Bool {
-        let parts = value.split(separator: ".").compactMap { UInt8($0) }
-        guard parts.count == 4 else { return false }
-        if parts[0] == 0 || parts[0] == 127 { return false }
-        if parts[0] == 169 && parts[1] == 254 { return false }
-        if isTailscaleIPv4(value) { return false }
-        return true
+        HostClassifier.bonjourIPv4EndpointRank(value) != nil
+            && !HostClassifier.isTailnetIPv4(value)
     }
 }
 
