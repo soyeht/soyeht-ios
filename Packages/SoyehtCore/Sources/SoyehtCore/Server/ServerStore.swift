@@ -67,6 +67,23 @@ public struct ServerStore: Sendable {
         return current
     }
 
+    /// Upserts a projection emitted by a legacy adapter such as
+    /// `SessionStore.pairedServers`. If a canonical row already exists,
+    /// preserve fields owned by the canonical store (`theyOS`, explicit
+    /// endpoints, newer `lastSeenAt`) using the same merge semantics as
+    /// `reconcile(with:)`.
+    @discardableResult
+    public func upsertLegacyProjection(_ server: Server) -> [Server] {
+        var current = load()
+        if let idx = current.firstIndex(where: { $0.id == server.id }) {
+            current[idx] = mergeLegacySeed(server, preservingCanonicalFieldsFrom: current[idx])
+        } else {
+            current.append(server)
+        }
+        save(current)
+        return current
+    }
+
     @discardableResult
     public func remove(id: String) -> [Server] {
         var current = load()

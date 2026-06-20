@@ -17,7 +17,9 @@ import Foundation
 //     (UserDefaults). Created by the legacy QR/auth path in
 //     `SoyehtAPIClient.swift:419`.
 //
-// Linux paired hosts live exclusively as `PairedServer(kind: .adminHost)`.
+// Linux paired hosts still keep credentials and active-context state in
+// `PairedServer(kind: .adminHost)`, but its mutators publish a canonical
+// `Server` projection synchronously during the migration.
 //
 // `Server` is the destination of a planned migration that collapses both
 // stores into one. The Codable shape preserves backward compatibility
@@ -26,9 +28,11 @@ import Foundation
 // data without modifying or deleting the legacy stores.
 //
 // See `docs/server-model.md` (Phase 6) for the rendering contract:
-// every UI surface reads `server.displayName`; every mutation goes
+// every UI surface reads `server.displayName`; Mac-facing mutations go
 // through `ServerRegistry.rename / upsertMacPairing / remove /
-// updateTheyOSStatus`; status is consumed via `server.theyOS.status`.
+// updateTheyOSStatus`; SessionStore server mutations write through
+// `ServerStore.upsertLegacyProjection`; status is consumed via
+// `server.theyOS.status`.
 public struct Server: Codable, Identifiable, Equatable, Sendable, Hashable {
     /// Stable identifier. UUID-as-String for Macs (legacy `PairedMac.macID`),
     /// arbitrary String for QR-paired Linux hosts (legacy `PairedServer.id`).

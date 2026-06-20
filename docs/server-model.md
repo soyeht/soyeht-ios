@@ -105,8 +105,9 @@ progress:
 
 - `PairedMacsStore` changes refresh the registry synchronously on the
   main actor.
-- `SessionStore.pairedServers` changes hop to the main actor before
-  refreshing the registry.
+- `SessionStore.pairedServers` mutations write their projected
+  `Server` row into `ServerStore` synchronously, then fire the registry
+  mirror callback for in-memory observers.
 - `ServerStore.reconcile(with:)` treats the legacy seed as membership
   input, but preserves canonical enrichment already written through the
   registry (`theyOS`, explicit endpoints, and newer `lastSeenAt` data)
@@ -128,8 +129,8 @@ continues:
 - `SessionStore` still owns server credentials, active server id,
   cached instance state, navigation state, and `ServerContext` lookup.
 - `ServerStore` is the persisted unified list. Registry-originated
-  rename/remove and the primary Mac local-pairing flows write it
-  synchronously.
+  rename/remove, the primary Mac local-pairing flows, and
+  `SessionStore.pairedServers` mutations write it synchronously.
 
 The remaining sweep is tracked separately. For now, follow these rules:
 

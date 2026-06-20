@@ -69,11 +69,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let legacyServerSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
         ServerRegistry.shared.migrateLegacy(seed: legacyMacSeed + legacyServerSeed)
         // Keep the unified registry in sync with subsequent mutations
-        // against either legacy store. After this call, any new pair
-        // / rename / remove against `PairedMacsStore` or `SessionStore`
-        // fires the registry's reconcile path so every UI consumer of
-        // `ServerRegistry.shared.servers` stays truthful without each
-        // mutation call site having to know about the mirror.
+        // against either legacy store. `PairedMacsStore` changes refresh
+        // through the registry mirror; `SessionStore` mutations also
+        // write their ServerStore projection synchronously and then fire
+        // the mirror callback. UI consumers of `ServerRegistry.shared`
+        // stay truthful while the legacy adapters still own credentials.
         ServerRegistry.shared.installLegacyMirror()
         // Wire the shared deploy monitor to ActivityKit on iOS. macOS keeps
         // the default no-op until Fase 5 adds a status-item replacement.
