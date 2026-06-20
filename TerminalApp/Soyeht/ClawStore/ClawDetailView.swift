@@ -224,22 +224,22 @@ private struct ResolvedClawDetailView: View {
                         }
 
                         // Action buttons
+                        let actions = actionAvailability
                         HStack(spacing: 10) {
-                            switch viewModel.claw.installState {
-                            case .installed:
-                                if let deployRoute {
-                                    NavigationLink(value: deployRoute) {
-                                        Text("clawDetail.button.deploy")
-                                            .font(Typography.monoCardTitle)
-                                            .foregroundColor(SoyehtTheme.buttonTextOnAccent)
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 36)
-                                            .background(SoyehtTheme.historyGreen)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
+                            if actions.showsDeploy, let deployRoute {
+                                NavigationLink(value: deployRoute) {
+                                    Text("clawDetail.button.deploy")
+                                        .font(Typography.monoCardTitle)
+                                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .background(SoyehtTheme.historyGreen)
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
+                            }
 
+                            if actions.showsUninstall {
                                 Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("clawDetail.button.uninstall")
                                         .font(Typography.monoCardTitle)
@@ -251,23 +251,9 @@ private struct ResolvedClawDetailView: View {
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
                                 .disabled(viewModel.isPerformingAction)
+                            }
 
-                            case .installedButBlocked:
-                                // Installed but blocked — user cannot deploy but CAN uninstall.
-                                // Deploy is intentionally hidden. Reasons block above explains why.
-                                Button(action: { Task { await viewModel.uninstallClaw() } }) {
-                                    Text("clawDetail.button.uninstall")
-                                        .font(Typography.monoCardTitle)
-                                        .foregroundColor(SoyehtTheme.accentRed)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 36)
-                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRedStrong, lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
-                                .disabled(viewModel.isPerformingAction)
-
-                            case .installing:
+                            if actions.showsInstallingProgress {
                                 HStack(spacing: 8) {
                                     ProgressView().tint(SoyehtTheme.historyGreen)
                                     Text("claw.card.state.installing")
@@ -277,8 +263,9 @@ private struct ResolvedClawDetailView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 36)
                                         .accessibilityIdentifier(AccessibilityID.ClawDetail.installingState)
+                            }
 
-                            case .uninstalling:
+                            if actions.showsUninstallingProgress {
                                 HStack(spacing: 8) {
                                     ProgressView().tint(SoyehtTheme.accentAmber)
                                     Text("claw.card.state.uninstalling")
@@ -287,38 +274,37 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 36)
+                            }
 
-                            case .installFailed:
-                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
-                                    Button(action: { Task { await viewModel.installClaw() } }) {
-                                        Text("claw.featured.action.retryInstall")
-                                            .font(Typography.monoCardTitle)
-                                            .foregroundColor(SoyehtTheme.accentRed)
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 36)
-                                            .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                    .disabled(viewModel.isPerformingAction)
+                            if actions.showsRetryInstall {
+                                Button(action: { Task { await viewModel.installClaw() } }) {
+                                    Text("claw.featured.action.retryInstall")
+                                        .font(Typography.monoCardTitle)
+                                        .foregroundColor(SoyehtTheme.accentRed)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
+                                .disabled(viewModel.isPerformingAction)
+                            }
 
-                            case .notInstalled:
-                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
-                                    Button(action: { Task { await viewModel.installClaw() } }) {
-                                        Text("claw.card.action.install")
-                                            .font(Typography.monoCardTitle)
-                                            .foregroundColor(SoyehtTheme.historyGreen)
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 36)
-                                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                    .disabled(viewModel.isPerformingAction)
+                            if actions.showsInstall {
+                                Button(action: { Task { await viewModel.installClaw() } }) {
+                                    Text("claw.card.action.install")
+                                        .font(Typography.monoCardTitle)
+                                        .foregroundColor(SoyehtTheme.historyGreen)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
+                                .disabled(viewModel.isPerformingAction)
+                            }
 
-                            case .unknown:
+                            if actions.showsUnknownState {
                                 Text("clawDetail.state.unknown")
                                     .font(Typography.monoCardTitle)
                                     .foregroundColor(SoyehtTheme.accentAmber)
@@ -338,7 +324,7 @@ private struct ResolvedClawDetailView: View {
                         // be deployed to directly. Only render for states
                         // where the user would otherwise expect Deploy —
                         // installed or installed-but-blocked.
-                        if !resolution.supportsDeploy, viewModel.claw.installState.isInstalled {
+                        if actions.showsDeployUnavailableNotice {
                             Text(LocalizedStringResource(
                                 "clawDetail.deploy.unavailable.body",
                                 defaultValue: "Direct deploy is not available for this Mac yet.",
@@ -745,6 +731,15 @@ private struct ResolvedClawDetailView: View {
         guard resolution.supportsDeploy else { return nil }
         guard readinessObserver.state.allowsInstall else { return nil }
         return .setup(viewModel.claw, serverId: installTarget.serverID)
+    }
+
+    private var actionAvailability: ClawDetailActionAvailability {
+        ClawDetailActionAvailability(
+            installState: viewModel.claw.installState,
+            installability: viewModel.claw.installability,
+            allowsInstall: readinessObserver.state.allowsInstall,
+            supportsDeploy: resolution.supportsDeploy
+        )
     }
 
     private func phaseLabel(_ phase: String) -> LocalizedStringResource {
