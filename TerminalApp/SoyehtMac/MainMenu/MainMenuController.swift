@@ -319,7 +319,7 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
                 undoMenuItemTitle: activeUndoManager?.undoMenuItemTitle,
                 redoMenuItemTitle: activeUndoManager?.redoMenuItemTitle
             ),
-            hasPairedServers: !SessionStore.shared.pairedServers.isEmpty,
+            hasPairedServers: !SessionStore.shared.credentialedCanonicalServers().isEmpty,
             clawStoreEnabled: SoyehtFeatureFlags.clawStoreEnabled,
             canCheckForUpdates: SoyehtUpdater.shared.canCheckForUpdates,
             terminalFontSize: Double(TerminalPreferences.shared.fontSize),
