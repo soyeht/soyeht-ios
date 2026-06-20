@@ -267,31 +267,37 @@ extension SoyehtAPIClient {
     throws
     -> String
   {
-    let container = try householdPathSegment(container)
+    let container = try SoyehtAPIPath.segment(container)
     let base = "/api/v1/household/terminals/\(container)/workspaces"
     if let workspaceId {
-      return "\(base)/\(try householdPathSegment(workspaceId))"
+      return "\(base)/\(try SoyehtAPIPath.segment(workspaceId))"
     }
     return base
   }
 
   private static func householdAttachTokenPath(container: String) throws -> String {
-    "/api/v1/household/terminals/\(try householdPathSegment(container))/attach-token"
+    "/api/v1/household/terminals/\(try SoyehtAPIPath.segment(container))/attach-token"
   }
 
   private static func householdPtyPath(container: String) throws -> String {
-    "/api/v1/household/terminals/\(try householdPathSegment(container))/pty"
+    "/api/v1/household/terminals/\(try SoyehtAPIPath.segment(container))/pty"
   }
 
-  private static func householdPathSegment(_ rawValue: String) throws -> String {
-    var allowed = CharacterSet.urlPathAllowed
-    allowed.remove(charactersIn: "/")
-    guard let encoded = rawValue.addingPercentEncoding(withAllowedCharacters: allowed),
-      !encoded.isEmpty
-    else {
-      throw APIError.invalidURL
-    }
-    return encoded
+  private static func householdClawPath(name: String, suffix: String) throws -> String {
+    "/api/v1/household/claws/\(try SoyehtAPIPath.segment(name))/\(suffix)"
+  }
+
+  private static func householdInstanceStatusPath(id: String) throws -> String {
+    "/api/v1/household/instances/\(try SoyehtAPIPath.segment(id))/status"
+  }
+
+  private static func instancePath(id: String) throws -> String {
+    "/api/v1/instances/\(try SoyehtAPIPath.segment(id))"
+  }
+
+  private static func instanceActionPath(id: String, action: InstanceAction) throws -> String {
+    let base = try instancePath(id: id)
+    return action == .delete ? base : "\(base)/\(action.rawValue)"
   }
 
   // MARK: - Claws
@@ -352,19 +358,21 @@ extension SoyehtAPIClient {
     case .server(let context):
       return try await getClawAvailability(name: name, context: context)
     case .householdEndpoint(let endpoint):
+      let path = try Self.householdClawPath(name: name, suffix: "availability")
       let (data, response) = try await performWithRetry {
         try await self.householdRequest(
           endpoint: endpoint,
-          path: "/api/v1/household/claws/\(name)/availability",
+          path: path,
           requiredOperation: "claws.list"
         )
       }
       try checkResponse(response, data: data)
       return try decoder.decode(ClawAvailability.self, from: data)
     case .household:
+      let path = try Self.householdClawPath(name: name, suffix: "availability")
       let (data, response) = try await performWithRetry {
         try await self.householdRequest(
-          path: "/api/v1/household/claws/\(name)/availability",
+          path: path,
           requiredOperation: "claws.list"
         )
       }
@@ -403,17 +411,19 @@ extension SoyehtAPIClient {
     case .server(let context):
       return try await installClaw(name: name, context: context)
     case .householdEndpoint(let endpoint):
+      let path = try Self.householdClawPath(name: name, suffix: "install")
       let (data, response) = try await householdRequest(
         endpoint: endpoint,
-        path: "/api/v1/household/claws/\(name)/install",
+        path: path,
         method: "POST",
         requiredOperation: "claws.create"
       )
       try checkResponse(response, data: data)
       return try decoder.decode(ClawActionResponse.self, from: data)
     case .household:
+      let path = try Self.householdClawPath(name: name, suffix: "install")
       let (data, response) = try await householdRequest(
-        path: "/api/v1/household/claws/\(name)/install",
+        path: path,
         method: "POST",
         requiredOperation: "claws.create"
       )
@@ -444,17 +454,19 @@ extension SoyehtAPIClient {
     case .server(let context):
       return try await uninstallClaw(name: name, context: context)
     case .householdEndpoint(let endpoint):
+      let path = try Self.householdClawPath(name: name, suffix: "uninstall")
       let (data, response) = try await householdRequest(
         endpoint: endpoint,
-        path: "/api/v1/household/claws/\(name)/uninstall",
+        path: path,
         method: "POST",
         requiredOperation: "claws.delete"
       )
       try checkResponse(response, data: data)
       return try decoder.decode(ClawActionResponse.self, from: data)
     case .household:
+      let path = try Self.householdClawPath(name: name, suffix: "uninstall")
       let (data, response) = try await householdRequest(
-        path: "/api/v1/household/claws/\(name)/uninstall",
+        path: path,
         method: "POST",
         requiredOperation: "claws.delete"
       )
@@ -587,9 +599,10 @@ extension SoyehtAPIClient {
     case .server(let context):
       return try await getInstanceStatusWithServerContext(id: id, context: context)
     case .householdEndpoint(let endpoint):
+      let path = try Self.householdInstanceStatusPath(id: id)
       let (data, response) = try await householdRequest(
         endpoint: endpoint,
-        path: "/api/v1/household/instances/\(id)/status",
+        path: path,
         requiredOperation: "claws.list"
       )
       try checkResponse(response, data: data)
@@ -617,10 +630,7 @@ extension SoyehtAPIClient {
     async throws
   {
     let method = action == .delete ? "DELETE" : "POST"
-    let path =
-      action == .delete
-      ? "/api/v1/instances/\(id)"
-      : "/api/v1/instances/\(id)/\(action.rawValue)"
+    let path = try Self.instanceActionPath(id: id, action: action)
     let (data, response) = try await authenticatedRequest(
       path: path, method: method, context: context)
     try checkResponse(response, data: data)
@@ -630,7 +640,7 @@ extension SoyehtAPIClient {
   public func instanceAction(id: String, action: InstanceAction, householdEndpoint endpoint: URL)
     async throws
   {
-    let encodedId = try Self.householdPathSegment(id)
+    let encodedId = try SoyehtAPIPath.segment(id)
     let method = action == .delete ? "DELETE" : "POST"
     let path =
       action == .delete
@@ -651,7 +661,7 @@ extension SoyehtAPIClient {
   /// Get full instance details. Path is identical on both kinds.
   public func getInstance(id: String, context: ServerContext) async throws -> SoyehtInstance {
     let (data, response) = try await performWithRetry {
-      try await self.authenticatedRequest(path: "/api/v1/instances/\(id)", context: context)
+      try await self.authenticatedRequest(path: Self.instancePath(id: id), context: context)
     }
     try checkResponse(response, data: data)
     return try decoder.decode(SoyehtInstance.self, from: data)
