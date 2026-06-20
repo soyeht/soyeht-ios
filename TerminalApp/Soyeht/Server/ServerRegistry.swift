@@ -141,6 +141,33 @@ final class ServerRegistry: ObservableObject {
         return .success
     }
 
+    /// Updates the Mac-local pairing endpoints learned during resume /
+    /// pair-accept. The legacy store still persists the transport hints
+    /// used by the presence client, but the canonical `ServerStore`
+    /// projection is refreshed in the same turn.
+    func updateMacPairingEndpoints(
+        macID: UUID,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        PairedMacsStore.shared.updateEndpoints(
+            macID: macID,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+        refreshFromLegacyStores()
+    }
+
+    /// Records a successful Mac-local pairing/resume observation.
+    /// Kept as a registry mutator so `Server.lastSeenAt` advances
+    /// synchronously with the legacy Mac adapter.
+    func markMacPairingSeen(macID: UUID) {
+        PairedMacsStore.shared.updateLastSeen(macID: macID)
+        refreshFromLegacyStores()
+    }
+
     /// Renames a paired server (Mac or Linux). Dispatches to the
     /// owning legacy store so its Keychain entries and adapters stay
     /// consistent, then writes the canonical `ServerStore`

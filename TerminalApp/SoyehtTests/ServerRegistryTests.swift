@@ -161,6 +161,67 @@ final class ServerRegistryTests: XCTestCase {
         )
     }
 
+    func testUpdateMacPairingEndpointsWritesCanonicalStoreSynchronously() {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "endpoint-source",
+            host: nil
+        )
+        createdMacIDs.append(macID)
+
+        registry.updateMacPairingEndpoints(
+            macID: macID,
+            host: "srt-host-updated-endpoint.test",
+            presencePort: 2468,
+            attachPort: 3579
+        )
+
+        let legacy = pairedMacs.macs.first(where: { $0.macID == macID })
+        XCTAssertEqual(legacy?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(legacy?.presencePort, 2468)
+        XCTAssertEqual(legacy?.attachPort, 3579)
+
+        let published = registry.server(id: serverID)
+        XCTAssertEqual(published?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(published?.presencePort, 2468)
+        XCTAssertEqual(published?.attachPort, 3579)
+
+        let persisted = ServerStore().load().first(where: { $0.id == serverID })
+        XCTAssertEqual(persisted?.lastHost, "srt-host-updated-endpoint.test")
+        XCTAssertEqual(persisted?.presencePort, 2468)
+        XCTAssertEqual(persisted?.attachPort, 3579)
+    }
+
+    func testMarkMacPairingSeenWritesCanonicalStoreSynchronously() throws {
+        let macID = UUID()
+        let serverID = macID.uuidString
+
+        registry.upsertMacPairing(
+            macID: macID,
+            name: "last-seen-source",
+            host: "srt-host-last-seen.test"
+        )
+        createdMacIDs.append(macID)
+        let before = try XCTUnwrap(registry.server(id: serverID)?.lastSeenAt)
+
+        Thread.sleep(forTimeInterval: 0.01)
+        registry.markMacPairingSeen(macID: macID)
+
+        let legacy = try XCTUnwrap(pairedMacs.macs.first(where: { $0.macID == macID }))
+        XCTAssertGreaterThan(legacy.lastSeenAt, before)
+        let published = try XCTUnwrap(registry.server(id: serverID))
+        XCTAssertGreaterThan(published.lastSeenAt, before,
+            "Mac pairing lastSeen updates must publish to ServerRegistry synchronously."
+        )
+        let persisted = try XCTUnwrap(ServerStore().load().first(where: { $0.id == serverID }))
+        XCTAssertGreaterThan(persisted.lastSeenAt, before,
+            "Mac pairing lastSeen updates must write ServerStore synchronously."
+        )
+    }
+
     // MARK: - pairedMac helper
 
     func testPairedMac_returnsLegacyValueForMacKind() async throws {

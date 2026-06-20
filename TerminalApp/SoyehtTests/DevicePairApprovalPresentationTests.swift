@@ -149,12 +149,19 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(messageHandler.contains("upsertMacPairing("))
+        XCTAssertTrue(messageHandler.contains("updateMacPairingEndpoints("))
         XCTAssertTrue(pairAcceptHandler.contains("upsertMacPairing("))
         XCTAssertFalse(messageHandler.contains("store.upsertMac("),
             "PairingCoordinator handlers must not write the paired-server list directly through the legacy Mac store."
         )
+        XCTAssertFalse(messageHandler.contains("store.updateEndpoints("),
+            "PairingCoordinator handlers must publish endpoint updates through the ServerRegistry mutation funnel."
+        )
         XCTAssertFalse(pairAcceptHandler.contains("store.upsertMac("))
         XCTAssertTrue(funnel.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.updateMacPairingEndpoints("))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.markMacPairingSeen("))
+        XCTAssertFalse(source.contains("store.updateLastSeen(macID: config.macID)"))
         XCTAssertTrue(funnel.contains("store === PairedMacsStore.shared"),
             "The funnel may keep isolated unit-test stores working, but production writes must route through ServerRegistry.shared."
         )

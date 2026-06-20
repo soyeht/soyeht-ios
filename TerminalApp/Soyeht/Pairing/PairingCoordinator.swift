@@ -75,7 +75,7 @@ final class PairingCoordinator {
             let presencePort = payload["presence_port"] as? Int
             let attachPort   = payload["attach_port"]   as? Int
             if store.macs.contains(where: { $0.macID == config.macID }) {
-                store.updateEndpoints(
+                updateMacPairingEndpoints(
                     macID: config.macID,
                     host: config.lastHost,
                     presencePort: presencePort,
@@ -226,10 +226,43 @@ final class PairingCoordinator {
         )
     }
 
+    private func updateMacPairingEndpoints(
+        macID: UUID,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        guard store === PairedMacsStore.shared else {
+            store.updateEndpoints(
+                macID: macID,
+                host: host,
+                presencePort: presencePort,
+                attachPort: attachPort
+            )
+            return
+        }
+
+        ServerRegistry.shared.updateMacPairingEndpoints(
+            macID: macID,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+    }
+
+    private func markMacPairingSeen(macID: UUID) {
+        guard store === PairedMacsStore.shared else {
+            store.updateLastSeen(macID: macID)
+            return
+        }
+
+        ServerRegistry.shared.markMacPairingSeen(macID: macID)
+    }
+
     private func markDone() {
         guard mode != .done else { return }
         mode = .done
-        store.updateLastSeen(macID: config.macID)
+        markMacPairingSeen(macID: config.macID)
         coordinatorLogger.log("pairing_done mac_id=\(self.config.macID.uuidString, privacy: .public)")
         onAuthenticated?()
     }
