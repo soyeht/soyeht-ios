@@ -652,6 +652,54 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(loaded.first?.id, mac1.id)
     }
 
+    func test_reconcile_preservesCanonicalEnrichmentForSeedPresentEntry() throws {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        var existing = makeServer(
+            id: "EEEEEEEE-0000-0000-0000-000000000003",
+            hostname: "machine-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "100.64.0.10",
+            alias: "Alpha Mac"
+        )
+        existing.theyOS = TheyOSSnapshot(
+            status: .running,
+            version: "0.1.21",
+            lastCheckedAt: Date(timeIntervalSince1970: 2_000_100)
+        )
+        existing.apiEndpoint = URL(string: "http://100.64.0.10:8101/api")
+        existing.bootstrapEndpoint = URL(string: "http://100.64.0.10:8101")
+        store.save([existing])
+
+        let seed = makeServer(
+            id: existing.id,
+            hostname: "machine-alpha-renamed",
+            lastSeenAt: Date(timeIntervalSince1970: 1_900_000),
+            lastHost: "100.64.0.11"
+        )
+
+        let reconciled = store.reconcile(with: [seed])
+
+        let canonical = try XCTUnwrap(reconciled.first)
+        XCTAssertEqual(canonical.id, existing.id)
+        XCTAssertEqual(canonical.hostname, "machine-alpha-renamed",
+            "Legacy membership fields still update during reconcile."
+        )
+        XCTAssertEqual(canonical.alias, "Alpha Mac",
+            "Canonical user metadata must not be erased by a legacy projection without an alias."
+        )
+        XCTAssertEqual(canonical.lastHost, "100.64.0.11")
+        XCTAssertEqual(canonical.lastSeenAt, existing.lastSeenAt,
+            "Newer canonical last-seen data must survive stale legacy projections."
+        )
+        XCTAssertEqual(canonical.theyOS.status, .running,
+            "Legacy mirror refreshes must not erase status written through ServerRegistry.updateTheyOSStatus."
+        )
+        XCTAssertEqual(canonical.theyOS.version, "0.1.21")
+        XCTAssertEqual(canonical.apiEndpoint, existing.apiEndpoint)
+        XCTAssertEqual(canonical.bootstrapEndpoint, existing.bootstrapEndpoint)
+    }
+
     /// `reconcile` applies the same host-collapse pass as the migration
     /// path — Macs with the same `lastHost` but different ids collapse
     /// to one entry, preserving the UUID id.
@@ -702,6 +750,19 @@ final class SessionStoreCallbackTests: XCTestCase {
         return (store, teardown, keychainService)
     }
 
+    private func makeStoreWithServerStore() -> (SessionStore, ServerStore, () -> Void) {
+        let suiteName = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let keychainService = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
+        let serverStore = ServerStore(defaults: defaults)
+        let store = SessionStore(defaults: defaults, keychainService: keychainService, serverStore: serverStore)
+        let teardown = {
+            defaults.removePersistentDomain(forName: suiteName)
+            KeychainHelper(service: keychainService).deleteAll()
+        }
+        return (store, serverStore, teardown)
+    }
+
     private func sampleServer(id: String = UUID().uuidString, host: String = "example.local") -> PairedServer {
         PairedServer(
             id: id,
@@ -712,6 +773,26 @@ final class SessionStoreCallbackTests: XCTestCase {
             expiresAt: nil,
             platform: "macos",
             kind: .engine
+        )
+    }
+
+    private func sampleLinuxServer(
+        id: String = "linux-alpha",
+        host: String = "linux-alpha.example.test",
+        name: String = "Linux Alpha",
+        pairedAt: Date = Date(timeIntervalSince1970: 1_000_000),
+        engineMachineId: String? = "machine-linux-alpha"
+    ) -> PairedServer {
+        PairedServer(
+            id: id,
+            host: host,
+            name: name,
+            role: "admin",
+            pairedAt: pairedAt,
+            expiresAt: "2026-12-31T00:00:00Z",
+            platform: "linux",
+            kind: .adminHost,
+            engineMachineId: engineMachineId
         )
     }
 
@@ -797,5 +878,106 @@ final class SessionStoreCallbackTests: XCTestCase {
         store.onServersDidChange = { fires += 1 }
         store.removeServer(id: "never-paired")
         XCTAssertEqual(fires, 0)
+    }
+
+    func test_addServer_writesCanonicalServerStoreSynchronously() throws {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        let legacy = sampleLinuxServer()
+
+        let stored = store.addServer(legacy, token: "tok-1")
+
+        let canonical = try XCTUnwrap(serverStore.load().first { $0.id == stored.id })
+        XCTAssertEqual(canonical.kind, .linux)
+        XCTAssertEqual(canonical.hostname, "Linux Alpha")
+        XCTAssertEqual(canonical.displayName, "Linux Alpha")
+        XCTAssertEqual(canonical.lastHost, "linux-alpha.example.test")
+        XCTAssertEqual(canonical.engineMachineId, "machine-linux-alpha")
+        XCTAssertEqual(canonical.role, "admin")
+        XCTAssertEqual(canonical.sessionExpiresAt, "2026-12-31T00:00:00Z")
+    }
+
+    func test_addServer_preservesCanonicalEnrichmentWhenMergingById() throws {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        let legacy = sampleLinuxServer(
+            id: "linux-alpha",
+            host: "linux-alpha.example.test",
+            name: "Linux Alpha",
+            pairedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+        _ = store.addServer(legacy, token: "tok-1")
+
+        var canonical = try XCTUnwrap(serverStore.load().first { $0.id == "linux-alpha" })
+        canonical.theyOS = TheyOSSnapshot(
+            status: .running,
+            version: "0.1.21",
+            lastCheckedAt: Date(timeIntervalSince1970: 2_000_100)
+        )
+        canonical.apiEndpoint = URL(string: "https://linux-alpha.example.test/api")
+        canonical.bootstrapEndpoint = URL(string: "http://linux-alpha.example.test:8091")
+        canonical.lastSeenAt = Date(timeIntervalSince1970: 2_000_000)
+        serverStore.upsert(canonical)
+
+        let staleProjection = sampleLinuxServer(
+            id: "linux-alpha",
+            host: "linux-alpha-renamed.example.test",
+            name: "Linux Alpha Renamed",
+            pairedAt: Date(timeIntervalSince1970: 1_500_000)
+        )
+        _ = store.addServer(staleProjection, token: "tok-2")
+
+        let merged = try XCTUnwrap(serverStore.load().first { $0.id == "linux-alpha" })
+        XCTAssertEqual(merged.hostname, "Linux Alpha Renamed")
+        XCTAssertEqual(merged.lastHost, "linux-alpha-renamed.example.test")
+        XCTAssertEqual(merged.theyOS.status, .running)
+        XCTAssertEqual(merged.theyOS.version, "0.1.21")
+        XCTAssertEqual(merged.apiEndpoint, canonical.apiEndpoint)
+        XCTAssertEqual(merged.bootstrapEndpoint, canonical.bootstrapEndpoint)
+        XCTAssertEqual(merged.lastSeenAt, canonical.lastSeenAt)
+    }
+
+    func test_renameServer_writesCanonicalServerStoreSynchronously() throws {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        _ = store.addServer(sampleLinuxServer(id: "linux-alpha"), token: "tok-1")
+
+        store.renameServer(id: "linux-alpha", name: "Renamed Linux")
+
+        let canonical = try XCTUnwrap(serverStore.load().first { $0.id == "linux-alpha" })
+        XCTAssertEqual(canonical.hostname, "Renamed Linux")
+        XCTAssertEqual(canonical.displayName, "Renamed Linux")
+    }
+
+    func test_updateServerMetadata_writesCanonicalServerStoreSynchronously() throws {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        _ = store.addServer(
+            sampleLinuxServer(id: "linux-alpha", host: "linux-alpha.example.test", name: "linux-alpha"),
+            token: "tok-1"
+        )
+
+        store.updateServerMetadata(
+            id: "linux-alpha",
+            name: "Linux Beta",
+            platform: "linux",
+            engineMachineId: "machine-linux-beta"
+        )
+
+        let canonical = try XCTUnwrap(serverStore.load().first { $0.id == "linux-alpha" })
+        XCTAssertEqual(canonical.kind, .linux)
+        XCTAssertEqual(canonical.hostname, "Linux Beta")
+        XCTAssertEqual(canonical.engineMachineId, "machine-linux-beta")
+    }
+
+    func test_removeServer_dropsCanonicalServerStoreSynchronously() {
+        let (store, serverStore, teardown) = makeStoreWithServerStore()
+        defer { teardown() }
+        _ = store.addServer(sampleLinuxServer(id: "linux-alpha"), token: "tok-1")
+        XCTAssertTrue(serverStore.load().contains { $0.id == "linux-alpha" })
+
+        store.removeServer(id: "linux-alpha")
+
+        XCTAssertFalse(serverStore.load().contains { $0.id == "linux-alpha" })
     }
 }

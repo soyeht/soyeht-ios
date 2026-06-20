@@ -83,6 +83,103 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(resolver.contains("mac_browser_ignored_profile_mismatch"))
     }
 
+    func test_localMacPairingWritesServerListThroughRegistryFunnel() throws {
+        let awaitingMac = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let installLocalPairing = try slice(
+            awaitingMac,
+            from: "func installMacLocalPairing",
+            to: "// MARK: - URL extraction"
+        )
+
+        XCTAssertTrue(installLocalPairing.contains("store.storeSecret(pairing.secret, for: pairing.macID)"))
+        XCTAssertTrue(installLocalPairing.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertTrue(installLocalPairing.contains("ServerRegistry.shared.setDefaultMacAliasIfNeeded("))
+        XCTAssertFalse(installLocalPairing.contains("store.upsertMac("),
+            "Local pairing may keep secrets in PairedMacsStore, but the paired-server list must be written through ServerRegistry."
+        )
+        XCTAssertFalse(installLocalPairing.contains("store.setDefaultAliasIfNeeded("),
+            "Local pairing may keep secrets in PairedMacsStore, but generated user-facing aliases must publish through ServerRegistry."
+        )
+
+        let awaitingNewMac = try iosSource("Home/AwaitingNewMacView.swift")
+        let addMacPairing = try slice(
+            awaitingNewMac,
+            from: "if let pairing = claim.macLocalPairing",
+            to: "// `runDance` is reached"
+        )
+        XCTAssertTrue(addMacPairing.contains("store.storeSecret(pairing.secret, for: pairing.macID)"))
+        XCTAssertTrue(addMacPairing.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertFalse(addMacPairing.contains("store.upsertMac("))
+
+        let sshLogin = try iosSource("SSHLoginView.swift")
+        let localHandoff = try slice(
+            sshLogin,
+            from: "private func rememberLocalHandoffMac",
+            to: "private static func hostPort"
+        )
+        XCTAssertTrue(localHandoff.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertFalse(localHandoff.contains("store.upsertMac("))
+    }
+
+    func test_macAliasViewRenamesThroughServerRegistry() throws {
+        let source = try iosSource("Pairing/MacAliasView.swift")
+
+        XCTAssertTrue(source.contains("ServerRegistry.shared.rename(serverID: mac.macID.uuidString, to: alias)"))
+        XCTAssertFalse(source.contains("PairedMacsStore.shared.setAlias("),
+            "MacAliasView is UI; alias changes must go through the ServerRegistry mutation funnel so ServerStore stays canonical."
+        )
+    }
+
+    func test_pairingCoordinatorWritesMacRowsThroughRegistryFunnel() throws {
+        let source = try iosSource("Pairing/PairingCoordinator.swift")
+        let messageHandler = try slice(
+            source,
+            from: "func handle(type: String, payload: [String: Any]) -> Bool",
+            to: "// MARK: - Outgoing"
+        )
+        let pairAcceptHandler = try slice(
+            source,
+            from: "private func handlePairAccept",
+            to: "private func handleDenied"
+        )
+        let funnel = try slice(
+            source,
+            from: "private func upsertMacPairing(",
+            to: "private func markDone()"
+        )
+
+        XCTAssertTrue(messageHandler.contains("upsertMacPairing("))
+        XCTAssertTrue(messageHandler.contains("updateMacPairingEndpoints("))
+        XCTAssertTrue(pairAcceptHandler.contains("upsertMacPairing("))
+        XCTAssertFalse(messageHandler.contains("store.upsertMac("),
+            "PairingCoordinator handlers must not write the paired-server list directly through the legacy Mac store."
+        )
+        XCTAssertFalse(messageHandler.contains("store.updateEndpoints("),
+            "PairingCoordinator handlers must publish endpoint updates through the ServerRegistry mutation funnel."
+        )
+        XCTAssertFalse(pairAcceptHandler.contains("store.upsertMac("))
+        XCTAssertTrue(funnel.contains("ServerRegistry.shared.upsertMacPairing("))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.updateMacPairingEndpoints("))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.markMacPairingSeen("))
+        XCTAssertFalse(source.contains("store.updateLastSeen(macID: config.macID)"))
+        XCTAssertTrue(funnel.contains("store === PairedMacsStore.shared"),
+            "The funnel may keep isolated unit-test stores working, but production writes must route through ServerRegistry.shared."
+        )
+    }
+
+    func test_macPresenceClientWritesMacMutationsThroughServerRegistry() throws {
+        let source = try iosSource("Pairing/MacPresenceClient.swift")
+
+        XCTAssertTrue(source.contains("ServerRegistry.shared.updateMacPairingDisplayName(macID: macID, name: name)"))
+        XCTAssertTrue(source.contains("ServerRegistry.shared.remove(serverID: macID.uuidString)"))
+        XCTAssertFalse(source.contains("PairedMacsStore.shared.updateDisplayName("),
+            "Presence display-name updates must publish through ServerRegistry so ServerStore stays canonical."
+        )
+        XCTAssertFalse(source.contains("PairedMacsStore.shared.remove(macID: macID)"),
+            "Presence revocation must remove through ServerRegistry so ServerStore and legacy cleanup stay in one funnel."
+        )
+    }
+
     func test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let startMacBrowser = try slice(

@@ -75,7 +75,7 @@ final class PairingCoordinator {
             let presencePort = payload["presence_port"] as? Int
             let attachPort   = payload["attach_port"]   as? Int
             if store.macs.contains(where: { $0.macID == config.macID }) {
-                store.updateEndpoints(
+                updateMacPairingEndpoints(
                     macID: config.macID,
                     host: config.lastHost,
                     presencePort: presencePort,
@@ -85,7 +85,7 @@ final class PairingCoordinator {
                 // Reinstalling the iOS app clears UserDefaults but can leave
                 // this app's Keychain pairing secret behind. In that case the
                 // resume handshake succeeds, but the Mac row must be rebuilt.
-                store.upsertMac(
+                upsertMacPairing(
                     macID: config.macID,
                     name: config.macName,
                     host: config.lastHost,
@@ -175,7 +175,7 @@ final class PairingCoordinator {
         // persistent presence WS can open without a fresh QR.
         let presencePort = payload["presence_port"] as? Int
         let attachPort   = payload["attach_port"] as? Int
-        store.upsertMac(
+        upsertMacPairing(
             macID: config.macID,
             name: macName,
             host: config.lastHost,
@@ -199,10 +199,70 @@ final class PairingCoordinator {
         onDenied?(reason)
     }
 
+    private func upsertMacPairing(
+        macID: UUID,
+        name: String,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        guard store === PairedMacsStore.shared else {
+            store.upsertMac(
+                macID: macID,
+                name: name,
+                host: host,
+                presencePort: presencePort,
+                attachPort: attachPort
+            )
+            return
+        }
+
+        ServerRegistry.shared.upsertMacPairing(
+            macID: macID,
+            name: name,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+    }
+
+    private func updateMacPairingEndpoints(
+        macID: UUID,
+        host: String?,
+        presencePort: Int?,
+        attachPort: Int?
+    ) {
+        guard store === PairedMacsStore.shared else {
+            store.updateEndpoints(
+                macID: macID,
+                host: host,
+                presencePort: presencePort,
+                attachPort: attachPort
+            )
+            return
+        }
+
+        ServerRegistry.shared.updateMacPairingEndpoints(
+            macID: macID,
+            host: host,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+    }
+
+    private func markMacPairingSeen(macID: UUID) {
+        guard store === PairedMacsStore.shared else {
+            store.updateLastSeen(macID: macID)
+            return
+        }
+
+        ServerRegistry.shared.markMacPairingSeen(macID: macID)
+    }
+
     private func markDone() {
         guard mode != .done else { return }
         mode = .done
-        store.updateLastSeen(macID: config.macID)
+        markMacPairingSeen(macID: config.macID)
         coordinatorLogger.log("pairing_done mac_id=\(self.config.macID.uuidString, privacy: .public)")
         onAuthenticated?()
     }

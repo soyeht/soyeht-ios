@@ -1476,7 +1476,7 @@ struct SoyehtAppView: View {
         guard hasSecret || hasEndpoints else { return }
 
         let host = target.lastHost ?? Self.hostPort(from: selectedWsUrl)
-        store.upsertMac(
+        ServerRegistry.shared.upsertMacPairing(
             macID: macID,
             name: target.macName ?? "Mac",
             host: host,

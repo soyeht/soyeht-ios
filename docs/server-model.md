@@ -43,7 +43,7 @@ transition from the legacy types is a no-op at the call site.
 
 ```swift
 // CORRECT
-let result = ServerRegistry.shared.setAlias(serverID: id, alias: input)
+let result = ServerRegistry.shared.rename(serverID: id, to: input)
 switch result {
 case .success: ...
 case .duplicate(let conflictingMacID): show duplicate-name error
@@ -63,9 +63,15 @@ ServerStore().upsert(s)
    `MacAliasRules.maxLength` + no forbidden characters);
 2. Rejects duplicates with a case-insensitive comparison across **all**
    other servers in the registry (not just same-kind);
-3. Updates `lastSeenAt` so the entry sorts to the top after an edit;
+3. Dispatches to the legacy store only for compatibility side effects
+   (Mac pairing secret cleanup, token rows, navigation/cache cleanup);
 4. Atomically updates `@Published servers` and persisted `ServerStore`
    together — SwiftUI sinks never see an inconsistent moment.
+
+Mac local-pairing flows use `ServerRegistry.upsertMacPairing(...)` for
+the same reason: `PairedMacsStore` still owns the Keychain pairing
+secret, but the paired-server list is written through the registry
+funnel and mirrored into `ServerStore` synchronously.
 
 ### Rule 3 — Kind-aware affordances live on `Server.kind`
 
@@ -77,9 +83,9 @@ let linux  = registry.servers.filter { $0.kind == .linux }
 The home `// apps` section shows only Macs. The home footer "X servers
 connected" badge counts everything in the registry that has a recent
 theyOS poll heartbeat. Both kinds get the same alias UX through
-`setAlias`.
+`ServerRegistry.rename`.
 
-## Migration from the legacy stores
+## Migration and legacy adapters
 
 Triggered once per install in `AppDelegate.application(_:didFinishLaunchingWithOptions:)`:
 
@@ -93,32 +99,51 @@ Idempotent. A sentinel inside `ServerStore` makes subsequent calls
 no-ops. The legacy stores stay intact — no destructive cleanup runs in
 this release so a rollback to the previous build does not lose pairings.
 
+After startup, `ServerRegistry.installLegacyMirror()` keeps the v1 store
+aligned with legacy-originated mutations while the migration is still in
+progress:
+
+- `PairedMacsStore` changes refresh the registry synchronously on the
+  main actor.
+- `SessionStore.pairedServers` mutations write their projected
+  `Server` row into `ServerStore` synchronously, then fire the registry
+  mirror callback for in-memory observers.
+- `ServerStore.reconcile(with:)` treats the legacy seed as membership
+  input, but preserves canonical enrichment already written through the
+  registry (`theyOS`, explicit endpoints, and newer `lastSeenAt` data)
+  for rows that still exist in the legacy seed.
+
 `PairedServer.toServer()` accepts both legacy raw `kind` values
 (`"engine"` → `.mac`, `"adminHost"` → `.linux`) so a user who has not
 re-paired since the previous schema still migrates cleanly. Decoder
 backward-compat is locked by `ServerStoreMigrationTests.test_kindDecoder_acceptsLegacyPairedServerRawValues`.
 
-## Transition state (as of 2026-05-26)
+## Transition state
 
-The legacy stores remain authoritative for everything that has not yet
-been rewritten to consume `ServerRegistry`. Specifically:
+`ServerRegistry` is the UI-facing list and mutation authority. The
+legacy stores remain alive as adapters while the storage migration
+continues:
 
-- `MacHomeRow`, `MacDetailView`, `PairedMacsListView`,
-  `MacPresenceClient`, `PairedMacRegistry` still take `PairedMac`.
-- `ServerListView`, `InstancePickerViewController`,
-  `ConnectedServersWindowController` (macOS) still read from
-  `SessionStore.pairedServers`.
-- `ServerRegistry.shared.servers` is populated by the migration at
-  startup but no view-side mutation flows back to it yet.
+- `PairedMacsStore` still owns device identity, per-Mac pairing
+  secrets, and the `PairedMac` bridge required by presence clients.
+- `SessionStore` still owns server credentials, active server id,
+  cached instance state, navigation state, and `ServerContext` lookup.
+- `ServerStore` is the persisted unified list. Registry-originated
+  rename/remove, the primary Mac local-pairing flows, and
+  `SessionStore.pairedServers` mutations write it synchronously.
 
 The remaining sweep is tracked separately. For now, follow these rules:
 
 - **New code** that needs to enumerate paired Macs or Linux hosts
   should consume `ServerRegistry.shared.servers` (or `.macs`).
-- **Existing code** that consumes `PairedMacsStore.shared.macs` or
-  `SessionStore.shared.pairedServers` is safe — those stores stay
-  populated by the same mutators as before and the migration mirrors
-  them into `ServerRegistry`.
+- **New code** that renames, removes, or records a paired Mac should go
+  through `ServerRegistry`. Do not add new direct
+  `PairedMacsStore.upsertMac`, `PairedMacsStore.remove`,
+  `SessionStore.renameServer`, or `SessionStore.removeServer` call sites
+  outside the compatibility adapters.
+- Existing protocol-level code may still use `PairedMacsStore` or
+  `SessionStore` for credentials/context, but listing and user-visible
+  mutation should be added at the registry layer first.
 
 ## Files
 
@@ -135,8 +160,8 @@ The remaining sweep is tracked separately. For now, follow these rules:
 ## See also
 
 - [mac-display-name.md](mac-display-name.md) — current legacy-store
-  rules. Still authoritative for code that has not yet migrated to
-  `Server`.
+  rules for the `PairedMacsStore` adapter. `ServerRegistry` remains
+  the UI-facing mutation funnel.
 - [engine-version.md](engine-version.md) — how the bundled theyos
   engine binary version is pinned. Engines must be compatible with
   the iOS client (`EngineCompat.minSupportedEngineVersion`).
