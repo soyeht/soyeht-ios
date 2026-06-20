@@ -255,23 +255,36 @@ struct ClawStoreContractFixtureTests {
         }
     }
 
-    @Test func listEnvelopeFixtureDocumentsSwiftAvailabilityGap() throws {
-        // Rust's current list_envelope_ready fixture omits availability. Claw
-        // requires it, so this asserts the shared-contract gap instead of
-        // adding a Swift-only list fixture Rust cannot police.
-        do {
-            _ = try apiDecoder().decode(
-                ClawsResponse.self,
-                from: fixtureData("list_envelope_ready")
-            )
-            Issue.record(
-                "list_envelope_ready decoded; replace this gap assertion with shared list DTO coverage"
-            )
-        } catch DecodingError.keyNotFound(let key, _) {
-            #expect(key.stringValue == "availability")
-        } catch {
-            throw error
-        }
+    @Test func listEnvelopeFixtureDecodesWithSwiftClawDTOs() throws {
+        let response = try apiDecoder().decode(
+            ClawsResponse.self,
+            from: fixtureData("list_envelope_ready")
+        )
+        #expect(response.data.count == 1)
+
+        let claw = try #require(response.data.first)
+        #expect(claw.name == "picoclaw")
+        #expect(claw.description == "Tiny test claw")
+        #expect(claw.language == "rust")
+        #expect(claw.buildable == true)
+        #expect(claw.version == "1.0.0")
+        #expect(claw.binarySizeMb == 10)
+        #expect(claw.minRamMb == 512)
+        #expect(claw.license == "MIT")
+        #expect(claw.installable == true)
+        #expect(claw.installability.isInstallable)
+
+        let availability = claw.availability
+        #expect(availability.name == "picoclaw")
+        #expect(availability.install.status == .succeeded)
+        #expect(availability.install.installedAt == "2026-06-20T00:00:00Z")
+        #expect(availability.host.coldPathReady)
+        #expect(availability.host.hasGolden == false)
+        #expect(availability.host.hasBaseRootfs)
+        #expect(availability.host.maintenanceBlocked == false)
+        #expect(availability.overall == .creatable)
+        #expect(availability.reasons.isEmpty)
+        #expect(availability.degradations.isEmpty)
     }
 
     private func route(_ id: String) throws -> ClawStoreContractRoute {
