@@ -32,11 +32,11 @@ final class ServerRegistry: ObservableObject {
 
     @Published private(set) var servers: [Server]
 
-    private let store: ServerStore
+    private let writer: ServerInventoryWriter
 
-    init(store: ServerStore = ServerStore()) {
-        self.store = store
-        self.servers = store.load()
+    init(writer: ServerInventoryWriter = ServerInventoryWriter()) {
+        self.writer = writer
+        self.servers = writer.load()
     }
 
     // MARK: - Lookups
@@ -95,7 +95,7 @@ final class ServerRegistry: ObservableObject {
     /// with `updateTheyOSStatus`; UI mutations should go through
     /// `rename` / `remove`, not `upsert`.
     func upsert(_ server: Server) {
-        servers = store.upsert(server)
+        servers = writer.upsertCanonical(server)
     }
 
     /// Records a Mac learned through the legacy local-pairing protocol.
@@ -225,7 +225,7 @@ final class ServerRegistry: ObservableObject {
             guard result == .success else { return result }
             var updated = target
             updated.alias = trimmed
-            servers = store.upsert(updated)
+            servers = writer.upsertCanonical(updated)
             return .success
         case .linux:
             // SessionStore.renameServer is still called for legacy
@@ -236,7 +236,7 @@ final class ServerRegistry: ObservableObject {
             var updated = target
             updated.hostname = trimmed
             updated.alias = nil
-            servers = store.upsert(updated)
+            servers = writer.upsertCanonical(updated)
             return .success
         }
     }
@@ -263,7 +263,7 @@ final class ServerRegistry: ObservableObject {
         case .linux:
             SessionStore.shared.removeServer(id: target.id)
         }
-        servers = store.remove(id: target.id)
+        servers = writer.remove(id: target.id)
     }
 
     /// Updates the cached theyOS snapshot for a server. Called by
@@ -281,7 +281,7 @@ final class ServerRegistry: ObservableObject {
             lastCheckedAt: Date()
         )
         target.lastSeenAt = Date()
-        servers = store.upsert(target)
+        servers = writer.upsertCanonical(target)
     }
 
     /// Resolves the user-facing label for a `PairedServer`. Used by the
@@ -312,11 +312,11 @@ final class ServerRegistry: ObservableObject {
     /// ServerRegistry.shared.migrateLegacy(seed: seed)
     /// ```
     func migrateLegacy(seed: [Server]) {
-        store.migrateLegacyIfNeeded(
+        writer.migrateLegacyIfNeeded(
             seed: seed,
             secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
         )
-        servers = store.load()
+        servers = writer.load()
         serverRegistryLogger.info(
             "ServerRegistry post-migration count: \(self.servers.count, privacy: .public)"
         )
@@ -344,8 +344,8 @@ final class ServerRegistry: ObservableObject {
     func refreshFromLegacyStores() {
         let macSeed = PairedMacsStore.shared.macs.map { $0.toServer() }
         let serverSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
-        let reconciled = store.reconcile(
-            with: macSeed + serverSeed,
+        let reconciled = writer.reconcileLegacy(
+            seed: macSeed + serverSeed,
             secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
         )
         if reconciled != servers {
