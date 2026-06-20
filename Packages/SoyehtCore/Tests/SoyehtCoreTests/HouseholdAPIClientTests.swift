@@ -52,6 +52,79 @@ private func percentEncodedPath(_ request: URLRequest) -> String? {
   return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath
 }
 
+private struct HouseholdClawStoreContract: Decodable {
+  let contract: String
+  let version: Int
+  let attachTokenHeader: String
+  let routes: [Route]
+  let responseSamples: ResponseSamples
+
+  enum CodingKeys: String, CodingKey {
+    case contract
+    case version
+    case attachTokenHeader = "attach_token_header"
+    case routes
+    case responseSamples = "response_samples"
+  }
+
+  struct Route: Decodable {
+    let name: String
+    let method: String
+    let path: String
+    let operation: String?
+    let auth: String
+  }
+
+  struct ResponseSamples: Decodable {
+    let listClaws: ListClawsSample
+    let action: ActionSample
+    let attachToken: AttachTokenSample
+
+    enum CodingKeys: String, CodingKey {
+      case listClaws = "list_claws"
+      case action
+      case attachToken = "attach_token"
+    }
+  }
+
+  struct ListClawsSample: Decodable {
+    let data: [String]
+  }
+
+  struct ActionSample: Decodable {
+    let jobId: String
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+      case jobId = "job_id"
+      case message
+    }
+  }
+
+  struct AttachTokenSample: Decodable {
+    let token: String
+    let expiresAt: UInt64
+
+    enum CodingKeys: String, CodingKey {
+      case token
+      case expiresAt = "expires_at"
+    }
+  }
+}
+
+private func loadHouseholdClawStoreContract() throws -> HouseholdClawStoreContract {
+  let testFile = URL(fileURLWithPath: #filePath)
+  let repoRoot = testFile
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+  let url = repoRoot.appendingPathComponent("docs/contracts/claw-store-household-v1.json")
+  let data = try Data(contentsOf: url)
+  return try JSONDecoder().decode(HouseholdClawStoreContract.self, from: data)
+}
+
 private struct HouseholdAPIClientOwnerKeyProvider: OwnerIdentityKeyCreating {
   let key: P256.Signing.PrivateKey
 
@@ -632,6 +705,181 @@ struct HouseholdAPIClientTests {
       let authorization = try #require(request.value(forHTTPHeaderField: "Authorization"))
       #expect(authorization.hasPrefix("Soyeht-PoP v1:"))
     }
+  }
+
+  @Test func householdContractFixtureMatchesClientRoutes() async throws {
+    let contract = try loadHouseholdClawStoreContract()
+    #expect(contract.contract == "claw-store-household")
+    #expect(contract.version == 1)
+    #expect(contract.attachTokenHeader == SoyehtAPIClient.householdTerminalAttachTokenHeader)
+
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+    let endpoint = URL(string: "http://100.64.0.10:8091")!
+
+    func route(_ name: String) throws -> HouseholdClawStoreContract.Route {
+      try #require(contract.routes.first { $0.name == name })
+    }
+
+    func expectedPath(_ name: String) throws -> String {
+      try route(name).path
+        .replacingOccurrences(of: "{name}", with: "hermes")
+        .replacingOccurrences(of: "{id}", with: "inst-openclaw")
+        .replacingOccurrences(of: "{container}", with: "picoclaw-alpha")
+    }
+
+    func capture(
+      _ routeName: String,
+      responseData: Data = Data(),
+      statusCode: Int = 200,
+      _ operation: () async throws -> Void
+    ) async throws {
+      HouseholdAPIClientTestURLProtocol.reset()
+      HouseholdAPIClientTestURLProtocol.responseData = responseData
+      HouseholdAPIClientTestURLProtocol.statusCode = statusCode
+
+      try await operation()
+
+      let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+      let contractRoute = try route(routeName)
+      let path = try expectedPath(routeName)
+      #expect(request.httpMethod == contractRoute.method)
+      #expect(request.url?.path == path)
+    }
+
+    #expect(contract.responseSamples.action.jobId == "job-alpha")
+    #expect(contract.responseSamples.attachToken.token == "attach-token-alpha")
+
+    try await capture(
+      "list_claws",
+      responseData: Data(#"{"data":[]}"#.utf8)
+    ) {
+      _ = try await client.getClaws(target: .householdEndpoint(endpoint))
+    }
+
+    try await capture(
+      "claw_availability",
+      responseData: Data(
+        #"{"name":"hermes","install":{"status":"not_installed","progress":null,"installed_at":null,"error":null,"job_id":null},"host":{"cold_path_ready":true,"has_golden":true,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"not_installed"},"reasons":[{"type":"not_installed"}],"degradations":[]}"#.utf8)
+    ) {
+      _ = try await client.getClawAvailability(
+        name: "hermes", target: .householdEndpoint(endpoint))
+    }
+
+    try await capture(
+      "install_claw",
+      responseData: Data(#"{"job_id":"job-alpha","message":"queued"}"#.utf8)
+    ) {
+      _ = try await client.installClaw(name: "hermes", target: .householdEndpoint(endpoint))
+    }
+
+    try await capture(
+      "uninstall_claw",
+      responseData: Data(#"{"job_id":"job-alpha","message":"queued"}"#.utf8)
+    ) {
+      _ = try await client.uninstallClaw(name: "hermes", target: .householdEndpoint(endpoint))
+    }
+
+    try await capture("list_instances", responseData: Data(#"{"data":[]}"#.utf8)) {
+      _ = try await client.getInstances(householdEndpoint: endpoint)
+    }
+
+    try await capture(
+      "create_instance",
+      responseData: Data(
+        #"{"id":"inst-openclaw","name":"openclaw","container":"openclaw-alpha","claw_type":"openclaw","status":"provisioning","job_id":"job-alpha"}"#.utf8)
+    ) {
+      _ = try await client.createInstance(
+        CreateInstanceRequest(
+          name: "openclaw",
+          clawType: "openclaw",
+          guestOs: "macos",
+          cpuCores: 2,
+          ramMb: 2048,
+          diskGb: nil,
+          ownerId: nil
+        ),
+        target: .householdEndpoint(endpoint)
+      )
+    }
+
+    try await capture(
+      "instance_status",
+      responseData: Data(
+        #"{"status":"active","provisioning_message":null,"provisioning_error":null,"provisioning_phase":null}"#.utf8)
+    ) {
+      _ = try await client.getInstanceStatus(
+        id: "inst-openclaw", target: .householdEndpoint(endpoint))
+    }
+
+    try await capture("list_workspaces", responseData: Data(#"{"data":[]}"#.utf8)) {
+      _ = try await client.listWorkspaces(
+        container: "picoclaw-alpha", householdEndpoint: endpoint)
+    }
+
+    try await capture(
+      "create_workspace",
+      responseData: Data(
+        #"{"workspace":{"id":"ws-alpha","session_id":"ws-alpha","container":"picoclaw-alpha","display_name":"Dev Workspace","status":"active"}}"#.utf8)
+    ) {
+      _ = try await client.createNewWorkspace(
+        container: "picoclaw-alpha", name: "Dev Workspace", householdEndpoint: endpoint)
+    }
+
+    try await capture("rename_workspace", statusCode: 204) {
+      try await client.renameWorkspace(
+        container: "picoclaw-alpha",
+        workspaceId: "inst-openclaw",
+        newName: "Dev Workspace",
+        householdEndpoint: endpoint
+      )
+    }
+
+    try await capture("delete_workspace", statusCode: 204) {
+      try await client.deleteWorkspace(
+        container: "picoclaw-alpha",
+        workspaceId: "inst-openclaw",
+        householdEndpoint: endpoint
+      )
+    }
+
+    try await capture(
+      "mint_attach_token",
+      responseData: Data(#"{"token":"attach-token-alpha","expires_at":1810000000}"#.utf8)
+    ) {
+      _ = try await client.mintHouseholdTerminalAttachToken(
+        container: "picoclaw-alpha",
+        workspaceId: "ws-alpha",
+        householdEndpoint: endpoint
+      )
+    }
+
+    for action in [InstanceAction.stop, .restart, .rebuild, .delete] {
+      let routeName = "\(action.rawValue)_instance"
+      try await capture(routeName, statusCode: 204) {
+        try await client.instanceAction(
+          id: "inst-openclaw", action: action, householdEndpoint: endpoint)
+      }
+    }
+
+    let pty = try route("terminal_pty")
+    let request = try client.makeHouseholdTerminalWebSocketRequest(
+      endpoint: endpoint,
+      container: "picoclaw-alpha",
+      workspaceId: "ws-alpha",
+      attachToken: "attach-token-alpha"
+    )
+    let ptyPath = try expectedPath("terminal_pty")
+    #expect((request.httpMethod ?? "GET") == pty.method)
+    #expect(request.url?.path == ptyPath)
+    #expect(
+      request.value(forHTTPHeaderField: SoyehtAPIClient.householdTerminalAttachTokenHeader)
+        == "attach-token-alpha")
   }
 
   @Test func invalidLocalCertBlocksHouseholdRequestBeforeNetwork() async throws {
