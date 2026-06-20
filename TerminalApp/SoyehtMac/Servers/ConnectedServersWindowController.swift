@@ -233,7 +233,9 @@ private final class ConnectedServersViewController: NSViewController {
 
     private func reload() {
         let activeId = store.activeServerId
-        servers = store.pairedServers.sorted {
+        servers = store.canonicalServers().compactMap { canonicalServer in
+            store.context(for: canonicalServer)?.server
+        }.sorted {
             if $0.id == activeId { return true }
             if $1.id == activeId { return false }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending

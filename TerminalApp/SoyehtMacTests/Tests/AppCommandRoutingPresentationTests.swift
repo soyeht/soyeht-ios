@@ -149,6 +149,22 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
+    func testConnectedServersWindowReadsCanonicalInventoryBeforeSessionCredentials() throws {
+        let source = try macSource("Servers/ConnectedServersWindowController.swift")
+        let reload = try slice(
+            source,
+            from: "private func reload()",
+            to: "private func probeServers()"
+        )
+
+        XCTAssertTrue(reload.contains("store.canonicalServers().compactMap"))
+        XCTAssertTrue(reload.contains("store.context(for: canonicalServer)?.server"))
+        XCTAssertFalse(
+            reload.contains("store.pairedServers"),
+            "The connected servers window must enumerate ServerStore canonical inventory and use SessionStore only for credentials."
+        )
+    }
+
     func testMacClawStoreDetailOpenTerminalUsesContextBackedMainWindowPath() throws {
         let appDelegate = try macSource("AppDelegate.swift")
         let showStore = try slice(
