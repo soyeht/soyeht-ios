@@ -175,8 +175,10 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(clear.contains("let profile = SoyehtInstallProfile.current"))
+        XCTAssertTrue(clear.contains("profile.mobileKeychainService"))
         XCTAssertTrue(clear.contains("profile.keychainService"))
         XCTAssertTrue(clear.contains("profile.householdKeychainService"))
+        XCTAssertFalse(clear.contains("\"com.soyeht.mobile\""))
         XCTAssertFalse(clear.contains("\"com.soyeht.mac\", \"com.soyeht.mac.dev\""))
         XCTAssertFalse(clear.contains("\"com.soyeht.household\""))
     }
