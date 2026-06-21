@@ -137,4 +137,28 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertFalse(release.ownsEngineCommand(#"export THEYOS_BIN_DIR="$ENGINE_DIR""#))
         XCTAssertFalse(dev.ownsEngineCommand(#"export THEYOS_BIN_DIR="$ENGINE_DIR""#))
     }
+
+    // MARK: - Cross-repo engine port contract
+
+    /// The release profile's ports are not free parameters: they are the client
+    /// half of a cross-repo contract with the theyos engine. `bootstrapPort` must
+    /// equal the engine's household default (`server_rs::household_bootstrap::`
+    /// `DEFAULT_HOUSEHOLD_PORT` = 8091) and `adminPort` must equal the engine's
+    /// `ADMIN_PORT` = 8892. Both values are documented in theyos `PORTS.md`, whose
+    /// agreement with the engine constants is pinned by theyos's `ports_registry`
+    /// test. If theyos moves an engine port, this test (and that one) must move in
+    /// lockstep — that is the point.
+    func test_releasePorts_matchTheyosEngineContract() {
+        // Keep these literals in sync with theyos PORTS.md / DEFAULT_HOUSEHOLD_PORT.
+        let theyosHouseholdPort = 8091
+        let theyosAdminPort = 8892
+        XCTAssertEqual(
+            SoyehtInstallProfile.release.bootstrapPort, theyosHouseholdPort,
+            "iOS bootstrapPort must equal the theyos engine THEYOS_HOUSEHOLD_PORT default"
+        )
+        XCTAssertEqual(
+            SoyehtInstallProfile.release.adminPort, theyosAdminPort,
+            "iOS adminPort must equal the theyos engine ADMIN_PORT"
+        )
+    }
 }
