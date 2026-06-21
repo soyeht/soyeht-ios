@@ -30,6 +30,7 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.engineLaunchAgentPlistName, "com.soyeht.engine.plist")
         XCTAssertEqual(p.engineLaunchdLabel, "com.soyeht.engine")
         XCTAssertEqual(p.keychainService, "com.soyeht.mac")
+        XCTAssertEqual(p.mobileKeychainService, "com.soyeht.mobile")
         XCTAssertEqual(p.householdKeychainService, "com.soyeht.household")
         XCTAssertEqual(p.householdOwnerKeyPrefix, "com.soyeht.household.owner")
         XCTAssertEqual(p.adminPort, 8892)
@@ -46,6 +47,7 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.engineLaunchAgentPlistName, "com.soyeht.engine.dev.plist")
         XCTAssertEqual(p.engineLaunchdLabel, "com.soyeht.engine.dev")
         XCTAssertEqual(p.keychainService, "com.soyeht.mac.dev")
+        XCTAssertEqual(p.mobileKeychainService, "com.soyeht.mobile.dev")
         XCTAssertEqual(p.householdKeychainService, "com.soyeht.household.dev")
         XCTAssertEqual(p.householdOwnerKeyPrefix, "com.soyeht.household.dev.owner")
         XCTAssertEqual(p.adminPort, 8902)
@@ -75,6 +77,7 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertNotEqual(r.engineLaunchAgentPlistName, d.engineLaunchAgentPlistName)
         XCTAssertNotEqual(r.engineLaunchdLabel, d.engineLaunchdLabel)
         XCTAssertNotEqual(r.keychainService, d.keychainService)
+        XCTAssertNotEqual(r.mobileKeychainService, d.mobileKeychainService)
         XCTAssertNotEqual(r.householdKeychainService, d.householdKeychainService)
         XCTAssertNotEqual(r.householdOwnerKeyPrefix, d.householdOwnerKeyPrefix)
         XCTAssertFalse(
