@@ -161,7 +161,8 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         XCTAssertTrue(candidateFlow.contains("\"_soyeht-setup._tcp.\""))
         XCTAssertTrue(candidateFlow.contains("resolveBonjourIPv4Addresses"))
         XCTAssertTrue(listener.contains("DNSServiceGetAddrInfo"))
-        XCTAssertTrue(macURLFlow.contains("localNetworkMacEngineURL(port: localEngineBaseURL.port ?? 8091)"))
+        XCTAssertTrue(macURLFlow.contains("localNetworkMacEngineURL(port: localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort())"))
+        XCTAssertFalse(macURLFlow.contains("?? 8091"))
         XCTAssertTrue(listener.contains("private static func isLANReachableIPv4"))
     }
 

@@ -1141,11 +1141,14 @@ struct SoyehtAppView: View {
                 throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }
             let grant = try await client.requestAttachGrant(paneID: pane.id)
-            // Host may be "192.0.2.17" (no port) or "192.0.2.17:12345"
-            // (legacy Fase 1 cache). Strip any trailing port before composing.
-            let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
-            let scheme = MacLocalWebSocketEndpoint.scheme
-            let wsURL = "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            guard let wsURL = MacLocalWebSocketEndpoint.paneAttachURL(
+                host: host,
+                port: grant.port,
+                paneID: grant.paneID,
+                nonce: grant.nonce
+            )?.absoluteString else {
+                throw NSError(domain: "SoyehtAttach", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.invalidURL", comment: "Reconnect error — the paired Mac attach URL could not be built.")])
+            }
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     appState = .localTerminal(wsUrl: wsURL, title: pane.title, macID: macID, paneID: pane.id)
@@ -1191,9 +1194,15 @@ struct SoyehtAppView: View {
                 throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }
             let grant = try await client.requestAttachGrant(paneID: paneID)
-            let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
-            let scheme = MacLocalWebSocketEndpoint.scheme
-            return "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            guard let url = MacLocalWebSocketEndpoint.paneAttachURL(
+                host: host,
+                port: grant.port,
+                paneID: grant.paneID,
+                nonce: grant.nonce
+            ) else {
+                throw NSError(domain: "SoyehtAttach", code: 3, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.invalidURL", comment: "Reconnect error — the paired Mac attach URL could not be built.")])
+            }
+            return url.absoluteString
         }
     }
 

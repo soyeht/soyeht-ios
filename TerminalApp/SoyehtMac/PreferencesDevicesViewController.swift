@@ -1095,13 +1095,13 @@ private enum MacPairingReachability {
               let node = status.selfNode else {
             return localEngineBaseURL
         }
-        let port = localEngineBaseURL.port ?? 8091
+        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
         if let dnsName = normalizedDNSName(node.dnsName),
-           let url = URL(string: "http://\(dnsName):\(port)") {
+           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(dnsName):\(port)") {
             return url
         }
-        if let ip = node.tailscaleIPs.first(where: isTailscaleIPv4),
-           let url = URL(string: "http://\(ip):\(port)") {
+        if let ip = node.tailscaleIPs.first(where: HostClassifier.isTailnetIPv4),
+           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)") {
             return url
         }
         return localEngineBaseURL
@@ -1166,11 +1166,6 @@ private enum MacPairingReachability {
         return trimmed
     }
 
-    private static func isTailscaleIPv4(_ value: String) -> Bool {
-        let parts = value.split(separator: ".").compactMap { UInt8($0) }
-        guard parts.count == 4 else { return false }
-        return parts[0] == 100 && (64...127).contains(parts[1])
-    }
 }
 
 private final class ResumeOnce: @unchecked Sendable {

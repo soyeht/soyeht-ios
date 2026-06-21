@@ -245,43 +245,6 @@ public struct HouseholdPairingService {
     /// no query, no fragment.
     static func directEndpoint(for qr: PairDeviceQR) -> URL? {
         guard let raw = qr.hostFallback, !raw.isEmpty else { return nil }
-        guard var components = URLComponents(string: "http://\(raw)") else { return nil }
-        guard let host = components.host, !host.isEmpty,
-              components.user == nil, components.password == nil,
-              components.path.isEmpty,
-              components.query == nil, components.fragment == nil else {
-            return nil
-        }
-        let trimmed = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        guard Self.isValidEndpointHost(trimmed) else { return nil }
-        // Re-build from validated parts to drop anything the parser may have
-        // silently kept beyond the allowlisted components.
-        components.scheme = "http"
-        return components.url
-    }
-
-    /// Allows IPv4 dotted-quad (with bounds check), bracketed IPv6
-    /// literals, or DNS labels matching `[A-Za-z0-9-.]+` with no leading/
-    /// trailing dot and no consecutive dots. Intentionally stricter than
-    /// `URLComponents.host` to refuse smuggling attempts via punycode-like
-    /// payloads.
-    private static func isValidEndpointHost(_ host: String) -> Bool {
-        if host.contains(":") {
-            // IPv6 — defer to inet_pton-style validation by trying IPv6Address.
-            return host.unicodeScalars.allSatisfy { c in
-                ("0"..."9").contains(c) || ("a"..."f").contains(c)
-                    || ("A"..."F").contains(c) || c == ":" || c == "."
-            }
-        }
-        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        let isIPv4 = parts.count == 4 && parts.allSatisfy { part in
-            !part.isEmpty && part.allSatisfy(\.isNumber) && (Int(part) ?? 256) < 256
-        }
-        if isIPv4 { return true }
-        // Plain hostname: a-z 0-9 hyphen, dots between labels.
-        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.")
-        guard host.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return false }
-        guard !host.hasPrefix("."), !host.hasSuffix("."), !host.contains("..") else { return false }
-        return true
+        return EndpointPolicy.localPlainHTTPURL(authority: raw)
     }
 }
