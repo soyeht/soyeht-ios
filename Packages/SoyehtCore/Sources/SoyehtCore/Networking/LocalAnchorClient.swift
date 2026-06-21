@@ -119,19 +119,10 @@ public struct LocalAnchorClient: Sendable {
     /// per-install `anchor_secret`; an attacker on-path cannot forge a
     /// matching pin without the secret.
     static func endpointURL(candidateAddress: String) -> URL? {
-        var components = URLComponents()
-        components.scheme = "http"
-        let trimmed = candidateAddress.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return nil }
-        if let colon = trimmed.lastIndex(of: ":"),
-           let port = Int(trimmed[trimmed.index(after: colon)...]) {
-            components.host = String(trimmed[..<colon])
-            components.port = port
-        } else {
-            components.host = trimmed
-        }
-        components.path = Self.path
-        return components.url
+        EndpointPolicy.localPlainHTTPURL(
+            authority: candidateAddress,
+            path: Self.path
+        )
     }
 
     private func sendOnce(_ request: URLRequest) async throws {

@@ -48,18 +48,16 @@ enum TheyOSEnvironment {
     static var bootstrapHost: String { SoyehtInstallProfile.current.bootstrapHost }
 
     static var bootstrapBaseURL: URL {
-        let scheme = SoyehtAPIClient.isLocalHost(bootstrapHost) ? "http" : "https"
-        return URL(string: "\(scheme)://\(bootstrapHost)")
+        EndpointPolicy.bootstrapStatusBaseURL(forHost: bootstrapHost)
             ?? URL(fileURLWithPath: "/dev/null")
     }
 
-    /// Reuses the central scheme decision (`isLocalHost`) without forcing the
-    /// shared `SoyehtAPIClient` singleton to be lazily constructed at startup —
-    /// this property is read from the Welcome health prober before the rest
-    /// of the API stack has any reason to spin up.
+    /// Reuses the central endpoint policy without forcing the shared
+    /// `SoyehtAPIClient` singleton to be lazily constructed at startup.
+    /// This property is read from the Welcome health prober before the rest of
+    /// the API stack has any reason to spin up.
     static var healthURL: URL {
-        let scheme = SoyehtAPIClient.isLocalHost(adminHost) ? "http" : "https"
-        return URL(string: "\(scheme)://\(adminHost)/health")
+        EndpointPolicy.adminHTTPURL(host: adminHost, path: "/health")
             ?? URL(fileURLWithPath: "/dev/null")
     }
 
