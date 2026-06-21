@@ -2,7 +2,12 @@
 
 > If you are adding code that pairs, lists, mutates, or polls a paired
 > Mac or Linux host, **read this file first**. The companion test
-> contract lives in `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreMigrationTests.swift`.
+> contracts live in
+> `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerInventoryWriterTests.swift`
+> (the single-writer boundary, read-side guard, and v1↔writer parity — the
+> suite that actually exercises the writer) and
+> `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreMigrationTests.swift`
+> (decoder + legacy migration contract).
 
 ## What this replaces
 
@@ -165,6 +170,26 @@ The remaining sweep is tracked separately. For now, follow these rules:
   `SessionStore` for credentials/context, but listing and user-visible
   mutation should be added at the registry layer first.
 
+## Known follow-ups (single-owner hardening)
+
+Invariants that are guarded today but not yet fully closed:
+
+- **Read side.** `ServerInventoryWriterTests.test_adHocServerStoreLoadReadsAreConfinedToAllowlist`
+  forbids new `ServerStore().load()` reads. The one allow-listed site —
+  `ClawDetailViewModel`'s injected `pairedServerCountProvider` default — still
+  reads raw UserDefaults; iOS UI construction sites (`ClawDetailView`,
+  `MacClawDetailView`) should inject a `ServerRegistry.shared.servers.count`
+  provider so the count comes from the in-memory authority, not a throwaway store.
+- **Shadow comparer.** `ServerStoreShadowComparer` reports canonical↔legacy
+  divergence as category counts (`ServerStoreShadowComparerTests`), but it is
+  still a diagnostic — not yet a live blocking invariant on the writer's
+  reconcile output.
+- **Parallel owners.** `PairedMacsStore` and `SessionStore.pairedServers` remain
+  the membership / credential origin-of-record; the persisted v1 `ServerStore` is
+  a reconciled projection of them. Collapsing them into a single owner is the
+  remaining sweep — do not add new write paths to the legacy stores meanwhile
+  (see the Transition state rules above).
+
 ## Files
 
 | File                                                                  | Role                            |
@@ -179,6 +204,8 @@ The remaining sweep is tracked separately. For now, follow these rules:
 | `TerminalApp/Soyeht/AppDelegate.swift`                                | iOS startup migration call |
 | `TerminalApp/SoyehtMac/AppDelegate.swift`                             | macOS startup migration call through writer |
 | `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreMigrationTests.swift` | Decoder + migration contract |
+| `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerInventoryWriterTests.swift` | Single-writer + read-side boundary guards, v1↔writer parity |
+| `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreShadowComparerTests.swift` | Canonical↔legacy projection divergence diagnostic |
 
 ## See also
 
