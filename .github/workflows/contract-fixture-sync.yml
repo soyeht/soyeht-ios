@@ -1,0 +1,32 @@
+name: Contract Fixture Sync (iOS ↔ theyos)
+
+# Symmetric counterpart to theyos's contracts-cross-repo-sync.yml. That workflow
+# guards theyos→iOS drift on THEYOS PRs (diffing against iSoyehtTerm@main); this
+# one guards drift on OUR PRs by byte-diffing every vendored cross-repo contract
+# fixture against the theyos source of truth pinned in
+# scripts/cross-repo-contract.sha. Previously the iOS side only required a linked
+# companion PR (cross-repo-dep-check.yml) and never compared the bytes.
+#
+# A contract that has not yet landed on the pinned theyos commit is skipped (not
+# failed), so each contract activates as it merges and the pin is bumped.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/**"
+      - "docs/contracts/**"
+      - "scripts/check-cross-repo-fixtures.sh"
+      - "scripts/cross-repo-contract.sha"
+      - ".github/workflows/contract-fixture-sync.yml"
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Contract fixture drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify vendored contract fixtures match theyos
+        run: scripts/check-cross-repo-fixtures.sh
