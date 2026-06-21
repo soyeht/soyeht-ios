@@ -40,6 +40,17 @@ The links to deeper docs:
   `ClawStore/GuestImageReadinessGate.swift` doc-header until it earns
   its own file.
 
+## Endpoint construction is owned by `EndpointPolicy`
+
+The facades answer *what* exists; *how* the iOS client actually reaches an engine
+— host classification (loopback / Tailnet / LAN / public), profile-aware engine
+ports, `http`/`https`/`ws`/`wss` scheme selection, and URL construction — is owned
+once by **`EndpointPolicy`**
+(`Packages/SoyehtCore/Sources/SoyehtCore/Networking/EndpointPolicy.swift`; tests in
+`EndpointPolicyTests.swift`). Build engine endpoints through it; do not hand-assemble
+scheme + host + port at call sites. Port defaults are pinned to the theyos engine
+contract — see `SoyehtInstallProfile` and theyos `PORTS.md`.
+
 ## Household is protocol / storage vocabulary, not UI vocabulary
 
 The word *household* survives in three places on purpose:
