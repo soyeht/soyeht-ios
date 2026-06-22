@@ -244,6 +244,8 @@ final class SoyehtIdentityTests: XCTestCase {
 
     func testFreshInstallSweeperDoesNotTargetShippingHouseholdFromDevProfile() {
         let devServices = FreshInstallKeychainSweeper.keychainServicesToDelete(for: .dev)
+        XCTAssertTrue(devServices.contains("com.soyeht.mobile.dev"))
+        XCTAssertFalse(devServices.contains("com.soyeht.mobile"))
         XCTAssertTrue(devServices.contains("com.soyeht.household.dev"))
         XCTAssertFalse(devServices.contains("com.soyeht.household"))
         XCTAssertEqual(
@@ -258,6 +260,8 @@ final class SoyehtIdentityTests: XCTestCase {
 
     func testDebugResetterDoesNotTargetShippingHouseholdFromDevProfile() {
         let devServices = DebugLocalStateResetter.keychainServicesToDelete(for: .dev)
+        XCTAssertTrue(devServices.contains("com.soyeht.mobile.dev"))
+        XCTAssertFalse(devServices.contains("com.soyeht.mobile"))
         XCTAssertTrue(devServices.contains("com.soyeht.household.dev"))
         XCTAssertFalse(devServices.contains("com.soyeht.household"))
         XCTAssertEqual(
