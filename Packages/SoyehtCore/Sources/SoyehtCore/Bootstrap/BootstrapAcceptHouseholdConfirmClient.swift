@@ -55,6 +55,16 @@ public struct BootstrapAcceptHouseholdConfirmClient: Sendable {
         guard challengeSig.count == 64 else {
             throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
         }
+        // Pre-flight handshake: refuse engines older than
+        // `EngineCompat.minSupportedEngineVersion` with a clear message before
+        // the main POST. See `docs/engine-protocol-version.md`. This is the
+        // final, atomic step of the add-Mac join, so an incompatible engine
+        // here must fail loudly rather than commit a half-understood
+        // membership — same gate the initialize / accept-household clients run.
+        try await EngineCompat.assertCompatible(
+            via: BootstrapStatusClient(baseURL: baseURL, transport: perform)
+        )
+
         let body = Self.encodeRequest(
             machineId: machineId,
             machineCert: machineCert,
