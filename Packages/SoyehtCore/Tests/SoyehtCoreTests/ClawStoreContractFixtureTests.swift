@@ -129,8 +129,44 @@ struct ClawStoreContractFixtureTests {
     @Test func syncedContractMetadataIsLoadedFromRustArtifact() {
         #expect(contract.contract == "claw-store")
         #expect(contract.version == 1)
-        #expect(contract.routes.count >= 13)
         #expect(contractURL.path.contains("Fixtures/claw-store/v1/contract.json"))
+    }
+
+    /// The synced contract must carry EXACTLY the routes this client knows about.
+    /// A bare `routes.count >= 13` let theyos add a route that the synced copy
+    /// would silently leave untested on the Swift side. Pinning the exact id set
+    /// means any added / removed / renamed route fails here until the Swift
+    /// coverage (and this expected set) is updated in lockstep.
+    @Test func syncedContractDeclaresExactlyTheKnownRouteSet() {
+        let expectedRouteIDs: Set<String> = [
+            "admin_list_claws", "admin_get_claw", "admin_claw_availability",
+            "admin_install_claw", "admin_uninstall_claw",
+            "mobile_list_claws", "mobile_claw_availability",
+            "mobile_install_claw", "mobile_uninstall_claw",
+            "household_list_claws", "household_claw_availability",
+            "household_install_claw", "household_uninstall_claw",
+        ]
+        #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
+    }
+
+    /// Field-level structural equivalence (not just a count): every route in the
+    /// synced contract must decode with all required wire fields populated, and
+    /// household routes must carry a PoP operation.
+    @Test func everySyncedRouteHasCompleteRequiredFields() {
+        for route in contract.routes {
+            #expect(!route.id.isEmpty)
+            #expect(!route.surface.isEmpty, "route \(route.id) missing surface")
+            #expect(!route.method.isEmpty, "route \(route.id) missing method")
+            #expect(!route.pathTemplate.isEmpty, "route \(route.id) missing path_template")
+            #expect(!route.authKind.isEmpty, "route \(route.id) missing auth_kind")
+            #expect(!route.expectations.isEmpty, "route \(route.id) declares no expectations")
+            if route.surface == "household" {
+                #expect(
+                    route.householdOperation != nil,
+                    "household route \(route.id) missing household_operation"
+                )
+            }
+        }
     }
 
     @Test func serverRouteRegistryMatchesSwiftKindAwarePaths() throws {

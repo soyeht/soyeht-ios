@@ -432,6 +432,39 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    /// Read-side companion to the write-side boundary guards above. The persisted
+    /// v1 inventory has a single in-memory authority (iOS `ServerRegistry`); reading
+    /// it by spinning up a throwaway `ServerStore().load()` bypasses that authority
+    /// and can transiently disagree with it mid-mutation (a `ServerStore()` reads
+    /// raw UserDefaults, not the published in-memory array). The write-side suite
+    /// guarded mutations and writer adoption but never ad-hoc READS. This forbids
+    /// new ad-hoc reads; the one remaining site (the `ClawDetailViewModel`
+    /// injected-provider DEFAULT, which iOS callers can override with a
+    /// ServerRegistry-backed provider) is allow-listed and tracked for migration.
+    func test_adHocServerStoreLoadReadsAreConfinedToAllowlist() throws {
+        let root = try workspaceRoot()
+        let allowed: Set<String> = [
+            // SoyehtCore-level default fallback for an injected provider; iOS UI
+            // should pass a ServerRegistry-backed provider. Tracked in
+            // docs/server-model.md as a read-side follow-up.
+            "Packages/SoyehtCore/Sources/SoyehtCore/ClawStore/ClawDetailViewModel.swift",
+        ]
+        let offenders = try productionSwiftFiles(root: root).filter { relativePath in
+            guard !allowed.contains(relativePath) else { return false }
+            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
+            return source.contains("ServerStore().load()")
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            Ad-hoc `ServerStore().load()` reads bypass the in-memory inventory \
+            authority (ServerRegistry) and can disagree with it mid-mutation. Read \
+            through the authority, or inject a provider. Offending files: \(offenders)
+            """
+        )
+    }
+
     private func sorted(_ servers: [Server]) -> [Server] {
         servers.sorted { lhs, rhs in
             if lhs.id != rhs.id { return lhs.id < rhs.id }
