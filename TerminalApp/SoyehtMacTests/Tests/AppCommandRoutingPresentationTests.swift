@@ -132,7 +132,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(command.contains("showClawStore(sender)"))
     }
 
-    func testMacAppImportsLegacySessionServersIntoServerStoreAtLaunch() throws {
+    func testMacAppImportsLegacySessionServersThroughInventoryWriterAtLaunch() throws {
         let source = try macSource("AppDelegate.swift")
         let launch = try slice(
             source,
@@ -140,10 +140,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "Task { [weak self] in"
         )
 
-        XCTAssertTrue(launch.contains("ServerStore().migrateLegacyIfNeeded("))
+        XCTAssertTrue(launch.contains("ServerInventoryWriter().migrateLegacyIfNeeded("))
         XCTAssertTrue(launch.contains("seed: SessionStore.shared.pairedServers.map { $0.toServer() }"))
         XCTAssertLessThan(
-            try XCTUnwrap(source.range(of: "ServerStore().migrateLegacyIfNeeded(")?.lowerBound),
+            try XCTUnwrap(source.range(of: "ServerInventoryWriter().migrateLegacyIfNeeded(")?.lowerBound),
             try XCTUnwrap(source.range(of: "openInitialWindow")?.lowerBound),
             "macOS must import legacy paired servers before deciding whether to show Welcome or restore main windows."
         )
