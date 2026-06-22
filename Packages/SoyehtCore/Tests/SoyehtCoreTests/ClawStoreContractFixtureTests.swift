@@ -323,6 +323,39 @@ struct ClawStoreContractFixtureTests {
         #expect(availability.degradations.isEmpty)
     }
 
+    /// Catalog-only (not-installable) list item. The shared fixture is the exact
+    /// row theyos serializes for `claude-claw` (tier=catalog) from the real
+    /// manifest builder; this binds the Swift decode of `installable:false` +
+    /// `unavailable_reason_code:"catalog_only"` to the same golden, so a wire
+    /// rename breaks both repos. Counterpart of the theyos
+    /// `catalog_only_list_item_serializer_matches_claw_store_v1_fixture` test.
+    @Test func catalogOnlyListItemFixtureDecodesAsNotInstallableClaw() throws {
+        let claw = try apiDecoder().decode(
+            Claw.self,
+            from: fixtureData("list_item_catalog_only")
+        )
+
+        #expect(claw.name == "claude-claw")
+        #expect(claw.installable == false)
+        #expect(claw.unavailableReasonCode == .catalogOnly)
+
+        // The UI install gate must resolve to catalog-only unavailable with a message.
+        guard case let .unavailable(reasonCode, message) = claw.installability else {
+            Issue.record("expected .unavailable installability, got \(claw.installability)")
+            return
+        }
+        #expect(reasonCode == .catalogOnly)
+        #expect(claw.installability.isInstallable == false)
+        let reason = try #require(message)
+        #expect(!reason.isEmpty)
+        #expect(reason.contains("Claude Code plugin"))
+
+        // Availability is the independent host/install projection: a known but
+        // not-installed claw resolves to not_installed on both axes.
+        #expect(claw.availability.install.status == .notInstalled)
+        #expect(claw.availability.overall == .notInstalled)
+    }
+
     private func route(_ id: String) throws -> ClawStoreContractRoute {
         try #require(contract.routes.first { $0.id == id }, "missing route \(id)")
     }
