@@ -257,18 +257,49 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertFalse(source.contains("saveV2Envelope"))
     }
 
-    func test_serverInventoryWriterIsNotRuntimeAdoptedInD3() throws {
+    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToServerRegistryInD4() throws {
         let root = try workspaceRoot()
+        let allowed: Set<String> = [
+            "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
+            "TerminalApp/Soyeht/Server/ServerRegistry.swift",
+        ]
         let offenders = try productionSwiftFiles(root: root).filter { relativePath in
-            guard relativePath != "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift" else {
-                return false
-            }
+            guard !allowed.contains(relativePath) else { return false }
             let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
             return source.contains("ServerInventoryWriter")
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "D3 must not adopt ServerInventoryWriter from runtime code yet. Offending files: \(offenders)"
+            "D4 may adopt ServerInventoryWriter only inside ServerRegistry. Offending files: \(offenders)"
+        )
+    }
+
+    func test_serverRegistryUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
+        )
+        let forbidden = [
+            "ServerStore(",
+            "store.upsert(",
+            "store.remove(id:",
+            "store.migrateLegacyIfNeeded(",
+            "store.reconcile(with:",
+            "save(",
+            "shadowCompare(",
+            "makeV2Envelope(",
+            "projectV1Servers(",
+            "loadV2Envelope(",
+            "saveV2Envelope(",
+        ]
+
+        XCTAssertTrue(source.contains("ServerInventoryWriter"))
+        XCTAssertTrue(source.contains("writer.upsertCanonical("))
+        XCTAssertTrue(source.contains("writer.remove(id:"))
+        XCTAssertTrue(source.contains("writer.migrateLegacyIfNeeded("))
+        XCTAssertTrue(source.contains("writer.reconcileLegacy("))
+        XCTAssertFalse(forbidden.contains { source.contains($0) },
+            "ServerRegistry must use only v1 writer parity methods in D4."
         )
     }
 
@@ -279,7 +310,6 @@ final class ServerInventoryWriterTests: XCTestCase {
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStoreV2.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
-            "TerminalApp/Soyeht/Server/ServerRegistry.swift",
             "TerminalApp/SoyehtMac/AppDelegate.swift",
         ]
         let writePatterns = [
