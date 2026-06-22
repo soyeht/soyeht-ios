@@ -142,6 +142,58 @@ final class InstalledClawsProviderTests: XCTestCase {
                        "Posting activeServerChanged must trigger refresh()")
     }
 
+    func test_refresh_fetchesInstancesFromPinnedContextNotAPIClientActiveServer() async throws {
+        let providerStore = makeIsolatedSessionStore()
+        let contextServer = PairedServer(
+            id: "context-server",
+            host: "context.example.com",
+            name: "context",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        providerStore.addServer(contextServer, token: "context-token")
+        providerStore.setActiveServer(id: contextServer.id)
+
+        let apiClientStore = makeIsolatedSessionStore()
+        let otherActiveServer = PairedServer(
+            id: "other-active-server",
+            host: "other-active.example.com",
+            name: "other",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        apiClientStore.addServer(otherActiveServer, token: "other-token")
+        apiClientStore.setActiveServer(id: otherActiveServer.id)
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [InstalledClawsMockProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = SoyehtAPIClient(session: session, store: apiClientStore)
+        let provider = InstalledClawsProvider(apiClient: client, sessionStore: providerStore)
+
+        InstalledClawsMockProtocol.configure(
+            clawsJSON: clawsJSONBody(names: ["hermes"]),
+            instancesJSON: instancesJSONBody(clawTypes: ["hermes"])
+        )
+
+        provider.refresh()
+        await waitUntilLoaded(provider)
+
+        XCTAssertEqual(provider.claws.map(\.name), ["hermes"])
+        XCTAssertEqual(
+            InstalledClawsMockProtocol.hosts(forPathSuffix: "/instances"),
+            ["context.example.com"],
+            "Instances must be fetched from the provider's pinned context, not from the API client's active server"
+        )
+        XCTAssertEqual(apiClientStore.loadInstances(serverId: contextServer.id).compactMap(\.clawType), ["hermes"])
+        XCTAssertTrue(
+            apiClientStore.loadInstances(serverId: otherActiveServer.id).isEmpty,
+            "The implicit active server cache must not receive instance results for a context-pinned refresh"
+        )
+    }
+
     // MARK: - Filter: only claws with online instances surface
 
     func test_refresh_filtersOutClawsWithoutOnlineInstances() async throws {
@@ -335,7 +387,7 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var clawsBody: Data = Data("{\"data\":[]}".utf8)
     nonisolated(unsafe) private static var instancesBody: Data = Data("[]".utf8)
     nonisolated(unsafe) private static var statusCode = 200
-    nonisolated(unsafe) private static var hostsByPathSuffix: [String: String] = [:]
+    nonisolated(unsafe) private static var observedRequests: [(host: String, path: String)] = []
 
     static func configure(clawsJSON: Data, instancesJSON: Data, status: Int = 200) {
         lock.lock(); defer { lock.unlock() }
@@ -356,12 +408,19 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
         clawsBody = Data("{\"data\":[]}".utf8)
         instancesBody = Data("[]".utf8)
         statusCode = 200
-        hostsByPathSuffix = [:]
+        observedRequests = []
     }
 
     static func host(forPathSuffix suffix: String) -> String? {
         lock.lock(); defer { lock.unlock() }
-        return hostsByPathSuffix[suffix]
+        return observedRequests.last { $0.path.hasSuffix(suffix) }?.host
+    }
+
+    static func hosts(forPathSuffix suffix: String) -> [String] {
+        lock.lock(); defer { lock.unlock() }
+        return observedRequests
+            .filter { $0.path.hasSuffix(suffix) }
+            .map(\.host)
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -371,12 +430,8 @@ final class InstalledClawsMockProtocol: URLProtocol, @unchecked Sendable {
         InstalledClawsMockProtocol.lock.lock()
         let status = InstalledClawsMockProtocol.statusCode
         let path = request.url?.path ?? ""
-        if path.hasSuffix("/claws") {
-            InstalledClawsMockProtocol.hostsByPathSuffix["/claws"] = request.url?.host
-        }
-        if path.hasSuffix("/instances") {
-            InstalledClawsMockProtocol.hostsByPathSuffix["/instances"] = request.url?.host
-        }
+        let host = request.url?.host ?? ""
+        InstalledClawsMockProtocol.observedRequests.append((host: host, path: path))
         let body: Data = {
             if path.hasSuffix("/claws") { return InstalledClawsMockProtocol.clawsBody }
             if path.hasSuffix("/instances") { return InstalledClawsMockProtocol.instancesBody }

@@ -45,6 +45,10 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
     /// Keychain `kSecAttrService` for the Mac's pairing secrets / identity.
     public let keychainService: String
 
+    /// Keychain `kSecAttrService` for mobile/device credentials such as
+    /// paired-server tokens, local pairing secrets, and the local device id.
+    public let mobileKeychainService: String
+
     /// Keychain `kSecAttrService` for the active household session and CRL.
     public let householdKeychainService: String
 
@@ -88,6 +92,7 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
         engineLaunchAgentPlistName: "com.soyeht.engine.plist",
         engineLaunchdLabel: "com.soyeht.engine",
         keychainService: "com.soyeht.mac",
+        mobileKeychainService: "com.soyeht.mobile",
         householdKeychainService: "com.soyeht.household",
         householdOwnerKeyPrefix: "com.soyeht.household.owner",
         adminPort: 8892,
@@ -106,6 +111,7 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
         engineLaunchAgentPlistName: "com.soyeht.engine.dev.plist",
         engineLaunchdLabel: "com.soyeht.engine.dev",
         keychainService: "com.soyeht.mac.dev",
+        mobileKeychainService: "com.soyeht.mobile.dev",
         householdKeychainService: "com.soyeht.household.dev",
         householdOwnerKeyPrefix: "com.soyeht.household.dev.owner",
         adminPort: 8902,
@@ -140,6 +146,7 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
             engineLaunchAgentPlistName,
             engineLaunchdLabel,
             keychainService,
+            mobileKeychainService,
             householdKeychainService,
             householdOwnerKeyPrefix,
             engineLogPath,
