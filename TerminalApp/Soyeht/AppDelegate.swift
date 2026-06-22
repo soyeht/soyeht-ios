@@ -643,7 +643,7 @@ enum FreshInstallKeychainSweeper {
     static func keychainServicesToDelete(
         for profile: SoyehtInstallProfile = .current
     ) -> [String] {
-        ["com.soyeht.mobile", profile.householdKeychainService]
+        [profile.mobileKeychainService, profile.householdKeychainService]
     }
 
     static func ownerKeyPrefixToDelete(
@@ -724,7 +724,7 @@ enum DebugLocalStateResetter {
     static func keychainServicesToDelete(
         for profile: SoyehtInstallProfile = .current
     ) -> [String] {
-        ["com.soyeht.mobile", profile.householdKeychainService]
+        [profile.mobileKeychainService, profile.householdKeychainService]
     }
 
     static func ownerKeyPrefixToDelete(

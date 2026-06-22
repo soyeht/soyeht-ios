@@ -277,7 +277,7 @@ public final class SessionStore: ObservableObject {
 
     public init(
         defaults: UserDefaults = .standard,
-        keychainService: String = "com.soyeht.mobile",
+        keychainService: String = SoyehtInstallProfile.current.mobileKeychainService,
         serverStore: ServerStore? = nil
     ) {
         self.defaults = defaults
@@ -838,10 +838,8 @@ public final class SessionStore: ObservableObject {
             //
             // Release does NOT consult UserDefaults: macOS Debug uses bundle
             // id `com.soyeht.mac.dev` and Release uses `com.soyeht.mac`, so
-            // the two builds have separate UserDefaults domains anyway —
-            // there is nothing to "fall through" to. The shared persistence
-            // surface is the Keychain service (`com.soyeht.mobile`), which
-            // both configurations use.
+            // the two builds have separate UserDefaults domains and separate
+            // profile-scoped mobile Keychain services.
             guard let data = defaults.data(forKey: "soyeht.serverTokens"),
                   let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
                 return [:]
