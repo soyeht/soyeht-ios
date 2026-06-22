@@ -173,7 +173,7 @@ final class PairedMacsStore {
     init(
         defaults: UserDefaults = .standard,
         keychain: KeychainHelper = KeychainHelper(
-            service: "com.soyeht.mobile",
+            service: SoyehtInstallProfile.current.mobileKeychainService,
             accessibility: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         )
     ) {
