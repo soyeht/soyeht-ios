@@ -19,7 +19,10 @@ which it usually got wrong. The home footer's "X servers connected"
 badge silently read from `pairedServers` and showed `0` for every user
 whose only Mac came in via the iPhone-first QR flow.
 
-`Server` and `ServerRegistry` are the unified replacement.
+`Server`, `ServerStore`, `ServerInventoryWriter`, and `ServerRegistry`
+are the unified replacement. The live persisted authority is still the
+v1 `ServerStore`; `ServerInventoryWriter` is the additive facade used by
+approved adapters while the v2 model remains shadow/test-only.
 
 ## The three rules
 
@@ -66,12 +69,13 @@ ServerStore().upsert(s)
 3. Dispatches to the legacy store only for compatibility side effects
    (Mac pairing secret cleanup, token rows, navigation/cache cleanup);
 4. Atomically updates `@Published servers` and persisted `ServerStore`
-   together — SwiftUI sinks never see an inconsistent moment.
+   through `ServerInventoryWriter` v1 parity methods — SwiftUI sinks
+   never see an inconsistent moment.
 
 Mac local-pairing flows use `ServerRegistry.upsertMacPairing(...)` for
 the same reason: `PairedMacsStore` still owns the Keychain pairing
 secret, but the paired-server list is written through the registry
-funnel and mirrored into `ServerStore` synchronously.
+funnel and mirrored into `ServerStore` synchronously through the writer.
 
 ### Rule 3 — Kind-aware affordances live on `Server.kind`
 
@@ -96,10 +100,17 @@ ServerRegistry.shared.migrateLegacy(seed: legacyMacSeed + legacyServerSeed)
 ```
 
 The iOS app imports both `PairedMacsStore` and
-`SessionStore.pairedServers` through `ServerRegistry`. The macOS app has
-no `PairedMacsStore` / `ServerRegistry` facade yet, so it imports the
-`SessionStore.pairedServers` seed directly into `ServerStore` before it
-decides whether to show Welcome or restore main windows.
+`SessionStore.pairedServers` through `ServerRegistry`, which delegates
+v1 persistence to `ServerInventoryWriter`. The macOS app has no
+`PairedMacsStore` seed, so it imports the `SessionStore.pairedServers`
+seed through the writer before it decides whether to show Welcome or
+restore main windows:
+
+```swift
+ServerInventoryWriter().migrateLegacyIfNeeded(
+    seed: SessionStore.shared.pairedServers.map { $0.toServer() }
+)
+```
 
 Idempotent. A sentinel inside `ServerStore` makes subsequent calls
 no-ops. The legacy stores stay intact — no destructive cleanup runs in
@@ -112,9 +123,9 @@ progress:
 - `PairedMacsStore` changes refresh the registry synchronously on the
   main actor.
 - `SessionStore.pairedServers` mutations write their projected
-  `Server` row into `ServerStore` synchronously, then fire the registry
-  mirror callback for in-memory observers.
-- `ServerStore.reconcile(with:)` treats the legacy seed as membership
+  `Server` row through `ServerInventoryWriter` synchronously, then fire
+  the registry mirror callback for in-memory observers.
+- The writer's v1 reconcile path treats the legacy seed as membership
   input, but preserves canonical enrichment already written through the
   registry (`theyOS`, explicit endpoints, and newer `lastSeenAt` data)
   for rows that still exist in the legacy seed.
@@ -133,10 +144,13 @@ continues:
 - `PairedMacsStore` still owns device identity, per-Mac pairing
   secrets, and the `PairedMac` bridge required by presence clients.
 - `SessionStore` still owns server credentials, active server id,
-  cached instance state, navigation state, and `ServerContext` lookup.
-- `ServerStore` is the persisted unified list. Registry-originated
-  rename/remove, the primary Mac local-pairing flows, and
-  `SessionStore.pairedServers` mutations write it synchronously.
+  cached instance state, navigation state, and `ServerContext` lookup;
+  its canonical inventory projections delegate to `ServerInventoryWriter`.
+- `ServerStore` is the persisted unified list. `ServerInventoryWriter`
+  wraps it for the approved v1 parity paths in `ServerRegistry`,
+  `SessionStore`, and macOS startup migration. The v2 envelope, shadow
+  comparer, and rollback projection helpers remain test/shadow-only and
+  are not a live authority.
 
 The remaining sweep is tracked separately. For now, follow these rules:
 
@@ -157,10 +171,13 @@ The remaining sweep is tracked separately. For now, follow these rules:
 | --------------------------------------------------------------------- | ------------------------------- |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/Server.swift`          | `Server`, `ServerKind`, `TheyOSSnapshot` |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStore.swift`     | Persistence + migration sentinel |
+| `Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift` | V1 persistence facade + shadow/v2 helper boundary |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/PairedServer+Server.swift` | Legacy → unified adapter (engines + admin hosts) |
+| `Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift`     | Credentials/context adapter + writer-backed inventory projection |
 | `TerminalApp/Soyeht/Pairing/PairedMac+Server.swift`                   | Legacy → unified adapter (Macs) |
-| `TerminalApp/Soyeht/Server/ServerRegistry.swift`                      | Observable single mutator funnel |
-| `TerminalApp/Soyeht/AppDelegate.swift`                                | Startup migration call |
+| `TerminalApp/Soyeht/Server/ServerRegistry.swift`                      | Observable single mutator funnel, backed by writer v1 parity methods |
+| `TerminalApp/Soyeht/AppDelegate.swift`                                | iOS startup migration call |
+| `TerminalApp/SoyehtMac/AppDelegate.swift`                             | macOS startup migration call through writer |
 | `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreMigrationTests.swift` | Decoder + migration contract |
 
 ## See also
