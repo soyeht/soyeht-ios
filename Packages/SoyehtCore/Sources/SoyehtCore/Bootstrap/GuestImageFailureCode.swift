@@ -29,6 +29,10 @@ public enum GuestImageFailureCode: String, Codable, Equatable, Hashable, Sendabl
     case ipswDownloadFailed = "ipsw_download_failed"
     /// No restore image is compatible with this Mac's macOS version.
     case ipswIncompatible = "ipsw_incompatible"
+    /// This Mac can't run virtual machines for Soyeht — either an unsupportable
+    /// host/OS, or this Soyeht install lacks virtualization authorization. Terminal:
+    /// neither a retry nor a status re-check helps, so the UI offers no CTA.
+    case virtualizationUnavailable = "virtualization_unavailable"
     /// Unclassified / future code (fail-soft catch-all).
     case unknown
 
@@ -79,6 +83,7 @@ public extension GuestImageFailureCode {
         case .helperMissing:      return .openSoyehtOnMac
         case .entitlementMissing: return .reinstallSoyehtOnMac
         case .ipswIncompatible:   return .none
+        case .virtualizationUnavailable: return .none
         case .unknown:            return .retry
         }
     }

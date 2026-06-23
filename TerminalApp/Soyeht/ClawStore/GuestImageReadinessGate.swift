@@ -532,6 +532,12 @@ enum GuestImageFailureCopy {
                 defaultValue: "This Mac isn't supported yet",
                 comment: "Title when no compatible restore image exists for this Mac."
             )
+        case .virtualizationUnavailable:
+            return LocalizedStringResource(
+                "clawStore.guestImage.failure.virtualizationUnavailable.title",
+                defaultValue: "Virtualization isn't available on this Mac",
+                comment: "Title when the Mac can't run virtual machines (unsupported host or unauthorized install)."
+            )
         case .unknown:
             return LocalizedStringResource(
                 "clawStore.guestImage.failure.unknown.title",
@@ -580,6 +586,12 @@ enum GuestImageFailureCopy {
                 defaultValue: "This Mac's macOS version isn't supported for preparation.",
                 comment: "Body for the incompatible-restore-image failure."
             )
+        case .virtualizationUnavailable:
+            return LocalizedStringResource(
+                "clawStore.guestImage.failure.virtualizationUnavailable.body",
+                defaultValue: "This Mac can't run virtual machines for Soyeht — either it doesn't support virtualization, or this install isn't authorized. Reinstalling Soyeht on the Mac may help; otherwise use a Mac that supports it.",
+                comment: "Body for the virtualization-unavailable failure (dual cause: unsupported host or unauthorized install). Carries the only hint; there is no CTA."
+            )
         case .unknown:
             return LocalizedStringResource(
                 "clawStore.guestImage.failure.unknown.body",
@@ -611,7 +623,7 @@ enum GuestImageFailureCopy {
                 defaultValue: "Reinstall Soyeht on the Mac, then check again.",
                 comment: "Instruction for the missing-entitlement failure."
             )
-        case .insufficientDisk, .ipswDownloadFailed, .ipswIncompatible, .unknown:
+        case .insufficientDisk, .ipswDownloadFailed, .ipswIncompatible, .virtualizationUnavailable, .unknown:
             return nil
         }
     }
