@@ -106,5 +106,16 @@ cp "${INSTANCE_STATUS_FIXTURE}" \
    "${TESTS}/HouseholdFixtures/InstanceStatus/instance_status_codes.json"
 echo "✓ instance_status_codes.json (instance lifecycle status contract)"
 
+# -- ClawUnavailableReasonCode: claw installability reason wire contract (admin/rust/core-rs/tests/fixtures/) --
+UNAVAIL_REASON_FIXTURE="${THEYOS_DIR}/admin/rust/core-rs/tests/fixtures/claw_unavailable_reason_codes.json"
+if [[ ! -f "${UNAVAIL_REASON_FIXTURE}" ]]; then
+    echo "error: claw-unavailable-reason fixture not found at ${UNAVAIL_REASON_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/ClawUnavailableReasonCode"
+cp "${UNAVAIL_REASON_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/ClawUnavailableReasonCode/claw_unavailable_reason_codes.json"
+echo "✓ claw_unavailable_reason_codes.json (claw installability reason contract)"
+
 echo ""
 echo "Sync complete. Commit the updated fixture files if they changed."
