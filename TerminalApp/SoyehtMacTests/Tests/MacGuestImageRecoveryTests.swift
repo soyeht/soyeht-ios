@@ -4,9 +4,10 @@ import XCTest
 
 @testable import SoyehtMacDomain
 
-/// P6/B: macOS reason-coded recovery banner content per readiness state / failure
-/// code (pure mapping over the shared `GuestImageRecoveryPolicy`) + the read-only
-/// "Check Again" `recheck()` re-fetch. Deterministic, no network, neutral aliases.
+/// P6/B+C: macOS reason-coded recovery banner content per readiness state /
+/// failure code (pure mapping over the shared `GuestImageRecoveryPolicy`), the
+/// read-only "Check Again" `recheck()`, and the mutating "Try Again" `prepare()`
+/// (force + authoritative re-fetch). Deterministic, no network, neutral aliases.
 @MainActor
 final class MacGuestImageRecoveryTests: XCTestCase {
     // MARK: - allowed states render no banner
@@ -16,84 +17,60 @@ final class MacGuestImageRecoveryTests: XCTestCase {
         XCTAssertNil(MacGuestImageRecovery.banner(for: .allowed(.notApplicable)))
     }
 
-    func test_banner_checking_hasNoCheckAgain() throws {
+    func test_banner_checking_hasNoCTA() throws {
         let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .checking))
         XCTAssertEqual(content.kind, .checking)
-        XCTAssertFalse(content.showsCheckAgain)
+        XCTAssertEqual(content.cta, GuestImageRecoveryCTA.none)
     }
 
     func test_banner_unavailable_failClosedWithCheckAgain() throws {
         let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .unavailable))
         XCTAssertEqual(content.kind, .unavailable)
-        // Read-only re-fetch, never a blind prepare retry.
-        XCTAssertTrue(content.showsCheckAgain)
+        // Read-only re-fetch, never a mutating prepare.
+        XCTAssertEqual(content.cta, .checkAgain)
     }
 
-    func test_banner_preparing_showsCheckAgain() throws {
+    func test_banner_preparing_offersCheckAgain() throws {
         for readiness in [GuestImageReadiness.notStarted, .inProgress(phase: "provision")] {
             let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(readiness)))
             XCTAssertEqual(content.kind, .preparing)
-            XCTAssertTrue(content.showsCheckAgain)
+            XCTAssertEqual(content.cta, .checkAgain)
         }
     }
 
-    // MARK: - reason-coded failures
+    // MARK: - reason-coded failures: prepare vs checkAgain vs none
 
-    func test_banner_hostVmLimit_restartWithCheckAgainAndInstruction() throws {
-        let content = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: "vz", code: .hostVmLimitReached)))
-        )
-        XCTAssertEqual(content.kind, .failed(.hostVmLimitReached))
-        XCTAssertTrue(content.showsCheckAgain)
+    func test_banner_onDeviceRecoverableCodes_offerPrepareCTA() throws {
+        // insufficient_disk (freeSpaceThenRetry) and unknown/absent (retry) are
+        // on-device recoverable → the mutating "Try Again" CTA.
+        for code in [GuestImageFailureCode.insufficientDisk, .ipswDownloadFailed, .unknown] {
+            let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: code))))
+            XCTAssertEqual(content.kind, .failed(code))
+            XCTAssertEqual(content.cta, .prepare, "\(code) must offer the mutating prepare CTA")
+        }
+        let absent = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: "boom", code: nil))))
+        XCTAssertEqual(absent.cta, .prepare)
+    }
+
+    func test_banner_macSideBlockers_offerCheckAgainOnly() throws {
+        // host_vm_limit (restart), helper (open), entitlement (reinstall) require
+        // the user to act on the Mac → read-only Check Again, never prepare.
+        for code in [GuestImageFailureCode.hostVmLimitReached, .helperMissing, .entitlementMissing] {
+            let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: code))))
+            XCTAssertEqual(content.kind, .failed(code))
+            XCTAssertEqual(content.cta, .checkAgain, "\(code) must NOT offer a mutating prepare")
+        }
+    }
+
+    func test_banner_hostVmLimit_hasInstruction() throws {
+        let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: "vz", code: .hostVmLimitReached))))
         XCTAssertNotNil(content.instruction)
     }
 
-    func test_banner_insufficientDisk_isFailedWithCheckAgain() throws {
-        let content = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .insufficientDisk)))
-        )
-        XCTAssertEqual(content.kind, .failed(.insufficientDisk))
-        XCTAssertTrue(content.showsCheckAgain)
-    }
-
-    func test_banner_entitlementMissing_isFailedWithInstruction() throws {
-        let content = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .entitlementMissing)))
-        )
-        XCTAssertEqual(content.kind, .failed(.entitlementMissing))
-        XCTAssertTrue(content.showsCheckAgain)
-        XCTAssertNotNil(content.instruction)
-    }
-
-    func test_banner_helperMissing_isFailedWithCheckAgain() throws {
-        let content = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .helperMissing)))
-        )
-        XCTAssertEqual(content.kind, .failed(.helperMissing))
-        XCTAssertTrue(content.showsCheckAgain)
-    }
-
-    func test_banner_ipswIncompatible_offersNoCheckAgain() throws {
-        // Unsupported Mac — there is nothing to re-check.
-        let content = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .ipswIncompatible)))
-        )
+    func test_banner_ipswIncompatible_offersNoCTA() throws {
+        let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .ipswIncompatible))))
         XCTAssertEqual(content.kind, .failed(.ipswIncompatible))
-        XCTAssertFalse(content.showsCheckAgain)
-    }
-
-    func test_banner_unknownAndAbsentCode_fallBackToFailedWithCheckAgain() throws {
-        let unknown = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .unknown)))
-        )
-        XCTAssertEqual(unknown.kind, .failed(.unknown))
-        XCTAssertTrue(unknown.showsCheckAgain)
-
-        let absent = try XCTUnwrap(
-            MacGuestImageRecovery.banner(for: .blocked(.failed(error: "boom", code: nil)))
-        )
-        XCTAssertEqual(absent.kind, .failed(nil))
-        XCTAssertTrue(absent.showsCheckAgain)
+        XCTAssertEqual(content.cta, GuestImageRecoveryCTA.none)
     }
 
     func test_failureTitlesAreDistinctPerCode() {
@@ -110,8 +87,6 @@ final class MacGuestImageRecoveryTests: XCTestCase {
     // MARK: - recheck(): read-only re-fetch from ANY state
 
     func test_recheck_refetchesEvenWhenNotNeedsFetch() async {
-        // adminHost starts .allowed(.notApplicable) (needsFetch == false), which
-        // refresh() would skip — recheck() must still re-fetch.
         let model = MacGuestImageReadinessModel(
             server: recoveryServer(kind: .adminHost),
             fetchStatus: { _ in recoveryStatus(guestImageStatus: "failed", failureCode: .hostVmLimitReached) }
@@ -131,14 +106,61 @@ final class MacGuestImageRecoveryTests: XCTestCase {
         XCTAssertEqual(model.state, .unavailable)
     }
 
-    func test_recheck_macReady_allowsInstall() async {
+    // MARK: - prepare(): mutating Try Again, force + authoritative re-fetch
+
+    func test_prepare_firesForceThenRefetchesAuthoritatively() async {
+        let box = ForceBox()
         let model = MacGuestImageReadinessModel(
             server: recoveryServer(),
-            fetchStatus: { _ in recoveryStatus(guestImageStatus: "done") }
+            // After prepare, the engine is still in progress — NOT done.
+            fetchStatus: { _ in recoveryStatus(guestImageStatus: "in_progress", phase: "provision") },
+            prepareRequest: { _, force in
+                box.force = force
+                return preparePending()
+            }
         )
-        await model.recheck()
-        XCTAssertTrue(model.state.allowsInstall)
+        await model.prepare()
+        XCTAssertEqual(box.force, true, "prepare must call the client with force = true")
+        // Authoritative state from the re-fetch — never optimistically ready.
+        XCTAssertFalse(model.state.allowsInstall)
+        guard case .blocked(.inProgress) = model.state else {
+            return XCTFail("expected blocked inProgress from the re-fetch, got \(model.state)")
+        }
+        XCTAssertFalse(model.isPreparing)
     }
+
+    func test_prepare_clientErrorStillRefetchesAndStaysGated() async {
+        struct Boom: Error {}
+        let model = MacGuestImageReadinessModel(
+            server: recoveryServer(),
+            // Re-fetch shows the failure persists → recoverable, install gated.
+            fetchStatus: { _ in recoveryStatus(guestImageStatus: "failed", failureCode: .insufficientDisk) },
+            prepareRequest: { _, _ in throw Boom() }
+        )
+        await model.prepare()
+        XCTAssertFalse(model.state.allowsInstall, "a prepare error must not release install")
+        guard case .blocked(.failed(_, let code)) = model.state else {
+            return XCTFail("expected blocked failed, got \(model.state)")
+        }
+        XCTAssertEqual(code, .insufficientDisk)
+    }
+
+    func test_prepare_failClosedWhenNoEndpoint() async {
+        let model = MacGuestImageReadinessModel(server: recoveryServer(host: ""))
+        await model.prepare()
+        XCTAssertEqual(model.state, .unavailable)
+    }
+}
+
+private final class ForceBox: @unchecked Sendable {
+    var force: Bool?
+}
+
+private func preparePending() -> GuestImagePrepareResponse {
+    GuestImagePrepareResponse(
+        v: 1, status: "starting", guestImagePhase: "provision",
+        guestImageStatus: "in_progress", guestImageError: nil, guestImageFailureCode: nil
+    )
 }
 
 private func recoveryServer(

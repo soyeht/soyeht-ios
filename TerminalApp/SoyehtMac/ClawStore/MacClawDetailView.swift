@@ -51,7 +51,9 @@ struct MacClawDetailView: View {
                     MacGuestImageRecoveryBanner(
                         state: readiness.state,
                         onCheckAgain: { Task { await readiness.recheck() } },
-                        isRechecking: readiness.isRechecking
+                        onPrepare: { Task { await readiness.prepare() } },
+                        isRechecking: readiness.isRechecking,
+                        isPreparing: readiness.isPreparing
                     )
                     actions
                 }
