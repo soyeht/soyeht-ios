@@ -247,9 +247,11 @@ struct MacClawStoreRootView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                if !readiness.state.allowsInstall {
-                    macReadinessNotice
-                }
+                MacGuestImageRecoveryBanner(
+                    state: readiness.state,
+                    onCheckAgain: { Task { await readiness.recheck() } },
+                    isRechecking: readiness.isRechecking
+                )
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(viewModel.claws) { claw in
                         MacClawCardView(
@@ -263,43 +265,6 @@ struct MacClawStoreRootView: View {
                 footer
             }
             .padding(20)
-        }
-    }
-
-    /// Minimal, neutral readiness notice shown while install is gated (P6/A).
-    /// Reason-coded recovery copy/banner is deferred to P6B.
-    @ViewBuilder
-    private var macReadinessNotice: some View {
-        let copy: LocalizedStringResource? = {
-            switch readiness.state {
-            case .checking:
-                return LocalizedStringResource(
-                    "claw.store.mac.readiness.checking",
-                    defaultValue: "Checking this Mac…",
-                    comment: "macOS Claw Store status while it polls the engine's guest-image readiness."
-                )
-            case .blocked:
-                return LocalizedStringResource(
-                    "claw.store.mac.readiness.preparing",
-                    defaultValue: "This Mac is preparing its guest image — installs are unavailable until it's ready.",
-                    comment: "macOS Claw Store status when the engine's guest image isn't ready, so installs are gated."
-                )
-            case .unavailable:
-                return LocalizedStringResource(
-                    "claw.store.mac.readiness.unavailable",
-                    defaultValue: "Can't check this Mac's readiness right now — installs are unavailable.",
-                    comment: "macOS Claw Store status when the engine's readiness can't be determined, so installs are gated."
-                )
-            case .allowed:
-                return nil
-            }
-        }()
-        if let copy {
-            Text(copy)
-                .font(MacTypography.Fonts.clawStoreStatus)
-                .foregroundColor(MacClawStoreTheme.textMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("soyeht.macClawStore.readinessNotice")
         }
     }
 
