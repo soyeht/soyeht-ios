@@ -7,4 +7,4 @@
 # contract change lands. A file that does not yet exist at this commit (e.g.
 # admin/contracts/claw-store/v1/contract.json before PR #121 merges to main) is
 # reported as a skip, not a failure, so each contract activates as it lands.
-71024a568a428f4f3b97c874b18fc0021d5e4ee3
+7aa7361ad381630cc3638a15d497e6f2ae20e3c9
