@@ -419,7 +419,7 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
             container: "\(id)-container",
             clawType: "ironclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,

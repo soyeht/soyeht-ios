@@ -1563,7 +1563,7 @@ struct ClawSetupViewModelInjectedServersTests {
             createInstanceHandler: { request, target in
                 guard case .householdEndpoint(let endpoint) = target else {
                     Issue.record("Expected household endpoint target")
-                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: "failed", jobId: nil)
+                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: .failed, jobId: nil)
                 }
                 #expect(endpoint == householdEndpoint)
                 return CreateInstanceResponse(
@@ -1571,7 +1571,7 @@ struct ClawSetupViewModelInjectedServersTests {
                     name: request.name,
                     container: "picoclaw-mac-alpha",
                     clawType: request.clawType,
-                    status: "provisioning",
+                    status: .provisioning,
                     jobId: "job-mac-alpha"
                 )
             }
@@ -1610,14 +1610,14 @@ struct ClawSetupViewModelInjectedServersTests {
             createInstanceHandler: { request, target in
                 guard case .server = target else {
                     Issue.record("Expected server target")
-                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: "failed", jobId: nil)
+                    return CreateInstanceResponse(id: "unexpected", name: request.name, container: "unexpected", clawType: request.clawType, status: .failed, jobId: nil)
                 }
                 return CreateInstanceResponse(
                     id: "inst-linux-alpha",
                     name: request.name,
                     container: "picoclaw-linux-alpha",
                     clawType: request.clawType,
-                    status: "active",
+                    status: .active,
                     jobId: "job-linux-alpha"
                 )
             }
@@ -1715,7 +1715,7 @@ struct HouseholdCreatedInstancesLoaderTests {
                 #expect(id == "inst-alpha")
                 #expect(resolvedEndpoint == endpoint)
                 return InstanceStatusResponse(
-                    status: "active",
+                    status: .active,
                     provisioningMessage: "ready",
                     provisioningError: nil,
                     provisioningPhase: "complete"
@@ -1728,7 +1728,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         #expect(entries.count == 1)
         #expect(entries.first?.server.id == server.id)
         #expect(entries.first?.instance.id == "inst-alpha")
-        #expect(entries.first?.instance.status == "active")
+        #expect(entries.first?.instance.status == .active)
         #expect(entries.first?.instance.provisioningMessage == "ready")
         #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-alpha"])
     }
@@ -1750,7 +1750,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             container: "listed-container",
             clawType: "picoclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: "ready",
@@ -1770,7 +1770,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             },
             statusFetcher: { _, _ in
                 Issue.record("Status fallback should not run for listed instance")
-                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+                return InstanceStatusResponse(status: .active, provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
             }
         )
 
@@ -1799,7 +1799,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             container: "listed-container",
             clawType: "picoclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,
@@ -1826,7 +1826,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             statusFetcher: { id, _ in
                 #expect(id == "inst-local")
                 return InstanceStatusResponse(
-                    status: "provisioning",
+                    status: .provisioning,
                     provisioningMessage: "starting",
                     provisioningError: nil,
                     provisioningPhase: "starting"
@@ -1837,7 +1837,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let entries = await loader.load(for: [server])
 
         #expect(entries.map(\.instance.id) == ["inst-listed", "inst-local"])
-        #expect(entries.last?.instance.status == "provisioning")
+        #expect(entries.last?.instance.status == .provisioning)
         #expect(recordStore.list(serverID: server.id).map(\.id) == ["inst-local"])
         #expect(sessionStore.loadInstances(serverId: server.id).map(\.id) == ["inst-listed", "inst-local"])
     }
@@ -1858,7 +1858,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             container: "missing-container",
             clawType: "picoclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,
@@ -1916,7 +1916,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             container: "delta-container",
             clawType: "picoclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,
@@ -1974,7 +1974,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             container: "cached-container",
             clawType: "picoclaw",
             fqdn: nil,
-            status: "active",
+            status: .active,
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,
@@ -1997,7 +1997,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             },
             statusFetcher: { _, _ in
                 Issue.record("No local records should require status fallback")
-                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+                return InstanceStatusResponse(status: .active, provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
             }
         )
 
@@ -2050,7 +2050,7 @@ struct HouseholdCreatedInstancesLoaderTests {
             },
             statusFetcher: { _, _ in
                 Issue.record("Status fetcher should not be called for a server with context")
-                return InstanceStatusResponse(status: "active", provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
+                return InstanceStatusResponse(status: .active, provisioningMessage: nil, provisioningError: nil, provisioningPhase: nil)
             }
         )
 

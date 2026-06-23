@@ -193,7 +193,7 @@ struct ClawAPITests {
         #expect(json["cpu_cores"] as? Int == 2)
 
         #expect(response.id == "inst_1")
-        #expect(response.status == "provisioning")
+        #expect(response.status == .provisioning)
     }
 
     // MARK: - getInstanceStatus
@@ -210,7 +210,7 @@ struct ClawAPITests {
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.url?.path == "/api/v1/mobile/instances/inst_abc/status")
-        #expect(status.status == "active")
+        #expect(status.status == .active)
     }
 
     // MARK: - instanceAction
