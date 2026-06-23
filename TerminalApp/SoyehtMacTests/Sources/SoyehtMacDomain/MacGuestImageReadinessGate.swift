@@ -1,0 +1,1 @@
+../../../SoyehtMac/ClawStore/MacGuestImageReadinessGate.swift
