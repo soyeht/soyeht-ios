@@ -211,24 +211,11 @@ final class GuestImagePreparationClient {
             self.prepareRequest = prepareRequest
             return
         }
+        // Delegate the actual HTTP to the shared SoyehtCore client (single source
+        // of truth for the prepare request); iOS keeps only the gate-state mapping.
+        let sharedClient = GuestImagePrepareClient(apiClient: apiClient)
         self.prepareRequest = { endpoint, force in
-            let body: Data?
-            var headers = ["Accept": "application/json"]
-            if force {
-                body = try apiClient.encoder.encode(GuestImagePrepareBody(force: true))
-                headers["Content-Type"] = "application/json"
-            } else {
-                body = nil
-            }
-            let (data, _) = try await apiClient.householdRequest(
-                endpoint: endpoint,
-                path: "/api/v1/household/guest-image/prepare",
-                method: "POST",
-                body: body,
-                requiredOperation: "claws.create",
-                additionalHeaders: headers
-            )
-            return try apiClient.decoder.decode(GuestImagePrepareResponse.self, from: data)
+            try await sharedClient.prepare(endpoint: endpoint, force: force)
         }
     }
 
@@ -237,21 +224,9 @@ final class GuestImagePreparationClient {
     }
 }
 
-private struct GuestImagePrepareBody: Encodable {
-    let force: Bool
-}
-
-struct GuestImagePrepareResponse: Decodable, Equatable, Sendable {
-    let v: Int
-    let status: String
-    let guestImagePhase: String?
-    let guestImageStatus: String?
-    let guestImageError: String?
-    /// Machine-readable failure reason (theyos PR #89). Fail-soft: unknown/future
-    /// codes decode to `.unknown`; absent on older engines. Decoded via the API
-    /// client's `.convertFromSnakeCase` strategy.
-    let guestImageFailureCode: GuestImageFailureCode?
-
+extension GuestImagePrepareResponse {
+    /// iOS gate mapping for a prepare response. The response type itself is shared
+    /// in SoyehtCore (`GuestImagePrepareClient`); macOS maps it via its own gate.
     var gateState: GuestImageReadinessGateState {
         switch status {
         case "done":

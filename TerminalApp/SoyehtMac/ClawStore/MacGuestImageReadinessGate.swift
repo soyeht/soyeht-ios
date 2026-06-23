@@ -58,23 +58,31 @@ enum MacGuestImageGateState: Equatable, Sendable {
 @MainActor
 final class MacGuestImageReadinessModel: ObservableObject {
     typealias FetchStatus = @Sendable (URL) async throws -> BootstrapStatusResponse
+    typealias PrepareRequest = (URL, Bool) async throws -> GuestImagePrepareResponse
 
     @Published private(set) var state: MacGuestImageGateState
     /// True while a `recheck()` ("Check Again") re-fetch is in flight, so the CTA
     /// can be disabled.
     @Published private(set) var isRechecking = false
+    /// True while a `prepare()` ("Try Again") mutating prepare + re-fetch is in flight.
+    @Published private(set) var isPreparing = false
 
     private let server: PairedServer
     private let fetchStatus: FetchStatus
+    private let prepareRequest: PrepareRequest
 
     init(
         server: PairedServer,
         fetchStatus: @escaping FetchStatus = { url in
             try await BootstrapStatusClient(baseURL: url).fetch()
+        },
+        prepareRequest: @escaping PrepareRequest = { url, force in
+            try await GuestImagePrepareClient.shared.prepare(endpoint: url, force: force)
         }
     ) {
         self.server = server
         self.fetchStatus = fetchStatus
+        self.prepareRequest = prepareRequest
         self.state = Self.initialState(for: server)
     }
 
@@ -132,6 +140,30 @@ final class MacGuestImageReadinessModel: ObservableObject {
             state = .unavailable
             return
         }
+        do {
+            let status = try await fetchStatus(url)
+            state = .from(status.guestImageReadiness)
+        } catch {
+            state = .unavailable
+        }
+    }
+
+    /// Trigger guest-image preparation (the P6C "Try Again" CTA) and then ALWAYS
+    /// re-fetch the authoritative status. Never updates the UI optimistically to
+    /// ready; on any error the state stays recoverable / `.unavailable` so install
+    /// remains gated. Only invoked for codes whose recovery action is prepare-like
+    /// (`GuestImageRecoveryCTA.prepare`).
+    func prepare() async {
+        guard let url = Self.bootstrapBaseURL(for: server) else {
+            state = .unavailable
+            return
+        }
+        isPreparing = true
+        defer { isPreparing = false }
+        // Fire the mutating prepare (force). Its direct result is ignored — the
+        // engine's /bootstrap/status is the source of truth.
+        _ = try? await prepareRequest(url, true)
+        // Authoritative re-fetch (never optimistic).
         do {
             let status = try await fetchStatus(url)
             state = .from(status.guestImageReadiness)
