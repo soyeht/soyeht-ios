@@ -123,7 +123,7 @@ final class SetupInvitationListener: @unchecked Sendable {
                 return
             } catch let error as BootstrapError {
                 lastError = error
-                if case .serverError(let code, _) = error, code == "invitation_not_recognized",
+                if case .serverError(let code, _) = error, BootstrapErrorCode(wire: code) == .invitationNotRecognized,
                    attempt < backoffs.count {
                     setupInvitationLogger.info("direct_probe.claim_race_retry attempt=\(attempt + 1, privacy: .public) delay_ms=\(Int(backoffs[attempt] * 1000), privacy: .public)")
                     try await Task.sleep(for: .seconds(backoffs[attempt]))
@@ -134,7 +134,7 @@ final class SetupInvitationListener: @unchecked Sendable {
                 throw error
             }
         }
-        throw lastError ?? BootstrapError.serverError(code: "invitation_not_recognized", message: nil)
+        throw lastError ?? BootstrapError.serverError(code: BootstrapErrorCode.invitationNotRecognized.rawValue, message: nil)
     }
 }
 
@@ -420,14 +420,20 @@ private enum SetupInvitationDirectProbe {
         }
     }
 
+    /// Setup-invitation claim error codes that are safe to "proceed anyway" past.
+    /// `invalid_state` / `already_named` are a LEGACY iOS expectation that
+    /// theyos@8effb506 no longer emits and are intentionally NOT part of the
+    /// `BootstrapErrorCode` fixture — kept here for backward-compat.
+    private static let legacyProceedAfterClaimFailureCodes: Set<String> = ["invalid_state", "already_named"]
+
     fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
         guard case BootstrapError.serverError(let code, _) = error else { return false }
-        return [
-            "invitation_not_recognized",
-            "invalid_state",
-            "already_initialized",
-            "already_named",
-        ].contains(code)
+        switch BootstrapErrorCode(wire: code) {
+        case .invitationNotRecognized, .alreadyInitialized:
+            return true
+        default:
+            return legacyProceedAfterClaimFailureCodes.contains(code)
+        }
     }
 
     private static func candidateIPhoneBaseURLs(timeout: TimeInterval) async -> [Candidate] {

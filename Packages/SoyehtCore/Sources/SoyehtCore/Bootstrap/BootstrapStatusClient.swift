@@ -74,7 +74,7 @@ public struct BootstrapStatusClient: Sendable {
                 case .json(let data):
                     return try Self.decodeJSON(data)
                 }
-            } catch BootstrapError.serverError(let code, _) where code == "engine_initializing" {
+            } catch BootstrapError.serverError(let code, _) where BootstrapErrorCode(wire: code) == .engineInitializing {
                 lastError = .serverError(code: code, message: nil)
                 continue
             } catch let error as BootstrapError {
