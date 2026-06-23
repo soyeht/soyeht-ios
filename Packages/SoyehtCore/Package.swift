@@ -49,6 +49,8 @@ let package = Package(
             resources: [
                 // T039d — operator fingerprint cross-language fixture (Rust→Swift)
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
+                // P7-B — PoP/CBOR signing-context cross-language vectors (theyos→Swift)
+                .copy("HouseholdFixtures/PoP/pop_vectors.json"),
                 // T039d — owner-cert CBOR cross-language fixture
                 .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
                 // T039e — avatar derivation cross-language fixture (1 000 rows)
