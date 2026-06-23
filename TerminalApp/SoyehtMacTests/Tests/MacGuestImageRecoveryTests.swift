@@ -73,6 +73,16 @@ final class MacGuestImageRecoveryTests: XCTestCase {
         XCTAssertEqual(content.cta, GuestImageRecoveryCTA.none)
     }
 
+    func test_banner_virtualizationUnavailable_offersNoCTA() throws {
+        // Terminal + ambiguous (unsupported host or unauthorized install): no mutating
+        // prepare, and NOT a mandatory Check Again — exactly like ipswIncompatible.
+        let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.failed(error: nil, code: .virtualizationUnavailable))))
+        XCTAssertEqual(content.kind, .failed(.virtualizationUnavailable))
+        XCTAssertEqual(content.cta, GuestImageRecoveryCTA.none)
+        XCTAssertNil(content.instruction, "no separate instruction line; the hint lives in the body")
+        XCTAssertNotEqual(content.cta, .prepare)
+    }
+
     func test_failureTitlesAreDistinctPerCode() {
         XCTAssertNotEqual(
             MacGuestImageRecovery.failureTitle(.hostVmLimitReached),

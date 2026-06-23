@@ -73,5 +73,16 @@ cp "${SRC_FIXTURES}/casa_nasceu_push.json" \
    "${TESTS}/Fixtures/push/casa-nasceu.json"
 echo "✓ casa-nasceu.json (push payload)"
 
+# ── PR-B: guest-image failure-code contract (admin/rust/core-rs/tests/fixtures/) ──
+GUEST_IMAGE_FIXTURE="${THEYOS_DIR}/admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
+if [[ ! -f "${GUEST_IMAGE_FIXTURE}" ]]; then
+    echo "error: guest-image failure-code fixture not found at ${GUEST_IMAGE_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/GuestImageFailureCode"
+cp "${GUEST_IMAGE_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"
+echo "✓ guest_image_failure_codes.json (guest-image failure-code contract)"
+
 echo ""
 echo "Sync complete. Commit the updated fixture files if they changed."

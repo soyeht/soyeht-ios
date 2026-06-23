@@ -55,6 +55,16 @@ import Testing
         #expect(!p.isRecoverableOnDevice)
     }
 
+    @Test func virtualizationUnavailableOffersNoCTA() {
+        // Terminal/ambiguous: the policy must produce no mutating CTA and never a
+        // prepare/Try Again, so an unsupportable Mac isn't offered an endless retry.
+        let p = try! #require(GuestImageRecoveryPolicy.presentation(for: .failed(error: nil, code: .virtualizationUnavailable)))
+        #expect(p.action == GuestImageRecoveryAction.none)
+        #expect(p.cta == .none)
+        #expect(p.cta != .prepare)
+        #expect(!p.isRecoverableOnDevice)
+    }
+
     @Test func absentOrUnknownFailureCodeFallsBackToRetry() {
         // Older engine: failed with no code.
         let noCode = try! #require(GuestImageRecoveryPolicy.presentation(for: .failed(error: "boom", code: nil)))

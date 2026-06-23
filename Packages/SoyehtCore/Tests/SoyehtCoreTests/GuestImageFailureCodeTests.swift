@@ -13,6 +13,7 @@ final class GuestImageFailureCodeTests: XCTestCase {
             .helperMissing: .openSoyehtOnMac,
             .entitlementMissing: .reinstallSoyehtOnMac,
             .ipswIncompatible: .none,
+            .virtualizationUnavailable: .none,
             .unknown: .retry,
         ]
         // Every case is covered (CaseIterable) and maps to exactly the documented action.
@@ -32,6 +33,8 @@ final class GuestImageFailureCodeTests: XCTestCase {
         XCTAssertFalse(GuestImageFailureCode.helperMissing.isUserRecoverableOnDevice)
         XCTAssertFalse(GuestImageFailureCode.entitlementMissing.isUserRecoverableOnDevice)
         XCTAssertFalse(GuestImageFailureCode.ipswIncompatible.isUserRecoverableOnDevice)
+        // Terminal/no-CTA code is never on-device recoverable (load-bearing).
+        XCTAssertFalse(GuestImageFailureCode.virtualizationUnavailable.isUserRecoverableOnDevice)
     }
 
     // MARK: - fail-soft decode

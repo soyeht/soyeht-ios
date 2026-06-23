@@ -26,6 +26,7 @@ THEYOS_SHA="$(grep -vE '^[[:space:]]*#' "${PIN_FILE}" | tr -d '[:space:]')"
 PAIRS=(
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
   "docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
 )
 
 # Write the theyos source for $1 into the file $2.
