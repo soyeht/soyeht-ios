@@ -191,7 +191,7 @@ private final class ClawDrawerViewModel: ObservableObject {
                 let subtitle: String = {
                     if instance.isProvisioning { return String(localized: "drawer.instance.status.provisioning") }
                     if instance.isOnline { return context.server.name }
-                    return instance.status ?? String(localized: "drawer.instance.status.offline")
+                    return instance.status?.rawValue ?? String(localized: "drawer.instance.status.offline")
                 }()
                 return ClawDrawerRow(
                     id: instance.id,

@@ -236,7 +236,7 @@ struct HouseholdAPIClientTests {
     )
 
     #expect(instances.map(\.id) == ["inst-alpha"])
-    #expect(instances.first?.status == "active")
+    #expect(instances.first?.status == .active)
     #expect(instances.first?.provisioningPhase == "complete")
     let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
     #expect(request.httpMethod == "GET")
@@ -626,7 +626,7 @@ struct HouseholdAPIClientTests {
       target: .householdEndpoint(URL(string: "http://100.64.0.10:8091")!)
     )
 
-    #expect(status.status == "active")
+    #expect(status.status == .active)
     #expect(status.provisioningPhase == "complete")
     let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
     #expect(request.httpMethod == "GET")

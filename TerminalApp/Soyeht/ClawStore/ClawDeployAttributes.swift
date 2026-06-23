@@ -25,6 +25,10 @@ enum DeployPhase {
     case queuing, pulling, starting, ready, failed
 
     init(status: String, phase: String?) {
+        // `status` is the ActivityKit ContentState wire (a String, shared with the
+        // SoyehtLiveActivity widget extension which does not link SoyehtCore), so the
+        // lifecycle comparison stays string-based here. The typed `InstanceStatus`
+        // contract is enforced upstream where the response models are decoded.
         if status == "active" { self = .ready; return }
         if status == "failed" { self = .failed; return }
         switch phase {

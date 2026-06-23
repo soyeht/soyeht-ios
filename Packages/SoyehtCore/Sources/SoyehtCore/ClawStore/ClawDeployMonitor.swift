@@ -113,19 +113,19 @@ public final class ClawDeployMonitor: ObservableObject {
                     let status = try await apiClient.getInstanceStatus(id: instanceId, target: target)
                     self.updateDeploy(
                         id: instanceId,
-                        status: status.status,
+                        status: status.status.rawValue,
                         message: status.provisioningMessage,
                         phase: status.provisioningPhase
                     )
                     activityManager.updateActivity(
-                        status: status.status,
+                        status: status.status.rawValue,
                         message: status.provisioningMessage,
                         phase: status.provisioningPhase
                     )
 
-                    if status.status != "provisioning" {
-                        let success = status.status == "active"
-                        activityManager.endActivity(status: status.status, message: status.provisioningMessage)
+                    if status.status != .provisioning {
+                        let success = status.status == .active
+                        activityManager.endActivity(status: status.status.rawValue, message: status.provisioningMessage)
                         ClawNotificationHelper.sendDeployComplete(clawName: clawName, success: success)
                         self.removeDeploy(id: instanceId)
                         return

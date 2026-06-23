@@ -95,5 +95,16 @@ cp "${BOOTSTRAP_ERROR_FIXTURE}" \
    "${TESTS}/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json"
 echo "✓ bootstrap_error_codes.json (bootstrap error-code contract)"
 
+# ── InstanceStatus: instance lifecycle status wire contract (admin/rust/store-rs/tests/fixtures/) ──
+INSTANCE_STATUS_FIXTURE="${THEYOS_DIR}/admin/rust/store-rs/tests/fixtures/instance_status_codes.json"
+if [[ ! -f "${INSTANCE_STATUS_FIXTURE}" ]]; then
+    echo "error: instance-status fixture not found at ${INSTANCE_STATUS_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/InstanceStatus"
+cp "${INSTANCE_STATUS_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/InstanceStatus/instance_status_codes.json"
+echo "✓ instance_status_codes.json (instance lifecycle status contract)"
+
 echo ""
 echo "Sync complete. Commit the updated fixture files if they changed."

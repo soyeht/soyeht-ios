@@ -454,13 +454,13 @@ struct SoyehtAPIClientTests {
         )
         let instanceA = SoyehtInstance(
             id: sharedInstanceId, name: "from-A", container: "cA",
-            clawType: "picoclaw", fqdn: "a.example.com", status: "active",
+            clawType: "picoclaw", fqdn: "a.example.com", status: .active,
             port: nil, capabilities: nil,
             provisioningMessage: nil, provisioningPhase: nil, provisioningError: nil
         )
         let instanceB = SoyehtInstance(
             id: sharedInstanceId, name: "from-B", container: "cB",
-            clawType: "picoclaw", fqdn: "b.example.com", status: "active",
+            clawType: "picoclaw", fqdn: "b.example.com", status: .active,
             port: nil, capabilities: nil,
             provisioningMessage: nil, provisioningPhase: nil, provisioningError: nil
         )
