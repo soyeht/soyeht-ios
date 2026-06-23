@@ -1,7 +1,8 @@
 # Follow-up: SoyehtMac guest-image failure-code recovery (Mac parity)
 
-**Status:** open — deliberately deferred from PR-C (iPhone-only). Tracked here so
-Mac parity is **visible and guarded**, not silently divergent.
+**Status:** landed — the Mac recovery UI shipped after PR-C and is now locked by a
+source-guard. The historical context below is kept for the record; see the
+**Update** section at the end.
 
 ## Context
 
@@ -45,3 +46,15 @@ focused iPhone PR.
 A pretty iPhone recovery flow with a Mac that still shows divergent/raw state is
 not acceptable long-term. This doc + the iOS guard keep the gap explicit until
 the Mac PR closes it.
+
+## Update — landed + guarded
+
+The Mac recovery UI has since shipped, so the "consumes `guestImageReadiness`
+nowhere" note above is historical: `MacGuestImageRecovery` is the reason-coded
+copy/policy SSOT (keyed off `GuestImageFailureCode`), `MacGuestImageRecoveryBanner`
+renders it, and both `MacClawStoreRootView` and `MacClawDetailView` use the banner;
+`MacGuestImageReadinessGate` carries no raw `error.localizedDescription`. Item 4's
+**source-slice guard** now exists:
+`LegacyBoundaryUsageTests.test_macGuestImageRecovery_isReasonCoded_noRawStringPrimary`,
+scoped to the recovery surfaces. `ClawDrawerViewController`'s general install/action
+error path is intentionally out of scope (a separate follow-up if it warrants one).
