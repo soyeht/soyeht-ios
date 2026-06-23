@@ -28,6 +28,7 @@ jobs:
             -scheme Soyeht \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
+            -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
             TEST_LOCALE=ar \
@@ -38,6 +39,7 @@ jobs:
             -scheme Soyeht \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
+            -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
             DYNAMIC_TYPE_SIZE=AX5

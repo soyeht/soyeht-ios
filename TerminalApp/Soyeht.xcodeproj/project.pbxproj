@@ -81,6 +81,9 @@
 		825404F577AB61AA6805BB01 /* CellularConfirmationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC471D5AF6CA593115422B45 /* CellularConfirmationSheet.swift */; };
 		86615F456B96EA68696849DE /* RecoveryMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD320E9B5176DC1F7B841F8C /* RecoveryMessageView.swift */; };
 		8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */; };
+		8DDA00000000000000000428 /* ClawShareInviteCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000528 /* ClawShareInviteCenter.swift */; };
+		8DDA00000000000000000429 /* ClawShareInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000529 /* ClawShareInviteSheet.swift */; };
+		8DDA0000000000000000042A /* ClawShareInvitePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */; };
 		8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000102 /* HouseholdHomeView.swift */; };
 		8DDA00000000000000000003 /* HouseholdPairingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */; };
 		8DDA00000000000000000004 /* HouseholdPairingFailureViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000104 /* HouseholdPairingFailureViewModelTests.swift */; };
@@ -339,6 +342,9 @@
 		35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNewMacView.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000528 /* ClawShareInviteCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteCenter.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000529 /* ClawShareInviteSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteSheet.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInvitePresenter.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModelTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000104 /* HouseholdPairingFailureViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingFailureViewModelTests.swift; sourceTree = "<group>"; };
@@ -769,6 +775,9 @@
 				8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */,
 				8DDA00000000000000000119 /* DevicePairConfirmationViewModel.swift */,
 				8DDA0000000000000000011B /* HouseholdSessionController.swift */,
+				8DDA00000000000000000528 /* ClawShareInviteCenter.swift */,
+				8DDA00000000000000000529 /* ClawShareInviteSheet.swift */,
+				8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */,
 			);
 			path = Household;
 			sourceTree = "<group>";
@@ -1349,6 +1358,9 @@
 				8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */,
 				8DDA00000000000000000019 /* DevicePairConfirmationViewModel.swift in Sources */,
 				8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */,
+				8DDA00000000000000000428 /* ClawShareInviteCenter.swift in Sources */,
+				8DDA00000000000000000429 /* ClawShareInviteSheet.swift in Sources */,
+				8DDA0000000000000000042A /* ClawShareInvitePresenter.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,

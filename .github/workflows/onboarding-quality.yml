@@ -53,6 +53,7 @@ jobs:
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+            -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true
 
@@ -63,5 +64,6 @@ jobs:
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+            -skipPackagePluginValidation \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true
