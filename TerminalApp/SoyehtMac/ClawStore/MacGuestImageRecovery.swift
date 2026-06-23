@@ -21,8 +21,10 @@ struct MacGuestImageBannerContent: Equatable {
     let body: LocalizedStringResource?
     /// What to do on the Mac (only for some failure codes).
     let instruction: LocalizedStringResource?
-    /// Whether to show the read-only "Check Again" CTA. Never a mutating prepare.
-    let showsCheckAgain: Bool
+    /// The recovery CTA this banner offers (from the shared policy): `.checkAgain`
+    /// (read-only re-fetch), `.prepare` (mutating Try Again — only for prepare-like
+    /// recoverable codes), or `.none`.
+    let cta: GuestImageRecoveryCTA
 }
 
 enum MacGuestImageRecovery {
@@ -44,7 +46,7 @@ enum MacGuestImageRecovery {
                 ),
                 body: nil,
                 instruction: nil,
-                showsCheckAgain: false
+                cta: .none
             )
 
         case .unavailable:
@@ -63,7 +65,7 @@ enum MacGuestImageRecovery {
                     comment: "macOS Claw Store body when readiness can't be fetched."
                 ),
                 instruction: nil,
-                showsCheckAgain: true
+                cta: .checkAgain
             )
 
         case .blocked(let readiness):
@@ -86,18 +88,18 @@ enum MacGuestImageRecovery {
                     ),
                     instruction: nil,
                     // Re-fetch to see progress; not a prepare retry.
-                    showsCheckAgain: true
+                    cta: .checkAgain
                 )
             }
-            // Failed: reason-coded copy. Check Again is offered whenever any
-            // recovery is possible (cta != .none); for an unsupported Mac
-            // (.none, e.g. ipsw_incompatible) there is nothing to re-check.
+            // Failed: reason-coded copy. The CTA comes straight from the shared
+            // policy — `.prepare` (Try Again) for on-device-recoverable codes,
+            // `.checkAgain` for Mac-side blockers, `.none` for an unsupported Mac.
             return MacGuestImageBannerContent(
                 kind: .failed(presentation.failureCode),
                 title: failureTitle(presentation.failureCode),
                 body: failureBody(presentation.failureCode),
                 instruction: failureInstruction(presentation.failureCode),
-                showsCheckAgain: presentation.cta != .none
+                cta: presentation.cta
             )
         }
     }

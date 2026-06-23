@@ -250,7 +250,9 @@ struct MacClawStoreRootView: View {
                 MacGuestImageRecoveryBanner(
                     state: readiness.state,
                     onCheckAgain: { Task { await readiness.recheck() } },
-                    isRechecking: readiness.isRechecking
+                    onPrepare: { Task { await readiness.prepare() } },
+                    isRechecking: readiness.isRechecking,
+                    isPreparing: readiness.isPreparing
                 )
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(viewModel.claws) { claw in
