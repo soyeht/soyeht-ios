@@ -102,6 +102,81 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    /// Mac sibling of `test_guestImageRecovery_isReasonCoded_noRawStringPrimary`,
+    /// enforced on `TerminalApp/SoyehtMac/`. The Mac Claw Store recovery surfaces
+    /// must render reason-coded copy through `MacGuestImageRecovery` (the SSOT
+    /// keyed off `GuestImageFailureCode`) rather than raw daemon/VZ strings or a
+    /// re-implemented failure-code switch.
+    ///
+    /// Scoped deliberately to the recovery surfaces. `ClawDrawerViewController`'s
+    /// general install/action error path is intentionally out of scope here (its
+    /// `error.localizedDescription` is a generic error display, not the
+    /// guest-image recovery banner) — tracked separately if it warrants a guard.
+    func test_macGuestImageRecovery_isReasonCoded_noRawStringPrimary() throws {
+        let viewNames = ["MacClawStoreRootView.swift", "MacClawDetailView.swift"]
+        let gateName = "MacGuestImageReadinessGate.swift"
+        let policyName = "MacGuestImageRecovery.swift"
+
+        let macFiles = try macSwiftFiles()
+
+        let views = macFiles.filter { viewNames.contains($0.lastPathComponent) }
+        XCTAssertEqual(
+            Set(views.map(\.lastPathComponent)), Set(viewNames),
+            "Expected to locate both Mac guest-image recovery views."
+        )
+        // Raw `GuestImageFailureCode` cases that must never appear in a view — the
+        // failure-code → copy/CTA switch is owned solely by `MacGuestImageRecovery`
+        // (the SSOT). `.unknown` is deliberately excluded: `MacClawDetailView` uses
+        // `case .unknown` for an unrelated install-state banner, so matching it here
+        // would be a false positive; the specific codes below are sufficient to
+        // catch a re-implemented recovery switch.
+        let forbiddenFailureCases = [
+            "case .hostVmLimitReached",
+            "case .helperMissing",
+            "case .insufficientDisk",
+            "case .entitlementMissing",
+            "case .ipswDownloadFailed",
+            "case .ipswIncompatible",
+            "case .virtualizationUnavailable",
+        ]
+        for url in views {
+            let code = (try? codeOnly(at: url)) ?? ""
+            XCTAssertTrue(
+                code.contains("MacGuestImageRecoveryBanner"),
+                "\(url.lastPathComponent) must render guest-image failures via MacGuestImageRecoveryBanner (reason-coded copy from MacGuestImageRecovery)."
+            )
+            for raw in forbiddenFailureCases {
+                XCTAssertFalse(
+                    code.contains(raw),
+                    "\(url.lastPathComponent) must not re-implement recovery copy/CTA via a raw GuestImageFailureCode switch (`\(raw)`) — the SSOT is MacGuestImageRecovery."
+                )
+            }
+            XCTAssertFalse(
+                code.contains("error.localizedDescription"),
+                "\(url.lastPathComponent) must not surface a raw engine error as primary recovery copy."
+            )
+        }
+
+        guard let gate = macFiles.first(where: { $0.lastPathComponent == gateName }) else {
+            return XCTFail("Expected to locate \(gateName).")
+        }
+        XCTAssertFalse(
+            ((try? codeOnly(at: gate)) ?? "").contains("error.localizedDescription"),
+            "\(gateName) must not surface raw `error.localizedDescription` — reason copy comes from GuestImageFailureCode via MacGuestImageRecovery."
+        )
+
+        guard let policy = macFiles.first(where: { $0.lastPathComponent == policyName }) else {
+            return XCTFail("Expected to locate \(policyName).")
+        }
+        let policyCode = (try? codeOnly(at: policy)) ?? ""
+        for required in ["GuestImageFailureCode", "GuestImageRecoveryPolicy.presentation", "presentation.cta"] {
+            XCTAssertTrue(
+                policyCode.contains(required),
+                "\(policyName) must remain the reason-coded SSOT: copy derives from GuestImageFailureCode and the CTA from the shared GuestImageRecoveryPolicy (`\(required)`), not duplicated rules."
+            )
+        }
+    }
+
     // MARK: - PairedMacsStore.shared.macs
 
     func test_pairedMacsStoreMacs_onlyInBoundaryFiles() throws {
