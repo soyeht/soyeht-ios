@@ -492,10 +492,10 @@ public struct CreateInstanceResponse: Decodable, Sendable {
     public let name: String
     public let container: String
     public let clawType: String?
-    public let status: String
+    public let status: InstanceStatus
     public let jobId: String?
 
-    public init(id: String, name: String, container: String, clawType: String?, status: String, jobId: String?) {
+    public init(id: String, name: String, container: String, clawType: String?, status: InstanceStatus, jobId: String?) {
         self.id = id
         self.name = name
         self.container = container
@@ -532,14 +532,14 @@ public struct CreateInstanceResponse: Decodable, Sendable {
             self.name = try nested.decode(String.self, forKey: .name)
             self.container = try nested.decode(String.self, forKey: .container)
             self.clawType = try nested.decodeIfPresent(String.self, forKey: .clawType)
-            self.status = try nested.decode(String.self, forKey: .status)
+            self.status = try nested.decode(InstanceStatus.self, forKey: .status)
             self.jobId = try top.decodeIfPresent(String.self, forKey: .jobId)
         } else {
             self.id = try top.decode(String.self, forKey: .id)
             self.name = try top.decode(String.self, forKey: .name)
             self.container = try top.decode(String.self, forKey: .container)
             self.clawType = try top.decodeIfPresent(String.self, forKey: .clawType)
-            self.status = try top.decode(String.self, forKey: .status)
+            self.status = try top.decode(InstanceStatus.self, forKey: .status)
             self.jobId = try top.decodeIfPresent(String.self, forKey: .jobId)
         }
     }
@@ -548,12 +548,12 @@ public struct CreateInstanceResponse: Decodable, Sendable {
 // MARK: - Instance Status (Provisioning Poll)
 
 public struct InstanceStatusResponse: Decodable, Sendable {
-    public let status: String
+    public let status: InstanceStatus
     public let provisioningMessage: String?
     public let provisioningError: String?
     public let provisioningPhase: String?
 
-    public init(status: String, provisioningMessage: String?, provisioningError: String?, provisioningPhase: String?) {
+    public init(status: InstanceStatus, provisioningMessage: String?, provisioningError: String?, provisioningPhase: String?) {
         self.status = status
         self.provisioningMessage = provisioningMessage
         self.provisioningError = provisioningError
@@ -579,12 +579,12 @@ public struct InstanceStatusResponse: Decodable, Sendable {
     public init(from decoder: Decoder) throws {
         let top = try decoder.container(keyedBy: TopKeys.self)
         if let nested = try? top.nestedContainer(keyedBy: InstanceKeys.self, forKey: .instance) {
-            self.status = try nested.decode(String.self, forKey: .status)
+            self.status = try nested.decode(InstanceStatus.self, forKey: .status)
             self.provisioningMessage = try nested.decodeIfPresent(String.self, forKey: .provisioningMessage)
             self.provisioningError = try nested.decodeIfPresent(String.self, forKey: .provisioningError)
             self.provisioningPhase = try nested.decodeIfPresent(String.self, forKey: .provisioningPhase)
         } else {
-            self.status = try top.decode(String.self, forKey: .status)
+            self.status = try top.decode(InstanceStatus.self, forKey: .status)
             self.provisioningMessage = try top.decodeIfPresent(String.self, forKey: .provisioningMessage)
             self.provisioningError = try top.decodeIfPresent(String.self, forKey: .provisioningError)
             self.provisioningPhase = try top.decodeIfPresent(String.self, forKey: .provisioningPhase)

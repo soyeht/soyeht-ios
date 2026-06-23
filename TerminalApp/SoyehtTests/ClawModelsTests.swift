@@ -256,7 +256,7 @@ struct ClawModelsTests {
         #expect(response.name == "my-claw")
         #expect(response.container == "picoclaw-my-claw")
         #expect(response.clawType == "picoclaw")
-        #expect(response.status == "provisioning")
+        #expect(response.status == .provisioning)
     }
 
     @Test("CreateInstanceResponse handles missing clawType")
@@ -278,7 +278,7 @@ struct ClawModelsTests {
         """.utf8)
 
         let response = try apiDecoder.decode(InstanceStatusResponse.self, from: json)
-        #expect(response.status == "provisioning")
+        #expect(response.status == .provisioning)
         #expect(response.provisioningMessage == "Pulling image...")
         #expect(response.provisioningError == nil)
         #expect(response.provisioningPhase == "pulling")
@@ -291,7 +291,7 @@ struct ClawModelsTests {
         """.utf8)
 
         let response = try apiDecoder.decode(InstanceStatusResponse.self, from: json)
-        #expect(response.status == "active")
+        #expect(response.status == .active)
         #expect(response.provisioningMessage == nil)
         #expect(response.provisioningError == nil)
         #expect(response.provisioningPhase == nil)

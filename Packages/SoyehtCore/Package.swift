@@ -55,6 +55,8 @@ let package = Package(
                 .copy("HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"),
                 // PR-B — bootstrap/onboarding error-code contract (theyos household-rs → Swift)
                 .copy("HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json"),
+                // InstanceStatus — instance lifecycle status wire contract (theyos store-rs → Swift)
+                .copy("HouseholdFixtures/InstanceStatus/instance_status_codes.json"),
                 // T039d — owner-cert CBOR cross-language fixture
                 .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
                 // T039e — avatar derivation cross-language fixture (1 000 rows)

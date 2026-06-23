@@ -9,7 +9,7 @@ public struct SoyehtInstance: Codable, Identifiable, Sendable {
     public let container: String
     public let clawType: String?
     public let fqdn: String?
-    public let status: String?
+    public let status: InstanceStatus?
     public let port: Int?
     public let capabilities: Capabilities?
 
@@ -33,7 +33,7 @@ public struct SoyehtInstance: Codable, Identifiable, Sendable {
         container: String,
         clawType: String?,
         fqdn: String?,
-        status: String?,
+        status: InstanceStatus?,
         port: Int?,
         capabilities: Capabilities?,
         provisioningMessage: String?,
@@ -53,11 +53,10 @@ public struct SoyehtInstance: Codable, Identifiable, Sendable {
         self.provisioningError = provisioningError
     }
 
-    public var isOnline: Bool {
-        guard let s = status else { return false }
-        return s == "running" || s == "active"
-    }
-    public var isProvisioning: Bool { status == "provisioning" }
+    /// Online == lifecycle `.active`. (`running` is `DesiredState`, not an
+    /// `InstanceStatus`, and is never emitted in the `status` field.)
+    public var isOnline: Bool { status == .active }
+    public var isProvisioning: Bool { status == .provisioning }
     public var displayTag: String { "[\(clawType ?? "instance")]" }
     public var displayFqdn: String { fqdn ?? container }
 }

@@ -518,7 +518,7 @@ struct SoyehtAPIClientKindTests {
         #expect(req.url?.path == "/api/v1/instances/i-1/status")
         // Dual-shape decoder extracted provisioning fields from the wrapped
         // `instance` object on admin responses.
-        #expect(response.status == "provisioning")
+        #expect(response.status == .provisioning)
         #expect(response.provisioningMessage == "booting")
         #expect(response.provisioningPhase == "vm_start")
         #expect(response.provisioningError == nil)
@@ -540,7 +540,7 @@ struct SoyehtAPIClientKindTests {
 
         let req = try #require(KindRoutingTestProtocol.capturedRequest)
         #expect(req.url?.path == "/api/v1/mobile/instances/i-2/status")
-        #expect(response.status == "active")
+        #expect(response.status == .active)
         #expect(response.provisioningMessage == nil)
     }
 

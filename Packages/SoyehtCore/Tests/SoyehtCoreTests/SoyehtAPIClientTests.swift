@@ -8,16 +8,25 @@ import Foundation
         #expect(!makeInstance(status: nil).isOnline)
     }
 
-    @Test("Active and running statuses are online")
-    func activeAndRunningAreOnline() {
+    @Test("Active is online")
+    func activeIsOnline() {
         #expect(makeInstance(status: "active").isOnline)
-        #expect(makeInstance(status: "running").isOnline)
     }
 
     @Test("Inactive statuses are offline")
     func inactiveStatusesAreOffline() {
         #expect(!makeInstance(status: "stopped").isOnline)
         #expect(!makeInstance(status: "provisioning").isOnline)
+    }
+
+    // `running` is `DesiredState`, not a lifecycle `InstanceStatus`; the backend
+    // list/status endpoints never emit it in the `status` field. It must decode
+    // fail-soft to `.unknown` (the contract is the 4 emitted wires + `error -> .failed`),
+    // so an instance reporting `running` is NOT treated as online.
+    @Test("running decodes fail-soft to .unknown and is offline")
+    func runningIsFailSoftUnknownAndOffline() {
+        #expect(makeInstance(status: "running").status == .unknown)
+        #expect(!makeInstance(status: "running").isOnline)
     }
 
     private func makeInstance(status: String?) -> SoyehtInstance {
@@ -27,7 +36,7 @@ import Foundation
             container: "container",
             clawType: nil,
             fqdn: nil,
-            status: status,
+            status: status.map { InstanceStatus(wire: $0) },
             port: nil,
             capabilities: nil,
             provisioningMessage: nil,

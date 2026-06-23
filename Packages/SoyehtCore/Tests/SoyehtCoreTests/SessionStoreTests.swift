@@ -85,7 +85,7 @@ private func makeInstance(id: String, container: String) -> SoyehtInstance {
         container: container,
         clawType: "test",
         fqdn: nil,
-        status: "running",
+        status: .active,
         port: nil,
         capabilities: nil,
         provisioningMessage: nil,
