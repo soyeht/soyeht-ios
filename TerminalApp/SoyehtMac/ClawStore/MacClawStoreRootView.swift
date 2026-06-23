@@ -13,6 +13,10 @@ struct MacClawStoreRootView: View {
     let onConnectThisMac: () -> Void
     let onShowConnectedServers: () -> Void
     @StateObject private var viewModel: ClawStoreViewModel
+    /// P6/A: macOS-native guest-image readiness gate (consumes the shared
+    /// SoyehtCore model). Blocks install until the engine reports `.ready` or
+    /// has no guest VM (`.notApplicable`).
+    @StateObject private var readiness: MacGuestImageReadinessModel
     @State private var path: [ClawRoute] = []
 
     init(
@@ -28,6 +32,7 @@ struct MacClawStoreRootView: View {
         self.onConnectThisMac = onConnectThisMac
         self.onShowConnectedServers = onShowConnectedServers
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(machineTarget: target))
+        _readiness = StateObject(wrappedValue: MacGuestImageReadinessModel(server: context.server))
     }
 
     var body: some View {
@@ -86,6 +91,9 @@ struct MacClawStoreRootView: View {
         }
         .task {
             await viewModel.loadClaws()
+        }
+        .task {
+            await pollReadiness()
         }
         .alert("claw.store.alert.error.title", isPresented: .init(
             get: { viewModel.actionError != nil },
@@ -238,11 +246,14 @@ struct MacClawStoreRootView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                if !readiness.state.allowsInstall {
+                    macReadinessNotice
+                }
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(viewModel.claws) { claw in
                         MacClawCardView(
                             claw: claw,
-                            showInstallButton: true,
+                            showInstallButton: readiness.state.allowsInstall,
                             onInstall: { Task { await viewModel.installClaw(claw) } },
                             onTap: { path.append(ClawRoute.detail(claw, serverId: context.serverId)) }
                         )
@@ -251,6 +262,53 @@ struct MacClawStoreRootView: View {
                 footer
             }
             .padding(20)
+        }
+    }
+
+    /// Minimal, neutral readiness notice shown while install is gated (P6/A).
+    /// Reason-coded recovery copy/banner is deferred to P6B.
+    @ViewBuilder
+    private var macReadinessNotice: some View {
+        let copy: LocalizedStringResource? = {
+            switch readiness.state {
+            case .checking:
+                return LocalizedStringResource(
+                    "claw.store.mac.readiness.checking",
+                    defaultValue: "Checking this Mac…",
+                    comment: "macOS Claw Store status while it polls the engine's guest-image readiness."
+                )
+            case .blocked:
+                return LocalizedStringResource(
+                    "claw.store.mac.readiness.preparing",
+                    defaultValue: "This Mac is preparing its guest image — installs are unavailable until it's ready.",
+                    comment: "macOS Claw Store status when the engine's guest image isn't ready, so installs are gated."
+                )
+            case .unavailable:
+                return LocalizedStringResource(
+                    "claw.store.mac.readiness.unavailable",
+                    defaultValue: "Can't check this Mac's readiness right now — installs are unavailable.",
+                    comment: "macOS Claw Store status when the engine's readiness can't be determined, so installs are gated."
+                )
+            case .allowed:
+                return nil
+            }
+        }()
+        if let copy {
+            Text(copy)
+                .font(MacTypography.Fonts.clawStoreStatus)
+                .foregroundColor(MacClawStoreTheme.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("soyeht.macClawStore.readinessNotice")
+        }
+    }
+
+    /// Poll the gate until it resolves to a terminal state (allowed / unavailable).
+    /// `.task` cancels this on disappear.
+    private func pollReadiness() async {
+        while readiness.state.needsFetch, !Task.isCancelled {
+            await readiness.refresh()
+            guard readiness.state.needsFetch, !Task.isCancelled else { break }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
     }
 

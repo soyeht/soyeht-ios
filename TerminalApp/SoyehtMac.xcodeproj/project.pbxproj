@@ -119,6 +119,7 @@
 		CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000006 /* ClawStoreWindowController.swift */; };
 		CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000007 /* InstalledClawsProvider.swift */; };
 		CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000008 /* ClawDrawerViewController.swift */; };
+		CA0600100000000000000009 /* MacGuestImageReadinessGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000009 /* MacGuestImageReadinessGate.swift */; };
 		CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0700200000000000000001 /* ConnectedServersWindowController.swift */; };
 			CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
 			CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
@@ -272,6 +273,7 @@
 		CA0600200000000000000006 /* ClawStoreWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreWindowController.swift; sourceTree = "<group>"; };
 		CA0600200000000000000007 /* InstalledClawsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledClawsProvider.swift; sourceTree = "<group>"; };
 		CA0600200000000000000008 /* ClawDrawerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDrawerViewController.swift; sourceTree = "<group>"; };
+		CA0600200000000000000009 /* MacGuestImageReadinessGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacGuestImageReadinessGate.swift; sourceTree = "<group>"; };
 		CA0700200000000000000001 /* ConnectedServersWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedServersWindowController.swift; sourceTree = "<group>"; };
 			CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
 			CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
@@ -680,6 +682,7 @@
 				CA0600200000000000000006 /* ClawStoreWindowController.swift */,
 				CA0600200000000000000007 /* InstalledClawsProvider.swift */,
 				CA0600200000000000000008 /* ClawDrawerViewController.swift */,
+				CA0600200000000000000009 /* MacGuestImageReadinessGate.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -900,6 +903,7 @@
 				CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */,
 				CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */,
 				CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */,
+				CA0600100000000000000009 /* MacGuestImageReadinessGate.swift in Sources */,
 				CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
