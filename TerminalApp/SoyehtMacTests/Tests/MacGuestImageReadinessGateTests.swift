@@ -99,6 +99,51 @@ final class MacGuestImageReadinessGateTests: XCTestCase {
         XCTAssertEqual(model.state, .unavailable)
         XCTAssertFalse(model.state.allowsInstall)
     }
+
+    // MARK: - detail action gating (readiness -> shared ClawDetailActionAvailability)
+
+    func test_detail_install_suppressed_when_readiness_blocks() {
+        let gate = MacGuestImageGateState.blocked(.notStarted)
+        let a = ClawDetailActionAvailability(
+            installState: .notInstalled,
+            installability: .installable,
+            allowsInstall: gate.allowsInstall
+        )
+        XCTAssertFalse(a.showsInstall, "install must be hidden in the detail when readiness blocks")
+    }
+
+    func test_detail_install_shown_when_readiness_allows() {
+        let gate = MacGuestImageGateState.allowed(.ready)
+        let a = ClawDetailActionAvailability(
+            installState: .notInstalled,
+            installability: .installable,
+            allowsInstall: gate.allowsInstall
+        )
+        XCTAssertTrue(a.showsInstall)
+    }
+
+    func test_detail_retryInstall_suppressed_when_readiness_blocks() {
+        let gate = MacGuestImageGateState.blocked(.failed(error: nil, code: nil))
+        let a = ClawDetailActionAvailability(
+            installState: .installFailed(error: "boom"),
+            installability: .installable,
+            allowsInstall: gate.allowsInstall
+        )
+        XCTAssertFalse(a.showsRetryInstall, "retry-install must be hidden in the detail when readiness blocks")
+    }
+
+    func test_detail_deploy_suppressed_but_uninstall_kept_when_readiness_blocks() {
+        // Deploy creates a VM instance (guest-image-dependent) → gated too;
+        // uninstall is never gated.
+        let gate = MacGuestImageGateState.blocked(.inProgress(phase: "provision"))
+        let a = ClawDetailActionAvailability(
+            installState: .installed,
+            installability: .installable,
+            allowsInstall: gate.allowsInstall
+        )
+        XCTAssertFalse(a.showsDeploy, "deploy must be hidden when readiness blocks (it needs the guest image)")
+        XCTAssertTrue(a.showsUninstall, "uninstall must NOT be gated by readiness")
+    }
 }
 
 // MARK: - fixtures (free functions: Sendable-safe, no actor isolation)

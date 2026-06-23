@@ -70,6 +70,7 @@ struct MacClawStoreRootView: View {
                             claw: claw,
                             context: context,
                             target: target,
+                            readiness: readiness,
                             onInstallStateChanged: {
                                 Task { await viewModel.loadClaws() }
                             },

@@ -13,11 +13,17 @@ struct MacClawDetailView: View {
     var onInstallStateChanged: (() -> Void)?
     var onOpenTerminal: ((String) -> Void)?
     @StateObject private var viewModel: ClawDetailViewModel
+    /// P6/A: the same macOS guest-image readiness gate as the catalog root, so
+    /// the detail's install/retry/deploy actions respect readiness too (they
+    /// all depend on the engine's guest image). Observed so it stays reactive
+    /// while the detail is open. Owned by the root view.
+    @ObservedObject private var readiness: MacGuestImageReadinessModel
 
     init(
         claw: Claw,
         context: ServerContext,
         target: ClawMachineTarget? = nil,
+        readiness: MacGuestImageReadinessModel,
         onInstallStateChanged: (() -> Void)? = nil,
         onOpenTerminal: ((String) -> Void)? = nil
     ) {
@@ -26,6 +32,7 @@ struct MacClawDetailView: View {
         self.target = target
         self.onInstallStateChanged = onInstallStateChanged
         self.onOpenTerminal = onOpenTerminal
+        _readiness = ObservedObject(wrappedValue: readiness)
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, machineTarget: target))
     }
 
@@ -41,6 +48,9 @@ struct MacClawDetailView: View {
                     unavailableNotice(code: code, message: message)
                 } else {
                     stateBanner
+                    if readinessGatesAnAction {
+                        macDetailReadinessNotice
+                    }
                     actions
                 }
                 details
@@ -138,6 +148,7 @@ struct MacClawDetailView: View {
         let actionAvailability = ClawDetailActionAvailability(
             installState: viewModel.claw.installState,
             installability: viewModel.claw.installability,
+            allowsInstall: readiness.state.allowsInstall,
             supportsDeploy: target.supportsDeploy
         )
 
@@ -201,6 +212,53 @@ struct MacClawDetailView: View {
                 .disabled(viewModel.isPerformingAction)
             }
         }
+    }
+
+    /// Whether to show the readiness notice alongside the detail actions: true
+    /// when an install / retry / deploy action would be offered but the macOS
+    /// guest-image readiness gate suppresses it (P6/A).
+    private var readinessGatesAnAction: Bool {
+        guard !readiness.state.allowsInstall else { return false }
+        let ungated = ClawDetailActionAvailability(
+            installState: viewModel.claw.installState,
+            installability: viewModel.claw.installability,
+            allowsInstall: true,
+            supportsDeploy: target.supportsDeploy
+        )
+        return ungated.showsInstall || ungated.showsRetryInstall || ungated.showsDeploy
+    }
+
+    /// Minimal, neutral readiness notice (P6/A). Reason-coded recovery copy is
+    /// deferred to P6B.
+    @ViewBuilder
+    private var macDetailReadinessNotice: some View {
+        let copy: LocalizedStringResource = {
+            switch readiness.state {
+            case .checking:
+                return LocalizedStringResource(
+                    "claw.detail.mac.readiness.checking",
+                    defaultValue: "Checking this Mac…",
+                    comment: "macOS Claw detail status while it polls the engine's guest-image readiness."
+                )
+            case .blocked:
+                return LocalizedStringResource(
+                    "claw.detail.mac.readiness.preparing",
+                    defaultValue: "This Mac is preparing its guest image — install isn't available until it's ready.",
+                    comment: "macOS Claw detail status when the engine's guest image isn't ready, so install is gated."
+                )
+            default:
+                return LocalizedStringResource(
+                    "claw.detail.mac.readiness.unavailable",
+                    defaultValue: "Can't check this Mac's readiness right now — install isn't available.",
+                    comment: "macOS Claw detail status when readiness can't be determined, so install is gated."
+                )
+            }
+        }()
+        Text(copy)
+            .font(MacTypography.Fonts.clawDetailMeta)
+            .foregroundColor(MacClawStoreTheme.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("soyeht.macClawDetail.readinessNotice")
     }
 
     /// Reason-coded notice shown in place of the state banner + actions when
