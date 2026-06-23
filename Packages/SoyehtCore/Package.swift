@@ -51,6 +51,8 @@ let package = Package(
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
                 // P7-B — PoP/CBOR signing-context cross-language vectors (theyos→Swift)
                 .copy("HouseholdFixtures/PoP/pop_vectors.json"),
+                // PR-B — guest-image failure-code contract (theyos core-rs → Swift)
+                .copy("HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"),
                 // T039d — owner-cert CBOR cross-language fixture
                 .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
                 // T039e — avatar derivation cross-language fixture (1 000 rows)
