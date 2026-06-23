@@ -10,9 +10,9 @@ import SoyehtCore
 /// semantics: install is allowed only when the engine reports `.ready` or has no
 /// guest-VM concept (`.notApplicable`); every other state gates install.
 ///
-/// Minimal gating only (P6A): no reason-coded recovery banner / prepare /
-/// "Check Again" actions — that is P6B. The state is local to the Claw Store UI
-/// and is not persisted into `ServerRegistry`.
+/// P6B adds a reason-coded recovery banner + a read-only "Check Again" re-fetch
+/// (`recheck()`); the mutating prepare retry remains a follow-up. The state is
+/// local to the Claw Store UI and is not persisted into `ServerRegistry`.
 enum MacGuestImageGateState: Equatable, Sendable {
     /// Fetching `/bootstrap/status` for the first time. Install gated.
     case checking
@@ -60,6 +60,9 @@ final class MacGuestImageReadinessModel: ObservableObject {
     typealias FetchStatus = @Sendable (URL) async throws -> BootstrapStatusResponse
 
     @Published private(set) var state: MacGuestImageGateState
+    /// True while a `recheck()` ("Check Again") re-fetch is in flight, so the CTA
+    /// can be disabled.
+    @Published private(set) var isRechecking = false
 
     private let server: PairedServer
     private let fetchStatus: FetchStatus
@@ -105,6 +108,26 @@ final class MacGuestImageReadinessModel: ObservableObject {
     /// (install gated). No-op when the current state doesn't need a fetch.
     func refresh() async {
         guard state.needsFetch else { return }
+        guard let url = Self.bootstrapBaseURL(for: server) else {
+            state = .unavailable
+            return
+        }
+        do {
+            let status = try await fetchStatus(url)
+            state = .from(status.guestImageReadiness)
+        } catch {
+            state = .unavailable
+        }
+    }
+
+    /// Force a one-shot readiness re-fetch — the P6B "Check Again" CTA. Unlike
+    /// `refresh()` (the poll step), it re-fetches from ANY state, including
+    /// `.unavailable` and a terminal `.blocked(.failed)`, so the user can re-check
+    /// after acting on the Mac. Read-only (never triggers a prepare). Still
+    /// fail-closed: a missing endpoint or failed fetch yields `.unavailable`.
+    func recheck() async {
+        isRechecking = true
+        defer { isRechecking = false }
         guard let url = Self.bootstrapBaseURL(for: server) else {
             state = .unavailable
             return
