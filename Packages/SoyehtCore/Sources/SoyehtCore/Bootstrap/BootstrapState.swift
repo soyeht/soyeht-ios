@@ -278,12 +278,12 @@ extension BootstrapError: LocalizedError {
     }
 
     private static func defaultServerErrorDescription(for code: String) -> String {
-        switch code {
-        case "already_initialized":
+        switch BootstrapErrorCode(wire: code) {
+        case .alreadyInitialized:
             return "Soyeht is already set up on this Mac."
-        case "engine_initializing":
+        case .engineInitializing:
             return "Soyeht is still starting. Try again in a moment."
-        case "tailnet_required":
+        case .tailnetRequired:
             return "Turn on Tailscale to add machines to this home."
         default:
             return "Soyeht returned an error: \(code)."
