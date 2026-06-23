@@ -84,5 +84,16 @@ cp "${GUEST_IMAGE_FIXTURE}" \
    "${TESTS}/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"
 echo "✓ guest_image_failure_codes.json (guest-image failure-code contract)"
 
+# ── PR-B: bootstrap/onboarding error-code contract (admin/rust/household-rs/tests/fixtures/) ──
+BOOTSTRAP_ERROR_FIXTURE="${THEYOS_DIR}/admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
+if [[ ! -f "${BOOTSTRAP_ERROR_FIXTURE}" ]]; then
+    echo "error: bootstrap error-code fixture not found at ${BOOTSTRAP_ERROR_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/BootstrapErrorCode"
+cp "${BOOTSTRAP_ERROR_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json"
+echo "✓ bootstrap_error_codes.json (bootstrap error-code contract)"
+
 echo ""
 echo "Sync complete. Commit the updated fixture files if they changed."

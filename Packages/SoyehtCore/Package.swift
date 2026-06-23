@@ -53,6 +53,8 @@ let package = Package(
                 .copy("HouseholdFixtures/PoP/pop_vectors.json"),
                 // PR-B — guest-image failure-code contract (theyos core-rs → Swift)
                 .copy("HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"),
+                // PR-B — bootstrap/onboarding error-code contract (theyos household-rs → Swift)
+                .copy("HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json"),
                 // T039d — owner-cert CBOR cross-language fixture
                 .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
                 // T039e — avatar derivation cross-language fixture (1 000 rows)
