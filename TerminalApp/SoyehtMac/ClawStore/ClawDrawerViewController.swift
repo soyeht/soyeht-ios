@@ -813,10 +813,12 @@ private struct CompactClawStoreRow: View {
     }
 
     private var canInstall: Bool {
-        // E1: the single shared decision — backend installability (theyos #88) +
-        // install-state eligibility + guest-image readiness — so the drawer can
-        // never offer an install the dedicated Store window would gate. No rule
-        // is re-derived here; both surfaces consult `MacClawInstallDecision`.
+        // E1: the drawer's install decision — backend installability (theyos #88)
+        // + install-state eligibility + guest-image readiness — so the drawer
+        // can't offer an install the dedicated Store window would gate. The drawer
+        // row and the drawer install action consult the SAME `MacClawInstallDecision`
+        // (no inline re-derivation); it mirrors the Store's readiness gate.
+        // Cross-surface convergence is E2.
         MacClawInstallDecision.canOfferInstall(claw: claw, readiness: readiness, isInstalling: isInstalling)
     }
 
