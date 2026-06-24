@@ -167,6 +167,37 @@ final class ClawInventoryServiceTests: XCTestCase {
         XCTAssertEqual(completed.first?.1, false, "installFailed → success=false")
     }
 
+    func test_poll_firesCompleteAndStops_evenWhenInstancesFetchThrows() async {
+        // E2d-4b: terminal detection depends ONLY on the catalog. A transient
+        // `/instances` failure during polling must NOT stall installing -> installed
+        // (regression vs the old Store poll, which fetched only `/claws`).
+        let clawResponses = Box([
+            [self.claw("alpha", .installing, .installing(percent: 10))],  // refresh
+            [self.claw("alpha", .succeeded, .creatable)],                 // poll → terminal
+        ])
+        var completed: [(String, Bool)] = []
+        var terminalCount = 0
+
+        let service = ClawInventoryService(
+            target: target,
+            fetchClaws: { _ in clawResponses.next() },
+            fetchInstances: { _ in throw URLError(.timedOut) },  // instances always fail
+            sleeper: { _ in },
+            onInstallComplete: { completed.append(($0, $1)) },
+            onTerminalTransition: { terminalCount += 1 }
+        )
+
+        await service.refresh()
+        XCTAssertTrue(service.isPolling, "An installing claw starts the poll even when instances fails")
+
+        await waitUntil { !service.isPolling }
+
+        XCTAssertEqual(completed.map(\.0), ["alpha"])
+        XCTAssertEqual(completed.first?.1, true, "Catalog-driven completion fires despite instances failure")
+        XCTAssertEqual(terminalCount, 1)
+        XCTAssertEqual(service.snapshot.claws.first?.installState, .installed)
+    }
+
     /// The generation-guard race: a poll fetch starts, then a `refresh()` lands a
     /// newer snapshot (still transient, so the poll is NOT cancelled). When the
     /// in-flight poll fetch finally returns its now-STALE result, it must be
