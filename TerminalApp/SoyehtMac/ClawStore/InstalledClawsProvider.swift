@@ -93,7 +93,7 @@ final class InstalledClawsProvider: ObservableObject {
         loadGeneration &+= 1
         let generation = loadGeneration
 
-        guard let context = sessionStore.currentContext() else {
+        guard let context = MacActiveServerContextResolver.activeContext(sessionStore: sessionStore) else {
             // No active server — clear. A prior load may have been cancelled by
             // `activeServerChanged` (its generation-guarded defer won't run), so
             // clear `isLoading`/`loadTask` here too or loading gets stuck on.
