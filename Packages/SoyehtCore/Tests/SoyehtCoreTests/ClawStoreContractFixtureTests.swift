@@ -99,6 +99,10 @@ private struct ClawStoreContractRoute: Decodable {
     func path(name: String = "picoclaw") -> String {
         pathTemplate.replacingOccurrences(of: "{name}", with: name)
     }
+
+    func path(id: String) -> String {
+        pathTemplate.replacingOccurrences(of: "{id}", with: id)
+    }
 }
 
 private struct ClawStoreContractExpectation: Decodable {
@@ -270,6 +274,172 @@ struct ClawStoreContractFixtureTests {
         assertAuthHeader(on: request, authKind: route.authKind)
         #expect(response.jobId == "job-alpha")
         #expect(response.message == "install already in progress")
+    }
+
+    /// C4.1: bind every instance-lifecycle route's wire `method` / `path` /
+    /// `auth_kind` (and, for household, `household_operation` + PoP header) to a
+    /// REAL captured Swift client request. The id-set and DTO-decode tests pin
+    /// the route's *existence* and *body shape*; this pins that the client
+    /// actually drives the contracted method+path+auth. A drift in any of those
+    /// fields in the synced contract — or in the Swift client — fails here.
+    @Test func lifecycleRoutesBindClientRequestsToContract() async throws {
+        let instanceID = "inst-alpha"
+        let householdEndpoint = try #require(URL(string: "http://100.64.0.10:8091"))
+        let createRequest = CreateInstanceRequest(
+            name: "picoclaw-alpha",
+            clawType: "picoclaw",
+            guestOs: nil,
+            cpuCores: nil,
+            ramMb: nil,
+            diskGb: nil,
+            ownerId: nil
+        )
+
+        // MARK: admin (.adminHost → /api/v1/instances..., Cookie session)
+
+        do {
+            let route = try route("admin_create_instance")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("admin_instance_create_accepted"),
+                statusCode: 202
+            )
+            let (client, context) = makeServerClient(kind: .adminHost)
+            _ = try await client.createInstance(createRequest, context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        do {
+            let route = try route("admin_instance_status")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("admin_instance_status_active")
+            )
+            let (client, context) = makeServerClient(kind: .adminHost)
+            _ = try await client.getInstanceStatus(id: instanceID, context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(id: instanceID))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        let adminActionCases: [(String, InstanceAction)] = [
+            ("admin_stop_instance", .stop),
+            ("admin_restart_instance", .restart),
+            ("admin_rebuild_instance", .rebuild),
+            ("admin_delete_instance", .delete),
+        ]
+        for (id, action) in adminActionCases {
+            let route = try route(id)
+            // Actions/delete return 204 with no body and don't decode.
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let (client, context) = makeServerClient(kind: .adminHost)
+            try await client.instanceAction(id: instanceID, action: action, context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest, "no request for \(id)")
+            #expect(request.httpMethod == route.method, "method drift for \(id)")
+            #expect(request.url?.path == route.path(id: instanceID), "path drift for \(id)")
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        // MARK: mobile (.engine → /api/v1/mobile/instances..., Bearer)
+
+        do {
+            let route = try route("mobile_create_instance")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("mobile_instance_create_accepted"),
+                statusCode: 202
+            )
+            let (client, context) = makeServerClient(kind: .engine)
+            _ = try await client.createInstance(createRequest, context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        do {
+            let route = try route("mobile_instance_status")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("mobile_household_instance_status_active")
+            )
+            let (client, context) = makeServerClient(kind: .engine)
+            _ = try await client.getInstanceStatus(id: instanceID, context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(id: instanceID))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        // MARK: household (.householdEndpoint → /api/v1/household/instances..., PoP)
+
+        func assertHouseholdPoP(_ request: URLRequest) {
+            let authorization = request.value(forHTTPHeaderField: "Authorization")
+            #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
+            #expect(authorization?.contains("Bearer") == false)
+            #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        }
+
+        do {
+            let route = try route("household_create_instance")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("mobile_instance_create_accepted"),
+                statusCode: 202
+            )
+            let client = try makeHouseholdClient()
+            _ = try await client.createInstance(
+                createRequest, target: .householdEndpoint(householdEndpoint))
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.create")
+            assertHouseholdPoP(request)
+        }
+
+        do {
+            let route = try route("household_instance_status")
+            ClawStoreContractURLProtocol.reset(
+                responseData: try fixtureData("mobile_household_instance_status_active")
+            )
+            let client = try makeHouseholdClient()
+            _ = try await client.getInstanceStatus(
+                id: instanceID, target: .householdEndpoint(householdEndpoint))
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(id: instanceID))
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.list")
+            assertHouseholdPoP(request)
+        }
+
+        let householdActionCases: [(String, InstanceAction, String)] = [
+            ("household_stop_instance", .stop, "claws.use"),
+            ("household_restart_instance", .restart, "claws.use"),
+            ("household_rebuild_instance", .rebuild, "claws.use"),
+            ("household_delete_instance", .delete, "claws.delete"),
+        ]
+        for (id, action, operation) in householdActionCases {
+            let route = try route(id)
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let client = try makeHouseholdClient()
+            try await client.instanceAction(
+                id: instanceID, action: action, householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest, "no request for \(id)")
+            #expect(request.httpMethod == route.method, "method drift for \(id)")
+            #expect(request.url?.path == route.path(id: instanceID), "path drift for \(id)")
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == operation, "operation drift for \(id)")
+            assertHouseholdPoP(request)
+        }
     }
 
     @Test func sharedActionAndErrorFixturesDecodeWithSwiftDTOs() throws {
