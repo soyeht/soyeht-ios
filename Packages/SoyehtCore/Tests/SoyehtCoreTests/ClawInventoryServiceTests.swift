@@ -72,6 +72,49 @@ final class ClawInventoryServiceTests: XCTestCase {
         XCTAssertNotNil(service.errorMessage)
     }
 
+    func test_refresh_toleratesInstancesFailure_publishesCatalog() async {
+        // E2d-4b regression guard: the Store consumes ONLY the catalog (claws). An
+        // `/instances` failure on first load must NOT blank the catalog — publish it
+        // with an empty online projection and surface the error.
+        let service = ClawInventoryService(
+            target: target,
+            fetchClaws: { _ in [
+                self.claw("alpha", .succeeded, .creatable),
+                self.claw("beta", .notInstalled, .notInstalled),
+            ] },
+            fetchInstances: { _ in throw URLError(.timedOut) }
+        )
+
+        await service.refresh()
+
+        XCTAssertEqual(service.snapshot.claws.map(\.name), ["alpha", "beta"],
+                       "Catalog is published even when /instances fails")
+        XCTAssertEqual(service.snapshot.availableCount, 2)
+        XCTAssertTrue(service.snapshot.deployedOnlineClaws.isEmpty, "No instances → empty online projection")
+        XCTAssertNotNil(service.errorMessage, "The instances error is surfaced")
+    }
+
+    func test_refresh_catalogFailure_keepsLastKnownGoodWholesale() async {
+        // Symmetric: a CATALOG failure keeps the prior snapshot wholesale.
+        let throwClaws = Box(false)
+        let service = ClawInventoryService(
+            target: target,
+            fetchClaws: { _ in
+                if throwClaws.value { throw URLError(.timedOut) }
+                return [self.claw("alpha", .succeeded, .creatable)]
+            },
+            fetchInstances: { _ in [self.instance("alpha", online: true)] }
+        )
+        await service.refresh()
+        XCTAssertEqual(service.snapshot.claws.map(\.name), ["alpha"])
+
+        throwClaws.value = true
+        await service.refresh()
+        XCTAssertEqual(service.snapshot.claws.map(\.name), ["alpha"],
+                       "Catalog failure preserves last-known-good")
+        XCTAssertNotNil(service.errorMessage)
+    }
+
     // MARK: - Poll to terminal
 
     func test_poll_installingReachesInstalled_firesCompleteAndTerminal_thenStops() async {
