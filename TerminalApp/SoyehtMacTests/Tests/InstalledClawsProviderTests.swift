@@ -352,7 +352,7 @@ final class InstalledClawsProviderTests: XCTestCase {
         return Data(json.utf8)
     }
 
-    /// Minimal `/api/v1/mobile/instances` body — one running instance per
+    /// Minimal `/api/v1/mobile/instances` body — one active instance per
     /// claw type so the provider's `onlineClawNames` filter retains them.
     private func instancesJSONBody(clawTypes: [String]) -> Data {
         let items = clawTypes.enumerated().map { idx, ct in
@@ -363,7 +363,7 @@ final class InstalledClawsProviderTests: XCTestCase {
               "container": "c-\(idx)",
               "claw_type": "\(ct)",
               "fqdn": null,
-              "status": "running",
+              "status": "active",
               "port": null,
               "capabilities": null,
               "provisioning_message": null,
