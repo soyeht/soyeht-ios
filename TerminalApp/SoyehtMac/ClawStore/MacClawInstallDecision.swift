@@ -1,20 +1,25 @@
 import Foundation
 import SoyehtCore
 
-/// E1: the single, pure install-eligibility decision for the macOS Claw Store.
+/// E1: the pure install-eligibility decision the macOS Claw Store DRAWER consults.
 ///
-/// Both Mac install surfaces — the dedicated Store window and the main-window
-/// drawer — must answer "may this claw be installed right now?" identically. Until
-/// E1 the drawer derived that rule inline and consulted only backend
-/// installability (theyos #88), skipping the guest-image readiness gate the Store
-/// already enforces. That let the drawer offer (and POST) an install the Store
-/// would block, so the user hit a raw backend `GUEST_IMAGE_NOT_READY` instead of
-/// the recovery banner.
+/// Until E1 the drawer derived its install rule inline and checked only backend
+/// installability (theyos #88), skipping the guest-image readiness gate that the
+/// dedicated Store window already enforces (via `ClawDetailActionAvailability` +
+/// `readiness.state.allowsInstall`). That let the drawer offer (and POST) an
+/// install the Store would block, so the user hit a raw backend
+/// `GUEST_IMAGE_NOT_READY` instead of the recovery banner.
+///
+/// Scope of THIS unit (E1): the drawer row and the drawer install action both
+/// consult it, so those two can't drift, and it MIRRORS the dedicated Store's
+/// readiness gate (the same `MacGuestImageGateState.allowsInstall` rule). It is
+/// NOT yet a cross-surface authority — the Store window still uses its own flow;
+/// E2 is where both surfaces converge onto one decision (and a Mac-tree source
+/// guard can then require every install surface to consult it).
 ///
 /// This is a DECISION unit only: it owns no fetch, cache, polling, or lifecycle
 /// (that shared service is E2). It is AppKit-free so it is unit-testable in the
-/// `SoyehtMacDomain` test package, and it is the seam a future E2 Mac-tree source
-/// guard can require every install surface to consult.
+/// `SoyehtMacDomain` test package.
 ///
 /// It combines the three rules that decide installability:
 ///   1. backend installability (`Claw.installability`, theyos #88),
