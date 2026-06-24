@@ -135,6 +135,11 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
         writer.upsertCanonical(canonical)
         let before = store.load()
+        // D3b: the mutator dual-writes the v2 mirror; capture it so we can prove the
+        // PREVIEW helpers below (shadowCompare / makeV2Envelope / projectV1Servers)
+        // do not alter it — they stay read-only.
+        let v2AfterMutation = defaults.data(forKey: ServerStore.v2StorageKey)
+        XCTAssertNotNil(v2AfterMutation, "the mutator dual-writes the v2 mirror")
 
         let report = writer.shadowCompare(
             legacyProjections: [
@@ -152,7 +157,8 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertTrue(report.isClean)
         XCTAssertEqual(rollback, before)
         XCTAssertEqual(store.load(), before)
-        XCTAssertNil(defaults.data(forKey: ServerStore.v2StorageKey))
+        XCTAssertEqual(defaults.data(forKey: ServerStore.v2StorageKey), v2AfterMutation,
+                       "read-only preview helpers must not change the persisted v2 mirror")
     }
 
     func test_v2PreviewThroughFacadePreservesD2MacAndLinuxIDRules() throws {
@@ -241,7 +247,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         ])
     }
 
-    func test_serverInventoryWriterHasNoRawEnvelopeLoggingOrPersistence() throws {
+    func test_serverInventoryWriterHasNoLogging_andConfinesV2PersistenceToTheDualWrite() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent(
@@ -249,12 +255,19 @@ final class ServerInventoryWriterTests: XCTestCase {
             )
         )
 
+        // No logging — the writer must never emit ids / hosts / tokens.
         XCTAssertFalse(source.contains("Logger("))
         XCTAssertFalse(source.contains("Telemetry"))
         XCTAssertFalse(source.contains("serverStoreV2Logger"))
         XCTAssertFalse(source.contains(".info("))
         XCTAssertFalse(source.contains(".debug("))
-        XCTAssertFalse(source.contains("saveV2Envelope"))
+        // D3b: v2 persistence is now allowed (dual-write), but CONFINED to the single
+        // `mirrorToV2` site — it must not be scattered across the facade. A saveV2
+        // failure is swallowed by the store and never masks the v1 mutation.
+        let saveSites = source.components(separatedBy: "saveV2Envelope(").count - 1
+        XCTAssertEqual(saveSites, 1, "v2 persistence must be confined to the single mirrorToV2 dual-write")
+        XCTAssertTrue(source.contains("private func mirrorToV2()"),
+                      "the dual-write must live in the private mirrorToV2 helper")
     }
 
     func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedD6Files() throws {
@@ -331,6 +344,27 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    /// D3b: pin the LIVE v2-mirror provider wiring in `ServerRegistry` so it can't
+    /// silently regress. The provider test proves an injected provider works; this
+    /// proves the default `ServerRegistry` actually injects the credential-bearing
+    /// one (else a canonical-only mutation would persist a credential-less v2).
+    func test_serverRegistryWiresLiveV2MirrorProvider() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
+        )
+        XCTAssertTrue(source.contains("v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections"),
+            "ServerRegistry must construct the writer with its live v2 mirror provider.")
+        XCTAssertTrue(source.contains("PairedMacsStore.shared.macIDsWithSecret()"),
+            "the mirror provider must read pairing-secret ownership.")
+        XCTAssertTrue(source.contains("SessionStore.shared.serverTokenOwnerIDs()"),
+            "the mirror provider must read session-token ownership.")
+        XCTAssertTrue(
+            source.contains(".pairedMacsStore(") && source.contains(".sessionStorePairedServer("),
+            "the mirror provider must build BOTH legacy projection kinds with credential presence."
+        )
+    }
+
     func test_sessionStoreUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
@@ -395,6 +429,13 @@ final class ServerInventoryWriterTests: XCTestCase {
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStoreV2.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
+            // D3b: ServerRegistry is the sanctioned writer-consumer — it calls the
+            // `writer.` facade (never `store.` directly) and now references
+            // `ServerStoreShadowProjection` for the v2 mirror provider. Its
+            // non-bypass is precisely enforced by
+            // test_serverRegistryUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers
+            // (forbids `store.*` / `ServerStore(` / v2 helpers there).
+            "TerminalApp/Soyeht/Server/ServerRegistry.swift",
         ]
         let writePatterns = [
             "upsertLegacyProjection(",
