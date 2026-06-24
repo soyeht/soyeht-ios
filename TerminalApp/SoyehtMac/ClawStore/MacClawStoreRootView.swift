@@ -258,7 +258,7 @@ struct MacClawStoreRootView: View {
                     ForEach(viewModel.claws) { claw in
                         MacClawCardView(
                             claw: claw,
-                            showInstallButton: readiness.state.allowsInstall,
+                            readiness: readiness.state,
                             onInstall: { Task { await viewModel.installClaw(claw) } },
                             onTap: { path.append(ClawRoute.detail(claw, serverId: context.serverId)) }
                         )
