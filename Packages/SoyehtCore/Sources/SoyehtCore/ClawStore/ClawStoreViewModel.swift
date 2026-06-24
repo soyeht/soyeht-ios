@@ -10,17 +10,21 @@ public final class ClawStoreViewModel: ObservableObject {
     @Published public var actionError: String?
 
     private let apiClient: SoyehtAPIClient
-    /// E2d-4: the canonical, LOSSLESS target identity (`.server` /
-    /// `.householdEndpoint`, carries the serverID). `target` below is the derived
-    /// wire form — `ClawAPITarget.householdEndpoint(URL)` drops the serverID, so
-    /// it's unsuitable as cache/inventory identity. Callers pass `ClawMachineTarget`.
+    /// E2d-4a: the canonical, LOSSLESS target identity (`.server` /
+    /// `.householdEndpoint`, carries the serverID). `target` is the derived wire
+    /// form — `ClawAPITarget.householdEndpoint(URL)` drops the serverID, so it's
+    /// unsuitable as cache/inventory identity. Callers pass `ClawMachineTarget`.
     public let machineTarget: ClawMachineTarget
     private let target: ClawAPITarget
-    private let sleeper: (UInt64) async throws -> Void
-    private let onInstallComplete: (String, Bool) -> Void
-    private var pollingTask: Task<Void, Never>?
+    private let makeService: @MainActor (ClawMachineTarget) -> ClawInventoryService
 
-    public var isPolling: Bool { pollingTask != nil }
+    /// E2d-4b: the catalog fetch + install-completion poll are owned by the shared
+    /// `ClawInventoryService` (built lazily on first load); `claws` mirrors its
+    /// snapshot.
+    private var service: ClawInventoryService?
+    private var snapshotCancellable: AnyCancellable?
+
+    @MainActor public var isPolling: Bool { service?.isPolling ?? false }
 
     /// Designated init. The target must resolve to a wire `ClawAPITarget`;
     /// `.unavailable` is not a valid Store target — the UI must render an
@@ -29,7 +33,8 @@ public final class ClawStoreViewModel: ObservableObject {
         machineTarget: ClawMachineTarget,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
-        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
+        makeService: (@MainActor (ClawMachineTarget) -> ClawInventoryService)? = nil
     ) {
         guard let target = machineTarget.apiTarget else {
             preconditionFailure("ClawStoreViewModel requires a resolved ClawMachineTarget (.server / .householdEndpoint)")
@@ -37,8 +42,24 @@ public final class ClawStoreViewModel: ObservableObject {
         self.machineTarget = machineTarget
         self.target = target
         self.apiClient = apiClient
-        self.sleeper = sleeper
-        self.onInstallComplete = onInstallComplete
+        // E2d-4b: catalog + install-completion poll move to ClawInventoryService
+        // (autoPoll ON). sleeper/onInstallComplete are threaded in; a terminal
+        // transition posts installedSetChanged (as the VM's own poll did). A
+        // service can be injected for tests.
+        self.makeService = makeService ?? { target in
+            ClawInventoryService(
+                target: target,
+                apiClient: apiClient,
+                sleeper: sleeper,
+                autoPoll: true,
+                onInstallComplete: onInstallComplete,
+                onTerminalTransition: {
+                    NotificationCenter.default.post(
+                        name: ClawStoreNotifications.installedSetChanged, object: nil
+                    )
+                }
+            )
+        }
     }
 
     /// Convenience for a bearer/cookie-authenticated paired server.
@@ -57,7 +78,7 @@ public final class ClawStoreViewModel: ObservableObject {
     }
 
     deinit {
-        pollingTask?.cancel()
+        snapshotCancellable?.cancel()
     }
 
     // MARK: - Computed Sections
@@ -100,13 +121,11 @@ public final class ClawStoreViewModel: ObservableObject {
 
         ClawNotificationHelper.requestPermissionIfNeeded()
 
-        do {
-            claws = try await apiClient.getClaws(target: target)
-            startPollingIfNeeded()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-
+        let service = ensureService()
+        await service.refresh()
+        // `claws` is mirrored from the service snapshot via the subscription;
+        // surface any fetch error the service recorded (last-known-good preserved).
+        errorMessage = service.errorMessage
         isLoading = false
     }
 
@@ -125,8 +144,10 @@ public final class ClawStoreViewModel: ObservableObject {
         }
         do {
             _ = try await apiClient.installClaw(name: claw.name, target: target)
-            claws = try await apiClient.getClaws(target: target)
-            startPollingIfNeeded()
+            // Re-fetch: the catalog now shows the claw installing, and the service
+            // autoPoll tracks it to terminal (REAL completion — bug #2 for the
+            // Store too), posting installedSetChanged on terminal.
+            await ensureService().refresh()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
                 actionError = body?.error ?? error.localizedDescription
@@ -143,8 +164,7 @@ public final class ClawStoreViewModel: ObservableObject {
         actionError = nil
         do {
             _ = try await apiClient.uninstallClaw(name: claw.name, target: target)
-            claws = try await apiClient.getClaws(target: target)
-            startPollingIfNeeded()
+            await ensureService().refresh()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
                 actionError = body?.error ?? error.localizedDescription
@@ -156,60 +176,20 @@ public final class ClawStoreViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Polling
+    // MARK: - Inventory service
 
-    private func startPollingIfNeeded() {
-        guard hasTransientClaws else {
-            pollingTask?.cancel()
-            pollingTask = nil
-            return
+    /// Build the shared inventory service on first use and mirror its catalog
+    /// (`snapshot.claws`) onto `claws`. The service owns the fetch + the
+    /// install-completion poll (autoPoll ON). The target is fixed for a
+    /// view-model instance, so the service is built once.
+    @MainActor
+    private func ensureService() -> ClawInventoryService {
+        if let service { return service }
+        let svc = makeService(machineTarget)
+        service = svc
+        snapshotCancellable = svc.$snapshot.sink { [weak self] snapshot in
+            self?.claws = snapshot.claws
         }
-        guard pollingTask == nil else { return }
-
-        let sleeper = self.sleeper
-        let onInstallComplete = self.onInstallComplete
-        let target = self.target
-        pollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await sleeper(2_000_000_000)  // 2s
-                guard !Task.isCancelled, let self else { return }
-
-                // Track claws that were in install transition (not uninstall).
-                let previouslyInstalling = await MainActor.run {
-                    Set(self.claws.filter { $0.installState.isInstalling }.map(\.name))
-                }
-
-                do {
-                    let updated = try await self.apiClient.getClaws(target: target)
-                    await MainActor.run {
-                        self.claws = updated
-
-                        var anyTransitionReachedTerminal = false
-                        for claw in updated where previouslyInstalling.contains(claw.name) {
-                            switch claw.installState {
-                            case .installed, .installedButBlocked:
-                                onInstallComplete(claw.name, true)
-                                anyTransitionReachedTerminal = true
-                            case .installFailed:
-                                onInstallComplete(claw.name, false)
-                                anyTransitionReachedTerminal = true
-                            case .installing, .uninstalling, .notInstalled, .unknown:
-                                break
-                            }
-                        }
-                        if anyTransitionReachedTerminal {
-                            NotificationCenter.default.post(name: ClawStoreNotifications.installedSetChanged, object: nil)
-                        }
-
-                        if !self.hasTransientClaws {
-                            self.pollingTask?.cancel()
-                            self.pollingTask = nil
-                        }
-                    }
-                } catch {
-                    // Continue polling on transient errors
-                }
-            }
-        }
+        return svc
     }
 }

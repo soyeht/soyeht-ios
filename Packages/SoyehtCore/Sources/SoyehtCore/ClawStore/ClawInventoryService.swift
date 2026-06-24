@@ -125,19 +125,42 @@ public final class ClawInventoryService: ObservableObject {
         let gen = generation
         isLoading = true
         defer { if generation == gen { isLoading = false } }
+
+        async let clawsFetch = fetchClaws(target)
+        async let instancesFetch = fetchInstances(target)
+
+        // The catalog (`claws`) is the Store's ONLY dependency; `instances` drive
+        // the online projection (drawer/provider). Tolerate an instances failure so
+        // a flaky `/instances` never blanks the catalog — that would be a Store
+        // regression (it used to fetch only `/claws`). Publish the catalog with
+        // last-known-good instances and surface the error. Only a CATALOG failure
+        // keeps the prior snapshot wholesale.
+        let claws: [Claw]
         do {
-            async let clawsFetch = fetchClaws(target)
-            async let instancesFetch = fetchInstances(target)
-            let (claws, instances) = try await (clawsFetch, instancesFetch)
-            guard !Task.isCancelled, generation == gen else { return }
-            snapshot = ClawInventorySnapshot.make(claws: claws, instances: instances)
-            errorMessage = nil
-            if autoPoll { startPollingIfNeeded() }
+            claws = try await clawsFetch
         } catch {
+            _ = try? await instancesFetch  // drain the sibling fetch
             guard !Task.isCancelled, generation == gen else { return }
-            // Keep last-known-good snapshot; surface the error for the consumer.
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            errorMessage = Self.describe(error)
+            return
         }
+
+        var instances = snapshot.instances  // last-known-good fallback
+        var instancesError: Error?
+        do {
+            instances = try await instancesFetch
+        } catch {
+            instancesError = error
+        }
+
+        guard !Task.isCancelled, generation == gen else { return }
+        snapshot = ClawInventorySnapshot.make(claws: claws, instances: instances)
+        errorMessage = instancesError.map(Self.describe)
+        if autoPoll { startPollingIfNeeded() }
+    }
+
+    private static func describe(_ error: Error) -> String {
+        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 
     public func stopPolling() {
@@ -181,13 +204,19 @@ public final class ClawInventoryService: ObservableObject {
                 do {
                     async let clawsFetch = fetchClaws(target)
                     async let instancesFetch = fetchInstances(target)
-                    let (claws, instances) = try await (clawsFetch, instancesFetch)
+                    // Catalog (claws) drives terminal-transition detection and is the
+                    // hard dependency; instances are best-effort (fall back to the
+                    // last-known-good) so a flaky `/instances` can't stall the Store/
+                    // drawer from seeing installing -> installed/installFailed.
+                    let claws = try await clawsFetch
+                    let fetchedInstances = try? await instancesFetch
                     await MainActor.run {
                         // A refresh() (or a target switch) that bumped the generation
                         // AFTER this poll fetch started now owns the snapshot — drop
                         // this superseded poll result instead of clobbering the newer
                         // snapshot or firing terminal callbacks against stale data.
                         guard !Task.isCancelled, self.generation == pollGeneration else { return }
+                        let instances = fetchedInstances ?? self.snapshot.instances
                         let updated = ClawInventorySnapshot.make(claws: claws, instances: instances)
                         self.snapshot = updated
 
