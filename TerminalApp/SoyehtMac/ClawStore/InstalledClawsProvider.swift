@@ -27,6 +27,10 @@ final class InstalledClawsProvider: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private let sessionStore: SessionStore
     private var loadTask: Task<Void, Never>?
+    /// Monotonic identity for the in-flight load (E1.5). Bumped on every
+    /// `refresh()` so a cancelled/superseded task can tell it no longer owns the
+    /// shared `loadTask` slot or the `claws` publication.
+    private var loadGeneration = 0
 
     private var installChangeObserver: NSObjectProtocol?
     private var serverChangeObserver: NSObjectProtocol?
@@ -75,6 +79,12 @@ final class InstalledClawsProvider: ObservableObject {
     func refresh() {
         guard loadTask == nil else { return }
         isLoading = true
+        // E1.5: stamp this load. The server-change handler cancels the in-flight
+        // task, nils `loadTask`, and starts a newer refresh; without an identity
+        // check the cancelled task's `defer` would nil the NEWER task's slot (and
+        // flip `isLoading` off under it). A monotonic generation is that identity.
+        loadGeneration &+= 1
+        let generation = loadGeneration
         loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             // We are on the MainActor — setting `loadTask = nil` here is
@@ -84,10 +94,17 @@ final class InstalledClawsProvider: ObservableObject {
             // punted the clear to a later main-queue hop, opening a window
             // where two sequential refreshes collapsed into one.
             defer {
-                self.isLoading = false
-                self.loadTask = nil
+                // Only clear the shared slot if THIS task still owns it — a
+                // cancelled/superseded task must not nil a newer task's slot.
+                if self.loadGeneration == generation {
+                    self.isLoading = false
+                    self.loadTask = nil
+                }
             }
             guard let context = self.sessionStore.currentContext() else {
+                // E1.5: ownership-guard every publish, not just the success path —
+                // a superseded task must not clear `claws` or mark `hasLoaded`.
+                guard !Task.isCancelled, self.loadGeneration == generation else { return }
                 self.claws = []
                 self.hasLoaded = true
                 return
@@ -105,12 +122,17 @@ final class InstalledClawsProvider: ObservableObject {
                 let deployed = allClaws
                     .filter { $0.installState.isInstalled && onlineClawNames.contains($0.name) }
                     .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                // E1.5: a cancelled/superseded fetch must not clobber a newer
+                // task's result — last-writer-wins on a server switch was the bug.
+                guard !Task.isCancelled, self.loadGeneration == generation else { return }
                 self.claws = deployed
                 self.hasLoaded = true
             } catch {
                 // Keep last-known-good list on transient errors so the pane
                 // picker doesn't collapse to shell-only while the server is
-                // briefly unreachable.
+                // briefly unreachable. E1.5: ownership-guard so a cancelled/
+                // superseded task doesn't flip `hasLoaded` while a newer load runs.
+                guard !Task.isCancelled, self.loadGeneration == generation else { return }
                 self.hasLoaded = true
             }
         }
