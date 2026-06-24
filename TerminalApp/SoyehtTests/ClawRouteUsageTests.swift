@@ -102,6 +102,27 @@ final class ClawRouteUsageTests: XCTestCase {
         )
     }
 
+    /// E2d-4: the Store view model is built from the canonical `ClawMachineTarget`
+    /// (which carries the serverID), never from the lossy `ClawAPITarget`
+    /// (`resolution.apiTarget` drops the serverID on `.householdEndpoint`). Pin
+    /// the boundary so it can't silently regress.
+    func test_clawStoreViewModel_builtFromMachineTarget_notLossyApiTarget() throws {
+        let offenders = try iosSwiftFiles().filter { url in
+            if url.lastPathComponent == "ClawRouteUsageTests.swift" { return false }
+            let code = (try? codeOnly(at: url)) ?? ""
+            return code.contains("ClawStoreViewModel(target:")
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "iOS UI must build `ClawStoreViewModel` from a `ClawMachineTarget` (machineTarget:), not the lossy `ClawAPITarget`. Offending: \(offenders.map(\.lastPathComponent))"
+        )
+
+        let storeView = try iosSwiftFiles().first { $0.lastPathComponent == "ClawStoreView.swift" }
+        let storeCode = try storeView.map { try codeOnly(at: $0) } ?? ""
+        XCTAssertTrue(storeCode.contains("ClawStoreViewModel(machineTarget:"),
+            "ResolvedClawStoreView must construct `ClawStoreViewModel(machineTarget: resolution)`."
+        )
+    }
+
     // MARK: - Helpers
 
     private func iosSwiftFiles() throws -> [URL] {
