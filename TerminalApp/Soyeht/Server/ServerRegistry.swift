@@ -33,12 +33,41 @@ final class ServerRegistry: ObservableObject {
     @Published private(set) var servers: [Server]
 
     private let writer: ServerInventoryWriter
+    /// D3c: snapshot of the operator GO flag (`ServerStore.v2ReadEnabledKey`,
+    /// default OFF). With it OFF the gated read equals v1 (inert); the operator
+    /// flips it true ONLY after a clean live dry-run — the code never sets it.
+    private let v2ReadEnabled: Bool
 
-    init(writer: ServerInventoryWriter = ServerInventoryWriter(
-        v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections
-    )) {
-        self.writer = writer
-        self.servers = writer.load()
+    init(writer: ServerInventoryWriter? = nil) {
+        let flag = UserDefaults.standard.bool(forKey: ServerStore.v2ReadEnabledKey)
+        self.v2ReadEnabled = flag
+        self.writer = writer ?? ServerInventoryWriter(
+            v2ReadEnabled: flag,
+            v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections
+        )
+        self.servers = Self.canonicalRead(writer: self.writer, v2ReadEnabled: flag)
+    }
+
+    /// D3c: the gated canonical read. Flag OFF → v1 (`load()`), inert. Flag ON → the
+    /// v2 projection IFF the D3a gate is ready AND the loaded v2 is field-equivalent
+    /// to v1 (`loadCanonical` enforces both); else v1 fallback. No auto-enable.
+    private static func canonicalRead(writer: ServerInventoryWriter, v2ReadEnabled: Bool) -> [Server] {
+        guard v2ReadEnabled else { return writer.load() }
+        return writer.loadCanonical(
+            legacyProjectionsForGate: legacyMirrorProjections(),
+            activeServerID: SessionStore.shared.activeServerId
+        )
+    }
+
+    /// D3c: republish `servers` from the gated read (change-detected). Called after
+    /// every mutation and on refresh so no path reads v1 directly while another is
+    /// gated. Returns whether `servers` actually changed.
+    @discardableResult
+    private func publishCanonical() -> Bool {
+        let next = Self.canonicalRead(writer: writer, v2ReadEnabled: v2ReadEnabled)
+        guard next != servers else { return false }
+        servers = next
+        return true
     }
 
     /// D3b: builds the legacy projections (with per-id credential presence) that the
@@ -124,7 +153,8 @@ final class ServerRegistry: ObservableObject {
     /// with `updateTheyOSStatus`; UI mutations should go through
     /// `rename` / `remove`, not `upsert`.
     func upsert(_ server: Server) {
-        servers = writer.upsertCanonical(server)
+        _ = writer.upsertCanonical(server)
+        publishCanonical()
     }
 
     /// Records a Mac learned through the legacy local-pairing protocol.
@@ -254,7 +284,8 @@ final class ServerRegistry: ObservableObject {
             guard result == .success else { return result }
             var updated = target
             updated.alias = trimmed
-            servers = writer.upsertCanonical(updated)
+            _ = writer.upsertCanonical(updated)
+            publishCanonical()
             return .success
         case .linux:
             // SessionStore.renameServer is still called for legacy
@@ -265,7 +296,8 @@ final class ServerRegistry: ObservableObject {
             var updated = target
             updated.hostname = trimmed
             updated.alias = nil
-            servers = writer.upsertCanonical(updated)
+            _ = writer.upsertCanonical(updated)
+            publishCanonical()
             return .success
         }
     }
@@ -292,7 +324,8 @@ final class ServerRegistry: ObservableObject {
         case .linux:
             SessionStore.shared.removeServer(id: target.id)
         }
-        servers = writer.remove(id: target.id)
+        _ = writer.remove(id: target.id)
+        publishCanonical()
     }
 
     /// Updates the cached theyOS snapshot for a server. Called by
@@ -310,7 +343,8 @@ final class ServerRegistry: ObservableObject {
             lastCheckedAt: Date()
         )
         target.lastSeenAt = Date()
-        servers = writer.upsertCanonical(target)
+        _ = writer.upsertCanonical(target)
+        publishCanonical()
     }
 
     /// Resolves the user-facing label for a `PairedServer`. Used by the
@@ -347,7 +381,7 @@ final class ServerRegistry: ObservableObject {
             tokenOwnedIDs: SessionStore.shared.serverTokenOwnerIDs(),
             credentialRekeyer: Self.sessionTokenRekeyer
         )
-        servers = writer.load()
+        publishCanonical()
         serverRegistryLogger.info(
             "ServerRegistry post-migration count: \(self.servers.count, privacy: .public)"
         )
@@ -384,14 +418,13 @@ final class ServerRegistry: ObservableObject {
     func refreshFromLegacyStores() {
         let macSeed = PairedMacsStore.shared.macs.map { $0.toServer() }
         let serverSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
-        let reconciled = writer.reconcileLegacy(
+        _ = writer.reconcileLegacy(
             seed: macSeed + serverSeed,
             secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret(),
             tokenOwnedIDs: SessionStore.shared.serverTokenOwnerIDs(),
             credentialRekeyer: Self.sessionTokenRekeyer
         )
-        if reconciled != servers {
-            servers = reconciled
+        if publishCanonical() {
             serverRegistryLogger.info(
                 "ServerRegistry mirror refreshed: \(self.servers.count, privacy: .public) servers"
             )

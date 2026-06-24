@@ -365,6 +365,24 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    /// D3c: pin that ServerRegistry's READ path goes through the gated `loadCanonical`
+    /// (so the v2-read flip is honored everywhere) and that a raw `writer.load()`
+    /// survives ONLY as the flag-OFF fallback inside `canonicalRead` — no other path
+    /// may read v1 directly while another is gated.
+    func test_serverRegistryReadsThroughGatedLoadCanonical() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
+        )
+        XCTAssertTrue(source.contains("writer.loadCanonical("),
+            "ServerRegistry must read through the gated loadCanonical (D3c).")
+        XCTAssertTrue(source.contains("publishCanonical()"),
+            "mutations/refresh must republish via the gated read, not assign servers from a raw v1 load.")
+        let rawLoadSites = source.components(separatedBy: "writer.load()").count - 1
+        XCTAssertEqual(rawLoadSites, 1,
+            "writer.load() must be confined to the single canonicalRead flag-OFF fallback.")
+    }
+
     func test_sessionStoreUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
