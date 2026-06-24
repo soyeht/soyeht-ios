@@ -79,7 +79,22 @@ public enum GuestImageRecoveryPolicy {
         switch readiness {
         case .ready, .notApplicable:
             return nil
-        case .notStarted, .inProgress:
+        case .notStarted:
+            // E1c: preparation has not begun. The engine does NOT auto-start it on
+            // `/bootstrap/status` (read-only), so the user must trigger it — offer
+            // the mutating prepare CTA (parity with iOS `ClawDetailView`'s
+            // `.notStarted` card). Distinct from `.inProgress`, which is already
+            // running (poll to terminal, no CTA). `isFailed == false` is what lets
+            // a surface tell this apart from a `.failed` prepare CTA.
+            return GuestImageRecoveryPresentation(
+                isPreparing: false,
+                isFailed: false,
+                failureCode: nil,
+                action: .retry,
+                cta: .prepare,
+                isRecoverableOnDevice: true
+            )
+        case .inProgress:
             return GuestImageRecoveryPresentation(
                 isPreparing: true,
                 isFailed: false,
