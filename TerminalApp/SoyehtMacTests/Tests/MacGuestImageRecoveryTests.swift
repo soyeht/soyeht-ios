@@ -30,12 +30,25 @@ final class MacGuestImageRecoveryTests: XCTestCase {
         XCTAssertEqual(content.cta, .checkAgain)
     }
 
-    func test_banner_preparing_offersCheckAgain() throws {
-        for readiness in [GuestImageReadiness.notStarted, .inProgress(phase: "provision")] {
-            let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(readiness)))
-            XCTAssertEqual(content.kind, .preparing)
-            XCTAssertEqual(content.cta, .checkAgain)
-        }
+    func test_banner_inProgress_offersCheckAgain() throws {
+        let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.inProgress(phase: "provision"))))
+        XCTAssertEqual(content.kind, .preparing)
+        XCTAssertEqual(content.cta, .checkAgain)
+    }
+
+    /// E1c: a never-prepared Mac (`.notStarted`) must offer the mutating
+    /// "Prepare this Mac" CTA — NOT the read-only "Preparing…/Check Again" of
+    /// `.inProgress`. This is the banner-level guard for the dead-end fix; the
+    /// `.prepare` CTA drives the existing `onPrepare` path (no raw error).
+    func test_banner_notStarted_offersPrepareCTA() throws {
+        let content = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.notStarted)))
+        XCTAssertEqual(content.kind, .notStarted)
+        XCTAssertEqual(content.cta, .prepare)
+        XCTAssertNil(content.instruction)
+        // Distinct from inProgress.
+        let inProgress = try XCTUnwrap(MacGuestImageRecovery.banner(for: .blocked(.inProgress(phase: "x"))))
+        XCTAssertNotEqual(content.kind, inProgress.kind)
+        XCTAssertNotEqual(content.cta, inProgress.cta)
     }
 
     // MARK: - reason-coded failures: prepare vs checkAgain vs none
