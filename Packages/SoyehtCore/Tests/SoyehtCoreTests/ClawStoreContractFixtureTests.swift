@@ -103,6 +103,15 @@ private struct ClawStoreContractRoute: Decodable {
     func path(id: String) -> String {
         pathTemplate.replacingOccurrences(of: "{id}", with: id)
     }
+
+    /// Workspaces paths carry BOTH `{container}` and (for rename/delete) `{id}`.
+    func path(container: String, id: String? = nil) -> String {
+        var resolved = pathTemplate.replacingOccurrences(of: "{container}", with: container)
+        if let id {
+            resolved = resolved.replacingOccurrences(of: "{id}", with: id)
+        }
+        return resolved
+    }
 }
 
 private struct ClawStoreContractExpectation: Decodable {
@@ -159,6 +168,11 @@ struct ClawStoreContractFixtureTests {
             "household_create_instance", "household_instance_status",
             "household_stop_instance", "household_restart_instance",
             "household_rebuild_instance", "household_delete_instance",
+            // C4.2a terminal workspaces (admin + household; no mobile namespace).
+            "admin_list_workspaces", "admin_create_workspace",
+            "admin_rename_workspace", "admin_delete_workspace",
+            "household_list_workspaces", "household_create_workspace",
+            "household_rename_workspace", "household_delete_workspace",
         ]
         #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
     }
@@ -442,6 +456,140 @@ struct ClawStoreContractFixtureTests {
         }
     }
 
+    /// C4.2a: bind every terminal-workspaces route's wire `method` / `path` /
+    /// `auth_kind` (and, for household, `household_operation` + PoP header) to a
+    /// REAL captured Swift client request. Counterpart of
+    /// `lifecycleRoutesBindClientRequestsToContract` for the 8 workspaces routes.
+    /// The paths carry BOTH `{container}` and (rename/delete) `{id}`, so this also
+    /// pins that the Swift client interpolates them into the contracted slots.
+    @Test func workspacesRoutesBindClientRequestsToContract() async throws {
+        let container = "picoclaw-alpha"
+        let workspaceID = "ws-alpha"
+        let householdEndpoint = try #require(URL(string: "http://100.64.0.10:8091"))
+
+        // MARK: admin (.adminHost → /api/v1/terminals/{container}/workspaces, Cookie session)
+
+        do {
+            let route = try route("admin_list_workspaces")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_list_empty"))
+            let (client, _) = makeServerClient(kind: .adminHost)
+            _ = try await client.listWorkspaces(container: container)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        do {
+            let route = try route("admin_create_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_created"))
+            let (client, _) = makeServerClient(kind: .adminHost)
+            _ = try await client.createNewWorkspace(container: container, name: "Dev Workspace")
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        do {
+            let route = try route("admin_rename_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let (client, _) = makeServerClient(kind: .adminHost)
+            try await client.renameWorkspace(
+                container: container, workspaceId: workspaceID, newName: "Renamed")
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container, id: workspaceID))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        do {
+            let route = try route("admin_delete_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let (client, _) = makeServerClient(kind: .adminHost)
+            try await client.deleteWorkspace(container: container, workspaceId: workspaceID)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container, id: workspaceID))
+            assertAuthHeader(on: request, authKind: route.authKind)
+        }
+
+        // MARK: household (.householdEndpoint → /api/v1/household/terminals/..., PoP)
+
+        func assertHouseholdPoP(_ request: URLRequest) {
+            let authorization = request.value(forHTTPHeaderField: "Authorization")
+            #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
+            #expect(authorization?.contains("Bearer") == false)
+            #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        }
+
+        do {
+            let route = try route("household_list_workspaces")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_list_empty"))
+            let client = try makeHouseholdClient()
+            _ = try await client.listWorkspaces(
+                container: container, householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container))
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.list")
+            assertHouseholdPoP(request)
+        }
+
+        do {
+            let route = try route("household_create_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_created"))
+            let client = try makeHouseholdClient()
+            _ = try await client.createNewWorkspace(
+                container: container, name: "Dev Workspace", householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container))
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.use")
+            assertHouseholdPoP(request)
+        }
+
+        do {
+            let route = try route("household_rename_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let client = try makeHouseholdClient()
+            try await client.renameWorkspace(
+                container: container, workspaceId: workspaceID, newName: "Renamed",
+                householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container, id: workspaceID))
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.use")
+            assertHouseholdPoP(request)
+        }
+
+        do {
+            let route = try route("household_delete_workspace")
+            ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
+            let client = try makeHouseholdClient()
+            try await client.deleteWorkspace(
+                container: container, workspaceId: workspaceID,
+                householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path(container: container, id: workspaceID))
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.use")
+            assertHouseholdPoP(request)
+        }
+    }
+
     @Test func sharedActionAndErrorFixturesDecodeWithSwiftDTOs() throws {
         let action = try apiDecoder().decode(
             SoyehtAPIClient.ClawActionResponse.self,
@@ -585,6 +733,10 @@ struct ClawStoreContractFixtureTests {
             kind: kind
         )
         let stored = store.addServer(server, token: "TOKEN_EXAMPLE")
+        // Activate so host-based client methods (which read `store.apiHost`, e.g.
+        // the admin workspace create/rename/delete) resolve a host instead of
+        // throwing `.noSession`. Context-based methods are unaffected.
+        store.setActiveServer(id: stored.id)
         let client = SoyehtAPIClient(session: URLSession(configuration: config), store: store)
         return (client, ServerContext(server: stored, token: "TOKEN_EXAMPLE"))
     }
