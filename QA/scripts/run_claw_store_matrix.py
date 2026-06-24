@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Reproducible Claw Store QA matrix runner.
 
-F3.1 is intentionally a reporting matrix, not a release-readiness claim. Rows
-that need a live engine, VZ, Firecracker, or client UI automation are default
-SKIP and only run when their explicit opt-in environment is present.
+The default run is intentionally a reporting matrix, not a release-readiness
+claim. Rows that need a live engine, VZ, Firecracker, or client UI automation
+are default SKIP and only run when their explicit opt-in environment is present.
 """
 from __future__ import annotations
 
@@ -27,6 +27,10 @@ STATUS_FAIL = "FAIL"
 STATUS_SKIP = "SKIP"
 LIVE_ENV = "SOYEHT_F3_RUN_LIVE"
 LINUX_LIFECYCLE_ENV = "SOYEHT_F3_RUN_LINUX_LIFECYCLE"
+LINUX_SSH_KEY_ENV = "SOYEHT_F3_LINUX_SSH_KEY"
+LINUX_STATE_DIR_ENV = "SOYEHT_F3_LINUX_STATE_DIR"
+LINUX_TERMINAL_ENV = "SOYEHT_F3_LINUX_RUN_TERMINAL"
+ADMIN_PASSWORD_ENV = "SOYEHT_ADMIN_PASSWORD"
 MAC_VZ_ENV = "SOYEHT_F3_RUN_MAC_VZ"
 CLIENT_UI_ENV = "SOYEHT_F3_RUN_CLIENT_UI"
 
@@ -45,6 +49,7 @@ class MatrixRow:
     coverage: str
     commands: list[CommandSpec] = field(default_factory=list)
     skip_reason: str | None = None
+    fail_reason: str | None = None
 
 
 @dataclass
@@ -73,6 +78,10 @@ class Redactor:
             (r"(--user=)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<user-redacted>"),
             (r"(--base-url\s+)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<url-redacted>"),
             (r"(--base-url=)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<url-redacted>"),
+            (r"(--ssh-key\s+)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<path-redacted>"),
+            (r"(--ssh-key=)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<path-redacted>"),
+            (r"(--state-dir\s+)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<path-redacted>"),
+            (r"(--state-dir=)(?:'[^']*'|\"[^\"]*\"|[^\s)]+)", r"\1<path-redacted>"),
             (r"(?i)(token|secret|password|authorization)(=|:)\s*[^,\s\"']+", r"\1\2 <redacted>"),
             (r"https?://[^\s\"')>]+", "<url-redacted>"),
             (r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "192.0.2.10"),
@@ -136,6 +145,14 @@ def run_commands(
     timeout_seconds: int,
 ) -> RowResult:
     started = time.monotonic()
+    if row.fail_reason:
+        return RowResult(
+            row_id=row.row_id,
+            title=row.title,
+            status=STATUS_FAIL,
+            coverage=row.coverage,
+            notes=row.fail_reason,
+        )
     if row.skip_reason:
         return RowResult(
             row_id=row.row_id,
@@ -205,6 +222,93 @@ def run_commands(
         commands=command_strings,
         notes=f"{len(row.commands)} command(s) passed",
         log=str(log_path.relative_to(run_dir.parent)),
+    )
+
+
+def linux_lifecycle_preflight(theyos_dir: Path | None) -> list[str]:
+    missing: list[str] = []
+    if theyos_dir is None:
+        missing.append("THEYOS_DIR")
+    if not command_exists("cargo"):
+        missing.append("cargo")
+    if not os.environ.get(ADMIN_PASSWORD_ENV):
+        missing.append(ADMIN_PASSWORD_ENV)
+
+    ssh_key = os.environ.get(LINUX_SSH_KEY_ENV)
+    if not ssh_key:
+        missing.append(LINUX_SSH_KEY_ENV)
+    elif not Path(ssh_key).expanduser().is_file():
+        missing.append(f"{LINUX_SSH_KEY_ENV} file")
+
+    state_dir = os.environ.get(LINUX_STATE_DIR_ENV)
+    if not state_dir:
+        missing.append(LINUX_STATE_DIR_ENV)
+    elif not Path(state_dir).expanduser().is_dir():
+        missing.append(f"{LINUX_STATE_DIR_ENV} directory")
+
+    return missing
+
+
+def build_linux_lifecycle_row(
+    *,
+    theyos_dir: Path | None,
+    live_base_url: str,
+    live_user: str,
+) -> MatrixRow:
+    live_enabled = os.environ.get(LIVE_ENV) == "1"
+    lifecycle_enabled = os.environ.get(LINUX_LIFECYCLE_ENV) == "1"
+    if not live_enabled or not lifecycle_enabled:
+        return MatrixRow(
+            row_id="linux-admin-lifecycle",
+            title="Linux admin-host Claw lifecycle",
+            coverage="Opt-in destructive Linux/Firecracker admin-host create, poll, active, SSH, claw-binary, delete, and verify cleanup for picoclaw.",
+            skip_reason=f"default SKIP; set {LIVE_ENV}=1 and {LINUX_LIFECYCLE_ENV}=1 for destructive Linux admin-host lifecycle",
+        )
+
+    missing = linux_lifecycle_preflight(theyos_dir)
+    if missing:
+        return MatrixRow(
+            row_id="linux-admin-lifecycle",
+            title="Linux admin-host Claw lifecycle",
+            coverage="Opt-in destructive Linux/Firecracker admin-host create, poll, active, SSH, claw-binary, delete, and verify cleanup for picoclaw.",
+            fail_reason=(
+                "live Linux lifecycle gate is set but preflight is missing or invalid: "
+                + ", ".join(missing)
+            ),
+        )
+
+    assert theyos_dir is not None
+    ssh_key = str(Path(os.environ[LINUX_SSH_KEY_ENV]).expanduser())
+    state_dir = str(Path(os.environ[LINUX_STATE_DIR_ENV]).expanduser())
+    argv = [
+        "cargo", "run", "-p", "e2e-rs", "--",
+        "--base-url", live_base_url,
+        "--user", live_user,
+        "--ssh-key", ssh_key,
+        "--state-dir", state_dir,
+        "test", "picoclaw",
+    ]
+    if os.environ.get(LINUX_TERMINAL_ENV) != "1":
+        argv.extend([
+            "--skip-terminal",
+            "--skip-terminal-restart",
+            "--skip-terminal-persist",
+        ])
+    argv.append("--skip-refill-test")
+
+    return MatrixRow(
+        row_id="linux-admin-lifecycle",
+        title="Linux admin-host Claw lifecycle",
+        coverage=(
+            "Opt-in destructive Linux/Firecracker admin-host create, poll, active, "
+            "SSH, claw-binary, delete, and verify cleanup for picoclaw; terminal/attach "
+            f"is excluded unless {LINUX_TERMINAL_ENV}=1."
+        ),
+        commands=[CommandSpec(
+            argv,
+            theyos_dir / "admin" / "rust",
+            {ADMIN_PASSWORD_ENV: os.environ[ADMIN_PASSWORD_ENV]},
+        )],
     )
 
 
@@ -283,27 +387,10 @@ def build_rows(repo_root: Path, theyos_dir: Path | None) -> list[MatrixRow]:
         skip_reason=live_skip,
     ))
 
-    if os.environ.get(LIVE_ENV) == "1" and os.environ.get(LINUX_LIFECYCLE_ENV) == "1" and theyos_dir is not None:
-        linux_commands = [CommandSpec(
-            [
-                "cargo", "run", "-p", "e2e-rs", "--",
-                "--base-url", live_base_url,
-                "--user", live_user,
-                "test", "picoclaw",
-                "--skip-refill-test",
-            ],
-            theyos_dir / "admin" / "rust",
-        )]
-        linux_skip = None
-    else:
-        linux_commands = []
-        linux_skip = f"default SKIP; set {LIVE_ENV}=1 and {LINUX_LIFECYCLE_ENV}=1 for destructive Linux admin-host lifecycle"
-    rows.append(MatrixRow(
-        row_id="linux-admin-lifecycle",
-        title="Linux admin-host Claw lifecycle",
-        coverage="Opt-in destructive Linux/Firecracker admin-host create, poll, SSH/terminal, delete, cleanup.",
-        commands=linux_commands,
-        skip_reason=linux_skip,
+    rows.append(build_linux_lifecycle_row(
+        theyos_dir=theyos_dir,
+        live_base_url=live_base_url,
+        live_user=live_user,
     ))
 
     if os.environ.get(MAC_VZ_ENV) == "1" and os.environ.get("THEYOS_LIVE_VZ") == "1" and theyos_dir is not None:
@@ -351,7 +438,7 @@ def write_reports(
         counts[result.status] += 1
 
     payload = {
-        "matrix": "claw-store-f3.1",
+        "matrix": "claw-store-f3",
         "started_at": started_at,
         "finished_at": finished_at,
         "summary": counts,
@@ -360,17 +447,17 @@ def write_reports(
             "theyos": "<theyos>" if theyos_dir else None,
         },
         "rows": [asdict(result) for result in results],
-        "release_readiness_note": "SKIP is not PASS. Default F3.1 covers contracts and pure tests, not full live release readiness.",
+        "release_readiness_note": "SKIP is not PASS. Default F3 covers contracts and pure tests; opt-in live rows add scoped runtime coverage but are not full release readiness.",
     }
     (run_dir / "report.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     lines = [
-        "# Claw Store F3.1 QA Matrix",
+        "# Claw Store F3 QA Matrix",
         "",
         f"- Started: {started_at}",
         f"- Finished: {finished_at}",
         f"- Summary: PASS={counts[STATUS_PASS]} FAIL={counts[STATUS_FAIL]} SKIP={counts[STATUS_SKIP]}",
-        "- Readiness: SKIP is not PASS. This F3.1 run is a reproducible matrix report, not full release-readiness.",
+        "- Readiness: SKIP is not PASS. The default run is a reproducible matrix report, not full release-readiness.",
         "",
         "## Rows",
         "",
@@ -408,7 +495,7 @@ def write_reports(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the Claw Store F3.1 QA matrix.")
+    parser = argparse.ArgumentParser(description="Run the Claw Store F3 QA matrix.")
     parser.add_argument("--theyos-dir", help="Local theyos checkout. Defaults to THEYOS_DIR or common sibling paths.")
     parser.add_argument("--output-dir", help="Report directory. Defaults to QA/runs/<date>-claw-store-matrix.")
     parser.add_argument("--only", help="Comma-separated row IDs to run/report.")
@@ -430,6 +517,13 @@ def main() -> int:
     ]
     if theyos_dir is not None:
         replacements.append((str(theyos_dir), "<theyos>"))
+    for path_env in (LINUX_SSH_KEY_ENV, LINUX_STATE_DIR_ENV):
+        if os.environ.get(path_env):
+            replacements.append((str(Path(os.environ[path_env]).expanduser()), "<path-redacted>"))
+    for user_env in ("SOYEHT_F3_ADMIN_USER", "SOYEHT_ADMIN_USER"):
+        value = os.environ.get(user_env)
+        if value and value != "admin":
+            replacements.append((value, "<user-redacted>"))
     redactor = Redactor(replacements)
 
     rows = build_rows(repo_root, theyos_dir)
