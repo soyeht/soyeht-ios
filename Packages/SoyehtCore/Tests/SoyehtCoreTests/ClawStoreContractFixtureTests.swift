@@ -85,6 +85,12 @@ private struct ClawStoreContractRoute: Decodable {
     let authKind: String
     let householdOperation: String?
     let expectations: [String: ClawStoreContractExpectation]
+    // C4.2b-2: the `kind: websocket_upgrade` routes carry extra wire fields.
+    // These are optional/defaulted so the 36 pre-existing http_json routes
+    // (which omit them entirely) keep decoding unchanged.
+    let kind: String
+    let attachTokenHeader: String?
+    let peerGuard: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -94,6 +100,25 @@ private struct ClawStoreContractRoute: Decodable {
         case authKind = "auth_kind"
         case householdOperation = "household_operation"
         case expectations
+        case kind
+        case attachTokenHeader = "attach_token_header"
+        case peerGuard = "peer_guard"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        surface = try container.decode(String.self, forKey: .surface)
+        method = try container.decode(String.self, forKey: .method)
+        pathTemplate = try container.decode(String.self, forKey: .pathTemplate)
+        authKind = try container.decode(String.self, forKey: .authKind)
+        householdOperation = try container.decodeIfPresent(String.self, forKey: .householdOperation)
+        expectations = try container.decode(
+            [String: ClawStoreContractExpectation].self, forKey: .expectations)
+        // Absent `kind` ≡ the default HTTP+JSON request/response shape.
+        kind = try container.decodeIfPresent(String.self, forKey: .kind) ?? "http_json"
+        attachTokenHeader = try container.decodeIfPresent(String.self, forKey: .attachTokenHeader)
+        peerGuard = try container.decodeIfPresent(Bool.self, forKey: .peerGuard)
     }
 
     func path(name: String = "picoclaw") -> String {
@@ -176,13 +201,18 @@ struct ClawStoreContractFixtureTests {
             // C4.2b-1 terminal attach-token mint (HTTP JSON; the WS PTY routes
             // arrive in C4.2b-2 with the kind: websocket_upgrade schema).
             "household_attach_token",
+            // C4.2b-2 terminal PTY WebSocket upgrades (kind: websocket_upgrade;
+            // produced by client request-builders, not HTTP-captured responses).
+            "admin_terminal_pty", "household_terminal_pty",
         ]
         #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
     }
 
     /// Field-level structural equivalence (not just a count): every route in the
     /// synced contract must decode with all required wire fields populated, and
-    /// household routes must carry a PoP operation.
+    /// PoP-authed household routes must carry a PoP operation. (C4.2b-2: the
+    /// household WS PTY upgrade is token-authed — `household_attach_token` — not
+    /// PoP, so it legitimately carries no `household_operation`.)
     @Test func everySyncedRouteHasCompleteRequiredFields() {
         for route in contract.routes {
             #expect(!route.id.isEmpty)
@@ -191,10 +221,10 @@ struct ClawStoreContractFixtureTests {
             #expect(!route.pathTemplate.isEmpty, "route \(route.id) missing path_template")
             #expect(!route.authKind.isEmpty, "route \(route.id) missing auth_kind")
             #expect(!route.expectations.isEmpty, "route \(route.id) declares no expectations")
-            if route.surface == "household" {
+            if route.surface == "household" && route.authKind == "household_pop" {
                 #expect(
                     route.householdOperation != nil,
-                    "household route \(route.id) missing household_operation"
+                    "household PoP route \(route.id) missing household_operation"
                 )
             }
         }
@@ -620,6 +650,109 @@ struct ClawStoreContractFixtureTests {
         #expect(minted.expiresAt == 1_810_000_000)
     }
 
+    /// C4.2b-2: the two `kind: websocket_upgrade` PTY routes are NOT HTTP-JSON
+    /// requests captured through the URLProtocol — they are produced by CLIENT
+    /// REQUEST-BUILDERS. So instead of asserting a captured response, this binds
+    /// each builder's emitted URL/header to the contracted ws path/scheme/auth.
+    /// The household builder keeps the attach token OUT of the URL and only in
+    /// the dedicated upgrade header; the admin builder targets the admin-host PTY.
+    @Test func wsPtyRoutesBindClientBuildersToContract() throws {
+        let container = "picoclaw-alpha"
+
+        // MARK: household_terminal_pty (auth_kind: household_attach_token, header-bound)
+
+        do {
+            let route = try route("household_terminal_pty")
+            #expect(route.kind == "websocket_upgrade")
+            #expect(route.method == "GET")
+            #expect(route.authKind == "household_attach_token")
+            #expect(route.peerGuard == true)
+
+            let client = try makeHouseholdClient()
+            let endpoint = try #require(URL(string: "http://100.64.0.10:8091"))
+            let request = try client.makeHouseholdTerminalWebSocketRequest(
+                endpoint: endpoint,
+                container: container,
+                workspaceId: "ws-alpha",
+                attachToken: "attach-token-alpha"
+            )
+
+            // Path matches the contracted `{container}` interpolation.
+            #expect(request.url?.path == route.path(container: container))
+            // Upgraded to a WebSocket scheme (plaintext ws or TLS wss).
+            let scheme = request.url?.scheme
+            #expect(scheme == "ws" || scheme == "wss", "unexpected scheme \(scheme ?? "nil")")
+            // Token rides ONLY in the dedicated header, never in the URL.
+            #expect(
+                request.value(forHTTPHeaderField: SoyehtAPIClient.householdTerminalAttachTokenHeader)
+                    == "attach-token-alpha")
+            let absolute = try #require(request.url?.absoluteString)
+            #expect(!absolute.contains("attach-token-alpha"), "token leaked into URL: \(absolute)")
+            // The contract's declared upgrade header matches the client's header
+            // (case-insensitively: contract is lowercase, client is title-case).
+            #expect(
+                route.attachTokenHeader?.lowercased()
+                    == SoyehtAPIClient.householdTerminalAttachTokenHeader.lowercased())
+
+            // The WS upgrade route is bodyless: no success fixture, only a 101 upgrade.
+            let upgrade = try wsUpgradeExpectation(forRouteID: "household_terminal_pty")
+            #expect(upgrade["status"] as? Int == 101)
+            #expect(!expectationsHaveSuccessFixture(forRouteID: "household_terminal_pty"))
+        }
+
+        // MARK: admin_terminal_pty (auth_kind: admin_stream_auth, admin-host PTY)
+
+        do {
+            let route = try route("admin_terminal_pty")
+            #expect(route.kind == "websocket_upgrade")
+            #expect(route.method == "GET")
+            #expect(route.authKind == "admin_stream_auth")
+
+            let (client, _) = makeServerClient(kind: .adminHost)
+            // The route models the admin-host PTY, so the builder is `.adminHost`.
+            let attachment = client.buildWebSocketAttachment(
+                host: "admin.example.test",
+                container: container,
+                sessionId: "ws-alpha",
+                token: "TOKEN_EXAMPLE",
+                kind: .adminHost
+            )
+            let url = try #require(URL(string: attachment.url))
+            #expect(url.path == route.path(container: container))
+            let scheme = url.scheme
+            #expect(scheme == "ws" || scheme == "wss", "unexpected scheme \(scheme ?? "nil")")
+
+            let upgrade = try wsUpgradeExpectation(forRouteID: "admin_terminal_pty")
+            #expect(upgrade["status"] as? Int == 101)
+            #expect(!expectationsHaveSuccessFixture(forRouteID: "admin_terminal_pty"))
+        }
+    }
+
+    /// C4.2b-2: Swift echo of the Rust dual-schema guard. Every
+    /// `kind == "websocket_upgrade"` route carries an `upgrade` expectation
+    /// (status 101) and NO `success` fixture; conversely every default
+    /// `http_json` route carries NO `upgrade` expectation. Read from the raw
+    /// `contractObject` so we exercise the on-the-wire shape, not just the model.
+    @Test func websocketRoutesAndHTTPRoutesObeyTheDualSchema() throws {
+        for route in contract.routes {
+            let rawExpectations = try rawExpectations(forRouteID: route.id)
+            if route.kind == "websocket_upgrade" {
+                let upgrade = try #require(
+                    rawExpectations["upgrade"] as? [String: Any],
+                    "ws route \(route.id) missing upgrade expectation")
+                #expect(upgrade["status"] as? Int == 101, "ws route \(route.id) upgrade status != 101")
+                #expect(
+                    !expectationsHaveSuccessFixture(rawExpectations),
+                    "ws route \(route.id) must not declare a success fixture")
+            } else {
+                #expect(route.kind == "http_json", "unexpected kind \(route.kind) on \(route.id)")
+                #expect(
+                    rawExpectations["upgrade"] == nil,
+                    "http_json route \(route.id) must not declare an upgrade expectation")
+            }
+        }
+    }
+
     @Test func sharedActionAndErrorFixturesDecodeWithSwiftDTOs() throws {
         let action = try apiDecoder().decode(
             SoyehtAPIClient.ClawActionResponse.self,
@@ -736,6 +869,34 @@ struct ClawStoreContractFixtureTests {
 
     private func route(_ id: String) throws -> ClawStoreContractRoute {
         try #require(contract.routes.first { $0.id == id }, "missing route \(id)")
+    }
+
+    /// The raw `expectations` object for a route, read from `contractObject` so
+    /// tests can assert on-wire keys (e.g. `upgrade`) the typed model elides.
+    private func rawExpectations(forRouteID id: String) throws -> [String: Any] {
+        let routes = try #require(contractObject["routes"] as? [[String: Any]])
+        let route = try #require(
+            routes.first { $0["id"] as? String == id }, "missing route \(id)")
+        return try #require(route["expectations"] as? [String: Any], "route \(id) has no expectations")
+    }
+
+    private func wsUpgradeExpectation(forRouteID id: String) throws -> [String: Any] {
+        try #require(
+            try rawExpectations(forRouteID: id)["upgrade"] as? [String: Any],
+            "route \(id) missing upgrade expectation")
+    }
+
+    /// True iff a `success` expectation declaring a `fixture` (= a success body)
+    /// is present. Error-path fixtures (`auth_error`, `peer_rejected`, …) are NOT
+    /// success bodies: the admin PTY route legitimately ships an `auth_error`
+    /// fixture while having no success body at all.
+    private func expectationsHaveSuccessFixture(_ expectations: [String: Any]) -> Bool {
+        (expectations["success"] as? [String: Any])?["fixture"] != nil
+    }
+
+    private func expectationsHaveSuccessFixture(forRouteID id: String) -> Bool {
+        guard let expectations = try? rawExpectations(forRouteID: id) else { return false }
+        return expectationsHaveSuccessFixture(expectations)
     }
 
     private func fixtureData(_ id: String) throws -> Data {
