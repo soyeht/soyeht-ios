@@ -32,7 +32,22 @@ LINUX_STATE_DIR_ENV = "SOYEHT_F3_LINUX_STATE_DIR"
 LINUX_TERMINAL_ENV = "SOYEHT_F3_LINUX_RUN_TERMINAL"
 ADMIN_PASSWORD_ENV = "SOYEHT_ADMIN_PASSWORD"
 MAC_VZ_ENV = "SOYEHT_F3_RUN_MAC_VZ"
+MAC_LIFECYCLE_ENV = "SOYEHT_F3_RUN_MAC_LIFECYCLE"
+MAC_SSH_KEY_ENV = "SOYEHT_F3_MAC_SSH_KEY"
+MAC_TERMINAL_ENV = "SOYEHT_F3_MAC_RUN_TERMINAL"
+S1_TRANSPORT_ENV = "SOYEHT_F3_RUN_S1_TRANSPORT"
+S1_READY_LOOPBACK_URL_ENV = "SOYEHT_F3_S1_READY_LOOPBACK_URL"
+S1_READY_TAILNET_URL_ENV = "SOYEHT_F3_S1_READY_TAILNET_URL"
+S1_READY_LAN_URL_ENV = "SOYEHT_F3_S1_READY_LAN_URL"
+S1_ONBOARDING_LAN_URL_ENV = "SOYEHT_F3_S1_ONBOARDING_LAN_URL"
 CLIENT_UI_ENV = "SOYEHT_F3_RUN_CLIENT_UI"
+VZ_ISOLATION_ENVS = (
+    "THEYOS_VM_VMS_PATH",
+    "THEYOS_VM_STATE_DIR",
+    "THEYOS_SNAPSHOTS_DIR",
+    "THEYOS_VM_ASSETS_DIR",
+)
+VZ_SCRATCH_SENTINEL = "live-vz-scratch"
 
 
 @dataclass
@@ -249,6 +264,214 @@ def linux_lifecycle_preflight(theyos_dir: Path | None) -> list[str]:
     return missing
 
 
+def scratch_dir_issue(var: str) -> str | None:
+    value = os.environ.get(var)
+    if not value:
+        return var
+    path = Path(value).expanduser()
+    rendered = str(path)
+    if not path.is_absolute():
+        return f"{var} absolute path"
+    if VZ_SCRATCH_SENTINEL not in rendered:
+        return f"{var} under {VZ_SCRATCH_SENTINEL}"
+    if "/Applications/Soyeht.app" in rendered or "/Applications/Soyeht Dev.app" in rendered:
+        return f"{var} must not be inside app bundle"
+    if not path.is_dir():
+        return f"{var} directory"
+    return None
+
+
+def mac_lifecycle_preflight(theyos_dir: Path | None) -> list[str]:
+    missing: list[str] = []
+    if theyos_dir is None:
+        missing.append("THEYOS_DIR")
+    if not command_exists("cargo"):
+        missing.append("cargo")
+    if not (os.environ.get("SOYEHT_F3_BASE_URL") or os.environ.get("SOYEHT_BASE_URL")):
+        missing.append("SOYEHT_F3_BASE_URL or SOYEHT_BASE_URL")
+    if os.environ.get("THEYOS_LIVE_VZ") != "1":
+        missing.append("THEYOS_LIVE_VZ=1")
+    if not os.environ.get(ADMIN_PASSWORD_ENV):
+        missing.append(ADMIN_PASSWORD_ENV)
+
+    ssh_key = os.environ.get(MAC_SSH_KEY_ENV)
+    if not ssh_key:
+        missing.append(MAC_SSH_KEY_ENV)
+    elif not Path(ssh_key).expanduser().is_file():
+        missing.append(f"{MAC_SSH_KEY_ENV} file")
+
+    for var in VZ_ISOLATION_ENVS:
+        issue = scratch_dir_issue(var)
+        if issue:
+            missing.append(issue)
+
+    assets_dir = os.environ.get("THEYOS_VM_ASSETS_DIR")
+    if assets_dir:
+        base_dir = Path(assets_dir).expanduser() / "macos-base"
+        if not base_dir.is_dir():
+            missing.append("THEYOS_VM_ASSETS_DIR/macos-base directory")
+
+    return missing
+
+
+def build_mac_lifecycle_row(
+    *,
+    theyos_dir: Path | None,
+    live_base_url: str,
+    live_user: str,
+) -> MatrixRow:
+    live_enabled = os.environ.get(LIVE_ENV) == "1"
+    lifecycle_enabled = os.environ.get(MAC_LIFECYCLE_ENV) == "1"
+    if not live_enabled or not lifecycle_enabled:
+        return MatrixRow(
+            row_id="mac-admin-lifecycle",
+            title="Mac VZ admin-host Claw lifecycle",
+            coverage=(
+                "Opt-in destructive Mac/VZ admin-host create, poll, active, SSH, "
+                "claw-binary, delete, and verify cleanup for picoclaw against Dev/scratch state."
+            ),
+            skip_reason=(
+                f"default SKIP; set {LIVE_ENV}=1 and {MAC_LIFECYCLE_ENV}=1 "
+                "for destructive Mac/VZ admin-host lifecycle"
+            ),
+        )
+
+    missing = mac_lifecycle_preflight(theyos_dir)
+    if missing:
+        return MatrixRow(
+            row_id="mac-admin-lifecycle",
+            title="Mac VZ admin-host Claw lifecycle",
+            coverage=(
+                "Opt-in destructive Mac/VZ admin-host create, poll, active, SSH, "
+                "claw-binary, delete, and verify cleanup for picoclaw against Dev/scratch state."
+            ),
+            fail_reason=(
+                "live Mac lifecycle gate is set but preflight is missing or invalid: "
+                + ", ".join(missing)
+            ),
+        )
+
+    assert theyos_dir is not None
+    ssh_key = str(Path(os.environ[MAC_SSH_KEY_ENV]).expanduser())
+    vms_dir = str(Path(os.environ["THEYOS_VM_VMS_PATH"]).expanduser())
+    argv = [
+        "cargo", "run", "-p", "e2e-rs", "--",
+        "--base-url", live_base_url,
+        "--user", live_user,
+        "--ssh-key", ssh_key,
+        "--state-dir", vms_dir,
+        "test", "picoclaw",
+        "--guest-os", "macos",
+    ]
+    if os.environ.get(MAC_TERMINAL_ENV) != "1":
+        argv.extend([
+            "--skip-terminal",
+            "--skip-terminal-restart",
+            "--skip-terminal-persist",
+        ])
+    argv.append("--skip-refill-test")
+
+    return MatrixRow(
+        row_id="mac-admin-lifecycle",
+        title="Mac VZ admin-host Claw lifecycle",
+        coverage=(
+            "Opt-in destructive Mac/VZ admin-host create, poll, active, SSH via scratch vm_ip, "
+            "claw-binary, delete, and verify cleanup for picoclaw; terminal/attach is excluded "
+            f"unless {MAC_TERMINAL_ENV}=1."
+        ),
+        commands=[CommandSpec(
+            argv,
+            theyos_dir / "admin" / "rust",
+            {ADMIN_PASSWORD_ENV: os.environ[ADMIN_PASSWORD_ENV]},
+        )],
+    )
+
+
+def s1_transport_preflight() -> list[str]:
+    missing: list[str] = []
+    if not command_exists("python3"):
+        missing.append("python3")
+    for var in (
+        S1_READY_LOOPBACK_URL_ENV,
+        S1_READY_TAILNET_URL_ENV,
+        S1_READY_LAN_URL_ENV,
+        S1_ONBOARDING_LAN_URL_ENV,
+    ):
+        if not os.environ.get(var):
+            missing.append(var)
+    return missing
+
+
+def build_s1_transport_row(repo_root: Path) -> MatrixRow:
+    live_enabled = os.environ.get(LIVE_ENV) == "1"
+    transport_enabled = os.environ.get(S1_TRANSPORT_ENV) == "1"
+    coverage = (
+        "Opt-in Dev/scratch S1-A HTTP probe: onboarding LAN allowed, Ready loopback/Tailnet "
+        "allowed, and Ready LAN refused. Bonjour Ready filtering remains assisted/manual until "
+        "a safe browser harness is added."
+    )
+    if not live_enabled or not transport_enabled:
+        return MatrixRow(
+            row_id="household-transport-live",
+            title="Household transport S1-A live probe",
+            coverage=coverage,
+            skip_reason=(
+                f"default SKIP; set {LIVE_ENV}=1 and {S1_TRANSPORT_ENV}=1 "
+                "with Dev/scratch probe URLs for S1-A transport validation"
+            ),
+        )
+
+    missing = s1_transport_preflight()
+    if missing:
+        return MatrixRow(
+            row_id="household-transport-live",
+            title="Household transport S1-A live probe",
+            coverage=coverage,
+            fail_reason=(
+                "live S1 transport gate is set but preflight is missing or invalid: "
+                + ", ".join(missing)
+            ),
+        )
+
+    probe = (
+        "import os, sys, urllib.request\n"
+        "def expect_ok(label, env):\n"
+        "    url = os.environ[env]\n"
+        "    try:\n"
+        "        with urllib.request.urlopen(url, timeout=5) as response:\n"
+        "            if response.status >= 500:\n"
+        "                raise RuntimeError(f'{label}: HTTP {response.status}')\n"
+        "    except Exception as exc:\n"
+        "        raise SystemExit(f'{label}: expected reachable endpoint, got {type(exc).__name__}') from exc\n"
+        "def expect_blocked(label, env):\n"
+        "    url = os.environ[env]\n"
+        "    try:\n"
+        "        with urllib.request.urlopen(url, timeout=5) as response:\n"
+        "            raise SystemExit(f'{label}: expected refused/timeout, got HTTP {response.status}')\n"
+        "    except SystemExit:\n"
+        "        raise\n"
+        "    except Exception:\n"
+        "        return\n"
+        f"expect_ok('ready loopback', '{S1_READY_LOOPBACK_URL_ENV}')\n"
+        f"expect_ok('ready tailnet', '{S1_READY_TAILNET_URL_ENV}')\n"
+        f"expect_blocked('ready lan', '{S1_READY_LAN_URL_ENV}')\n"
+        f"expect_ok('onboarding lan', '{S1_ONBOARDING_LAN_URL_ENV}')\n"
+        "print('S1-A HTTP transport probe OK')\n"
+    )
+    env = {
+        S1_READY_LOOPBACK_URL_ENV: os.environ[S1_READY_LOOPBACK_URL_ENV],
+        S1_READY_TAILNET_URL_ENV: os.environ[S1_READY_TAILNET_URL_ENV],
+        S1_READY_LAN_URL_ENV: os.environ[S1_READY_LAN_URL_ENV],
+        S1_ONBOARDING_LAN_URL_ENV: os.environ[S1_ONBOARDING_LAN_URL_ENV],
+    }
+    return MatrixRow(
+        row_id="household-transport-live",
+        title="Household transport S1-A live probe",
+        coverage=coverage,
+        commands=[CommandSpec(["python3", "-c", probe], repo_root, env)],
+    )
+
+
 def build_linux_lifecycle_row(
     *,
     theyos_dir: Path | None,
@@ -410,6 +633,14 @@ def build_rows(repo_root: Path, theyos_dir: Path | None) -> list[MatrixRow]:
         skip_reason=mac_vz_skip,
     ))
 
+    rows.append(build_mac_lifecycle_row(
+        theyos_dir=theyos_dir,
+        live_base_url=live_base_url,
+        live_user=live_user,
+    ))
+
+    rows.append(build_s1_transport_row(repo_root))
+
     client_ui_reason = (
         f"default SKIP; {CLIENT_UI_ENV}=1 is reserved for F3.3 once Dev Mac engine/household/client UI automation exists"
     )
@@ -517,9 +748,25 @@ def main() -> int:
     ]
     if theyos_dir is not None:
         replacements.append((str(theyos_dir), "<theyos>"))
-    for path_env in (LINUX_SSH_KEY_ENV, LINUX_STATE_DIR_ENV):
+    for path_env in (
+        LINUX_SSH_KEY_ENV,
+        LINUX_STATE_DIR_ENV,
+        MAC_SSH_KEY_ENV,
+        *VZ_ISOLATION_ENVS,
+    ):
         if os.environ.get(path_env):
             replacements.append((str(Path(os.environ[path_env]).expanduser()), "<path-redacted>"))
+    for url_env in (
+        "SOYEHT_F3_BASE_URL",
+        "SOYEHT_BASE_URL",
+        S1_READY_LOOPBACK_URL_ENV,
+        S1_READY_TAILNET_URL_ENV,
+        S1_READY_LAN_URL_ENV,
+        S1_ONBOARDING_LAN_URL_ENV,
+    ):
+        value = os.environ.get(url_env)
+        if value:
+            replacements.append((value, "<url-redacted>"))
     for user_env in ("SOYEHT_F3_ADMIN_USER", "SOYEHT_ADMIN_USER"):
         value = os.environ.get(user_env)
         if value and value != "admin":
