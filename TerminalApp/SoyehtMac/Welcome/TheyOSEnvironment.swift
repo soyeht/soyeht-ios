@@ -176,3 +176,181 @@ enum TheyOSEnvironment {
         }
     }
 }
+
+struct EmbeddedEngineSupportBundleSpec: Equatable {
+    static let supportBinaryNames = [
+        "theyos-engine",
+        "vmrunner_macos_ipc",
+        "store-ipc",
+        "terminal-ipc",
+        "theyos-ssh",
+        "theyos-provision-inject",
+    ]
+
+    let profile: SoyehtInstallProfile
+
+    var launchAgentSpec: EmbeddedEngineLaunchAgentSpec {
+        EmbeddedEngineLaunchAgentSpec(profile: profile)
+    }
+}
+
+struct EmbeddedEngineBundleProbeResult: Equatable {
+    let profileKind: SoyehtInstallProfile.Kind
+    let plistName: String
+    let launchdLabel: String
+    let bundledHelperCount: Int
+}
+
+struct EmbeddedEngineBundleProbe {
+    let bundleURL: URL
+    let profile: SoyehtInstallProfile
+    let fileManager: FileManager
+
+    init(
+        bundleURL: URL = Bundle.main.bundleURL,
+        profile: SoyehtInstallProfile = .current,
+        fileManager: FileManager = .default
+    ) {
+        self.bundleURL = bundleURL
+        self.profile = profile
+        self.fileManager = fileManager
+    }
+
+    func validateBundledSupport() throws -> EmbeddedEngineBundleProbeResult {
+        let spec = EmbeddedEngineSupportBundleSpec(profile: profile)
+        try validateLaunchAgentPlist(spec: spec)
+
+        for binaryName in EmbeddedEngineSupportBundleSpec.supportBinaryNames {
+            let helperURL = bundledHelperURL(named: binaryName)
+            guard fileManager.fileExists(atPath: helperURL.path) else {
+                throw EmbeddedEngineBundleProbeError.missingBundledHelper(binaryName)
+            }
+            guard fileManager.isExecutableFile(atPath: helperURL.path) else {
+                throw EmbeddedEngineBundleProbeError.bundledHelperNotExecutable(binaryName)
+            }
+        }
+
+        return EmbeddedEngineBundleProbeResult(
+            profileKind: profile.kind,
+            plistName: spec.launchAgentSpec.plistName,
+            launchdLabel: spec.launchAgentSpec.launchdLabel,
+            bundledHelperCount: EmbeddedEngineSupportBundleSpec.supportBinaryNames.count
+        )
+    }
+
+    func validateInstalledSupport(at engineDirectory: URL) throws -> Int {
+        for binaryName in EmbeddedEngineSupportBundleSpec.supportBinaryNames {
+            let helperURL = engineDirectory.appendingPathComponent(binaryName, isDirectory: false)
+            guard fileManager.fileExists(atPath: helperURL.path) else {
+                throw EmbeddedEngineBundleProbeError.missingInstalledHelper(binaryName)
+            }
+            guard fileManager.isExecutableFile(atPath: helperURL.path) else {
+                throw EmbeddedEngineBundleProbeError.installedHelperNotExecutable(binaryName)
+            }
+        }
+        return EmbeddedEngineSupportBundleSpec.supportBinaryNames.count
+    }
+
+    private func validateLaunchAgentPlist(spec: EmbeddedEngineSupportBundleSpec) throws {
+        let launchAgentSpec = spec.launchAgentSpec
+        let plistURL = bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("LaunchAgents", isDirectory: true)
+            .appendingPathComponent(launchAgentSpec.plistName, isDirectory: false)
+
+        guard fileManager.fileExists(atPath: plistURL.path) else {
+            throw EmbeddedEngineBundleProbeError.missingLaunchAgentPlist(launchAgentSpec.plistName)
+        }
+
+        let plist: [String: Any]
+        do {
+            let data = try Data(contentsOf: plistURL)
+            guard let parsed = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+                throw EmbeddedEngineBundleProbeError.unreadableLaunchAgentPlist(launchAgentSpec.plistName)
+            }
+            plist = parsed
+        } catch let error as EmbeddedEngineBundleProbeError {
+            throw error
+        } catch {
+            throw EmbeddedEngineBundleProbeError.unreadableLaunchAgentPlist(launchAgentSpec.plistName)
+        }
+
+        let label = plist["Label"] as? String
+        guard label == launchAgentSpec.launchdLabel else {
+            throw EmbeddedEngineBundleProbeError.launchAgentLabelMismatch(
+                expected: launchAgentSpec.launchdLabel,
+                actual: label
+            )
+        }
+    }
+
+    private func bundledHelperURL(named binaryName: String) -> URL {
+        bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Helpers", isDirectory: true)
+            .appendingPathComponent(binaryName, isDirectory: false)
+    }
+}
+
+enum EmbeddedEngineBundleProbeError: Error, Equatable, LocalizedError {
+    case missingLaunchAgentPlist(String)
+    case unreadableLaunchAgentPlist(String)
+    case launchAgentLabelMismatch(expected: String, actual: String?)
+    case missingBundledHelper(String)
+    case bundledHelperNotExecutable(String)
+    case missingInstalledHelper(String)
+    case installedHelperNotExecutable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingLaunchAgentPlist(let plistName):
+            return "Embedded LaunchAgent plist missing from app bundle: \(plistName)."
+        case .unreadableLaunchAgentPlist(let plistName):
+            return "Embedded LaunchAgent plist is unreadable: \(plistName)."
+        case .launchAgentLabelMismatch(let expected, let actual):
+            return "Embedded LaunchAgent label mismatch: expected \(expected), found \(actual ?? "nil")."
+        case .missingBundledHelper(let binaryName):
+            return "Embedded helper missing from app bundle: \(binaryName)."
+        case .bundledHelperNotExecutable(let binaryName):
+            return "Embedded helper is not executable: \(binaryName)."
+        case .missingInstalledHelper(let binaryName):
+            return "Installed helper missing from dev engine directory: \(binaryName)."
+        case .installedHelperNotExecutable(let binaryName):
+            return "Installed helper is not executable: \(binaryName)."
+        }
+    }
+}
+
+enum DevEmbeddedEngineSmokeGate {
+    static let runEnvKey = "SOYEHT_DEV_ENGINE_SMOKE"
+    static let resultEnvKey = "SOYEHT_DEV_ENGINE_SMOKE_RESULT"
+    static let strictEnvKey = "SOYEHT_DEV_ENGINE_SMOKE_STRICT"
+    static let requiredBundleIdentifier = "com.soyeht.mac.dev"
+
+    enum Decision: Equatable {
+        case notRequested
+        case refused(reason: String)
+        case run
+    }
+
+    static func decision(
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) -> Decision {
+        guard environment[runEnvKey] == "1" else { return .notRequested }
+        guard profile.kind == .dev else { return .refused(reason: "install_profile_not_dev") }
+        guard bundleIdentifier == requiredBundleIdentifier else {
+            return .refused(reason: "bundle_identifier_not_dev")
+        }
+        guard profile.engineLaunchdLabel == "com.soyeht.engine.dev" else {
+            return .refused(reason: "launchagent_label_not_dev")
+        }
+        return .run
+    }
+
+    static func strictMode(environment: [String: String]) -> Bool {
+        environment[strictEnvKey] == "1"
+    }
+}
