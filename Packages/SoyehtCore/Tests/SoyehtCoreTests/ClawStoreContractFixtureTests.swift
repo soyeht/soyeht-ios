@@ -173,6 +173,9 @@ struct ClawStoreContractFixtureTests {
             "admin_rename_workspace", "admin_delete_workspace",
             "household_list_workspaces", "household_create_workspace",
             "household_rename_workspace", "household_delete_workspace",
+            // C4.2b-1 terminal attach-token mint (HTTP JSON; the WS PTY routes
+            // arrive in C4.2b-2 with the kind: websocket_upgrade schema).
+            "household_attach_token",
         ]
         #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
     }
@@ -588,6 +591,33 @@ struct ClawStoreContractFixtureTests {
             #expect(route.householdOperation == "claws.use")
             assertHouseholdPoP(request)
         }
+    }
+
+    /// C4.2b-1: the household terminal attach-token MINT route (HTTP JSON) binds the
+    /// real client request to the contract (method/path/auth + householdOperation +
+    /// PoP), and the neutral mint golden decodes with the Swift DTO. The WS PTY
+    /// routes that consume this token arrive in C4.2b-2 (kind: websocket_upgrade).
+    @Test func attachTokenMintRouteBindsClientRequestAndDecodesFixture() async throws {
+        let container = "picoclaw-alpha"
+        let householdEndpoint = try #require(URL(string: "http://100.64.0.10:8091"))
+        let route = try route("household_attach_token")
+
+        ClawStoreContractURLProtocol.reset(responseData: try fixtureData("household_attach_token_minted"))
+        let client = try makeHouseholdClient()
+        let minted = try await client.mintHouseholdTerminalAttachToken(
+            container: container, workspaceId: "ws-alpha", householdEndpoint: householdEndpoint)
+
+        let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+        #expect(request.httpMethod == route.method)
+        #expect(request.url?.path == route.path(container: container))
+        #expect(route.authKind == "household_pop")
+        #expect(route.householdOperation == "claws.use")
+        let authorization = request.value(forHTTPHeaderField: "Authorization")
+        #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
+        #expect(authorization?.contains("Bearer") == false)
+        #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        #expect(minted.token == "attach-token-alpha")
+        #expect(minted.expiresAt == 1_810_000_000)
     }
 
     @Test func sharedActionAndErrorFixturesDecodeWithSwiftDTOs() throws {
