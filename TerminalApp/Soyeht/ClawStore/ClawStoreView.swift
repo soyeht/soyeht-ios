@@ -42,10 +42,10 @@ private struct ResolvedClawStoreView: View {
     init(installTarget: ClawInstallTarget, resolution: ClawInstallTargetResolver.Resolution) {
         self.installTarget = installTarget
         self.resolution = resolution
-        guard let target = resolution.apiTarget else {
-            preconditionFailure("ResolvedClawStoreView requires a Claw API target")
-        }
-        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(target: target))
+        // E2d-4: pass the canonical `ClawMachineTarget` (`resolution`) directly —
+        // it carries the serverID; `resolution.apiTarget` is the lossy wire form.
+        // The view model preconditions on `.unavailable`.
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(machineTarget: resolution))
         _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
             initialState: GuestImageReadinessClient.initialState(
                 for: installTarget,
