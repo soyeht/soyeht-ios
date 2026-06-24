@@ -6,7 +6,12 @@ import SoyehtCore
 /// is only rendered when the caller asks for it.
 struct MacClawCardView: View {
     let claw: Claw
-    var showInstallButton: Bool = false
+    /// E2a: the live guest-image readiness, so the dedicated Store card consults
+    /// the SAME `MacClawInstallDecision` as the drawer instead of a pre-computed
+    /// bool + an inline `.notInstalled`-only rule (which made `.installFailed` a
+    /// dead-end on the card while the drawer/detail/iOS all offer retry). Defaults
+    /// to `.unavailable` (fail-closed) for any card rendered without readiness.
+    var readiness: MacGuestImageGateState = .unavailable
     var onInstall: (() -> Void)?
     var onTap: (() -> Void)?
 
@@ -61,8 +66,11 @@ struct MacClawCardView: View {
 
             // Install button lives outside the navigation button so clicks
             // on it do NOT also trigger navigation.
-            if showInstallButton, claw.installability.isInstallable,
-               case .notInstalled = claw.installState, let onInstall {
+            // E2a: the single shared decision — same as the drawer row — so the
+            // Store card can't diverge (now offers retry on `.installFailed`, and
+            // honors the guest-image readiness gate). No rule re-derived here.
+            if MacClawInstallDecision.canOfferInstall(claw: claw, readiness: readiness, isInstalling: false),
+               let onInstall {
                 Button(action: onInstall) {
                     Text("claw.card.button.install")
                         .font(MacTypography.Fonts.clawActionButton)
