@@ -30,14 +30,7 @@ enum EnginePackager {
     static let engineDestinationURL: URL =
         engineDestinationDirectory.appendingPathComponent("theyos-engine")
 
-    private static let supportBinaryNames = [
-        "theyos-engine",
-        "vmrunner_macos_ipc",
-        "store-ipc",
-        "terminal-ipc",
-        "theyos-ssh",
-        "theyos-provision-inject",
-    ]
+    private static let supportBinaryNames = EmbeddedEngineSupportBundleSpec.supportBinaryNames
 
     static let apnsKeyDestinationURL: URL =
         soyehtSupportDirectory.appendingPathComponent("apns.p8")

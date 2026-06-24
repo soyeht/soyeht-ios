@@ -5,6 +5,7 @@
 
 import Cocoa
 import ApplicationServices
+import Darwin
 import SoyehtCore
 
 @MainActor
@@ -45,6 +46,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        #if DEBUG
+        if DevEmbeddedEngineSmokeRunner.startIfRequested() {
+            return
+        }
+        #endif
+
         mainMenuController.installProgrammaticMainMenuIfNeeded()
         AppEnvironment.workspaceStore = workspaceStore
         AppEnvironment.conversationStore = conversationStore
@@ -2778,6 +2785,261 @@ enum WorkspaceSwitchBenchmark {
 
         private func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
         private static func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
+    }
+}
+
+private enum DevEmbeddedEngineSmokeRunner {
+    static func startIfRequested() -> Bool {
+        let environment = ProcessInfo.processInfo.environment
+        let bundleIdentifier = Bundle.main.bundleIdentifier
+        let profile = SoyehtInstallProfile.current
+
+        switch DevEmbeddedEngineSmokeGate.decision(
+            environment: environment,
+            bundleIdentifier: bundleIdentifier,
+            profile: profile
+        ) {
+        case .notRequested:
+            return false
+        case .refused(let reason):
+            finish(
+                result: result(
+                    status: "refused",
+                    reason: reason,
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                ),
+                exitCode: 0,
+                environment: environment
+            )
+            return true
+        case .run:
+            Task {
+                await run(
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                )
+            }
+            return true
+        }
+    }
+
+    private static func run(
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) async {
+        let strict = DevEmbeddedEngineSmokeGate.strictMode(environment: environment)
+        let probe = EmbeddedEngineBundleProbe(bundleURL: Bundle.main.bundleURL, profile: profile)
+
+        do {
+            let bundled = try probe.validateBundledSupport()
+            try EnginePackager.install()
+            let installedHelperCount = try probe.validateInstalledSupport(
+                at: EnginePackager.engineDestinationDirectory
+            )
+            try SMAppServiceInstaller.register()
+
+            let healthy = await TheyOSHealthProber().waitForHealthy(timeout: 30)
+            guard healthy else { throw DevEmbeddedEngineSmokeError.healthTimeout }
+
+            let bootstrap = try await HealthCheckPoller(
+                baseURL: TheyOSEnvironment.bootstrapBaseURL
+            ).pollUntilReady()
+
+            finish(
+                result: result(
+                    status: "passed",
+                    reason: nil,
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile,
+                    bundledHelperCount: bundled.bundledHelperCount,
+                    installedHelperCount: installedHelperCount,
+                    bootstrapState: bootstrap.state.rawValue,
+                    checks: [
+                        "dev_bundle_gate",
+                        "embedded_launchagent_probe",
+                        "support_helper_install",
+                        "dev_launchagent_register",
+                        "health_probe",
+                        "bootstrap_status_probe",
+                    ]
+                ),
+                exitCode: 0,
+                environment: environment
+            )
+        } catch SMAppServiceInstaller.InstallerError.requiresApproval {
+            finishRecoverableSkip(
+                reason: "login_items_approval_required",
+                strict: strict,
+                environment: environment,
+                bundleIdentifier: bundleIdentifier,
+                profile: profile
+            )
+        } catch PollerError.engineUnreachable {
+            finishRecoverableSkip(
+                reason: "bootstrap_status_unreachable",
+                strict: strict,
+                environment: environment,
+                bundleIdentifier: bundleIdentifier,
+                profile: profile
+            )
+        } catch DevEmbeddedEngineSmokeError.healthTimeout {
+            finishRecoverableSkip(
+                reason: "health_timeout",
+                strict: strict,
+                environment: environment,
+                bundleIdentifier: bundleIdentifier,
+                profile: profile
+            )
+        } catch {
+            finish(
+                result: result(
+                    status: "failed",
+                    reason: publicReason(for: error),
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                ),
+                exitCode: 1,
+                environment: environment
+            )
+        }
+    }
+
+    private static func finishRecoverableSkip(
+        reason: String,
+        strict: Bool,
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) {
+        finish(
+            result: result(
+                status: strict ? "failed" : "skipped",
+                reason: reason,
+                environment: environment,
+                bundleIdentifier: bundleIdentifier,
+                profile: profile
+            ),
+            exitCode: strict ? 1 : 0,
+            environment: environment
+        )
+    }
+
+    private static func result(
+        status: String,
+        reason: String?,
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile,
+        bundledHelperCount: Int? = nil,
+        installedHelperCount: Int? = nil,
+        bootstrapState: String? = nil,
+        checks: [String] = []
+    ) -> SmokeResult {
+        SmokeResult(
+            status: status,
+            reason: reason,
+            strict: DevEmbeddedEngineSmokeGate.strictMode(environment: environment),
+            profileKind: profile.kind.rawValue,
+            bundleIdentifier: bundleIdentifier,
+            launchdLabel: profile.engineLaunchdLabel,
+            adminPort: profile.adminPort,
+            bootstrapPort: profile.bootstrapPort,
+            bundledHelperCount: bundledHelperCount,
+            installedHelperCount: installedHelperCount,
+            bootstrapState: bootstrapState,
+            checks: checks
+        )
+    }
+
+    private static func finish(
+        result: SmokeResult,
+        exitCode: Int32,
+        environment: [String: String]
+    ) {
+        write(result: result, environment: environment)
+        NSLog(
+            "[DevEmbeddedEngineSmoke] status=%@ reason=%@",
+            result.status,
+            result.reason ?? "none"
+        )
+        exit(exitCode)
+    }
+
+    private static func write(result: SmokeResult, environment: [String: String]) {
+        guard let path = environment[DevEmbeddedEngineSmokeGate.resultEnvKey],
+              !path.isEmpty else {
+            return
+        }
+
+        let url = URL(fileURLWithPath: path)
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(result).write(to: url, options: [.atomic])
+        } catch {
+            NSLog("[DevEmbeddedEngineSmoke] result_write_failed")
+        }
+    }
+
+    private static func publicReason(for error: Error) -> String {
+        switch error {
+        case EnginePackagerError.supportBinaryNotFound(_):
+            return "support_binary_missing"
+        case let error as EmbeddedEngineBundleProbeError:
+            switch error {
+            case .missingLaunchAgentPlist:
+                return "launchagent_plist_missing"
+            case .unreadableLaunchAgentPlist:
+                return "launchagent_plist_unreadable"
+            case .launchAgentLabelMismatch:
+                return "launchagent_label_mismatch"
+            case .missingBundledHelper:
+                return "bundled_helper_missing"
+            case .bundledHelperNotExecutable:
+                return "bundled_helper_not_executable"
+            case .missingInstalledHelper:
+                return "installed_helper_missing"
+            case .installedHelperNotExecutable:
+                return "installed_helper_not_executable"
+            }
+        case SMAppServiceInstaller.InstallerError.notFound:
+            return "launchagent_not_found"
+        case SMAppServiceInstaller.InstallerError.registrationDidNotEnable:
+            return "launchagent_registration_did_not_enable"
+        case SMAppServiceInstaller.InstallerError.registrationFailed(_):
+            return "launchagent_registration_failed"
+        default:
+            return "unexpected_error"
+        }
+    }
+
+    private struct SmokeResult: Encodable {
+        let status: String
+        let reason: String?
+        let strict: Bool
+        let profileKind: String
+        let bundleIdentifier: String?
+        let launchdLabel: String
+        let adminPort: Int
+        let bootstrapPort: Int
+        let bundledHelperCount: Int?
+        let installedHelperCount: Int?
+        let bootstrapState: String?
+        let checks: [String]
+    }
+
+    private enum DevEmbeddedEngineSmokeError: Error {
+        case healthTimeout
     }
 }
 #endif
