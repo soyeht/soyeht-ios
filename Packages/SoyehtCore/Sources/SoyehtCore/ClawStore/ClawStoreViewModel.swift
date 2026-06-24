@@ -10,6 +10,11 @@ public final class ClawStoreViewModel: ObservableObject {
     @Published public var actionError: String?
 
     private let apiClient: SoyehtAPIClient
+    /// E2d-4: the canonical, LOSSLESS target identity (`.server` /
+    /// `.householdEndpoint`, carries the serverID). `target` below is the derived
+    /// wire form — `ClawAPITarget.householdEndpoint(URL)` drops the serverID, so
+    /// it's unsuitable as cache/inventory identity. Callers pass `ClawMachineTarget`.
+    public let machineTarget: ClawMachineTarget
     private let target: ClawAPITarget
     private let sleeper: (UInt64) async throws -> Void
     private let onInstallComplete: (String, Bool) -> Void
@@ -17,45 +22,38 @@ public final class ClawStoreViewModel: ObservableObject {
 
     public var isPolling: Bool { pollingTask != nil }
 
+    /// Designated init. The target must resolve to a wire `ClawAPITarget`;
+    /// `.unavailable` is not a valid Store target — the UI must render an
+    /// unavailable state before constructing the view model.
     public init(
-        context: ServerContext,
-        apiClient: SoyehtAPIClient = .shared,
-        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
-        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
-    ) {
-        self.target = .server(context)
-        self.apiClient = apiClient
-        self.sleeper = sleeper
-        self.onInstallComplete = onInstallComplete
-    }
-
-    public convenience init(
         machineTarget: ClawMachineTarget,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
         onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
     ) {
         guard let target = machineTarget.apiTarget else {
-            preconditionFailure("ClawStoreViewModel requires a resolved ClawMachineTarget")
+            preconditionFailure("ClawStoreViewModel requires a resolved ClawMachineTarget (.server / .householdEndpoint)")
         }
-        self.init(
-            target: target,
-            apiClient: apiClient,
-            sleeper: sleeper,
-            onInstallComplete: onInstallComplete
-        )
-    }
-
-    public init(
-        target: ClawAPITarget,
-        apiClient: SoyehtAPIClient = .shared,
-        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
-        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
-    ) {
+        self.machineTarget = machineTarget
         self.target = target
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
+    }
+
+    /// Convenience for a bearer/cookie-authenticated paired server.
+    public convenience init(
+        context: ServerContext,
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+    ) {
+        self.init(
+            machineTarget: .server(context),
+            apiClient: apiClient,
+            sleeper: sleeper,
+            onInstallComplete: onInstallComplete
+        )
     }
 
     deinit {
