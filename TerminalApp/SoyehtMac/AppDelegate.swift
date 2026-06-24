@@ -2052,7 +2052,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             target.window?.makeKeyAndOrderFront(nil)
             return
         }
-        guard SessionStore.shared.currentContext() != nil else {
+        guard MacActiveServerContextResolver.activeContext() != nil else {
             openWelcomeWindow()
             return
         }
@@ -2066,7 +2066,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             showClawStoreComingSoonAlert()
             return
         }
-        guard let context = SessionStore.shared.currentContext() else {
+        guard let context = MacActiveServerContextResolver.activeContext() else {
             openWelcomeWindow()
             return
         }
@@ -2124,7 +2124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         closeStandaloneClawStoreWindow()
         SessionStore.shared.setActiveServer(id: localServer.id)
         DispatchQueue.main.async { [weak self] in
-            guard let context = SessionStore.shared.currentContext() else { return }
+            guard let context = MacActiveServerContextResolver.activeContext() else { return }
             self?.showStandaloneClawStore(context: context)
         }
     }
