@@ -1,8 +1,15 @@
+import SoyehtCore
 import XCTest
 
 final class EmbeddedEngineLaunchAgentTests: XCTestCase {
 
     // MARK: - Helpers
+
+    private struct ParsedCommand {
+        var assignments: [String: String]
+        var exports: [String: String]
+        var execCommand: String
+    }
 
     private func launchAgentsDirectory() -> URL {
         URL(fileURLWithPath: #filePath)
@@ -20,120 +27,191 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         )
     }
 
-    /// The `exec`-ed shell command (last ProgramArguments entry).
-    private func engineCommand(_ plist: [String: Any]) throws -> String {
-        let args = try XCTUnwrap(plist["ProgramArguments"] as? [String])
-        return try XCTUnwrap(args.last)
-    }
+    private func parseShellCommand(_ command: String) throws -> ParsedCommand {
+        var assignments = [String: String]()
+        var exports = [String: String]()
+        var execCommand: String?
 
-    /// Every `export KEY=` key in the command.
-    private func exportedKeys(_ command: String) -> Set<String> {
-        var keys = Set<String>()
-        for fragment in command.components(separatedBy: "export ").dropFirst() {
-            if let eq = fragment.firstIndex(of: "=") {
-                keys.insert(String(fragment[..<eq]))
+        for fragment in command.split(separator: ";") {
+            let statement = fragment.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !statement.isEmpty else { continue }
+
+            if statement.hasPrefix("export ") {
+                let assignment = String(statement.dropFirst("export ".count))
+                let (key, value) = try parseAssignment(assignment)
+                exports[key] = value
+            } else if statement.hasPrefix("exec ") {
+                execCommand = statement
+            } else {
+                let (key, value) = try parseAssignment(statement)
+                assignments[key] = value
             }
         }
-        return keys
-    }
 
-    // MARK: - Shipping engine (unchanged behaviour)
-
-    func test_launchAgentPointsEngineAtPackagedBootstrapToken() throws {
-        let command = try engineCommand(try plist(named: "com.soyeht.engine.plist"))
-
-        XCTAssertTrue(
-            command.contains("export THEYOS_BOOTSTRAP_TOKEN_PATH=\"$SOYEHT_DIR/bootstrap-token\""),
-            "The embedded engine must read the same bootstrap token that the macOS app packages."
-        )
-        XCTAssertTrue(
-            command.contains("export THEYOS_VM_ASSETS_DIR=\"$SOYEHT_DIR/vms\""),
-            "The embedded engine must keep VM assets under Soyeht's app support directory."
-        )
-        XCTAssertTrue(
-            command.contains("export THEYOS_VM_STATE_DIR=\"$SOYEHT_DIR/vms\""),
-            "The embedded engine must keep VM state under Soyeht's app support directory."
-        )
-        XCTAssertTrue(
-            command.contains("export THEYOS_SNAPSHOTS_DIR=\"$SOYEHT_DIR/snapshots\""),
-            "The embedded engine must keep snapshots under Soyeht's app support directory."
-        )
-        XCTAssertFalse(
-            command.contains(".theyos/bootstrap-token"),
-            "The embedded engine should not depend on legacy Homebrew bootstrap-token state."
+        return ParsedCommand(
+            assignments: assignments,
+            exports: exports,
+            execCommand: try XCTUnwrap(execCommand, "LaunchAgent command must end by exec'ing the engine")
         )
     }
 
-    func test_releaseLaunchAgent_keepsShippingNamespace() throws {
-        let p = try plist(named: "com.soyeht.engine.plist")
-        XCTAssertEqual(p["Label"] as? String, "com.soyeht.engine")
-        let command = try engineCommand(p)
-        XCTAssertTrue(command.contains("SOYEHT_DIR=\"$HOME/Library/Application Support/Soyeht\""))
-        XCTAssertTrue(command.contains("export ADMIN_PORT=\"8892\""))
-        XCTAssertTrue(command.contains("export ADDR=\"127.0.0.1:8892\""))
-        XCTAssertEqual(p["StandardOutPath"] as? String, "/tmp/soyeht-engine.log")
+    private func parseAssignment(_ assignment: String) throws -> (String, String) {
+        let equals = try XCTUnwrap(assignment.firstIndex(of: "="), "Expected shell assignment in LaunchAgent command")
+        let key = String(assignment[..<equals])
+        let rawValue = String(assignment[assignment.index(after: equals)...])
+        return (key, rawValue.removingShellQuotes())
     }
 
-    // MARK: - Developer engine (fully namespaced)
-
-    func test_devLaunchAgent_isFullyNamespaced() throws {
-        let p = try plist(named: "com.soyeht.engine.dev.plist")
-        XCTAssertEqual(p["Label"] as? String, "com.soyeht.engine.dev")
-        XCTAssertEqual(p["StandardOutPath"] as? String, "/tmp/soyehtdev-engine.log")
-        XCTAssertEqual(p["StandardErrorPath"] as? String, "/tmp/soyehtdev-engine.log")
-
-        let command = try engineCommand(p)
-        XCTAssertTrue(command.contains("SOYEHT_DIR=\"$HOME/Library/Application Support/SoyehtDev\""),
-                      "dev engine state must live under SoyehtDev, not Soyeht")
-        XCTAssertTrue(command.contains("export ADMIN_PORT=\"8902\""))
-        XCTAssertTrue(command.contains("export ADDR=\"127.0.0.1:8902\""))
-        XCTAssertTrue(command.contains("export THEYOS_HOUSEHOLD_PORT=\"8101\""),
-                      "dev household listener must use a distinct port so it never binds 8091 alongside the real engine")
-        XCTAssertTrue(command.contains("export THEYOS_VMRUNNER_SOCK=\"/tmp/soyehtdev-vmrunner-macos.sock\""),
-                      "dev vmrunner socket must not collide with the real engine's /tmp/vmrunner-macos.sock")
-        XCTAssertTrue(command.contains("export THEYOS_SESSION_DB=\"$SOYEHT_DIR/theyos-sessions.db\""),
-                      "dev session DB must be isolated, not the shared /tmp default")
-
-        // Must NOT leak any shipping-namespace token.
-        XCTAssertNotEqual(p["Label"] as? String, "com.soyeht.engine")
-        XCTAssertFalse(command.contains("Application Support/Soyeht\""),
-                       "dev command must never reference the real Soyeht support dir")
-        XCTAssertFalse(command.contains("ADMIN_PORT=\"8892\""))
-        XCTAssertFalse(command.contains("8091"))
+    private func programArguments(from plist: [String: Any]) throws -> [String] {
+        try XCTUnwrap(plist["ProgramArguments"] as? [String])
     }
 
-    func test_devAndReleaseEngines_doNotCollide() throws {
-        let release = try plist(named: "com.soyeht.engine.plist")
-        let dev = try plist(named: "com.soyeht.engine.dev.plist")
-
-        XCTAssertNotEqual(release["Label"] as? String, dev["Label"] as? String)
-        XCTAssertNotEqual(release["StandardOutPath"] as? String, dev["StandardOutPath"] as? String)
-
-        let rCommand = try engineCommand(release)
-        let dCommand = try engineCommand(dev)
-        // Distinct support dirs and admin ports — the two engines can run at once.
-        XCTAssertTrue(rCommand.contains("Application Support/Soyeht\""))
-        XCTAssertTrue(dCommand.contains("Application Support/SoyehtDev\""))
-        XCTAssertTrue(rCommand.contains("ADMIN_PORT=\"8892\""))
-        XCTAssertTrue(dCommand.contains("ADMIN_PORT=\"8902\""))
+    private func launchdEnvironment(from plist: [String: Any]) throws -> [String: String] {
+        try XCTUnwrap(plist["EnvironmentVariables"] as? [String: String])
     }
 
-    /// Drift guard: the dev plist must export every env var the shipping plist
-    /// does (plus the extra isolation overrides). If someone adds a new
-    /// `export THEYOS_*` to the shipping engine but forgets the dev plist, the
-    /// dev engine would silently fall back to a shared default — this fails loudly.
-    func test_devPlist_exportsSupersetOfReleaseEnv() throws {
-        let releaseKeys = exportedKeys(try engineCommand(try plist(named: "com.soyeht.engine.plist")))
-        let devKeys = exportedKeys(try engineCommand(try plist(named: "com.soyeht.engine.dev.plist")))
+    private func assertLaunchAgentMatchesSpec(
+        profile: SoyehtInstallProfile,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let spec = EmbeddedEngineLaunchAgentSpec(profile: profile)
+        let plist = try plist(named: spec.plistName)
+
+        XCTAssertEqual(plist["Label"] as? String, spec.launchdLabel, file: file, line: line)
+        XCTAssertEqual(plist["StandardOutPath"] as? String, spec.standardOutPath, file: file, line: line)
+        XCTAssertEqual(plist["StandardErrorPath"] as? String, spec.standardErrorPath, file: file, line: line)
+
+        let args = try programArguments(from: plist)
+        XCTAssertEqual(args.count, 3, "LaunchAgent must run a fixed shell wrapper shape", file: file, line: line)
+        XCTAssertEqual(args.first, spec.programExecutable, file: file, line: line)
+        XCTAssertEqual(args.dropFirst().first, spec.programShellFlag, file: file, line: line)
+
+        let parsedCommand = try parseShellCommand(try XCTUnwrap(args.last))
+        XCTAssertEqual(parsedCommand.assignments["SOYEHT_DIR"], spec.supportDirectoryShellValue, file: file, line: line)
+        XCTAssertEqual(parsedCommand.assignments["ENGINE_DIR"], spec.engineDirectoryShellValue, file: file, line: line)
+        XCTAssertEqual(parsedCommand.execCommand, spec.execCommand, file: file, line: line)
+
+        assertExportedEnvironment(parsedCommand.exports, matches: spec, file: file, line: line)
+        try assertLaunchdEnvironment(
+            launchdEnvironment(from: plist),
+            matches: spec,
+            shellExports: parsedCommand.exports,
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertExportedEnvironment(
+        _ exports: [String: String],
+        matches spec: EmbeddedEngineLaunchAgentSpec,
+        file: StaticString,
+        line: UInt
+    ) {
+        XCTAssertEqual(Set(exports.keys), spec.expectedExportedEnvironmentKeys, file: file, line: line)
+
+        for key in spec.exportedEnvironment.keys.sorted() {
+            XCTAssertEqual(
+                exports[key],
+                spec.exportedEnvironment[key],
+                "Wrong LaunchAgent export for \(key)",
+                file: file,
+                line: line
+            )
+        }
+
+        for key in spec.opaqueExportedEnvironmentKeys.sorted() {
+            guard let value = exports[key] else {
+                XCTFail("Missing opaque LaunchAgent export for \(key)", file: file, line: line)
+                continue
+            }
+            XCTAssertFalse(value.isEmpty, "Opaque LaunchAgent export \(key) must be non-empty", file: file, line: line)
+        }
+    }
+
+    private func assertLaunchdEnvironment(
+        _ launchdEnvironment: [String: String],
+        matches spec: EmbeddedEngineLaunchAgentSpec,
+        shellExports: [String: String],
+        file: StaticString,
+        line: UInt
+    ) throws {
+        XCTAssertEqual(Set(launchdEnvironment.keys), spec.launchdEnvironmentKeys, file: file, line: line)
+
+        for key in spec.launchdEnvironmentKeys.sorted() {
+            let launchdValue = try XCTUnwrap(
+                launchdEnvironment[key],
+                "Missing LaunchAgent EnvironmentVariables entry for \(key)",
+                file: file,
+                line: line
+            )
+            let shellValue = try XCTUnwrap(
+                shellExports[key],
+                "Missing matching shell export for LaunchAgent EnvironmentVariables entry \(key)",
+                file: file,
+                line: line
+            )
+
+            XCTAssertFalse(launchdValue.isEmpty, "LaunchAgent EnvironmentVariables entry \(key) must be non-empty", file: file, line: line)
+            XCTAssertFalse(shellValue.isEmpty, "Shell export \(key) must be non-empty", file: file, line: line)
+            if launchdValue != shellValue {
+                XCTFail("Opaque LaunchAgent value mismatch for \(key)", file: file, line: line)
+            }
+        }
+    }
+
+    private func parsedExports(profile: SoyehtInstallProfile) throws -> [String: String] {
+        let spec = EmbeddedEngineLaunchAgentSpec(profile: profile)
+        let plist = try plist(named: spec.plistName)
+        let command = try parseShellCommand(try XCTUnwrap(programArguments(from: plist).last))
+        return command.exports
+    }
+
+    // MARK: - Spec validation
+
+    func test_releaseLaunchAgent_matchesInstallProfileSpec() throws {
+        try assertLaunchAgentMatchesSpec(profile: .release)
+    }
+
+    func test_devLaunchAgent_matchesInstallProfileSpec() throws {
+        try assertLaunchAgentMatchesSpec(profile: .dev)
+    }
+
+    func test_devLaunchAgent_exportsReleaseSupersetAndDevOnlyOverrides() throws {
+        let releaseExports = try parsedExports(profile: .release)
+        let devExports = try parsedExports(profile: .dev)
+        let devSpec = EmbeddedEngineLaunchAgentSpec(profile: .dev)
 
         XCTAssertTrue(
-            releaseKeys.isSubset(of: devKeys),
-            "dev plist is missing env exports present in the shipping plist: \(releaseKeys.subtracting(devKeys))"
+            Set(releaseExports.keys).isSubset(of: Set(devExports.keys)),
+            "dev plist is missing env exports present in the shipping plist: \(Set(releaseExports.keys).subtracting(devExports.keys))"
         )
-        // The isolation-critical overrides are dev-only additions (env vars
-        // whose engine defaults are shared fixed paths/ports/URLs).
-        XCTAssertTrue(devKeys.isSuperset(of: [
-            "THEYOS_HOUSEHOLD_PORT", "THEYOS_VMRUNNER_SOCK", "THEYOS_SESSION_DB", "THEYOS_LLM_PROXY_URL",
-        ]))
+        XCTAssertTrue(
+            Set(devExports.keys).isSuperset(of: devSpec.devOnlyExportedEnvironmentKeys),
+            "dev plist is missing dev-only isolation exports: \(devSpec.devOnlyExportedEnvironmentKeys.subtracting(devExports.keys))"
+        )
+        XCTAssertTrue(
+            devSpec.forwardCompatibleExportedEnvironmentKeys.isSubset(of: Set(devExports.keys)),
+            "dev plist must keep forward-compatible Caddy/LLM exports present without claiming current theyos runtime consumption"
+        )
+    }
+
+    func test_releaseLaunchAgent_doesNotExportDevOnlyRuntimeOverrides() throws {
+        let releaseKeys = Set(try parsedExports(profile: .release).keys)
+        let devOnlyKeys = EmbeddedEngineLaunchAgentSpec(profile: .dev).devOnlyExportedEnvironmentKeys
+
+        XCTAssertTrue(
+            releaseKeys.isDisjoint(with: devOnlyKeys),
+            "shipping plist must not export dev-only runtime overrides: \(releaseKeys.intersection(devOnlyKeys))"
+        )
+    }
+}
+
+private extension String {
+    func removingShellQuotes() -> String {
+        guard hasPrefix("\""), hasSuffix("\""), count >= 2 else {
+            return self
+        }
+        return String(dropFirst().dropLast())
     }
 }
