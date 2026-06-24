@@ -5,13 +5,19 @@ import SoyehtCore
 /// gate. AppKit-free (Foundation + SoyehtCore) so it is unit-testable in the
 /// `SoyehtMacDomain` swift-test package. It consumes the SHARED
 /// ``GuestImageRecoveryPolicy`` for the action/CTA semantics (no rule duplication)
-/// and supplies macOS-native copy. The mutating "Prepare / Try Again" CTA is
-/// intentionally NOT offered here — this slice exposes only the read-only
-/// "Check Again" (status re-fetch); a prepare retry is a separate follow-up.
+/// and supplies macOS-native copy. The CTA each banner shows comes straight from
+/// the policy: a mutating prepare is offered ONLY when the policy returns
+/// `.prepare` — `.notStarted` (start preparation, E1c) and on-device-recoverable
+/// failures (retry) — while every other blocked state exposes only the read-only
+/// "Check Again" (status re-fetch). No blind retry.
 struct MacGuestImageBannerContent: Equatable {
     enum Kind: Equatable {
         case checking
         case preparing
+        /// E1c: the engine has a guest VM but preparation has not begun, and the
+        /// engine will not auto-start it — the banner offers a mutating "Prepare
+        /// this Mac" CTA. Distinct from `.preparing` (already running).
+        case notStarted
         case failed(GuestImageFailureCode?)
         case unavailable
     }
@@ -89,6 +95,29 @@ enum MacGuestImageRecovery {
                     instruction: nil,
                     // Re-fetch to see progress; not a prepare retry.
                     cta: .checkAgain
+                )
+            }
+            // E1c: not failed and not preparing → `.notStarted`. Preparation has
+            // not begun and the engine will not auto-start it on a status fetch,
+            // so offer the mutating "Prepare this Mac" CTA (the `onPrepare` path is
+            // already wired in MacClawStoreRootView and the drawer's
+            // DrawerStoreContent). Parity with iOS's `.notStarted` card.
+            if !presentation.isFailed {
+                return MacGuestImageBannerContent(
+                    kind: .notStarted,
+                    title: LocalizedStringResource(
+                        "macClawStore.guestImage.notStarted.title",
+                        defaultValue: "Set up this Mac to install",
+                        comment: "macOS Claw Store banner when a Mac has not yet prepared its guest image."
+                    ),
+                    body: LocalizedStringResource(
+                        "macClawStore.guestImage.notStarted.body",
+                        defaultValue: "Soyeht can prepare this Mac to run claws. It downloads and prepares the macOS base image — this usually takes 30 minutes or more.",
+                        comment: "macOS Claw Store body when a Mac has not yet prepared its guest image."
+                    ),
+                    instruction: nil,
+                    // Mutating prepare (start). From the shared policy: `.prepare`.
+                    cta: presentation.cta
                 )
             }
             // Failed: reason-coded copy. The CTA comes straight from the shared

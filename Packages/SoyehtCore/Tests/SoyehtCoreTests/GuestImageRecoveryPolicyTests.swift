@@ -21,15 +21,31 @@ import Testing
         #expect(GuestImageRecoveryPolicy.presentation(for: .notApplicable) == nil)
     }
 
-    @Test func preparingStatesAreMarkedPreparingWithNoAction() {
-        for readiness in [GuestImageReadiness.notStarted, .inProgress(phase: "download_ipsw")] {
-            let p = try! #require(GuestImageRecoveryPolicy.presentation(for: readiness))
-            #expect(p.isPreparing)
-            #expect(!p.isFailed)
-            #expect(p.action == GuestImageRecoveryAction.none)
-            #expect(p.cta == .none)
-            #expect(p.failureCode == nil)
-        }
+    @Test func inProgressIsMarkedPreparingWithNoAction() {
+        let p = try! #require(GuestImageRecoveryPolicy.presentation(for: .inProgress(phase: "download_ipsw")))
+        #expect(p.isPreparing)
+        #expect(!p.isFailed)
+        #expect(p.action == GuestImageRecoveryAction.none)
+        #expect(p.cta == .none)
+        #expect(p.failureCode == nil)
+    }
+
+    /// E1c: `.notStarted` is DISTINCT from `.inProgress`. Prep has not begun and
+    /// the engine won't auto-start it, so the policy offers the mutating prepare
+    /// CTA (not "preparing", not no-CTA). This is the core regression guard for
+    /// the never-prepared-Mac dead-end.
+    @Test func notStartedOffersPrepareAndIsNotPreparing() {
+        let notStarted = try! #require(GuestImageRecoveryPolicy.presentation(for: .notStarted))
+        #expect(notStarted.cta == .prepare)
+        #expect(!notStarted.isPreparing)
+        #expect(!notStarted.isFailed)
+        #expect(notStarted.isRecoverableOnDevice)
+        #expect(notStarted.failureCode == nil)
+
+        // notStarted must not be confused with inProgress.
+        let inProgress = try! #require(GuestImageRecoveryPolicy.presentation(for: .inProgress(phase: "x")))
+        #expect(notStarted.cta != inProgress.cta)
+        #expect(notStarted.isPreparing != inProgress.isPreparing)
     }
 
     @Test func hostVmLimitMapsToRestartCheckAgain() {
