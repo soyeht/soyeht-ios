@@ -41,16 +41,27 @@ struct MacGuestImageRecoveryBanner: View {
                     Button {
                         onPrepare()
                     } label: {
-                        Text(LocalizedStringResource(
-                            "macClawStore.guestImage.action.tryAgain",
-                            defaultValue: "Try Again",
-                            comment: "macOS Claw Store CTA that re-invokes guest-image preparation (mutating)."
-                        ))
+                        // E1c: a never-prepared Mac (`.notStarted`) reads "Prepare
+                        // this Mac" (first run); a recoverable failure reads "Try
+                        // Again". Both drive the same mutating `onPrepare`.
+                        Text(content.kind == .notStarted
+                            ? LocalizedStringResource(
+                                "macClawStore.guestImage.action.prepareThisMac",
+                                defaultValue: "Prepare this Mac",
+                                comment: "macOS Claw Store CTA that starts guest-image preparation on a Mac that has not begun (mutating)."
+                            )
+                            : LocalizedStringResource(
+                                "macClawStore.guestImage.action.tryAgain",
+                                defaultValue: "Try Again",
+                                comment: "macOS Claw Store CTA that re-invokes guest-image preparation (mutating)."
+                            ))
                         .font(MacTypography.Fonts.clawActionButton)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isPreparing)
-                    .accessibilityIdentifier("soyeht.macClawStore.guestImage.tryAgain")
+                    .accessibilityIdentifier(content.kind == .notStarted
+                        ? "soyeht.macClawStore.guestImage.prepareThisMac"
+                        : "soyeht.macClawStore.guestImage.tryAgain")
                 case .checkAgain:
                     Button {
                         onCheckAgain()
