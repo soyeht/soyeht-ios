@@ -144,7 +144,7 @@ private final class ClawDrawerViewModel: ObservableObject {
         }
     }
 
-    func install(_ claw: Claw) {
+    func install(_ claw: Claw, readiness: MacGuestImageGateState) {
         guard let context, !installingClaws.contains(claw.name) else { return }
         // Installability gate (theyos #88): unlike the SwiftUI surfaces this
         // controller calls `apiClient.installClaw` directly, so it must apply
@@ -158,6 +158,13 @@ private final class ClawDrawerViewModel: ObservableObject {
             )
             return
         }
+        // E1: guest-image readiness gate (defense-in-depth). The store row already
+        // hides Install while readiness blocks, but the action re-checks the LIVE
+        // readiness at tap time — never trusting only the row's last-rendered
+        // state — so a stale/racing tap can't POST an install the dedicated Store
+        // window would block. The recovery banner explains the blocked state, so
+        // this is a silent no-op rather than a raw backend `GUEST_IMAGE_NOT_READY`.
+        guard MacClawInstallDecision.shouldIssueInstall(claw: claw, readiness: readiness) else { return }
         installingClaws.insert(claw.name)
         actionError = nil
         Task { @MainActor [weak self] in
@@ -394,43 +401,13 @@ private struct ClawDrawerRootView: View {
     private var storeView: some View {
         VStack(spacing: 0) {
             header(title: String(localized: "drawer.header.clawStore"), showsBack: true)
-            searchField(text: $storeSearchText, placeholder: String(localized: "drawer.search.store"))
-
-            if viewModel.isLoading && viewModel.catalogClaws.isEmpty {
-                loadingView
-            } else if filteredCatalogClaws.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "tray")
-                        .font(MacTypography.Fonts.drawerEmptyIcon)
-                        .foregroundColor(ClawDrawerTokens.textMuted)
-                    Text("No claws found")
-                        .font(MacTypography.Fonts.drawerEmptyTitle)
-                        .foregroundColor(ClawDrawerTokens.textMuted)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(filteredCatalogClaws) { claw in
-                            CompactClawStoreRow(
-                                claw: claw,
-                                isInstalling: viewModel.installingClaws.contains(claw.name),
-                                onInstall: { viewModel.install(claw) }
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                }
-            }
-
-            if let error = viewModel.actionError {
-                Text(error)
-                    .font(MacTypography.Fonts.drawerError)
-                    .foregroundColor(ClawDrawerTokens.warning)
-                    .lineLimit(3)
-                    .padding(12)
+            if let context = viewModel.context {
+                // E1: the store content owns the guest-image readiness gate, keyed
+                // to the active server so a server switch rebuilds it (and its poll
+                // task) cleanly. `viewModel.context` is non-nil here — the parent
+                // `content` switch renders `theyOSMissingView` when it is nil.
+                DrawerStoreContent(viewModel: viewModel, context: context, searchText: $storeSearchText)
+                    .id(context.serverId)
             }
         }
     }
@@ -498,16 +475,6 @@ private struct ClawDrawerRootView: View {
             $0.title.localizedCaseInsensitiveContains(needle)
             || $0.subtitle.localizedCaseInsensitiveContains(needle)
             || $0.badge.localizedCaseInsensitiveContains(needle)
-        }
-    }
-
-    private var filteredCatalogClaws: [Claw] {
-        let needle = storeSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return viewModel.catalogClaws }
-        return viewModel.catalogClaws.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-            || $0.language.localizedCaseInsensitiveContains(needle)
-            || $0.description.localizedCaseInsensitiveContains(needle)
         }
     }
 
@@ -651,9 +618,147 @@ private struct ClawDrawerRowView: View {
     }
 }
 
+/// E1: the store route's content below the header. Owns the guest-image
+/// readiness gate (the parent keys it by `serverId` via `.id`, so a server
+/// switch rebuilds it and cancels its poll cleanly) and renders the shared
+/// `MacGuestImageRecoveryBanner`, so the drawer's install surface enforces the
+/// SAME readiness gate as the dedicated Store window. Catalog data still comes
+/// from `ClawDrawerViewModel` — this view adds NO fetch/cache (that is E2).
+private struct DrawerStoreContent: View {
+    @ObservedObject var viewModel: ClawDrawerViewModel
+    let context: ServerContext
+    @Binding var searchText: String
+
+    @StateObject private var readiness: MacGuestImageReadinessModel
+
+    init(viewModel: ClawDrawerViewModel, context: ServerContext, searchText: Binding<String>) {
+        self.viewModel = viewModel
+        self.context = context
+        self._searchText = searchText
+        self._readiness = StateObject(wrappedValue: MacGuestImageReadinessModel(server: context.server))
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            searchField
+
+            // Reuses the dedicated Store window's recovery banner verbatim — no
+            // new copy. Self-gates: renders nothing when install is allowed.
+            MacGuestImageRecoveryBanner(
+                state: readiness.state,
+                onCheckAgain: { Task { await readiness.recheck() } },
+                onPrepare: { Task { await readiness.prepare() } },
+                isRechecking: readiness.isRechecking,
+                isPreparing: readiness.isPreparing
+            )
+            .padding(.horizontal, 10)
+
+            if viewModel.isLoading && viewModel.catalogClaws.isEmpty {
+                loadingView
+            } else if filteredClaws.isEmpty {
+                emptyView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(filteredClaws) { claw in
+                            CompactClawStoreRow(
+                                claw: claw,
+                                isInstalling: viewModel.installingClaws.contains(claw.name),
+                                readiness: readiness.state,
+                                onInstall: { viewModel.install(claw, readiness: readiness.state) }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                }
+            }
+
+            if let error = viewModel.actionError {
+                Text(error)
+                    .font(MacTypography.Fonts.drawerError)
+                    .foregroundColor(ClawDrawerTokens.warning)
+                    .lineLimit(3)
+                    .padding(12)
+            }
+        }
+        .task { await pollReadiness() }
+    }
+
+    private var filteredClaws: [Claw] {
+        let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return viewModel.catalogClaws }
+        return viewModel.catalogClaws.filter {
+            $0.name.localizedCaseInsensitiveContains(needle)
+            || $0.language.localizedCaseInsensitiveContains(needle)
+            || $0.description.localizedCaseInsensitiveContains(needle)
+        }
+    }
+
+    /// Poll the readiness gate to a terminal state, mirroring
+    /// `MacClawStoreRootView.pollReadiness`. The `.task` is cancelled when the
+    /// view disappears or its `.id` (serverId) changes, so no poll task leaks
+    /// across a server switch.
+    private func pollReadiness() async {
+        while readiness.state.needsFetch, !Task.isCancelled {
+            await readiness.refresh()
+            guard readiness.state.needsFetch, !Task.isCancelled else { break }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(MacTypography.Fonts.drawerSearchIcon)
+                .foregroundColor(ClawDrawerTokens.textMuted)
+            TextField(String(localized: "drawer.search.store"), text: $searchText)
+                .textFieldStyle(.plain)
+                .font(MacTypography.Fonts.drawerSearchText)
+                .foregroundColor(ClawDrawerTokens.textPrimary)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 30)
+        .background(ClawDrawerTokens.panel)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .tint(ClawDrawerTokens.accent)
+                .scaleEffect(0.8)
+            Text("loading")
+                .font(MacTypography.Fonts.drawerLoading)
+                .foregroundColor(ClawDrawerTokens.textMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "tray")
+                .font(MacTypography.Fonts.drawerEmptyIcon)
+                .foregroundColor(ClawDrawerTokens.textMuted)
+            Text("No claws found")
+                .font(MacTypography.Fonts.drawerEmptyTitle)
+                .foregroundColor(ClawDrawerTokens.textMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 private struct CompactClawStoreRow: View {
     let claw: Claw
     let isInstalling: Bool
+    let readiness: MacGuestImageGateState
     let onInstall: () -> Void
 
     var body: some View {
@@ -708,16 +813,13 @@ private struct CompactClawStoreRow: View {
     }
 
     private var canInstall: Bool {
-        if isInstalling { return false }
-        // Backend installability (theyos #88) is authoritative; never offer
-        // Install for a claw the backend marks non-installable.
-        guard claw.installability.isInstallable else { return false }
-        switch claw.installState {
-        case .notInstalled, .installFailed:
-            return true
-        default:
-            return false
-        }
+        // E1: the drawer's install decision — backend installability (theyos #88)
+        // + install-state eligibility + guest-image readiness — so the drawer
+        // can't offer an install the dedicated Store window would gate. The drawer
+        // row and the drawer install action consult the SAME `MacClawInstallDecision`
+        // (no inline re-derivation); it mirrors the Store's readiness gate.
+        // Cross-surface convergence is E2.
+        MacClawInstallDecision.canOfferInstall(claw: claw, readiness: readiness, isInstalling: isInstalling)
     }
 
     private var stateLabel: String {
