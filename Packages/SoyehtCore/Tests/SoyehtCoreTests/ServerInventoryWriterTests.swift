@@ -305,6 +305,32 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
+    /// D2b: pin the LIVE credential-rekey wiring in `ServerRegistry` so it can't
+    /// silently regress. The facade guard above only proves it doesn't bypass the
+    /// writer; it would NOT catch someone dropping `tokenOwnedIDs:` or the rekeyer,
+    /// which would quietly re-open the 4a session-token orphan.
+    func test_serverRegistryWiresLiveCredentialRekeyer() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
+        )
+        let tokenWirings = source.components(
+            separatedBy: "tokenOwnedIDs: SessionStore.shared.serverTokenOwnerIDs()"
+        ).count - 1
+        let rekeyerWirings = source.components(
+            separatedBy: "credentialRekeyer: Self.sessionTokenRekeyer"
+        ).count - 1
+
+        XCTAssertEqual(tokenWirings, 2,
+            "ServerRegistry must pass live tokenOwnedIDs at BOTH migrateLegacyIfNeeded and reconcileLegacy.")
+        XCTAssertEqual(rekeyerWirings, 2,
+            "ServerRegistry must pass the credential rekeyer at BOTH migrate and reconcile sites.")
+        XCTAssertTrue(
+            source.contains("SessionStore.shared.copyServerTokenIfMissing(from: loserID, to: winnerID)"),
+            "sessionTokenRekeyer must call the live SessionStore.copyServerTokenIfMissing(from:to:)."
+        )
+    }
+
     func test_sessionStoreUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(

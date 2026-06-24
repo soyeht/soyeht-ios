@@ -760,6 +760,33 @@ public final class SessionStore: ObservableObject {
         }
     }
 
+    /// D2: the set of server ids that currently own a session token. The Mac dedup
+    /// uses this (alongside pairing-secret ownership) to prefer a survivor that
+    /// holds both credential types, minimizing the re-keys needed.
+    public func serverTokenOwnerIDs() -> Set<String> {
+        withStorageLock {
+            Set(loadServerTokens().keys)
+        }
+    }
+
+    /// D2: COPY a dropped loser's session token onto the surviving winner id, IFF
+    /// the loser has a token and the winner does not (no-clobber). The loser's
+    /// token is left in place (copy-not-remove — orphan cleanup is a later slice).
+    /// Idempotent (re-running is a no-op once the winner has a token). Returns
+    /// false only if the write did not persist (fail-closed — the dedup boundary
+    /// then keeps the loser so its token is never orphaned).
+    @discardableResult
+    public func copyServerTokenIfMissing(from loserID: String, to winnerID: String) -> Bool {
+        withStorageLock {
+            var tokens = loadServerTokens()
+            guard let loserToken = tokens[loserID] else { return true }  // nothing to copy
+            if tokens[winnerID] != nil { return true }                   // no-clobber
+            tokens[winnerID] = loserToken
+            saveServerTokens(tokens)
+            return loadServerTokens()[winnerID] == loserToken            // verify it persisted
+        }
+    }
+
     // MARK: - Migration
 
     private func migrateIfNeeded() {
