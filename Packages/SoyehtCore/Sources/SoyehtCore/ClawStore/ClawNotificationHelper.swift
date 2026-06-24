@@ -29,6 +29,10 @@ public enum ClawStoreNotifications {
 public enum ClawNotificationHelper {
 
     public static func requestPermissionIfNeeded() {
+        // `UNUserNotificationCenter.current()` requires a real `.app` bundle and
+        // traps otherwise; a SwiftPM unit-test runner is `/usr/bin/xctest`, not an
+        // app. Real iOS/macOS apps (incl. the iOS app test host) are `.app`s.
+        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             if settings.authorizationStatus == .notDetermined {
