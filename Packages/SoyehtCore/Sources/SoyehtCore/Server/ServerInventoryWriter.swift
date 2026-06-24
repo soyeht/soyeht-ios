@@ -33,13 +33,29 @@ public struct ServerInventoryWriter: Sendable {
         store.remove(id: id)
     }
 
-    public func migrateLegacyIfNeeded(seed: [Server], secretOwnedIDs: Set<String> = []) {
-        store.migrateLegacyIfNeeded(seed: seed, secretOwnedIDs: secretOwnedIDs)
+    public func migrateLegacyIfNeeded(
+        seed: [Server],
+        secretOwnedIDs: Set<String> = [],
+        tokenOwnedIDs: Set<String> = [],
+        credentialRekeyer: ServerStore.CredentialRekeyer? = nil
+    ) {
+        store.migrateLegacyIfNeeded(
+            seed: seed, secretOwnedIDs: secretOwnedIDs,
+            tokenOwnedIDs: tokenOwnedIDs, credentialRekeyer: credentialRekeyer
+        )
     }
 
     @discardableResult
-    public func reconcileLegacy(seed: [Server], secretOwnedIDs: Set<String> = []) -> [Server] {
-        store.reconcile(with: seed, secretOwnedIDs: secretOwnedIDs)
+    public func reconcileLegacy(
+        seed: [Server],
+        secretOwnedIDs: Set<String> = [],
+        tokenOwnedIDs: Set<String> = [],
+        credentialRekeyer: ServerStore.CredentialRekeyer? = nil
+    ) -> [Server] {
+        store.reconcile(
+            with: seed, secretOwnedIDs: secretOwnedIDs,
+            tokenOwnedIDs: tokenOwnedIDs, credentialRekeyer: credentialRekeyer
+        )
     }
 
     public func shadowCompare(

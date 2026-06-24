@@ -314,12 +314,23 @@ final class ServerRegistry: ObservableObject {
     func migrateLegacy(seed: [Server]) {
         writer.migrateLegacyIfNeeded(
             seed: seed,
-            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
+            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret(),
+            tokenOwnedIDs: SessionStore.shared.serverTokenOwnerIDs(),
+            credentialRekeyer: Self.sessionTokenRekeyer
         )
         servers = writer.load()
         serverRegistryLogger.info(
             "ServerRegistry post-migration count: \(self.servers.count, privacy: .public)"
         )
+    }
+
+    /// D2: copies a dropped loser's session token onto the surviving winner before
+    /// the dedup commits (`copyServerTokenIfMissing` is no-clobber + idempotent and
+    /// leaves the loser's token in place). Pairing secrets need no copy — the winner
+    /// invariant never drops the secret owner (KeychainHelper reads
+    /// `pairing_secret.{id}` literally, so copying it to another id wouldn't help).
+    private static let sessionTokenRekeyer: (_ loserID: String, _ winnerID: String) -> Bool = { loserID, winnerID in
+        SessionStore.shared.copyServerTokenIfMissing(from: loserID, to: winnerID)
     }
 
     // MARK: - Legacy mirror
@@ -346,7 +357,9 @@ final class ServerRegistry: ObservableObject {
         let serverSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
         let reconciled = writer.reconcileLegacy(
             seed: macSeed + serverSeed,
-            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret()
+            secretOwnedIDs: PairedMacsStore.shared.macIDsWithSecret(),
+            tokenOwnedIDs: SessionStore.shared.serverTokenOwnerIDs(),
+            credentialRekeyer: Self.sessionTokenRekeyer
         )
         if reconciled != servers {
             servers = reconciled
