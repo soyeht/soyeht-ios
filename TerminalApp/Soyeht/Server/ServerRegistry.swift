@@ -46,7 +46,34 @@ final class ServerRegistry: ObservableObject {
             v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections
         )
         self.servers = Self.canonicalRead(writer: self.writer, v2ReadEnabled: flag)
+        #if DEBUG
+        logV2MigrationReadinessDiagnostic()
+        #endif
     }
+
+    #if DEBUG
+    /// D3c GO dry-run observability (DEBUG-only operator diagnostic). Logs the
+    /// `migrationDryRunReadiness` go/no-go verdict — `isReadyToFlip` plus the neutral
+    /// shadow/migration booleans and a blocking-category COUNT — so an operator can
+    /// SEE readiness before flipping `v2ReadEnabledKey` (the precondition the
+    /// `docs/serverstore-v2-flip-runbook.md` calls out). Logs no server ids, hosts,
+    /// or credential values: only booleans + a count + the current flag state. The
+    /// writer itself must not log (D1/D2 forbid logging credential state);
+    /// `ServerRegistry` is the boundary that already logs neutral counts. DEBUG-only
+    /// so it's a dev/operator aid (e.g. a `Soyeht Dev.app` dry-run), not prod noise.
+    private func logV2MigrationReadinessDiagnostic() {
+        let readiness = writer.migrationDryRunReadiness(
+            legacyProjections: Self.legacyMirrorProjections(),
+            activeServerID: SessionStore.shared.activeServerId
+        )
+        let summary = "readyToFlip=\(readiness.isReadyToFlip) "
+            + "shadowClean=\(readiness.shadowClean) "
+            + "migrationCompleted=\(readiness.migrationCompleted) "
+            + "blockingCategories=\(readiness.blockingCategories.count) "
+            + "v2ReadEnabled=\(v2ReadEnabled)"
+        serverRegistryLogger.info("ServerStore v2 migration dry-run: \(summary, privacy: .public)")
+    }
+    #endif
 
     /// D3c: the gated canonical read. Flag OFF → v1 (`load()`), inert. Flag ON → the
     /// v2 projection IFF the D3a gate is ready AND the loaded v2 is field-equivalent
