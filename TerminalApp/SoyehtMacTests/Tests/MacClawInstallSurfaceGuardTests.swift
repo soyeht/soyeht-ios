@@ -56,6 +56,27 @@ final class MacClawInstallSurfaceGuardTests: XCTestCase {
         )
     }
 
+    /// E3 (mini): the macOS Claw Store path resolves its active target through
+    /// `MacActiveServerContextResolver` (canonical inventory metadata + credential),
+    /// NEVER `SessionStore.currentContext()` — which sources metadata from the
+    /// legacy `pairedServers` view and can drift from the canonical row after the
+    /// ServerStore migration.
+    func test_clawStorePathResolvesActiveTargetThroughResolverNotCurrentContext() throws {
+        let offenders = try clawStoreSwiftFiles().filter { url in
+            ((try? codeOnly(at: url)) ?? "").contains("currentContext()")
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "macOS Claw Store files must resolve the active target via MacActiveServerContextResolver, not SessionStore.currentContext() (legacy metadata that can drift from the canonical row). Offending: \(offenders.map(\.lastPathComponent))"
+        )
+
+        let usesResolver = try clawStoreSwiftFiles().contains { url in
+            ((try? codeOnly(at: url)) ?? "").contains("MacActiveServerContextResolver")
+        }
+        XCTAssertTrue(usesResolver,
+            "Expected the macOS Claw Store path to resolve its active target through MacActiveServerContextResolver."
+        )
+    }
+
     // MARK: - Helpers
 
     private func installButtonSurfaces() throws -> [URL] {
