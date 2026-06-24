@@ -139,12 +139,22 @@ struct ClawStoreContractFixtureTests {
     /// coverage (and this expected set) is updated in lockstep.
     @Test func syncedContractDeclaresExactlyTheKnownRouteSet() {
         let expectedRouteIDs: Set<String> = [
+            // Claw catalog / install (the original 13)
             "admin_list_claws", "admin_get_claw", "admin_claw_availability",
             "admin_install_claw", "admin_uninstall_claw",
             "mobile_list_claws", "mobile_claw_availability",
             "mobile_install_claw", "mobile_uninstall_claw",
             "household_list_claws", "household_claw_availability",
             "household_install_claw", "household_uninstall_claw",
+            // C4.1 core instance lifecycle (mobile delete/actions/WS intentionally
+            // absent — those routes are not mounted on the mobile namespace).
+            "admin_create_instance", "admin_instance_status",
+            "admin_stop_instance", "admin_restart_instance",
+            "admin_rebuild_instance", "admin_delete_instance",
+            "mobile_create_instance", "mobile_instance_status",
+            "household_create_instance", "household_instance_status",
+            "household_stop_instance", "household_restart_instance",
+            "household_rebuild_instance", "household_delete_instance",
         ]
         #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
     }
@@ -288,6 +298,26 @@ struct ClawStoreContractFixtureTests {
             )
             #expect(body.code == expectedCode)
             #expect(!body.error.isEmpty)
+        }
+    }
+
+    /// C4.1: the core instance-lifecycle response fixtures decode with the Swift
+    /// DTOs — nested (admin: `{instance, job_id|job}`) AND flat (mobile/household)
+    /// shapes both, since `CreateInstanceResponse`/`InstanceStatusResponse` accept
+    /// either. Binds the Swift wire decode to the same Rust-generated golden.
+    @Test func lifecycleCreateAndStatusFixturesDecodeWithSwiftDTOs() throws {
+        for fixtureID in ["admin_instance_create_accepted", "mobile_instance_create_accepted"] {
+            let create = try apiDecoder().decode(CreateInstanceResponse.self, from: fixtureData(fixtureID))
+            #expect(create.id == "inst-alpha")
+            #expect(create.container == "picoclaw-alpha")
+            #expect(create.clawType == "picoclaw")
+            #expect(create.status == .provisioning)
+            #expect(create.jobId == "job-alpha")
+        }
+
+        for fixtureID in ["admin_instance_status_active", "mobile_household_instance_status_active"] {
+            let status = try apiDecoder().decode(InstanceStatusResponse.self, from: fixtureData(fixtureID))
+            #expect(status.status == .active)
         }
     }
 
