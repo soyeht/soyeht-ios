@@ -34,9 +34,38 @@ final class ServerRegistry: ObservableObject {
 
     private let writer: ServerInventoryWriter
 
-    init(writer: ServerInventoryWriter = ServerInventoryWriter()) {
+    init(writer: ServerInventoryWriter = ServerInventoryWriter(
+        v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections
+    )) {
         self.writer = writer
         self.servers = writer.load()
+    }
+
+    /// D3b: builds the legacy projections (with per-id credential presence) that the
+    /// writer's v2 dual-write mirror needs, so a canonical-only mutation preserves
+    /// the `pairingSecret` / `sessionToken` refs D1/D2 protect. Reads BOTH legacy
+    /// stores at the boundary (`ServerRegistry`); SoyehtCore stays decoupled from them.
+    private static let legacyMirrorProjections: @Sendable () -> [ServerStoreShadowProjection] = {
+        // `PairedMacsStore` is @MainActor; the dual-write always runs on MainActor
+        // (ServerRegistry's mutators are @MainActor), so asserting isolation here is
+        // safe and lets the legacy stores be read without crossing actors.
+        MainActor.assumeIsolated {
+            let secretIDs = PairedMacsStore.shared.macIDsWithSecret()
+            let tokenIDs = SessionStore.shared.serverTokenOwnerIDs()
+            let macProjections = PairedMacsStore.shared.macs.map { mac in
+                ServerStoreShadowProjection.pairedMacsStore(
+                    server: mac.toServer(),
+                    hasCredential: secretIDs.contains(mac.macID.uuidString)
+                )
+            }
+            let serverProjections = SessionStore.shared.pairedServers.map { paired in
+                ServerStoreShadowProjection.sessionStorePairedServer(
+                    paired,
+                    hasCredential: tokenIDs.contains(paired.id)
+                )
+            }
+            return macProjections + serverProjections
+        }
     }
 
     // MARK: - Lookups
