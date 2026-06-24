@@ -12,8 +12,11 @@
 > Do not import the experimental mesh / Product A track. Do not validate by
 > touching the installed shipping app; Dev builds and explicit gates only.
 
-Last updated: 2026-06-24. Status: EXECUTING v5 - user GO given; @julia orchestrating
-@fresh-arch + @code-reviewer slice-by-slice. See §0 for live execution progress.
+Last updated: 2026-06-24. Status: PLAN CODE COMPLETE - all tracks (E, D, F, S1, C4)
+implemented and merged to local main, reviewed slice-by-slice by @code-reviewer; the
+only remaining item is the owner-gated operational v2-read GO (flip v2ReadEnabledKey
+after a live dry-run; see docs/serverstore-v2-flip-runbook.md). See §0 for the
+execution record.
 (v4 history: risk/release-readiness addendum consolidated §4b; Track S1 added.)
 
 ## 0. Execution progress (live, 2026-06-24)
@@ -46,26 +49,39 @@ main: S1-A (engine Tailnet-only in Ready), F3.3 (e2e-rs --guest-os macos), C4.1 
 COMPLETE cross-repo. Both macOS HIGH bugs closed. The credential migration is
 code-complete and gated.**
 
-IN FLIGHT: C4.2a (8 workspaces JSON routes - admin + household GET/POST/PATCH/DELETE,
-+ PATCH schema) being built by @fresh-arch Rust-first; @julia does the Swift half on
-his hash (same pattern as C4.1).
+C4 COMPLETE (cross-repo): the executable Claw Store contract now covers ALL 38 routes
+and is bound to real client requests on both sides. C4.1 (lifecycle 14: admin/mobile/
+household create/status/actions/delete), C4.2a (workspaces 8: admin+household GET/POST/
+PATCH/DELETE), C4.2b-1 (attach-token mint, household_pop/claws.use/peer_guard), and
+C4.2b-2 (WS PTY 2: admin_terminal_pty admin_stream_auth + household_terminal_pty
+household_attach_token, kind:websocket_upgrade, upgrade 101, no success body) — each
+Rust-first → reviewed → merged to theyos main (… → 847038e) → Swift half (route-set
+pin + method/path/auth binding; WS via request-builder output) → reviewed → merged to
+iSoyehtTerm main. The C4.2 split (C4.2a / C4.2b-1 mint / C4.2b-2 WS) was done to
+unblock a stalled monolithic STOP-POINT and isolate the schema-heavy WS work.
 
-DEFERRED by design (C4.2 split): C4.2b (attach-token mint + WebSocket PTY attach) -
-needs new contract schema (kind: websocket_upgrade, expectations.upgrade {101,
-websocket}, admin_stream_auth, household_attach_token header, peer_guard); a separate
-reviewable PR after C4.2a, since the token and the WS are semantically coupled.
+PLAN CODE COMPLETE: every track in this plan is implemented and merged to local main —
+E (E1..E2d + E3-mini Mac canonical active-target resolver), the full D credential-safety
+migration (D1 shadow-compare → D2 credential-preserving dedup → D3a dry-run gate → D3b
+dual-write → D3c gated read, flag default-OFF), F (F1/F2/F3.1 + F3.2/F3.3 live rows
+opt-in), S1 (engine Tailnet-only in Ready), and C4 (full executable contract). SoyehtCore
+suite green; iOS app builds. @code-reviewer caught + we fixed a real defect in slice
+after slice (all-or-nothing poll, credential-less v2 mirror, unbound route-set,
+peer-guard-before-token-consume, …).
 
-OPERATIONAL GO (owner's call, never auto-fired): flip ServerStore.v2ReadEnabledKey
-after a clean live dry-run. Procedure: docs/serverstore-v2-flip-runbook.md. The gate
-is safe-by-construction - loadCanonical serves v2 ONLY if isReadyToFlip && the v2
-projection equals v1, else it falls back to v1.
+ONLY REMAINING — OPERATIONAL GO (owner's call, never auto-fired): flip
+ServerStore.v2ReadEnabledKey after a clean live dry-run. Procedure:
+docs/serverstore-v2-flip-runbook.md. The gate is safe-by-construction - loadCanonical
+serves v2 ONLY if isReadyToFlip && the v2 projection equals v1, else it falls back to
+v1. (Also open, NOT part of this plan: a pre-existing theyos clippy debt in
+household_listener.rs/setup_beacon.rs/household_bootstrap.rs — separate slice.)
 
-Re-score after the 23 merges: macOS ~7.5-7.8 (both HIGHs closed + the parallel
-catalog flows collapsed onto one service + canonical Mac active-target); iOS ~8.4
-(E2d + the full D migration + the executable contract); Linux/backend ~8.4 (S1
-transport posture + F runner/QA); Mac-runner ~7.9 (F1/F2/F3). Global ~8.0-8.3. The
-8.6+ projection now gates only on C4.2 (a in flight, b deferred), the live v2-read
-flip, and real F3 guest-boot (per §4b).
+Re-score after full plan code-complete: macOS ~7.5-7.8 (both HIGHs closed + the parallel
+catalog flows collapsed onto one service + canonical Mac active-target); iOS ~8.4 (E2d +
+the full D migration + the executable contract); Linux/backend ~8.4 (S1 transport
+posture + F runner/QA); Mac-runner ~7.9 (F1/F2/F3). Global ~8.0-8.3. The 8.6+ projection
+now gates only on the live v2-read flip + real F3 guest-boot (per §4b) — both
+operational/live steps, not remaining code.
 
 Below is the original v1-v4 plan (baseline, tracks, projections) preserved for
 reference.
