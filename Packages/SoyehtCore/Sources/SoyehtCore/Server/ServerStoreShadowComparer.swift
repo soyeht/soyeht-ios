@@ -17,6 +17,12 @@ public enum ServerStoreShadowMismatch: String, Codable, CaseIterable, Equatable,
     case machineIdentityMismatch
     case endpointMismatch
     case missingCredential
+    /// D1: a Mac collapse dropped a legacy id that was the only holder of a
+    /// session token / pairing secret, and the surviving canonical id does not
+    /// hold that type — so the migrated record would orphan it (4a). One case per
+    /// credential type so the report shows WHICH type is at risk.
+    case collapsedSessionTokenOrphan
+    case collapsedPairingSecretOrphan
     case activeIDMissingCanonical
     case activeIDMissingLegacy
     case activeIDMissingCredential
@@ -73,12 +79,35 @@ public struct ServerStoreShadowProjection: Equatable, Sendable {
 
     public var server: Server
     public var source: Source
-    public var hasCredential: Bool
+    /// D1: split from the old single `hasCredential` bool so the shadow report
+    /// can detect a per-TYPE orphan — a Mac collapse where the surviving id keeps
+    /// one credential type but loses the other (the 4a/4c data-safety risk that a
+    /// single bool masks by unioning).
+    public var hasSessionToken: Bool
+    public var hasPairingSecret: Bool
 
-    public init(server: Server, source: Source, hasCredential: Bool) {
+    /// True if the projection resolves ANY credential — preserves the coarse
+    /// `missingCredential` signal.
+    public var hasCredential: Bool { hasSessionToken || hasPairingSecret }
+
+    public init(server: Server, source: Source, hasSessionToken: Bool, hasPairingSecret: Bool) {
         self.server = server
         self.source = source
-        self.hasCredential = hasCredential
+        self.hasSessionToken = hasSessionToken
+        self.hasPairingSecret = hasPairingSecret
+    }
+
+    /// Back-compat: a generic "has a credential" resolves to the credential TYPE
+    /// the source actually represents — `.pairedMacsStore` is `pairing_secret.{macID}`,
+    /// `.sessionStorePairedServers` is `server_tokens[id]`. Prefer the typed init
+    /// for orphan-sensitive tests.
+    public init(server: Server, source: Source, hasCredential: Bool) {
+        switch source {
+        case .pairedMacsStore:
+            self.init(server: server, source: source, hasSessionToken: false, hasPairingSecret: hasCredential)
+        case .sessionStorePairedServers:
+            self.init(server: server, source: source, hasSessionToken: hasCredential, hasPairingSecret: false)
+        }
     }
 
     public static func pairedMacsStore(server: Server, hasCredential: Bool) -> ServerStoreShadowProjection {
@@ -223,11 +252,18 @@ public enum ServerStoreShadowComparer {
             if let prior = byKey[key] {
                 accumulator.increment(.duplicateLegacyProjection)
                 let winner = mergeMacsPreservingStableID(prior, projection)
-                let loserID = winner.server.id == prior.server.id
-                    ? projection.server.id
-                    : prior.server.id
+                let loser = winner.server.id == prior.server.id ? projection : prior
+                // D1: the loser id is dropped; if it was the only holder of a
+                // credential type the surviving winner lacks, the migrated record
+                // would orphan that credential (the 4a risk). Flag per type.
+                if loser.hasSessionToken && !winner.hasSessionToken {
+                    accumulator.increment(.collapsedSessionTokenOrphan)
+                }
+                if loser.hasPairingSecret && !winner.hasPairingSecret {
+                    accumulator.increment(.collapsedPairingSecretOrphan)
+                }
                 byKey[key] = winner
-                droppedIDs.insert(loserID)
+                droppedIDs.insert(loser.server.id)
             } else {
                 byKey[key] = projection
             }
@@ -246,7 +282,9 @@ public enum ServerStoreShadowComparer {
     ) -> ServerStoreShadowProjection {
         let newer = a.server.lastSeenAt >= b.server.lastSeenAt ? a : b
         var merged = newer
-        merged.hasCredential = a.hasCredential || b.hasCredential
+        // Same id, duplicate projections → union both credential types (no orphan).
+        merged.hasSessionToken = a.hasSessionToken || b.hasSessionToken
+        merged.hasPairingSecret = a.hasPairingSecret || b.hasPairingSecret
         return merged
     }
 
@@ -285,10 +323,15 @@ public enum ServerStoreShadowComparer {
             role: nil,
             sessionExpiresAt: nil
         )
+        // D1: model REALITY — the live store keys credentials by id, so the
+        // surviving record resolves only the WINNER id's own credentials, NOT the
+        // union. (collapseMacDuplicates flags the type the loser orphaned.)
+        let winnerProjection = preferredID == a.server.id ? a : b
         return ServerStoreShadowProjection(
             server: mergedServer,
             source: newer.source,
-            hasCredential: a.hasCredential || b.hasCredential
+            hasSessionToken: winnerProjection.hasSessionToken,
+            hasPairingSecret: winnerProjection.hasPairingSecret
         )
     }
 
