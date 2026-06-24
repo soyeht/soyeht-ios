@@ -41,6 +41,10 @@ public final class ClawInventoryService: ObservableObject {
     private let fetchInstances: InstanceFetcher
     private let sleeper: Sleeper
     private let pollIntervalNanos: UInt64
+    /// When false, `refresh()` never starts the install-completion poll. Notification-
+    /// driven consumers (e.g. the pane-picker provider) want the fetch + online-filter
+    /// without a background poll; the Store/drawer want it on.
+    private let autoPoll: Bool
     private let onInstallComplete: (String, Bool) -> Void
     private let onTerminalTransition: () -> Void
 
@@ -56,6 +60,7 @@ public final class ClawInventoryService: ObservableObject {
         fetchInstances: @escaping InstanceFetcher,
         sleeper: @escaping Sleeper = { try await Task.sleep(nanoseconds: $0) },
         pollIntervalNanos: UInt64 = 2_000_000_000,
+        autoPoll: Bool = true,
         onInstallComplete: @escaping (String, Bool) -> Void = { _, _ in },
         onTerminalTransition: @escaping () -> Void = {}
     ) {
@@ -64,6 +69,7 @@ public final class ClawInventoryService: ObservableObject {
         self.fetchInstances = fetchInstances
         self.sleeper = sleeper
         self.pollIntervalNanos = pollIntervalNanos
+        self.autoPoll = autoPoll
         self.onInstallComplete = onInstallComplete
         self.onTerminalTransition = onTerminalTransition
     }
@@ -76,6 +82,7 @@ public final class ClawInventoryService: ObservableObject {
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping Sleeper = { try await Task.sleep(nanoseconds: $0) },
         pollIntervalNanos: UInt64 = 2_000_000_000,
+        autoPoll: Bool = true,
         onInstallComplete: @escaping (String, Bool) -> Void = { _, _ in },
         onTerminalTransition: @escaping () -> Void = {}
     ) {
@@ -97,6 +104,7 @@ public final class ClawInventoryService: ObservableObject {
             },
             sleeper: sleeper,
             pollIntervalNanos: pollIntervalNanos,
+            autoPoll: autoPoll,
             onInstallComplete: onInstallComplete,
             onTerminalTransition: onTerminalTransition
         )
@@ -124,7 +132,7 @@ public final class ClawInventoryService: ObservableObject {
             guard !Task.isCancelled, generation == gen else { return }
             snapshot = ClawInventorySnapshot.make(claws: claws, instances: instances)
             errorMessage = nil
-            startPollingIfNeeded()
+            if autoPoll { startPollingIfNeeded() }
         } catch {
             guard !Task.isCancelled, generation == gen else { return }
             // Keep last-known-good snapshot; surface the error for the consumer.
