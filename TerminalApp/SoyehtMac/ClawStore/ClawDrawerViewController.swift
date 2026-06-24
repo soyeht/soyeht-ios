@@ -144,7 +144,7 @@ private final class ClawDrawerViewModel: ObservableObject {
         theyOSInstalled = TheyOSEnvironment.isTheyOSInstalled()
         loadGeneration &+= 1
         let generation = loadGeneration
-        let context = sessionStore.currentContext()
+        let context = MacActiveServerContextResolver.activeContext(sessionStore: sessionStore)
         self.context = context
         guard let context else {
             service = nil
