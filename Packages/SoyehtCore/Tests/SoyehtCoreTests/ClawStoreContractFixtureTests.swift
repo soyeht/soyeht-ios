@@ -115,7 +115,7 @@ private struct ClawStoreContractRoute: Decodable {
         householdOperation = try container.decodeIfPresent(String.self, forKey: .householdOperation)
         expectations = try container.decode(
             [String: ClawStoreContractExpectation].self, forKey: .expectations)
-        // Absent `kind` ≡ the default HTTP+JSON request/response shape.
+        // Absent `kind` means the default HTTP+JSON request/response shape.
         kind = try container.decodeIfPresent(String.self, forKey: .kind) ?? "http_json"
         attachTokenHeader = try container.decodeIfPresent(String.self, forKey: .attachTokenHeader)
         peerGuard = try container.decodeIfPresent(Bool.self, forKey: .peerGuard)
