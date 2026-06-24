@@ -34,6 +34,10 @@ public struct ServerStore: Sendable {
         self.defaults = defaults
     }
 
+    /// Whether the one-shot legacy migration has completed. D2 leaves this unset
+    /// when a credential re-key fails (fail-closed), so migration retries later.
+    public var isMigrated: Bool { defaults.bool(forKey: Self.migrationSentinel) }
+
     // MARK: - Read / write
 
     public func load() -> [Server] {
@@ -111,7 +115,19 @@ public struct ServerStore: Sendable {
     ///   - Legacy stores are NOT cleared. They remain authoritative for
     ///     anyone reading the old keys until a follow-up release removes
     ///     them (Phase 7 in the plan).
-    public func migrateLegacyIfNeeded(seed: [Server], secretOwnedIDs: Set<String> = []) {
+    /// D2: copies a dropped loser's credentials onto the surviving winner BEFORE
+    /// the dedup commits. Returns `false` if the copy could not be completed, which
+    /// keeps the loser (fail-closed) so its credential is never orphaned. Wired by
+    /// the boundary that owns the credential stores (`ServerRegistry`); the default
+    /// is no-op success (pre-D2b behavior: drop losers, no re-key).
+    public typealias CredentialRekeyer = (_ loserID: String, _ winnerID: String) -> Bool
+
+    public func migrateLegacyIfNeeded(
+        seed: [Server],
+        secretOwnedIDs: Set<String> = [],
+        tokenOwnedIDs: Set<String> = [],
+        credentialRekeyer: CredentialRekeyer? = nil
+    ) {
         if defaults.bool(forKey: Self.migrationSentinel) {
             return
         }
@@ -128,11 +144,19 @@ public struct ServerStore: Sendable {
             }
             merged[s.id] = s
         }
-        let dedup = collapseMacDuplicates(Array(merged.values), secretOwnedIDs: secretOwnedIDs)
-        save(dedup.servers)
-        defaults.set(true, forKey: Self.migrationSentinel)
+        let dedup = collapseMacDuplicates(
+            Array(merged.values), secretOwnedIDs: secretOwnedIDs, tokenOwnedIDs: tokenOwnedIDs
+        )
+        let outcome = applyRekeys(dedup, credentialRekeyer: credentialRekeyer)
+        save(outcome.servers)
+        // Fail-closed: only mark migration complete if EVERY required re-key
+        // succeeded. A failed re-key kept the loser (so its credential isn't
+        // orphaned) and leaves the sentinel unset so migration retries next launch.
+        if outcome.allRekeyed {
+            defaults.set(true, forKey: Self.migrationSentinel)
+        }
         serverStoreLogger.info(
-            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dedup.droppedCount, privacy: .public) Mac duplicates; sentinel set"
+            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dedup.droppedCount, privacy: .public) Mac duplicates, \(outcome.keptLoserCount, privacy: .public) kept by fail-closed re-key; sentinel \(outcome.allRekeyed ? "set" : "deferred", privacy: .public)"
         )
     }
 
@@ -155,7 +179,12 @@ public struct ServerStore: Sendable {
     /// adapters. The Mac-collapse rules are the same as the migration
     /// path — see `collapseMacDuplicates` below.
     @discardableResult
-    public func reconcile(with seed: [Server], secretOwnedIDs: Set<String> = []) -> [Server] {
+    public func reconcile(
+        with seed: [Server],
+        secretOwnedIDs: Set<String> = [],
+        tokenOwnedIDs: Set<String> = [],
+        credentialRekeyer: CredentialRekeyer? = nil
+    ) -> [Server] {
         let existingByID = Dictionary(uniqueKeysWithValues: load().map { ($0.id, $0) })
         var unique: [String: Server] = [:]
         for s in seed {
@@ -170,9 +199,12 @@ public struct ServerStore: Sendable {
             }
             unique[candidate.id] = candidate
         }
-        let dedup = collapseMacDuplicates(Array(unique.values), secretOwnedIDs: secretOwnedIDs)
-        save(dedup.servers)
-        return dedup.servers
+        let dedup = collapseMacDuplicates(
+            Array(unique.values), secretOwnedIDs: secretOwnedIDs, tokenOwnedIDs: tokenOwnedIDs
+        )
+        let outcome = applyRekeys(dedup, credentialRekeyer: credentialRekeyer)
+        save(outcome.servers)
+        return outcome.servers
     }
 
     // MARK: - Internals
@@ -203,11 +235,55 @@ public struct ServerStore: Sendable {
         )
     }
 
-    /// Result of the Mac-collapse pass — the deduped server array and
-    /// how many entries were collapsed (for telemetry only).
+    /// D2: a loser id dropped by the Mac collapse, plus the surviving winner id.
+    /// The migrate/reconcile boundary re-keys the loser's credentials onto the
+    /// winner BEFORE committing the dedup, so a failed re-key can keep the loser
+    /// (fail-closed) instead of orphaning its session token / pairing secret.
+    private struct CredentialRekey: Equatable {
+        let loser: Server
+        let winnerID: String
+    }
+
+    /// Result of the Mac-collapse pass — the deduped server array and the
+    /// per-collapse credential re-key plan (loser -> winner).
     private struct MacDedupResult {
         let servers: [Server]
-        let droppedCount: Int
+        let rekeys: [CredentialRekey]
+        var droppedCount: Int { rekeys.count }
+    }
+
+    /// Outcome of running the pre-save credential re-key over a dedup result.
+    private struct RekeyOutcome {
+        let servers: [Server]
+        /// True iff every required re-key succeeded (so migrate may set its sentinel).
+        let allRekeyed: Bool
+        /// How many losers were kept (fail-closed) because their re-key failed.
+        let keptLoserCount: Int
+    }
+
+    /// D2: runs `credentialRekeyer` for each collapse BEFORE the dedup commits. For
+    /// each (loser -> winner) it COPIES the loser's credentials onto the winner; if
+    /// the copy fails (or the winner did not survive), the loser is kept in the
+    /// result so its credential is never orphaned (fail-closed). The default (nil
+    /// rekeyer) is a no-op success, preserving pre-D2b behavior (drop losers).
+    private func applyRekeys(_ dedup: MacDedupResult, credentialRekeyer: CredentialRekeyer?) -> RekeyOutcome {
+        guard let rekeyer = credentialRekeyer, !dedup.rekeys.isEmpty else {
+            return RekeyOutcome(servers: dedup.servers, allRekeyed: true, keptLoserCount: 0)
+        }
+        let survivingIDs = Set(dedup.servers.map(\.id))
+        var servers = dedup.servers
+        var keptLoserCount = 0
+        for rekey in dedup.rekeys {
+            let rekeyed = survivingIDs.contains(rekey.winnerID) && rekeyer(rekey.loser.id, rekey.winnerID)
+            if !rekeyed {
+                // Fail-closed: keep the loser so its credential isn't orphaned. This
+                // leaves a visible duplicate (better than a lost login); migrate
+                // won't set its sentinel, so it retries with a working store later.
+                servers.append(rekey.loser)
+                keptLoserCount += 1
+            }
+        }
+        return RekeyOutcome(servers: servers, allRekeyed: keptLoserCount == 0, keptLoserCount: keptLoserCount)
     }
 
     /// Machine-identity and host-based dedup for `kind == .mac`. The
@@ -244,50 +320,77 @@ public struct ServerStore: Sendable {
     /// Linux servers never collapse, even if they share a host with a
     /// Mac (different network presence + auth surfaces — see
     /// `ServerStoreMigrationTests.test_migration_linuxServersAreNotDedupedByHost`).
-    private func collapseMacDuplicates(_ input: [Server], secretOwnedIDs: Set<String>) -> MacDedupResult {
+    private func collapseMacDuplicates(
+        _ input: [Server],
+        secretOwnedIDs: Set<String>,
+        tokenOwnedIDs: Set<String> = []
+    ) -> MacDedupResult {
         var keyed: [String: Server] = [:]
         for s in input { keyed[s.id] = s }
 
         let normalizedSecretOwnedIDs = Set(secretOwnedIDs.compactMap { Self.normalizedIdentifier($0) })
-        var droppedCount = 0
-        droppedCount += collapseMacDuplicates(
+        let normalizedTokenOwnedIDs = Set(tokenOwnedIDs.compactMap { Self.normalizedIdentifier($0) })
+        var rekeys: [CredentialRekey] = []
+        rekeys += collapseMacDuplicates(
             in: &keyed,
             secretOwnedIDs: normalizedSecretOwnedIDs,
+            tokenOwnedIDs: normalizedTokenOwnedIDs,
             key: { Self.engineMachineIdentityKey($0.engineMachineId) }
         )
-        droppedCount += collapseMacDuplicates(
+        rekeys += collapseMacDuplicates(
             in: &keyed,
             secretOwnedIDs: normalizedSecretOwnedIDs,
+            tokenOwnedIDs: normalizedTokenOwnedIDs,
             key: {
                 Self.engineMachineIdentityKey($0.engineMachineId) == nil
                     ? Self.hostIdentityKey($0.lastHost)
                     : nil
             }
         )
-        return MacDedupResult(servers: Array(keyed.values), droppedCount: droppedCount)
+
+        // Resolve each rekey's winner transitively to the FINAL surviving id — a
+        // winner from the first pass can itself be collapsed away by the second.
+        let surviving = Set(keyed.keys)
+        var winnerByLoser: [String: String] = [:]
+        for r in rekeys { winnerByLoser[r.loser.id] = r.winnerID }
+        let resolved = rekeys.map { r -> CredentialRekey in
+            var w = r.winnerID
+            var hops = 0
+            while !surviving.contains(w), let next = winnerByLoser[w], hops < rekeys.count {
+                w = next
+                hops += 1
+            }
+            return CredentialRekey(loser: r.loser, winnerID: w)
+        }
+        return MacDedupResult(servers: Array(keyed.values), rekeys: resolved)
     }
 
     private func collapseMacDuplicates(
         in keyed: inout [String: Server],
         secretOwnedIDs: Set<String>,
+        tokenOwnedIDs: Set<String>,
         key keyForServer: (Server) -> String?
-    ) -> Int {
+    ) -> [CredentialRekey] {
         var byKey: [String: Server] = [:]
+        var rekeys: [CredentialRekey] = []
         var dropped: Set<String> = []
         for server in keyed.values where server.kind == .mac {
             guard let key = keyForServer(server) else { continue }
             if let prior = byKey[key] {
-                let winner = mergeMacsPreservingCanonicalID(prior, server, secretOwnedIDs: secretOwnedIDs)
-                let loserID = winner.id == prior.id ? server.id : prior.id
+                let winner = mergeMacsPreservingCanonicalID(
+                    prior, server, secretOwnedIDs: secretOwnedIDs, tokenOwnedIDs: tokenOwnedIDs
+                )
+                let loser = winner.id == prior.id ? server : prior
                 byKey[key] = winner
-                dropped.insert(loserID)
+                dropped.insert(loser.id)
+                rekeys.append(CredentialRekey(loser: loser, winnerID: winner.id))
             } else {
                 byKey[key] = server
             }
         }
         for id in dropped { keyed.removeValue(forKey: id) }
         for (_, winner) in byKey { keyed[winner.id] = winner }
-        return dropped.count
+        return rekeys
     }
 
     /// Merges two Mac-kind `Server`s that represent the same machine,
@@ -297,14 +400,27 @@ public struct ServerStore: Sendable {
     private func mergeMacsPreservingCanonicalID(
         _ a: Server,
         _ b: Server,
-        secretOwnedIDs: Set<String>
+        secretOwnedIDs: Set<String>,
+        tokenOwnedIDs: Set<String>
     ) -> Server {
         let newer = a.lastSeenAt >= b.lastSeenAt ? a : b
         let older = a.lastSeenAt >= b.lastSeenAt ? b : a
+        // D2 winner invariant: BOTH credential types > pairing secret > session
+        // token > UUID-shaped id > recency. The pairing-secret owner must outrank a
+        // token-only id because `KeychainHelper` reads `pairing_secret.{id}`
+        // literally — copying it to a non-UUID id wouldn't help live consumers, so
+        // the right move is to keep the secret owner. The session-token tier reduces
+        // the orphans the pre-save re-key must then repair.
         let preferredID: String = {
-            let aHasSecret = Self.idHasSecret(a.id, secretOwnedIDs: secretOwnedIDs)
-            let bHasSecret = Self.idHasSecret(b.id, secretOwnedIDs: secretOwnedIDs)
-            if aHasSecret != bHasSecret { return aHasSecret ? a.id : b.id }
+            let aSecret = Self.idHasSecret(a.id, secretOwnedIDs: secretOwnedIDs)
+            let bSecret = Self.idHasSecret(b.id, secretOwnedIDs: secretOwnedIDs)
+            let aToken = Self.idHasToken(a.id, tokenOwnedIDs: tokenOwnedIDs)
+            let bToken = Self.idHasToken(b.id, tokenOwnedIDs: tokenOwnedIDs)
+            let aBoth = aSecret && aToken
+            let bBoth = bSecret && bToken
+            if aBoth != bBoth { return aBoth ? a.id : b.id }
+            if aSecret != bSecret { return aSecret ? a.id : b.id }
+            if aToken != bToken { return aToken ? a.id : b.id }
             let aIsUUID = UUID(uuidString: a.id) != nil
             let bIsUUID = UUID(uuidString: b.id) != nil
             if aIsUUID != bIsUUID { return aIsUUID ? a.id : b.id }
@@ -340,6 +456,11 @@ public struct ServerStore: Sendable {
     private static func idHasSecret(_ id: String, secretOwnedIDs: Set<String>) -> Bool {
         guard let normalized = normalizedIdentifier(id) else { return false }
         return secretOwnedIDs.contains(normalized)
+    }
+
+    private static func idHasToken(_ id: String, tokenOwnedIDs: Set<String>) -> Bool {
+        guard let normalized = normalizedIdentifier(id) else { return false }
+        return tokenOwnedIDs.contains(normalized)
     }
 
     private static func normalizedIdentifier(_ value: String?) -> String? {
