@@ -204,13 +204,19 @@ public final class ClawInventoryService: ObservableObject {
                 do {
                     async let clawsFetch = fetchClaws(target)
                     async let instancesFetch = fetchInstances(target)
-                    let (claws, instances) = try await (clawsFetch, instancesFetch)
+                    // Catalog (claws) drives terminal-transition detection and is the
+                    // hard dependency; instances are best-effort (fall back to the
+                    // last-known-good) so a flaky `/instances` can't stall the Store/
+                    // drawer from seeing installing -> installed/installFailed.
+                    let claws = try await clawsFetch
+                    let fetchedInstances = try? await instancesFetch
                     await MainActor.run {
                         // A refresh() (or a target switch) that bumped the generation
                         // AFTER this poll fetch started now owns the snapshot — drop
                         // this superseded poll result instead of clobbering the newer
                         // snapshot or firing terminal callbacks against stale data.
                         guard !Task.isCancelled, self.generation == pollGeneration else { return }
+                        let instances = fetchedInstances ?? self.snapshot.instances
                         let updated = ClawInventorySnapshot.make(claws: claws, instances: instances)
                         self.snapshot = updated
 
