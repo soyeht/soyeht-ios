@@ -120,134 +120,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertEqual(directStore.load(), writer.load())
     }
 
-    func test_shadowAndV2PreviewHelpersAreReadOnly() {
-        let suiteName = "ServerInventoryWriterTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-        let store = ServerStore(defaults: defaults)
-        let writer = ServerInventoryWriter(store: store)
-        let canonical = server(
-            id: "linux-alpha",
-            kind: .linux,
-            hostname: "linux-alpha",
-            lastHost: "100.64.0.10",
-            role: "admin"
-        )
-        writer.upsertCanonical(canonical)
-        let before = store.load()
-        // D3b: the mutator dual-writes the v2 mirror; capture it so we can prove the
-        // PREVIEW helpers below (shadowCompare / makeV2Envelope / projectV1Servers)
-        // do not alter it — they stay read-only.
-        let v2AfterMutation = defaults.data(forKey: ServerStore.v2StorageKey)
-        XCTAssertNotNil(v2AfterMutation, "the mutator dual-writes the v2 mirror")
-
-        let report = writer.shadowCompare(
-            legacyProjections: [
-                ServerStoreShadowProjection(
-                    server: canonical,
-                    source: .sessionStorePairedServers,
-                    hasCredential: true
-                ),
-            ],
-            activeServerID: canonical.id
-        )
-        let envelope = writer.makeV2Envelope(installProfile: .dev)
-        let rollback = writer.projectV1Servers(from: envelope)
-
-        XCTAssertTrue(report.isClean)
-        XCTAssertEqual(rollback, before)
-        XCTAssertEqual(store.load(), before)
-        XCTAssertEqual(defaults.data(forKey: ServerStore.v2StorageKey), v2AfterMutation,
-                       "read-only preview helpers must not change the persisted v2 mirror")
-    }
-
-    func test_v2PreviewThroughFacadePreservesD2MacAndLinuxIDRules() throws {
-        let (store, teardown) = makeStore()
-        defer { teardown() }
-        let writer = ServerInventoryWriter(store: store)
-        let pairedMacID = "33333333-3333-3333-3333-333333333333"
-        let canonicalShadow = server(
-            id: "canonical-shadow-mac",
-            kind: .mac,
-            hostname: "mac-alpha",
-            lastHost: "mac-alpha.example.test",
-            engineMachineId: "machine-alpha",
-            lastSeenAt: Date(timeIntervalSince1970: 4_000)
-        )
-        writer.upsertCanonical(canonicalShadow)
-        writer.upsertCanonical(server(
-            id: "linux-alpha",
-            kind: .linux,
-            hostname: "linux-alpha",
-            lastHost: "100.64.0.10",
-            role: "admin"
-        ))
-        writer.upsertCanonical(server(
-            id: "linux-beta",
-            kind: .linux,
-            hostname: "linux-beta",
-            lastHost: "100.64.0.10",
-            role: "admin"
-        ))
-
-        let envelope = writer.makeV2Envelope(
-            legacyProjections: [
-                .pairedMacsStore(
-                    server: server(
-                        id: pairedMacID,
-                        kind: .mac,
-                        alias: "Alpha Mac",
-                        hostname: "mac-alpha",
-                        lastHost: "mac-alpha.example.test",
-                        engineMachineId: "machine-alpha",
-                        presencePort: 57414,
-                        attachPort: 57415
-                    ),
-                    hasCredential: true
-                ),
-                ServerStoreShadowProjection(
-                    server: server(
-                        id: "session-mac-alpha",
-                        kind: .mac,
-                        hostname: "mac-alpha",
-                        lastHost: "mac-alpha.example.test",
-                        engineMachineId: "machine-alpha"
-                    ),
-                    source: .sessionStorePairedServers,
-                    hasCredential: true
-                ),
-            ],
-            installProfile: .dev
-        )
-
-        XCTAssertEqual(envelope.records.map(\.id), [
-            pairedMacID,
-            "linux-alpha",
-            "linux-beta",
-        ])
-        let macRecord = try XCTUnwrap(envelope.records.first(where: { $0.id == pairedMacID }))
-        XCTAssertTrue(macRecord.credentials.contains {
-            $0.kind == .pairingSecret
-                && $0.reference == "keychain:pairing_secret.\(pairedMacID.lowercased())"
-        })
-        XCTAssertTrue(macRecord.credentials.contains {
-            $0.kind == .sessionToken
-                && $0.reference == "keychain:server_tokens[session-mac-alpha]"
-        })
-
-        let rollback = writer.projectV1Servers(from: envelope)
-        XCTAssertEqual(rollback.map(\.id), [
-            pairedMacID,
-            "linux-alpha",
-            "linux-beta",
-        ])
-        XCTAssertEqual(rollback.filter { $0.kind == .linux }.map(\.lastHost), [
-            "100.64.0.10",
-            "100.64.0.10",
-        ])
-    }
-
-    func test_serverInventoryWriterHasNoLogging_andConfinesV2PersistenceToTheDualWrite() throws {
+    func test_serverInventoryWriterHasNoLoggingOrRetiredV2Runtime() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent(
@@ -255,22 +128,28 @@ final class ServerInventoryWriterTests: XCTestCase {
             )
         )
 
-        // No logging — the writer must never emit ids / hosts / tokens.
         XCTAssertFalse(source.contains("Logger("))
         XCTAssertFalse(source.contains("Telemetry"))
-        XCTAssertFalse(source.contains("serverStoreV2Logger"))
         XCTAssertFalse(source.contains(".info("))
         XCTAssertFalse(source.contains(".debug("))
-        // D3b: v2 persistence is now allowed (dual-write), but CONFINED to the single
-        // `mirrorToV2` site — it must not be scattered across the facade. A saveV2
-        // failure is swallowed by the store and never masks the v1 mutation.
-        let saveSites = source.components(separatedBy: "saveV2Envelope(").count - 1
-        XCTAssertEqual(saveSites, 1, "v2 persistence must be confined to the single mirrorToV2 dual-write")
-        XCTAssertTrue(source.contains("private func mirrorToV2()"),
-                      "the dual-write must live in the private mirrorToV2 helper")
+        XCTAssertFalse(retiredInventoryTokens.contains { source.contains($0) },
+            "ServerInventoryWriter must remain a v1 facade after retiring the inert path.")
     }
 
-    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedD6Files() throws {
+    func test_retiredV2RuntimeSymbolsAreAbsentFromProductionSources() throws {
+        let root = try workspaceRoot()
+        let offenders = try productionSwiftFiles(root: root).compactMap { relativePath -> String? in
+            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
+            let matches = retiredInventoryTokens.filter { source.contains($0) }
+            return matches.isEmpty ? nil : "\(relativePath): \(matches.joined(separator: ", "))"
+        }
+
+        XCTAssertTrue(offenders.isEmpty,
+            "Retired inventory symbols must not remain in production sources: \(offenders)"
+        )
+    }
+
+    func test_serverInventoryWriterRuntimeAdoptionIsLimitedToApprovedV1Files() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
@@ -285,11 +164,11 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "D6 may adopt ServerInventoryWriter only inside approved inventory boundaries. Offending files: \(offenders)"
+            "ServerInventoryWriter adoption must stay inside approved v1 inventory boundaries. Offending files: \(offenders)"
         )
     }
 
-    func test_serverRegistryUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
+    func test_serverRegistryUsesWriterWithoutDirectServerStoreWrites() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
@@ -301,11 +180,6 @@ final class ServerInventoryWriterTests: XCTestCase {
             "store.migrateLegacyIfNeeded(",
             "store.reconcile(with:",
             "save(",
-            "shadowCompare(",
-            "makeV2Envelope(",
-            "projectV1Servers(",
-            "loadV2Envelope(",
-            "saveV2Envelope(",
         ]
 
         XCTAssertTrue(source.contains("ServerInventoryWriter"))
@@ -314,14 +188,20 @@ final class ServerInventoryWriterTests: XCTestCase {
         XCTAssertTrue(source.contains("writer.migrateLegacyIfNeeded("))
         XCTAssertTrue(source.contains("writer.reconcileLegacy("))
         XCTAssertFalse(forbidden.contains { source.contains($0) },
-            "ServerRegistry must use only v1 writer parity methods in D4."
-        )
+            "ServerRegistry must mutate inventory only through the v1 writer facade.")
     }
 
-    /// D2b: pin the LIVE credential-rekey wiring in `ServerRegistry` so it can't
-    /// silently regress. The facade guard above only proves it doesn't bypass the
-    /// writer; it would NOT catch someone dropping `tokenOwnedIDs:` or the rekeyer,
-    /// which would quietly re-open the 4a session-token orphan.
+    func test_serverRegistryReadsFromV1WriterAuthority() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
+        )
+
+        XCTAssertTrue(source.contains("self.servers = self.writer.load()"))
+        XCTAssertTrue(source.contains("let next = writer.load()"))
+        XCTAssertFalse(retiredInventoryTokens.contains { source.contains($0) })
+    }
+
     func test_serverRegistryWiresLiveCredentialRekeyer() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
@@ -344,46 +224,7 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
     }
 
-    /// D3b: pin the LIVE v2-mirror provider wiring in `ServerRegistry` so it can't
-    /// silently regress. The provider test proves an injected provider works; this
-    /// proves the default `ServerRegistry` actually injects the credential-bearing
-    /// one (else a canonical-only mutation would persist a credential-less v2).
-    func test_serverRegistryWiresLiveV2MirrorProvider() throws {
-        let root = try workspaceRoot()
-        let source = try codeOnly(
-            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
-        )
-        XCTAssertTrue(source.contains("v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections"),
-            "ServerRegistry must construct the writer with its live v2 mirror provider.")
-        XCTAssertTrue(source.contains("PairedMacsStore.shared.macIDsWithSecret()"),
-            "the mirror provider must read pairing-secret ownership.")
-        XCTAssertTrue(source.contains("SessionStore.shared.serverTokenOwnerIDs()"),
-            "the mirror provider must read session-token ownership.")
-        XCTAssertTrue(
-            source.contains(".pairedMacsStore(") && source.contains(".sessionStorePairedServer("),
-            "the mirror provider must build BOTH legacy projection kinds with credential presence."
-        )
-    }
-
-    /// D3c: pin that ServerRegistry's READ path goes through the gated `loadCanonical`
-    /// and that a raw `writer.load()` survives ONLY as the flag-OFF fallback inside
-    /// `canonicalRead`. Other known V1 readers are pinned separately below while v2
-    /// stays default-off/inert.
-    func test_serverRegistryReadsThroughGatedLoadCanonical() throws {
-        let root = try workspaceRoot()
-        let source = try codeOnly(
-            at: root.appendingPathComponent("TerminalApp/Soyeht/Server/ServerRegistry.swift")
-        )
-        XCTAssertTrue(source.contains("writer.loadCanonical("),
-            "ServerRegistry must read through the gated loadCanonical (D3c).")
-        XCTAssertTrue(source.contains("publishCanonical()"),
-            "mutations/refresh must republish via the gated read, not assign servers from a raw v1 load.")
-        let rawLoadSites = source.components(separatedBy: "writer.load()").count - 1
-        XCTAssertEqual(rawLoadSites, 1,
-            "writer.load() must be confined to the single canonicalRead flag-OFF fallback.")
-    }
-
-    func test_sessionStoreUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers() throws {
+    func test_sessionStoreUsesWriterWithoutDirectServerStoreWrites() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift")
@@ -402,22 +243,16 @@ final class ServerInventoryWriterTests: XCTestCase {
             "serverStore.upsert(",
             "serverStore.migrateLegacyIfNeeded(",
             "serverStore.reconcile(with:",
-            "shadowCompare(",
-            "makeV2Envelope(",
-            "projectV1Servers(",
-            "loadV2Envelope(",
-            "saveV2Envelope(",
         ]
 
         XCTAssertFalse(required.contains { !source.contains($0) },
-            "SessionStore must delegate v1 inventory reads/writes through ServerInventoryWriter in D5."
-        )
+            "SessionStore must delegate v1 inventory reads/writes through ServerInventoryWriter.")
         XCTAssertFalse(forbidden.contains { source.contains($0) },
-            "SessionStore must not directly call ServerStore writes/reads or v2/shadow helpers in D5."
-        )
+            "SessionStore must not directly call ServerStore writes/reads.")
+        XCTAssertFalse(retiredInventoryTokens.contains { source.contains($0) })
     }
 
-    func test_sessionStoreCanonicalReadsRemainRawV1WriterWhileV2DefaultOff() throws {
+    func test_sessionStoreCanonicalReadsRemainV1WriterAuthority() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift")
@@ -431,17 +266,14 @@ final class ServerInventoryWriterTests: XCTestCase {
                     }
                 """
             ),
-            "SessionStore.canonicalServers() is intentionally the raw v1 writer facade while v2 reads are default-off."
+            "SessionStore.canonicalServers() should remain on the shipped v1 writer authority."
         )
         XCTAssertTrue(source.contains("public func credentialedCanonicalServers() -> [PairedServer] {"))
         XCTAssertTrue(source.contains("canonicalServers().compactMap { canonicalServer in"))
-        XCTAssertFalse(source.contains("loadCanonical("))
-        XCTAssertFalse(source.contains("v2ReadEnabled"))
-        XCTAssertFalse(source.contains("loadV2Envelope("))
-        XCTAssertFalse(source.contains("ServerStoreV2Migrator"))
+        XCTAssertFalse(retiredInventoryTokens.contains { source.contains($0) })
     }
 
-    func test_macOSInventoryReadersDoNotOptIntoV2RuntimeReads() throws {
+    func test_macOSInventoryReadersStayOnSessionStoreV1Facade() throws {
         let root = try workspaceRoot()
         let expectedV1Readers: [String: String] = [
             "TerminalApp/SoyehtMac/Servers/ConnectedServersWindowController.swift":
@@ -458,27 +290,9 @@ final class ServerInventoryWriterTests: XCTestCase {
             let source = try codeOnly(at: root.appendingPathComponent(relativePath))
             XCTAssertTrue(source.contains(expectedSnippet), "\(relativePath) should keep reading through the SessionStore v1 facade.")
         }
-
-        let forbiddenV2ReadPatterns = [
-            "loadCanonical(",
-            "v2ReadEnabled",
-            "v2ReadEnabledKey",
-            "loadV2Envelope(",
-            "ServerStoreV2Migrator",
-        ]
-        let offenders = try productionSwiftFiles(root: root).filter { relativePath in
-            guard relativePath.hasPrefix("TerminalApp/SoyehtMac/") else { return false }
-            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
-            return forbiddenV2ReadPatterns.contains { source.contains($0) }
-        }
-
-        XCTAssertTrue(
-            offenders.isEmpty,
-            "macOS inventory readers must not opt into v2 runtime reads in the default-off inert slice. Offending files: \(offenders)"
-        )
     }
 
-    func test_macOSStartupMigrationUsesWriterWithoutDirectServerStoreOrV2RuntimeHelpers() throws {
+    func test_macOSStartupMigrationUsesWriterWithoutDirectServerStoreWrites() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
             at: root.appendingPathComponent("TerminalApp/SoyehtMac/AppDelegate.swift")
@@ -488,32 +302,19 @@ final class ServerInventoryWriterTests: XCTestCase {
             "ServerStore().reconcile(",
             "ServerStore().upsert(",
             "ServerStore().remove(id:",
-            "shadowCompare(",
-            "makeV2Envelope(",
-            "projectV1Servers(",
-            "loadV2Envelope(",
-            "saveV2Envelope(",
         ]
 
         XCTAssertTrue(source.contains("ServerInventoryWriter().migrateLegacyIfNeeded("))
         XCTAssertFalse(forbidden.contains { source.contains($0) },
-            "macOS startup migration must use only the writer v1 migration parity method in D6."
-        )
+            "macOS startup migration must use only the writer v1 migration parity method.")
     }
 
     func test_serverStoreWriteCallsStayOnKnownBoundaryFiles() throws {
         let root = try workspaceRoot()
         let allowed: Set<String> = [
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStore.swift",
-            "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStoreV2.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift",
             "Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift",
-            // D3b: ServerRegistry is the sanctioned writer-consumer — it calls the
-            // `writer.` facade (never `store.` directly) and now references
-            // `ServerStoreShadowProjection` for the v2 mirror provider. Its
-            // non-bypass is precisely enforced by
-            // test_serverRegistryUsesWriterWithoutDirectServerStoreWritesOrV2RuntimeHelpers
-            // (forbids `store.*` / `ServerStore(` / v2 helpers there).
             "TerminalApp/Soyeht/Server/ServerRegistry.swift",
         ]
         let writePatterns = [
@@ -522,7 +323,6 @@ final class ServerInventoryWriterTests: XCTestCase {
             ".remove(id:",
             ".migrateLegacyIfNeeded(",
             ".reconcile(with:",
-            "saveV2Envelope(",
         ]
         let offenders = try productionSwiftFiles(root: root).filter { relativePath in
             if allowed.contains(relativePath) { return false }
@@ -532,8 +332,46 @@ final class ServerInventoryWriterTests: XCTestCase {
         }
 
         XCTAssertTrue(offenders.isEmpty,
-            "ServerStore write calls must stay behind known boundaries in D6. Offending files: \(offenders)"
+            "ServerStore write calls must stay behind known boundaries. Offending files: \(offenders)"
         )
+    }
+
+    func test_adHocServerStoreLoadReadsAreConfinedToAllowlist() throws {
+        let root = try workspaceRoot()
+        let allowed: Set<String> = [
+            // SoyehtCore-level default fallback for an injected provider; iOS UI
+            // should pass a ServerRegistry-backed provider. Tracked in
+            // docs/server-model.md as a read-side follow-up.
+            "Packages/SoyehtCore/Sources/SoyehtCore/ClawStore/ClawDetailViewModel.swift",
+        ]
+        let offenders = try productionSwiftFiles(root: root).filter { relativePath in
+            guard !allowed.contains(relativePath) else { return false }
+            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
+            return source.contains("ServerStore().load()")
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            Ad-hoc `ServerStore().load()` reads bypass the in-memory inventory \
+            authority (ServerRegistry) and can disagree with it mid-mutation. Read \
+            through the authority, or inject a provider. Offending files: \(offenders)
+            """
+        )
+    }
+
+    private var retiredInventoryTokens: [String] {
+        [
+            "ServerStoreV2",
+            "ServerStoreShadowComparer",
+            "ServerStoreShadowProjection",
+            "v2ReadEnabledKey",
+            "loadCanonical",
+            "saveV2Envelope",
+            "loadV2Envelope",
+            "migrationDryRunReadiness",
+            "mirrorToV2",
+        ]
     }
 
     private func makeStore() -> (ServerStore, () -> Void) {
@@ -575,39 +413,6 @@ final class ServerInventoryWriterTests: XCTestCase {
             attachPort: attachPort,
             role: role,
             sessionExpiresAt: sessionExpiresAt
-        )
-    }
-
-    /// Read-side companion to the write-side boundary guards above. The persisted
-    /// v1 inventory has a single in-memory authority (iOS `ServerRegistry`); reading
-    /// it by spinning up a throwaway `ServerStore().load()` bypasses that authority
-    /// and can transiently disagree with it mid-mutation (a `ServerStore()` reads
-    /// raw UserDefaults, not the published in-memory array). The write-side suite
-    /// guarded mutations and writer adoption but never ad-hoc READS. This forbids
-    /// new ad-hoc reads; the one remaining site (the `ClawDetailViewModel`
-    /// injected-provider DEFAULT, which iOS callers can override with a
-    /// ServerRegistry-backed provider) is allow-listed and tracked for migration.
-    func test_adHocServerStoreLoadReadsAreConfinedToAllowlist() throws {
-        let root = try workspaceRoot()
-        let allowed: Set<String> = [
-            // SoyehtCore-level default fallback for an injected provider; iOS UI
-            // should pass a ServerRegistry-backed provider. Tracked in
-            // docs/server-model.md as a read-side follow-up.
-            "Packages/SoyehtCore/Sources/SoyehtCore/ClawStore/ClawDetailViewModel.swift",
-        ]
-        let offenders = try productionSwiftFiles(root: root).filter { relativePath in
-            guard !allowed.contains(relativePath) else { return false }
-            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
-            return source.contains("ServerStore().load()")
-        }
-
-        XCTAssertTrue(
-            offenders.isEmpty,
-            """
-            Ad-hoc `ServerStore().load()` reads bypass the in-memory inventory \
-            authority (ServerRegistry) and can disagree with it mid-mutation. Read \
-            through the authority, or inject a provider. Offending files: \(offenders)
-            """
         )
     }
 
