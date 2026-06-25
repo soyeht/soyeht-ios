@@ -259,7 +259,20 @@ struct MacClawStoreRootView: View {
                         MacClawCardView(
                             claw: claw,
                             readiness: readiness.state,
-                            onInstall: { Task { await viewModel.installClaw(claw) } },
+                            onInstall: {
+                                // Action-site gate: re-check the readiness-aware
+                                // install rule live at tap time so a readiness
+                                // change between render and tap cannot let a stale
+                                // tap POST an install the gate would block. The
+                                // card's `canOfferInstall` governs visibility; this
+                                // is the matching action-side guard (parity with
+                                // the drawer's `shouldIssueInstall` at the tap).
+                                guard MacClawInstallDecision.shouldIssueInstall(
+                                    claw: claw,
+                                    readiness: readiness.state
+                                ) else { return }
+                                Task { await viewModel.installClaw(claw) }
+                            },
                             onTap: { path.append(ClawRoute.detail(claw, serverId: context.serverId)) }
                         )
                     }
