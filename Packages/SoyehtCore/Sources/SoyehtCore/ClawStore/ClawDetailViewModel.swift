@@ -85,16 +85,6 @@ public final class ClawDetailViewModel: ObservableObject {
         pollingTask?.cancel()
     }
 
-    // MARK: - Mock-Enriched Data
-
-    public var storeInfo: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
-    }
-
-    public var reviews: [ClawMockData.ClawReview] {
-        ClawMockData.reviews(for: claw.name)
-    }
-
     // MARK: - Installed server count
 
     /// Counts servers on which this claw is installed. Uses the install axis,

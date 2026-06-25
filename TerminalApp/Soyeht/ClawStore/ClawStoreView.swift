@@ -156,39 +156,6 @@ private struct ResolvedClawStoreView: View {
                                 }
                             }
 
-                            // Community reviews section
-                            if let featured = viewModel.featuredClaw {
-                                let reviews = ClawMockData.reviews(for: featured.name)
-                                if !reviews.isEmpty {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("clawstore.section.communitySays")
-                                            .font(Typography.monoSectionLabel)
-                                            .foregroundColor(SoyehtTheme.textComment)
-
-                                        HStack(spacing: 8) {
-                                            ForEach(Array(reviews.prefix(2).enumerated()), id: \.offset) { _, review in
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    Text(verbatim: "\"\(review.text)\"")
-                                                        .font(Typography.monoMicro)
-                                                        .italic()
-                                                        .foregroundColor(SoyehtTheme.textPrimary)
-                                                        .lineLimit(3)
-                                                    Text(verbatim: "— \(review.author)")
-                                                        .font(Typography.monoMicro)
-                                                        .foregroundColor(SoyehtTheme.textComment)
-                                                }
-                                                .padding(10)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(SoyehtTheme.bgPrimary)
-                                                .overlay(
-                                                    Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
                             // More Claws
                             if !viewModel.moreClaws.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {

@@ -530,20 +530,6 @@ struct ClawSetupViewModelTests {
 @Suite("ClawDetailViewModel")
 struct ClawDetailViewModelTests {
 
-    @Test("storeInfo returns correct data for known claw")
-    func storeInfoReturnsCorrectData() {
-        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"), context: makeTestServerContext())
-        #expect(vm.storeInfo.language == "Rust")
-        #expect(vm.storeInfo.rating == 0.0) // Ratings disabled until real API data
-        #expect(vm.storeInfo.featured == true)
-    }
-
-    @Test("reviews returns empty (disabled until real API data)")
-    func reviewsReturnsEmpty() {
-        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"), context: makeTestServerContext())
-        #expect(vm.reviews.isEmpty)
-    }
-
     @Test("claw display helpers format spec fields")
     func clawDisplayHelpersFormatSpecs() {
         let claw = Claw(
