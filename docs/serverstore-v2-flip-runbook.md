@@ -5,6 +5,11 @@ This is the operator procedure for turning on the **canonical v2 read path** for
 code (D1→D3c) is merged and inert, and this flip is an **operational decision** that
 must follow a clean live dry-run. It is intentionally NOT auto-fired by any code.
 
+Current shipped authority is still v1: `ServerStore` v1 is the persisted readable
+inventory, `ServerRegistry` is the iOS mutation/read facade, and the v2 envelope is
+a dual-written mirror. This runbook describes a possible future operator flip; it
+is not an instruction to change the default.
+
 ## What the flip actually changes
 
 `ServerRegistry` reads the server inventory through
@@ -14,7 +19,9 @@ must follow a clean live dry-run. It is intentionally NOT auto-fired by any code
 
 - **Flag OFF (today):** `loadCanonical` is byte-for-byte identical to `load()` — the
   legacy v1 read. The v2 mirror is still dual-written on every mutation, but never
-  read. This is the shipped, proven state.
+  read. This is the shipped, proven state. `SessionStore.canonicalServers()` /
+  `credentialedCanonicalServers()` and the current macOS callers continue to read
+  through the v1 writer facade; x-5 intentionally does not move those paths to v2.
 - **Flag ON:** `loadCanonical` serves the **v2 projection** ONLY when BOTH hold:
   1. `MigrationReadiness.isReadyToFlip` (`shadowClean && migrationCompleted`), and
   2. runtime equivalence: `Set(v2-projected) == Set(v1)`.
@@ -32,6 +39,10 @@ must follow a clean live dry-run. It is intentionally NOT auto-fired by any code
 3. **Shadow clean**: `ServerStoreShadowComparer` reports no credential/orphan
    mismatches (`shadowClean == true`, `blockingCategories` empty). This is what the
    dry-run confirms.
+4. **Runtime equality clean**: the loaded v2 envelope projects back to the current
+   v1 set. This full equality check is the guard for fields deliberately outside
+   the shadow comparer scope, including `lastSeenAt`, `theyOS`, `role`, and
+   `sessionExpiresAt`.
 
 ## Dry-run validation (go/no-go)
 

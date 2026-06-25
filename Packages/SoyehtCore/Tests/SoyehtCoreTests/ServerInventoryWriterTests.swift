@@ -366,9 +366,9 @@ final class ServerInventoryWriterTests: XCTestCase {
     }
 
     /// D3c: pin that ServerRegistry's READ path goes through the gated `loadCanonical`
-    /// (so the v2-read flip is honored everywhere) and that a raw `writer.load()`
-    /// survives ONLY as the flag-OFF fallback inside `canonicalRead` — no other path
-    /// may read v1 directly while another is gated.
+    /// and that a raw `writer.load()` survives ONLY as the flag-OFF fallback inside
+    /// `canonicalRead`. Other known V1 readers are pinned separately below while v2
+    /// stays default-off/inert.
     func test_serverRegistryReadsThroughGatedLoadCanonical() throws {
         let root = try workspaceRoot()
         let source = try codeOnly(
@@ -414,6 +414,67 @@ final class ServerInventoryWriterTests: XCTestCase {
         )
         XCTAssertFalse(forbidden.contains { source.contains($0) },
             "SessionStore must not directly call ServerStore writes/reads or v2/shadow helpers in D5."
+        )
+    }
+
+    func test_sessionStoreCanonicalReadsRemainRawV1WriterWhileV2DefaultOff() throws {
+        let root = try workspaceRoot()
+        let source = try codeOnly(
+            at: root.appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift")
+        )
+
+        XCTAssertTrue(
+            source.contains(
+                """
+                    public func canonicalServers() -> [Server] {
+                        inventoryWriter.load()
+                    }
+                """
+            ),
+            "SessionStore.canonicalServers() is intentionally the raw v1 writer facade while v2 reads are default-off."
+        )
+        XCTAssertTrue(source.contains("public func credentialedCanonicalServers() -> [PairedServer] {"))
+        XCTAssertTrue(source.contains("canonicalServers().compactMap { canonicalServer in"))
+        XCTAssertFalse(source.contains("loadCanonical("))
+        XCTAssertFalse(source.contains("v2ReadEnabled"))
+        XCTAssertFalse(source.contains("loadV2Envelope("))
+        XCTAssertFalse(source.contains("ServerStoreV2Migrator"))
+    }
+
+    func test_macOSInventoryReadersDoNotOptIntoV2RuntimeReads() throws {
+        let root = try workspaceRoot()
+        let expectedV1Readers: [String: String] = [
+            "TerminalApp/SoyehtMac/Servers/ConnectedServersWindowController.swift":
+                "store.credentialedCanonicalServers().sorted",
+            "TerminalApp/SoyehtMac/InstancePicker/InstancePickerViewController.swift":
+                "serverChoices = store.credentialedCanonicalServers()",
+            "Packages/SoyehtCore/Sources/SoyehtCore/ClawStore/MacActiveServerContextResolver.swift":
+                "sessionStore.canonicalServers().first(where: { $0.id == activeID })",
+            "TerminalApp/SoyehtMac/AppDelegate.swift":
+                "SessionStore.shared.credentialedCanonicalServers()",
+        ]
+
+        for (relativePath, expectedSnippet) in expectedV1Readers {
+            let source = try codeOnly(at: root.appendingPathComponent(relativePath))
+            XCTAssertTrue(source.contains(expectedSnippet), "\(relativePath) should keep reading through the SessionStore v1 facade.")
+        }
+
+        let forbiddenV2ReadPatterns = [
+            "loadCanonical(",
+            "v2ReadEnabled",
+            "v2ReadEnabledKey",
+            "loadV2Envelope(",
+            "ServerStoreV2Migrator",
+        ]
+        let offenders = try productionSwiftFiles(root: root).filter { relativePath in
+            guard relativePath.hasPrefix("TerminalApp/SoyehtMac/") else { return false }
+            let source = (try? codeOnly(at: root.appendingPathComponent(relativePath))) ?? ""
+            return forbiddenV2ReadPatterns.contains { source.contains($0) }
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            "macOS inventory readers must not opt into v2 runtime reads in the default-off inert slice. Offending files: \(offenders)"
         )
     }
 

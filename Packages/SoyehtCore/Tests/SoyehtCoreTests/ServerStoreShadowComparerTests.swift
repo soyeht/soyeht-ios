@@ -190,6 +190,54 @@ final class ServerStoreShadowComparerTests: XCTestCase {
         XCTAssertEqual(report.count(for: .endpointMismatch), 0)
     }
 
+    func test_scopeExcludesRuntimeEnrichmentAndCredentialLifetimeFields() {
+        let canonical = server(
+            id: "linux-alpha",
+            kind: .linux,
+            hostname: "linux-alpha",
+            lastHost: "100.64.0.10",
+            role: "admin",
+            sessionExpiresAt: "2026-12-31T00:00:00Z",
+            theyOS: TheyOSSnapshot(
+                status: .running,
+                version: "0.1.21",
+                lastCheckedAt: Date(timeIntervalSince1970: 2_000)
+            ),
+            lastSeenAt: Date(timeIntervalSince1970: 2_000)
+        )
+        let legacy = server(
+            id: canonical.id,
+            kind: .linux,
+            hostname: "linux-alpha",
+            lastHost: "100.64.0.10",
+            role: "operator",
+            sessionExpiresAt: "2027-01-01T00:00:00Z",
+            theyOS: TheyOSSnapshot(
+                status: .unreachable,
+                version: nil,
+                lastCheckedAt: Date(timeIntervalSince1970: 3_000)
+            ),
+            lastSeenAt: Date(timeIntervalSince1970: 3_000)
+        )
+
+        let report = ServerStoreShadowComparer.compare(
+            canonicalServers: [canonical],
+            legacyProjections: [
+                projection(legacy, source: .sessionStorePairedServers, hasCredential: true),
+            ],
+            activeServerID: canonical.id
+        )
+
+        XCTAssertTrue(
+            report.isClean,
+            """
+            The shadow comparer is scoped to identity, routing, credential presence, \
+            and active-id parity. Runtime enrichment/lifetime fields are protected by \
+            ServerInventoryWriter.loadCanonical's full Set(projected) == Set(v1) guard.
+            """
+        )
+    }
+
     func test_activeIDMismatchReportsBothMissingSidesWithoutIdentifiers() {
         let mac = server(
             id: "11111111-1111-1111-1111-111111111111",
@@ -379,6 +427,8 @@ final class ServerStoreShadowComparerTests: XCTestCase {
         presencePort: Int? = nil,
         attachPort: Int? = nil,
         role: String? = nil,
+        sessionExpiresAt: String? = nil,
+        theyOS: TheyOSSnapshot = TheyOSSnapshot(),
         lastSeenAt: Date = Date(timeIntervalSince1970: 1_100)
     ) -> Server {
         Server(
@@ -390,12 +440,13 @@ final class ServerStoreShadowComparerTests: XCTestCase {
             hostname: hostname,
             lastHost: lastHost,
             engineMachineId: engineMachineId,
+            theyOS: theyOS,
             apiEndpoint: apiEndpoint,
             bootstrapEndpoint: bootstrapEndpoint,
             presencePort: presencePort,
             attachPort: attachPort,
             role: role,
-            sessionExpiresAt: nil
+            sessionExpiresAt: sessionExpiresAt
         )
     }
 }
