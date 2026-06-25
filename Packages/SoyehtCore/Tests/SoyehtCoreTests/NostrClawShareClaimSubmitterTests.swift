@@ -222,6 +222,210 @@ final class NostrClawShareClaimSubmitterTests: XCTestCase {
         await relay.shutdown()
     }
 
+    func testGroupSubmitterPublishesGroupClaimAndReturnsGroupOffer() async throws {
+        let relay = MockNostrRelay()
+        let relayURL = URL(string: "wss://relay.example.test/")!
+        let ownerKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x11, count: 32))
+        let memberIdentity = try EphemeralClawShareMemberIdentity(rawRepresentation: Data(repeating: 0x55, count: 32))
+        let guestIdentity = try EphemeralClawShareGuestIdentity(rawRepresentation: Data(repeating: 0x33, count: 32))
+        let memberProvider = FixedMemberIdentityProvider(identity: memberIdentity)
+        let guestProvider = FixedGuestIdentityProvider(identity: guestIdentity)
+        let engineKey = try Self.engineKey()
+        let context = ClawShareGroupOfferClaimContext(
+            ownerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            ownerEngineNpub: engineKey.xonlyHex,
+            claimRelays: [relayURL.absoluteString],
+            participantNpub: "82f283e20094eb4da5922cfba6c0284b790525f4d4ddb2d17fd98f1bd0956c02",
+            groupId: "group_alpha",
+            clawId: "claw_alpha",
+            ttlSeconds: 600
+        )
+        let random = LockedRandomBytes([
+            Data(repeating: 0x44, count: 32), // claim nonce and group challenge
+            Data(repeating: 0x77, count: 32), // friend Nostr scalar
+            Data(repeating: 0x88, count: 32), // claim encryption nonce
+        ])
+        let submitter = NostrClawShareClaimSubmitter(
+            ackTimeout: 5,
+            transportFactory: { _ in await relay.accept() },
+            randomBytes: { count in try random.next(count: count) },
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+
+        let engineTransport = await relay.accept()
+        let engineClient = NostrWSSClient(transport: engineTransport, ackTimeout: 5)
+        try await engineClient.connect()
+        let stream = try await engineClient.subscribe(
+            id: "engine-group-claims",
+            filter: ["kinds": [1059], "#p": [engineKey.xonlyHex]]
+        )
+        let capturedClaim = CapturedClaim()
+        let engineTask = Task {
+            for await event in stream where event.kind == 1059 {
+                let friendPub = try XCTUnwrap(Self.compressedPubForNostrEvent(event))
+                let claimCBOR = try Self.decryptHexPayload(
+                    event.content,
+                    privateKey: engineKey.privateKey,
+                    peerPublicKey: friendPub
+                )
+                let claim = try ClawShareCodec.decodeClaim(claimCBOR)
+                await capturedClaim.set(claim)
+                let groupRequest = try XCTUnwrap(claim.groupRequest)
+                let offer = try Self.signedGroupOffer(
+                    ownerKey: ownerKey,
+                    guestPublicKey: claim.guestDevicePublicKey,
+                    groupId: groupRequest.groupId,
+                    memberId: groupRequest.binding.memberId,
+                    clawId: groupRequest.clawId,
+                    relayEndpoint: "relay-stream://198.51.100.10:49152"
+                )
+                let ack = ClawShareGroupAck(relayStreamOfferBytes: offer.canonicalBytes())
+                let ackCiphertext = try NostrNIP44.encrypt(
+                    plaintext: Data(ClawShareCodec.encode(ack).soyehtHexEncodedString().utf8),
+                    myPrivKey: engineKey.privateKey,
+                    peerPubKey: friendPub,
+                    nonce: Data(repeating: 0x99, count: 32)
+                )
+                let ackEvent = try NostrEventSigning.sign(
+                    privateKey: engineKey.privateKey,
+                    pubkey: engineKey.xonlyHex,
+                    createdAt: 1_800_000_001,
+                    kind: 1059,
+                    tags: [["p", event.pubkey]],
+                    content: ackCiphertext
+                )
+                try await engineClient.publish(ackEvent)
+                return
+            }
+        }
+
+        let result = try await submitter.submitGroupOffer(
+            context: context,
+            memberIdentityProvider: memberProvider,
+            guestIdentityProvider: guestProvider
+        )
+        try await engineTask.value
+        await engineClient.close()
+        await relay.shutdown()
+
+        let captured = await capturedClaim.value()
+        let claim = try XCTUnwrap(captured)
+        let groupRequest = try XCTUnwrap(claim.groupRequest)
+        let verifier = RelayOfferGroupRequest(
+            v: groupRequest.v,
+            challenge: groupRequest.challenge,
+            binding: groupRequest.binding,
+            groupId: groupRequest.groupId,
+            clawId: groupRequest.clawId,
+            devicePoP: groupRequest.devicePoP,
+            ttlSeconds: groupRequest.ttlSeconds
+        )
+        try verifier.verifyDeviceProof()
+        XCTAssertEqual(claim.slotId, ClawShareClaim.groupSlotSentinel)
+        XCTAssertEqual(claim.nonce, Data(repeating: 0x44, count: 32))
+        XCTAssertEqual(groupRequest.challenge, claim.nonce)
+        XCTAssertEqual(groupRequest.binding.memberId, memberIdentity.memberId)
+        XCTAssertEqual(groupRequest.binding.devicePublicKey, guestIdentity.publicKeyData)
+        XCTAssertEqual(groupRequest.binding.participantNpub, context.participantNpub)
+        XCTAssertEqual(groupRequest.groupId, context.groupId)
+        XCTAssertEqual(groupRequest.clawId, context.clawId)
+        XCTAssertEqual(result.guestPublicKeyData, claim.guestDevicePublicKey)
+        XCTAssertEqual(result.ownerPublicKey, context.ownerPublicKey)
+        XCTAssertEqual(result.groupId, context.groupId)
+        XCTAssertEqual(result.memberId, memberIdentity.memberId)
+        XCTAssertEqual(result.clawId, context.clawId)
+        XCTAssertEqual(result.relayStreamOffer.payload.audience, .group(groupId: context.groupId, memberId: memberIdentity.memberId))
+        XCTAssertEqual(result.relayStreamOffer.payload.relayEndpoint, "relay-stream://198.51.100.10:49152")
+    }
+
+    func testGroupSubmitterRejectsAckForDifferentGroup() async throws {
+        let relay = MockNostrRelay()
+        let relayURL = URL(string: "wss://relay.example.test/")!
+        let ownerKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x11, count: 32))
+        let memberIdentity = try EphemeralClawShareMemberIdentity(rawRepresentation: Data(repeating: 0x55, count: 32))
+        let guestIdentity = try EphemeralClawShareGuestIdentity(rawRepresentation: Data(repeating: 0x33, count: 32))
+        let engineKey = try Self.engineKey()
+        let context = ClawShareGroupOfferClaimContext(
+            ownerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            ownerEngineNpub: engineKey.xonlyHex,
+            claimRelays: [relayURL.absoluteString],
+            participantNpub: "82f283e20094eb4da5922cfba6c0284b790525f4d4ddb2d17fd98f1bd0956c02",
+            groupId: "group_alpha",
+            clawId: "claw_alpha",
+            ttlSeconds: nil
+        )
+        let random = LockedRandomBytes([
+            Data(repeating: 0x44, count: 32),
+            Data(repeating: 0x77, count: 32),
+            Data(repeating: 0x88, count: 32),
+        ])
+        let submitter = NostrClawShareClaimSubmitter(
+            ackTimeout: 5,
+            transportFactory: { _ in await relay.accept() },
+            randomBytes: { count in try random.next(count: count) },
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+
+        let engineTransport = await relay.accept()
+        let engineClient = NostrWSSClient(transport: engineTransport, ackTimeout: 5)
+        try await engineClient.connect()
+        let stream = try await engineClient.subscribe(
+            id: "engine-group-claims",
+            filter: ["kinds": [1059], "#p": [engineKey.xonlyHex]]
+        )
+        let engineTask = Task {
+            for await event in stream where event.kind == 1059 {
+                let friendPub = try XCTUnwrap(Self.compressedPubForNostrEvent(event))
+                let claimCBOR = try Self.decryptHexPayload(
+                    event.content,
+                    privateKey: engineKey.privateKey,
+                    peerPublicKey: friendPub
+                )
+                let claim = try ClawShareCodec.decodeClaim(claimCBOR)
+                let groupRequest = try XCTUnwrap(claim.groupRequest)
+                let offer = try Self.signedGroupOffer(
+                    ownerKey: ownerKey,
+                    guestPublicKey: claim.guestDevicePublicKey,
+                    groupId: "other_group",
+                    memberId: groupRequest.binding.memberId,
+                    clawId: groupRequest.clawId,
+                    relayEndpoint: "relay-stream://198.51.100.10:49152"
+                )
+                let ack = ClawShareGroupAck(relayStreamOfferBytes: offer.canonicalBytes())
+                let ackCiphertext = try NostrNIP44.encrypt(
+                    plaintext: Data(ClawShareCodec.encode(ack).soyehtHexEncodedString().utf8),
+                    myPrivKey: engineKey.privateKey,
+                    peerPubKey: friendPub,
+                    nonce: Data(repeating: 0x99, count: 32)
+                )
+                let ackEvent = try NostrEventSigning.sign(
+                    privateKey: engineKey.privateKey,
+                    pubkey: engineKey.xonlyHex,
+                    createdAt: 1_800_000_001,
+                    kind: 1059,
+                    tags: [["p", event.pubkey]],
+                    content: ackCiphertext
+                )
+                try await engineClient.publish(ackEvent)
+                return
+            }
+        }
+
+        do {
+            _ = try await submitter.submitGroupOffer(
+                context: context,
+                memberIdentityProvider: FixedMemberIdentityProvider(identity: memberIdentity),
+                guestIdentityProvider: FixedGuestIdentityProvider(identity: guestIdentity)
+            )
+            XCTFail("Expected group mismatch to be rejected")
+        } catch {
+            XCTAssertEqual(error as? ClawShareError, .relayStreamOfferRejected)
+        }
+        try await engineTask.value
+        await engineClient.close()
+        await relay.shutdown()
+    }
+
     private static func engineKey() throws -> (privateKey: Data, xonlyHex: String) {
         for seed in UInt8(1)...UInt8(250) {
             let scalar = Data(repeating: seed, count: 32)
@@ -340,6 +544,34 @@ final class NostrClawShareClaimSubmitterTests: XCTestCase {
         )
     }
 
+    private static func signedGroupOffer(
+        ownerKey: P256.Signing.PrivateKey,
+        guestPublicKey: Data,
+        groupId: String,
+        memberId: String,
+        clawId: String,
+        relayEndpoint: String
+    ) throws -> RelayStreamOfferContract {
+        let payload = RelayStreamOfferPayload(
+            rendezvousToken: Data(repeating: 0x42, count: 16),
+            clawId: clawId,
+            slotId: Data(repeating: 0x22, count: 16),
+            guestDevicePublicKey: guestPublicKey,
+            resource: .pty,
+            expectedPath: .relayStream,
+            relayEndpoint: relayEndpoint,
+            clawStaticPublicKey: Data(repeating: 0x33, count: 32),
+            notAfter: 1_800_000_600,
+            authz: .group(groupId: groupId, memberId: memberId)
+        )
+        let signature = try ownerKey.signature(for: payload.canonicalBytes()).rawRepresentation
+        return RelayStreamOfferContract(
+            payload: payload,
+            signerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            signature: signature
+        )
+    }
+
     private static func waitForCount(
         _ counter: AsyncCounter,
         atLeast expected: Int,
@@ -390,6 +622,14 @@ private struct FixedGuestIdentityProvider: ClawShareGuestIdentityProvider {
     let identity: EphemeralClawShareGuestIdentity
 
     func create() throws -> any ClawShareGuestIdentity {
+        identity
+    }
+}
+
+private struct FixedMemberIdentityProvider: ClawShareMemberIdentityProviding {
+    let identity: EphemeralClawShareMemberIdentity
+
+    func loadOrCreate() throws -> any ClawShareMemberIdentity {
         identity
     }
 }

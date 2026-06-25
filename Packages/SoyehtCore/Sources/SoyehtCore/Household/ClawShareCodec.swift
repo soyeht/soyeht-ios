@@ -82,6 +82,9 @@ public enum ClawShareCodec {
         if let participantNpub = claim.participantNpub {
             fields["participant_npub"] = .text(participantNpub)
         }
+        if let groupRequest = claim.groupRequest {
+            fields["group_request"] = groupRequest.cborValue
+        }
         return HouseholdCBOR.encode(.map(fields))
     }
 
@@ -96,6 +99,13 @@ public enum ClawShareCodec {
         default:
             throw ClawShareError.inviteMalformed
         }
+        let groupRequest: GroupClaimRequest?
+        switch map["group_request"] {
+        case .some(let value):
+            groupRequest = try GroupClaimRequest.decode(value)
+        case .none:
+            groupRequest = nil
+        }
         return ClawShareClaim(
             v: try expectUInt8(map["v"]),
             kind: try expectText(map["kind"]),
@@ -104,6 +114,7 @@ public enum ClawShareCodec {
             nonce: try expectBytes(map["nonce"]),
             timestamp: try expectUInt64(map["timestamp"]),
             participantNpub: participantNpub,
+            groupRequest: groupRequest,
             guestSignature: try expectBytes(map["guest_signature"])
         )
     }
@@ -158,6 +169,24 @@ public enum ClawShareCodec {
             credential: credential,
             tunnel: try ClawShareTunnelHandle.decode(map["tunnel"]),
             relayStreamOfferBytes: offerBytes
+        )
+    }
+
+    public static func encode(_ ack: ClawShareGroupAck) -> Data {
+        HouseholdCBOR.encode(.map([
+            "relay_stream_offer": .bytes(ack.relayStreamOfferBytes),
+            "v": .unsigned(UInt64(ack.v)),
+        ]))
+    }
+
+    public static func decodeGroupAck(_ data: Data) throws -> ClawShareGroupAck {
+        let map = try decodeMap(data)
+        guard Set(map.keys) == ["relay_stream_offer", "v"] else {
+            throw ClawShareError.inviteMalformed
+        }
+        return ClawShareGroupAck(
+            v: try expectUInt8(map["v"]),
+            relayStreamOfferBytes: try expectBytes(map["relay_stream_offer"])
         )
     }
 

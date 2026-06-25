@@ -9,7 +9,7 @@ protocol RelayStreamInviteOpening: Sendable {
 protocol RelayStreamSessionOpening: Sendable {
     func openSession(
         offerCbor: Data,
-        credentialCbor: Data,
+        credentialCbor: Data?,
         expectedOwnerPub: Data,
         expectedGuestPub: Data,
         nowUnix: UInt64,
@@ -29,7 +29,7 @@ struct RelayStreamGuestSessionOpener: RelayStreamSessionOpening {
 
     func openSession(
         offerCbor: Data,
-        credentialCbor: Data,
+        credentialCbor: Data?,
         expectedOwnerPub: Data,
         expectedGuestPub: Data,
         nowUnix: UInt64,
@@ -56,11 +56,20 @@ struct RelayStreamGuestSessionOpener: RelayStreamSessionOpening {
 struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
     enum OpenError: Error, LocalizedError, Equatable {
         case missingRelayStreamOffer
+        case groupOfferRequired
+        case groupMismatch
+        case memberMismatch
 
         var errorDescription: String? {
             switch self {
             case .missingRelayStreamOffer:
                 return String(localized: "The invite did not include a relay stream offer.")
+            case .groupOfferRequired:
+                return String(localized: "The relay stream offer is not a group offer.")
+            case .groupMismatch:
+                return String(localized: "The relay stream offer is for a different group.")
+            case .memberMismatch:
+                return String(localized: "The relay stream offer is for a different member.")
             }
         }
     }
@@ -111,6 +120,45 @@ struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
             connectTimeoutMs: connectTimeoutMs
         )
         return RelayStreamTerminalConfiguration(title: invite.clawId, session: session)
+    }
+
+    func openGroupOffer(
+        _ offer: RelayStreamOfferContract,
+        expectedOwnerPub: Data,
+        expectedGroupId: String,
+        expectedMemberId: String,
+        guestIdentity: any ClawShareGuestIdentity,
+        title: String? = nil
+    ) async throws -> RelayStreamTerminalConfiguration {
+        let nowUnix = UInt64(max(0, now().timeIntervalSince1970))
+        try offer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: expectedOwnerPub,
+            expectedGuestDevicePublicKey: guestIdentity.publicKeyData,
+            nowUnix: nowUnix
+        )
+        guard case .group(let groupId, let memberId) = offer.payload.audience else {
+            throw OpenError.groupOfferRequired
+        }
+        guard groupId == expectedGroupId else {
+            throw OpenError.groupMismatch
+        }
+        guard memberId == expectedMemberId else {
+            throw OpenError.memberMismatch
+        }
+
+        let sessionId = "ios-relay-stream-\(uuid().uuidString.lowercased())"
+        let session = try await sessionOpener.openSession(
+            offerCbor: offer.canonicalBytes(),
+            credentialCbor: nil,
+            expectedOwnerPub: expectedOwnerPub,
+            expectedGuestPub: guestIdentity.publicKeyData,
+            nowUnix: nowUnix,
+            ttlSecs: ttlSecs,
+            sessionId: sessionId,
+            signer: RelayStreamClaimedSessionSigner(identity: guestIdentity),
+            connectTimeoutMs: connectTimeoutMs
+        )
+        return RelayStreamTerminalConfiguration(title: title ?? offer.payload.clawId, session: session)
     }
 }
 
