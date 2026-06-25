@@ -141,4 +141,29 @@ public enum ClawNotificationHelper {
         )
         center.add(request)
     }
+
+    public static func sendDeployStillPreparing(clawName: String) {
+        let center = UNUserNotificationCenter.current()
+        let content = UNMutableNotificationContent()
+        content.title = String(
+            localized: "notify.claw.deploy.stillPreparing.title",
+            defaultValue: "\(clawName) still preparing",
+            bundle: .module,
+            comment: "Local notification title when the deploy monitor stops following a still-provisioning claw. %@ = claw name."
+        )
+        content.body = String(
+            localized: "notify.claw.deploy.stillPreparing.body",
+            defaultValue: "Still preparing. Check later.",
+            bundle: .module,
+            comment: "Local notification body when provisioning is still running after local monitoring stops."
+        )
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "claw-deploy-still-preparing-\(clawName)-\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        center.add(request)
+    }
 }
