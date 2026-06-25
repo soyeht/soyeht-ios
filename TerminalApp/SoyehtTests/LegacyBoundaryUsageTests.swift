@@ -496,20 +496,12 @@ final class LegacyBoundaryUsageTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Returns the file at `url` with comment-only lines stripped, so
-    /// doc-comment mentions of forbidden symbols don't trip code-only
-    /// invariants. Same heuristic as `ClawRouteUsageTests`.
+    /// Returns the file at `url` with comments stripped (code preserved), so
+    /// doc-comment or trailing-comment mentions of forbidden symbols don't trip
+    /// code-only invariants. Shared with `ClawRouteUsageTests` via
+    /// `SourceCommentStripper`.
     private func codeOnly(at url: URL) throws -> String {
-        let source = try String(contentsOf: url, encoding: .utf8)
-        return source.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { line in
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("//") { return false }
-                if trimmed.hasPrefix("*") { return false }
-                if trimmed.hasPrefix("/*") { return false }
-                return true
-            }
-            .joined(separator: "\n")
+        SourceCommentStripper.strip(try String(contentsOf: url, encoding: .utf8))
     }
 
     private func iosSwiftFiles() throws -> [URL] {
