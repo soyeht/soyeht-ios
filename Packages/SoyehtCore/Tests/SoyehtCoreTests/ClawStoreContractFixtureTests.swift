@@ -306,7 +306,7 @@ struct ClawStoreContractFixtureTests {
         let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
         #expect(request.httpMethod == route.method)
         #expect(request.url?.path == route.path(name: "unknown-claw"))
-        #expect(route.householdOperation == "claws.list")
+        #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
         #expect(request.value(forHTTPHeaderField: "Authorization")?.hasPrefix("Soyeht-PoP v1:") == true)
         #expect(request.value(forHTTPHeaderField: "Authorization")?.contains("Bearer") == false)
         assertUnknownAvailability(availability)
@@ -481,7 +481,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path())
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.list")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
             #expect(instances.isEmpty)
         }
@@ -500,7 +500,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path())
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.create")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsCreate)
             assertHouseholdPoP(request)
         }
 
@@ -517,7 +517,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(id: instanceID))
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.list")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
         }
 
@@ -625,7 +625,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container))
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.list")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
         }
 
@@ -640,7 +640,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container))
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.use")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
 
@@ -656,7 +656,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container, id: workspaceID))
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.use")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
 
@@ -672,7 +672,7 @@ struct ClawStoreContractFixtureTests {
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container, id: workspaceID))
             #expect(route.authKind == "household_pop")
-            #expect(route.householdOperation == "claws.use")
+            #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
     }
@@ -695,7 +695,7 @@ struct ClawStoreContractFixtureTests {
         #expect(request.httpMethod == route.method)
         #expect(request.url?.path == route.path(container: container))
         #expect(route.authKind == "household_pop")
-        #expect(route.householdOperation == "claws.use")
+        #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
         let authorization = request.value(forHTTPHeaderField: "Authorization")
         #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
         #expect(authorization?.contains("Bearer") == false)
