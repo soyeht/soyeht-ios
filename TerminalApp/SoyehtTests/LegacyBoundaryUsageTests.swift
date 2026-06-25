@@ -496,6 +496,37 @@ final class LegacyBoundaryUsageTests: XCTestCase {
 
     // MARK: - Helpers
 
+    // MARK: - macOS Claw Store surface (P1.4)
+
+    /// The Mac CLAW STORE feature surface must not (re)introduce direct legacy
+    /// store coupling, even though the wider Mac app legitimately uses these
+    /// stores as the boundary layer. Scoped to SoyehtMac/ClawStore and
+    /// comment-stripped (so doc-comment mentions do not count). No allowlist:
+    /// today the surface has zero code-level coupling (the only mention is a doc
+    /// comment in MacClawSetupView.swift), so this locks in a clean state and any
+    /// NEW real usage - including in MacClawSetupView - fails. The lossy
+    /// install-target rule is covered separately by MacClawInstallSurfaceGuardTests;
+    /// household route cases stay legitimate on Mac, so they are intentionally not
+    /// guarded here.
+    func test_macClawStoreSurface_doesNotCoupleToLegacyStores() throws {
+        let forbidden = [
+            "PairedMacsStore.shared.macs",
+            "HouseholdSessionStore()",
+            ".pairedServers",
+        ]
+        var offenders: [String] = []
+        for url in try macClawStoreSwiftFiles() {
+            let code = (try? codeOnly(at: url)) ?? ""
+            for token in forbidden where code.contains(token) {
+                offenders.append("\(url.lastPathComponent): \(token)")
+            }
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            "Mac Claw Store sources must route through the facade (ServerRegistry.shared / SoyehtIdentity.shared / ClawInstallTargetResolver), not legacy stores. Offending sites: \(offenders)"
+        )
+    }
+
     /// Returns the file at `url` with comments stripped (code preserved), so
     /// doc-comment or trailing-comment mentions of forbidden symbols don't trip
     /// code-only invariants. Shared with `ClawRouteUsageTests` via
@@ -513,6 +544,16 @@ final class LegacyBoundaryUsageTests: XCTestCase {
     /// `MacClawDetailView` — not only the iPhone app.
     private func macSwiftFiles() throws -> [URL] {
         try swiftFiles(under: "SoyehtMac")
+    }
+
+    /// macOS Claw Store FEATURE sources only (TerminalApp/SoyehtMac/ClawStore).
+    /// Narrower than `macSwiftFiles()` on purpose: the iOS facade rule (route
+    /// through `ServerRegistry.shared` / `SoyehtIdentity.shared`) is iOS-specific,
+    /// and the wider Mac app is the boundary/orchestration layer that legitimately
+    /// uses `SessionStore` / `HouseholdSessionStore` / `PairedMacsStore`. Only the
+    /// Mac Claw Store surface is held to the no-new-legacy-coupling bar.
+    private func macClawStoreSwiftFiles() throws -> [URL] {
+        try macSwiftFiles().filter { $0.pathComponents.contains("ClawStore") }
     }
 
     private func swiftFiles(under subdir: String) throws -> [URL] {
