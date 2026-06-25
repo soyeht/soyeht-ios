@@ -2,9 +2,8 @@
 //
 // Derived from the vendored Claw Store contract:
 //   Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json
-// Route IDs, auth kinds, and household operations only. Path templates are
-// intentionally NOT generated (kept small). The drift guard
-// ClawStoreContractConstantsGuardTests fails if this file goes stale.
+// Route IDs, auth kinds, household operations, and path templates. The drift
+// guard ClawStoreContractConstantsGuardTests fails if this file goes stale.
 
 enum ClawStoreContractConstants {
     /// Claw Store route identifiers (one per contract route).
@@ -71,5 +70,96 @@ enum ClawStoreContractConstants {
         static let clawsList = "claws.list"
         static let clawsUse = "claws.use"
         static let all: [String] = [Self.clawsCreate, Self.clawsDelete, Self.clawsList, Self.clawsUse]
+    }
+
+    /// Path templates per route id, in raw contract form with the
+    /// {name} / {id} / {container} placeholders preserved. Not consumed by
+    /// tests; the drift guard pins `byRouteID` == the vendored contract so a
+    /// synced path-template change forces a regen.
+    enum PathTemplate {
+        static let adminClawAvailability = "/api/v1/claws/{name}/availability"
+        static let adminCreateInstance = "/api/v1/instances"
+        static let adminCreateWorkspace = "/api/v1/terminals/{container}/workspaces"
+        static let adminDeleteInstance = "/api/v1/instances/{id}"
+        static let adminDeleteWorkspace = "/api/v1/terminals/{container}/workspaces/{id}"
+        static let adminGetClaw = "/api/v1/claws/{name}"
+        static let adminInstallClaw = "/api/v1/claws/{name}/install"
+        static let adminInstanceStatus = "/api/v1/instances/{id}/status"
+        static let adminListClaws = "/api/v1/claws"
+        static let adminListWorkspaces = "/api/v1/terminals/{container}/workspaces"
+        static let adminRebuildInstance = "/api/v1/instances/{id}/rebuild"
+        static let adminRenameWorkspace = "/api/v1/terminals/{container}/workspaces/{id}"
+        static let adminResourceOptions = "/api/v1/resource-options"
+        static let adminRestartInstance = "/api/v1/instances/{id}/restart"
+        static let adminStopInstance = "/api/v1/instances/{id}/stop"
+        static let adminTerminalPty = "/api/v1/terminals/{container}/pty"
+        static let adminUninstallClaw = "/api/v1/claws/{name}/uninstall"
+        static let adminUsers = "/api/v1/users"
+        static let householdAttachToken = "/api/v1/household/terminals/{container}/attach-token"
+        static let householdClawAvailability = "/api/v1/household/claws/{name}/availability"
+        static let householdCreateInstance = "/api/v1/household/instances"
+        static let householdCreateWorkspace = "/api/v1/household/terminals/{container}/workspaces"
+        static let householdDeleteInstance = "/api/v1/household/instances/{id}"
+        static let householdDeleteWorkspace = "/api/v1/household/terminals/{container}/workspaces/{id}"
+        static let householdInstallClaw = "/api/v1/household/claws/{name}/install"
+        static let householdInstanceStatus = "/api/v1/household/instances/{id}/status"
+        static let householdListClaws = "/api/v1/household/claws"
+        static let householdListInstances = "/api/v1/household/instances"
+        static let householdListWorkspaces = "/api/v1/household/terminals/{container}/workspaces"
+        static let householdRebuildInstance = "/api/v1/household/instances/{id}/rebuild"
+        static let householdRenameWorkspace = "/api/v1/household/terminals/{container}/workspaces/{id}"
+        static let householdRestartInstance = "/api/v1/household/instances/{id}/restart"
+        static let householdStopInstance = "/api/v1/household/instances/{id}/stop"
+        static let householdTerminalPty = "/api/v1/household/terminals/{container}/pty"
+        static let householdUninstallClaw = "/api/v1/household/claws/{name}/uninstall"
+        static let mobileClawAvailability = "/api/v1/mobile/claws/{name}/availability"
+        static let mobileCreateInstance = "/api/v1/mobile/instances"
+        static let mobileInstallClaw = "/api/v1/mobile/claws/{name}/install"
+        static let mobileInstanceStatus = "/api/v1/mobile/instances/{id}/status"
+        static let mobileListClaws = "/api/v1/mobile/claws"
+        static let mobileUninstallClaw = "/api/v1/mobile/claws/{name}/uninstall"
+        static let byRouteID: [String: String] = [
+            "admin_claw_availability": Self.adminClawAvailability,
+            "admin_create_instance": Self.adminCreateInstance,
+            "admin_create_workspace": Self.adminCreateWorkspace,
+            "admin_delete_instance": Self.adminDeleteInstance,
+            "admin_delete_workspace": Self.adminDeleteWorkspace,
+            "admin_get_claw": Self.adminGetClaw,
+            "admin_install_claw": Self.adminInstallClaw,
+            "admin_instance_status": Self.adminInstanceStatus,
+            "admin_list_claws": Self.adminListClaws,
+            "admin_list_workspaces": Self.adminListWorkspaces,
+            "admin_rebuild_instance": Self.adminRebuildInstance,
+            "admin_rename_workspace": Self.adminRenameWorkspace,
+            "admin_resource_options": Self.adminResourceOptions,
+            "admin_restart_instance": Self.adminRestartInstance,
+            "admin_stop_instance": Self.adminStopInstance,
+            "admin_terminal_pty": Self.adminTerminalPty,
+            "admin_uninstall_claw": Self.adminUninstallClaw,
+            "admin_users": Self.adminUsers,
+            "household_attach_token": Self.householdAttachToken,
+            "household_claw_availability": Self.householdClawAvailability,
+            "household_create_instance": Self.householdCreateInstance,
+            "household_create_workspace": Self.householdCreateWorkspace,
+            "household_delete_instance": Self.householdDeleteInstance,
+            "household_delete_workspace": Self.householdDeleteWorkspace,
+            "household_install_claw": Self.householdInstallClaw,
+            "household_instance_status": Self.householdInstanceStatus,
+            "household_list_claws": Self.householdListClaws,
+            "household_list_instances": Self.householdListInstances,
+            "household_list_workspaces": Self.householdListWorkspaces,
+            "household_rebuild_instance": Self.householdRebuildInstance,
+            "household_rename_workspace": Self.householdRenameWorkspace,
+            "household_restart_instance": Self.householdRestartInstance,
+            "household_stop_instance": Self.householdStopInstance,
+            "household_terminal_pty": Self.householdTerminalPty,
+            "household_uninstall_claw": Self.householdUninstallClaw,
+            "mobile_claw_availability": Self.mobileClawAvailability,
+            "mobile_create_instance": Self.mobileCreateInstance,
+            "mobile_install_claw": Self.mobileInstallClaw,
+            "mobile_instance_status": Self.mobileInstanceStatus,
+            "mobile_list_claws": Self.mobileListClaws,
+            "mobile_uninstall_claw": Self.mobileUninstallClaw,
+        ]
     }
 }
