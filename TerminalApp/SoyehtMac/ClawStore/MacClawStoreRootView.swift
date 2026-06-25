@@ -57,14 +57,7 @@ struct MacClawStoreRootView: View {
                     case .store(_):
                         content
                     case .householdStore, .householdDetail:
-                        // Mac does not produce household-targeted claw routes
-                        // today (see iOS InstanceListView for callers). If a
-                        // future change starts emitting these on Mac, fall
-                        // through to the catalog rather than invoking the
-                        // wrong API target via the server `context`. The Mac
-                        // sibling of `ClawDetailView(target: .household)`
-                        // should ship before that flip.
-                        content
+                        unsupportedHouseholdRouteView
                     case .detail(let claw, _):
                         MacClawDetailView(
                             claw: claw,
@@ -187,6 +180,47 @@ struct MacClawStoreRootView: View {
             grid
                 .accessibilityIdentifier("soyeht.macClawStore.grid")
         }
+    }
+
+    private var unsupportedHouseholdRouteView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(MacTypography.Fonts.clawStoreEmptyIcon)
+                .foregroundColor(MacClawStoreTheme.textWarning)
+            Text(LocalizedStringResource(
+                "claw.store.householdRouteUnavailable.title",
+                defaultValue: "Route unavailable on Mac",
+                comment: "Title shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store."
+            ))
+                .font(MacTypography.Fonts.clawStoreEmptyTitle)
+                .foregroundColor(MacClawStoreTheme.textSecondary)
+            Text(LocalizedStringResource(
+                "claw.store.householdRouteUnavailable.body",
+                defaultValue: "This Claw Store route is not available in the macOS app. Open a connected server to continue.",
+                comment: "Body shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store."
+            ))
+                .font(MacTypography.Fonts.clawStoreStatus)
+                .foregroundColor(MacClawStoreTheme.textMuted)
+                .multilineTextAlignment(.center)
+            Button {
+                onShowConnectedServers()
+            } label: {
+                Label {
+                    Text(LocalizedStringResource(
+                        "claw.store.error.openServers",
+                        defaultValue: "Open Servers",
+                        comment: "Button shown when the macOS Claw Store cannot reach the selected server."
+                    ))
+                } icon: {
+                    Image(systemName: "server.rack")
+                }
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("soyeht.macClawStore.unsupportedHouseholdRoute.openServers")
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("soyeht.macClawStore.unsupportedHouseholdRoute")
     }
 
     private var serverStatusPill: some View {

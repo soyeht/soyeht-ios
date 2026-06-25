@@ -326,6 +326,36 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(macOSPatch.contains("X-Soyeht-Household"))
     }
 
+    func testMacClawStoreRejectsHouseholdRoutesAtRootBoundary() throws {
+        let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
+        let destination = try slice(
+            rootView,
+            from: ".navigationDestination(for: ClawRoute.self)",
+            to: ".task {"
+        )
+        let householdBranch = try slice(
+            destination,
+            from: "case .householdStore, .householdDetail:",
+            to: "case .detail"
+        )
+        XCTAssertTrue(householdBranch.contains("unsupportedHouseholdRouteView"))
+        XCTAssertFalse(householdBranch.contains("content"))
+        XCTAssertFalse(householdBranch.contains("MacClawDetailView"))
+
+        let detailBranch = try slice(
+            destination,
+            from: "case .detail(let claw, _):",
+            to: "case .setup"
+        )
+        XCTAssertTrue(detailBranch.contains("MacClawDetailView("))
+        XCTAssertTrue(detailBranch.contains("context: context"))
+        XCTAssertTrue(detailBranch.contains("target: target"))
+        XCTAssertTrue(rootView.contains("path.append(ClawRoute.detail(claw, serverId: context.serverId))"))
+        XCTAssertTrue(rootView.contains("ClawMachineTarget.server(context)"))
+        XCTAssertFalse(rootView.contains("ClawInstallTarget"))
+        XCTAssertFalse(rootView.contains("householdEndpoint"))
+    }
+
     func testPaneAndWorkspaceShortcutsRouteThroughUICommandTarget() throws {
         let source = try macSource("AppDelegate.swift")
         let commandActions = try slice(
