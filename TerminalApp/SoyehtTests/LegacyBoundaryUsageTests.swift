@@ -102,6 +102,34 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    func test_guestImageRecoveryViewsUseSharedPolicyCTA() throws {
+        let viewNames = ["ClawDetailView.swift", "ClawStoreView.swift"]
+        let views = try iosSwiftFiles().filter { viewNames.contains($0.lastPathComponent) }
+        XCTAssertEqual(
+            Set(views.map(\.lastPathComponent)), Set(viewNames),
+            "Expected to locate both guest-image recovery views."
+        )
+        for url in views {
+            let code = (try? codeOnly(at: url)) ?? ""
+            XCTAssertTrue(
+                code.contains("GuestImageRecoveryPolicy.presentation(for: readiness)"),
+                "\(url.lastPathComponent) must get recovery semantics from the shared GuestImageRecoveryPolicy."
+            )
+            XCTAssertTrue(
+                code.contains("GuestImageFailureCopy.primaryLabel(for: presentation.cta)"),
+                "\(url.lastPathComponent) must label recovery CTAs from presentation.cta."
+            )
+            XCTAssertTrue(
+                code.contains("guestImageRecoveryHandler(for: presentation.cta)"),
+                "\(url.lastPathComponent) must route recovery handlers from presentation.cta."
+            )
+            XCTAssertFalse(
+                code.contains(".recoveryAction"),
+                "\(url.lastPathComponent) must not rederive the recovery CTA directly from GuestImageFailureCode.recoveryAction."
+            )
+        }
+    }
+
     /// Mac sibling of `test_guestImageRecovery_isReasonCoded_noRawStringPrimary`,
     /// enforced on `TerminalApp/SoyehtMac/`. The Mac Claw Store recovery surfaces
     /// must render reason-coded copy through `MacGuestImageRecovery` (the SSOT

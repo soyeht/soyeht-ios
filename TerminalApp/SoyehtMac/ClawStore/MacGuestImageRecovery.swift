@@ -205,7 +205,7 @@ enum MacGuestImageRecovery {
         case .insufficientDisk:
             return LocalizedStringResource(
                 "macClawStore.guestImage.failure.insufficientDisk.body",
-                defaultValue: "Free up space on the Mac, then check again.",
+                defaultValue: "Free up space on the Mac, then try again.",
                 comment: "Body for the insufficient-disk failure."
             )
         case .entitlementMissing:
@@ -217,7 +217,7 @@ enum MacGuestImageRecovery {
         case .ipswDownloadFailed:
             return LocalizedStringResource(
                 "macClawStore.guestImage.failure.ipswDownloadFailed.body",
-                defaultValue: "Check the Mac's connection, then check again.",
+                defaultValue: "Check the Mac's connection, then try again.",
                 comment: "Body for the restore-image download failure."
             )
         case .ipswIncompatible:

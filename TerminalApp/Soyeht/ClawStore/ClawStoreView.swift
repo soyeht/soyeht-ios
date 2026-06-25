@@ -335,18 +335,19 @@ private struct ResolvedClawStoreView: View {
                     showsSpinner: true
                 )
             case .failed(let error, let code):
-                // Reason-coded banner: copy from GuestImageFailureCopy, action from
-                // the domain (`code.recoveryAction`); raw `error` only behind Details.
-                let action = (code ?? .unknown).recoveryAction
-                banner(
-                    title: GuestImageFailureCopy.title(for: code),
-                    body: GuestImageFailureCopy.body(for: code),
-                    color: SoyehtTheme.accentRed,
-                    showsSpinner: false,
-                    detail: error,
-                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
-                    action: guestImageRecoveryHandler(for: action)
-                )
+                // Reason-coded banner: copy from GuestImageFailureCopy; CTA/action
+                // from the shared policy. Raw `error` stays behind Details.
+                if let presentation = GuestImageRecoveryPolicy.presentation(for: readiness) {
+                    banner(
+                        title: GuestImageFailureCopy.title(for: code),
+                        body: GuestImageFailureCopy.body(for: code),
+                        color: SoyehtTheme.accentRed,
+                        showsSpinner: false,
+                        detail: error,
+                        actionTitle: GuestImageFailureCopy.primaryLabel(for: presentation.cta),
+                        action: guestImageRecoveryHandler(for: presentation.cta)
+                    )
+                }
             case .notApplicable, .ready:
                 EmptyView()
             }
@@ -445,14 +446,13 @@ private struct ResolvedClawStoreView: View {
         }
     }
 
-    /// Action → handler. Action is decided by the domain (`recoveryAction`);
-    /// on-device retries call `prepare`, Mac-side recoveries call `refreshStatus`,
-    /// `.none` has no CTA. `restartMacRequired` (host_vm_limit_reached) never preps.
-    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
-        switch action {
-        case .retry, .freeSpaceThenRetry:
+    /// CTA -> handler. The CTA is decided by `GuestImageRecoveryPolicy`: prepare
+    /// re-invokes guest-image preparation, checkAgain only refreshes status.
+    private func guestImageRecoveryHandler(for cta: GuestImageRecoveryCTA) -> (() -> Void)? {
+        switch cta {
+        case .prepare:
             return { startGuestImagePreparation(force: true) }
-        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+        case .checkAgain:
             return { refreshGuestImageStatus() }
         case .none:
             return nil
