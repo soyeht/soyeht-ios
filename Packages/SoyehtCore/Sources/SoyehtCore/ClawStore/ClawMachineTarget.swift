@@ -20,6 +20,7 @@ public enum ClawMachineTarget: Sendable, Equatable {
     public enum MissingReason: Sendable, Equatable {
         case unknownServer
         case missingContext
+        case macUnreachable
     }
 
     public var serverID: String? {

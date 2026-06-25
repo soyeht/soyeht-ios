@@ -7,7 +7,9 @@ import SoyehtCore
 /// Linux servers do not need a guest image, so they are always allowed.
 /// Mac servers must report `GuestImageReadiness.ready` before iOS exposes
 /// Claw install/deploy actions. The state is intentionally local to Claw
-/// Store UI; PR-5B does not persist readiness into `ServerRegistry`.
+/// Store UI. The network reachability result is mirrored into
+/// `ServerRegistry` so target resolution can consume the cached status
+/// without probing synchronously in SwiftUI.
 enum GuestImageReadinessGateState: Equatable, Sendable {
     case allowed(GuestImageReadiness)
     case blocked(GuestImageReadiness)
@@ -94,10 +96,22 @@ final class GuestImageReadinessClient {
             let status = try await fetchStatus(baseURL)
             let state = GuestImageReadinessGateState.from(status.guestImageReadiness)
             cache[target.serverID] = CacheEntry(state: state, storedAt: now)
+            registry.updateTheyOSStatus(
+                serverID: target.serverID,
+                status: status.state == .uninitialized ? .uninitialized : .running,
+                version: status.engineVersion,
+                checkedAt: now
+            )
             return state
         } catch {
             let state: GuestImageReadinessGateState = .unavailable
             cache[target.serverID] = CacheEntry(state: state, storedAt: now)
+            registry.updateTheyOSStatus(
+                serverID: target.serverID,
+                status: .unreachable,
+                version: nil,
+                checkedAt: now
+            )
             return state
         }
     }
