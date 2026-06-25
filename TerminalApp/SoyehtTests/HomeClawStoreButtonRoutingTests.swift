@@ -321,6 +321,122 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         XCTAssertTrue(source.contains("wsView.configure(request: request)"),
             "Request mode must configure WebSocketTerminalView with URLRequest."
         )
+        XCTAssertTrue(source.contains("case relayStream(RelayStreamTerminalConfiguration)"),
+            "Relay stream terminals must remain an explicit terminal mode."
+        )
+        XCTAssertTrue(source.contains("self.attachmentCoordinator = nil"),
+            "Relay stream mode must not keep the attachment coordinator active."
+        )
+        XCTAssertTrue(source.contains("guard attachmentCoordinator != nil else { return }"),
+            "Insert/file routing must fail closed when attachments are disabled for relay stream."
+        )
+    }
+
+    func test_relayStreamTerminalLinkOpeningIsAllowlistedAndInjectable() throws {
+        let allowlist = try iosSource("TerminalLinkAllowlist.swift")
+        let relaySource = try iosSource("RelayStream/RelayStreamTerminalView.swift")
+
+        XCTAssertTrue(allowlist.contains("protocol URLOpening"),
+            "Terminal OSC-8 opening needs an injectable URL opener for testability."
+        )
+        XCTAssertTrue(allowlist.contains("URL(string: trimmed)"),
+            "Terminal OSC-8 policy must parse first, not use prefix or substring matching."
+        )
+        XCTAssertTrue(allowlist.contains("scheme == \"http\" || scheme == \"https\""),
+            "Terminal OSC-8 policy must allow only exact http/https schemes."
+        )
+        XCTAssertTrue(relaySource.contains("urlOpener.open(url, from: self)"),
+            "Allowed relay stream OSC-8 links must go through the confirmation opener."
+        )
+
+        XCTAssertEqual(TerminalLinkAllowlist.externalLinkURL(from: " https://example.invalid/path ")?.scheme, "https")
+        XCTAssertEqual(TerminalLinkAllowlist.externalLinkURL(from: "HTTP://example.invalid")?.scheme?.lowercased(), "http")
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "soyeht://pair"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "soyeht:javascript:alert(1)"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "tel:15555550100"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "soyeht\u{FF1A}//evil.com"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "soyeht%3ajavascript:alert(1)"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "https:///path"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "//evil.com/x"))
+        XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: "data:text/html,<script>x"))
+        for blockedLink in [
+            "soyeht：//pair",
+            "soyeht%3a//pair",
+            "%73oyeht://pair",
+            "https:///",
+            "https:",
+            "//evil.example",
+            "data:text/plain,hello",
+            "file:///tmp/payload",
+            "about:blank"
+        ] {
+            XCTAssertNil(TerminalLinkAllowlist.externalLinkURL(from: blockedLink), blockedLink)
+        }
+    }
+
+    func test_terminalViewsUseSharedLinkAllowlistAndConfirmationOpener() throws {
+        let viewPaths = [
+            "RelayStream/RelayStreamTerminalView.swift",
+            "UIKitSshTerminalView.swift",
+            "WebSocketTerminalView.swift"
+        ]
+
+        for path in viewPaths {
+            let source = try iosSource(path)
+            let requestOpenLink = try slice(
+                source,
+                from: "func requestOpenLink",
+                to: "func rangeChanged"
+            )
+
+            XCTAssertTrue(requestOpenLink.contains("TerminalLinkAllowlist.externalLinkURL(from: link)"),
+                "\(path) must use the shared terminal link allowlist."
+            )
+            XCTAssertTrue(requestOpenLink.contains("urlOpener.open(url, from: self)"),
+                "\(path) must open through the confirming opener seam."
+            )
+            XCTAssertFalse(requestOpenLink.contains("UIApplication.shared.open"),
+                "\(path) must not directly open terminal-provided URLs."
+            )
+            XCTAssertFalse(requestOpenLink.contains("URL(string: link)"),
+                "\(path) must not parse terminal-provided URLs outside the shared allowlist."
+            )
+        }
+    }
+
+    func test_terminalLinkConfirmationOpenerIsTheOnlyUIApplicationOpenSiteForTerminalLinks() throws {
+        let allowlist = try iosSource("TerminalLinkAllowlist.swift")
+        let opener = try slice(
+            allowlist,
+            from: "final class ConfirmingURLOpener",
+            to: "private static func presentationController"
+        )
+
+        XCTAssertTrue(opener.contains("UIAlertController("),
+            "Terminal links must present confirmation before leaving the app."
+        )
+        XCTAssertTrue(opener.contains("UIApplication.shared.open(url)"),
+            "The confirming opener is the one allowed terminal-link UIApplication open site."
+        )
+    }
+
+    func test_relayStreamOpeningRequiresExplicitConfirmBeforeClaim() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let openingView = try slice(
+            source,
+            from: "struct RelayStreamOpeningView: View",
+            to: "private struct RelayStreamTerminalContainerView"
+        )
+
+        XCTAssertTrue(openingView.contains("Button(action: confirmAndOpen)"),
+            "Relay stream invite opening must require an explicit Connect tap before consuming the slot."
+        )
+        XCTAssertTrue(openingView.contains("private func confirmAndOpen()"),
+            "The explicit confirmation action must be the only path that starts opening."
+        )
+        XCTAssertFalse(openingView.contains(".onAppear {\n            startOpenIfNeeded()"),
+            "Appearing on the opening screen must not auto-claim a single-use relay stream slot."
+        )
     }
 
     func test_householdTerminalReconnectUsesFreshRequest() throws {

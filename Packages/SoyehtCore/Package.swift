@@ -12,12 +12,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/JoshBashed/blake3-swift.git", exact: "0.2.2"),
+        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.23.2"),
     ],
     targets: [
         .target(
             name: "SoyehtCore",
             dependencies: [
                 .product(name: "BLAKE3", package: "blake3-swift"),
+                .product(name: "P256K", package: "secp256k1.swift"),
             ],
             path: "Sources/SoyehtCore",
             resources: [

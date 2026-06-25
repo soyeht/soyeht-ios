@@ -333,6 +333,7 @@ public class SshTerminalView: TerminalView, TerminalViewDelegate {
     static let logger = Logger(subsystem: "com.soyeht.mobile", category: "ssh")
     private var sshConnection: SSHConnection?
     private var configuredInfo: SSHConnectionInfo?
+    var urlOpener: any URLOpening = ConfirmingURLOpener.shared
     
     public override init (frame: CGRect)
     {
@@ -405,10 +406,14 @@ public class SshTerminalView: TerminalView, TerminalViewDelegate {
         
     }
 
-    public func requestOpenLink (source: TerminalView, link: String, params: [String:String])
-    {
-        if let url = URL(string: link) {
-            UIApplication.shared.open (url)
+    public func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
+        guard let url = TerminalLinkAllowlist.externalLinkURL(from: link) else {
+            Self.logger.warning("[ssh] blocked terminal link request")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.urlOpener.open(url, from: self)
         }
     }
     

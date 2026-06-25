@@ -1,0 +1,7 @@
+module relay_stream_guest_ffiFFI {
+    header "relay_stream_guest_ffiFFI.h"
+    export *
+    use "Darwin"
+    use "_Builtin_stdbool"
+    use "_Builtin_stdint"
+}
