@@ -21,10 +21,6 @@ struct ClawCardView: View {
         )
     }
 
-    private var info: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
-    }
-
     /// Compact non-installable badge (theyos #88). Shown in place of the
     /// Install/Retry CTA when the backend reports the claw is not installable.
     /// The detail view carries the reason-coded copy; the card stays terse.
@@ -54,13 +50,6 @@ struct ClawCardView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(SoyehtTheme.historyGreenBg)
-            }
-
-            // Meta: rating + installs
-            if info.rating > 0 {
-                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount)")
-                    .font(Typography.monoMicro)
-                    .foregroundColor(SoyehtTheme.textComment)
             }
 
             // Description (from API)
@@ -205,14 +194,6 @@ struct FeaturedClawCardContent: View {
         )
     }
 
-    private var info: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
-    }
-
-    private var reviews: [ClawMockData.ClawReview] {
-        ClawMockData.reviews(for: claw.name)
-    }
-
     /// Compact non-installable badge (theyos #88), mirroring `ClawCardView`
     /// but at the featured card's taller rhythm.
     private var unavailableLabel: some View {
@@ -241,7 +222,7 @@ struct FeaturedClawCardContent: View {
                     .background(SoyehtTheme.historyGreenBg)
             }
 
-            // Meta row: language (API) + rating (mock) + installs (mock)
+            // Meta row: language (API)
             HStack(spacing: 12) {
                 Text(claw.language.capitalized)
                     .font(Typography.monoMicroBold)
@@ -249,43 +230,12 @@ struct FeaturedClawCardContent: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(SoyehtTheme.historyGreenBg)
-
-                if info.rating > 0 {
-                    Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-
-                    Text(LocalizedStringResource(
-                        "claw.featured.installsCount",
-                        defaultValue: "\(info.installCount) installs",
-                        comment: "Meta row — total install count. %lld = count."
-                    ))
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textComment)
-                }
             }
 
             // Description (from API)
             Text(claw.description)
                 .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
-
-            // Featured review (mock)
-            if let review = reviews.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: "\"\(review.text)\"")
-                        .font(Typography.monoSmall)
-                        .italic()
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                        .lineLimit(2)
-                    Text(verbatim: "— \(review.author)")
-                        .font(Typography.monoMicro)
-                        .foregroundColor(SoyehtTheme.textComment)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SoyehtTheme.bgSecondary)
-            }
 
             // Install/Selected button — driven entirely by installState.
             switch claw.installState {
