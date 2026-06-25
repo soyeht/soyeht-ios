@@ -16,6 +16,7 @@ import Foundation
         let ids: Set<String>
         let authKinds: Set<String>
         let operations: Set<String>
+        let pathTemplatesByID: [String: String]
     }
 
     private func loadContract() throws -> Contract {
@@ -27,10 +28,17 @@ import Foundation
         let data = try Data(contentsOf: url)
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let routes = try #require(object["routes"] as? [[String: Any]])
+        var pathTemplatesByID: [String: String] = [:]
+        for route in routes {
+            if let id = route["id"] as? String, let template = route["path_template"] as? String {
+                pathTemplatesByID[id] = template
+            }
+        }
         return Contract(
             ids: Set(routes.compactMap { $0["id"] as? String }),
             authKinds: Set(routes.compactMap { $0["auth_kind"] as? String }),
-            operations: Set(routes.compactMap { $0["household_operation"] as? String })
+            operations: Set(routes.compactMap { $0["household_operation"] as? String }),
+            pathTemplatesByID: pathTemplatesByID
         )
     }
 
@@ -55,6 +63,18 @@ import Foundation
         #expect(
             Set(ClawStoreContractConstants.HouseholdOperation.all) == contract.operations,
             "Generated household operations are stale vs the contract. Run: uv run python scripts/gen-claw-store-contract-constants.py"
+        )
+    }
+
+    /// Id-keyed (not set-based) so a changed id -> template mapping is caught,
+    /// compared on the RAW template (placeholders preserved) to avoid coupling to
+    /// path interpolation. This pins the generated mirror to the contract; it does
+    /// NOT replace the hand-pinned resolved-path asserts in ClawStoreContractFixtureTests.
+    @Test func generatedPathTemplatesMatchContract() throws {
+        let contract = try loadContract()
+        #expect(
+            ClawStoreContractConstants.PathTemplate.byRouteID == contract.pathTemplatesByID,
+            "Generated path templates are stale vs the contract. Run: uv run python scripts/gen-claw-store-contract-constants.py"
         )
     }
 
