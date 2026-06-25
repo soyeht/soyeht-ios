@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - Claw Detail ViewModel
 
+@MainActor
 public final class ClawDetailViewModel: ObservableObject {
     @Published public var claw: Claw
 
@@ -108,7 +109,6 @@ public final class ClawDetailViewModel: ObservableObject {
 
     // MARK: - Install / Uninstall
 
-    @MainActor
     public func installClaw() async {
         isPerformingAction = true
         actionError = nil
@@ -137,7 +137,6 @@ public final class ClawDetailViewModel: ObservableObject {
         isPerformingAction = false
     }
 
-    @MainActor
     public func uninstallClaw() async {
         isPerformingAction = true
         actionError = nil
@@ -162,7 +161,6 @@ public final class ClawDetailViewModel: ObservableObject {
     /// Fetches the full catalog entry for this claw. When a fresh availability
     /// snapshot is in hand, preserve it so a lagging catalog response doesn't
     /// revert terminal state.
-    @MainActor
     private func refreshClaw(preserving availability: ClawAvailability? = nil) async {
         do {
             let claws = try await apiClient.getClaws(target: target)
@@ -188,6 +186,9 @@ public final class ClawDetailViewModel: ObservableObject {
         let sleeper = self.sleeper
         let onInstallComplete = self.onInstallComplete
         let target = self.target
+        // Capture the API client locally: the polling Task is nonisolated, so it
+        // must not touch the now main-isolated `self.apiClient` off the main actor.
+        let apiClient = self.apiClient
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await sleeper(2_000_000_000)
@@ -198,7 +199,7 @@ public final class ClawDetailViewModel: ObservableObject {
                         (self.claw.installState.isInstalling, self.claw.name)
                     }
 
-                    let avail = try await self.apiClient.getClawAvailability(name: clawName, target: target)
+                    let avail = try await apiClient.getClawAvailability(name: clawName, target: target)
                     await MainActor.run {
                         self.claw.availability = avail
                     }

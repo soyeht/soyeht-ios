@@ -8,6 +8,7 @@ import Combine
 // item later), and dispatches a local notification on completion. The monitor
 // is platform-free; the activity side-effect is injected.
 
+@MainActor
 public final class ClawDeployMonitor: ObservableObject {
     public static let shared = ClawDeployMonitor()
 
@@ -34,7 +35,6 @@ public final class ClawDeployMonitor: ObservableObject {
     /// Replaceable at app start so iOS wires in ActivityKit and macOS keeps
     /// the no-op. Each call to `monitor(...)` pulls a fresh manager from this
     /// factory so per-deploy state doesn't leak across concurrent deploys.
-    @MainActor
     public var activityManagerProvider: () -> ClawDeployActivityManaging = {
         NoOpClawDeployActivityManager()
     }
@@ -42,7 +42,10 @@ public final class ClawDeployMonitor: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private var tasks: [String: Task<Void, Never>] = [:]
 
-    public init(apiClient: SoyehtAPIClient = .shared) {
+    /// `nonisolated` so the `static let shared` initializer (and any non-main
+    /// construction) does not require hopping to the main actor; the init only
+    /// stores its dependencies and does no main-affine work.
+    nonisolated public init(apiClient: SoyehtAPIClient = .shared) {
         self.apiClient = apiClient
     }
 
@@ -51,7 +54,6 @@ public final class ClawDeployMonitor: ObservableObject {
     /// server that owns the new instance, independent of
     /// `SessionStore.activeServerId` (which the user may flip during the
     /// minutes the deploy takes to complete).
-    @MainActor
     public func monitor(
         instanceId: String,
         clawName: String,
@@ -74,7 +76,6 @@ public final class ClawDeployMonitor: ObservableObject {
 
     /// Start monitoring a newly created instance on either a legacy
     /// per-server session or a selected Mac household endpoint.
-    @MainActor
     public func monitor(
         instanceId: String,
         clawName: String,

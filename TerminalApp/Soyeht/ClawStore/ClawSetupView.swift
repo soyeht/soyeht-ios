@@ -530,7 +530,7 @@ struct ClawSetupView: View {
         }
     }
 
-    private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
+    private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping @MainActor () -> Void, onDecrement: @escaping @MainActor () -> Void) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(Typography.monoBody)

@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - Claw Store ViewModel
 
+@MainActor
 public final class ClawStoreViewModel: ObservableObject {
     @Published public var claws: [Claw] = []
     @Published public var isLoading = false
@@ -24,7 +25,7 @@ public final class ClawStoreViewModel: ObservableObject {
     private var service: ClawInventoryService?
     private var snapshotCancellable: AnyCancellable?
 
-    @MainActor public var isPolling: Bool { service?.isPolling ?? false }
+    public var isPolling: Bool { service?.isPolling ?? false }
 
     /// Designated init. The target must resolve to a wire `ClawAPITarget`;
     /// `.unavailable` is not a valid Store target — the UI must render an
@@ -114,7 +115,6 @@ public final class ClawStoreViewModel: ObservableObject {
 
     // MARK: - Load
 
-    @MainActor
     public func loadClaws() async {
         isLoading = true
         errorMessage = nil
@@ -131,7 +131,6 @@ public final class ClawStoreViewModel: ObservableObject {
 
     // MARK: - Install / Uninstall
 
-    @MainActor
     public func installClaw(_ claw: Claw) async {
         actionError = nil
         // Defense-in-depth: never issue an install request for a claw the
@@ -159,7 +158,6 @@ public final class ClawStoreViewModel: ObservableObject {
         }
     }
 
-    @MainActor
     public func uninstallClaw(_ claw: Claw) async {
         actionError = nil
         do {
@@ -182,14 +180,22 @@ public final class ClawStoreViewModel: ObservableObject {
     /// (`snapshot.claws`) onto `claws`. The service owns the fetch + the
     /// install-completion poll (autoPoll ON). The target is fixed for a
     /// view-model instance, so the service is built once.
-    @MainActor
     private func ensureService() -> ClawInventoryService {
         if let service { return service }
         let svc = makeService(machineTarget)
         service = svc
-        snapshotCancellable = svc.$snapshot.sink { [weak self] snapshot in
-            self?.claws = snapshot.claws
-        }
+        snapshotCancellable = svc.$snapshot
+            .sink { [weak self] snapshot in
+                // The service is @MainActor, so `$snapshot` emits on the main
+                // actor. `assumeIsolated` CODIFIES that (it traps if ever delivered
+                // off-main) and gives the closure a main-isolated context for the
+                // `claws` write -- without deferring delivery. A `.receive(on:)`
+                // hop would make mirroring asynchronous and break the synchronous
+                // catalog update the Store (and its tests) rely on.
+                MainActor.assumeIsolated {
+                    self?.claws = snapshot.claws
+                }
+            }
         return svc
     }
 }
