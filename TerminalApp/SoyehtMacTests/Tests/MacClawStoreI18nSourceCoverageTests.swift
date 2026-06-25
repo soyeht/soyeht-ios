@@ -20,7 +20,11 @@ final class MacClawStoreI18nSourceCoverageTests: XCTestCase {
         }
     }
 
-    func test_localizedDefaultValueKeysExistInMacCatalog() throws {
+    private struct LookupPattern {
+        let regex: NSRegularExpression
+    }
+
+    func test_localizedLiteralKeysExistInMacCatalog() throws {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()  // Tests/
             .deletingLastPathComponent()  // SoyehtMacTests/
@@ -42,6 +46,39 @@ final class MacClawStoreI18nSourceCoverageTests: XCTestCase {
         )
     }
 
+    func test_sourceScannerCapturesCommonLiteralLookupsAndIgnoresComments() throws {
+        let source = #"""
+        Text("claw.store.loading")
+        Button("common.button.ok") {}
+        .help("claw.store.toolbar.reload.help")
+        _ = String(localized: "drawer.search.store")
+        _ = String(localized: "drawer.install.unavailable", defaultValue: "Install unavailable")
+        _ = LocalizedStringResource("claw.store.header.subtitle")
+        _ = LocalizedStringResource("claw.store.error.openServers", defaultValue: "Open Connected Servers")
+        // Text("missing.line.comment")
+        /*
+         Button("missing.block.comment")
+         */
+        Text("ignored \(dynamic)")
+        Text(dynamicKey)
+        """#
+
+        let references = try localizedReferences(in: source, relativePath: "Fixture.swift")
+
+        XCTAssertEqual(
+            references,
+            [
+                LocalizedReference(file: "Fixture.swift", line: 1, key: "claw.store.loading"),
+                LocalizedReference(file: "Fixture.swift", line: 2, key: "common.button.ok"),
+                LocalizedReference(file: "Fixture.swift", line: 3, key: "claw.store.toolbar.reload.help"),
+                LocalizedReference(file: "Fixture.swift", line: 4, key: "drawer.search.store"),
+                LocalizedReference(file: "Fixture.swift", line: 5, key: "drawer.install.unavailable"),
+                LocalizedReference(file: "Fixture.swift", line: 6, key: "claw.store.header.subtitle"),
+                LocalizedReference(file: "Fixture.swift", line: 7, key: "claw.store.error.openServers"),
+            ]
+        )
+    }
+
     // MARK: - Source scanner
 
     private func localizedReferences(in directory: URL, relativeTo root: URL) throws -> [LocalizedReference] {
@@ -55,34 +92,70 @@ final class MacClawStoreI18nSourceCoverageTests: XCTestCase {
 
         XCTAssertFalse(files.isEmpty, "Expected macOS Claw Store Swift files at \(directory.path)")
 
-        let localizedStringResource = try NSRegularExpression(
-            pattern: #"LocalizedStringResource\s*\(\s*"((?:\\.|[^"\\])*)"\s*,[^)]*?\bdefaultValue\s*:"#,
-            options: [.dotMatchesLineSeparators]
-        )
-        let stringLocalized = try NSRegularExpression(
-            pattern: #"String\s*\(\s*localized\s*:\s*"((?:\\.|[^"\\])*)"\s*,[^)]*?\bdefaultValue\s*:"#,
-            options: [.dotMatchesLineSeparators]
-        )
-
         var references: [LocalizedReference] = []
         for file in files {
             let source = try String(contentsOf: file, encoding: .utf8)
-            let codeOnly = stripCommentsPreservingLineNumbers(source)
             let relativePath = relativePath(for: file, root: root)
-            for regex in [localizedStringResource, stringLocalized] {
-                let range = NSRange(codeOnly.startIndex..<codeOnly.endIndex, in: codeOnly)
-                for match in regex.matches(in: codeOnly, range: range) {
-                    guard let keyRange = Range(match.range(at: 1), in: codeOnly) else { continue }
-                    let key = String(codeOnly[keyRange])
-                    references.append(LocalizedReference(
-                        file: relativePath,
-                        line: lineNumber(in: codeOnly, at: keyRange.lowerBound),
-                        key: key
-                    ))
-                }
-            }
+            references.append(contentsOf: try localizedReferences(in: source, relativePath: relativePath))
         }
         return references
+    }
+
+    private func localizedReferences(in source: String, relativePath: String) throws -> [LocalizedReference] {
+        let codeOnly = stripCommentsPreservingLineNumbers(source)
+        let patterns = try localizedLookupPatterns()
+        var references: [LocalizedReference] = []
+        for pattern in patterns {
+            let range = NSRange(codeOnly.startIndex..<codeOnly.endIndex, in: codeOnly)
+            for match in pattern.regex.matches(in: codeOnly, range: range) {
+                guard let keyRange = Range(match.range(at: 1), in: codeOnly) else { continue }
+                let key = String(codeOnly[keyRange])
+                if key.contains(#"\("#) { continue }
+                references.append(LocalizedReference(
+                    file: relativePath,
+                    line: lineNumber(in: codeOnly, at: keyRange.lowerBound),
+                    key: key
+                ))
+            }
+        }
+        return references.sorted()
+    }
+
+    private func localizedLookupPatterns() throws -> [LookupPattern] {
+        let literal = #""((?:\\.|[^"\\])*)""#
+        let options: NSRegularExpression.Options = [.dotMatchesLineSeparators]
+        return try [
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\bLocalizedStringResource\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\bString\s*\(\s*localized\s*:\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\bText\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\bButton\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\.help\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+        ]
     }
 
     private func stripCommentsPreservingLineNumbers(_ source: String) -> String {
