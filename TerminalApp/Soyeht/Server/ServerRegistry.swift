@@ -361,15 +361,18 @@ final class ServerRegistry: ObservableObject {
     func updateTheyOSStatus(
         serverID: String,
         status: TheyOSSnapshot.Status,
-        version: String?
+        version: String?,
+        checkedAt: Date = Date()
     ) {
         guard var target = server(id: serverID) else { return }
         target.theyOS = TheyOSSnapshot(
             status: status,
             version: version,
-            lastCheckedAt: Date()
+            lastCheckedAt: checkedAt
         )
-        target.lastSeenAt = Date()
+        if status != .unreachable {
+            target.lastSeenAt = checkedAt
+        }
         _ = writer.upsertCanonical(target)
         publishCanonical()
     }

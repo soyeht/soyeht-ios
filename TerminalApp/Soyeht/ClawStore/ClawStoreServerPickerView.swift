@@ -6,9 +6,9 @@ import SoyehtCore
 /// catalog, so the install/deploy actions downstream are unambiguous.
 ///
 /// Lists every server `ServerRegistry.shared.servers` knows about, but
-/// rows whose `ClawInstallTargetResolver.resolve` returns
-/// `.unavailable(.missingContext)` render disabled with the same
-/// product copy as `MacClawUnavailableView`. Macs paired via the
+/// rows whose `ClawInstallTargetResolver.resolve` returns `.unavailable`
+/// render disabled with the same product copy as `MacClawUnavailableView`.
+/// Macs paired via the
 /// household flow are still selectable when the resolver can derive a
 /// PoP-gated endpoint for that specific Mac.
 ///
@@ -133,7 +133,7 @@ struct ClawStoreServerPickerView: View {
         let resolution = ClawInstallTargetResolver.resolve(target, registry: registry)
         let readiness = readinessObserver.state(for: server)
         let isDisabled: Bool
-        if case .unavailable(.missingContext) = resolution {
+        if case .unavailable = resolution {
             isDisabled = true
         } else {
             isDisabled = false

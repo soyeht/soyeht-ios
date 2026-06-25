@@ -307,6 +307,27 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    func test_clawInstallTargetResolver_usesTheyOSCacheNotPresenceClient() throws {
+        let url = try XCTUnwrap(
+            iosSwiftFiles().first { $0.lastPathComponent == "ClawInstallTargetResolver.swift" },
+            "expected to find ClawInstallTargetResolver.swift"
+        )
+        let code = try codeOnly(at: url)
+
+        XCTAssertTrue(code.contains("server.theyOS.status"),
+            "Resolver must consume cached Server.theyOS.status before routing Mac household endpoints."
+        )
+        XCTAssertTrue(code.contains("server.theyOS.lastCheckedAt"),
+            "Resolver must freshness-check cached unreachable status to avoid stale lockout."
+        )
+        XCTAssertFalse(code.contains("MacPresenceClient"),
+            "Resolver must not depend on MacPresenceClient; presence WebSocket is not bootstrap HTTP reachability."
+        )
+        XCTAssertFalse(code.contains("PairedMacRegistry"),
+            "Resolver must not depend on PairedMacRegistry; use Server.theyOS cache instead."
+        )
+    }
+
     // MARK: - Claw Setup architecture
 
     func test_clawSetupView_doesNotOwnRoutingOrResourcePolicy() throws {
