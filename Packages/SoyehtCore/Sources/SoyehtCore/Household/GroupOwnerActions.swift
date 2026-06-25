@@ -85,4 +85,21 @@ public struct GroupOwnerActions: Sendable {
         try await addMember(groupID: groupID, memberID: memberID, label: memberLabel)
         try await grantClaw(groupID: groupID, clawID: clawID)
     }
+
+    /// Enroll a member's verified device into an **existing** group + grant it a
+    /// claw — the owner side of the enroll-sheet ("add my fiancée's phone to
+    /// Family + share the app"), fired after the owner confirms the BIP-39
+    /// fingerprint out-of-band. Three signed events: add the member to the group,
+    /// enroll the device under the member (the engine re-verifies `binding`), and
+    /// grant the claw. `member_id` is taken from the binding (sybil-resistant).
+    public func enrollMemberIntoGroup(
+        binding: MemberDeviceBinding,
+        groupID: String,
+        label: String,
+        clawID: String
+    ) async throws {
+        try await addMember(groupID: groupID, memberID: binding.memberID, label: label)
+        try await enrollMemberDevice(binding)
+        try await grantClaw(groupID: groupID, clawID: clawID)
+    }
 }

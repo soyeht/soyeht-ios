@@ -128,4 +128,26 @@ final class GroupOwnerActionsTests: XCTestCase {
         XCTAssertEqual(o.tag, "enroll_member_device")
         guard case .map = o.fields["binding"] else { return XCTFail("binding not a map") }
     }
+
+    /// The enroll-sheet composite (3.2b): add member → enroll device → grant claw,
+    /// member_id threaded from the binding.
+    func testEnrollMemberIntoGroupSendsThreeOpsInOrder() async throws {
+        let log = RequestsLog()
+        let binding = MemberDeviceBinding(
+            kind: "claw-share/member-device/v1",
+            memberID: "g_dani",
+            memberPub: Data(repeating: 0x02, count: 33),
+            devicePub: Data(repeating: 0x03, count: 33),
+            participantNpub: "",
+            issuedAt: 1_800_000_000,
+            memberSignature: Data(repeating: 0x44, count: 64)
+        )
+        try await makeActions(log).enrollMemberIntoGroup(
+            binding: binding, groupID: "g_family", label: "Dani", clawID: "claw_x"
+        )
+        let tags = try log.all.map { try op($0).tag }
+        XCTAssertEqual(tags, ["add_member", "enroll_member_device", "grant_claw"])
+        XCTAssertEqual(try op(log.all[0]).fields["member_id"], .text("g_dani"))
+        XCTAssertEqual(try op(log.all[2]).fields["claw_id"], .text("claw_x"))
+    }
 }
