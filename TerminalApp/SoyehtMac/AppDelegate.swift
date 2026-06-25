@@ -197,7 +197,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             // same SoyehtCore service the iPhone uses; Secure Enclave handles
             // biometric prompt (Touch ID).
             autoHouseholdPairDevice(url: url)
-        case .householdDevicePairing, .householdPairMachine:
+        case .clawShareInvite, .householdDevicePairing, .householdPairMachine:
+            // Claw-share is an iPhone-only flow; the Mac app does not redeem
+            // claw-share invites via the URL handler.
             return
         }
     }

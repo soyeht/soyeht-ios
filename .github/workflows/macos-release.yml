@@ -200,6 +200,7 @@ jobs:
           xcodebuild \
             -project TerminalApp/SoyehtMac.xcodeproj \
             -scheme SoyehtMac \
+            -skipPackagePluginValidation \
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -archivePath "${archive_path}" \

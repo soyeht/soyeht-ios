@@ -24,6 +24,7 @@ jobs:
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
+            -skipPackagePluginValidation \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/ParkingLotSnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
