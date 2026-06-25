@@ -368,6 +368,42 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         }
     }
 
+    /// The iOS catalog install surfaces (card + store) must derive install/retry
+    /// from the shared `ClawActionPolicy`, not re-derive the rule inline. Scoped to
+    /// ClawCardView/ClawStoreView only; the detail view uses
+    /// `ClawDetailActionAvailability` and is out of this guard's scope.
+    private let iosCatalogInstallSurfaces = ["ClawCardView.swift", "ClawStoreView.swift"]
+
+    func test_iosCatalogInstallSurfacesUseActionPolicy() throws {
+        for name in iosCatalogInstallSurfaces {
+            let url = try XCTUnwrap(
+                iosSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("ClawActionPolicy"),
+                "\(name) must derive its install/retry CTA from the shared ClawActionPolicy, not inline."
+            )
+        }
+    }
+
+    /// Companion guard: those two catalog surfaces must NOT re-derive installability
+    /// inline (`installability.isInstallable`) - that rule now lives in
+    /// `ClawActionPolicy`. The `installability:` token still appears (passed into
+    /// the policy input), so `test_clawStoreViewsConsultInstallability` stays green.
+    func test_iosCatalogDoesNotReDeriveInstallabilityInline() throws {
+        for name in iosCatalogInstallSurfaces {
+            let url = try XCTUnwrap(
+                iosSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertFalse(code.contains("installability.isInstallable"),
+                "\(name) must not re-derive installability inline; route install/retry through ClawActionPolicy (which owns the isInstallable rule)."
+            )
+        }
+    }
+
     // MARK: - Claw installability gate — macOS surface (theyos #88)
 
     /// Same SSOT rule as the iPhone guards, enforced on `TerminalApp/SoyehtMac/`.

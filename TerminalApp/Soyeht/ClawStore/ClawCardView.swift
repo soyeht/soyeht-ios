@@ -5,8 +5,21 @@ import SoyehtCore
 
 struct ClawCardView: View {
     let claw: Claw
-    let showInstallButton: Bool
+    let hostAllowsInstall: Bool
     var onInstall: (() -> Void)?
+
+    /// Cards only own install/retry decisions; deploy is handled by the detail
+    /// screen, so `supportsDeploy: false`.
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: hostAllowsInstall,
+                supportsDeploy: false
+            )
+        )
+    }
 
     private var info: ClawMockData.ClawStoreInfo {
         ClawMockData.storeInfo(for: claw.name)
@@ -118,9 +131,9 @@ struct ClawCardView: View {
                     .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.retryInstall) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.retryInstall) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.retry")
                             .font(Typography.monoTag)
@@ -140,9 +153,9 @@ struct ClawCardView: View {
                 }
 
             case .notInstalled:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.install) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.install) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoTag)
@@ -177,8 +190,20 @@ struct ClawCardView: View {
 
 struct FeaturedClawCardContent: View {
     let claw: Claw
-    var showInstallButton: Bool = true
+    var hostAllowsInstall: Bool = true
     var onInstall: (() -> Void)?
+
+    /// Shared install/retry decision (see `ClawCardView.actionPolicy`).
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: hostAllowsInstall,
+                supportsDeploy: false
+            )
+        )
+    }
 
     private var info: ClawMockData.ClawStoreInfo {
         ClawMockData.storeInfo(for: claw.name)
@@ -331,9 +356,9 @@ struct FeaturedClawCardContent: View {
                 .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.retryInstall) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.retryInstall) {
                     Button(action: { onInstall?() }) {
                         Text("claw.featured.action.retryInstall")
                             .font(Typography.monoBodyBold)
@@ -353,9 +378,9 @@ struct FeaturedClawCardContent: View {
                 }
 
             case .notInstalled:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.install) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.install) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoBodyBold)

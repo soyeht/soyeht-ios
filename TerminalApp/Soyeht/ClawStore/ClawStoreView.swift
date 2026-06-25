@@ -136,7 +136,7 @@ private struct ResolvedClawStoreView: View {
                                 NavigationLink(value: detailRoute(for: featured)) {
                                     FeaturedClawCardContent(
                                         claw: featured,
-                                        showInstallButton: readinessObserver.state.allowsInstall,
+                                        hostAllowsInstall: readinessObserver.state.allowsInstall,
                                         onInstall: { installIfReady(featured) }
                                     )
                                 }
@@ -246,7 +246,7 @@ private struct ResolvedClawStoreView: View {
         NavigationLink(value: detailRoute(for: claw)) {
             ClawCardView(
                 claw: claw,
-                showInstallButton: readinessObserver.state.allowsInstall,
+                hostAllowsInstall: readinessObserver.state.allowsInstall,
                 onInstall: { installIfReady(claw) }
             )
         }
@@ -254,10 +254,17 @@ private struct ResolvedClawStoreView: View {
     }
 
     private func installIfReady(_ claw: Claw) {
-        // Backend installability (theyos #88) is the authoritative gate; the
-        // card already hides the CTA, this is the matching action-side guard.
-        guard claw.installability.isInstallable else { return }
-        guard readinessObserver.state.allowsInstall else { return }
+        // Action-side gate through the unified policy. The card governs CTA
+        // visibility; this is the matching action guard. mayIssueInstall =
+        // installable && host-ready && state in {notInstalled, installFailed}.
+        let policy = ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: readinessObserver.state.allowsInstall
+            )
+        )
+        guard policy.mayIssueInstall else { return }
         Task { await viewModel.installClaw(claw) }
     }
 
