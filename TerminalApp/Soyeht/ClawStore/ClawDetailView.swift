@@ -56,10 +56,7 @@ private struct ResolvedClawDetailView: View {
     ) {
         self.installTarget = installTarget
         self.resolution = resolution
-        guard let target = resolution.apiTarget else {
-            preconditionFailure("ResolvedClawDetailView requires a Claw API target")
-        }
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, target: target))
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, machineTarget: resolution))
         _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
             initialState: GuestImageReadinessClient.initialState(
                 for: installTarget,
