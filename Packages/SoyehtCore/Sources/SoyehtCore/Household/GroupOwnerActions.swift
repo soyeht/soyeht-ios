@@ -98,7 +98,7 @@ public struct GroupOwnerActions: Sendable {
         label: String,
         clawID: String
     ) async throws {
-        try await addMember(groupID: groupID, memberID: binding.memberID, label: label)
+        try await addMember(groupID: groupID, memberID: binding.memberId, label: label)
         try await enrollMemberDevice(binding)
         try await grantClaw(groupID: groupID, clawID: clawID)
     }

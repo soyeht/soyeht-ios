@@ -66,9 +66,9 @@ final class GroupOpClientTests: XCTestCase {
     func testEnrollMemberDevice() throws {
         let binding = MemberDeviceBinding(
             kind: "member-device-binding",
-            memberID: "g_dani",
-            memberPub: Data(repeating: 0x02, count: 33),
-            devicePub: Data(repeating: 0x03, count: 33),
+            memberId: "g_dani",
+            memberPublicKey: Data(repeating: 0x02, count: 33),
+            devicePublicKey: Data(repeating: 0x03, count: 33),
             participantNpub: "npub1danimesh",
             issuedAt: 1_800_000_000,
             memberSignature: Data(repeating: 0x44, count: 64)
