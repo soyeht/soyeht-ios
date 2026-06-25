@@ -29,11 +29,8 @@ extension ServerKind {
     /// Resolves the REST path for `endpoint` under this server kind.
     ///
     /// Engine paths live under `/api/v1/mobile/*`; admin-host paths live
-    /// under `/api/v1/*` (no `/mobile/` prefix). The admin host has no
-    /// `/resource-options` or `/users` route — those return `nil` for
-    /// `.adminHost` so the call site throws `unsupportedOnServerKind`
-    /// (via `requirePath`) and the caller falls through its existing
-    /// error path. No synthesized values are returned to the UI.
+    /// under `/api/v1/*` (no `/mobile/` prefix). Deploy metadata is exposed
+    /// on both surfaces with auth determined by the paired server kind.
     public func path(for endpoint: Endpoint) -> String? {
         switch self {
         case .engine:
@@ -75,8 +72,8 @@ extension ServerKind {
             case .uninstallClaw(let n):
                 guard let n = SoyehtAPIPath.segmentOrNil(n) else { return nil }
                 return "/api/v1/claws/\(n)/uninstall"
-            case .resourceOptions:         return nil   // not exposed on admin
-            case .users:                   return nil   // not exposed on admin
+            case .resourceOptions:         return "/api/v1/resource-options"
+            case .users:                   return "/api/v1/users"
             case .sessionStatus:           return "/api/v1/instances"   // liveness probe (see validateSession)
             case .logout:                  return "/api/v1/auth/logout"
             }
