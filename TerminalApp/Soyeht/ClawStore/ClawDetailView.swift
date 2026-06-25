@@ -237,6 +237,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
+                                .disabled(!actionPolicy.isEnabled(.deploy))
                             }
 
                             if actions.showsUninstall {
@@ -250,7 +251,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.uninstall))
                             }
 
                             if actions.showsInstallingProgress {
@@ -287,7 +288,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.retryInstall))
                             }
 
                             if actions.showsInstall {
@@ -301,7 +302,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.install))
                             }
 
                             if actions.showsUnknownState {
@@ -739,6 +740,22 @@ private struct ResolvedClawDetailView: View {
             installability: viewModel.claw.installability,
             allowsInstall: readinessObserver.state.allowsInstall,
             supportsDeploy: resolution.supportsDeploy
+        )
+    }
+
+    /// Visibility stays on the facade above; this drives only ENABLEMENT, folding
+    /// in the in-flight axis so install/retry/deploy/uninstall disable while an
+    /// action runs. iOS detail has no terminal entry point (canOpenTerminal: false).
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: viewModel.claw.installState,
+                installability: viewModel.claw.installability,
+                hostAllowsInstall: readinessObserver.state.allowsInstall,
+                supportsDeploy: resolution.supportsDeploy,
+                actionInFlight: viewModel.isPerformingAction,
+                canOpenTerminal: false
+            )
         )
     }
 
