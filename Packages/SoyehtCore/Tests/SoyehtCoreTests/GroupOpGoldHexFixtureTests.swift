@@ -46,9 +46,9 @@ final class GroupOpGoldHexFixtureTests: XCTestCase {
     func testEnrollMemberDeviceGoldHex() {
         let binding = MemberDeviceBinding(
             kind: "claw-share/member-device/v1",
-            memberID: memberID,
-            memberPub: bytes("0257e977f6db7e33c3fe7acf2842ed987009caf56d458682fca447b7d3d762ab34"),
-            devicePub: bytes("0351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"),
+            memberId: memberID,
+            memberPublicKey: bytes("0257e977f6db7e33c3fe7acf2842ed987009caf56d458682fca447b7d3d762ab34"),
+            devicePublicKey: bytes("0351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"),
             participantNpub: "82f283e20094eb4da5922cfba6c0284b790525f4d4ddb2d17fd98f1bd0956c02",
             issuedAt: 1_800_000_000,
             memberSignature: Data(repeating: 0xAB, count: 64)

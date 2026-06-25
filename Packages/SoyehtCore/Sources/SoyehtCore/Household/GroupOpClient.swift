@@ -60,57 +60,6 @@ public enum GroupOp: Equatable, Sendable {
     }
 }
 
-/// The member's self-signed `MemberDeviceBinding`
-/// (`household-rs/src/member_identity.rs`): "device_pub D and mesh npub N belong
-/// to member M". For the owner UX this is **received** from the member (the
-/// off-LAN join leg) and relayed verbatim in `EnrollMemberDevice`; the engine
-/// re-verifies `binding.verify()` (member_id derives from member_pub + the
-/// self-signature holds) and fails closed otherwise. Encoded as a canonical-CBOR
-/// map of its eight fields (P256 keys/signature as CBOR byte strings).
-public struct MemberDeviceBinding: Equatable, Sendable {
-    public var v: UInt64
-    public var kind: String
-    public var memberID: String
-    public var memberPub: Data        // P256 compressed (33 bytes)
-    public var devicePub: Data        // P256 compressed (33 bytes)
-    public var participantNpub: String
-    public var issuedAt: UInt64
-    public var memberSignature: Data  // P256 raw r||s (64 bytes)
-
-    public init(
-        v: UInt64 = 1,
-        kind: String,
-        memberID: String,
-        memberPub: Data,
-        devicePub: Data,
-        participantNpub: String,
-        issuedAt: UInt64,
-        memberSignature: Data
-    ) {
-        self.v = v
-        self.kind = kind
-        self.memberID = memberID
-        self.memberPub = memberPub
-        self.devicePub = devicePub
-        self.participantNpub = participantNpub
-        self.issuedAt = issuedAt
-        self.memberSignature = memberSignature
-    }
-
-    var cborValue: HouseholdCBORValue {
-        .map([
-            "v": .unsigned(v),
-            "kind": .text(kind),
-            "member_id": .text(memberID),
-            "member_pub": .bytes(memberPub),
-            "device_pub": .bytes(devicePub),
-            "participant_npub": .text(participantNpub),
-            "issued_at": .unsigned(issuedAt),
-            "member_signature": .bytes(memberSignature),
-        ])
-    }
-}
-
 /// Canonical-CBOR body for `POST /api/v1/claw-share/group-op` — the foundation
 /// the owner-UX SwiftUI surface (and any client) encodes before signing the
 /// owner PoP. No transport here; this slice is the typed encoder only.
