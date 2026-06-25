@@ -133,6 +133,58 @@ final class ClawDrawerViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.installingClaws.isEmpty)
     }
 
+    func test_installSuccessRefreshesLocallyWithoutImmediateInstalledSetNotification() async {
+        let store = makeStore(activeServerID: "srv", host: "api.example.test", name: "device-alpha")
+        let notifications = NotificationRecorder()
+        let observer = NotificationCenter.default.addObserver(
+            forName: ClawStoreNotifications.installedSetChanged,
+            object: nil,
+            queue: nil
+        ) { _ in
+            notifications.record()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        var installRequests: [(name: String, host: String)] = []
+        var refreshCount = 0
+        let viewModel = ClawDrawerViewModel(
+            sessionStore: store,
+            makeService: { target in
+                ClawInventoryService(
+                    target: target,
+                    fetchClaws: { _ in
+                        refreshCount += 1
+                        return [self.claw("installable", installed: false)]
+                    },
+                    fetchInstances: { _ in [] },
+                    autoPoll: false
+                )
+            },
+            performInstall: { name, context in
+                installRequests.append((name: name, host: context.host))
+                return SoyehtAPIClient.ClawActionResponse(jobId: "job-1", message: "queued")
+            }
+        )
+
+        viewModel.refresh()
+        await waitUntil { refreshCount == 1 && !viewModel.isLoading }
+
+        viewModel.install(
+            claw("installable", installed: false),
+            readiness: .allowed(.ready)
+        )
+        await waitUntil {
+            installRequests.count == 1 &&
+            refreshCount >= 2 &&
+            viewModel.installingClaws.isEmpty
+        }
+
+        XCTAssertEqual(installRequests.map(\.name), ["installable"])
+        XCTAssertEqual(installRequests.first?.host, "api.example.test")
+        XCTAssertNil(viewModel.actionError)
+        XCTAssertEqual(notifications.count, 0, "POST success must not publish the global installed-set notification")
+    }
+
     // MARK: - Helpers
 
     private func makeStore(activeServerID: String, host: String, name: String) -> SessionStore {
@@ -225,6 +277,23 @@ final class ClawDrawerViewModelTests: XCTestCase {
 }
 
 private struct TestError: Error {}
+
+private final class NotificationRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func record() {
+        lock.lock()
+        value += 1
+        lock.unlock()
+    }
+}
 
 private actor Gate {
     private var opened = false

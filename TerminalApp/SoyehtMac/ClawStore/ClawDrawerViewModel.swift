@@ -18,9 +18,9 @@ final class ClawDrawerViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var actionError: String?
 
-    private let apiClient: SoyehtAPIClient
     private let sessionStore: SessionStore
     private let makeService: (ClawMachineTarget) -> ClawInventoryService
+    private let performInstall: @MainActor (String, ServerContext) async throws -> SoyehtAPIClient.ClawActionResponse
 
     // E2d-3: the drawer adopts the shared inventory service (autoPoll ON, so an
     // install reflects REAL completion via the poll instead of a single early
@@ -39,10 +39,13 @@ final class ClawDrawerViewModel: ObservableObject {
     init(
         apiClient: SoyehtAPIClient = .shared,
         sessionStore: SessionStore = .shared,
-        makeService: ((ClawMachineTarget) -> ClawInventoryService)? = nil
+        makeService: ((ClawMachineTarget) -> ClawInventoryService)? = nil,
+        performInstall: (@MainActor (String, ServerContext) async throws -> SoyehtAPIClient.ClawActionResponse)? = nil
     ) {
-        self.apiClient = apiClient
         self.sessionStore = sessionStore
+        self.performInstall = performInstall ?? { name, context in
+            try await apiClient.installClaw(name: name, context: context)
+        }
         self.makeService = makeService ?? { target in
             ClawInventoryService(
                 target: target,
@@ -166,8 +169,7 @@ final class ClawDrawerViewModel: ObservableObject {
             guard let self else { return }
             defer { self.installingClaws.remove(claw.name) }
             do {
-                _ = try await self.apiClient.installClaw(name: claw.name, context: context)
-                NotificationCenter.default.post(name: ClawStoreNotifications.installedSetChanged, object: nil)
+                _ = try await self.performInstall(claw.name, context)
                 self.refresh()
             } catch {
                 self.actionError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
