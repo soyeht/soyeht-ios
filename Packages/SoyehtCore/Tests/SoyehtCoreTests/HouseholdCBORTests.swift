@@ -156,6 +156,26 @@ struct HouseholdCBORTests {
         #expect(nestedMap["ok"] == .bool(true))
     }
 
+    @Test func decodeRejectsAttackerSizedArrayWithoutAllocating() {
+        let hugeArrayHeader = Data([0x9B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+
+        #expect(throws: HouseholdCBORError.invalidData) {
+            try HouseholdCBOR.decode(hugeArrayHeader)
+        }
+    }
+
+    @Test func decodeInviteURIRejectsDeeplyNestedCBORWithoutCrashing() {
+        var value: HouseholdCBORValue = .null
+        for _ in 0..<80 {
+            value = .array([value])
+        }
+        let uri = ClawShareURI.prefix + Self.base64URLNoPad(HouseholdCBOR.encode(value))
+
+        #expect(throws: ClawShareError.inviteMalformed) {
+            try ClawShareCodec.decodeInviteURI(uri)
+        }
+    }
+
     @Test func ownerApprovalContextIsDeterministicAndCarriesAllSevenFields() throws {
         let challengeSig = Data(repeating: 0x9C, count: 64)
         let context = HouseholdCBOR.ownerApprovalContext(
@@ -306,5 +326,12 @@ struct HouseholdCBORTests {
         #expect(bytes[3] == 0x01)        // unsigned(1)
         #expect(bytes[4] == 0x65)        // text(5)
         #expect(Array(bytes[5..<10]) == Array("hh_id".utf8))
+    }
+
+    private static func base64URLNoPad(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }

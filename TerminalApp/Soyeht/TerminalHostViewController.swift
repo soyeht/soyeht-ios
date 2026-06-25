@@ -8,6 +8,7 @@ enum TerminalMode {
     case ssh(SSHConnectionInfo)
     case websocket(String) // wsUrl
     case websocketRequest(URLRequest)
+    case relayStream(RelayStreamTerminalConfiguration)
 }
 
 // MARK: - Terminal Host View Controller
@@ -86,6 +87,13 @@ final class TerminalHostViewController: UIViewController {
             return
         }
         let newMode = TerminalMode.websocketRequest(request)
+        mode = newMode
+        if isViewLoaded { setupTerminal(mode: newMode) }
+    }
+
+    func updateRelayStream(_ configuration: RelayStreamTerminalConfiguration) {
+        if case .relayStream(let existing) = mode, existing.id == configuration.id { return }
+        let newMode = TerminalMode.relayStream(configuration)
         mode = newMode
         if isViewLoaded { setupTerminal(mode: newMode) }
     }
@@ -226,6 +234,14 @@ final class TerminalHostViewController: UIViewController {
             wsView.attachRequestRefresher = attachRequestRefresher
             wsView.configure(request: request)
             terminalView = wsView
+
+        case .relayStream(let configuration):
+            let relayView = RelayStreamTerminalView(frame: .zero)
+            relayView.onConnectionFailed = { _ in
+                NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
+            }
+            relayView.configure(configuration: configuration)
+            terminalView = relayView
         }
 
         SoyehtTerminalAppearance.apply(to: terminalView)
@@ -240,29 +256,39 @@ final class TerminalHostViewController: UIViewController {
 
         view.keyboardLayoutGuide.topAnchor.constraint(equalTo: terminalView.bottomAnchor).isActive = true
 
-        // Attachment coordinator
-        let coordinator = TerminalAttachmentCoordinator()
-        coordinator.hostController = self
-        coordinator.terminalView = terminalView
-        if let c = pendingAttachmentContainer, let s = pendingAttachmentSession {
-            coordinator.container = c
-            coordinator.sessionName = s
-            coordinator.context = pendingAttachmentContext
+        // Custom key bar + voice bar as inputAccessoryView
+        let showsAttachmentControls: Bool
+        if case .relayStream = mode {
+            showsAttachmentControls = false
+            self.attachmentCoordinator = nil
             pendingAttachmentContainer = nil
             pendingAttachmentSession = nil
             pendingAttachmentContext = nil
+        } else {
+            showsAttachmentControls = true
+            let coordinator = TerminalAttachmentCoordinator()
+            coordinator.hostController = self
+            coordinator.terminalView = terminalView
+            if let c = pendingAttachmentContainer, let s = pendingAttachmentSession {
+                coordinator.container = c
+                coordinator.sessionName = s
+                coordinator.context = pendingAttachmentContext
+                pendingAttachmentContainer = nil
+                pendingAttachmentSession = nil
+                pendingAttachmentContext = nil
+            }
+            self.attachmentCoordinator = coordinator
         }
-        self.attachmentCoordinator = coordinator
-
-        // Custom key bar + voice bar as inputAccessoryView
         let keyBar = SoyehtKeyBarView(
             frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 44),
-            terminalView: terminalView
+            terminalView: terminalView,
+            showsAttachmentControls: showsAttachmentControls
         )
-        keyBar.onAttachmentTapped = { [weak coordinator] in
-            coordinator?.togglePicker()
+        keyBar.onAttachmentTapped = { [weak self] in
+            self?.attachmentCoordinator?.togglePicker()
         }
         keyBar.onFileBrowserTapped = { [weak self] in
+            guard self?.attachmentCoordinator != nil else { return }
             self?.onFileBrowserRequested?()
         }
 
@@ -297,6 +323,7 @@ final class TerminalHostViewController: UIViewController {
     }
 
     private func handleInsertIntoTerminal(_ note: Notification) {
+        guard attachmentCoordinator != nil else { return }
         guard let text = note.userInfo?[SoyehtNotificationKey.text] as? String, !text.isEmpty else {
             return
         }
@@ -502,6 +529,7 @@ final class SoyehtKeyBarView: UIView {
     private static let preferredHeight: CGFloat = 44
 
     weak var terminalView: TerminalView?
+    private let showsAttachmentControls: Bool
 
     var onAttachmentTapped: (() -> Void)?
     var onFileBrowserTapped: (() -> Void)?
@@ -522,8 +550,9 @@ final class SoyehtKeyBarView: UIView {
     private static var hapticLabelKey: UInt8 = 1
     private static var arrowLabelKey: UInt8 = 2
 
-    init(frame: CGRect, terminalView: TerminalView) {
+    init(frame: CGRect, terminalView: TerminalView, showsAttachmentControls: Bool = true) {
         self.terminalView = terminalView
+        self.showsAttachmentControls = showsAttachmentControls
         super.init(frame: frame)
         backgroundColor = SoyehtTheme.uiBgKeybarFrame
         setupChrome()
@@ -644,40 +673,42 @@ final class SoyehtKeyBarView: UIView {
             view.removeFromSuperview()
         }
 
-        // Paperclip attachment button (always first)
-        let clipBtn = UIButton(type: .system)
-        let clipImage = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium))
-        clipBtn.setImage(clipImage, for: .normal)
-        clipBtn.tintColor = SoyehtTheme.uiEnterGreen
-        clipBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
-        clipBtn.translatesAutoresizingMaskIntoConstraints = false
-        clipBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
-        clipBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        var clipConfig = UIButton.Configuration.plain()
-        clipConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
-        clipBtn.configuration = clipConfig
-        clipBtn.accessibilityIdentifier = AccessibilityID.Terminal.attachmentButton
-        clipBtn.addTarget(self, action: #selector(attachmentTapped), for: .touchUpInside)
-        stack.addArrangedSubview(clipBtn)
+        if showsAttachmentControls {
+            // Paperclip attachment button (always first)
+            let clipBtn = UIButton(type: .system)
+            let clipImage = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium))
+            clipBtn.setImage(clipImage, for: .normal)
+            clipBtn.tintColor = SoyehtTheme.uiEnterGreen
+            clipBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
+            clipBtn.translatesAutoresizingMaskIntoConstraints = false
+            clipBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
+            clipBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            var clipConfig = UIButton.Configuration.plain()
+            clipConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
+            clipBtn.configuration = clipConfig
+            clipBtn.accessibilityIdentifier = AccessibilityID.Terminal.attachmentButton
+            clipBtn.addTarget(self, action: #selector(attachmentTapped), for: .touchUpInside)
+            stack.addArrangedSubview(clipBtn)
 
-        let fileBrowserButton = UIButton(type: .system)
-        let fileImage = UIImage(
-            systemName: "folder",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium)
-        )
-        fileBrowserButton.setImage(fileImage, for: .normal)
-        fileBrowserButton.tintColor = SoyehtTheme.uiEnterGreen
-        fileBrowserButton.backgroundColor = SoyehtTheme.uiScrollBtnBg
-        fileBrowserButton.translatesAutoresizingMaskIntoConstraints = false
-        fileBrowserButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
-        fileBrowserButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        var fileConfig = UIButton.Configuration.plain()
-        fileConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
-        fileBrowserButton.configuration = fileConfig
-        fileBrowserButton.accessibilityIdentifier = AccessibilityID.Terminal.fileBrowserButton
-        fileBrowserButton.addTarget(self, action: #selector(fileBrowserTapped), for: .touchUpInside)
-        stack.addArrangedSubview(fileBrowserButton)
-        stack.addArrangedSubview(makeDivider())
+            let fileBrowserButton = UIButton(type: .system)
+            let fileImage = UIImage(
+                systemName: "folder",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium)
+            )
+            fileBrowserButton.setImage(fileImage, for: .normal)
+            fileBrowserButton.tintColor = SoyehtTheme.uiEnterGreen
+            fileBrowserButton.backgroundColor = SoyehtTheme.uiScrollBtnBg
+            fileBrowserButton.translatesAutoresizingMaskIntoConstraints = false
+            fileBrowserButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
+            fileBrowserButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            var fileConfig = UIButton.Configuration.plain()
+            fileConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
+            fileBrowserButton.configuration = fileConfig
+            fileBrowserButton.accessibilityIdentifier = AccessibilityID.Terminal.fileBrowserButton
+            fileBrowserButton.addTarget(self, action: #selector(fileBrowserTapped), for: .touchUpInside)
+            stack.addArrangedSubview(fileBrowserButton)
+            stack.addArrangedSubview(makeDivider())
+        }
 
         // Add buttons with dividers between groups
         var lastGroup: ShortcutBarGroup? = nil

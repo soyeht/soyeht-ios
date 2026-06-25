@@ -18,9 +18,9 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             return
         }
         XCTAssertEqual(envelope.householdId, "hh_test")
-        XCTAssertEqual(envelope.rawHostname, "studio.local")
+        XCTAssertEqual(envelope.rawHostname, "mac-alpha.local")
         XCTAssertEqual(envelope.rawPlatform, "macos")
-        XCTAssertEqual(envelope.candidateAddress, "studio.tailnet:8443")
+        XCTAssertEqual(envelope.candidateAddress, "100.64.0.10:8443")
         XCTAssertEqual(envelope.transportOrigin, .qrTailscale)
         XCTAssertEqual(envelope.ttlUnix, UInt64(now.timeIntervalSince1970) + 240)
         XCTAssertEqual(envelope.receivedAt, now)
@@ -114,6 +114,39 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(host, "linux.local")
     }
 
+    func testClawShareInviteRoutesOnlyThroughScannerDispatcher() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertNil(QRScanResult.from(url: url))
+        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url))
+
+        let result = try QRScannerDispatcher
+            .result(for: url, activeHouseholdId: nil, now: now)
+            .get()
+
+        guard case .clawShareInvite(let routedInvite) = result else {
+            XCTFail("Expected scanner dispatcher to route claw-share invite")
+            return
+        }
+        XCTAssertEqual(routedInvite, invite)
+    }
+
+    func testClawShareInviteInvalidReturnsTypedScanError() throws {
+        let url = try XCTUnwrap(URL(string: "\(ClawShareURI.prefix)not-valid-base64"))
+
+        let result = QRScannerDispatcher.result(
+            for: url,
+            activeHouseholdId: nil,
+            now: now
+        )
+
+        guard case .failure(.clawShareInviteInvalid) = result else {
+            XCTFail("Expected invalid claw-share invite to return typed scan error")
+            return
+        }
+    }
+
     func testServerPairingDeepLinksOpenMainStoryboardDuringOnboarding() throws {
         XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
             for: try XCTUnwrap(URL(string: "theyos://pair?token=pair-abc&host=linux.local"))
@@ -151,7 +184,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         let privateKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x42, count: 32))
         let publicKey = privateKey.publicKey.compressedRepresentation
         let nonce = Data(repeating: 0xAB, count: 32)
-        let hostname = "studio.local"
+        let hostname = "mac-alpha.local"
         let platform = PairMachinePlatform.macos.rawValue
         let challenge = HouseholdCBOR.joinChallenge(
             machinePublicKey: publicKey,
@@ -172,7 +205,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             URLQueryItem(name: "hostname", value: hostname),
             URLQueryItem(name: "platform", value: platform),
             URLQueryItem(name: "transport", value: transport.rawValue),
-            URLQueryItem(name: "addr", value: transport == .tailscale ? "studio.tailnet:8443" : "studio.local:8443"),
+            URLQueryItem(name: "addr", value: transport == .tailscale ? "100.64.0.10:8443" : "mac-alpha.local:8443"),
             URLQueryItem(name: "challenge_sig", value: signature.soyehtBase64URLEncodedString()),
             URLQueryItem(name: "ttl", value: String(UInt64(now.timeIntervalSince1970) + 240)),
             URLQueryItem(
@@ -181,6 +214,36 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             )
         ]
         return try XCTUnwrap(components.url)
+    }
+
+    private func makeClawShareInvite() throws -> ClawShareInvite {
+        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x44, count: 32))
+        let publicKey = privateKey.publicKey.compressedRepresentation
+        let unsigned = ClawShareInvite(
+            householdId: "hh-test",
+            ownerPersonId: "owner-alpha",
+            ownerPublicKey: publicKey,
+            clawId: "claw-alpha",
+            slotId: Data(repeating: 0x22, count: 16),
+            transportHint: .loopback(channel: "relay-alpha"),
+            expiresAt: UInt64(now.timeIntervalSince1970) + 600,
+            ownerEngineNpub: "npub1ownerengine",
+            claimRelays: ["wss://relay.example"],
+            ownerSignature: Data(repeating: 0, count: 64)
+        )
+        let signature = try privateKey.signature(for: ClawShareCodec.canonicalInviteSigningBytes(unsigned)).rawRepresentation
+        return ClawShareInvite(
+            householdId: unsigned.householdId,
+            ownerPersonId: unsigned.ownerPersonId,
+            ownerPublicKey: unsigned.ownerPublicKey,
+            clawId: unsigned.clawId,
+            slotId: unsigned.slotId,
+            transportHint: unsigned.transportHint,
+            expiresAt: unsigned.expiresAt,
+            ownerEngineNpub: unsigned.ownerEngineNpub,
+            claimRelays: unsigned.claimRelays,
+            ownerSignature: signature
+        )
     }
 
     private func makePairDeviceURL() throws -> URL {
