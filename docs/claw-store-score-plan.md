@@ -12,11 +12,10 @@
 > Do not import the experimental mesh / Product A track. Do not validate by
 > touching the installed shipping app; Dev builds and explicit gates only.
 
-Last updated: 2026-06-24. Status: PLAN CODE COMPLETE - all tracks (E, D, F, S1, C4)
-implemented and merged to local main, reviewed slice-by-slice by @code-reviewer; the
-only remaining item is the owner-gated operational v2-read GO (flip v2ReadEnabledKey
-after a live dry-run; see docs/serverstore-v2-flip-runbook.md). See §0 for the
-execution record.
+Last updated: 2026-06-25. Status: PLAN CODE COMPLETE - all tracks (E, D, F, S1, C4)
+implemented and merged to local main, reviewed slice-by-slice by @code-reviewer.
+The experimental version-two server inventory path was retired after the P1.7
+decision; shipped storage authority is V1. See section 0 for the execution record.
 (v4 history: risk/release-readiness addendum consolidated §4b; Track S1 added.)
 
 ## 0. Execution progress (live, 2026-06-24)
@@ -36,10 +35,10 @@ E2a (Store card -> shared MacClawInstallDecision), E2b (Mac install-surface sour
 guard), E2d-1..4 (pure ClawInventoryService + provider/drawer/Store-VM adoption,
 canonical ClawMachineTarget not the lossy ClawAPITarget), E3-mini (Mac
 MacActiveServerContextResolver - canonical active-target, off legacy currentContext);
-the FULL Track D credential-safety migration - D1 (shadow-compare hardening) -> D2a/
-D2b (credential-preserving dedup + live rekeyer, closes the token-orphan) -> D3a
-(source guards + dry-run gate) -> D3b (dual-write + gated-read plumbing, credential-
-preserving mirror) -> D3c (gated read wired, v2ReadEnabledKey default-OFF); Track F -
+the Track D credential-safety migration - D1 inventory diagnostics -> D2a/
+D2b (credential-preserving dedup + live rekeyer, closes the token-orphan), followed
+by the P1.7 decision to retire the experimental alternate inventory path and keep
+V1 as the only shipped storage authority; Track F -
 F1 (LaunchAgent env SSOT), F2 (Dev embedded-engine smoke), F3.1 (QA matrix runner),
 F3.2/F3.3-matrix (Linux + Mac VZ lifecycle rows, opt-in/default-SKIP); Track C4.1
 (Swift half of the executable cross-repo contract - 27-route exact pin + lifecycle
@@ -61,27 +60,25 @@ iSoyehtTerm main. The C4.2 split (C4.2a / C4.2b-1 mint / C4.2b-2 WS) was done to
 unblock a stalled monolithic STOP-POINT and isolate the schema-heavy WS work.
 
 PLAN CODE COMPLETE: every track in this plan is implemented and merged to local main —
-E (E1..E2d + E3-mini Mac canonical active-target resolver), the full D credential-safety
-migration (D1 shadow-compare → D2 credential-preserving dedup → D3a dry-run gate → D3b
-dual-write → D3c gated read, flag default-OFF), F (F1/F2/F3.1 + F3.2/F3.3 live rows
+E (E1..E2d + E3-mini Mac canonical active-target resolver), the D credential-safety
+migration plus P1.7 V1-authority closeout, F (F1/F2/F3.1 + F3.2/F3.3 live rows
 opt-in), S1 (engine Tailnet-only in Ready), and C4 (full executable contract). SoyehtCore
 suite green; iOS app builds. @code-reviewer caught + we fixed a real defect in slice
 after slice (all-or-nothing poll, credential-less v2 mirror, unbound route-set,
 peer-guard-before-token-consume, …).
 
-ONLY REMAINING — OPERATIONAL GO (owner's call, never auto-fired): flip
-ServerStore.v2ReadEnabledKey after a clean live dry-run. Procedure:
-docs/serverstore-v2-flip-runbook.md. The gate is safe-by-construction - loadCanonical
-serves v2 ONLY if isReadyToFlip && the v2 projection equals v1, else it falls back to
-v1. (Also open, NOT part of this plan: a pre-existing theyos clippy debt in
-household_listener.rs/setup_beacon.rs/household_bootstrap.rs — separate slice.)
+P1.7 CLOSEOUT - owner decision made: retire the experimental alternate inventory
+path and keep V1 as the only shipped storage authority. There is no operational
+read flip for current builds. Also open, NOT part of this plan: a pre-existing
+theyos clippy debt in household_listener.rs/setup_beacon.rs/household_bootstrap.rs
+- separate slice.
 
 Re-score after full plan code-complete: macOS ~7.5-7.8 (both HIGHs closed + the parallel
 catalog flows collapsed onto one service + canonical Mac active-target); iOS ~8.4 (E2d +
 the full D migration + the executable contract); Linux/backend ~8.4 (S1 transport
-posture + F runner/QA); Mac-runner ~7.9 (F1/F2/F3). Global ~8.0-8.3. The 8.6+ projection
-now gates only on the live v2-read flip + real F3 guest-boot (per §4b) — both
-operational/live steps, not remaining code.
+posture + F runner/QA); Mac-runner ~7.9 (F1/F2/F3). Global ~8.0-8.3. The 8.6+
+projection now gates on real F3 guest-boot and follow-up QA evidence; there is no
+remaining inventory read flip in current builds.
 
 Below is the original v1-v4 plan (baseline, tracks, projections) preserved for
 reference.
@@ -166,7 +163,7 @@ What keeps macOS OFF a 5.x floor (refuted by the audit, reinforced by @julia):
   honors the backend installability gate (theyos #88) - what is missing is
   specifically the CLIENT-side guest-image gate.
 - The dedicated Store window cleanly reuses the shared Core view models.
-- `ServerStoreV2` is dead/shadow-only (zero non-test callers).
+- Server inventory now has a single shipped V1 storage authority.
 - No force-unwrap crashes, timer leaks, or retain cycles.
 
 ## 3. Target and projected final score
@@ -256,12 +253,10 @@ coupled to F.
 
 ### Track D - inventory SSOT, lifts iOS + macOS (from 8.2)
 
-- D-full. `ServerStoreV2` as the LIVE authority.
-  - Flip ServerStore v2 from shadow to live writer; id-preserving migration;
-    `ServerRegistry` becomes a read-only facade; `PairedMacsStore` /
-    `SessionStore.pairedServers` become ingestion/credential adapters; source
-    guards stop new UI from enumerating legacy stores; shadow-compare before the
-    flip.
+- D-full / P1.7 closeout. V1 remains the LIVE authority.
+  - Preserve the id- and credential-safe V1 migration/reconcile path, keep
+    `ServerRegistry` as the mutation facade, and retire the experimental
+    alternate storage path rather than carrying a default-off mirror.
   - Acceptance per the roadmap Goal D acceptance list (shadow parity, Server.ID
     preserved, Mac/Linux/duplicate/missing-token/stale-alias/unknown-kind tests,
     rollback safe).
@@ -330,13 +325,12 @@ Client (macOS/iOS), NOT in plan v3:
 - RESOLVED/guarded **4a + 4c**: Track-D Mac dedup now has typed credential
   ownership, live session-token rekey, and per-type orphan detection. The
   relevant guards are `SessionStoreTokenRekeyTests`,
-  `ServerStoreCredentialRekeyTests`, `ServerStoreShadowComparerTests`, and
+  `ServerStoreCredentialRekeyTests`, migration tests, and
   `ServerInventoryWriterTests.test_serverRegistryWiresLiveCredentialRekeyer`.
   Do not regress this back to a single `hasCredential` Boolean.
-- GUARDED **4b**: v2 is a dual-written mirror and the read path is
-  operator-gated/default-off. Rollback is currently the flag-off v1 read; any
-  future live-V2 authority slice must preserve readable v1 rollback or explicitly
-  replace this runbook contract.
+- GUARDED **4b**: the alternate inventory path was removed. Rollback remains the
+  shipped V1 store; any future replacement storage model must arrive with a new
+  design, migration, live evidence, and rollback plan.
 - MED **3a**: `AppEnvironment.defaultContainer` process-wide cache never
   invalidated on server switch -> quick-start can attach a terminal to the wrong
   server. Outside every guard. -> E2/E3.
