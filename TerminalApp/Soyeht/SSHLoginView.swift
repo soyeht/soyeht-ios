@@ -111,6 +111,8 @@ struct SoyehtAppView: View {
         /// can refresh the single-use attach nonce via `PairedMacRegistry`
         /// on reconnect. Fase 1 local-handoff QR leaves both nil.
         case localTerminal(wsUrl: String, title: String, macID: UUID?, paneID: String?)
+        case relayStreamOpening(ClawShareInvite)
+        case relayStreamTerminal(RelayStreamTerminalConfiguration)
     }
 
     @State private var appState: AppState = .splash
@@ -446,6 +448,38 @@ struct SoyehtAppView: View {
                         }
                     },
                     attachURLRefresher: Self.makeAttachRefresher(macID: macID, paneID: paneID)
+                )
+                .transition(.opacity)
+
+            case .relayStreamOpening(let invite):
+                RelayStreamOpeningView(
+                    invite: invite,
+                    onOpened: { configuration in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .relayStreamTerminal(configuration)
+                        }
+                    },
+                    onCancel: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = hasHomeContent ? .instanceList : .qrScanner
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .relayStreamTerminal(let configuration):
+                RelayStreamTerminalContainerView(
+                    configuration: configuration,
+                    onDisconnect: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = hasHomeContent ? .instanceList : .qrScanner
+                        }
+                    },
+                    onConnectionLost: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = hasHomeContent ? .instanceList : .qrScanner
+                        }
+                    }
                 )
                 .transition(.opacity)
             }
@@ -1275,6 +1309,15 @@ struct SoyehtAppView: View {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
 
+        case .clawShareInvite(let invite):
+            await MainActor.run {
+                errorMessage = nil
+                successMessage = nil
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .relayStreamOpening(invite)
+                }
+            }
+
         case .pair(let token, let host):
             do {
                 let server = try await apiClient.pairServer(token: token, host: host)
@@ -1351,7 +1394,7 @@ struct SoyehtAppView: View {
         switch result {
         case .householdPairDevice, .householdDevicePairing:
             return true
-        case .connect, .pair, .invite, .householdPairMachine:
+        case .connect, .pair, .invite, .householdPairMachine, .clawShareInvite:
             return false
         }
     }
@@ -1704,6 +1747,230 @@ private struct HouseholdTerminalContainerView: View {
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
             onConnectionLost()
         }
+    }
+}
+
+struct RelayStreamOpeningView: View {
+    let invite: ClawShareInvite
+    let onOpened: (RelayStreamTerminalConfiguration) -> Void
+    let onCancel: () -> Void
+
+    private let controller: any RelayStreamInviteOpening
+    @State private var didStart = false
+    @State private var isOpening = false
+    @State private var status = String(localized: "Ready to connect.")
+    @State private var errorMessage: String?
+    @State private var openGeneration = 0
+    @State private var openTask: Task<Void, Never>?
+
+    init(
+        invite: ClawShareInvite,
+        onOpened: @escaping (RelayStreamTerminalConfiguration) -> Void,
+        onCancel: @escaping () -> Void,
+        controller: any RelayStreamInviteOpening = RelayStreamOpenController()
+    ) {
+        self.invite = invite
+        self.onOpened = onOpened
+        self.onCancel = onCancel
+        self.controller = controller
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+
+            if !didStart && !isOpening && errorMessage == nil {
+                Image(systemName: "terminal")
+                    .font(.system(size: 34, weight: .medium))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+
+                Text(String(
+                    localized: "Connect to \(invite.clawId)?",
+                    comment: "Relay stream invite confirmation title. %@ = claw id."
+                ))
+                .font(Typography.monoBodyLargeMedium)
+                .foregroundColor(SoyehtTheme.textPrimary)
+                .multilineTextAlignment(.center)
+
+                Text(invite.ownerPersonId)
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+
+                HStack(spacing: 12) {
+                    Button(action: cancelAndExit) {
+                        Text("Cancel")
+                            .font(Typography.sansNav)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button(action: confirmAndOpen) {
+                        Text("Connect")
+                            .font(Typography.sansNav)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            } else if isOpening {
+                ProgressView()
+                    .tint(SoyehtTheme.textSecondary)
+
+                Text(status)
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+
+                Button(action: cancelAndExit) {
+                    Text("Cancel")
+                        .font(Typography.sansNav)
+                }
+                .buttonStyle(.bordered)
+            } else if let errorMessage {
+                Text(status)
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+
+                Text(errorMessage)
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.accentRed)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+
+                HStack(spacing: 12) {
+                    Button(action: cancelAndExit) {
+                        Text("Cancel")
+                            .font(Typography.sansNav)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button(action: retry) {
+                        Text("Retry")
+                            .font(Typography.sansNav)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SoyehtTheme.bgPrimary)
+        .onDisappear {
+            cancelOpenTask()
+        }
+    }
+
+    @MainActor
+    private func retry() {
+        didStart = false
+        errorMessage = nil
+        status = String(localized: "Ready to connect.")
+    }
+
+    @MainActor
+    private func confirmAndOpen() {
+        startOpenIfNeeded()
+    }
+
+    @MainActor
+    private func startOpenIfNeeded() {
+        guard !didStart else { return }
+        openTask?.cancel()
+        openGeneration &+= 1
+        let generation = openGeneration
+        didStart = true
+        isOpening = true
+        status = String(localized: "Opening relay stream...")
+        errorMessage = nil
+        openTask = Task {
+            await openOnce(generation: generation)
+        }
+    }
+
+    @MainActor
+    private func cancelAndExit() {
+        cancelOpenTask()
+        onCancel()
+    }
+
+    @MainActor
+    private func cancelOpenTask() {
+        openGeneration &+= 1
+        openTask?.cancel()
+        openTask = nil
+        isOpening = false
+    }
+
+    @MainActor
+    private func openOnce(generation: Int) async {
+        do {
+            let configuration = try await controller.open(invite: invite)
+            guard !Task.isCancelled, generation == openGeneration else { return }
+            isOpening = false
+            openTask = nil
+            onOpened(configuration)
+        } catch is CancellationError {
+            guard generation == openGeneration else { return }
+            isOpening = false
+            openTask = nil
+        } catch {
+            guard generation == openGeneration else { return }
+            isOpening = false
+            openTask = nil
+            status = String(localized: "Could not open relay stream.")
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct RelayStreamTerminalContainerView: View {
+    let configuration: RelayStreamTerminalConfiguration
+    let onDisconnect: () -> Void
+    let onConnectionLost: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button(action: onDisconnect) {
+                    Image(systemName: "chevron.left")
+                        .font(Typography.sansNav)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                }
+
+                Text(configuration.title)
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                Text(verbatim: "[relay]")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            RelayStreamTerminalRepresentable(configuration: configuration)
+        }
+        .background(SoyehtTheme.bgPrimary)
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
+            onConnectionLost()
+        }
+    }
+}
+
+private struct RelayStreamTerminalRepresentable: UIViewControllerRepresentable {
+    let configuration: RelayStreamTerminalConfiguration
+
+    func makeUIViewController(context: Context) -> TerminalHostViewController {
+        let controller = TerminalHostViewController()
+        controller.updateRelayStream(configuration)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
+        uiViewController.updateRelayStream(configuration)
     }
 }
 

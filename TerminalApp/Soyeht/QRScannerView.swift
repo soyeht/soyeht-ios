@@ -350,6 +350,9 @@ struct QRScannerView: View {
             return result
         case .failure(let error):
             switch error {
+            case .clawShareInviteInvalid:
+                parseError = fallbackError
+                return nil
             case .householdPairDeviceExpired:
                 parseError = householdPairingMessage(for: .expiredQR)
                 return nil
@@ -385,6 +388,7 @@ struct QRScannerView: View {
 }
 
 enum QRScannerDispatchError: Error, Equatable {
+    case clawShareInviteInvalid
     case householdPairDeviceExpired
     case householdPairDeviceInvalid
     /// `pair-device` is the founding-owner ceremony — it is only valid when
@@ -455,10 +459,23 @@ enum QRScannerDispatcher {
             }
         }
 
+        if isClawShareInviteURL(url) {
+            do {
+                let invite = try ClawShareCodec.decodeInviteURI(url.absoluteString)
+                return .success(.clawShareInvite(invite))
+            } catch {
+                return .failure(.clawShareInviteInvalid)
+            }
+        }
+
         guard let result = QRScanResult.from(url: url) else {
             return .failure(.unsupportedDeepLink)
         }
         return .success(result)
+    }
+
+    private static func isClawShareInviteURL(_ url: URL) -> Bool {
+        url.absoluteString.hasPrefix(ClawShareURI.prefix)
     }
 
     private static func isHouseholdPairDeviceURL(_ url: URL) -> Bool {

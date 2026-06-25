@@ -165,6 +165,7 @@ public enum QRScanResult {
     case connect(token: String, host: String)
     case pair(token: String, host: String)
     case invite(token: String, host: String)
+    case clawShareInvite(ClawShareInvite)
     case householdPairDevice(url: URL)
     case householdDevicePairing(url: URL)
     case householdPairMachine(envelope: JoinRequestEnvelope)

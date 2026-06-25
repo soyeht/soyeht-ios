@@ -1,0 +1,20 @@
+[package]
+name = "relay-stream-guest-ffi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[lib]
+name = "relay_stream_guest_ffi"
+path = "src/lib.rs"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+household-rs = { git = "https://github.com/soyeht/theyos.git", rev = "395241648343a49dec0ec1ba5b4d6d08967d1f70" }
+thiserror = "1"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+rand = "0.8"
+uniffi = { version = "0.31.2", features = ["tokio"] }
+
+[dev-dependencies]
+hex = "0.4"

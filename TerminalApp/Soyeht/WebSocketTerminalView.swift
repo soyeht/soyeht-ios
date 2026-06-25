@@ -13,6 +13,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var configuredRequestSignature: String?
     private var pairingCoordinator: PairingCoordinator?
     private var pingTask: Task<Void, Never>?
+    var urlOpener: any URLOpening = ConfirmingURLOpener.shared
 
     private struct LocalHandoffParams {
         let macID: UUID
@@ -767,8 +768,13 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
 
     public func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
-        if let url = URL(string: link) {
-            UIApplication.shared.open(url)
+        guard let url = TerminalLinkAllowlist.externalLinkURL(from: link) else {
+            Self.logger.warning("[WS] blocked terminal link request")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.urlOpener.open(url, from: self)
         }
     }
 
