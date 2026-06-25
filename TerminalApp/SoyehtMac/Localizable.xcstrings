@@ -53764,6 +53764,220 @@
         }
       }
     },
+    "claw.store.householdRouteUnavailable.body": {
+      "comment": "Body shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "This Claw Store route is not available in the macOS app. Open a connected server to continue."
+          }
+        }
+      }
+    },
+    "claw.store.householdRouteUnavailable.title": {
+      "comment": "Title shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Route unavailable on Mac"
+          }
+        }
+      }
+    },
     "claw.store.serverStatus.checking": {
       "comment": "Status label shown while the macOS Claw Store checks the connected server.",
       "localizations": {
