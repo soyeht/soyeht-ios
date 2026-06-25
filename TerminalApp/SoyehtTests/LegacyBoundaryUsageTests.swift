@@ -470,6 +470,30 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         XCTAssertTrue(try codeOnly(at: macDetail).contains("ClawDetailActionAvailability("))
     }
 
+    /// In-flight enablement for the detail action buttons must come from the shared
+    /// `ClawActionPolicy` (policy.isEnabled), not a hand-rolled
+    /// `.disabled(viewModel.isPerformingAction)` re-derived per button. The facade
+    /// above still owns visibility; the policy owns the in-flight enablement axis.
+    func test_clawDetailViewsRouteInFlightEnablementThroughPolicy() throws {
+        let iosDetail = try XCTUnwrap(
+            iosSwiftFiles().first { $0.lastPathComponent == "ClawDetailView.swift" },
+            "expected iOS ClawDetailView.swift"
+        )
+        let macDetail = try XCTUnwrap(
+            macSwiftFiles().first { $0.lastPathComponent == "MacClawDetailView.swift" },
+            "expected macOS MacClawDetailView.swift"
+        )
+        for url in [iosDetail, macDetail] {
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("ClawActionPolicy"),
+                "\(url.lastPathComponent) must drive action enablement through the shared ClawActionPolicy."
+            )
+            XCTAssertFalse(code.contains(".disabled(viewModel.isPerformingAction)"),
+                "\(url.lastPathComponent) must route in-flight enablement through policy.isEnabled, not a hand-rolled `.disabled(viewModel.isPerformingAction)`."
+            )
+        }
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so
