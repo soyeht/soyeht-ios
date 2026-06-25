@@ -11,9 +11,8 @@
 #   2. otherwise          — fetch from github raw at the SHA in
 #                           scripts/cross-repo-contract.sha (hosted CI).
 #
-# A source file absent at the resolved point is reported as a skip (not a failure)
-# for that file, matching theyos's own "skip until it lands" behavior, so a
-# contract that has not yet merged to the pinned ref does not spuriously fail.
+# Required Claw Store sources must be present at the resolved point. Optional
+# legacy fixture sources can still skip while a source has not landed yet.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,14 +21,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PIN_FILE="${SCRIPT_DIR}/cross-repo-contract.sha"
 THEYOS_SHA="$(grep -vE '^[[:space:]]*#' "${PIN_FILE}" | tr -d '[:space:]')"
 
-# vendored-iOS-relative-path : theyos-relative-path
+# requirement : vendored-iOS-relative-path : theyos-relative-path
 PAIRS=(
-  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
-  "docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
-  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
-  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json:admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
-  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/InstanceStatus/instance_status_codes.json:admin/rust/store-rs/tests/fixtures/instance_status_codes.json"
-  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/ClawUnavailableReasonCode/claw_unavailable_reason_codes.json:admin/rust/core-rs/tests/fixtures/claw_unavailable_reason_codes.json"
+  "required:Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
+  "required:docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
+  "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
+  "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json:admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
+  "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/InstanceStatus/instance_status_codes.json:admin/rust/store-rs/tests/fixtures/instance_status_codes.json"
+  "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/ClawUnavailableReasonCode/claw_unavailable_reason_codes.json:admin/rust/core-rs/tests/fixtures/claw_unavailable_reason_codes.json"
 )
 
 # Write the theyos source for $1 into the file $2.
@@ -63,8 +62,10 @@ fi
 
 DRIFT=0
 for pair in "${PAIRS[@]}"; do
-  ios="${pair%%:*}"
-  src="${pair##*:}"
+  requirement="${pair%%:*}"
+  rest="${pair#*:}"
+  ios="${rest%%:*}"
+  src="${rest#*:}"
   ios_abs="${REPO_ROOT}/${ios}"
 
   if [[ ! -f "${ios_abs}" ]]; then
@@ -76,10 +77,22 @@ for pair in "${PAIRS[@]}"; do
   src_tmp="$(mktemp)"
   case "$(materialize_source "${src}" "${src_tmp}")" in
     absent)
-      echo "↷ skip ${ios}: theyos source ${src} not present at the pinned point yet"
+      if [[ "${requirement}" == "required" ]]; then
+        if [[ -n "${THEYOS_DIR:-}" ]]; then
+          echo "::error::required theyos source missing in local THEYOS_DIR=${THEYOS_DIR}: ${src}"
+          echo "  verify THEYOS_DIR or run: THEYOS_DIR=<path> scripts/check-cross-repo-fixtures.sh"
+        else
+          echo "::error::required theyos source missing at theyos@${THEYOS_SHA}: ${src}"
+          echo "  local/dev check: THEYOS_DIR=<path> scripts/check-cross-repo-fixtures.sh"
+          echo "  CI fix: bump scripts/cross-repo-contract.sha to a remote theyos SHA that contains ${src}"
+        fi
+        DRIFT=1
+      else
+        echo "skip ${ios}: optional theyos source ${src} not present at the pinned point yet"
+      fi
       ;;
     error)
-      echo "::error::could not read theyos source ${src} (network error)"
+      echo "::error::could not read theyos source ${src} at theyos@${THEYOS_SHA} (network error)"
       DRIFT=1
       ;;
     present)
