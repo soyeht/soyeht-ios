@@ -3,7 +3,7 @@ import Foundation
 import P256K
 import Security
 
-public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
+public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter, ClawShareGroupOfferClaimSubmitter {
     public typealias TransportFactory = @Sendable (URL) async throws -> any NostrWireTransport
     public typealias RandomBytes = @Sendable (Int) throws -> Data
     public typealias Now = @Sendable () -> Date
@@ -45,51 +45,12 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         guard guestPublicKey.count == 33 else { throw ClawShareError.inviteMalformed }
 
         let claim = try signedClaim(invite: invite, guestIdentity: guestIdentity, timestamp: nowUnix)
-        let claimCBOR = ClawShareCodec.encode(claim)
         let slotIdHex = invite.slotId.soyehtHexEncodedString()
-
-        let friendNostrPrivateKey = try mintNostrPrivateKey()
-        let friendXonly = try Data(P256K.Schnorr.PrivateKey(
-            dataRepresentation: friendNostrPrivateKey
-        ).xonly.bytes)
-        let friendXonlyHex = friendXonly.soyehtHexEncodedString()
-        let engineCompressedPublicKey = try Self.decodeEngineNpubToCompressed(invite.ownerEngineNpub)
-        let engineXonlyHex = engineCompressedPublicKey.subdata(in: 1..<33).soyehtHexEncodedString()
-
-        let claimPlaintext = Data(claimCBOR.soyehtHexEncodedString().utf8)
-        let ciphertext = try NostrNIP44.encrypt(
-            plaintext: claimPlaintext,
-            myPrivKey: friendNostrPrivateKey,
-            peerPubKey: engineCompressedPublicKey,
-            nonce: randomBytes(32)
-        )
-        let event = try NostrEventSigning.sign(
-            privateKey: friendNostrPrivateKey,
-            pubkey: friendXonlyHex,
-            createdAt: UInt64(max(0, now().timeIntervalSince1970)),
-            kind: 1059,
-            tags: [["p", engineXonlyHex]],
-            content: ciphertext
-        )
-
-        let relayURLs = invite.claimRelays.compactMap(URL.init(string:)).filter { $0.scheme == "wss" }
-        guard !relayURLs.isEmpty else { throw ClawShareError.transportClosed }
-
-        let ackEvent = try await raceForAck(
-            relayURLs: relayURLs,
-            event: event,
-            subscriptionFilter: [
-                "kinds": [1059],
-                "#p": [friendXonlyHex],
-                "since": Int(now().timeIntervalSince1970) - 5,
-            ],
+        let ackCBOR = try await publishClaimAndReceiveAckCBOR(
+            claim: claim,
+            ownerEngineNpub: invite.ownerEngineNpub,
+            claimRelays: invite.claimRelays,
             subId: "ack-\(slotIdHex)"
-        )
-
-        let ackCBOR = try decryptAckCBOR(
-            event: ackEvent,
-            friendNostrPrivateKey: friendNostrPrivateKey,
-            engineCompressedPublicKey: engineCompressedPublicKey
         )
         let ack = try decodeAck(ackCBOR)
         try verifyCredential(ack.credential, expectedOwnerPublicKey: invite.ownerPublicKey, nowUnix: nowUnix)
@@ -104,6 +65,57 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
             tunnel: ack.tunnel,
             relayStreamOffer: offer,
             guestIdentity: guestIdentity
+        )
+    }
+
+    public func submitGroupOffer(
+        context: ClawShareGroupOfferClaimContext,
+        memberIdentityProvider: any ClawShareMemberIdentityProviding,
+        guestIdentityProvider: any ClawShareGuestIdentityProvider
+    ) async throws -> ClaimedGroupRelayStreamOffer {
+        let nowUnix = UInt64(max(0, now().timeIntervalSince1970))
+        let memberIdentity = try memberIdentityProvider.loadOrCreate()
+        let guestIdentity = try guestIdentityProvider.create()
+        let nonce = try randomBytes(32)
+        let request = try RelayOfferGroupRequest.build(
+            challenge: nonce,
+            memberIdentity: memberIdentity,
+            deviceIdentity: guestIdentity,
+            participantNpub: context.participantNpub,
+            groupId: context.groupId,
+            clawId: context.clawId,
+            ttlSeconds: context.ttlSeconds,
+            issuedAt: nowUnix
+        )
+        let claim = try ClawShareClaim.signGroup(
+            groupRequest: GroupClaimRequest(relayOfferGroupRequest: request),
+            guestIdentity: guestIdentity,
+            nonce: nonce,
+            timestamp: nowUnix
+        )
+        let ackCBOR = try await publishClaimAndReceiveAckCBOR(
+            claim: claim,
+            ownerEngineNpub: context.ownerEngineNpub,
+            claimRelays: context.claimRelays,
+            subId: "group-ack-\(nonce.soyehtHexEncodedString())"
+        )
+        let ack = try decodeGroupAck(ackCBOR)
+        let offer = try verifiedGroupRelayStreamOffer(
+            from: ack,
+            expectedOwnerPublicKey: context.ownerPublicKey,
+            expectedGuestPublicKey: guestIdentity.publicKeyData,
+            expectedGroupId: context.groupId,
+            expectedMemberId: memberIdentity.memberId,
+            expectedClawId: context.clawId,
+            nowUnix: nowUnix
+        )
+        return ClaimedGroupRelayStreamOffer(
+            relayStreamOffer: offer,
+            guestIdentity: guestIdentity,
+            ownerPublicKey: context.ownerPublicKey,
+            groupId: context.groupId,
+            memberId: memberIdentity.memberId,
+            clawId: context.clawId
         )
     }
 
@@ -129,6 +141,57 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
             timestamp: timestamp,
             participantNpub: nil,
             guestSignature: signature
+        )
+    }
+
+    private func publishClaimAndReceiveAckCBOR(
+        claim: ClawShareClaim,
+        ownerEngineNpub: String,
+        claimRelays: [String],
+        subId: String
+    ) async throws -> Data {
+        let claimCBOR = ClawShareCodec.encode(claim)
+        let friendNostrPrivateKey = try mintNostrPrivateKey()
+        let friendXonly = try Data(P256K.Schnorr.PrivateKey(
+            dataRepresentation: friendNostrPrivateKey
+        ).xonly.bytes)
+        let friendXonlyHex = friendXonly.soyehtHexEncodedString()
+        let engineCompressedPublicKey = try Self.decodeEngineNpubToCompressed(ownerEngineNpub)
+        let engineXonlyHex = engineCompressedPublicKey.subdata(in: 1..<33).soyehtHexEncodedString()
+
+        let claimPlaintext = Data(claimCBOR.soyehtHexEncodedString().utf8)
+        let ciphertext = try NostrNIP44.encrypt(
+            plaintext: claimPlaintext,
+            myPrivKey: friendNostrPrivateKey,
+            peerPubKey: engineCompressedPublicKey,
+            nonce: randomBytes(32)
+        )
+        let event = try NostrEventSigning.sign(
+            privateKey: friendNostrPrivateKey,
+            pubkey: friendXonlyHex,
+            createdAt: UInt64(max(0, now().timeIntervalSince1970)),
+            kind: 1059,
+            tags: [["p", engineXonlyHex]],
+            content: ciphertext
+        )
+
+        let relayURLs = claimRelays.compactMap(URL.init(string:)).filter { $0.scheme == "wss" }
+        guard !relayURLs.isEmpty else { throw ClawShareError.transportClosed }
+
+        let ackEvent = try await raceForAck(
+            relayURLs: relayURLs,
+            event: event,
+            subscriptionFilter: [
+                "kinds": [1059],
+                "#p": [friendXonlyHex],
+                "since": Int(now().timeIntervalSince1970) - 5,
+            ],
+            subId: subId
+        )
+        return try decryptAckCBOR(
+            event: ackEvent,
+            friendNostrPrivateKey: friendNostrPrivateKey,
+            engineCompressedPublicKey: engineCompressedPublicKey
         )
     }
 
@@ -252,6 +315,14 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         }
     }
 
+    private func decodeGroupAck(_ data: Data) throws -> ClawShareGroupAck {
+        do {
+            return try ClawShareCodec.decodeGroupAck(data)
+        } catch {
+            throw ClawShareError.unexpectedFrame
+        }
+    }
+
     private func verifiedRelayStreamOffer(
         from ack: ClawShareAck,
         nowUnix: UInt64
@@ -263,6 +334,37 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
                 credential: ack.credential,
                 nowUnix: nowUnix
             )
+        } catch {
+            throw ClawShareError.relayStreamOfferRejected
+        }
+        return offer
+    }
+
+    private func verifiedGroupRelayStreamOffer(
+        from ack: ClawShareGroupAck,
+        expectedOwnerPublicKey: Data,
+        expectedGuestPublicKey: Data,
+        expectedGroupId: String,
+        expectedMemberId: String,
+        expectedClawId: String,
+        nowUnix: UInt64
+    ) throws -> RelayStreamOfferContract {
+        let offer = try RelayStreamOfferContract.fromCanonicalBytes(ack.relayStreamOfferBytes)
+        do {
+            try offer.verifyRelayStreamGuest(
+                expectedSignerPublicKey: expectedOwnerPublicKey,
+                expectedGuestDevicePublicKey: expectedGuestPublicKey,
+                nowUnix: nowUnix
+            )
+            guard offer.payload.clawId == expectedClawId else {
+                throw RelayStreamOfferError.credentialClawMismatch
+            }
+            guard case .group(let groupId, let memberId) = offer.payload.audience,
+                  groupId == expectedGroupId,
+                  memberId == expectedMemberId
+            else {
+                throw RelayStreamOfferError.audienceMismatch
+            }
         } catch {
             throw ClawShareError.relayStreamOfferRejected
         }
