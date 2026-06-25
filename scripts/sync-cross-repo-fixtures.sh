@@ -44,6 +44,11 @@ sync_claw_store_contract() {
     cp "${src_household_docs}" "${dest_docs_dir}/claw-store-household-v1.json"
     echo "✓ claw-store/v1/contract.json"
     echo "synced docs/contracts/claw-store-household-v1.json"
+
+    # Regenerate the Swift contract constants from the just-synced contract so the
+    # generated file never drifts from the vendored fixture. The drift guard
+    # (ClawStoreContractConstantsGuardTests) is the safety net if this is skipped.
+    uv run python "${SCRIPT_DIR}/gen-claw-store-contract-constants.py"
 }
 
 sync_claw_store_contract
