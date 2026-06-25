@@ -614,7 +614,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
-    func testGuestImageReadinessObserver_prepareUsesSelectedEndpointAndForce() async {
+    func testGuestImageReadinessObserver_prepareRefetchesStatusBeforePublishing() async {
         let target = ClawInstallTarget(serverID: "prepare-\(UUID().uuidString)")
         let resolution = serverResolution(
             id: target.serverID,
@@ -634,24 +634,65 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 guestImageFailureCode: nil
             )
         })
+        let authoritativeStatus = status(platform: "macos", guestPhase: "provision", guestStatus: "in_progress")
         let observer = GuestImageReadinessObserver(
             initialState: .blocked(.failed(error: "previous run failed", code: nil)),
-            client: GuestImageReadinessClient(fetchStatus: { _ in
-                XCTFail("Prepare response was done; observer should not start readiness polling.")
-                throw FetchRecorderError.missingFixture("unexpected")
-            }),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
             preparationClient: preparationClient,
             intervalNanoseconds: 1_000_000
         )
 
         await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
 
-        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(
+            observer.state,
+            .blocked(.inProgress(phase: "provision")),
+            "The observer must publish the authoritative /bootstrap/status result, not the POST prepare response."
+        )
         XCTAssertEqual(calls.count, 1)
         XCTAssertEqual(calls.first?.0.scheme, "http")
         XCTAssertEqual(calls.first?.0.host, "prepare-mac.local")
         XCTAssertEqual(calls.first?.0.port, SoyehtInstallProfile.current.bootstrapPort)
         XCTAssertEqual(calls.first?.1, true)
+    }
+
+    func testGuestImageReadinessObserver_prepareErrorStillRefetchesStatus() async {
+        struct PrepareBoom: Error {}
+        let target = ClawInstallTarget(serverID: "prepare-error-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-error-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var prepareCalls = 0
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { _, _ in
+            prepareCalls += 1
+            throw PrepareBoom()
+        })
+        let authoritativeStatus = status(
+            platform: "macos",
+            guestPhase: "install_macos",
+            guestStatus: "failed",
+            guestError: "not enough disk",
+            failureCode: .insufficientDisk
+        )
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.notStarted),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
+
+        XCTAssertEqual(prepareCalls, 1)
+        XCTAssertNotNil(observer.prepareError)
+        XCTAssertEqual(
+            observer.state,
+            .blocked(.failed(error: "not enough disk", code: .insufficientDisk)),
+            "A failed POST still refetches /bootstrap/status and keeps install gated by the authoritative state."
+        )
     }
 
     func testRefreshStatus_reChecksWithoutIssuingPrepare() async {
@@ -712,12 +753,10 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 guestImageFailureCode: nil
             )
         })
+        let authoritativeStatus = status(platform: "macos", guestPhase: "complete", guestStatus: "done")
         let observer = GuestImageReadinessObserver(
             initialState: .blocked(.notStarted),
-            client: GuestImageReadinessClient(fetchStatus: { _ in
-                XCTFail("Prepare response was done; observer should not start readiness polling.")
-                throw FetchRecorderError.missingFixture("unexpected")
-            }),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
             preparationClient: preparationClient,
             intervalNanoseconds: 1_000_000
         )
@@ -832,7 +871,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         platform: String,
         guestPhase: String? = nil,
         guestStatus: String? = nil,
-        guestError: String? = nil
+        guestError: String? = nil,
+        failureCode: GuestImageFailureCode? = nil
     ) -> BootstrapStatusResponse {
         BootstrapStatusResponse(
             version: 1,
@@ -846,7 +886,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
             hhPub: nil,
             guestImagePhase: guestPhase,
             guestImageStatus: guestStatus,
-            guestImageError: guestError
+            guestImageError: guestError,
+            guestImageFailureCode: failureCode
         )
     }
 }
