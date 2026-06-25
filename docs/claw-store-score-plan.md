@@ -327,15 +327,16 @@ Client (macOS/iOS), NOT in plan v3:
   read-only; mutating start only on `POST .../guest-image/prepare`,
   `handlers_household_guest_image.rs:314-361`). No auto-start rescues it -> HIGH
   stands. Folds into E1 (or an E1-adjacent prepare-CTA slice).
-- HIGH/PARTIAL **4a + 4c**: Track-D Mac dedup can orphan the session token
-  (`ServerStore.swift:288` drops loser row with no token re-key; merge `:297-330`
-  prefers the pairing-secret owner, not the session-token owner); the shadow
-  comparer (`ServerStoreShadowComparer.swift:104-152`, single `hasCredential`
-  Bool) can't detect it -> false-clean pre-flip gate. Plan lists "missing-token"
-  but no rule preserves the loser's token through collapse. -> Track D acceptance.
-- HIGH (conditional) **4b**: no persisted v1 rollback after the V2 flip
-  (`ServerStoreV2Migrator` only projects, never writes back). -> Track D acceptance
-  must add dual-write OR an explicit "no rollback after flip" gate.
+- RESOLVED/guarded **4a + 4c**: Track-D Mac dedup now has typed credential
+  ownership, live session-token rekey, and per-type orphan detection. The
+  relevant guards are `SessionStoreTokenRekeyTests`,
+  `ServerStoreCredentialRekeyTests`, `ServerStoreShadowComparerTests`, and
+  `ServerInventoryWriterTests.test_serverRegistryWiresLiveCredentialRekeyer`.
+  Do not regress this back to a single `hasCredential` Boolean.
+- GUARDED **4b**: v2 is a dual-written mirror and the read path is
+  operator-gated/default-off. Rollback is currently the flag-off v1 read; any
+  future live-V2 authority slice must preserve readable v1 rollback or explicitly
+  replace this runbook contract.
 - MED **3a**: `AppEnvironment.defaultContainer` process-wide cache never
   invalidated on server switch -> quick-start can attach a terminal to the wrong
   server. Outside every guard. -> E2/E3.

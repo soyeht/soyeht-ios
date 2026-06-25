@@ -174,6 +174,12 @@ The remaining sweep is tracked separately. For now, follow these rules:
 
 Invariants that are guarded today but not yet fully closed:
 
+- **V2 read authority.** v2 remains inert by default: it is dual-written as a
+  mirror and can only be read through the manual `ServerStore.v2ReadEnabledKey`
+  gate in `ServerRegistry`. `SessionStore.canonicalServers()` /
+  `credentialedCanonicalServers()` and macOS inventory callers still read the v1
+  writer facade by design; do not treat v2 as live authority until the runbook
+  preconditions are met.
 - **Read side.** `ServerInventoryWriterTests.test_adHocServerStoreLoadReadsAreConfinedToAllowlist`
   forbids new `ServerStore().load()` reads. The one allow-listed site —
   `ClawDetailViewModel`'s injected `pairedServerCountProvider` default — still
@@ -181,9 +187,13 @@ Invariants that are guarded today but not yet fully closed:
   `MacClawDetailView`) should inject a `ServerRegistry.shared.servers.count`
   provider so the count comes from the in-memory authority, not a throwaway store.
 - **Shadow comparer.** `ServerStoreShadowComparer` reports canonical↔legacy
-  divergence as category counts (`ServerStoreShadowComparerTests`), but it is
-  still a diagnostic — not yet a live blocking invariant on the writer's
-  reconcile output.
+  divergence as category counts (`ServerStoreShadowComparerTests`) for identity,
+  routing, credential presence, and active-id parity. It deliberately does not
+  compare runtime enrichment/lifetime fields such as `lastSeenAt`, `theyOS`,
+  `role`, and `sessionExpiresAt`; the gated v2 read is separately protected by
+  `ServerInventoryWriter.loadCanonical` requiring full `Set(projected) == Set(v1)`
+  equality before serving v2. The comparer is still a diagnostic - not yet a live
+  blocking invariant on the writer's reconcile output.
 - **Parallel owners.** `PairedMacsStore` and `SessionStore.pairedServers` remain
   the membership / credential origin-of-record; the persisted v1 `ServerStore` is
   a reconciled projection of them. Collapsing them into a single owner is the

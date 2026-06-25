@@ -66,6 +66,61 @@ final class ServerInventoryWriterDualWriteTests: XCTestCase {
         XCTAssertEqual(Set(result), Set(store.load()), "falls back to the current v1")
     }
 
+    func test_loadCanonical_flagOn_staleV2RiskFields_fallsBackToV1() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let writer = ServerInventoryWriter(store: store, v2ReadEnabled: true)
+        let original = linux(
+            id: "linux-alpha",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000),
+            theyOS: TheyOSSnapshot(
+                status: .running,
+                version: "0.1.21",
+                lastCheckedAt: Date(timeIntervalSince1970: 1_010)
+            ),
+            role: "admin",
+            sessionExpiresAt: "2026-12-31T00:00:00Z"
+        )
+        writer.migrateLegacyIfNeeded(seed: [original], tokenOwnedIDs: [original.id])
+
+        let updated = linux(
+            id: original.id,
+            lastSeenAt: Date(timeIntervalSince1970: 2_000),
+            theyOS: TheyOSSnapshot(
+                status: .unreachable,
+                version: nil,
+                lastCheckedAt: Date(timeIntervalSince1970: 2_010)
+            ),
+            role: "operator",
+            sessionExpiresAt: "2027-01-01T00:00:00Z"
+        )
+        // Bypass the writer's dual-write so only v1 has the newer enrichment/lifetime
+        // fields. The shadow gate intentionally does not compare these fields, but the
+        // runtime equivalence guard must still refuse the stale v2 projection.
+        store.save([updated])
+
+        let legacyProjection = ServerStoreShadowProjection.sessionStorePairedServer(
+            pairedServer(id: original.id),
+            hasCredential: true
+        )
+        let readiness = writer.migrationDryRunReadiness(
+            legacyProjections: [legacyProjection],
+            activeServerID: original.id
+        )
+        XCTAssertTrue(
+            readiness.isReadyToFlip,
+            "shadow readiness covers identity/routing/credential parity; full field staleness is checked at read time"
+        )
+
+        let result = writer.loadCanonical(
+            legacyProjectionsForGate: [legacyProjection],
+            activeServerID: original.id
+        )
+
+        XCTAssertEqual(result, [updated])
+        XCTAssertNotEqual(result, [original])
+    }
+
     func test_loadCanonical_flagOn_notMigrated_fallsBackToV1() {
         let (store, teardown) = makeStore()
         defer { teardown() }
@@ -148,6 +203,27 @@ final class ServerInventoryWriterDualWriteTests: XCTestCase {
             lastSeenAt: Date(timeIntervalSince1970: 1_000),
             alias: nil, hostname: "mac-alpha", lastHost: "mac-alpha.example.test",
             engineMachineId: "m-\(id.prefix(4))"
+        )
+    }
+
+    private func linux(
+        id: String,
+        lastSeenAt: Date,
+        theyOS: TheyOSSnapshot,
+        role: String,
+        sessionExpiresAt: String
+    ) -> Server {
+        Server(
+            id: id,
+            kind: .linux,
+            pairedAt: Date(timeIntervalSince1970: 500),
+            lastSeenAt: lastSeenAt,
+            alias: nil,
+            hostname: id,
+            lastHost: "100.64.0.10",
+            theyOS: theyOS,
+            role: role,
+            sessionExpiresAt: sessionExpiresAt
         )
     }
 }

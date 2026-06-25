@@ -76,6 +76,39 @@ final class ServerStoreMigrationReadinessTests: XCTestCase {
         XCTAssertTrue(readiness.blockingCategories.contains(.duplicateLegacyProjection))
     }
 
+    func test_blocked_whenActiveIDDoesNotMatchStableCanonicalOrLegacyID() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let stable = self.mac(id: "11111111-1111-1111-1111-111111111111")
+        store.migrateLegacyIfNeeded(seed: [stable], secretOwnedIDs: [stable.id])
+        let writer = ServerInventoryWriter(store: store)
+
+        let readiness = writer.migrationDryRunReadiness(
+            legacyProjections: [.pairedMacsStore(server: stable, hasCredential: true)],
+            activeServerID: "legacy-mac-alpha"
+        )
+
+        XCTAssertFalse(readiness.isReadyToFlip)
+        XCTAssertTrue(readiness.blockingCategories.contains(.activeIDMissingCanonical))
+        XCTAssertTrue(readiness.blockingCategories.contains(.activeIDMissingLegacy))
+    }
+
+    func test_blocked_whenActiveIDExistsButLacksCredential() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let active = self.mac(id: "11111111-1111-1111-1111-111111111111")
+        store.migrateLegacyIfNeeded(seed: [active], secretOwnedIDs: [active.id])
+        let writer = ServerInventoryWriter(store: store)
+
+        let readiness = writer.migrationDryRunReadiness(
+            legacyProjections: [.pairedMacsStore(server: active, hasCredential: false)],
+            activeServerID: active.id
+        )
+
+        XCTAssertFalse(readiness.isReadyToFlip)
+        XCTAssertTrue(readiness.blockingCategories.contains(.activeIDMissingCredential))
+    }
+
     // MARK: - Helpers
 
     private func makeStore() -> (ServerStore, () -> Void) {
