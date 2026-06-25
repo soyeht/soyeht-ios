@@ -86,8 +86,8 @@ private struct ClawStoreContractRoute: Decodable {
     let householdOperation: String?
     let expectations: [String: ClawStoreContractExpectation]
     // C4.2b-2: the `kind: websocket_upgrade` routes carry extra wire fields.
-    // These are optional/defaulted so the 36 pre-existing http_json routes
-    // (which omit them entirely) keep decoding unchanged.
+    // These are optional/defaulted so HTTP JSON routes that omit them keep
+    // decoding unchanged.
     let kind: String
     let attachTokenHeader: String?
     let peerGuard: Bool?
@@ -180,6 +180,7 @@ struct ClawStoreContractFixtureTests {
             // Claw catalog / install (the original 13)
             "admin_list_claws", "admin_get_claw", "admin_claw_availability",
             "admin_install_claw", "admin_uninstall_claw",
+            "admin_resource_options", "admin_users",
             "mobile_list_claws", "mobile_claw_availability",
             "mobile_install_claw", "mobile_uninstall_claw",
             "household_list_claws", "household_claw_availability",
@@ -190,7 +191,7 @@ struct ClawStoreContractFixtureTests {
             "admin_stop_instance", "admin_restart_instance",
             "admin_rebuild_instance", "admin_delete_instance",
             "mobile_create_instance", "mobile_instance_status",
-            "household_create_instance", "household_instance_status",
+            "household_list_instances", "household_create_instance", "household_instance_status",
             "household_stop_instance", "household_restart_instance",
             "household_rebuild_instance", "household_delete_instance",
             // C4.2a terminal workspaces (admin + household; no mobile namespace).
@@ -240,6 +241,8 @@ struct ClawStoreContractFixtureTests {
             ("admin_claw_availability", .adminHost, .clawAvailability(name: "picoclaw"), "admin_session"),
             ("admin_install_claw", .adminHost, .installClaw(name: "picoclaw"), "admin_session"),
             ("admin_uninstall_claw", .adminHost, .uninstallClaw(name: "picoclaw"), "admin_session"),
+            ("admin_resource_options", .adminHost, .resourceOptions, "admin_session"),
+            ("admin_users", .adminHost, .users, "admin_session"),
         ]
 
         for (id, kind, endpoint, authKind) in cases {
@@ -251,6 +254,7 @@ struct ClawStoreContractFixtureTests {
 
     @Test func householdRoutesDeclareExpectedPoPOperations() throws {
         let cases = [
+            ("household_list_instances", "GET", "/api/v1/household/instances", "claws.list"),
             ("household_list_claws", "GET", "/api/v1/household/claws", "claws.list"),
             ("household_claw_availability", "GET", "/api/v1/household/claws/picoclaw/availability", "claws.list"),
             ("household_install_claw", "POST", "/api/v1/household/claws/picoclaw/install", "claws.create"),
@@ -321,6 +325,41 @@ struct ClawStoreContractFixtureTests {
         assertAuthHeader(on: request, authKind: route.authKind)
         #expect(response.jobId == "job-alpha")
         #expect(response.message == "install already in progress")
+    }
+
+    @Test func adminMetadataRequestsUseContractRoutesAndDecodeFixtures() async throws {
+        do {
+            let route = try route("admin_resource_options")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("resource_options_success"))
+            let (client, context) = makeServerClient(kind: .adminHost)
+
+            let options = try await client.getResourceOptions(context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            assertAuthHeader(on: request, authKind: route.authKind)
+            #expect(options.cpuCores.default == 2)
+            #expect(options.ramMb.max == 16_384)
+            #expect(options.diskGb.disabled == false)
+        }
+
+        do {
+            let route = try route("admin_users")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("users_list_envelope"))
+            let (client, context) = makeServerClient(kind: .adminHost)
+
+            let users = try await client.getUsers(context: context)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            assertAuthHeader(on: request, authKind: route.authKind)
+            let user = try #require(users.first)
+            #expect(user.id == "usr-alpha")
+            #expect(user.username == "admin")
+            #expect(user.role == "admin")
+        }
     }
 
     /// C4.1: bind every instance-lifecycle route's wire `method` / `path` /
@@ -430,6 +469,21 @@ struct ClawStoreContractFixtureTests {
             #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
             #expect(authorization?.contains("Bearer") == false)
             #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        }
+
+        do {
+            let route = try route("household_list_instances")
+            ClawStoreContractURLProtocol.reset(responseData: try fixtureData("household_instance_list_empty"))
+            let client = try makeHouseholdClient()
+            let instances = try await client.getInstances(householdEndpoint: householdEndpoint)
+
+            let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
+            #expect(request.httpMethod == route.method)
+            #expect(request.url?.path == route.path())
+            #expect(route.authKind == "household_pop")
+            #expect(route.householdOperation == "claws.list")
+            assertHouseholdPoP(request)
+            #expect(instances.isEmpty)
         }
 
         do {
