@@ -56,4 +56,20 @@ final class GroupOpGoldHexFixtureTests: XCTestCase {
         let gold = "a2617601626f70a174656e726f6c6c5f6d656d6265725f646576696365a16762696e64696e67a8617601646b696e64781b636c61772d73686172652f6d656d6265722d6465766963652f7631696973737565645f61741a6b49d200696d656d6265725f69647836675f6c65717a6d6f6869357363377665746d3361616a64743274707061736767356f717576666a73366c78736670346c6a686a3670716a6465766963655f70756258210351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d6a6d656d6265725f70756258210257e977f6db7e33c3fe7acf2842ed987009caf56d458682fca447b7d3d762ab34706d656d6265725f7369676e61747572655840abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab707061727469636970616e745f6e707562784038326632383365323030393465623464613539323263666261366330323834623739303532356634643464646232643137666439386631626430393536633032"
         XCTAssertEqual(hex(GroupOpRequest.encode(.enrollMemberDevice(binding: binding))), gold)
     }
+
+    /// READ-wire seal (3-way): @vivian's `GroupsListResponse` gold hex (`3ccfd4f`)
+    /// — the byte-exact `GET /groups` body — decoded by `OwnerGroupsDecoder` into
+    /// the snapshot the SHARED APPS screen renders.
+    func testGroupsListResponseGoldHex() throws {
+        let gold = "a36176016667726f75707381a4646e616d656b416c7068612047726f7570676d656d6265727381a3656c6162656c6d416c69636527732070686f6e65696d656d6265725f69646e675f6d656d6265725f616c7068616c6465766963655f636f756e74016867726f75705f69646b67726f75705f616c7068616d6772616e7465645f636c617773816a636c61775f616c7068616f7075626c69736865645f636c61777380"
+        let snapshot = try OwnerGroupsDecoder.decode(bytes(gold))
+        XCTAssertEqual(snapshot.groups.count, 1)
+        let group = snapshot.groups[0]
+        XCTAssertEqual(group.name, "Alpha Group")
+        XCTAssertEqual(group.groupID, "group_alpha")
+        XCTAssertEqual(group.grantedClaws, ["claw_alpha"])
+        XCTAssertEqual(group.members,
+                       [OwnerGroupMember(memberID: "g_member_alpha", label: "Alice's phone", deviceCount: 1)])
+        XCTAssertTrue(snapshot.publishedClaws.isEmpty)
+    }
 }
