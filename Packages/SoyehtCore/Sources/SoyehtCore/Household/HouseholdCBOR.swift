@@ -6,6 +6,7 @@ public enum HouseholdCBORError: Error, Equatable {
     case unsupportedMajorType(UInt8)
     case nonTextMapKey
     case trailingBytes
+    case nestingTooDeep
 }
 
 public enum HouseholdCBORValue: Equatable, Sendable {
@@ -143,7 +144,7 @@ public enum HouseholdCBOR {
 
     public static func decode(_ data: Data) throws -> HouseholdCBORValue {
         var parser = Parser(data: data)
-        let value = try parser.parseValue()
+        let value = try parser.parseValue(depth: 0)
         guard parser.isAtEnd else { throw HouseholdCBORError.trailingBytes }
         return value
     }
@@ -213,6 +214,8 @@ public enum HouseholdCBOR {
     }
 
     private struct Parser {
+        private static let maxNestingDepth = 64
+
         let data: Data
         var index: Data.Index
 
@@ -223,7 +226,10 @@ public enum HouseholdCBOR {
 
         var isAtEnd: Bool { index == data.endIndex }
 
-        mutating func parseValue() throws -> HouseholdCBORValue {
+        mutating func parseValue(depth: Int) throws -> HouseholdCBORValue {
+            guard depth <= Self.maxNestingDepth else {
+                throw HouseholdCBORError.nestingTooDeep
+            }
             let initial = try readByte()
             let major = initial >> 5
             let additional = initial & 0x1F
@@ -232,32 +238,34 @@ public enum HouseholdCBOR {
                 return .unsigned(try readArgument(additional))
             case 1:
                 let argument = try readArgument(additional)
+                guard argument <= UInt64(Int64.max) else {
+                    throw HouseholdCBORError.invalidData
+                }
                 return .negative(-1 - Int64(argument))
             case 2:
-                let length = Int(try readArgument(additional))
+                let length = try readBoundedLength(additional)
                 return .bytes(try readData(count: length))
             case 3:
-                let length = Int(try readArgument(additional))
+                let length = try readBoundedLength(additional)
                 guard let text = String(data: try readData(count: length), encoding: .utf8) else {
                     throw HouseholdCBORError.invalidData
                 }
                 return .text(text)
             case 4:
-                let count = Int(try readArgument(additional))
+                let count = try readBoundedElementCount(additional, minimumBytesPerElement: 1)
                 var values: [HouseholdCBORValue] = []
-                values.reserveCapacity(count)
                 for _ in 0..<count {
-                    values.append(try parseValue())
+                    values.append(try parseValue(depth: depth + 1))
                 }
                 return .array(values)
             case 5:
-                let count = Int(try readArgument(additional))
+                let count = try readBoundedElementCount(additional, minimumBytesPerElement: 2)
                 var map: [String: HouseholdCBORValue] = [:]
                 for _ in 0..<count {
-                    guard case .text(let key) = try parseValue() else {
+                    guard case .text(let key) = try parseValue(depth: depth + 1) else {
                         throw HouseholdCBORError.nonTextMapKey
                     }
-                    map[key] = try parseValue()
+                    map[key] = try parseValue(depth: depth + 1)
                 }
                 return .map(map)
             case 7:
@@ -270,6 +278,26 @@ public enum HouseholdCBOR {
             default:
                 throw HouseholdCBORError.unsupportedMajorType(major)
             }
+        }
+
+        mutating func readBoundedLength(_ additional: UInt8) throws -> Int {
+            let length = try readArgument(additional)
+            guard length <= UInt64(remainingByteCount) else {
+                throw HouseholdCBORError.invalidData
+            }
+            return Int(length)
+        }
+
+        mutating func readBoundedElementCount(
+            _ additional: UInt8,
+            minimumBytesPerElement: Int
+        ) throws -> Int {
+            let count = try readArgument(additional)
+            let maxPossible = remainingByteCount / minimumBytesPerElement
+            guard count <= UInt64(maxPossible) else {
+                throw HouseholdCBORError.invalidData
+            }
+            return Int(count)
         }
 
         mutating func readArgument(_ additional: UInt8) throws -> UInt64 {
@@ -298,6 +326,10 @@ public enum HouseholdCBOR {
         mutating func readUInt(byteCount: Int) throws -> UInt64 {
             let bytes = try readData(count: byteCount)
             return bytes.reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+        }
+
+        var remainingByteCount: Int {
+            data.distance(from: index, to: data.endIndex)
         }
 
         mutating func readData(count: Int) throws -> Data {

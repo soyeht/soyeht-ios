@@ -42,6 +42,7 @@
 		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
+		9A1100000000000000000201 /* TerminalLinkAllowlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A1100000000000000000101 /* TerminalLinkAllowlist.swift */; };
 		49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5D224207B5005A2252 /* AppDelegate.swift */; };
 		49BD1A60224207B5005A2252 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5F224207B5005A2252 /* ViewController.swift */; };
 		49BD1A63224207B5005A2252 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A61224207B5005A2252 /* Main.storyboard */; };
@@ -91,6 +92,7 @@
 		8DDA00000000000000000009 /* JoinRequestConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000109 /* JoinRequestConfirmationView.swift */; };
 		8DDA0000000000000000000A /* JoinRequestConfirmationFailureViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000010A /* JoinRequestConfirmationFailureViewModelTests.swift */; };
 		8DDA0000000000000000000B /* QRScannerViewMachineDispatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000010B /* QRScannerViewMachineDispatchTests.swift */; };
+		8E1300000000000000000001 /* RelayStreamOpenControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000101 /* RelayStreamOpenControllerTests.swift */; };
 		8DDA0000000000000000000C /* ApplicationDelegate+APNS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000010C /* ApplicationDelegate+APNS.swift */; };
 		8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */; };
 		8DDA0000000000000000000E /* APNSRegistrationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000010E /* APNSRegistrationCoordinator.swift */; };
@@ -156,6 +158,10 @@
 		713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = FBBE1B1846B242EAB3017F46 /* SnapshotTesting */; };
 		C0F0A00000000000000000C1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000C2 /* SoyehtCore */; };
 		C0F0A00000000000000000D1 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000D2 /* TypographyTests.swift */; };
+		8E1100000000000000000201 /* RelayStreamTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000101 /* RelayStreamTerminalSession.swift */; };
+		8E1100000000000000000202 /* RelayStreamOpenController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000102 /* RelayStreamOpenController.swift */; };
+		8E1100000000000000000203 /* RelayStreamTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000103 /* RelayStreamTerminalView.swift */; };
+		8E1200000000000000000001 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = 8E1200000000000000000002 /* RelayStreamGuestFFI */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
 		CA0100050000000000000005 /* ClawStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200050000000000000005 /* ClawStoreView.swift */; };
@@ -289,6 +295,7 @@
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		9A1100000000000000000101 /* TerminalLinkAllowlist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLinkAllowlist.swift; sourceTree = "<group>"; };
 		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49BD1A5D224207B5005A2252 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		49BD1A5F224207B5005A2252 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -349,6 +356,7 @@
 		8DDA00000000000000000109 /* JoinRequestConfirmationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JoinRequestConfirmationView.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000010A /* JoinRequestConfirmationFailureViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JoinRequestConfirmationFailureViewModelTests.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000010B /* QRScannerViewMachineDispatchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QRScannerViewMachineDispatchTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000101 /* RelayStreamOpenControllerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamOpenControllerTests.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000010C /* ApplicationDelegate+APNS.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ApplicationDelegate+APNS.swift"; sourceTree = "<group>"; };
 		8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APNSPayloadInvariantTests.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000010E /* APNSRegistrationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APNSRegistrationCoordinator.swift; sourceTree = "<group>"; };
@@ -469,6 +477,9 @@
 		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LegacyBoundaryUsageTests.swift; sourceTree = "<group>"; };
+		8E1100000000000000000101 /* RelayStreamTerminalSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamTerminalSession.swift; sourceTree = "<group>"; };
+		8E1100000000000000000102 /* RelayStreamOpenController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamOpenController.swift; sourceTree = "<group>"; };
+		8E1100000000000000000103 /* RelayStreamTerminalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamTerminalView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -490,6 +501,7 @@
 				4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */,
 				4959FFDB2447F971001F42C0 /* SwiftTerm in Frameworks */,
 				C0F0A00000000000000000A1 /* SoyehtCore in Frameworks */,
+				8E1200000000000000000001 /* RelayStreamGuestFFI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -637,7 +649,9 @@
 				49A1B0062F3F000100AABB04 /* SessionStore.swift */,
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
+				9A1100000000000000000101 /* TerminalLinkAllowlist.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
+				8E1100000000000000000100 /* RelayStream */,
 				CB0200010000000000000001 /* ClipboardWriter.swift */,
 				C1145EAD48489D43D5E595B7 /* Settings */,
 				38B0DB9F1337369A432D6A1C /* Preferences */,
@@ -659,6 +673,16 @@
 				8DDA00000000000000000300 /* Identity */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		8E1100000000000000000100 /* RelayStream */ = {
+			isa = PBXGroup;
+			children = (
+				8E1100000000000000000101 /* RelayStreamTerminalSession.swift */,
+				8E1100000000000000000102 /* RelayStreamOpenController.swift */,
+				8E1100000000000000000103 /* RelayStreamTerminalView.swift */,
+			);
+			path = RelayStream;
 			sourceTree = "<group>";
 		};
 		8DDA00000000000000000200 /* Server */ = {
@@ -814,6 +838,7 @@
 				8DDA0000000000000000010A /* JoinRequestConfirmationFailureViewModelTests.swift */,
 				8DDA00000000000000000108 /* OwnerEventsCoordinatorTests.swift */,
 				8DDA0000000000000000010B /* QRScannerViewMachineDispatchTests.swift */,
+				8E1300000000000000000101 /* RelayStreamOpenControllerTests.swift */,
 				8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */,
 				8DDA0000000000000000010F /* APNSRegistrationCoordinatorTests.swift */,
 				8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */,
@@ -1077,6 +1102,7 @@
 				4929B7AD2F191AAB0075C162 /* NIOSSH */,
 				49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */,
 				C0F0A00000000000000000A2 /* SoyehtCore */,
+				8E1200000000000000000002 /* RelayStreamGuestFFI */,
 			);
 			productName = SwiftTerm;
 			productReference = 49BD1A5A224207B5005A2252 /* Soyeht.app */;
@@ -1187,6 +1213,7 @@
 				49F5B0B12F2E8C1A00ABCD12 /* XCRemoteSwiftPackageReference "swift-nio" */,
 				7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */,
+				8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */,
 			);
 			productRefGroup = 49BD1A5B224207B5005A2252 /* Products */;
 			projectDirPath = "";
@@ -1338,6 +1365,7 @@
 				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
+				9A1100000000000000000201 /* TerminalLinkAllowlist.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
 				8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */,
 				8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */,
@@ -1452,6 +1480,9 @@
 				8DDA00000000000000000313 /* OwnerDevice.swift in Sources */,
 				8DDA00000000000000000314 /* SoyehtIdentity.swift in Sources */,
 				8DDA00000000000000000315 /* SoyehtIdentity+Environment.swift in Sources */,
+				8E1100000000000000000201 /* RelayStreamTerminalSession.swift in Sources */,
+				8E1100000000000000000202 /* RelayStreamOpenController.swift in Sources */,
+				8E1100000000000000000203 /* RelayStreamTerminalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1487,6 +1518,7 @@
 				8DDA0000000000000000000A /* JoinRequestConfirmationFailureViewModelTests.swift in Sources */,
 				8DDA00000000000000000008 /* OwnerEventsCoordinatorTests.swift in Sources */,
 				8DDA0000000000000000000B /* QRScannerViewMachineDispatchTests.swift in Sources */,
+				8E1300000000000000000001 /* RelayStreamOpenControllerTests.swift in Sources */,
 				8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */,
 				8DDA0000000000000000000F /* APNSRegistrationCoordinatorTests.swift in Sources */,
 				8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */,
@@ -2045,6 +2077,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Packages/SoyehtCore;
 		};
+		8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Native/RelayStreamGuestFFI;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -2108,6 +2144,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */;
 			productName = SoyehtCore;
+		};
+		8E1200000000000000000002 /* RelayStreamGuestFFI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */;
+			productName = RelayStreamGuestFFI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
