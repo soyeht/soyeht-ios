@@ -222,7 +222,7 @@ struct ClawStoreContractFixtureTests {
             #expect(!route.pathTemplate.isEmpty, "route \(route.id) missing path_template")
             #expect(!route.authKind.isEmpty, "route \(route.id) missing auth_kind")
             #expect(!route.expectations.isEmpty, "route \(route.id) declares no expectations")
-            if route.surface == "household" && route.authKind == "household_pop" {
+            if route.surface == "household" && route.authKind == ClawStoreContractConstants.AuthKind.householdPop {
                 #expect(
                     route.householdOperation != nil,
                     "household PoP route \(route.id) missing household_operation"
@@ -265,7 +265,7 @@ struct ClawStoreContractFixtureTests {
             let route = try route(id)
             #expect(route.method == method)
             #expect(route.path() == path)
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == operation)
         }
     }
@@ -293,7 +293,7 @@ struct ClawStoreContractFixtureTests {
     }
 
     @Test func householdAvailabilityRequestUsesContractRouteOperationAndDecodesFixture() async throws {
-        let route = try route("household_claw_availability")
+        let route = try route(ClawStoreContractConstants.RouteID.householdClawAvailability)
         ClawStoreContractURLProtocol.reset(responseData: try fixtureData("unknown_availability"))
         let client = try makeHouseholdClient()
         let endpoint = try #require(URL(string: "http://100.64.0.10:8091"))
@@ -313,7 +313,7 @@ struct ClawStoreContractFixtureTests {
     }
 
     @Test func adminInstallRequestUsesContractRouteAuthAndActionFixture() async throws {
-        let route = try route("admin_install_claw")
+        let route = try route(ClawStoreContractConstants.RouteID.adminInstallClaw)
         ClawStoreContractURLProtocol.reset(responseData: try fixtureData("already_installing_job_body"))
         let (client, context) = makeServerClient(kind: .adminHost)
 
@@ -329,7 +329,7 @@ struct ClawStoreContractFixtureTests {
 
     @Test func adminMetadataRequestsUseContractRoutesAndDecodeFixtures() async throws {
         do {
-            let route = try route("admin_resource_options")
+            let route = try route(ClawStoreContractConstants.RouteID.adminResourceOptions)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("resource_options_success"))
             let (client, context) = makeServerClient(kind: .adminHost)
 
@@ -345,7 +345,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("admin_users")
+            let route = try route(ClawStoreContractConstants.RouteID.adminUsers)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("users_list_envelope"))
             let (client, context) = makeServerClient(kind: .adminHost)
 
@@ -384,7 +384,7 @@ struct ClawStoreContractFixtureTests {
         // MARK: admin (.adminHost → /api/v1/instances..., Cookie session)
 
         do {
-            let route = try route("admin_create_instance")
+            let route = try route(ClawStoreContractConstants.RouteID.adminCreateInstance)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("admin_instance_create_accepted"),
                 statusCode: 202
@@ -399,7 +399,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("admin_instance_status")
+            let route = try route(ClawStoreContractConstants.RouteID.adminInstanceStatus)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("admin_instance_status_active")
             )
@@ -434,7 +434,7 @@ struct ClawStoreContractFixtureTests {
         // MARK: mobile (.engine → /api/v1/mobile/instances..., Bearer)
 
         do {
-            let route = try route("mobile_create_instance")
+            let route = try route(ClawStoreContractConstants.RouteID.mobileCreateInstance)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("mobile_instance_create_accepted"),
                 statusCode: 202
@@ -449,7 +449,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("mobile_instance_status")
+            let route = try route(ClawStoreContractConstants.RouteID.mobileInstanceStatus)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("mobile_household_instance_status_active")
             )
@@ -472,7 +472,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("household_list_instances")
+            let route = try route(ClawStoreContractConstants.RouteID.householdListInstances)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("household_instance_list_empty"))
             let client = try makeHouseholdClient()
             let instances = try await client.getInstances(householdEndpoint: householdEndpoint)
@@ -480,14 +480,14 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path())
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
             #expect(instances.isEmpty)
         }
 
         do {
-            let route = try route("household_create_instance")
+            let route = try route(ClawStoreContractConstants.RouteID.householdCreateInstance)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("mobile_instance_create_accepted"),
                 statusCode: 202
@@ -499,13 +499,13 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path())
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsCreate)
             assertHouseholdPoP(request)
         }
 
         do {
-            let route = try route("household_instance_status")
+            let route = try route(ClawStoreContractConstants.RouteID.householdInstanceStatus)
             ClawStoreContractURLProtocol.reset(
                 responseData: try fixtureData("mobile_household_instance_status_active")
             )
@@ -516,7 +516,7 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(id: instanceID))
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
         }
@@ -537,7 +537,7 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest, "no request for \(id)")
             #expect(request.httpMethod == route.method, "method drift for \(id)")
             #expect(request.url?.path == route.path(id: instanceID), "path drift for \(id)")
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == operation, "operation drift for \(id)")
             assertHouseholdPoP(request)
         }
@@ -557,7 +557,7 @@ struct ClawStoreContractFixtureTests {
         // MARK: admin (.adminHost → /api/v1/terminals/{container}/workspaces, Cookie session)
 
         do {
-            let route = try route("admin_list_workspaces")
+            let route = try route(ClawStoreContractConstants.RouteID.adminListWorkspaces)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_list_empty"))
             let (client, _) = makeServerClient(kind: .adminHost)
             _ = try await client.listWorkspaces(container: container)
@@ -569,7 +569,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("admin_create_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.adminCreateWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_created"))
             let (client, _) = makeServerClient(kind: .adminHost)
             _ = try await client.createNewWorkspace(container: container, name: "Dev Workspace")
@@ -581,7 +581,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("admin_rename_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.adminRenameWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
             let (client, _) = makeServerClient(kind: .adminHost)
             try await client.renameWorkspace(
@@ -594,7 +594,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("admin_delete_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.adminDeleteWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
             let (client, _) = makeServerClient(kind: .adminHost)
             try await client.deleteWorkspace(container: container, workspaceId: workspaceID)
@@ -615,7 +615,7 @@ struct ClawStoreContractFixtureTests {
         }
 
         do {
-            let route = try route("household_list_workspaces")
+            let route = try route(ClawStoreContractConstants.RouteID.householdListWorkspaces)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_list_empty"))
             let client = try makeHouseholdClient()
             _ = try await client.listWorkspaces(
@@ -624,13 +624,13 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container))
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsList)
             assertHouseholdPoP(request)
         }
 
         do {
-            let route = try route("household_create_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.householdCreateWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: try fixtureData("workspace_created"))
             let client = try makeHouseholdClient()
             _ = try await client.createNewWorkspace(
@@ -639,13 +639,13 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container))
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
 
         do {
-            let route = try route("household_rename_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.householdRenameWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
             let client = try makeHouseholdClient()
             try await client.renameWorkspace(
@@ -655,13 +655,13 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container, id: workspaceID))
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
 
         do {
-            let route = try route("household_delete_workspace")
+            let route = try route(ClawStoreContractConstants.RouteID.householdDeleteWorkspace)
             ClawStoreContractURLProtocol.reset(responseData: Data(), statusCode: 204)
             let client = try makeHouseholdClient()
             try await client.deleteWorkspace(
@@ -671,7 +671,7 @@ struct ClawStoreContractFixtureTests {
             let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
             #expect(request.httpMethod == route.method)
             #expect(request.url?.path == route.path(container: container, id: workspaceID))
-            #expect(route.authKind == "household_pop")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
             #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
             assertHouseholdPoP(request)
         }
@@ -684,7 +684,7 @@ struct ClawStoreContractFixtureTests {
     @Test func attachTokenMintRouteBindsClientRequestAndDecodesFixture() async throws {
         let container = "picoclaw-alpha"
         let householdEndpoint = try #require(URL(string: "http://100.64.0.10:8091"))
-        let route = try route("household_attach_token")
+        let route = try route(ClawStoreContractConstants.RouteID.householdAttachToken)
 
         ClawStoreContractURLProtocol.reset(responseData: try fixtureData("household_attach_token_minted"))
         let client = try makeHouseholdClient()
@@ -694,7 +694,7 @@ struct ClawStoreContractFixtureTests {
         let request = try #require(ClawStoreContractURLProtocol.capturedRequest)
         #expect(request.httpMethod == route.method)
         #expect(request.url?.path == route.path(container: container))
-        #expect(route.authKind == "household_pop")
+        #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdPop)
         #expect(route.householdOperation == ClawStoreContractConstants.HouseholdOperation.clawsUse)
         let authorization = request.value(forHTTPHeaderField: "Authorization")
         #expect(authorization?.hasPrefix("Soyeht-PoP v1:") == true)
@@ -716,10 +716,10 @@ struct ClawStoreContractFixtureTests {
         // MARK: household_terminal_pty (auth_kind: household_attach_token, header-bound)
 
         do {
-            let route = try route("household_terminal_pty")
+            let route = try route(ClawStoreContractConstants.RouteID.householdTerminalPty)
             #expect(route.kind == "websocket_upgrade")
             #expect(route.method == "GET")
-            #expect(route.authKind == "household_attach_token")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.householdAttachToken)
             #expect(route.peerGuard == true)
 
             let client = try makeHouseholdClient()
@@ -757,10 +757,10 @@ struct ClawStoreContractFixtureTests {
         // MARK: admin_terminal_pty (auth_kind: admin_stream_auth, admin-host PTY)
 
         do {
-            let route = try route("admin_terminal_pty")
+            let route = try route(ClawStoreContractConstants.RouteID.adminTerminalPty)
             #expect(route.kind == "websocket_upgrade")
             #expect(route.method == "GET")
-            #expect(route.authKind == "admin_stream_auth")
+            #expect(route.authKind == ClawStoreContractConstants.AuthKind.adminStreamAuth)
 
             let (client, _) = makeServerClient(kind: .adminHost)
             // The route models the admin-host PTY, so the builder is `.adminHost`.
