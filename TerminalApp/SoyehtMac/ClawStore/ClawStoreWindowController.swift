@@ -8,7 +8,10 @@ import SoyehtCore
 /// roadmap (US-06).
 @MainActor
 final class ClawStoreWindowController: NSWindowController {
-    private let context: ServerContext
+    private var context: ServerContext
+    private let onOpenTerminal: (String) -> Void
+    private let onConnectThisMac: () -> Void
+    private let onShowConnectedServers: () -> Void
     private var activeServerObserver: NSObjectProtocol?
 
     init(
@@ -18,40 +21,46 @@ final class ClawStoreWindowController: NSWindowController {
         onShowConnectedServers: @escaping () -> Void = {}
     ) {
         self.context = context
+        self.onOpenTerminal = onOpenTerminal
+        self.onConnectThisMac = onConnectThisMac
+        self.onShowConnectedServers = onShowConnectedServers
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 840, height: 620),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        let storeTitle = String(localized: "claw.store.window.title", comment: "Title of the dedicated Claw Store macOS window.")
-        window.title = "\(storeTitle) - \(context.server.displayName)"
+        window.title = Self.windowTitle(for: context)
         window.titlebarAppearsTransparent = true
         window.center()
         window.setFrameAutosaveName("SoyehtClawStoreWindow")
         super.init(window: window)
-        window.contentViewController = NSHostingController(rootView: MacClawStoreRootView(
-            context: context,
-            onOpenTerminal: onOpenTerminal,
-            onConnectThisMac: onConnectThisMac,
-            onShowConnectedServers: onShowConnectedServers
-        ))
+        window.contentViewController = NSHostingController(rootView: makeRootView(context: context))
 
-        // The view tree is pinned to `context` at init. When the active
-        // server changes we can't rebuild the view hierarchy cleanly (the
-        // SwiftUI state is owned by NSHostingController), so the simplest
-        // correct answer is to close the window — the user reopens it and
-        // picks up the new context. Prevents the store from silently
-        // talking to the previous server.
+        // Rebuild the hosted root on active-server changes so target-fixed
+        // view models, polling services, readiness state, and navigation paths
+        // are recreated for the new ServerContext.
         activeServerObserver = NotificationCenter.default.addObserver(
             forName: ClawStoreNotifications.activeServerChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.close()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard let context = MacActiveServerContextResolver.activeContext() else {
+                    self.close()
+                    return
+                }
+                self.rebind(to: context)
             }
         }
+    }
+
+    func rebind(to newContext: ServerContext) {
+        guard context != newContext else { return }
+        context = newContext
+        window?.title = Self.windowTitle(for: newContext)
+        window?.contentViewController = NSHostingController(rootView: makeRootView(context: newContext))
     }
 
     deinit {
@@ -62,5 +71,19 @@ final class ClawStoreWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not supported for ClawStoreWindowController")
+    }
+
+    private static func windowTitle(for context: ServerContext) -> String {
+        let storeTitle = String(localized: "claw.store.window.title", comment: "Title of the dedicated Claw Store macOS window.")
+        return "\(storeTitle) - \(context.server.displayName)"
+    }
+
+    private func makeRootView(context: ServerContext) -> MacClawStoreRootView {
+        MacClawStoreRootView(
+            context: context,
+            onOpenTerminal: onOpenTerminal,
+            onConnectThisMac: onConnectThisMac,
+            onShowConnectedServers: onShowConnectedServers
+        )
     }
 }
