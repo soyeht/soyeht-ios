@@ -618,6 +618,11 @@ struct ClawViewModelAsyncTests {
     func loadClaws_populatesClawsOnSuccess() async throws {
         VMTestURLProtocol.reset()
         VMTestURLProtocol.mockResponseData = clawsJSON
+        // `ClawInventoryService.refresh()` fetches `/instances` alongside `/claws`
+        // (instances drive the online projection). Mock an empty instances list so
+        // the success path does not trip the instances decode on the `/claws`
+        // catalog fixture and surface a spurious `errorMessage`.
+        VMTestURLProtocol.routeOverrides["/instances"] = (200, Data(#"{"data":[]}"#.utf8))
 
         let (client, _) = makeVMTestClient()
         let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)

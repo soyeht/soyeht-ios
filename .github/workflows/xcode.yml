@@ -47,6 +47,7 @@ jobs:
         xcodebuild \
           -project TerminalApp/SoyehtMac.xcodeproj \
           -scheme SoyehtMac \
+          -skipPackagePluginValidation \
           -destination "platform=macOS,arch=$(uname -m)"
 
     - name: Soyeht iOS Unit Tests
@@ -55,6 +56,7 @@ jobs:
         xcodebuild test \
           -project TerminalApp/Soyeht.xcodeproj \
           -scheme Soyeht \
+          -skipPackagePluginValidation \
           -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
