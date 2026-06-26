@@ -403,6 +403,7 @@ final class AwaitingMacViewModel: ObservableObject {
         macBrowserResolutionTask?.cancel()
         macBrowserResolutionTask = nil
         onMacFoundHandler = nil
+        alreadyFound = false
         cancelRecoveryHint()
     }
 
