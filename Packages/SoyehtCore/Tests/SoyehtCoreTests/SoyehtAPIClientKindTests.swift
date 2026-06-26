@@ -429,55 +429,48 @@ struct SoyehtAPIClientKindTests {
         #expect(percentEncodedPath(req) == "/api/v1/mobile/claws/hermes%2Fagent/install")
     }
 
-    // MARK: - Fallback endpoints (no admin-host route exists)
+    // MARK: - Deploy metadata endpoints
 
     @Test
-    func resourceOptionsAdminKindThrowsUnsupportedWithoutNetwork() async throws {
+    func resourceOptionsAdminKindHitsPlainEndpointWithCookie() async throws {
         KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"cpu_cores":{"min":1,"max":8,"default":2},"ram_mb":{"min":512,"max":16384,"default":2048},"disk_gb":{"min":5,"max":100,"default":10,"disabled":false}}
+        """.utf8)
         let store = makeIsolatedStore()
         let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
         let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
         let context = ServerContext(server: server, token: "C")
 
-        do {
-            _ = try await client.getResourceOptions(context: context)
-            Issue.record("Expected unsupportedOnServerKind to be thrown")
-        } catch let error as SoyehtAPIClient.APIError {
-            guard case .unsupportedOnServerKind(_, let kind) = error else {
-                Issue.record("Wrong APIError case: \(error)")
-                return
-            }
-            #expect(kind == .adminHost)
-        } catch {
-            Issue.record("Wrong error type: \(error)")
-        }
-        // The throw must happen *before* any network call so the caller
-        // ViewModel routes through its "no live limits" path with no
-        // synthesized limits to clamp against.
-        #expect(KindRoutingTestProtocol.capturedRequest == nil)
+        let options = try await client.getResourceOptions(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/resource-options")
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=C")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(options.cpuCores.default == 2)
     }
 
     @Test
-    func usersAdminKindThrowsUnsupportedWithoutNetwork() async throws {
+    func usersAdminKindHitsPlainEndpointWithCookie() async throws {
         KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"data":[{"id":"usr-alpha","username":"admin","role":"admin"}],"has_more":false,"next_cursor":null}
+        """.utf8)
         let store = makeIsolatedStore()
         let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
         let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
         let context = ServerContext(server: server, token: "C")
 
-        do {
-            _ = try await client.getUsers(context: context)
-            Issue.record("Expected unsupportedOnServerKind to be thrown")
-        } catch let error as SoyehtAPIClient.APIError {
-            guard case .unsupportedOnServerKind(_, let kind) = error else {
-                Issue.record("Wrong APIError case: \(error)")
-                return
-            }
-            #expect(kind == .adminHost)
-        } catch {
-            Issue.record("Wrong error type: \(error)")
-        }
-        #expect(KindRoutingTestProtocol.capturedRequest == nil)
+        let users = try await client.getUsers(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/users")
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=C")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == nil)
+        let user = try #require(users.first)
+        #expect(user.id == "usr-alpha")
+        #expect(user.role == "admin")
     }
 
     @Test
