@@ -42,6 +42,13 @@ private extension HouseholdCBORValue {
         return text
     }
 
+    func cborBytes(_ context: String) throws -> Data {
+        guard case .bytes(let bytes) = self else {
+            throw OwnerWebauthnRegistrationDTOError.malformedCBOR("\(context): expected byte string")
+        }
+        return bytes
+    }
+
     func cborUnsigned(_ context: String) throws -> UInt64 {
         guard case .unsigned(let value) = self else {
             throw OwnerWebauthnRegistrationDTOError.malformedCBOR("\(context): expected unsigned integer")
@@ -388,5 +395,39 @@ public struct OwnerWebauthnRegistrationFinishRequest: Decodable, Equatable, Send
             "challenge_id": .text(challengeID),
             "credential": credential.cborValue(),
         ])
+    }
+}
+
+/// `POST .../owner-webauthn/registration/finish` success response.
+///
+/// Unlike the embedded `webauthn-rs` `Base64UrlSafeData` fields above,
+/// `credential_id` is a `ByteBuf` on the Rust side and therefore a CBOR byte
+/// string. The adapter must decode it as raw `Data`, not base64url text.
+public struct OwnerWebauthnRegistrationFinishResponse: Equatable, Sendable {
+    public let version: UInt8
+    public let credentialID: Data
+    public let activeCredentialCount: UInt64
+
+    public init(
+        version: UInt8,
+        credentialID: Data,
+        activeCredentialCount: UInt64
+    ) {
+        self.version = version
+        self.credentialID = credentialID
+        self.activeCredentialCount = activeCredentialCount
+    }
+
+    /// Decode from canonical CBOR (the wire form the server emits).
+    public init(cbor: HouseholdCBORValue) throws {
+        let map = try cbor.cborMap("finishResponse")
+        version = try cborUInt8(cborRequire(map, "v", "finishResponse"), "finishResponse.v")
+        credentialID = try cborRequire(map, "credential_id", "finishResponse")
+            .cborBytes("finishResponse.credential_id")
+        activeCredentialCount = try cborRequire(
+            map,
+            "active_credential_count",
+            "finishResponse"
+        ).cborUnsigned("finishResponse.active_credential_count")
     }
 }
