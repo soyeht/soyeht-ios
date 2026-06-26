@@ -22,19 +22,33 @@ fi
 
 TESTS="${REPO_ROOT}/Packages/SoyehtCore/Tests/SoyehtCoreTests"
 
-# ── C4: Claw Store v1 route/wire contract (admin/contracts/claw-store/v1/) ───
+# C4: Claw Store v1 route/wire contract + household docs mirror.
 sync_claw_store_contract() {
     local src_contract="${THEYOS_DIR}/admin/contracts/claw-store/v1/contract.json"
+    local src_household_docs="${THEYOS_DIR}/docs/contracts/claw-store-household-v1.json"
     local dest_dir="${TESTS}/Fixtures/claw-store/v1"
+    local dest_docs_dir="${REPO_ROOT}/docs/contracts"
 
     if [[ ! -f "${src_contract}" ]]; then
         echo "error: Claw Store v1 contract not found at ${src_contract}" >&2
         exit 1
     fi
+    if [[ ! -f "${src_household_docs}" ]]; then
+        echo "error: Claw Store household docs mirror not found at ${src_household_docs}" >&2
+        exit 1
+    fi
 
     mkdir -p "${dest_dir}"
+    mkdir -p "${dest_docs_dir}"
     cp "${src_contract}" "${dest_dir}/contract.json"
+    cp "${src_household_docs}" "${dest_docs_dir}/claw-store-household-v1.json"
     echo "✓ claw-store/v1/contract.json"
+    echo "synced docs/contracts/claw-store-household-v1.json"
+
+    # Regenerate the Swift contract constants from the just-synced contract so the
+    # generated file never drifts from the vendored fixture. The drift guard
+    # (ClawStoreContractConstantsGuardTests) is the safety net if this is skipped.
+    uv run python "${SCRIPT_DIR}/gen-claw-store-contract-constants.py"
 }
 
 sync_claw_store_contract

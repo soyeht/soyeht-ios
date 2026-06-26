@@ -8,13 +8,9 @@ import Foundation
 //
 // Path selection is delegated to `ServerKind.path(for:)`: engine paths
 // live under `/api/v1/mobile/*` and admin-host paths live under
-// `/api/v1/*` (no `/mobile/` prefix). When an endpoint has no admin-side
-// equivalent (`resourceOptions`, `users`), the method throws
-// `APIError.unsupportedOnServerKind` without issuing a request, so the
-// caller (e.g. `ClawSetupViewModel`) routes through its existing error
-// path — no synthesized "live" values to clamp the UI against. A
-// follow-up will add the missing routes to the admin backend
-// (`docs/mac-adminhost-routing-follow-up.md`).
+// `/api/v1/*` (no `/mobile/` prefix). Deploy metadata is available on
+// both surfaces, but auth remains kind-specific: Bearer for engine and
+// admin session cookie for adminHost.
 
 public enum ClawAPITarget: Sendable {
   case server(ServerContext)
@@ -477,14 +473,8 @@ extension SoyehtAPIClient {
 
   /// Resource limits for instance creation.
   ///
-  /// The admin host does not expose this endpoint yet (only the engine
-  /// `/api/v1/mobile/resource-options` is implemented). On `.adminHost`
-  /// this throws `APIError.unsupportedOnServerKind` *without* issuing a
-  /// network request, so callers fall through to their "no live limits"
-  /// path (defaults editable, no UI clamp). A synthesized success here
-  /// would be a lie — the admin backend's real upper bounds come from
-  /// `compute_capacity_projection` and only the engine endpoint surfaces
-  /// them. See `docs/mac-adminhost-routing-follow-up.md`.
+  /// Engine: `GET /api/v1/mobile/resource-options` (Bearer).
+  /// Admin host: `GET /api/v1/resource-options` (Cookie).
   public func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
     let path = try requirePath(.resourceOptions, for: context, operation: "resource options")
     let (data, response) = try await performWithRetry {
@@ -498,12 +488,8 @@ extension SoyehtAPIClient {
 
   /// List users for assignment dropdown (admin only).
   ///
-  /// The admin host does not expose this endpoint yet (only the engine
-  /// `/api/v1/mobile/users` is implemented). On `.adminHost` this throws
-  /// `APIError.unsupportedOnServerKind` *without* issuing a network
-  /// request, so callers fall through to their existing error path
-  /// (the assignment picker stays at "current user").
-  /// See `docs/mac-adminhost-routing-follow-up.md`.
+  /// Engine: `GET /api/v1/mobile/users` (Bearer).
+  /// Admin host: `GET /api/v1/users` (Cookie).
   public func getUsers(context: ServerContext) async throws -> [ClawUser] {
     let path = try requirePath(.users, for: context, operation: "list users")
     let (data, response) = try await performWithRetry {
@@ -667,11 +653,8 @@ extension SoyehtAPIClient {
 
   // MARK: - Helpers
 
-  /// Resolves the kind-aware path or throws `unsupportedOnServerKind`.
-  /// Every Claw-store call site routes through here — including
-  /// `.resourceOptions` and `.users`, whose `nil` resolution on
-  /// `.adminHost` lets the ViewModel's existing catch branch handle
-  /// the "no live data" case without any synthesized fallback values.
+  /// Resolves the kind-aware path or throws `unsupportedOnServerKind` for
+  /// endpoints that do not exist on the selected surface.
   private func requirePath(
     _ endpoint: ServerKind.Endpoint,
     for context: ServerContext,
