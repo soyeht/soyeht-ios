@@ -1,8 +1,6 @@
 import SwiftUI
 import SoyehtCore
 import AppKit
-import CoreImage
-import CoreImage.CIFilterBuiltins
 
 /// MA4 — House card scene shown after house creation.
 /// Displays avatar + name + Mac as host + pulsing "add iPhone" slot per FR-017.
@@ -12,8 +10,6 @@ struct HouseCardView: View {
     let pairQrUri: String
     let onContinueOnMac: @MainActor () async -> LocalizedStringResource?
     let onPaired: () -> Void
-
-    private static let qrContext = CIContext()
 
     @State private var isPulsing = false
     @State private var showInfoSheet = false
@@ -244,7 +240,7 @@ struct HouseCardView: View {
             .foregroundColor(BrandColors.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let qrImage = Self.makeQRImage(from: pairQrUri) {
+            if let qrImage = MacQRCodeImageFactory.makeImage(from: pairQrUri) {
                 Image(nsImage: qrImage)
                     .interpolation(.none)
                     .resizable()
@@ -400,23 +396,6 @@ struct HouseCardView: View {
         }
     }
 
-    private static func makeQRImage(from deepLink: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(deepLink.utf8)
-        filter.correctionLevel = "M"
-
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
-              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-
-        return NSImage(
-            cgImage: cgImage,
-            size: NSSize(width: output.extent.width, height: output.extent.height)
-        )
-    }
-
     private static func securityCodeWords(from deepLink: String) -> [String]? {
         guard let url = URL(string: deepLink),
               let qr = try? PairDeviceQR(url: url, now: Date()),
@@ -429,7 +408,7 @@ struct HouseCardView: View {
             return nil
         }
         return fingerprint.words
-    }
+}
 
     private func pollUntilPaired() async {
         let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
@@ -508,8 +487,6 @@ struct IPhonePairingSheetContent: View {
     let copiedPairLink: Bool
     let onCopyPairLink: () -> Void
     var closeAction: (() -> Void)?
-
-    private static let qrContext = CIContext()
 
     init(
         title: LocalizedStringResource,
@@ -658,7 +635,7 @@ struct IPhonePairingSheetContent: View {
             .foregroundColor(BrandColors.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let qrImage = Self.makeQRImage(from: pairingURI) {
+            if let qrImage = MacQRCodeImageFactory.makeImage(from: pairingURI) {
                 Image(nsImage: qrImage)
                     .interpolation(.none)
                     .resizable()
@@ -723,23 +700,7 @@ struct IPhonePairingSheetContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private static func makeQRImage(from deepLink: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(deepLink.utf8)
-        filter.correctionLevel = "M"
-
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
-              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-
-        return NSImage(
-            cgImage: cgImage,
-            size: NSSize(width: output.extent.width, height: output.extent.height)
-        )
     }
-}
 
 private struct DeviceRow: View {
     let icon: String

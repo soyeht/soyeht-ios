@@ -1,6 +1,4 @@
 import AppKit
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import SoyehtCore
 
 /// Inline hand-off panel for the per-pane "Continue on iPhone" flow.
@@ -11,8 +9,6 @@ import SoyehtCore
 /// shortly after.
 @MainActor
 final class QRHandoffPopoverController: NSViewController {
-    private static let qrContext = CIContext()
-
     private let deepLink: String
     private let expiresAtRaw: String
     private let pendingPoller: @Sendable () async throws -> Bool
@@ -47,7 +43,7 @@ final class QRHandoffPopoverController: NSViewController {
         self.expiresAtRaw = expiresAt
         self.pendingPoller = pendingPoller
         super.init(nibName: nil, bundle: nil)
-    }
+}
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
@@ -212,7 +208,7 @@ final class QRHandoffPopoverController: NSViewController {
     // MARK: - Networking
 
     private func loadQRImage() {
-        if let image = Self.makeQRImage(from: deepLink) {
+        if let image = MacQRCodeImageFactory.makeImage(from: deepLink) {
             qrImageView.image = image
         } else {
             statusHeader.stringValue = String(localized: "qrHandoff.qrFailed", comment: "Shown in place of the QR when rendering it failed.")
@@ -324,20 +320,4 @@ final class QRHandoffPopoverController: NSViewController {
         )
     }
 
-    private static func makeQRImage(from deepLink: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(deepLink.utf8)
-        filter.correctionLevel = "M"
-
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
-              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-
-        return NSImage(
-            cgImage: cgImage,
-            size: NSSize(width: output.extent.width, height: output.extent.height)
-        )
     }
-}
