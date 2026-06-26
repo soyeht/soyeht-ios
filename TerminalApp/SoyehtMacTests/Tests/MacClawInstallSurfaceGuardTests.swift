@@ -104,6 +104,29 @@ final class MacClawInstallSurfaceGuardTests: XCTestCase {
         )
     }
 
+    /// The macOS Claw Store view entry points construct their view models with the
+    /// CANONICAL `machineTarget:` form (carries the `Server.ID`), never the lossy
+    /// `ClawAPITarget` / `target:` form. This pins the macOS counterpart of the
+    /// iOS `ClawRouteUsageTests` machine-target rule on the two Mac view sites,
+    /// scoped to `SoyehtMac/ClawStore` (no app-wide scan).
+    func test_macClawStoreViewsBuildViewModelsFromMachineTarget() throws {
+        let rootURL = try XCTUnwrap(
+            clawStoreSwiftFiles().first { $0.lastPathComponent == "MacClawStoreRootView.swift" },
+            "Expected MacClawStoreRootView.swift in SoyehtMac/ClawStore")
+        let rootCode = try codeOnly(at: rootURL)
+        XCTAssertTrue(rootCode.contains("ClawStoreViewModel(machineTarget: target)"),
+            "MacClawStoreRootView must construct `ClawStoreViewModel(machineTarget: target)` (canonical machine target), not the lossy `ClawAPITarget` / `target:` form."
+        )
+
+        let detailURL = try XCTUnwrap(
+            clawStoreSwiftFiles().first { $0.lastPathComponent == "MacClawDetailView.swift" },
+            "Expected MacClawDetailView.swift in SoyehtMac/ClawStore")
+        let detailCode = try codeOnly(at: detailURL)
+        XCTAssertTrue(detailCode.contains("ClawDetailViewModel(claw: claw, machineTarget: target)"),
+            "MacClawDetailView must construct `ClawDetailViewModel(claw: claw, machineTarget: target)` (canonical machine target), not the lossy `ClawAPITarget` / `target:` form."
+        )
+    }
+
     // MARK: - Helpers
 
     private func installButtonSurfaces() throws -> [URL] {
