@@ -336,6 +336,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
     func stop() {
         publisher.stop()
         publisher.onMacClaimed = nil
+        alreadyOrchestrating = false
         orchestrationTask?.cancel()
         orchestrationTask = nil
         clearExistingHouseNotice()
