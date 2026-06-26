@@ -58,7 +58,8 @@ final class ClawInventoryBoundarySourceGuardTests: XCTestCase {
             storeVM.contains("private let makeService: @MainActor (ClawMachineTarget) -> ClawInventoryService")
         )
         XCTAssertTrue(storeVM.contains("ClawInventoryService("))
-        XCTAssertTrue(storeVM.contains("svc.$snapshot.sink"))
+        XCTAssertTrue(storeVM.contains("snapshotCancellable = svc.$snapshot"))
+        XCTAssertTrue(storeVM.contains(".sink { [weak self] snapshot in"))
 
         let provider = try sourceFile(
             relativePath: "TerminalApp/SoyehtMac/ClawStore/InstalledClawsProvider.swift"
@@ -72,7 +73,8 @@ final class ClawInventoryBoundarySourceGuardTests: XCTestCase {
         XCTAssertTrue(drawer.contains("private let makeService: (ClawMachineTarget) -> ClawInventoryService"))
         XCTAssertTrue(drawer.contains("ClawInventoryService("))
         XCTAssertTrue(drawer.contains("makeService(.server(context))"))
-        XCTAssertTrue(drawer.contains("svc.$snapshot.sink"))
+        XCTAssertTrue(drawer.contains("snapshotCancellable = svc.$snapshot"))
+        XCTAssertTrue(drawer.contains(".sink { [weak self] snapshot in"))
     }
 
     func test_clawStoreSurfacesBuildViewModelsFromMachineTargetNotLossyApiTarget() throws {
