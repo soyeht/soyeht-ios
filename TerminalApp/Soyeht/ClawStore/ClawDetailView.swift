@@ -65,10 +65,6 @@ private struct ResolvedClawDetailView: View {
         ))
     }
 
-    private var info: ClawMockData.ClawStoreInfo {
-        viewModel.storeInfo
-    }
-
     var body: some View {
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
@@ -103,7 +99,7 @@ private struct ResolvedClawDetailView: View {
                                 .background(SoyehtTheme.historyGreenBg)
                         }
 
-                        // Meta: language (API) + rating (mock) + installs (mock)
+                        // Meta: language (API)
                         HStack(spacing: 12) {
                             Text(viewModel.claw.language.capitalized)
                                 .font(Typography.monoMicroBold)
@@ -111,20 +107,6 @@ private struct ResolvedClawDetailView: View {
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(SoyehtTheme.historyGreenBg)
-
-                            if info.rating > 0 {
-                                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                                    .font(Typography.monoTag)
-                                    .foregroundColor(SoyehtTheme.textPrimary)
-
-                                Text(LocalizedStringResource(
-                                    "claw.featured.installsCount",
-                                    defaultValue: "\(info.installCount) installs",
-                                    comment: "Meta row — total install count."
-                                ))
-                                    .font(Typography.monoTag)
-                                    .foregroundColor(SoyehtTheme.textComment)
-                            }
                         }
 
                         // Description (from API)
@@ -234,6 +216,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
+                                .disabled(!actionPolicy.isEnabled(.deploy))
                             }
 
                             if actions.showsUninstall {
@@ -247,7 +230,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.uninstall))
                             }
 
                             if actions.showsInstallingProgress {
@@ -284,7 +267,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.retryInstall))
                             }
 
                             if actions.showsInstall {
@@ -298,7 +281,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.install))
                             }
 
                             if actions.showsUnknownState {
@@ -341,17 +324,6 @@ private struct ResolvedClawDetailView: View {
                             lineWidth: 1
                         )
                     )
-
-                    // Reviews Section
-                    if !viewModel.reviews.isEmpty {
-                        Text("clawDetail.section.reviews")
-                            .font(Typography.monoSectionLabel)
-                            .foregroundColor(SoyehtTheme.textComment)
-
-                        ForEach(Array(viewModel.reviews.enumerated()), id: \.offset) { _, review in
-                            ReviewCard(review: review)
-                        }
-                    }
 
                     // Details Section
                     Text("clawDetail.section.details")
@@ -737,6 +709,22 @@ private struct ResolvedClawDetailView: View {
         )
     }
 
+    /// Visibility stays on the facade above; this drives only ENABLEMENT, folding
+    /// in the in-flight axis so install/retry/deploy/uninstall disable while an
+    /// action runs. iOS detail has no terminal entry point (canOpenTerminal: false).
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: viewModel.claw.installState,
+                installability: viewModel.claw.installability,
+                hostAllowsInstall: readinessObserver.state.allowsInstall,
+                supportsDeploy: resolution.supportsDeploy,
+                actionInFlight: viewModel.isPerformingAction,
+                canOpenTerminal: false
+            )
+        )
+    }
+
     private func phaseLabel(_ phase: String) -> LocalizedStringResource {
         switch phase {
         case "download_ipsw":
@@ -788,39 +776,6 @@ private struct ResolvedClawDetailView: View {
         case .notInstalled:          return SoyehtTheme.textComment
         case .unknown:               return SoyehtTheme.accentAmber
         }
-    }
-}
-
-// MARK: - Review Card
-
-private struct ReviewCard: View {
-    let review: ClawMockData.ClawReview
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(review.author)
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.textPrimary)
-                Spacer()
-                Text(String(format: "%.1f", review.rating))
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.historyGreen)
-            }
-
-            Text(verbatim: "\"\(review.text)\"")
-                .font(Typography.monoTag)
-                .italic()
-                .foregroundColor(SoyehtTheme.textPrimary)
-                .lineSpacing(4)
-
-            Text(review.timeAgo)
-                .font(Typography.monoMicro)
-                .foregroundColor(SoyehtTheme.textTertiary)
-        }
-        .padding(16)
-        .background(SoyehtTheme.bgPrimary)
-        .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
     }
 }
 

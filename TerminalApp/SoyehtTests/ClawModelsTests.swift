@@ -297,26 +297,13 @@ struct ClawModelsTests {
         #expect(response.provisioningPhase == nil)
     }
 
-    // MARK: - Mock Data
+    // MARK: - Store Curation
 
-    @Test("ClawMockData returns known info for picoclaw")
-    func mockDataReturnsKnownInfo() {
-        let info = ClawMockData.storeInfo(for: "picoclaw")
-        #expect(info.language == "Go")
-        #expect(info.rating == 0.0) // Ratings disabled until real API data
-        #expect(!info.featured)
-    }
-
-    @Test("ClawMockData returns empty reviews (disabled until real API data)")
-    func mockDataReturnsEmptyReviews() {
-        let reviews = ClawMockData.reviews(for: "ironclaw")
-        #expect(reviews.isEmpty)
-    }
-
-    @Test("ClawMockData returns empty reviews for unknown claw")
-    func mockDataReturnsEmptyForUnknown() {
-        let reviews = ClawMockData.reviews(for: "nonexistent")
-        #expect(reviews.isEmpty)
+    @Test("ClawMockData curation marks ironclaw featured and others not")
+    func mockDataCurationFeaturedFlag() {
+        #expect(ClawMockData.storeInfo(for: "ironclaw").featured)
+        #expect(!ClawMockData.storeInfo(for: "picoclaw").featured)
+        #expect(!ClawMockData.storeInfo(for: "nonexistent").featured)
     }
 }
 

@@ -155,6 +155,19 @@ struct MacClawDetailView: View {
             allowsInstall: readiness.state.allowsInstall,
             supportsDeploy: target.supportsDeploy
         )
+        // Visibility stays on the facade above; this drives only ENABLEMENT,
+        // folding in the in-flight axis (and the terminal entry point) so the
+        // detail actions disable while another action runs.
+        let actionPolicy = ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: viewModel.claw.installState,
+                installability: viewModel.claw.installability,
+                hostAllowsInstall: readiness.state.allowsInstall,
+                supportsDeploy: target.supportsDeploy,
+                actionInFlight: viewModel.isPerformingAction,
+                canOpenTerminal: onOpenTerminal != nil
+            )
+        )
 
         HStack(spacing: 8) {
             if actionAvailability.showsInstall {
@@ -165,7 +178,7 @@ struct MacClawDetailView: View {
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isPerformingAction)
+                .disabled(!actionPolicy.isEnabled(.install))
             }
 
             if actionAvailability.showsDeploy {
@@ -174,6 +187,7 @@ struct MacClawDetailView: View {
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!actionPolicy.isEnabled(.deploy))
 
                 Button {
                     onOpenTerminal?(viewModel.claw.name)
@@ -190,7 +204,7 @@ struct MacClawDetailView: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(onOpenTerminal == nil)
+                .disabled(!actionPolicy.isEnabled(.openTerminal))
                 .accessibilityIdentifier("soyeht.macClawDetail.openTerminal")
             }
 
@@ -202,7 +216,7 @@ struct MacClawDetailView: View {
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.isPerformingAction)
+                .disabled(!actionPolicy.isEnabled(.uninstall))
             }
 
             if actionAvailability.showsRetryInstall {
@@ -213,7 +227,7 @@ struct MacClawDetailView: View {
                         .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isPerformingAction)
+                .disabled(!actionPolicy.isEnabled(.retryInstall))
             }
         }
     }

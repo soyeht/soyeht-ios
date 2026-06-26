@@ -29,6 +29,7 @@ public typealias ClawCreateInstanceHandler = (
     _ target: CreateInstanceTarget
 ) async throws -> CreateInstanceResponse
 
+@MainActor
 public final class ClawSetupViewModel: ObservableObject {
     public let claw: Claw
 
@@ -78,14 +79,14 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared,
+        deployMonitor: ClawDeployMonitor? = nil,
         householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
         createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
-        self.deployMonitor = deployMonitor
+        self.deployMonitor = deployMonitor ?? .shared
         self.injectedDeployOptions = nil
         self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
         self.createInstanceHandler = createInstanceHandler ?? { request, target in
@@ -116,14 +117,14 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared,
+        deployMonitor: ClawDeployMonitor? = nil,
         householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
         createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
-        self.deployMonitor = deployMonitor
+        self.deployMonitor = deployMonitor ?? .shared
         self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
         self.createInstanceHandler = createInstanceHandler ?? { request, target in
             try await apiClient.createInstance(request, target: target)
@@ -149,14 +150,14 @@ public final class ClawSetupViewModel: ObservableObject {
         initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        deployMonitor: ClawDeployMonitor = .shared,
+        deployMonitor: ClawDeployMonitor? = nil,
         householdInstanceCreatedHandler: ClawHouseholdInstanceCreatedHandler? = nil,
         createInstanceHandler: ClawCreateInstanceHandler? = nil
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
-        self.deployMonitor = deployMonitor
+        self.deployMonitor = deployMonitor ?? .shared
         self.injectedDeployOptions = deployOptions
         self.householdInstanceCreatedHandler = householdInstanceCreatedHandler
         self.createInstanceHandler = createInstanceHandler ?? { request, target in
@@ -333,7 +334,6 @@ public final class ClawSetupViewModel: ObservableObject {
 
     // MARK: - Load Options
 
-    @MainActor
     public func loadOptions() async {
         isLoadingOptions = true
 
@@ -346,7 +346,6 @@ public final class ClawSetupViewModel: ObservableObject {
         isLoadingOptions = false
     }
 
-    @MainActor
     private func loadResourceOptions() async {
         resourceOptionsWarning = nil
         guard let option = selectedDeployOption,
@@ -368,7 +367,6 @@ public final class ClawSetupViewModel: ObservableObject {
         }
     }
 
-    @MainActor
     private func loadUsers() async {
         guard let option = selectedDeployOption,
               case .server(let context) = option.target else { return }
@@ -381,7 +379,6 @@ public final class ClawSetupViewModel: ObservableObject {
 
     // MARK: - Deploy
 
-    @MainActor
     public func deploy() async {
         guard canDeploy else { return }
         guard let option = selectedDeployOption else { return }
