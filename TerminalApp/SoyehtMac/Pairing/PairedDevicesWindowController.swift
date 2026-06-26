@@ -171,8 +171,10 @@ final class PairedDevicesViewController: NSViewController {
         ) else {
             return
         }
-        LocalTerminalHandoffManager.shared.disconnectDevice(device.deviceID)
-        PairingStore.shared.revoke(deviceID: device.deviceID)
+        let result = PairingStore.shared.revoke(deviceID: device.deviceID)
+        if result.isEffectivelyRevoked {
+            LocalTerminalHandoffManager.shared.disconnectDevice(device.deviceID)
+        }
     }
 
     @MainActor @objc private func revokeAllTapped() {
@@ -183,10 +185,10 @@ final class PairedDevicesViewController: NSViewController {
         ) else {
             return
         }
-        for device in devices {
-            LocalTerminalHandoffManager.shared.disconnectDevice(device.deviceID)
+        let result = PairingStore.shared.revokeAll()
+        for deviceID in result.effectivelyRevokedDeviceIDs {
+            LocalTerminalHandoffManager.shared.disconnectDevice(deviceID)
         }
-        PairingStore.shared.revokeAll()
     }
 
     @MainActor

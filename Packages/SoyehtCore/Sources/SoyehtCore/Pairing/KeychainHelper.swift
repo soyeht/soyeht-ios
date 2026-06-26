@@ -150,12 +150,17 @@ public struct KeychainHelper: Sendable {
         return String(data: data, encoding: .utf8)
     }
 
-    public func delete(account: String) {
+    @discardableResult
+    public func deleteStatus(account: String) -> OSStatus {
         // DP-only delete. Legacy/login-keychain items created by older
         // builds under a different code signature are left orphaned (the
         // current binary can't touch them without the ACL prompt). They
         // do no harm — next save into the DP keychain owns the entry.
         SecItemDelete(baseQuery(account: account) as CFDictionary)
+    }
+
+    public func delete(account: String) {
+        deleteStatus(account: account)
     }
 
     public func allAccounts() -> [String] {
