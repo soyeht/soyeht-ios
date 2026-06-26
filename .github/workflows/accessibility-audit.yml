@@ -20,6 +20,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install Rust toolchain
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build RelayStreamGuestFFI XCFramework
+        env:
+          RELAY_STREAM_GUEST_FFI_PROFILE: release
+        run: scripts/bootstrap-relay-stream-guest-ffi.sh
+
       - name: iOS Accessibility Snapshot Tests (RTL + AX5)
         run: |
           SIM_ARCH="$(uname -m)"

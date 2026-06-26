@@ -324,6 +324,7 @@ private let activeStatusJSON = Data("""
 
 // MARK: - Sync ViewModel Tests (no mock protocol, safe to run in parallel)
 
+@MainActor
 @Suite("ClawStoreViewModel")
 struct ClawStoreViewModelTests {
 
@@ -423,6 +424,7 @@ struct ClawStoreViewModelTests {
     }
 }
 
+@MainActor
 @Suite("ClawSetupViewModel")
 struct ClawSetupViewModelTests {
 
@@ -527,6 +529,7 @@ struct ClawSetupViewModelTests {
     }
 }
 
+@MainActor
 @Suite("ClawDetailViewModel")
 struct ClawDetailViewModelTests {
 
@@ -1372,6 +1375,7 @@ struct ClawViewModelAsyncTests {
 // VM stays decoupled from `ServerRegistry` because the registry lives
 // in the iOS app target; SoyehtCore receives the list as data.
 
+@MainActor
 @Suite("ClawSetupViewModel injected servers")
 struct ClawSetupViewModelInjectedServersTests {
 
