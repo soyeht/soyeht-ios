@@ -217,17 +217,11 @@ struct AddDevicePickerView: View {
 
 // MARK: - Invitation builder
 
-/// Mirrors the static `makeSetupInvitationPayload()` AppDelegate uses
-/// during initial onboarding (Caso B). Lifted here so the Add Device
-/// picker doesn't depend on AppDelegate internals.
 @MainActor
 private enum AddDevicePickerInvitationBuilder {
     static func makeSetupInvitation(device: OwnerDevice) async -> SetupInvitationPayload {
         let apnsToken = await captureAPNsToken()
-        return SetupInvitationPayload(
-            token: SetupInvitationToken(),
-            ownerDisplayName: nil,
-            expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+        return SetupInvitationPayload.iPhoneSetupInvitation(
             iphoneApnsToken: apnsToken,
             iphoneDeviceID: device.localPairingDeviceId,
             iphoneDeviceName: device.displayName,

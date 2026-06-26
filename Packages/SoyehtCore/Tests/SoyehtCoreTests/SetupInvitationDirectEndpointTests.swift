@@ -35,6 +35,71 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
         XCTAssertEqual(decoded.iphoneDeviceModel, "iPhone14,4")
     }
 
+    func test_iPhoneSetupInvitationFactoryPinsCanonicalTTLAndMetadata() throws {
+        let token = try SetupInvitationToken(bytes: Data(repeating: 0x24, count: 32))
+        let apns = Data([0x0A, 0x0B, 0x0C])
+        let deviceID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+        let now = Date(timeIntervalSince1970: 1_800_000_000.75)
+
+        let payload = SetupInvitationPayload.iPhoneSetupInvitation(
+            token: token,
+            now: now,
+            iphoneApnsToken: apns,
+            iphoneDeviceID: deviceID,
+            iphoneDeviceName: "device-alpha",
+            iphoneDeviceModel: "iPhone15,3"
+        )
+
+        XCTAssertEqual(payload.token, token)
+        XCTAssertNil(payload.ownerDisplayName)
+        XCTAssertEqual(payload.expiresAt, 1_800_003_600)
+        XCTAssertEqual(payload.iphoneApnsToken, apns)
+        XCTAssertEqual(payload.iphoneDeviceID, deviceID)
+        XCTAssertEqual(payload.iphoneDeviceName, "device-alpha")
+        XCTAssertEqual(payload.iphoneDeviceModel, "iPhone15,3")
+
+        let fields = try payload.txtRecordFields()
+        XCTAssertEqual(fields["expires_at"], "1800003600")
+        XCTAssertEqual(fields["iphone_device_id"], deviceID.uuidString)
+        XCTAssertEqual(fields["iphone_device_name"], "device-alpha")
+        XCTAssertEqual(fields["iphone_device_model"], "iPhone15,3")
+
+        let decoded = try SetupInvitationPayload.decodeDirectEndpointData(payload.directEndpointData())
+        XCTAssertEqual(decoded, payload)
+    }
+
+    func test_iPhoneSetupInvitationFactoryAllowsExplicitTTLForTestsAndFutureFlows() throws {
+        let token = try SetupInvitationToken(bytes: Data(repeating: 0x25, count: 32))
+
+        let payload = SetupInvitationPayload.iPhoneSetupInvitation(
+            token: token,
+            now: Date(timeIntervalSince1970: 2_000),
+            ttlSeconds: 120,
+            iphoneApnsToken: nil,
+            iphoneDeviceID: nil,
+            iphoneDeviceName: nil,
+            iphoneDeviceModel: nil
+        )
+
+        XCTAssertEqual(payload.expiresAt, 2_120)
+    }
+
+    func test_setupInvitationAppCallSitesUseCoreFactory() throws {
+        let appDelegate = try codeOnly(relativePath: "TerminalApp/Soyeht/AppDelegate.swift")
+        let addDevicePicker = try codeOnly(relativePath: "TerminalApp/Soyeht/Home/AddDevicePickerView.swift")
+
+        XCTAssertEqual(
+            appDelegate.occurrences(of: "SetupInvitationPayload.iPhoneSetupInvitation("),
+            1
+        )
+        XCTAssertEqual(
+            addDevicePicker.occurrences(of: "SetupInvitationPayload.iPhoneSetupInvitation("),
+            1
+        )
+        XCTAssertFalse(appDelegate.contains("expiresAt: UInt64(Date().timeIntervalSince1970) + 3600"))
+        XCTAssertFalse(addDevicePicker.contains("expiresAt: UInt64(Date().timeIntervalSince1970) + 3600"))
+    }
+
     func test_directClaimPayloadRoundTripsMacEngineURL() throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x11, count: 32))
         let url = exampleMacURL
@@ -205,5 +270,56 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
         let tailscaleParameters = NWParameters.tailscaleOnly()
         XCTAssertFalse(tailscaleParameters.includePeerToPeer)
+    }
+
+    private func codeOnly(relativePath: String) throws -> String {
+        let source = try String(
+            contentsOf: workspaceRoot().appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
+        var output = ""
+        var inBlockComment = false
+
+        for line in source.components(separatedBy: .newlines) {
+            var index = line.startIndex
+            while index < line.endIndex {
+                let rest = line[index...]
+                if inBlockComment {
+                    if let end = rest.range(of: "*/") {
+                        index = end.upperBound
+                        inBlockComment = false
+                    } else {
+                        index = line.endIndex
+                    }
+                    continue
+                }
+                if rest.hasPrefix("//") {
+                    break
+                }
+                if rest.hasPrefix("/*") {
+                    inBlockComment = true
+                    index = line.index(index, offsetBy: 2)
+                    continue
+                }
+                output.append(line[index])
+                index = line.index(after: index)
+            }
+            output.append("\n")
+        }
+        return output
+    }
+
+    private func workspaceRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 {
+            url.deleteLastPathComponent()
+        }
+        return url
+    }
+}
+
+private extension String {
+    func occurrences(of needle: String) -> Int {
+        components(separatedBy: needle).count - 1
     }
 }
