@@ -46,6 +46,8 @@ private let clawInstallTargetLogger = Logger(subsystem: "com.soyeht.mobile", cat
 /// thread-safe but consistent with the rest of the iOS UI layer).
 @MainActor
 enum ClawInstallTargetResolver {
+    nonisolated static let macUnreachableFreshness: TimeInterval = 60
+
     nonisolated static var defaultBootstrapPort: Int {
         defaultBootstrapPort(for: .current)
     }
@@ -75,7 +77,8 @@ enum ClawInstallTargetResolver {
         registry: ServerRegistry? = nil,
         sessionStore: SessionStore? = nil,
         localNetworkActive: Bool? = nil,
-        tailnetActive: Bool? = nil
+        tailnetActive: Bool? = nil,
+        now: Date = Date()
     ) -> Resolution {
         let registry = registry ?? ServerRegistry.shared
         let sessionStore = sessionStore ?? SessionStore.shared
@@ -97,11 +100,21 @@ enum ClawInstallTargetResolver {
                 localNetworkActive: localNetworkActive,
                 tailnetActive: tailnetActive
            ) {
+            if isFreshlyUnreachable(server: server, now: now) {
+                clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=mac_unreachable kind=\(server.kind.rawValue, privacy: .public) host_class=\(EndpointPolicy.hostClassName(for: server.lastHost ?? server.hostname), privacy: .public)")
+                return .unavailable(.macUnreachable)
+            }
             clawInstallTargetLogger.info("claw_target_resolve result=household_endpoint kind=\(server.kind.rawValue, privacy: .public) scheme=\(endpoint.scheme ?? "<nil>", privacy: .public) port=\(endpoint.port ?? -1, privacy: .public) host_class=\(EndpointPolicy.hostClassName(for: endpoint.host ?? ""), privacy: .public)")
             return .householdEndpoint(serverID: target.serverID, endpoint: endpoint)
         }
         clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=missing_context kind=\(server.kind.rawValue, privacy: .public) host_class=\(EndpointPolicy.hostClassName(for: server.lastHost ?? server.hostname), privacy: .public)")
         return .unavailable(.missingContext)
+    }
+
+    private static func isFreshlyUnreachable(server: Server, now: Date) -> Bool {
+        guard server.theyOS.status == .unreachable else { return false }
+        let age = now.timeIntervalSince(server.theyOS.lastCheckedAt)
+        return age >= 0 && age <= macUnreachableFreshness
     }
 
     static func householdEndpoint(

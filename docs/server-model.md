@@ -26,8 +26,9 @@ whose only Mac came in via the iPhone-first QR flow.
 
 `Server`, `ServerStore`, `ServerInventoryWriter`, and `ServerRegistry`
 are the unified replacement. The live persisted authority is still the
-v1 `ServerStore`; `ServerInventoryWriter` is the additive facade used by
-approved adapters while the v2 model remains shadow/test-only.
+v1 `ServerStore`; `ServerInventoryWriter` is the facade used by approved
+adapters. The earlier experimental version-two inventory path has been
+retired, so there is no parallel read gate or mirror authority.
 
 ## The three rules
 
@@ -152,10 +153,8 @@ continues:
   cached instance state, navigation state, and `ServerContext` lookup;
   its canonical inventory projections delegate to `ServerInventoryWriter`.
 - `ServerStore` is the persisted unified list. `ServerInventoryWriter`
-  wraps it for the approved v1 parity paths in `ServerRegistry`,
-  `SessionStore`, and macOS startup migration. The v2 envelope, shadow
-  comparer, and rollback projection helpers remain test/shadow-only and
-  are not a live authority.
+  wraps it for the approved paths in `ServerRegistry`, `SessionStore`,
+  and macOS startup migration.
 
 The remaining sweep is tracked separately. For now, follow these rules:
 
@@ -174,16 +173,16 @@ The remaining sweep is tracked separately. For now, follow these rules:
 
 Invariants that are guarded today but not yet fully closed:
 
+- **Read authority.** V1 is the shipped inventory authority. Do not add a
+  second read path or mirror without a new design and its own migration plan.
+  `SessionStore.canonicalServers()` / `credentialedCanonicalServers()` and
+  macOS inventory callers continue to read through the writer facade by design.
 - **Read side.** `ServerInventoryWriterTests.test_adHocServerStoreLoadReadsAreConfinedToAllowlist`
   forbids new `ServerStore().load()` reads. The one allow-listed site —
   `ClawDetailViewModel`'s injected `pairedServerCountProvider` default — still
   reads raw UserDefaults; iOS UI construction sites (`ClawDetailView`,
   `MacClawDetailView`) should inject a `ServerRegistry.shared.servers.count`
   provider so the count comes from the in-memory authority, not a throwaway store.
-- **Shadow comparer.** `ServerStoreShadowComparer` reports canonical↔legacy
-  divergence as category counts (`ServerStoreShadowComparerTests`), but it is
-  still a diagnostic — not yet a live blocking invariant on the writer's
-  reconcile output.
 - **Parallel owners.** `PairedMacsStore` and `SessionStore.pairedServers` remain
   the membership / credential origin-of-record; the persisted v1 `ServerStore` is
   a reconciled projection of them. Collapsing them into a single owner is the
@@ -196,7 +195,7 @@ Invariants that are guarded today but not yet fully closed:
 | --------------------------------------------------------------------- | ------------------------------- |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/Server.swift`          | `Server`, `ServerKind`, `TheyOSSnapshot` |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerStore.swift`     | Persistence + migration sentinel |
-| `Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift` | V1 persistence facade + shadow/v2 helper boundary |
+| `Packages/SoyehtCore/Sources/SoyehtCore/Server/ServerInventoryWriter.swift` | V1 persistence facade |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Server/PairedServer+Server.swift` | Legacy → unified adapter (engines + admin hosts) |
 | `Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift`     | Credentials/context adapter + writer-backed inventory projection |
 | `TerminalApp/Soyeht/Pairing/PairedMac+Server.swift`                   | Legacy → unified adapter (Macs) |
@@ -205,7 +204,6 @@ Invariants that are guarded today but not yet fully closed:
 | `TerminalApp/SoyehtMac/AppDelegate.swift`                             | macOS startup migration call through writer |
 | `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreMigrationTests.swift` | Decoder + migration contract |
 | `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerInventoryWriterTests.swift` | Single-writer + read-side boundary guards, v1↔writer parity |
-| `Packages/SoyehtCore/Tests/SoyehtCoreTests/ServerStoreShadowComparerTests.swift` | Canonical↔legacy projection divergence diagnostic |
 
 ## See also
 

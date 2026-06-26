@@ -33,95 +33,20 @@ final class ServerRegistry: ObservableObject {
     @Published private(set) var servers: [Server]
 
     private let writer: ServerInventoryWriter
-    /// D3c: snapshot of the operator GO flag (`ServerStore.v2ReadEnabledKey`,
-    /// default OFF). With it OFF the gated read equals v1 (inert); the operator
-    /// flips it true ONLY after a clean live dry-run — the code never sets it.
-    private let v2ReadEnabled: Bool
 
     init(writer: ServerInventoryWriter? = nil) {
-        let flag = UserDefaults.standard.bool(forKey: ServerStore.v2ReadEnabledKey)
-        self.v2ReadEnabled = flag
-        self.writer = writer ?? ServerInventoryWriter(
-            v2ReadEnabled: flag,
-            v2MirrorProjectionProvider: ServerRegistry.legacyMirrorProjections
-        )
-        self.servers = Self.canonicalRead(writer: self.writer, v2ReadEnabled: flag)
-        #if DEBUG
-        logV2MigrationReadinessDiagnostic()
-        #endif
+        self.writer = writer ?? ServerInventoryWriter()
+        self.servers = self.writer.load()
     }
 
-    #if DEBUG
-    /// D3c GO dry-run observability (DEBUG-only operator diagnostic). Logs the
-    /// `migrationDryRunReadiness` go/no-go verdict — `isReadyToFlip` plus the neutral
-    /// shadow/migration booleans and a blocking-category COUNT — so an operator can
-    /// SEE readiness before flipping `v2ReadEnabledKey` (the precondition the
-    /// `docs/serverstore-v2-flip-runbook.md` calls out). Logs no server ids, hosts,
-    /// or credential values: only booleans + a count + the current flag state. The
-    /// writer itself must not log (D1/D2 forbid logging credential state);
-    /// `ServerRegistry` is the boundary that already logs neutral counts. DEBUG-only
-    /// so it's a dev/operator aid (e.g. a `Soyeht Dev.app` dry-run), not prod noise.
-    private func logV2MigrationReadinessDiagnostic() {
-        let readiness = writer.migrationDryRunReadiness(
-            legacyProjections: Self.legacyMirrorProjections(),
-            activeServerID: SessionStore.shared.activeServerId
-        )
-        let summary = "readyToFlip=\(readiness.isReadyToFlip) "
-            + "shadowClean=\(readiness.shadowClean) "
-            + "migrationCompleted=\(readiness.migrationCompleted) "
-            + "blockingCategories=\(readiness.blockingCategories.count) "
-            + "v2ReadEnabled=\(v2ReadEnabled)"
-        serverRegistryLogger.info("ServerStore v2 migration dry-run: \(summary, privacy: .public)")
-    }
-    #endif
-
-    /// D3c: the gated canonical read. Flag OFF → v1 (`load()`), inert. Flag ON → the
-    /// v2 projection IFF the D3a gate is ready AND the loaded v2 is field-equivalent
-    /// to v1 (`loadCanonical` enforces both); else v1 fallback. No auto-enable.
-    private static func canonicalRead(writer: ServerInventoryWriter, v2ReadEnabled: Bool) -> [Server] {
-        guard v2ReadEnabled else { return writer.load() }
-        return writer.loadCanonical(
-            legacyProjectionsForGate: legacyMirrorProjections(),
-            activeServerID: SessionStore.shared.activeServerId
-        )
-    }
-
-    /// D3c: republish `servers` from the gated read (change-detected). Called after
-    /// every mutation and on refresh so no path reads v1 directly while another is
-    /// gated. Returns whether `servers` actually changed.
+    /// Republishes `servers` from the shipped v1 inventory authority after a
+    /// mutation or legacy refresh. Returns whether `servers` actually changed.
     @discardableResult
     private func publishCanonical() -> Bool {
-        let next = Self.canonicalRead(writer: writer, v2ReadEnabled: v2ReadEnabled)
+        let next = writer.load()
         guard next != servers else { return false }
         servers = next
         return true
-    }
-
-    /// D3b: builds the legacy projections (with per-id credential presence) that the
-    /// writer's v2 dual-write mirror needs, so a canonical-only mutation preserves
-    /// the `pairingSecret` / `sessionToken` refs D1/D2 protect. Reads BOTH legacy
-    /// stores at the boundary (`ServerRegistry`); SoyehtCore stays decoupled from them.
-    private static let legacyMirrorProjections: @Sendable () -> [ServerStoreShadowProjection] = {
-        // `PairedMacsStore` is @MainActor; the dual-write always runs on MainActor
-        // (ServerRegistry's mutators are @MainActor), so asserting isolation here is
-        // safe and lets the legacy stores be read without crossing actors.
-        MainActor.assumeIsolated {
-            let secretIDs = PairedMacsStore.shared.macIDsWithSecret()
-            let tokenIDs = SessionStore.shared.serverTokenOwnerIDs()
-            let macProjections = PairedMacsStore.shared.macs.map { mac in
-                ServerStoreShadowProjection.pairedMacsStore(
-                    server: mac.toServer(),
-                    hasCredential: secretIDs.contains(mac.macID.uuidString)
-                )
-            }
-            let serverProjections = SessionStore.shared.pairedServers.map { paired in
-                ServerStoreShadowProjection.sessionStorePairedServer(
-                    paired,
-                    hasCredential: tokenIDs.contains(paired.id)
-                )
-            }
-            return macProjections + serverProjections
-        }
     }
 
     // MARK: - Lookups
@@ -361,15 +286,18 @@ final class ServerRegistry: ObservableObject {
     func updateTheyOSStatus(
         serverID: String,
         status: TheyOSSnapshot.Status,
-        version: String?
+        version: String?,
+        checkedAt: Date = Date()
     ) {
         guard var target = server(id: serverID) else { return }
         target.theyOS = TheyOSSnapshot(
             status: status,
             version: version,
-            lastCheckedAt: Date()
+            lastCheckedAt: checkedAt
         )
-        target.lastSeenAt = Date()
+        if status != .unreachable {
+            target.lastSeenAt = checkedAt
+        }
         _ = writer.upsertCanonical(target)
         publishCanonical()
     }

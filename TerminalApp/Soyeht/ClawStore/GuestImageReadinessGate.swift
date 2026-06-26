@@ -7,7 +7,9 @@ import SoyehtCore
 /// Linux servers do not need a guest image, so they are always allowed.
 /// Mac servers must report `GuestImageReadiness.ready` before iOS exposes
 /// Claw install/deploy actions. The state is intentionally local to Claw
-/// Store UI; PR-5B does not persist readiness into `ServerRegistry`.
+/// Store UI. The network reachability result is mirrored into
+/// `ServerRegistry` so target resolution can consume the cached status
+/// without probing synchronously in SwiftUI.
 enum GuestImageReadinessGateState: Equatable, Sendable {
     case allowed(GuestImageReadiness)
     case blocked(GuestImageReadiness)
@@ -94,10 +96,22 @@ final class GuestImageReadinessClient {
             let status = try await fetchStatus(baseURL)
             let state = GuestImageReadinessGateState.from(status.guestImageReadiness)
             cache[target.serverID] = CacheEntry(state: state, storedAt: now)
+            registry.updateTheyOSStatus(
+                serverID: target.serverID,
+                status: status.state == .uninitialized ? .uninitialized : .running,
+                version: status.engineVersion,
+                checkedAt: now
+            )
             return state
         } catch {
             let state: GuestImageReadinessGateState = .unavailable
             cache[target.serverID] = CacheEntry(state: state, storedAt: now)
+            registry.updateTheyOSStatus(
+                serverID: target.serverID,
+                status: .unreachable,
+                version: nil,
+                checkedAt: now
+            )
             return state
         }
     }
@@ -332,14 +346,15 @@ final class GuestImageReadinessObserver: ObservableObject {
         isPreparing = true
         prepareError = nil
         do {
-            let next = try await preparationClient.prepare(endpoint: endpoint, force: force)
-            client.clearCache(for: target)
-            state = next
-            if next.needsPolling {
-                start(target: target, resolution: resolution, registry: registry)
-            }
+            _ = try await preparationClient.prepare(endpoint: endpoint, force: force)
         } catch {
             prepareError = Self.userFacingPrepareError(error)
+        }
+        client.clearCache(for: target)
+        let next = await client.state(for: target, resolution: resolution, registry: registry)
+        state = next
+        if next.needsPolling {
+            start(target: target, resolution: resolution, registry: registry)
         }
         isPreparing = false
     }
@@ -487,9 +502,8 @@ final class GuestImageReadinessMapObserver: ObservableObject {
 
 /// UI-layer copy for guest-image preparation failures. **Translation only** — it
 /// turns a ``GuestImageFailureCode`` into localized title/body/instruction strings
-/// and a ``GuestImageRecoveryAction`` into a button label. It does **not** decide
-/// the recovery action; that comes exclusively from `code.recoveryAction` in
-/// SoyehtCore (the domain). The View reads the action from the domain and asks this
+/// and a ``GuestImageRecoveryCTA`` into a button label. It does **not** decide the
+/// recovery CTA; that comes from ``GuestImageRecoveryPolicy``. The View asks this
 /// helper only for the words.
 enum GuestImageFailureCopy {
     /// Card title for a failure code. `nil` code (older engine that didn't send one)
@@ -639,18 +653,17 @@ enum GuestImageFailureCopy {
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
-    /// Button label for a recovery action. The **action** is decided by the domain
-    /// (`code.recoveryAction`); this only supplies the words. Returns `nil` for
-    /// `.none` (no button).
-    static func primaryLabel(for action: GuestImageRecoveryAction) -> LocalizedStringResource? {
-        switch action {
-        case .retry, .freeSpaceThenRetry:
+    /// Button label for the shared recovery CTA. The CTA is decided by
+    /// `GuestImageRecoveryPolicy`; this only supplies the words.
+    static func primaryLabel(for cta: GuestImageRecoveryCTA) -> LocalizedStringResource? {
+        switch cta {
+        case .prepare:
             return LocalizedStringResource(
                 "clawStore.guestImage.action.tryAgain",
                 defaultValue: "Try Again",
                 comment: "Primary CTA that re-invokes guest-image preparation."
             )
-        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+        case .checkAgain:
             return LocalizedStringResource(
                 "clawStore.guestImage.action.checkAgain",
                 defaultValue: "Check Again",

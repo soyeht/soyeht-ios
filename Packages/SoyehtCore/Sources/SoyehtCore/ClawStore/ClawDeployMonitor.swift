@@ -11,6 +11,14 @@ import Combine
 public final class ClawDeployMonitor: ObservableObject {
     public static let shared = ClawDeployMonitor()
 
+    public typealias StatusFetcher = (_ id: String, _ target: CreateInstanceTarget) async throws -> InstanceStatusResponse
+    public typealias Sleeper = (_ nanoseconds: UInt64) async -> Void
+    public typealias DeployCompleteNotifier = (_ clawName: String, _ success: Bool) -> Void
+    public typealias DeployStillPreparingNotifier = (_ clawName: String) -> Void
+
+    public static let checkLaterPhase = "check_later"
+    public static let stillPreparingMessage = "Still preparing. Check later."
+
     public struct ActiveDeploy: Identifiable, Sendable {
         public let id: String          // instance ID
         public let clawName: String
@@ -39,11 +47,37 @@ public final class ClawDeployMonitor: ObservableObject {
         NoOpClawDeployActivityManager()
     }
 
-    private let apiClient: SoyehtAPIClient
+    private let pollAttempts: Int
+    private let pollIntervalNanoseconds: UInt64
+    private let sleeper: Sleeper
+    private let fetchStatus: StatusFetcher
+    private let notifyDeployComplete: DeployCompleteNotifier
+    private let notifyDeployStillPreparing: DeployStillPreparingNotifier
     private var tasks: [String: Task<Void, Never>] = [:]
 
-    public init(apiClient: SoyehtAPIClient = .shared) {
-        self.apiClient = apiClient
+    public init(
+        apiClient: SoyehtAPIClient = .shared,
+        pollAttempts: Int = 60,
+        pollIntervalNanoseconds: UInt64 = 3_000_000_000,
+        sleeper: @escaping Sleeper = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        },
+        statusFetcher: StatusFetcher? = nil,
+        notifyDeployComplete: @escaping DeployCompleteNotifier = { clawName, success in
+            ClawNotificationHelper.sendDeployComplete(clawName: clawName, success: success)
+        },
+        notifyDeployStillPreparing: @escaping DeployStillPreparingNotifier = { clawName in
+            ClawNotificationHelper.sendDeployStillPreparing(clawName: clawName)
+        }
+    ) {
+        self.pollAttempts = max(0, pollAttempts)
+        self.pollIntervalNanoseconds = pollIntervalNanoseconds
+        self.sleeper = sleeper
+        self.fetchStatus = statusFetcher ?? { id, target in
+            try await apiClient.getInstanceStatus(id: id, target: target)
+        }
+        self.notifyDeployComplete = notifyDeployComplete
+        self.notifyDeployStillPreparing = notifyDeployStillPreparing
     }
 
     /// Start monitoring a newly created instance. Call once after
@@ -103,14 +137,19 @@ public final class ClawDeployMonitor: ObservableObject {
             diskGB: diskGB
         )
 
-        let apiClient = self.apiClient
+        let pollAttempts = self.pollAttempts
+        let pollIntervalNanoseconds = self.pollIntervalNanoseconds
+        let sleeper = self.sleeper
+        let fetchStatus = self.fetchStatus
+        let notifyDeployComplete = self.notifyDeployComplete
+        let notifyDeployStillPreparing = self.notifyDeployStillPreparing
         tasks[instanceId] = Task { @MainActor [weak self] in
-            for _ in 0..<60 { // ~3 minutes of polling (60 × 3s)
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            for _ in 0..<pollAttempts {
+                await sleeper(pollIntervalNanoseconds)
                 guard !Task.isCancelled, let self else { return }
 
                 do {
-                    let status = try await apiClient.getInstanceStatus(id: instanceId, target: target)
+                    let status = try await fetchStatus(instanceId, target)
                     self.updateDeploy(
                         id: instanceId,
                         status: status.status.rawValue,
@@ -125,8 +164,8 @@ public final class ClawDeployMonitor: ObservableObject {
 
                     if status.status != .provisioning {
                         let success = status.status == .active
-                        activityManager.endActivity(status: status.status.rawValue, message: status.provisioningMessage)
-                        ClawNotificationHelper.sendDeployComplete(clawName: clawName, success: success)
+                        activityManager.endActivity(status: status.status.rawValue, message: status.provisioningMessage, phase: nil)
+                        notifyDeployComplete(clawName, success)
                         self.removeDeploy(id: instanceId)
                         return
                     }
@@ -137,8 +176,12 @@ public final class ClawDeployMonitor: ObservableObject {
 
             // Timeout
             guard let self else { return }
-            activityManager.endActivity(status: "failed", message: "Provisioning timed out")
-            ClawNotificationHelper.sendDeployComplete(clawName: clawName, success: false)
+            activityManager.endActivity(
+                status: InstanceStatus.provisioning.rawValue,
+                message: Self.stillPreparingMessage,
+                phase: Self.checkLaterPhase
+            )
+            notifyDeployStillPreparing(clawName)
             self.removeDeploy(id: instanceId)
         }
     }

@@ -2,7 +2,7 @@ import SwiftUI
 import SoyehtCore
 
 /// Renders the "this Mac can't be reached for Claws" copy when the
-/// `ClawInstallTargetResolver` returns `.unavailable(.missingContext)`.
+/// `ClawInstallTargetResolver` returns `.unavailable`.
 /// This is now a network/endpoint failure, not a normal state for Macs
 /// paired through the household flow.
 struct MacClawUnavailableView: View {
