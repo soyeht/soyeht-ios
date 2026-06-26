@@ -111,11 +111,28 @@ public enum OwnerPasskeyRegistrationError: Error, Sendable, Equatable {
 @MainActor
 public final class PasskeyProvider: NSObject {
     private let anchorProvider: PasskeyPresentationAnchorProviding
+    /// Starts the platform request. Defaults to `performRequests()`; injectable so
+    /// unit tests can hold the ceremony in flight (no UI / no real anchor) and
+    /// exercise Task cancellation. Production callers use the default.
+    private let performStart: @MainActor (ASAuthorizationController) -> Void
     private var activeContinuation: CheckedContinuation<OwnerPasskeyAttestation, Error>?
     private var activeController: ASAuthorizationController?
 
-    public init(anchorProvider: PasskeyPresentationAnchorProviding) {
+    /// Production initializer. Public surface is unchanged from the inert provider
+    /// — no test knobs are exposed.
+    public convenience init(anchorProvider: PasskeyPresentationAnchorProviding) {
+        self.init(anchorProvider: anchorProvider, performStart: { $0.performRequests() })
+    }
+
+    /// Designated initializer. `performStart` is the injection seam used by tests
+    /// (via `@testable import`) to hold the ceremony in flight without UI; it is
+    /// intentionally `internal`, not part of the public API.
+    init(
+        anchorProvider: PasskeyPresentationAnchorProviding,
+        performStart: @escaping @MainActor (ASAuthorizationController) -> Void
+    ) {
         self.anchorProvider = anchorProvider
+        self.performStart = performStart
         super.init()
     }
 
@@ -136,16 +153,30 @@ public final class PasskeyProvider: NSObject {
         controller.delegate = self
         controller.presentationContextProvider = self
         activeController = controller
-        // TODO(S3c): before wiring this to the UI / enrollment adapter, wrap the
-        // ceremony in `withTaskCancellationHandler` so a cancelled Task calls
-        // `activeController?.cancel()` and resolves the continuation via
-        // `finish(.failure(.canceled))`. Without it, a cancelled in-flight
-        // ceremony leaves `activeContinuation` set and the next `register(_:)`
-        // throws `.alreadyInProgress`. Land that with `cancel -> .canceled` and
-        // `re-register succeeds` tests. Inert here (no UI caller yet).
-        return try await withCheckedThrowingContinuation { continuation in
-            activeContinuation = continuation
-            controller.performRequests()
+        // If the surrounding Task is cancelled while the ceremony is in flight,
+        // cancel the platform controller and resolve the awaiting continuation
+        // with `.canceled`, clearing state so the next `register(_:)` is allowed
+        // (otherwise `activeContinuation` would stay set and the next call would
+        // throw `.alreadyInProgress`). `onCancel` runs on an arbitrary executor,
+        // so hop to the main actor before touching ceremony state.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                activeContinuation = continuation
+                // Close the cancel-before-start race: if the Task was already
+                // cancelled (or cancelled while the continuation was being
+                // installed), `onCancel` may have run as a no-op. Resolve here and
+                // never start the ceremony (no system sheet for an already-dead
+                // request).
+                if Task.isCancelled {
+                    cancelActiveCeremony()
+                    return
+                }
+                performStart(controller)
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelActiveCeremony()
+            }
         }
     }
 
@@ -180,6 +211,17 @@ public final class PasskeyProvider: NSObject {
         case .failed: return .failed(asError.localizedDescription)
         default: return .unknown(asError.localizedDescription)
         }
+    }
+
+    /// Cancels an in-flight ceremony: cancels the platform controller and
+    /// resolves the awaiting `register(_:)` with
+    /// ``OwnerPasskeyRegistrationError/canceled``, clearing state so a
+    /// subsequent `register(_:)` is allowed. No-op when nothing is in flight
+    /// (`finish` is resume-once).
+    private func cancelActiveCeremony() {
+        guard activeContinuation != nil else { return }
+        activeController?.cancel()
+        finish(.failure(OwnerPasskeyRegistrationError.canceled))
     }
 
     private func finish(_ result: Result<OwnerPasskeyAttestation, Error>) {
