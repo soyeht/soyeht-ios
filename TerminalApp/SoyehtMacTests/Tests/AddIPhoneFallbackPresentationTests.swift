@@ -1,6 +1,29 @@
 import XCTest
 
 final class AddIPhoneFallbackPresentationTests: XCTestCase {
+    func test_macQRCodeRenderingUsesSingleFactory() throws {
+        let callSites = [
+            "QRHandoff/QRHandoffPopoverController.swift",
+            "PreferencesDevicesViewController.swift",
+            "Welcome/Join/JoinExistingSoyehtView.swift",
+            "Welcome/Bootstrap/HouseCardView.swift",
+        ]
+
+        let factory = try macSource("QR/MacQRCodeImageFactory.swift")
+        XCTAssertTrue(factory.contains("enum MacQRCodeImageFactory"))
+        XCTAssertTrue(factory.contains("CIFilter.qrCodeGenerator()"))
+        XCTAssertTrue(factory.contains("filter.correctionLevel = \"M\""))
+
+        var factoryCalls = 0
+        for path in callSites {
+            let source = try macSource(path)
+            XCTAssertFalse(source.contains("CIFilter.qrCodeGenerator()"), path)
+            XCTAssertFalse(source.contains("private static func makeQRImage"), path)
+            factoryCalls += source.occurrences(of: "MacQRCodeImageFactory.makeImage(from:")
+        }
+        XCTAssertEqual(factoryCalls, 5)
+    }
+
     func test_preferencesAddIPhoneKeepsQRCodeAndLinkBehindFallbackButton() throws {
         let source = try macSource("PreferencesDevicesViewController.swift")
         let presentPairing = try slice(
@@ -209,5 +232,11 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         let tail = source[start.lowerBound...]
         let end = try XCTUnwrap(tail.range(of: endMarker))
         return String(tail[..<end.lowerBound])
+    }
+}
+
+private extension String {
+    func occurrences(of needle: String) -> Int {
+        components(separatedBy: needle).count - 1
     }
 }

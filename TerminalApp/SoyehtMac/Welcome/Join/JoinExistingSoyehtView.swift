@@ -1,6 +1,4 @@
 import AppKit
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import SwiftUI
 import SoyehtCore
 
@@ -10,8 +8,6 @@ struct JoinExistingSoyehtView: View {
 
     private let stageClient: DaemonPairMachineStageClient
     private let statusClient: BootstrapStatusClient
-    private static let qrContext = CIContext()
-
     @State private var stage: PairMachineStageResult?
     @State private var now = Date()
     @State private var isPreparing = false
@@ -33,7 +29,7 @@ struct JoinExistingSoyehtView: View {
         self.onBack = onBack
         self.stageClient = stageClient
         self.statusClient = statusClient
-    }
+}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -125,7 +121,7 @@ struct JoinExistingSoyehtView: View {
 
     private func qrState(_ stage: PairMachineStageResult) -> some View {
         VStack(spacing: 16) {
-            if let image = Self.makeQRImage(from: stage.pairMachineURI.absoluteString) {
+            if let image = MacQRCodeImageFactory.makeImage(from: stage.pairMachineURI.absoluteString) {
                 Image(nsImage: image)
                     .interpolation(.none)
                     .resizable()
@@ -418,20 +414,4 @@ struct JoinExistingSoyehtView: View {
         return "\(minutes):\(String(format: "%02d", secs))"
     }
 
-    private static func makeQRImage(from deepLink: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(deepLink.utf8)
-        filter.correctionLevel = "M"
-
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
-              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-
-        return NSImage(
-            cgImage: cgImage,
-            size: NSSize(width: output.extent.width, height: output.extent.height)
-        )
     }
-}

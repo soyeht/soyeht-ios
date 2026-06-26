@@ -1,13 +1,11 @@
 import Cocoa
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import SwiftUI
 import SoyehtCore
 
 final class PreferencesTabViewController: NSTabViewController {
     private enum TabIndex {
         static let devices = 1
-    }
+}
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -587,8 +585,6 @@ private struct MacIPhonePairingPreferencesView: View {
 
 @MainActor
 private final class MacIPhonePairingViewController: NSViewController {
-    private static let qrContext = CIContext()
-
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
     private let securityCodeBox = NSView()
     private let securityCodeField = NSTextField(labelWithString: "")
@@ -824,7 +820,7 @@ private final class MacIPhonePairingViewController: NSViewController {
         }
         configureSecurityCode(for: payload)
         pairLinkField.stringValue = payload.pairingURI
-        qrImageView.image = Self.makeQRImage(from: payload.pairingURI)
+        qrImageView.image = MacQRCodeImageFactory.makeImage(from: payload.pairingURI)
         hideFallbackPairing()
         fallbackButton.isHidden = false
         waitingLabel.stringValue = String(
@@ -1036,18 +1032,7 @@ private final class MacIPhonePairingViewController: NSViewController {
         }
     }
 
-    private static func makeQRImage(from deepLink: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(deepLink.utf8)
-        filter.correctionLevel = "M"
-        guard let output = filter.outputImage?
-            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
-              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-        return NSImage(cgImage: cgImage, size: NSSize(width: output.extent.width, height: output.extent.height))
     }
-}
 
 private struct HouseholdIdentitySummary {
     let householdId: String

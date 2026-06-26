@@ -72,6 +72,7 @@
 		AA510005000000000000001 /* DynamicMenuSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510005000000000000002 /* DynamicMenuSections.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
 		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
+		AA610001000000000000001 /* MacQRCodeImageFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA610001000000000000002 /* MacQRCodeImageFactory.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
 		AA700006000000000000001 /* SidebarTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700006000000000000002 /* SidebarTokens.swift */; };
 		AA700007000000000000001 /* ConversationRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700007000000000000002 /* ConversationRowView.swift */; };
@@ -232,6 +233,7 @@
 		AA510005000000000000002 /* DynamicMenuSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicMenuSections.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
 		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
+		AA610001000000000000002 /* MacQRCodeImageFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacQRCodeImageFactory.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
 		AA700006000000000000002 /* SidebarTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarTokens.swift; sourceTree = "<group>"; };
 		AA700007000000000000002 /* ConversationRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRowView.swift; sourceTree = "<group>"; };
@@ -431,6 +433,7 @@
 				AA51000A000000000000001 /* MainMenu */,
 				AA40000A000000000000001 /* NewConversation */,
 				AA50000A000000000000001 /* App */,
+				AA61000A000000000000001 /* QR */,
 				AA60000A000000000000001 /* QRHandoff */,
 				AA90000A000000000000001 /* Pairing */,
 				AA70000A000000000000001 /* Sidebar */,
@@ -607,6 +610,14 @@
 				AA600002000000000000002 /* LocalTerminalHandoffManager.swift */,
 			);
 			path = QRHandoff;
+			sourceTree = "<group>";
+		};
+		AA61000A000000000000001 /* QR */ = {
+			isa = PBXGroup;
+			children = (
+				AA610001000000000000002 /* MacQRCodeImageFactory.swift */,
+			);
+			path = QR;
 			sourceTree = "<group>";
 		};
 		AA70000A000000000000001 /* Sidebar */ = {
@@ -985,6 +996,7 @@
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
 				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,
+				AA610001000000000000001 /* MacQRCodeImageFactory.swift in Sources */,
 				AA900001000000000000001 /* PairingStore.swift in Sources */,
 				AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */,
 				AA900003000000000000001 /* PairedDevicesWindowController.swift in Sources */,
