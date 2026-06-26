@@ -367,6 +367,19 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(stopBody.contains("onMacFoundHandler = nil"))
     }
 
+    func test_awaitingNewMacStopResetsAlreadyOrchestratingLifecycleLatch() throws {
+        let source = try iosSource("Home/AwaitingNewMacView.swift")
+        let stopBody = try slice(
+            source,
+            from: "func stop()",
+            to: "func retry()"
+        )
+
+        XCTAssertTrue(stopBody.contains("alreadyOrchestrating = false"))
+        XCTAssertTrue(stopBody.contains("orchestrationTask?.cancel()"))
+        XCTAssertTrue(stopBody.contains("publisher.onMacClaimed = nil"))
+    }
+
     func test_addMacFiltersSetupClaimsByInstallProfileBeforeIgnoringExistingHouse() throws {
         let source = try iosSource("Home/AwaitingNewMacView.swift")
         let claimHandler = try slice(
