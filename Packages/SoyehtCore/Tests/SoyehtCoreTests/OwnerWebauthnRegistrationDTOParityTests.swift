@@ -5,8 +5,21 @@ import Testing
 
 @Suite struct OwnerWebauthnRegistrationDTOParityTests {
     struct Vectors: Decodable {
+        let startRequests: [RequestVector]
         let startResponses: [StartVector]
         let finishRequests: [FinishVector]
+        let finishResponses: [FinishResponseVector]
+        let registrationRejects: [RejectVector]
+    }
+
+    struct RequestVector: Decodable {
+        let id: String
+        let input: VersionInput
+        let canonicalCborHex: String
+    }
+
+    struct VersionInput: Decodable {
+        let v: UInt8
     }
 
     struct StartVector: Decodable {
@@ -19,6 +32,26 @@ import Testing
         let id: String
         let input: FinishInput
         let canonicalCborHex: String
+    }
+
+    struct FinishResponseVector: Decodable {
+        let id: String
+        let credentialIdHex: String
+        let activeCredentialCount: UInt64
+        let canonicalCborHex: String
+    }
+
+    struct RejectVector: Decodable {
+        let id: String
+        let status: Int
+        let contentType: String
+        let input: RejectInput
+        let canonicalCborHex: String
+    }
+
+    struct RejectInput: Decodable {
+        let v: UInt8
+        let error: String
     }
 
     struct StartInput: Decodable {
@@ -136,6 +169,15 @@ import Testing
         }
     }
 
+    @Test func startRequestDTOsEncodeCanonicalRustVectors() throws {
+        let vectors = try Self.loadVectors()
+        #expect(vectors.startRequests.count == 1)
+
+        let vector = try #require(vectors.startRequests.first)
+        let encoded = OwnerWebauthnRegistrationStartRequest(version: vector.input.v).canonicalBytes()
+        #expect(encoded.soyehtHexEncodedString() == vector.canonicalCborHex)
+    }
+
     @Test func finishRequestDTOsEncodeCanonicalRustVectors() throws {
         let vectors = try Self.loadVectors()
         #expect(vectors.finishRequests.count == 3)
@@ -161,6 +203,50 @@ import Testing
                 #expect(response["transports"] == .array([.text("internal"), .text("hybrid")]))
             }
         }
+    }
+
+    @Test func finishResponseDTOsDecodeRustVectors() throws {
+        let vectors = try Self.loadVectors()
+        #expect(vectors.finishResponses.count == 1)
+
+        let vector = try #require(vectors.finishResponses.first)
+        let cbor = try #require(Data(soyehtHex: vector.canonicalCborHex))
+        let decoded = try HouseholdCBOR.decode(cbor)
+        #expect(HouseholdCBOR.encode(decoded) == cbor)
+        let response = try OwnerWebauthnRegistrationFinishResponse(cbor: decoded)
+        let expectedCredentialID = try #require(Data(soyehtHex: vector.credentialIdHex))
+
+        #expect(response.version == 1)
+        #expect(response.credentialID == expectedCredentialID)
+        #expect(response.activeCredentialCount == vector.activeCredentialCount)
+    }
+
+    @Test func finishResponseRejectsTextCredentialID() throws {
+        let malformed = HouseholdCBORValue.map([
+            "v": .unsigned(1),
+            "credential_id": .text("AAECgP9_"),
+            "active_credential_count": .unsigned(1),
+        ])
+
+        #expect(throws: OwnerWebauthnRegistrationDTOError.malformedCBOR(
+            "finishResponse.credential_id: expected byte string"
+        )) {
+            _ = try OwnerWebauthnRegistrationFinishResponse(cbor: malformed)
+        }
+    }
+
+    @Test func registrationRejectVectorsDecodeAsOpaqueBootstrapError() throws {
+        let vectors = try Self.loadVectors()
+        #expect(vectors.registrationRejects.count == 1)
+
+        let vector = try #require(vectors.registrationRejects.first)
+        #expect(vector.status == 401)
+        #expect(vector.contentType == BootstrapWire.contentType)
+        #expect(vector.input.v == 1)
+        #expect(vector.input.error == "unauthenticated")
+
+        let body = try #require(Data(soyehtHex: vector.canonicalCborHex))
+        #expect(BootstrapWire.decodeError(body) == .serverError(code: "unauthenticated", message: nil))
     }
 
     private static func finishRequest(from input: FinishInput) throws -> OwnerWebauthnRegistrationFinishRequest {
