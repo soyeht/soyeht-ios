@@ -156,6 +156,77 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(endpoint.port, SoyehtInstallProfile.current.bootstrapPort)
     }
 
+    func testResolve_macNoContextFreshUnreachable_returnsUnavailable() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let macID = seedMacExactHost(host: "100.64.0.15", name: "fresh-unreachable-mac")
+        registry.updateTheyOSStatus(
+            serverID: macID.uuidString,
+            status: .unreachable,
+            version: nil,
+            checkedAt: now.addingTimeInterval(-10)
+        )
+
+        let resolution = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: macID.uuidString),
+            registry: registry,
+            now: now
+        )
+
+        guard case .unavailable(let reason) = resolution else {
+            return XCTFail("Fresh unreachable cache must block household endpoint routing, got \(resolution)")
+        }
+        XCTAssertEqual(reason, .macUnreachable)
+    }
+
+    func testResolve_macNoContextStaleUnreachable_returnsHouseholdEndpoint() {
+        let now = Date(timeIntervalSince1970: 20_000)
+        let macID = seedMacExactHost(host: "100.64.0.16", name: "stale-unreachable-mac")
+        registry.updateTheyOSStatus(
+            serverID: macID.uuidString,
+            status: .unreachable,
+            version: nil,
+            checkedAt: now.addingTimeInterval(-(ClawInstallTargetResolver.macUnreachableFreshness + 1))
+        )
+
+        let resolution = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: macID.uuidString),
+            registry: registry,
+            now: now
+        )
+
+        guard case .householdEndpoint(let id, let endpoint) = resolution else {
+            return XCTFail("Stale unreachable cache must allow readiness refetch, got \(resolution)")
+        }
+        XCTAssertEqual(id, macID.uuidString)
+        XCTAssertEqual(endpoint.port, SoyehtInstallProfile.current.bootstrapPort)
+    }
+
+    func testResolve_macNoContextRunningUninitializedAndUnknownRemainRouteable() {
+        let now = Date(timeIntervalSince1970: 30_000)
+        let statuses: [TheyOSSnapshot.Status] = [.running, .uninitialized, .unknown]
+
+        for status in statuses {
+            let macID = seedMacExactHost(host: "100.64.0.\(20 + statuses.firstIndex(of: status)!)", name: "routeable-\(status.rawValue)-mac")
+            registry.updateTheyOSStatus(
+                serverID: macID.uuidString,
+                status: status,
+                version: nil,
+                checkedAt: now
+            )
+
+            let resolution = ClawInstallTargetResolver.resolve(
+                ClawInstallTarget(serverID: macID.uuidString),
+                registry: registry,
+                now: now
+            )
+
+            guard case .householdEndpoint(let id, _) = resolution else {
+                return XCTFail("\(status.rawValue) cache must remain routeable, got \(resolution)")
+            }
+            XCTAssertEqual(id, macID.uuidString)
+        }
+    }
+
     func testResolve_macTailnetLastHostWithDNSPort_returnsHouseholdEndpointHostAndPort() {
         let host = "100.64.0.10"
         let macID = seedMacExactHost(host: "\(host):9173", name: "dns-port-mac")
@@ -585,6 +656,102 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
+    func testGuestImageReadinessClient_successMirrorsTheyOSStatus() async throws {
+        let runningID = seedMacExactHost(host: "100.64.0.31", name: "readiness-running-mac")
+        let uninitializedID = seedMacExactHost(host: "100.64.0.32", name: "readiness-uninitialized-mac")
+        let now = Date(timeIntervalSince1970: 40_000)
+        let runningResponse = status(platform: "macos", guestStatus: "done")
+        let uninitializedResponse = status(state: .uninitialized, platform: "macos")
+        let runningClient = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in runningResponse })
+        let uninitializedClient = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in uninitializedResponse })
+
+        _ = await runningClient.state(
+            for: ClawInstallTarget(serverID: runningID.uuidString),
+            resolution: .householdEndpoint(
+                serverID: runningID.uuidString,
+                endpoint: URL(string: "http://100.64.0.31:8091")!
+            ),
+            registry: registry,
+            now: now
+        )
+        _ = await uninitializedClient.state(
+            for: ClawInstallTarget(serverID: uninitializedID.uuidString),
+            resolution: .householdEndpoint(
+                serverID: uninitializedID.uuidString,
+                endpoint: URL(string: "http://100.64.0.32:8091")!
+            ),
+            registry: registry,
+            now: now
+        )
+
+        XCTAssertEqual(registry.server(id: runningID.uuidString)?.theyOS.status, .running)
+        XCTAssertEqual(registry.server(id: runningID.uuidString)?.theyOS.lastCheckedAt, now)
+        XCTAssertEqual(registry.server(id: uninitializedID.uuidString)?.theyOS.status, .uninitialized)
+        XCTAssertEqual(registry.server(id: uninitializedID.uuidString)?.theyOS.lastCheckedAt, now)
+    }
+
+    func testGuestImageReadinessClient_fetchErrorMirrorsUnreachable() async {
+        struct FetchFailure: Error {}
+
+        let macID = seedMacExactHost(host: "100.64.0.33", name: "readiness-error-mac")
+        let now = Date(timeIntervalSince1970: 50_000)
+        let previousSeenAt = now.addingTimeInterval(-300)
+        registry.updateTheyOSStatus(
+            serverID: macID.uuidString,
+            status: .running,
+            version: "0.1.19",
+            checkedAt: previousSeenAt
+        )
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in throw FetchFailure() })
+
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: macID.uuidString),
+            resolution: .householdEndpoint(
+                serverID: macID.uuidString,
+                endpoint: URL(string: "http://100.64.0.33:8091")!
+            ),
+            registry: registry,
+            now: now
+        )
+
+        XCTAssertEqual(state, .unavailable)
+        XCTAssertEqual(registry.server(id: macID.uuidString)?.theyOS.status, .unreachable)
+        XCTAssertEqual(registry.server(id: macID.uuidString)?.theyOS.lastCheckedAt, now)
+        XCTAssertEqual(registry.server(id: macID.uuidString)?.lastSeenAt, previousSeenAt)
+    }
+
+    func testGuestImageReadinessClient_noBaseURLDoesNotMirrorUnreachable() async {
+        let macID = seedMacExactHost(host: "", name: "readiness-no-base-url-mac")
+        let now = Date(timeIntervalSince1970: 60_000)
+        let unexpectedFetchResponse = status(platform: "macos", guestStatus: "done")
+        registry.updateTheyOSStatus(
+            serverID: macID.uuidString,
+            status: .running,
+            version: "0.1.19",
+            checkedAt: now.addingTimeInterval(-10)
+        )
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in unexpectedFetchResponse })
+
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: macID.uuidString),
+            resolution: serverResolution(
+                id: macID.uuidString,
+                host: "",
+                platform: "macos",
+                kind: .engine
+            ),
+            registry: registry,
+            now: now
+        )
+
+        XCTAssertEqual(state, .unavailable)
+        XCTAssertEqual(registry.server(id: macID.uuidString)?.theyOS.status, .running)
+        XCTAssertEqual(
+            registry.server(id: macID.uuidString)?.theyOS.lastCheckedAt,
+            now.addingTimeInterval(-10)
+        )
+    }
+
     func testGuestImagePrepareResponse_mapsStartingToBlockedInProgress() {
         let response = GuestImagePrepareResponse(
             v: 1,
@@ -614,7 +781,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
-    func testGuestImageReadinessObserver_prepareUsesSelectedEndpointAndForce() async {
+    func testGuestImageReadinessObserver_prepareRefetchesStatusBeforePublishing() async {
         let target = ClawInstallTarget(serverID: "prepare-\(UUID().uuidString)")
         let resolution = serverResolution(
             id: target.serverID,
@@ -634,24 +801,65 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 guestImageFailureCode: nil
             )
         })
+        let authoritativeStatus = status(platform: "macos", guestPhase: "provision", guestStatus: "in_progress")
         let observer = GuestImageReadinessObserver(
             initialState: .blocked(.failed(error: "previous run failed", code: nil)),
-            client: GuestImageReadinessClient(fetchStatus: { _ in
-                XCTFail("Prepare response was done; observer should not start readiness polling.")
-                throw FetchRecorderError.missingFixture("unexpected")
-            }),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
             preparationClient: preparationClient,
             intervalNanoseconds: 1_000_000
         )
 
         await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
 
-        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(
+            observer.state,
+            .blocked(.inProgress(phase: "provision")),
+            "The observer must publish the authoritative /bootstrap/status result, not the POST prepare response."
+        )
         XCTAssertEqual(calls.count, 1)
         XCTAssertEqual(calls.first?.0.scheme, "http")
         XCTAssertEqual(calls.first?.0.host, "prepare-mac.local")
         XCTAssertEqual(calls.first?.0.port, SoyehtInstallProfile.current.bootstrapPort)
         XCTAssertEqual(calls.first?.1, true)
+    }
+
+    func testGuestImageReadinessObserver_prepareErrorStillRefetchesStatus() async {
+        struct PrepareBoom: Error {}
+        let target = ClawInstallTarget(serverID: "prepare-error-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-error-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var prepareCalls = 0
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { _, _ in
+            prepareCalls += 1
+            throw PrepareBoom()
+        })
+        let authoritativeStatus = status(
+            platform: "macos",
+            guestPhase: "install_macos",
+            guestStatus: "failed",
+            guestError: "not enough disk",
+            failureCode: .insufficientDisk
+        )
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.notStarted),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
+
+        XCTAssertEqual(prepareCalls, 1)
+        XCTAssertNotNil(observer.prepareError)
+        XCTAssertEqual(
+            observer.state,
+            .blocked(.failed(error: "not enough disk", code: .insufficientDisk)),
+            "A failed POST still refetches /bootstrap/status and keeps install gated by the authoritative state."
+        )
     }
 
     func testRefreshStatus_reChecksWithoutIssuingPrepare() async {
@@ -712,12 +920,10 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 guestImageFailureCode: nil
             )
         })
+        let authoritativeStatus = status(platform: "macos", guestPhase: "complete", guestStatus: "done")
         let observer = GuestImageReadinessObserver(
             initialState: .blocked(.notStarted),
-            client: GuestImageReadinessClient(fetchStatus: { _ in
-                XCTFail("Prepare response was done; observer should not start readiness polling.")
-                throw FetchRecorderError.missingFixture("unexpected")
-            }),
+            client: GuestImageReadinessClient(fetchStatus: { _ in authoritativeStatus }),
             preparationClient: preparationClient,
             intervalNanoseconds: 1_000_000
         )
@@ -829,14 +1035,16 @@ final class ClawInstallTargetResolverTests: XCTestCase {
     }
 
     private func status(
+        state: BootstrapState = .ready,
         platform: String,
         guestPhase: String? = nil,
         guestStatus: String? = nil,
-        guestError: String? = nil
+        guestError: String? = nil,
+        failureCode: GuestImageFailureCode? = nil
     ) -> BootstrapStatusResponse {
         BootstrapStatusResponse(
             version: 1,
-            state: .ready,
+            state: state,
             engineVersion: "0.1.19",
             platform: platform,
             hostLabel: "test",
@@ -846,7 +1054,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
             hhPub: nil,
             guestImagePhase: guestPhase,
             guestImageStatus: guestStatus,
-            guestImageError: guestError
+            guestImageError: guestError,
+            guestImageFailureCode: failureCode
         )
     }
 }
