@@ -273,7 +273,6 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(showStore.contains("self?.showConnectedServers(nil)"))
         XCTAssertTrue(showStore.contains("private func connectThisMacFromClawStore()"))
         XCTAssertTrue(showStore.contains("SessionStore.shared.credentialedCanonicalServers().first(where: isLocalEngineServer)"))
-        XCTAssertTrue(showStore.contains("closeStandaloneClawStoreWindow()"))
         XCTAssertTrue(showStore.contains("SessionStore.shared.setActiveServer(id: localServer.id)"))
         XCTAssertTrue(showStore.contains("DispatchQueue.main.async { [weak self] in"))
         XCTAssertTrue(showStore.contains("self?.showStandaloneClawStore(context: context)"))
@@ -290,9 +289,19 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(showStore.contains("URLComponents(string: \"soyeht://\\(trimmed)\")?.host?.lowercased()"))
 
         let windowController = try macSource("ClawStore/ClawStoreWindowController.swift")
-        XCTAssertTrue(windowController.contains("window.title = \"\\(storeTitle) - \\(context.server.displayName)\""))
+        XCTAssertTrue(windowController.contains("func rebind(to newContext: ServerContext)"))
+        XCTAssertTrue(windowController.contains("MacActiveServerContextResolver.activeContext()"))
+        XCTAssertTrue(windowController.contains("self.rebind(to: context)"))
+        XCTAssertTrue(windowController.contains("window.title = Self.windowTitle(for: context)"))
         XCTAssertTrue(windowController.contains("onConnectThisMac: @escaping () -> Void = {}"))
         XCTAssertTrue(windowController.contains("onShowConnectedServers: @escaping () -> Void = {}"))
+
+        let connectThisMac = try slice(
+            showStore,
+            from: "private func connectThisMacFromClawStore()",
+            to: "private func closeStandaloneClawStoreWindow()"
+        )
+        XCTAssertFalse(connectThisMac.contains("closeStandaloneClawStoreWindow()"))
 
         let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
         XCTAssertTrue(rootView.contains("ToolbarItem(placement: .principal)"))
@@ -315,6 +324,36 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(macOSPatch.contains("ClawInstallTarget"))
         XCTAssertFalse(macOSPatch.contains("householdEndpoint"))
         XCTAssertFalse(macOSPatch.contains("X-Soyeht-Household"))
+    }
+
+    func testMacClawStoreRejectsHouseholdRoutesAtRootBoundary() throws {
+        let rootView = try macSource("ClawStore/MacClawStoreRootView.swift")
+        let destination = try slice(
+            rootView,
+            from: ".navigationDestination(for: ClawRoute.self)",
+            to: ".task {"
+        )
+        let householdBranch = try slice(
+            destination,
+            from: "case .householdStore, .householdDetail:",
+            to: "case .detail"
+        )
+        XCTAssertTrue(householdBranch.contains("unsupportedHouseholdRouteView"))
+        XCTAssertFalse(householdBranch.contains("content"))
+        XCTAssertFalse(householdBranch.contains("MacClawDetailView"))
+
+        let detailBranch = try slice(
+            destination,
+            from: "case .detail(let claw, _):",
+            to: "case .setup"
+        )
+        XCTAssertTrue(detailBranch.contains("MacClawDetailView("))
+        XCTAssertTrue(detailBranch.contains("context: context"))
+        XCTAssertTrue(detailBranch.contains("target: target"))
+        XCTAssertTrue(rootView.contains("path.append(ClawRoute.detail(claw, serverId: context.serverId))"))
+        XCTAssertTrue(rootView.contains("ClawMachineTarget.server(context)"))
+        XCTAssertFalse(rootView.contains("ClawInstallTarget"))
+        XCTAssertFalse(rootView.contains("householdEndpoint"))
     }
 
     func testPaneAndWorkspaceShortcutsRouteThroughUICommandTarget() throws {

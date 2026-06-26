@@ -56,20 +56,13 @@ private struct ResolvedClawDetailView: View {
     ) {
         self.installTarget = installTarget
         self.resolution = resolution
-        guard let target = resolution.apiTarget else {
-            preconditionFailure("ResolvedClawDetailView requires a Claw API target")
-        }
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, target: target))
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, machineTarget: resolution))
         _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
             initialState: GuestImageReadinessClient.initialState(
                 for: installTarget,
                 resolution: resolution
             )
         ))
-    }
-
-    private var info: ClawMockData.ClawStoreInfo {
-        viewModel.storeInfo
     }
 
     var body: some View {
@@ -106,7 +99,7 @@ private struct ResolvedClawDetailView: View {
                                 .background(SoyehtTheme.historyGreenBg)
                         }
 
-                        // Meta: language (API) + rating (mock) + installs (mock)
+                        // Meta: language (API)
                         HStack(spacing: 12) {
                             Text(viewModel.claw.language.capitalized)
                                 .font(Typography.monoMicroBold)
@@ -114,20 +107,6 @@ private struct ResolvedClawDetailView: View {
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(SoyehtTheme.historyGreenBg)
-
-                            if info.rating > 0 {
-                                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                                    .font(Typography.monoTag)
-                                    .foregroundColor(SoyehtTheme.textPrimary)
-
-                                Text(LocalizedStringResource(
-                                    "claw.featured.installsCount",
-                                    defaultValue: "\(info.installCount) installs",
-                                    comment: "Meta row — total install count."
-                                ))
-                                    .font(Typography.monoTag)
-                                    .foregroundColor(SoyehtTheme.textComment)
-                            }
                         }
 
                         // Description (from API)
@@ -237,6 +216,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
+                                .disabled(!actionPolicy.isEnabled(.deploy))
                             }
 
                             if actions.showsUninstall {
@@ -250,7 +230,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.uninstall))
                             }
 
                             if actions.showsInstallingProgress {
@@ -287,7 +267,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.retryInstall))
                             }
 
                             if actions.showsInstall {
@@ -301,7 +281,7 @@ private struct ResolvedClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
+                                .disabled(!actionPolicy.isEnabled(.install))
                             }
 
                             if actions.showsUnknownState {
@@ -344,17 +324,6 @@ private struct ResolvedClawDetailView: View {
                             lineWidth: 1
                         )
                     )
-
-                    // Reviews Section
-                    if !viewModel.reviews.isEmpty {
-                        Text("clawDetail.section.reviews")
-                            .font(Typography.monoSectionLabel)
-                            .foregroundColor(SoyehtTheme.textComment)
-
-                        ForEach(Array(viewModel.reviews.enumerated()), id: \.offset) { _, review in
-                            ReviewCard(review: review)
-                        }
-                    }
 
                     // Details Section
                     Text("clawDetail.section.details")
@@ -556,19 +525,19 @@ private struct ResolvedClawDetailView: View {
                     tone: .neutral
                 )
             case .failed(let error, let code):
-                // Reason-coded recovery: copy from GuestImageFailureCopy, action
-                // strictly from the domain (`code.recoveryAction`). The raw engine
-                // `error` is passed as `detail` → shown only behind "Details".
-                let action = (code ?? .unknown).recoveryAction
-                readinessCard(
-                    title: GuestImageFailureCopy.title(for: code),
-                    body: GuestImageFailureCopy.body(for: code),
-                    footnote: GuestImageFailureCopy.secondaryInstruction(for: code),
-                    detail: error,
-                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
-                    action: guestImageRecoveryHandler(for: action),
-                    tone: .error
-                )
+                // Reason-coded recovery: copy from GuestImageFailureCopy; CTA/action
+                // from the shared policy. Raw `error` stays behind Details.
+                if let presentation = GuestImageRecoveryPolicy.presentation(for: readiness) {
+                    readinessCard(
+                        title: GuestImageFailureCopy.title(for: code),
+                        body: GuestImageFailureCopy.body(for: code),
+                        footnote: GuestImageFailureCopy.secondaryInstruction(for: code),
+                        detail: error,
+                        actionTitle: GuestImageFailureCopy.primaryLabel(for: presentation.cta),
+                        action: guestImageRecoveryHandler(for: presentation.cta),
+                        tone: .error
+                    )
+                }
             case .notApplicable, .ready:
                 EmptyView()
             }
@@ -693,15 +662,13 @@ private struct ResolvedClawDetailView: View {
         }
     }
 
-    /// Maps a recovery action to its handler. The action is decided by the domain
-    /// (`GuestImageFailureCode.recoveryAction`); on-device retries call `prepare`,
-    /// Mac-side recoveries call `refreshStatus` ("Check Again"), `.none` has no CTA.
-    /// host_vm_limit_reached (`.restartMacRequired`) therefore NEVER calls prepare.
-    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
-        switch action {
-        case .retry, .freeSpaceThenRetry:
+    /// Maps the shared recovery CTA to its handler. `.checkAgain` only refreshes
+    /// status, so host-side blockers never issue a prepare POST.
+    private func guestImageRecoveryHandler(for cta: GuestImageRecoveryCTA) -> (() -> Void)? {
+        switch cta {
+        case .prepare:
             return { startGuestImagePreparation(force: true) }
-        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+        case .checkAgain:
             return { refreshGuestImageStatus() }
         case .none:
             return nil
@@ -739,6 +706,22 @@ private struct ResolvedClawDetailView: View {
             installability: viewModel.claw.installability,
             allowsInstall: readinessObserver.state.allowsInstall,
             supportsDeploy: resolution.supportsDeploy
+        )
+    }
+
+    /// Visibility stays on the facade above; this drives only ENABLEMENT, folding
+    /// in the in-flight axis so install/retry/deploy/uninstall disable while an
+    /// action runs. iOS detail has no terminal entry point (canOpenTerminal: false).
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: viewModel.claw.installState,
+                installability: viewModel.claw.installability,
+                hostAllowsInstall: readinessObserver.state.allowsInstall,
+                supportsDeploy: resolution.supportsDeploy,
+                actionInFlight: viewModel.isPerformingAction,
+                canOpenTerminal: false
+            )
         )
     }
 
@@ -793,39 +776,6 @@ private struct ResolvedClawDetailView: View {
         case .notInstalled:          return SoyehtTheme.textComment
         case .unknown:               return SoyehtTheme.accentAmber
         }
-    }
-}
-
-// MARK: - Review Card
-
-private struct ReviewCard: View {
-    let review: ClawMockData.ClawReview
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(review.author)
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.textPrimary)
-                Spacer()
-                Text(String(format: "%.1f", review.rating))
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.historyGreen)
-            }
-
-            Text(verbatim: "\"\(review.text)\"")
-                .font(Typography.monoTag)
-                .italic()
-                .foregroundColor(SoyehtTheme.textPrimary)
-                .lineSpacing(4)
-
-            Text(review.timeAgo)
-                .font(Typography.monoMicro)
-                .foregroundColor(SoyehtTheme.textTertiary)
-        }
-        .padding(16)
-        .background(SoyehtTheme.bgPrimary)
-        .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
     }
 }
 

@@ -19,8 +19,15 @@ public protocol ClawDeployActivityManaging: AnyObject, Sendable {
     /// Called each time the monitor polls a new status/phase from the server.
     func updateActivity(status: String, message: String?, phase: String?)
 
-    /// Called once the deploy reaches a terminal state (active or failed).
-    func endActivity(status: String, message: String?)
+    /// Called once the deploy reaches a terminal state, or when the local
+    /// monitor stops following a still-provisioning deploy.
+    func endActivity(status: String, message: String?, phase: String?)
+}
+
+public extension ClawDeployActivityManaging {
+    func endActivity(status: String, message: String?) {
+        endActivity(status: status, message: message, phase: nil)
+    }
 }
 
 /// Default implementation that does nothing. macOS uses this today; iOS
@@ -29,5 +36,5 @@ public final class NoOpClawDeployActivityManager: ClawDeployActivityManaging, @u
     public init() {}
     public func startActivity(instanceId: String, clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int) {}
     public func updateActivity(status: String, message: String?, phase: String?) {}
-    public func endActivity(status: String, message: String?) {}
+    public func endActivity(status: String, message: String?, phase: String?) {}
 }

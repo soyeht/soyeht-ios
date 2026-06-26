@@ -46,16 +46,7 @@ final class ClawRouteUsageTests: XCTestCase {
     /// doc-comment mentions of forbidden symbols don't trip code-only
     /// invariants.
     private func codeOnly(at url: URL) throws -> String {
-        let source = try String(contentsOf: url, encoding: .utf8)
-        return source.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { line in
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("//") { return false }
-                if trimmed.hasPrefix("*") { return false }
-                if trimmed.hasPrefix("/*") { return false }
-                return true
-            }
-            .joined(separator: "\n")
+        SourceCommentStripper.strip(try String(contentsOf: url, encoding: .utf8))
     }
 
     func test_ClawAPITargetHousehold_onlyAppearsInResolver() throws {
@@ -68,34 +59,16 @@ final class ClawRouteUsageTests: XCTestCase {
             if name == "ClawRouteUsageTests.swift" { return false }
             if name == "ClawInstallTargetResolverTests.swift" { return false }
 
-            guard let source = try? String(contentsOf: url, encoding: .utf8) else {
-                return false
-            }
-            // Strip comment lines so doc-comment mentions of the symbol
-            // (e.g. the file-header doc on `ClawInstallTarget.swift`)
-            // don't trip the test. We're after *code* references only.
-            //
-            // Heuristic: trim leading whitespace; lines that start with
-            // `//`, `///`, `*`, or `/*` are comments for our purposes.
-            // Block-comment terminators are rare in this codebase and a
-            // false-negative for the closing `*/` line is acceptable
-            // (the body of the block is dropped by the prefix check).
-            let codeLines = source.split(separator: "\n", omittingEmptySubsequences: false)
-                .map { String($0) }
-                .filter { line in
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed.hasPrefix("//") { return false }
-                    if trimmed.hasPrefix("*") { return false }
-                    if trimmed.hasPrefix("/*") { return false }
-                    return true
-                }
-            let codeOnly = codeLines.joined(separator: "\n")
-            return codeOnly.contains("ClawAPITarget.household")
-                || codeOnly.contains("ClawAPITarget.householdEndpoint")
-                || codeOnly.contains("target: .household")
-                || codeOnly.contains("target: .householdEndpoint")
-                || codeOnly.contains("target(.household")
-                || codeOnly.contains("target(.householdEndpoint")
+            // Comment-stripped code only, so doc-comment mentions of the symbol
+            // (e.g. the file-header doc on `ClawInstallTarget.swift`) don't trip
+            // the test. Shared with the other guards via `SourceCommentStripper`.
+            let code = (try? codeOnly(at: url)) ?? ""
+            return code.contains("ClawAPITarget.household")
+                || code.contains("ClawAPITarget.householdEndpoint")
+                || code.contains("target: .household")
+                || code.contains("target: .householdEndpoint")
+                || code.contains("target(.household")
+                || code.contains("target(.householdEndpoint")
         }
         XCTAssertTrue(offenders.isEmpty,
             "Household `ClawAPITarget` routing may appear only in `ClawInstallTargetResolver.swift`. Offending files: \(offenders.map(\.lastPathComponent))"

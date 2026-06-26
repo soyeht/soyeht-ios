@@ -125,8 +125,7 @@ struct ClawSetupView: View {
     // MARK: - Selected Claw Card
 
     private var selectedClawCard: some View {
-        let info = ClawMockData.storeInfo(for: viewModel.claw.name)
-        return HStack {
+        HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
                     Text(viewModel.claw.name)
@@ -142,9 +141,6 @@ struct ClawSetupView: View {
                 Text(viewModel.claw.description)
                     .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.textComment)
-                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount) installs")
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.historyGreen)
             }
             Spacer()
             Image(systemName: "checkmark.circle.fill")
@@ -530,7 +526,7 @@ struct ClawSetupView: View {
         }
     }
 
-    private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
+    private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping @MainActor () -> Void, onDecrement: @escaping @MainActor () -> Void) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(Typography.monoBody)

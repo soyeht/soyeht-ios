@@ -96,6 +96,30 @@ Verify claw catalog loading (Phase 1 envelope), install/uninstall with real prog
 - `soyeht.clawDetail.uninstallButton` (existed; now appears in BOTH `.installed` and `.installedButBlocked` branches)
 - `soyeht.clawDetail.deployButton` (existed; appears ONLY in `.installed` branch — never in `.installedButBlocked`)
 
+## Non-destructive client UI smoke
+
+`client-ui-ios-dev-smoke` is the first opt-in P1.11 client UI gate. It runs only
+against the iOS Dev bundle (`com.soyeht.app.dev`) with `-SoyehtClawStoreE2E`.
+It does not submit install, uninstall, deploy, or create actions.
+
+Coverage:
+
+- Open the Dev app and enter Claw Store from the home button.
+- Handle the server picker when more than one server is present.
+- Verify the Store exposes a card, readiness gate, or explicit unavailable state.
+- Open one detail view and verify `statusLabel` plus exactly one category:
+  action path, readiness gate, or unavailable card.
+
+Prerequisites and privacy:
+
+- Default SKIP unless `SOYEHT_F3_RUN_LIVE=1` and `SOYEHT_F3_RUN_CLIENT_UI=1`.
+- Uses Appium/WDA through `QA/scripts/appium_gate_common.py`.
+- Raw screenshots/XML are disabled by default. Redacted XML/report artifacts go
+  under `QA/runs/<date>-claw-client-ui-smoke/`.
+- If an optional build/install path is requested, the local Relay Stream Guest
+  FFI XCFramework must exist first; otherwise the row reports
+  `relay_stream_guest_ffi_missing` instead of letting Xcode fail late.
+
 ## Cleanup
 - Delete `test-qa-deploy-*` instances after testing
 - Re-enable maintenance mode / restore base rootfs if test ST-Q-CLAW-009/010/012 toggled them
