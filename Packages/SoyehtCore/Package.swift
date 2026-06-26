@@ -53,6 +53,8 @@ let package = Package(
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
                 // P7-B — PoP/CBOR signing-context cross-language vectors (theyos→Swift)
                 .copy("HouseholdFixtures/PoP/pop_vectors.json"),
+                // S2 - owner approval Protocol-v2 WebAuthn challenge context vectors (theyos->Swift)
+                .copy("HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_vectors.json"),
                 // PR-B — guest-image failure-code contract (theyos core-rs → Swift)
                 .copy("HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json"),
                 // PR-B — bootstrap/onboarding error-code contract (theyos household-rs → Swift)
