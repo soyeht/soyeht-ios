@@ -27,6 +27,33 @@ final class JoinExistingSoyehtPresentationTests: XCTestCase {
         )
     }
 
+    func test_welcomeRootUsesExplicitOnboardingStateMachineInsteadOfKeepListeningFlag() throws {
+        let source = try macSource("Welcome/WelcomeRootView.swift")
+        let stateMachine = try slice(
+            source,
+            from: "@Observable",
+            to: "/// Top-level router"
+        )
+        let resolver = try slice(
+            source,
+            from: "private func resolveMode() async",
+            to: "private func continueWithExistingSoyeht"
+        )
+
+        XCTAssertTrue(stateMachine.contains("final class WelcomeOnboardingState"))
+        XCTAssertTrue(stateMachine.contains("enum Phase: Equatable"))
+        for state in ["idle", "listening", "pairing", "approving", "done", "error(String)"] {
+            XCTAssertTrue(stateMachine.contains("case \(state)"), "missing state \(state)")
+        }
+        XCTAssertTrue(source.contains("@State private var onboardingState = WelcomeOnboardingState()"))
+        XCTAssertTrue(resolver.contains("while onboardingState.isListening && !Task.isCancelled"))
+        XCTAssertTrue(source.contains("onboardingState.beginListening()"))
+        XCTAssertTrue(source.contains("onboardingState.beginPairing()"))
+        XCTAssertTrue(source.contains("onboardingState.beginApproval()"))
+        XCTAssertTrue(source.contains("onboardingState.finish()"))
+        XCTAssertFalse(source.contains("keepListening"))
+    }
+
     func test_joinExistingCapabilityUsesStatusVersionOnlyAsSideEffectFreeProbe() throws {
         let source = try macSource("Welcome/Join/JoinExistingCapability.swift")
 
