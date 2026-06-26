@@ -5,11 +5,20 @@ import SoyehtCore
 
 struct ClawCardView: View {
     let claw: Claw
-    let showInstallButton: Bool
+    let hostAllowsInstall: Bool
     var onInstall: (() -> Void)?
 
-    private var info: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
+    /// Cards only own install/retry decisions; deploy is handled by the detail
+    /// screen, so `supportsDeploy: false`.
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: hostAllowsInstall,
+                supportsDeploy: false
+            )
+        )
     }
 
     /// Compact non-installable badge (theyos #88). Shown in place of the
@@ -41,13 +50,6 @@ struct ClawCardView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(SoyehtTheme.historyGreenBg)
-            }
-
-            // Meta: rating + installs
-            if info.rating > 0 {
-                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount)")
-                    .font(Typography.monoMicro)
-                    .foregroundColor(SoyehtTheme.textComment)
             }
 
             // Description (from API)
@@ -118,9 +120,9 @@ struct ClawCardView: View {
                     .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.retryInstall) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.retryInstall) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.retry")
                             .font(Typography.monoTag)
@@ -140,9 +142,9 @@ struct ClawCardView: View {
                 }
 
             case .notInstalled:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.install) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.install) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoTag)
@@ -177,15 +179,19 @@ struct ClawCardView: View {
 
 struct FeaturedClawCardContent: View {
     let claw: Claw
-    var showInstallButton: Bool = true
+    var hostAllowsInstall: Bool = true
     var onInstall: (() -> Void)?
 
-    private var info: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
-    }
-
-    private var reviews: [ClawMockData.ClawReview] {
-        ClawMockData.reviews(for: claw.name)
+    /// Shared install/retry decision (see `ClawCardView.actionPolicy`).
+    private var actionPolicy: ClawActionPolicy {
+        ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: hostAllowsInstall,
+                supportsDeploy: false
+            )
+        )
     }
 
     /// Compact non-installable badge (theyos #88), mirroring `ClawCardView`
@@ -216,7 +222,7 @@ struct FeaturedClawCardContent: View {
                     .background(SoyehtTheme.historyGreenBg)
             }
 
-            // Meta row: language (API) + rating (mock) + installs (mock)
+            // Meta row: language (API)
             HStack(spacing: 12) {
                 Text(claw.language.capitalized)
                     .font(Typography.monoMicroBold)
@@ -224,43 +230,12 @@ struct FeaturedClawCardContent: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(SoyehtTheme.historyGreenBg)
-
-                if info.rating > 0 {
-                    Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-
-                    Text(LocalizedStringResource(
-                        "claw.featured.installsCount",
-                        defaultValue: "\(info.installCount) installs",
-                        comment: "Meta row — total install count. %lld = count."
-                    ))
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textComment)
-                }
             }
 
             // Description (from API)
             Text(claw.description)
                 .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
-
-            // Featured review (mock)
-            if let review = reviews.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: "\"\(review.text)\"")
-                        .font(Typography.monoSmall)
-                        .italic()
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                        .lineLimit(2)
-                    Text(verbatim: "— \(review.author)")
-                        .font(Typography.monoMicro)
-                        .foregroundColor(SoyehtTheme.textComment)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SoyehtTheme.bgSecondary)
-            }
 
             // Install/Selected button — driven entirely by installState.
             switch claw.installState {
@@ -331,9 +306,9 @@ struct FeaturedClawCardContent: View {
                 .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.retryInstall) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.retryInstall) {
                     Button(action: { onInstall?() }) {
                         Text("claw.featured.action.retryInstall")
                             .font(Typography.monoBodyBold)
@@ -353,9 +328,9 @@ struct FeaturedClawCardContent: View {
                 }
 
             case .notInstalled:
-                if !claw.installability.isInstallable {
+                if !actionPolicy.isVisible(.install) {
                     unavailableLabel
-                } else if showInstallButton {
+                } else if actionPolicy.isEnabled(.install) {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoBodyBold)

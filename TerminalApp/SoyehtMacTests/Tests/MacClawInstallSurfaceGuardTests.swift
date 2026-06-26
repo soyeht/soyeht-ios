@@ -56,6 +56,33 @@ final class MacClawInstallSurfaceGuardTests: XCTestCase {
         )
     }
 
+    /// PR-2: the grid action site (`MacClawStoreRootView.onInstall`) must re-check
+    /// the readiness-aware install gate live at tap time, not rely only on the
+    /// card's last-rendered visibility. Otherwise a readiness change between render
+    /// and tap lets a stale tap POST an install the guest-image gate would block.
+    /// (The detail surface gates by visibility via `ClawDetailActionAvailability`;
+    /// the drawer already guards its action site with `shouldIssueInstall`.)
+    func test_gridInstallActionSiteConsultsReadinessAwareGate() throws {
+        let root = try clawStoreSwiftFiles().first { $0.lastPathComponent == "MacClawStoreRootView.swift" }
+        let url = try XCTUnwrap(root, "Expected MacClawStoreRootView.swift in SoyehtMac/ClawStore")
+        let code = try codeOnly(at: url)
+
+        let callRange = try XCTUnwrap(code.range(of: "viewModel.installClaw("),
+            "Expected MacClawStoreRootView to host the grid install action (onInstall -> viewModel.installClaw).")
+
+        // The gate must appear in the LOCAL block immediately preceding the install
+        // call (the onInstall closure body), not merely somewhere else in the file -
+        // otherwise moving the guard elsewhere would leave the call ungated while the
+        // test stayed vacuously green. We check a small fixed window before the call.
+        let windowSize = 400
+        let windowStart = code.index(callRange.lowerBound, offsetBy: -windowSize, limitedBy: code.startIndex) ?? code.startIndex
+        let precedingWindow = String(code[windowStart..<callRange.lowerBound])
+        let gatedRightBeforeCall = precedingWindow.contains("shouldIssueInstall") || precedingWindow.contains("mayIssueInstall")
+        XCTAssertTrue(gatedRightBeforeCall,
+            "MacClawStoreRootView's grid onInstall must guard on a readiness-aware action gate (MacClawInstallDecision.shouldIssueInstall / ClawActionPolicy.mayIssueInstall) IMMEDIATELY BEFORE calling viewModel.installClaw, so a stale tap cannot bypass the guest-image readiness gate and the gate cannot drift away from the call site."
+        )
+    }
+
     /// E3 (mini): the macOS Claw Store path resolves its active target through
     /// `MacActiveServerContextResolver` (canonical inventory metadata + credential),
     /// NEVER `SessionStore.currentContext()` — which sources metadata from the
@@ -74,6 +101,29 @@ final class MacClawInstallSurfaceGuardTests: XCTestCase {
         }
         XCTAssertTrue(usesResolver,
             "Expected the macOS Claw Store path to resolve its active target through MacActiveServerContextResolver."
+        )
+    }
+
+    /// The macOS Claw Store view entry points construct their view models with the
+    /// CANONICAL `machineTarget:` form (carries the `Server.ID`), never the lossy
+    /// `ClawAPITarget` / `target:` form. This pins the macOS counterpart of the
+    /// iOS `ClawRouteUsageTests` machine-target rule on the two Mac view sites,
+    /// scoped to `SoyehtMac/ClawStore` (no app-wide scan).
+    func test_macClawStoreViewsBuildViewModelsFromMachineTarget() throws {
+        let rootURL = try XCTUnwrap(
+            clawStoreSwiftFiles().first { $0.lastPathComponent == "MacClawStoreRootView.swift" },
+            "Expected MacClawStoreRootView.swift in SoyehtMac/ClawStore")
+        let rootCode = try codeOnly(at: rootURL)
+        XCTAssertTrue(rootCode.contains("ClawStoreViewModel(machineTarget: target)"),
+            "MacClawStoreRootView must construct `ClawStoreViewModel(machineTarget: target)` (canonical machine target), not the lossy `ClawAPITarget` / `target:` form."
+        )
+
+        let detailURL = try XCTUnwrap(
+            clawStoreSwiftFiles().first { $0.lastPathComponent == "MacClawDetailView.swift" },
+            "Expected MacClawDetailView.swift in SoyehtMac/ClawStore")
+        let detailCode = try codeOnly(at: detailURL)
+        XCTAssertTrue(detailCode.contains("ClawDetailViewModel(claw: claw, machineTarget: target)"),
+            "MacClawDetailView must construct `ClawDetailViewModel(claw: claw, machineTarget: target)` (canonical machine target), not the lossy `ClawAPITarget` / `target:` form."
         )
     }
 

@@ -136,7 +136,7 @@ private struct ResolvedClawStoreView: View {
                                 NavigationLink(value: detailRoute(for: featured)) {
                                     FeaturedClawCardContent(
                                         claw: featured,
-                                        showInstallButton: readinessObserver.state.allowsInstall,
+                                        hostAllowsInstall: readinessObserver.state.allowsInstall,
                                         onInstall: { installIfReady(featured) }
                                     )
                                 }
@@ -152,39 +152,6 @@ private struct ResolvedClawStoreView: View {
                                 HStack(spacing: 10) {
                                     ForEach(viewModel.trendingClaws) { claw in
                                         clawCard(claw)
-                                    }
-                                }
-                            }
-
-                            // Community reviews section
-                            if let featured = viewModel.featuredClaw {
-                                let reviews = ClawMockData.reviews(for: featured.name)
-                                if !reviews.isEmpty {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("clawstore.section.communitySays")
-                                            .font(Typography.monoSectionLabel)
-                                            .foregroundColor(SoyehtTheme.textComment)
-
-                                        HStack(spacing: 8) {
-                                            ForEach(Array(reviews.prefix(2).enumerated()), id: \.offset) { _, review in
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    Text(verbatim: "\"\(review.text)\"")
-                                                        .font(Typography.monoMicro)
-                                                        .italic()
-                                                        .foregroundColor(SoyehtTheme.textPrimary)
-                                                        .lineLimit(3)
-                                                    Text(verbatim: "— \(review.author)")
-                                                        .font(Typography.monoMicro)
-                                                        .foregroundColor(SoyehtTheme.textComment)
-                                                }
-                                                .padding(10)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(SoyehtTheme.bgPrimary)
-                                                .overlay(
-                                                    Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                                                )
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -246,7 +213,7 @@ private struct ResolvedClawStoreView: View {
         NavigationLink(value: detailRoute(for: claw)) {
             ClawCardView(
                 claw: claw,
-                showInstallButton: readinessObserver.state.allowsInstall,
+                hostAllowsInstall: readinessObserver.state.allowsInstall,
                 onInstall: { installIfReady(claw) }
             )
         }
@@ -254,10 +221,17 @@ private struct ResolvedClawStoreView: View {
     }
 
     private func installIfReady(_ claw: Claw) {
-        // Backend installability (theyos #88) is the authoritative gate; the
-        // card already hides the CTA, this is the matching action-side guard.
-        guard claw.installability.isInstallable else { return }
-        guard readinessObserver.state.allowsInstall else { return }
+        // Action-side gate through the unified policy. The card governs CTA
+        // visibility; this is the matching action guard. mayIssueInstall =
+        // installable && host-ready && state in {notInstalled, installFailed}.
+        let policy = ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: claw.installState,
+                installability: claw.installability,
+                hostAllowsInstall: readinessObserver.state.allowsInstall
+            )
+        )
+        guard policy.mayIssueInstall else { return }
         Task { await viewModel.installClaw(claw) }
     }
 
