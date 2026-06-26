@@ -327,6 +327,46 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(directFlow.contains("try await SetupInvitationDirectProbe.notifyClaimed"))
     }
 
+    func test_localTerminalHandoffClosesLosingUnauthenticatedClientsAfterConsume() throws {
+        let source = try macSource("QRHandoff/LocalTerminalHandoffManager.swift")
+        let pairAccept = try slice(
+            source,
+            from: "case .pair:",
+            to: "case .deny:"
+        )
+        let resumeAccept = try slice(
+            source,
+            from: "PairingStore.shared.updateLastSeen(deviceID: deviceID)",
+            to: "localHandoffLogger.log(\"resume_verified"
+        )
+        let markConsumed = try slice(
+            source,
+            from: "private func markConsumed",
+            to: "private func markAuthenticated"
+        )
+
+        XCTAssertTrue(pairAccept.contains("self.markConsumed(winnerID: clientID)"))
+        XCTAssertTrue(resumeAccept.contains("self.markConsumed(winnerID: clientID)"))
+        XCTAssertFalse(source.contains("self.markConsumed()"))
+        XCTAssertTrue(markConsumed.contains("!$0.authenticated && $0.id != winnerID"))
+        XCTAssertTrue(markConsumed.contains("sendDenied(reason: PairingDenyReason.tokenConsumed, to: loserID)"))
+        XCTAssertTrue(markConsumed.contains("dropClient(loserID)"))
+        XCTAssertTrue(resumeAccept.contains("return"))
+    }
+
+    func test_awaitingMacStopResetsAlreadyFoundLifecycleLatch() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let stopBody = try slice(
+            source,
+            from: "func stop()",
+            to: "private func scheduleRecoveryHint"
+        )
+
+        XCTAssertTrue(stopBody.contains("alreadyFound = false"))
+        XCTAssertTrue(stopBody.contains("macBrowserResolutionTask?.cancel()"))
+        XCTAssertTrue(stopBody.contains("onMacFoundHandler = nil"))
+    }
+
     func test_addMacFiltersSetupClaimsByInstallProfileBeforeIgnoringExistingHouse() throws {
         let source = try iosSource("Home/AwaitingNewMacView.swift")
         let claimHandler = try slice(

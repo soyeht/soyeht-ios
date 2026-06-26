@@ -471,7 +471,7 @@ private final class Session: @unchecked Sendable {
                         localHandoffLogger.log("pair_consent_granted_but_client_gone device_id=\(deviceIDStr, privacy: .public)")
                         return
                     }
-                    self.markConsumed()
+                    self.markConsumed(winnerID: clientID)
                     self.markAuthenticated(clientID: clientID, deviceID: deviceID)
                     // Piggyback the Fase 2 presence/attach ports so the iPhone
                     // can open the persistent WS immediately without needing
@@ -594,7 +594,7 @@ private final class Session: @unchecked Sendable {
             let attachPort = PairingPresenceServer.shared.attachPort.map { Int($0) }
             self.queue.async {
                 guard self.clients[clientID] != nil, !self.consumed else { return }
-                self.markConsumed()
+                self.markConsumed(winnerID: clientID)
                 self.markAuthenticated(clientID: clientID, deviceID: deviceID)
                 // Piggyback Fase 2 ports on resume so Fase 1-cached iPhones
                 // (paired before the presence server existed) can upgrade their
@@ -628,12 +628,14 @@ private final class Session: @unchecked Sendable {
         return true
     }
 
-    private func markConsumed() {
+    private func markConsumed(winnerID: UUID) {
         consumed = true
-        // Close any OTHER connections waiting on the token.
-        for (id, client) in clients where !client.authenticated {
-            // skip the one we're about to authenticate in the caller
-            _ = id
+        let losers = clients.values
+            .filter { !$0.authenticated && $0.id != winnerID }
+            .map(\.id)
+        for loserID in losers {
+            sendDenied(reason: PairingDenyReason.tokenConsumed, to: loserID)
+            dropClient(loserID)
         }
     }
 
