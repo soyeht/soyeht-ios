@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import SoyehtCore
 import os
 
@@ -11,6 +12,92 @@ public struct PairedDevice: Codable, Sendable, Identifiable {
     public var model: String
     public let firstPairedAt: Date
     public var lastSeenAt: Date
+}
+
+protocol PairingSecretStoring {
+    @discardableResult
+    func save(_ data: Data, account: String) -> Bool
+    func loadString(account: String) -> String?
+    @discardableResult
+    func deleteStatus(account: String) -> OSStatus
+}
+
+extension KeychainHelper: PairingSecretStoring {}
+
+protocol PairingDefaultsStoring {
+    func pairingString(forKey key: String) -> String?
+    func pairingData(forKey key: String) -> Data?
+    @discardableResult
+    func setPairingString(_ value: String, forKey key: String) -> Bool
+    @discardableResult
+    func setPairingData(_ value: Data, forKey key: String) -> Bool
+    func removePairingObject(forKey key: String)
+}
+
+extension UserDefaults: PairingDefaultsStoring {
+    func pairingString(forKey key: String) -> String? {
+        string(forKey: key)
+    }
+
+    func pairingData(forKey key: String) -> Data? {
+        data(forKey: key)
+    }
+
+    @discardableResult
+    func setPairingString(_ value: String, forKey key: String) -> Bool {
+        set(value, forKey: key)
+        return string(forKey: key) == value
+    }
+
+    @discardableResult
+    func setPairingData(_ value: Data, forKey key: String) -> Bool {
+        set(value, forKey: key)
+        return data(forKey: key) == value
+    }
+
+    func removePairingObject(forKey key: String) {
+        removeObject(forKey: key)
+    }
+}
+
+struct PairingRevocationCleanupWarning: OptionSet, Sendable, Equatable {
+    let rawValue: Int
+
+    static let pairedMetadataCleanupFailed = PairingRevocationCleanupWarning(rawValue: 1 << 0)
+    static let keychainSecretCleanupFailed = PairingRevocationCleanupWarning(rawValue: 1 << 1)
+}
+
+enum PairingRevocationFailure: Sendable, Equatable {
+    case denyListPersistenceFailed
+}
+
+enum PairingRevocationResult: Sendable, Equatable {
+    case failed(PairingRevocationFailure)
+    case revoked(existed: Bool, warnings: PairingRevocationCleanupWarning)
+
+    var isEffectivelyRevoked: Bool {
+        if case .revoked = self { return true }
+        return false
+    }
+
+    var cleanupWarnings: PairingRevocationCleanupWarning {
+        guard case .revoked(_, let warnings) = self else { return [] }
+        return warnings
+    }
+}
+
+struct PairingRevocationBatchResult: Sendable, Equatable {
+    let results: [UUID: PairingRevocationResult]
+
+    var effectivelyRevokedDeviceIDs: [UUID] {
+        results.compactMap { deviceID, result in
+            result.isEffectivelyRevoked ? deviceID : nil
+        }
+    }
+
+    var hasCleanupWarnings: Bool {
+        results.values.contains { !$0.cleanupWarnings.isEmpty }
+    }
 }
 
 @MainActor
@@ -32,8 +119,8 @@ final class PairingStore {
 
     private static let denyListTTL: TimeInterval = 30 * 24 * 3600
 
-    private let defaults: UserDefaults
-    private let keychain: KeychainHelper
+    private let defaults: PairingDefaultsStoring
+    private let keychain: PairingSecretStoring
     private let clock: () -> Date
 
     private(set) var macID: UUID
@@ -44,8 +131,8 @@ final class PairingStore {
     var onChange: (() -> Void)?
 
     init(
-        defaults: UserDefaults = .standard,
-        keychain: KeychainHelper = KeychainHelper(
+        defaults: PairingDefaultsStoring = UserDefaults.standard,
+        keychain: PairingSecretStoring = KeychainHelper(
             // "com.soyeht.mac" for the shipping app, "com.soyeht.mac.dev" for
             // the developer build — pairing secrets must not be shared.
             service: SoyehtInstallProfile.current.keychainService,
@@ -64,7 +151,7 @@ final class PairingStore {
     }
 
     var macName: String {
-        if let custom = defaults.string(forKey: DefaultsKey.macDisplayName),
+        if let custom = defaults.pairingString(forKey: DefaultsKey.macDisplayName),
            !custom.trimmingCharacters(in: .whitespaces).isEmpty {
             return custom
         }
@@ -76,9 +163,9 @@ final class PairingStore {
     func setMacDisplayName(_ raw: String) {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            defaults.removeObject(forKey: DefaultsKey.macDisplayName)
+            defaults.removePairingObject(forKey: DefaultsKey.macDisplayName)
         } else {
-            defaults.set(trimmed, forKey: DefaultsKey.macDisplayName)
+            defaults.setPairingString(trimmed, forKey: DefaultsKey.macDisplayName)
         }
         pairingLogger.log("mac_display_name_changed empty=\(trimmed.isEmpty, privacy: .public)")
         onChange?()
@@ -156,52 +243,103 @@ final class PairingStore {
         }
         // Re-pair removes stale revocation.
         denyList.removeValue(forKey: deviceID)
-        persistDevices()
-        persistDenyList()
+        _ = persistDevices()
+        _ = persistDenyList()
         onChange?()
     }
 
     func updateLastSeen(deviceID: UUID) {
         guard let idx = devices.firstIndex(where: { $0.deviceID == deviceID }) else { return }
         devices[idx].lastSeenAt = clock()
-        persistDevices()
+        _ = persistDevices()
         onChange?()
     }
 
     func rename(deviceID: UUID, to newName: String) {
         guard let idx = devices.firstIndex(where: { $0.deviceID == deviceID }) else { return }
         devices[idx].name = newName
-        persistDevices()
+        _ = persistDevices()
         onChange?()
     }
 
     // MARK: - Revocation
 
     @discardableResult
-    func revoke(deviceID: UUID) -> Bool {
+    func revoke(deviceID: UUID) -> PairingRevocationResult {
+        let devicesSnapshot = devices
+        let denyListSnapshot = denyList
         let existed = devices.contains { $0.deviceID == deviceID }
-        devices.removeAll { $0.deviceID == deviceID }
-        keychain.delete(account: KeychainAccount.secret(deviceID: deviceID))
+
         denyList[deviceID] = clock()
-        persistDevices()
-        persistDenyList()
-        pairingLogger.log("device_revoked device_id=\(deviceID.uuidString, privacy: .public) existed=\(existed, privacy: .public)")
+        guard persistDenyList() else {
+            devices = devicesSnapshot
+            denyList = denyListSnapshot
+            pairingLogger.error("device_revoke_failed stage=deny_list device_id=\(deviceID.uuidString, privacy: .public)")
+            return .failed(.denyListPersistenceFailed)
+        }
+
+        var warnings: PairingRevocationCleanupWarning = []
+        devices.removeAll { $0.deviceID == deviceID }
+        if !persistDevices() {
+            // The deny-list is the commit point. Once it persists, rollback
+            // would re-authorize a user-revoked device. Keep the revocation
+            // durable and leave paired metadata for a later cleanup retry.
+            devices = devicesSnapshot
+            warnings.insert(.pairedMetadataCleanupFailed)
+            pairingLogger.error("device_revoke_cleanup_failed stage=paired_devices device_id=\(deviceID.uuidString, privacy: .public)")
+        }
+
+        let deleteStatus = keychain.deleteStatus(account: KeychainAccount.secret(deviceID: deviceID))
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            warnings.insert(.keychainSecretCleanupFailed)
+            pairingLogger.error("device_revoke_cleanup_failed stage=keychain device_id=\(deviceID.uuidString, privacy: .public) status=\(deleteStatus, privacy: .public)")
+        }
+
+        pairingLogger.log("device_revoked device_id=\(deviceID.uuidString, privacy: .public) existed=\(existed, privacy: .public) warnings=\(warnings.rawValue, privacy: .public)")
         onChange?()
-        return existed
+        return .revoked(existed: existed, warnings: warnings)
     }
 
-    func revokeAll() {
+    @discardableResult
+    func revokeAll() -> PairingRevocationBatchResult {
         let all = devices.map(\.deviceID)
         let now = clock()
+        let devicesSnapshot = devices
+        let denyListSnapshot = denyList
+
         for id in all {
-            keychain.delete(account: KeychainAccount.secret(deviceID: id))
             denyList[id] = now
         }
+        guard persistDenyList() else {
+            devices = devicesSnapshot
+            denyList = denyListSnapshot
+            pairingLogger.error("all_devices_revoke_failed stage=deny_list count=\(all.count, privacy: .public)")
+            let results = Dictionary(uniqueKeysWithValues: all.map { ($0, PairingRevocationResult.failed(.denyListPersistenceFailed)) })
+            return PairingRevocationBatchResult(results: results)
+        }
+
+        var results: [UUID: PairingRevocationResult] = [:]
+        var sharedWarnings: PairingRevocationCleanupWarning = []
         devices.removeAll()
-        persistDevices()
-        persistDenyList()
-        pairingLogger.log("all_devices_revoked count=\(all.count, privacy: .public)")
+        if !persistDevices() {
+            devices = devicesSnapshot
+            sharedWarnings.insert(.pairedMetadataCleanupFailed)
+            pairingLogger.error("all_devices_revoke_cleanup_failed stage=paired_devices count=\(all.count, privacy: .public)")
+        }
+
+        for id in all {
+            var warnings = sharedWarnings
+            let deleteStatus = keychain.deleteStatus(account: KeychainAccount.secret(deviceID: id))
+            if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+                warnings.insert(.keychainSecretCleanupFailed)
+                pairingLogger.error("device_revoke_cleanup_failed stage=keychain device_id=\(id.uuidString, privacy: .public) status=\(deleteStatus, privacy: .public)")
+            }
+            results[id] = .revoked(existed: true, warnings: warnings)
+        }
+
+        pairingLogger.log("all_devices_revoked count=\(all.count, privacy: .public) metadata_warning=\(sharedWarnings.contains(.pairedMetadataCleanupFailed), privacy: .public)")
         onChange?()
+        return PairingRevocationBatchResult(results: results)
     }
 
     func pruneDenyList() {
@@ -209,44 +347,47 @@ final class PairingStore {
         let before = denyList.count
         denyList = denyList.filter { _, revokedAt in revokedAt >= cutoff }
         if denyList.count != before {
-            persistDenyList()
+            _ = persistDenyList()
             pairingLogger.log("deny_list_pruned removed=\(before - self.denyList.count, privacy: .public)")
         }
     }
 
     // MARK: - Persistence
 
-    private func persistDevices() {
+    private func persistDevices() -> Bool {
         if let data = try? JSONEncoder.pairingISO.encode(devices) {
-            defaults.set(data, forKey: DefaultsKey.pairedDevices)
+            return defaults.setPairingData(data, forKey: DefaultsKey.pairedDevices)
         }
+        pairingLogger.error("paired-devices encode failed; not persisting.")
+        return false
     }
 
-    private func persistDenyList() {
+    private func persistDenyList() -> Bool {
         let entries = denyList.map { RevokedDeviceEntry(deviceId: $0.key, revokedAt: $0.value) }
         do {
             let data = try JSONEncoder.pairingISO.encode(entries)
-            defaults.set(data, forKey: DefaultsKey.revokedDevices)
+            return defaults.setPairingData(data, forKey: DefaultsKey.revokedDevices)
         } catch {
             pairingLogger.error(
                 "deny-list encode failed; not persisting. error=\(String(describing: error), privacy: .public)"
             )
+            return false
         }
     }
 
-    private static func loadOrCreateMacID(defaults: UserDefaults) -> UUID {
-        if let raw = defaults.string(forKey: DefaultsKey.macID),
+    private static func loadOrCreateMacID(defaults: PairingDefaultsStoring) -> UUID {
+        if let raw = defaults.pairingString(forKey: DefaultsKey.macID),
            let id = UUID(uuidString: raw) {
             return id
         }
         let id = UUID()
-        defaults.set(id.uuidString, forKey: DefaultsKey.macID)
+        defaults.setPairingString(id.uuidString, forKey: DefaultsKey.macID)
         pairingLogger.log("mac_id_generated mac_id=\(id.uuidString, privacy: .public)")
         return id
     }
 
-    private static func loadDevices(defaults: UserDefaults) -> [PairedDevice] {
-        guard let data = defaults.data(forKey: DefaultsKey.pairedDevices),
+    private static func loadDevices(defaults: PairingDefaultsStoring) -> [PairedDevice] {
+        guard let data = defaults.pairingData(forKey: DefaultsKey.pairedDevices),
               let list = try? JSONDecoder.pairingISO.decode([PairedDevice].self, from: data) else {
             return []
         }
@@ -290,8 +431,8 @@ final class PairingStore {
         }
     }
 
-    private static func loadDenyList(defaults: UserDefaults) -> [UUID: Date] {
-        guard let data = defaults.data(forKey: DefaultsKey.revokedDevices) else {
+    private static func loadDenyList(defaults: PairingDefaultsStoring) -> [UUID: Date] {
+        guard let data = defaults.pairingData(forKey: DefaultsKey.revokedDevices) else {
             return [:]
         }
         let entries: [RevokedDeviceEntry]
