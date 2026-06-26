@@ -1,10 +1,19 @@
 import Foundation
 
-/// Shared action policy for Claw detail screens.
+/// Shared action policy for Claw **detail** screens.
 ///
-/// iOS and macOS keep native presentation, but the state-to-action mapping
-/// lives here so install/retry/deploy/uninstall decisions do not drift between
-/// platforms.
+/// As of improvement-plan P1.1 this is a thin facade over the unified
+/// ``ClawActionPolicy``: it preserves the detail screens' existing 8-flag
+/// surface (and this initializer's signature, which iOS `ClawDetailView` and
+/// macOS `MacClawDetailView` construct by name) while the single decision rule
+/// now lives in one place. The flag values are byte-for-byte identical to the
+/// previous inline implementation - the detail views are unchanged by P1.1.
+///
+/// Detail screens only express **visibility** today, so the in-flight
+/// enablement axis ``ClawActionPolicy`` adds is not surfaced here; the detail
+/// views keep their own `.disabled(isPerformingAction)` until PR-4 routes it
+/// through the policy. Likewise there is no `openTerminal` flag - that action is
+/// modeled by ``ClawActionPolicy`` directly.
 public struct ClawDetailActionAvailability: Equatable, Sendable {
     public let showsInstall: Bool
     public let showsRetryInstall: Bool
@@ -21,73 +30,29 @@ public struct ClawDetailActionAvailability: Equatable, Sendable {
         allowsInstall: Bool = true,
         supportsDeploy: Bool = true
     ) {
-        let canInstall = installability.isInstallable && allowsInstall
+        // Detail surface = visibility-only, no in-flight axis (PR-4) and no
+        // terminal concept, so actionInFlight: false and canOpenTerminal: false.
+        let policy = ClawActionPolicy(
+            ClawActionPolicy.Input(
+                installState: installState,
+                installability: installability,
+                hostAllowsInstall: allowsInstall,
+                supportsDeploy: supportsDeploy,
+                actionInFlight: false,
+                canOpenTerminal: false
+            )
+        )
 
-        switch installState {
-        case .notInstalled:
-            showsInstall = canInstall
-            showsRetryInstall = false
-            showsDeploy = false
-            showsUninstall = false
-            showsInstallingProgress = false
-            showsUninstallingProgress = false
-            showsUnknownState = false
-
-        case .installFailed:
-            showsInstall = false
-            showsRetryInstall = canInstall
-            showsDeploy = false
-            showsUninstall = false
-            showsInstallingProgress = false
-            showsUninstallingProgress = false
-            showsUnknownState = false
-
-        case .installed:
-            showsInstall = false
-            showsRetryInstall = false
-            showsDeploy = supportsDeploy && allowsInstall
-            showsUninstall = true
-            showsInstallingProgress = false
-            showsUninstallingProgress = false
-            showsUnknownState = false
-
-        case .installedButBlocked:
-            showsInstall = false
-            showsRetryInstall = false
-            showsDeploy = false
-            showsUninstall = true
-            showsInstallingProgress = false
-            showsUninstallingProgress = false
-            showsUnknownState = false
-
-        case .installing:
-            showsInstall = false
-            showsRetryInstall = false
-            showsDeploy = false
-            showsUninstall = false
-            showsInstallingProgress = true
-            showsUninstallingProgress = false
-            showsUnknownState = false
-
-        case .uninstalling:
-            showsInstall = false
-            showsRetryInstall = false
-            showsDeploy = false
-            showsUninstall = false
-            showsInstallingProgress = false
-            showsUninstallingProgress = true
-            showsUnknownState = false
-
-        case .unknown:
-            showsInstall = false
-            showsRetryInstall = false
-            showsDeploy = false
-            showsUninstall = false
-            showsInstallingProgress = false
-            showsUninstallingProgress = false
-            showsUnknownState = true
-        }
-
-        showsDeployUnavailableNotice = !supportsDeploy && installState.isInstalled
+        // With actionInFlight == false, an action's "enabled" set collapses to
+        // the legacy `canInstall` / deploy gates, so these map 1:1 to the old
+        // visibility flags. `ClawActionPolicyTests` pins this equivalence.
+        showsInstall = policy.isEnabled(.install)
+        showsRetryInstall = policy.isEnabled(.retryInstall)
+        showsDeploy = policy.isEnabled(.deploy)
+        showsUninstall = policy.isVisible(.uninstall)
+        showsInstallingProgress = policy.transient == .installing
+        showsUninstallingProgress = policy.transient == .uninstalling
+        showsUnknownState = policy.showsUnknownState
+        showsDeployUnavailableNotice = policy.deployUnavailableReason != nil
     }
 }

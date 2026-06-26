@@ -5,6 +5,7 @@ import SoyehtCore
 /// `ClawMachineTarget` (which carries the serverID), not the lossy
 /// `ClawAPITarget` that drops the serverID on `.householdEndpoint`. This is the
 /// identity prerequisite for the Store VM adopting `ClawInventoryService`.
+@MainActor
 final class ClawStoreViewModelTargetTests: XCTestCase {
 
     func test_contextInit_storesServerMachineTarget() {

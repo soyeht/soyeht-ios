@@ -109,6 +109,10 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
                 .foregroundColor(BrandColors.accentGreen)
                 .frame(width: DeployActivityMetrics.bannerTimerWidth, alignment: .trailing)
                 .monospacedDigit()
+        case .checkLater:
+            Image(systemName: "clock")
+                .font(Typography.iconStatus)
+                .foregroundColor(BrandColors.accentAmber)
         case .ready:
             Image(systemName: "checkmark.circle.fill")
                 .font(Typography.iconStatus)
@@ -141,6 +145,9 @@ private func compactLeading(context: ActivityViewContext<ClawDeployAttributes>) 
         ProgressView()
             .tint(BrandColors.accentGreen)
             .scaleEffect(DeployActivityMetrics.compactProgressScale)
+    case .checkLater:
+        Image(systemName: "clock")
+            .foregroundColor(BrandColors.accentAmber)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
             .foregroundColor(BrandColors.accentGreen)
@@ -169,6 +176,10 @@ private func compactTrailing(context: ActivityViewContext<ClawDeployAttributes>)
             .foregroundColor(BrandColors.accentGreen)
             .monospacedDigit()
             .frame(width: DeployActivityMetrics.compactTimerWidth)
+    case .checkLater:
+        Text("Check later")
+            .font(Typography.monoCaption2)
+            .foregroundColor(BrandColors.accentAmber)
     case .ready:
         Text("Ready")
             .font(Typography.monoCaption2Bold)
@@ -194,6 +205,9 @@ private func minimal(context: ActivityViewContext<ClawDeployAttributes>) -> some
         ProgressView()
             .tint(BrandColors.accentGreen)
             .scaleEffect(DeployActivityMetrics.compactProgressScale)
+    case .checkLater:
+        Image(systemName: "clock")
+            .foregroundColor(BrandColors.accentAmber)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
             .foregroundColor(BrandColors.accentGreen)
@@ -230,6 +244,8 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
                     .font(Typography.monoTitle3Bold)
                     .foregroundColor(BrandColors.textPrimary)
                     .monospacedDigit()
+            case .checkLater:
+                phaseBadge("Check later", color: BrandColors.accentAmber)
             case .ready:
                 phaseBadge("Ready", color: BrandColors.accentGreen, filled: true)
             case .failed:
@@ -271,6 +287,12 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
                         .lineLimit(1)
                 }
             }
+
+        case .checkLater:
+            Text(context.state.message ?? "Still preparing. Check later.")
+                .font(Typography.monoCaption)
+                .foregroundColor(BrandColors.accentAmber)
+                .lineLimit(2)
 
         case .ready:
             HStack(spacing: DeployActivityMetrics.readyStatusRowSpacing) {
@@ -338,6 +360,11 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
         Text(context.attributes.clawName)
             .font(Typography.monoCaption2)
             .foregroundColor(BrandColors.textMuted)
+
+    case .checkLater:
+        Text("Still preparing. Check later.")
+            .font(Typography.monoCaption2)
+            .foregroundColor(BrandColors.accentAmber)
 
     case .ready:
         HStack {

@@ -57,14 +57,7 @@ struct MacClawStoreRootView: View {
                     case .store(_):
                         content
                     case .householdStore, .householdDetail:
-                        // Mac does not produce household-targeted claw routes
-                        // today (see iOS InstanceListView for callers). If a
-                        // future change starts emitting these on Mac, fall
-                        // through to the catalog rather than invoking the
-                        // wrong API target via the server `context`. The Mac
-                        // sibling of `ClawDetailView(target: .household)`
-                        // should ship before that flip.
-                        content
+                        unsupportedHouseholdRouteView
                     case .detail(let claw, _):
                         MacClawDetailView(
                             claw: claw,
@@ -189,6 +182,47 @@ struct MacClawStoreRootView: View {
         }
     }
 
+    private var unsupportedHouseholdRouteView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(MacTypography.Fonts.clawStoreEmptyIcon)
+                .foregroundColor(MacClawStoreTheme.textWarning)
+            Text(LocalizedStringResource(
+                "claw.store.householdRouteUnavailable.title",
+                defaultValue: "Route unavailable on Mac",
+                comment: "Title shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store."
+            ))
+                .font(MacTypography.Fonts.clawStoreEmptyTitle)
+                .foregroundColor(MacClawStoreTheme.textSecondary)
+            Text(LocalizedStringResource(
+                "claw.store.householdRouteUnavailable.body",
+                defaultValue: "This Claw Store route is not available in the macOS app. Open a connected server to continue.",
+                comment: "Body shown when a stale household-targeted Claw Store route is opened in the macOS Claw Store."
+            ))
+                .font(MacTypography.Fonts.clawStoreStatus)
+                .foregroundColor(MacClawStoreTheme.textMuted)
+                .multilineTextAlignment(.center)
+            Button {
+                onShowConnectedServers()
+            } label: {
+                Label {
+                    Text(LocalizedStringResource(
+                        "claw.store.error.openServers",
+                        defaultValue: "Open Servers",
+                        comment: "Button shown when the macOS Claw Store cannot reach the selected server."
+                    ))
+                } icon: {
+                    Image(systemName: "server.rack")
+                }
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("soyeht.macClawStore.unsupportedHouseholdRoute.openServers")
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("soyeht.macClawStore.unsupportedHouseholdRoute")
+    }
+
     private var serverStatusPill: some View {
         HStack(spacing: 6) {
             Circle()
@@ -259,7 +293,20 @@ struct MacClawStoreRootView: View {
                         MacClawCardView(
                             claw: claw,
                             readiness: readiness.state,
-                            onInstall: { Task { await viewModel.installClaw(claw) } },
+                            onInstall: {
+                                // Action-site gate: re-check the readiness-aware
+                                // install rule live at tap time so a readiness
+                                // change between render and tap cannot let a stale
+                                // tap POST an install the gate would block. The
+                                // card's `canOfferInstall` governs visibility; this
+                                // is the matching action-side guard (parity with
+                                // the drawer's `shouldIssueInstall` at the tap).
+                                guard MacClawInstallDecision.shouldIssueInstall(
+                                    claw: claw,
+                                    readiness: readiness.state
+                                ) else { return }
+                                Task { await viewModel.installClaw(claw) }
+                            },
                             onTap: { path.append(ClawRoute.detail(claw, serverId: context.serverId)) }
                         )
                     }

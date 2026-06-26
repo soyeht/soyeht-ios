@@ -36,8 +36,8 @@ final class ClawDeployActivityManager: ClawDeployActivityManaging, @unchecked Se
         }
     }
 
-    func endActivity(status: String, message: String?) {
-        let finalPhase: String? = status == "active" ? "ready" : nil
+    func endActivity(status: String, message: String?, phase: String?) {
+        let finalPhase: String? = phase ?? (status == "active" ? "ready" : nil)
         let state = ClawDeployAttributes.ContentState(status: status, message: message, phase: finalPhase)
         Task {
             await activity?.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + 10))

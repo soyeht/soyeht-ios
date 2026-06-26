@@ -168,8 +168,11 @@ struct MacClawSetupView: View {
 
     private var serverTypeBinding: Binding<String> {
         Binding(
-            get: { viewModel.serverType },
-            set: { viewModel.selectServerType($0) }
+            // The view model is @MainActor; SwiftUI drives these Binding accessors
+            // on the main actor. assumeIsolated codifies that with minimal scope
+            // (no async Task that would change the binding's synchronous semantics).
+            get: { MainActor.assumeIsolated { viewModel.serverType } },
+            set: { newValue in MainActor.assumeIsolated { viewModel.selectServerType(newValue) } }
         )
     }
 }
@@ -179,8 +182,8 @@ private struct ResourceRow: View {
     let value: String
     let canDecrement: Bool
     let canIncrement: Bool
-    let onDecrement: () -> Void
-    let onIncrement: () -> Void
+    let onDecrement: @MainActor () -> Void
+    let onIncrement: @MainActor () -> Void
 
     var body: some View {
         HStack {

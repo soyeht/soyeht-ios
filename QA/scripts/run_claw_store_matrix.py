@@ -41,6 +41,11 @@ S1_READY_TAILNET_URL_ENV = "SOYEHT_F3_S1_READY_TAILNET_URL"
 S1_READY_LAN_URL_ENV = "SOYEHT_F3_S1_READY_LAN_URL"
 S1_ONBOARDING_LAN_URL_ENV = "SOYEHT_F3_S1_ONBOARDING_LAN_URL"
 CLIENT_UI_ENV = "SOYEHT_F3_RUN_CLIENT_UI"
+CLIENT_UI_BUILD_INSTALL_ENV = "SOYEHT_F3_CLIENT_UI_BUILD_INSTALL"
+CLIENT_UI_DEV_BUNDLE_ID = "com.soyeht.app.dev"
+CLIENT_UI_SMOKE_SCRIPT = "QA/scripts/run_claw_client_ui_smoke.py"
+RELAY_FFI_PATH = Path("Native/RelayStreamGuestFFI/RelayStreamGuestFFI.xcframework")
+RELAY_FFI_LEGACY_PATH = Path("Native/RelayStreamGuestFFI/RelayStreamGuestFFIBinary.xcframework")
 VZ_ISOLATION_ENVS = (
     "THEYOS_VM_VMS_PATH",
     "THEYOS_VM_STATE_DIR",
@@ -472,6 +477,51 @@ def build_s1_transport_row(repo_root: Path) -> MatrixRow:
     )
 
 
+def relay_framework_present(repo_root: Path) -> bool:
+    return (
+        repo_root.joinpath(RELAY_FFI_PATH).is_dir()
+        or repo_root.joinpath(RELAY_FFI_LEGACY_PATH).is_dir()
+    )
+
+
+def build_client_ui_ios_dev_smoke_row(repo_root: Path) -> MatrixRow:
+    coverage = (
+        "Opt-in non-destructive iOS Dev app Claw Store UI smoke: open Store, handle server picker, "
+        "verify card/gate/unavailable state, open Detail, and verify status plus action/gate/unavailable wiring."
+    )
+    live_enabled = os.environ.get(LIVE_ENV) == "1"
+    client_ui_enabled = os.environ.get(CLIENT_UI_ENV) == "1"
+    if not live_enabled or not client_ui_enabled:
+        return MatrixRow(
+            row_id="client-ui-ios-dev-smoke",
+            title="iOS Dev app Claw Store UI smoke",
+            coverage=coverage,
+            skip_reason=f"default SKIP; set {LIVE_ENV}=1 and {CLIENT_UI_ENV}=1 for Dev app UI automation",
+        )
+
+    if os.environ.get(CLIENT_UI_BUILD_INSTALL_ENV) == "1" and not relay_framework_present(repo_root):
+        return MatrixRow(
+            row_id="client-ui-ios-dev-smoke",
+            title="iOS Dev app Claw Store UI smoke",
+            coverage=coverage,
+            skip_reason=(
+                "relay_stream_guest_ffi_missing; run scripts/bootstrap-relay-stream-guest-ffi.sh "
+                "before any Xcode build/install path"
+            ),
+        )
+
+    return MatrixRow(
+        row_id="client-ui-ios-dev-smoke",
+        title="iOS Dev app Claw Store UI smoke",
+        coverage=coverage,
+        commands=[CommandSpec(
+            ["python3", CLIENT_UI_SMOKE_SCRIPT],
+            repo_root,
+            {"SOYEHT_BUNDLE_ID": CLIENT_UI_DEV_BUNDLE_ID},
+        )],
+    )
+
+
 def build_linux_lifecycle_row(
     *,
     theyos_dir: Path | None,
@@ -640,9 +690,11 @@ def build_rows(repo_root: Path, theyos_dir: Path | None) -> list[MatrixRow]:
     ))
 
     rows.append(build_s1_transport_row(repo_root))
+    rows.append(build_client_ui_ios_dev_smoke_row(repo_root))
 
     client_ui_reason = (
-        f"default SKIP; {CLIENT_UI_ENV}=1 is reserved for F3.3 once Dev Mac engine/household/client UI automation exists"
+        f"default SKIP; use client-ui-ios-dev-smoke for the first non-destructive Dev app UI gate. "
+        f"{CLIENT_UI_ENV}=1 remains reserved here for the broader iOS+macOS live flow."
     )
     rows.append(MatrixRow(
         row_id="client-ui-live",

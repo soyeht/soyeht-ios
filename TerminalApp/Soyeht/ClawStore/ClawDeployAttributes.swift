@@ -22,7 +22,7 @@ struct ClawDeployAttributes: ActivityAttributes {
 
 /// Derived from ContentState for UI switching. Shared by main app and widget.
 enum DeployPhase {
-    case queuing, pulling, starting, ready, failed
+    case queuing, pulling, starting, checkLater, ready, failed
 
     init(status: String, phase: String?) {
         // `status` is the ActivityKit ContentState wire (a String, shared with the
@@ -32,9 +32,10 @@ enum DeployPhase {
         if status == "active" { self = .ready; return }
         if status == "failed" { self = .failed; return }
         switch phase {
-        case "pulling":  self = .pulling
-        case "starting": self = .starting
-        default:         self = .queuing
+        case "pulling":     self = .pulling
+        case "starting":    self = .starting
+        case "check_later": self = .checkLater
+        default:            self = .queuing
         }
     }
 }

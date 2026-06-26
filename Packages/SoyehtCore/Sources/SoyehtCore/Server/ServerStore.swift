@@ -27,10 +27,6 @@ private let serverStoreLogger = Logger(subsystem: "com.soyeht.core", category: "
 public struct ServerStore: Sendable {
     public static let storageKey = "com.soyeht.serverstore.v1"
     public static let migrationSentinel = "com.soyeht.serverstore.migrated.v1"
-    /// D3c: the operator-controlled runtime flag that enables the v2-projected READ
-    /// path. Default OFF (absent → false). Flipping it true is the explicit
-    /// operational GO, made only after a clean live dry-run; the code never sets it.
-    public static let v2ReadEnabledKey = "com.soyeht.serverstore.v2ReadEnabled"
 
     let defaults: UserDefaults
 

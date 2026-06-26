@@ -56,6 +56,22 @@ flows, but iOS no longer uses it for multi-Mac routing. Pair-machine can
 still grow a per-Mac `ServerContext` later; when it does, those Macs will
 prefer `.server(ctx)` automatically.
 
+## Inventory service boundary
+
+After a route resolves, Claw Store screens pass the resolved
+`ClawMachineTarget` into view models. `ClawInventoryService` is the
+internal authority for catalog fetches, instance fetches, online
+filtering, and install-completion polling. New Store, provider, drawer,
+or picker surfaces must not call `getClaws`, `getInstances`, or
+reimplement install polling directly.
+
+Temporary exception: `ClawDetailViewModel` still calls the dedicated
+`/availability` endpoint while polling one claw, and may refetch catalog
+data to merge that availability. This preserves the tested case where
+`/availability` reaches terminal before the catalog catches up. Do not
+copy this exception into new screens; close it only after the
+service/adapter can preserve that behavior.
+
 ## Cardinality at the home Claw Store button
 
 | `ServerRegistry.count` | Behavior |

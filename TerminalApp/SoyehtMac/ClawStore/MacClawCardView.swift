@@ -15,10 +15,6 @@ struct MacClawCardView: View {
     var onInstall: (() -> Void)?
     var onTap: (() -> Void)?
 
-    private var info: ClawMockData.ClawStoreInfo {
-        ClawMockData.storeInfo(for: claw.name)
-    }
-
     @State private var hovering = false
 
     var body: some View {
@@ -42,7 +38,7 @@ struct MacClawCardView: View {
                             .clipShape(Capsule())
                     }
 
-                    Text(info.tagline.isEmpty ? claw.description : info.tagline)
+                    Text(claw.description)
                         .font(MacTypography.Fonts.clawCardBody)
                         .foregroundColor(MacClawStoreTheme.textMuted)
                         .lineLimit(2)

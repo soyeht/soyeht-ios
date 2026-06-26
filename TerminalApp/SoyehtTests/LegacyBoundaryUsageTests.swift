@@ -102,6 +102,34 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    func test_guestImageRecoveryViewsUseSharedPolicyCTA() throws {
+        let viewNames = ["ClawDetailView.swift", "ClawStoreView.swift"]
+        let views = try iosSwiftFiles().filter { viewNames.contains($0.lastPathComponent) }
+        XCTAssertEqual(
+            Set(views.map(\.lastPathComponent)), Set(viewNames),
+            "Expected to locate both guest-image recovery views."
+        )
+        for url in views {
+            let code = (try? codeOnly(at: url)) ?? ""
+            XCTAssertTrue(
+                code.contains("GuestImageRecoveryPolicy.presentation(for: readiness)"),
+                "\(url.lastPathComponent) must get recovery semantics from the shared GuestImageRecoveryPolicy."
+            )
+            XCTAssertTrue(
+                code.contains("GuestImageFailureCopy.primaryLabel(for: presentation.cta)"),
+                "\(url.lastPathComponent) must label recovery CTAs from presentation.cta."
+            )
+            XCTAssertTrue(
+                code.contains("guestImageRecoveryHandler(for: presentation.cta)"),
+                "\(url.lastPathComponent) must route recovery handlers from presentation.cta."
+            )
+            XCTAssertFalse(
+                code.contains(".recoveryAction"),
+                "\(url.lastPathComponent) must not rederive the recovery CTA directly from GuestImageFailureCode.recoveryAction."
+            )
+        }
+    }
+
     /// Mac sibling of `test_guestImageRecovery_isReasonCoded_noRawStringPrimary`,
     /// enforced on `TerminalApp/SoyehtMac/`. The Mac Claw Store recovery surfaces
     /// must render reason-coded copy through `MacGuestImageRecovery` (the SSOT
@@ -279,6 +307,27 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    func test_clawInstallTargetResolver_usesTheyOSCacheNotPresenceClient() throws {
+        let url = try XCTUnwrap(
+            iosSwiftFiles().first { $0.lastPathComponent == "ClawInstallTargetResolver.swift" },
+            "expected to find ClawInstallTargetResolver.swift"
+        )
+        let code = try codeOnly(at: url)
+
+        XCTAssertTrue(code.contains("server.theyOS.status"),
+            "Resolver must consume cached Server.theyOS.status before routing Mac household endpoints."
+        )
+        XCTAssertTrue(code.contains("server.theyOS.lastCheckedAt"),
+            "Resolver must freshness-check cached unreachable status to avoid stale lockout."
+        )
+        XCTAssertFalse(code.contains("MacPresenceClient"),
+            "Resolver must not depend on MacPresenceClient; presence WebSocket is not bootstrap HTTP reachability."
+        )
+        XCTAssertFalse(code.contains("PairedMacRegistry"),
+            "Resolver must not depend on PairedMacRegistry; use Server.theyOS cache instead."
+        )
+    }
+
     // MARK: - Claw Setup architecture
 
     func test_clawSetupView_doesNotOwnRoutingOrResourcePolicy() throws {
@@ -368,6 +417,42 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         }
     }
 
+    /// The iOS catalog install surfaces (card + store) must derive install/retry
+    /// from the shared `ClawActionPolicy`, not re-derive the rule inline. Scoped to
+    /// ClawCardView/ClawStoreView only; the detail view uses
+    /// `ClawDetailActionAvailability` and is out of this guard's scope.
+    private let iosCatalogInstallSurfaces = ["ClawCardView.swift", "ClawStoreView.swift"]
+
+    func test_iosCatalogInstallSurfacesUseActionPolicy() throws {
+        for name in iosCatalogInstallSurfaces {
+            let url = try XCTUnwrap(
+                iosSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("ClawActionPolicy"),
+                "\(name) must derive its install/retry CTA from the shared ClawActionPolicy, not inline."
+            )
+        }
+    }
+
+    /// Companion guard: those two catalog surfaces must NOT re-derive installability
+    /// inline (`installability.isInstallable`) - that rule now lives in
+    /// `ClawActionPolicy`. The `installability:` token still appears (passed into
+    /// the policy input), so `test_clawStoreViewsConsultInstallability` stays green.
+    func test_iosCatalogDoesNotReDeriveInstallabilityInline() throws {
+        for name in iosCatalogInstallSurfaces {
+            let url = try XCTUnwrap(
+                iosSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertFalse(code.contains("installability.isInstallable"),
+                "\(name) must not re-derive installability inline; route install/retry through ClawActionPolicy (which owns the isInstallable rule)."
+            )
+        }
+    }
+
     // MARK: - Claw installability gate — macOS surface (theyos #88)
 
     /// Same SSOT rule as the iPhone guards, enforced on `TerminalApp/SoyehtMac/`.
@@ -434,22 +519,69 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         XCTAssertTrue(try codeOnly(at: macDetail).contains("ClawDetailActionAvailability("))
     }
 
+    /// In-flight enablement for the detail action buttons must come from the shared
+    /// `ClawActionPolicy` (policy.isEnabled), not a hand-rolled
+    /// `.disabled(viewModel.isPerformingAction)` re-derived per button. The facade
+    /// above still owns visibility; the policy owns the in-flight enablement axis.
+    func test_clawDetailViewsRouteInFlightEnablementThroughPolicy() throws {
+        let iosDetail = try XCTUnwrap(
+            iosSwiftFiles().first { $0.lastPathComponent == "ClawDetailView.swift" },
+            "expected iOS ClawDetailView.swift"
+        )
+        let macDetail = try XCTUnwrap(
+            macSwiftFiles().first { $0.lastPathComponent == "MacClawDetailView.swift" },
+            "expected macOS MacClawDetailView.swift"
+        )
+        for url in [iosDetail, macDetail] {
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("ClawActionPolicy"),
+                "\(url.lastPathComponent) must drive action enablement through the shared ClawActionPolicy."
+            )
+            XCTAssertFalse(code.contains(".disabled(viewModel.isPerformingAction)"),
+                "\(url.lastPathComponent) must route in-flight enablement through policy.isEnabled, not a hand-rolled `.disabled(viewModel.isPerformingAction)`."
+            )
+        }
+    }
+
     // MARK: - Helpers
 
-    /// Returns the file at `url` with comment-only lines stripped, so
-    /// doc-comment mentions of forbidden symbols don't trip code-only
-    /// invariants. Same heuristic as `ClawRouteUsageTests`.
-    private func codeOnly(at url: URL) throws -> String {
-        let source = try String(contentsOf: url, encoding: .utf8)
-        return source.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { line in
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("//") { return false }
-                if trimmed.hasPrefix("*") { return false }
-                if trimmed.hasPrefix("/*") { return false }
-                return true
+    // MARK: - macOS Claw Store surface (P1.4)
+
+    /// The Mac CLAW STORE feature surface must not (re)introduce direct legacy
+    /// store coupling, even though the wider Mac app legitimately uses these
+    /// stores as the boundary layer. Scoped to SoyehtMac/ClawStore and
+    /// comment-stripped (so doc-comment mentions do not count). No allowlist:
+    /// today the surface has zero code-level coupling (the only mention is a doc
+    /// comment in MacClawSetupView.swift), so this locks in a clean state and any
+    /// NEW real usage - including in MacClawSetupView - fails. The lossy
+    /// install-target rule is covered separately by MacClawInstallSurfaceGuardTests;
+    /// household route cases stay legitimate on Mac, so they are intentionally not
+    /// guarded here.
+    func test_macClawStoreSurface_doesNotCoupleToLegacyStores() throws {
+        let forbidden = [
+            "PairedMacsStore.shared.macs",
+            "HouseholdSessionStore()",
+            ".pairedServers",
+        ]
+        var offenders: [String] = []
+        for url in try macClawStoreSwiftFiles() {
+            let code = (try? codeOnly(at: url)) ?? ""
+            for token in forbidden where code.contains(token) {
+                offenders.append("\(url.lastPathComponent): \(token)")
             }
-            .joined(separator: "\n")
+        }
+        XCTAssertTrue(
+            offenders.isEmpty,
+            "Mac Claw Store sources must route through the facade (ServerRegistry.shared / SoyehtIdentity.shared / ClawInstallTargetResolver), not legacy stores. Offending sites: \(offenders)"
+        )
+    }
+
+    /// Returns the file at `url` with comments stripped (code preserved), so
+    /// doc-comment or trailing-comment mentions of forbidden symbols don't trip
+    /// code-only invariants. Shared with `ClawRouteUsageTests` via
+    /// `SourceCommentStripper`.
+    private func codeOnly(at url: URL) throws -> String {
+        SourceCommentStripper.strip(try String(contentsOf: url, encoding: .utf8))
     }
 
     private func iosSwiftFiles() throws -> [URL] {
@@ -461,6 +593,16 @@ final class LegacyBoundaryUsageTests: XCTestCase {
     /// `MacClawDetailView` — not only the iPhone app.
     private func macSwiftFiles() throws -> [URL] {
         try swiftFiles(under: "SoyehtMac")
+    }
+
+    /// macOS Claw Store FEATURE sources only (TerminalApp/SoyehtMac/ClawStore).
+    /// Narrower than `macSwiftFiles()` on purpose: the iOS facade rule (route
+    /// through `ServerRegistry.shared` / `SoyehtIdentity.shared`) is iOS-specific,
+    /// and the wider Mac app is the boundary/orchestration layer that legitimately
+    /// uses `SessionStore` / `HouseholdSessionStore` / `PairedMacsStore`. Only the
+    /// Mac Claw Store surface is held to the no-new-legacy-coupling bar.
+    private func macClawStoreSwiftFiles() throws -> [URL] {
+        try macSwiftFiles().filter { $0.pathComponents.contains("ClawStore") }
     }
 
     private func swiftFiles(under subdir: String) throws -> [URL] {

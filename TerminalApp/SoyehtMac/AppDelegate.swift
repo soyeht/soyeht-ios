@@ -2077,6 +2077,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     private func showStandaloneClawStore(context: ServerContext) {
         if let existing = clawStoreWindowController {
+            existing.rebind(to: context)
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
             return
@@ -2123,7 +2124,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return
         }
 
-        closeStandaloneClawStoreWindow()
         SessionStore.shared.setActiveServer(id: localServer.id)
         DispatchQueue.main.async { [weak self] in
             guard let context = MacActiveServerContextResolver.activeContext() else { return }
