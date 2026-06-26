@@ -218,6 +218,8 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
 
 /// The invitation data published in the Bonjour TXT record `m`.
 public struct SetupInvitationPayload: Equatable, Sendable {
+    public static let defaultIPhoneSetupInvitationTTLSeconds: UInt64 = 3600
+
     public let token: SetupInvitationToken
     public let ownerDisplayName: String?
     /// Unix seconds; MAX `now + 3600`.
@@ -244,6 +246,28 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         self.iphoneDeviceID = iphoneDeviceID
         self.iphoneDeviceName = iphoneDeviceName
         self.iphoneDeviceModel = iphoneDeviceModel
+    }
+
+    public static func iPhoneSetupInvitation(
+        token: SetupInvitationToken = SetupInvitationToken(),
+        ownerDisplayName: String? = nil,
+        now: Date = Date(),
+        ttlSeconds: UInt64 = defaultIPhoneSetupInvitationTTLSeconds,
+        iphoneApnsToken: Data?,
+        iphoneDeviceID: UUID?,
+        iphoneDeviceName: String?,
+        iphoneDeviceModel: String?
+    ) -> SetupInvitationPayload {
+        let nowSeconds = UInt64(max(0, floor(now.timeIntervalSince1970)))
+        return SetupInvitationPayload(
+            token: token,
+            ownerDisplayName: ownerDisplayName,
+            expiresAt: nowSeconds + ttlSeconds,
+            iphoneApnsToken: iphoneApnsToken,
+            iphoneDeviceID: iphoneDeviceID,
+            iphoneDeviceName: iphoneDeviceName,
+            iphoneDeviceModel: iphoneDeviceModel
+        )
     }
 
     /// Encodes the payload as CBOR then base64url for the TXT `m` key.

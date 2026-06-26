@@ -431,10 +431,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     @MainActor
     private func makeSetupInvitationPayload(apnsToken: Data?) -> SetupInvitationPayload {
-        return SetupInvitationPayload(
-            token: SetupInvitationToken(),
-            ownerDisplayName: nil,
-            expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+        return SetupInvitationPayload.iPhoneSetupInvitation(
             iphoneApnsToken: apnsToken,
             iphoneDeviceID: PairedMacsStore.shared.deviceID,
             iphoneDeviceName: PairedMacsStore.shared.deviceName,
