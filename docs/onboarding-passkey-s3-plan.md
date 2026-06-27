@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper, recovery consume context/vectors, and backup/AddCredential contract/vectors are merged; recovery consume/add-fresh-credential runtime, backup/AddCredential runtime, and flip gates remain. |
+| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier, recovery consume context/vectors, and backup/AddCredential contract/vectors are merged; recovery consume/add-fresh-credential runtime, backup/AddCredential runtime, and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -53,8 +53,9 @@ gesture (UI-layer WYSIWYS).
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
   R1 contract/vectors ✅, R2 start/challenge ✅, and R3 finish mutation ✅.
   Recovery R0 provision/readiness ✅, R1-A consume model ✅, R1-B0 cross-log
-  consumed helpers + combined consumable-head helper ✅, recovery consume
-  context/vectors ✅, and backup/AddCredential contract/vectors ✅.
+  consumed helpers + combined consumable-head helper + consume-readiness
+  classifier ✅, recovery consume context/vectors ✅, and backup/AddCredential
+  contract/vectors ✅.
   **Remaining:** recovery consume/add-fresh-credential runtime,
   backup/AddCredential runtime, macOS local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
@@ -196,8 +197,8 @@ because of the xcframework caveat; no local live ceremony is required.
   R0 provision/readiness is merged as default-off infrastructure, with
   shown-once recovery code semantics protected by the anchored/delivered/ready
   invariant. R1-A consume model, R1-B0 cross-log consumed helpers + combined
-  consumable-head helper, and RecoverCredential context/vectors are merged as
-  inert model/contract infrastructure;
+  consumable-head helper + consume-readiness classifier, and RecoverCredential
+  context/vectors are merged as inert model/contract infrastructure;
   consume/add-fresh-credential runtime is not implemented yet. This remains the
   **next runtime pre-flip priority** because recovery
   closes the "one passkey lost = permanent brick" story before any enforcement
@@ -216,6 +217,12 @@ because of the xcframework caveat; no local live ceremony is required.
     future runtime must call those predicates only after both relevant
     authorities have been verified and anchor-classified; they are not log
     validators.
+  - #185 added the consume-readiness classifier on top of those predicates:
+    already verified and anchor-classified WebAuthn/recovery authorities
+    classify as `Consumable`, `RepairRequired`, or `NotReady`. `Consumable` is
+    only for an active recovery verifier head that matches the anchored head and
+    is not consumed by either log; consumed heads classify as `RepairRequired`,
+    and unanchored R0 provision/rotate tails remain `NotReady`.
   - R1-B runtime eligibility is a deliberate break-glass decision: WebAuthn
     authority must be ever-enrolled with a valid/repairable anchor/prefix, and
     `active_count` is telemetry rather than permission. The recovery head is
