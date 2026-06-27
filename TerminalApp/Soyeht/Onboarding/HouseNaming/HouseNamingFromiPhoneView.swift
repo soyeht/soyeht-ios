@@ -20,7 +20,9 @@ struct HouseNamingFromiPhoneView: View {
     @FocusState private var isFocused: Bool
 
     /// Delay before revealing the "taking longer than expected" hint + cancel button.
-    private static let slowHintDelay: Duration = .seconds(5)
+    /// Value comes from the OnboardingConfig SSOT (default 5s, pinned by
+    /// `OnboardingConfigTests`); behavior-equivalent to the prior `.seconds(5)`.
+    private static let slowHintDelay: Duration = .seconds(OnboardingConfig.default.houseNamingHintDelay)
 
     private static let maxLength = 32
     private static let forbiddenChars = CharacterSet(charactersIn: "/:\\*?\"<>|")
