@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~94% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness and backup/AddCredential contract/vectors are merged; consume/add runtimes and flip gates remain. |
+| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helper, and backup/AddCredential contract/vectors are merged; consume/add runtimes and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -52,7 +52,8 @@ gesture (UI-layer WYSIWYS).
   sign_count policy ✅, PolicySnapshot/trust-state ✅, dedicated enrollment op
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
   R1 contract/vectors ✅, R2 start/challenge ✅, and R3 finish mutation ✅.
-  Recovery R0 provision/readiness ✅ and backup/AddCredential contract/vectors ✅.
+  Recovery R0 provision/readiness ✅, R1-A consume model ✅, R1-B0 cross-log
+  consumed helper ✅, and backup/AddCredential contract/vectors ✅.
   **Remaining:** recovery consume/no-brick runtime, backup/AddCredential runtime,
   macOS local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
@@ -192,15 +193,23 @@ because of the xcframework caveat; no local live ceremony is required.
 - **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**.
   R0 provision/readiness is merged as default-off infrastructure, with
   shown-once recovery code semantics protected by the anchored/delivered/ready
-  invariant. Consume/re-enroll is not implemented yet. This remains the **next
-  runtime pre-flip priority** because recovery closes the "one passkey lost =
-  permanent brick" story before any enforcement flip.
+  invariant. R1-A consume model and R1-B0 cross-log consumed helper are merged
+  as inert model infrastructure; consume/add-fresh-credential runtime is not implemented
+  yet. This remains the **next runtime pre-flip priority** because recovery
+  closes the "one passkey lost = permanent brick" story before any enforcement
+  flip.
   - Recovery is a separate factor/anchor, **not** a WebAuthn credential. It must
     not be counted in `active_count`; `active_count` remains WebAuthn-only.
   - Normal `RevokeCredential` remains hard-blocked by `active_count <= 1`.
     Any future "last revoke with recovery" must be a separate explicit
     operation/policy that verifies a recovery anchor under the same lock. Do not
     silently relax the existing revoke path.
+  - R1-B runtime eligibility is a deliberate break-glass decision: WebAuthn
+    authority must be ever-enrolled with a valid/repairable anchor/prefix, and
+    `active_count` is telemetry rather than permission. The recovery head is
+    consumed if either the recovery log has `Consume(X)` or the WebAuthn log has
+    an Add actor `RecoveryProof(X)`; repair must run before any new-Add gate.
+    The Add is audit-visible; owner notification is a follow-up mitigation.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
   not the TOFU path. Placeholder now; gated on backend. Backup/AddCredential
   **contract/vectors are merged as an inert slice**; runtime is lower priority
@@ -219,8 +228,9 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
 - (Decided) iOS "Protect your home" screen is merged. macOS enrollment uses
   engine-side owner identity over UDS with peer code-signing caller-auth plus
-  constrained platform WebAuthn attestation; it is still waiting on the Slice 0
-  wire contract before app-target work.
+  constrained platform WebAuthn attestation; the UDS/no-PoP client foundation
+  is merged, while the security-critical engine route and app integration remain
+  pending.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
