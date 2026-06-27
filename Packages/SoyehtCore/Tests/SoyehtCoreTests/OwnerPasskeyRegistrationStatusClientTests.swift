@@ -122,6 +122,28 @@ import Testing
         #expect(first != second)
     }
 
+    @Test func localSocketModeOmitsPoPAuthorization() async throws {
+        let vectors = try Self.loadVectors()
+        let requestVector = try #require(vectors.statusRequests.first)
+        let responseVector = try #require(vectors.statusResponses.first { $0.id == "status-response-never-enrolled" })
+        let responseBody = try #require(Data(soyehtHex: responseVector.canonicalCborHex))
+        let mock = HTTPMock(responses: [.init(status: 200, body: responseBody)])
+        let client = OwnerPasskeyRegistrationStatusClient(
+            localSocketBaseURL: URL(string: "http://soyeht-local")!,
+            transport: { req in try mock.perform(req) }
+        )
+
+        let response = try await client.fetch()
+
+        let request = try #require(mock.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == OwnerPasskeyRegistrationStatusClient.path)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.httpBody?.soyehtHexEncodedString() == requestVector.canonicalCborHex)
+        #expect(response.version == responseVector.input.v)
+        #expect(response.enrolled == false)
+    }
+
     @Test func statusResponseVectorsAreCanonicalCBOR() throws {
         let vectors = try Self.loadVectors()
         #expect(vectors.statusResponses.count == 2)

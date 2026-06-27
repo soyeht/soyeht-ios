@@ -23,8 +23,13 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
     static let startPath = "/api/v1/household/owner-webauthn/registration/start"
     static let finishPath = "/api/v1/household/owner-webauthn/registration/finish"
 
+    private enum Authentication: Sendable {
+        case ownerPoP(HouseholdPoPSigner)
+        case localSocketCallerAuth
+    }
+
     private let baseURL: URL
-    private let popSigner: HouseholdPoPSigner
+    private let authentication: Authentication
     private let perform: TransportPerform
 
     public init(
@@ -35,7 +40,32 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
         }
     ) {
         self.baseURL = baseURL
-        self.popSigner = popSigner
+        self.authentication = .ownerPoP(popSigner)
+        self.perform = transport
+    }
+
+    /// Creates a client for the macOS local UDS enrollment route.
+    ///
+    /// This mode deliberately omits the owner PoP `Authorization` header. It is
+    /// only valid when the supplied transport connects over the engine's Unix
+    /// domain socket, where the engine authenticates the signed app peer.
+    public init(
+        localSocketBaseURL: URL,
+        socketPath: String,
+        timeout: TimeInterval = UnixDomainSocketHTTPTransport.defaultTimeoutSeconds
+    ) {
+        self.init(
+            localSocketBaseURL: localSocketBaseURL,
+            transport: UnixDomainSocketHTTPTransport(socketPath: socketPath, timeout: timeout).transport()
+        )
+    }
+
+    init(
+        localSocketBaseURL: URL,
+        transport: @escaping TransportPerform
+    ) {
+        self.baseURL = localSocketBaseURL
+        self.authentication = .localSocketCallerAuth
         self.perform = transport
     }
 
@@ -102,9 +132,15 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
 
     private func post(path: String, body: Data) async throws -> Data {
         let (url, pathAndQuery) = BootstrapWire.endpointURL(baseURL: baseURL, path: path)
-        let authorization = try popSigner
-            .authorization(method: "POST", pathAndQuery: pathAndQuery, body: body)
-            .authorizationHeader
+        let authorization: String?
+        switch authentication {
+        case .ownerPoP(let popSigner):
+            authorization = try popSigner
+                .authorization(method: "POST", pathAndQuery: pathAndQuery, body: body)
+                .authorizationHeader
+        case .localSocketCallerAuth:
+            authorization = nil
+        }
         return try await BootstrapWire.send(
             method: "POST",
             url: url,

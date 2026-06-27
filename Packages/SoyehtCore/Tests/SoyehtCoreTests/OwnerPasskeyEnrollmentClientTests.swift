@@ -208,6 +208,36 @@ import Testing
         #expect(first != second)
     }
 
+    @Test func localSocketModeOmitsPoPAuthorizationForStartAndFinish() async throws {
+        let vectors = try Self.loadVectors()
+        let startResponse = try #require(vectors.startResponses.first)
+        let finishRequest = try #require(vectors.finishRequests.first)
+        let finishResponse = try #require(vectors.finishResponses.first)
+        let startBody = try #require(Data(soyehtHex: startResponse.canonicalCborHex))
+        let finishBody = try #require(Data(soyehtHex: finishResponse.canonicalCborHex))
+        let mock = HTTPMock(responses: [
+            .init(status: 200, body: startBody),
+            .init(status: 200, body: finishBody),
+        ])
+        let client = OwnerPasskeyEnrollmentClient(
+            localSocketBaseURL: URL(string: "http://soyeht-local")!,
+            transport: { req in try mock.perform(req) }
+        )
+        let credential = try Self.credential(from: finishRequest.input.credential)
+
+        _ = try await client.start()
+        _ = try await client.finish(
+            challengeID: finishRequest.input.challengeId,
+            credential: credential
+        )
+
+        #expect(mock.requests.count == 2)
+        #expect(mock.requests[0].url?.path == OwnerPasskeyEnrollmentClient.startPath)
+        #expect(mock.requests[1].url?.path == OwnerPasskeyEnrollmentClient.finishPath)
+        #expect(mock.requests[0].value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(mock.requests[1].value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
     @Test func mappingFromPlatformAttestationBuildsCanonicalCredential() throws {
         let attestation = OwnerPasskeyAttestation(
             credentialID: Data([0x00, 0x01, 0x02, 0x80, 0xff, 0x7f]),

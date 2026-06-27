@@ -37,7 +37,7 @@ public struct ProofOfPossessionAuthorization: Equatable, Sendable {
     }
 }
 
-public struct HouseholdPoPSigner {
+public struct HouseholdPoPSigner: Sendable {
     private let ownerIdentity: any OwnerIdentitySigning
     private let now: @Sendable () -> Date
 
