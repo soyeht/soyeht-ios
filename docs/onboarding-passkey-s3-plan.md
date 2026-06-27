@@ -38,7 +38,7 @@ gesture (UI-layer WYSIWYS).
 | Layer | Done | Notes |
 |---|---|---|
 | **Backend (theyos)** | ~92% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors, R2 start challenge, and R3 finish mutation are merged; recovery/backup gates remain. |
-| **Client (soyeht-ios)** | ~75% | **Headless chain 100% merged**. iOS enrollment screen is merged; approval review VM is merged. Approval review screen and macOS enrollment architecture remain. |
+| **Client (soyeht-ios)** | ~85% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS enrollment architecture remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
 ---
@@ -83,6 +83,8 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   review-before-gesture UI
 - #235 — `OwnerApprovalV2ReviewViewModel` (pair-machine-approve review state
   machine; exposes context before confirm)
+- #238 — iOS approval review screen + app-wrapper adapter (default-off v2 path,
+  v1 fallback preserved)
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -142,16 +144,27 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   `completed`, and `failed(canRetry:)`. It never exposes or interprets the
   opaque WebAuthn challenge, and it never branches on `BootstrapError.code`.
 
-**6c. Approval review screen** (next app-target slice):
+**6c. Approval review screen**
+- iOS: **merged** as #238, still default-off. The v2 card is additive and gated;
+  `JoinRequestConfirmationView` / v1 approval remain the default path.
 - Renders the pair-machine context fields (op, machine id, addr, transport) before
   the owner can tap Approve. `confirm` is reachable only after explicit owner
   approval; it is never triggered automatically after `prepare`.
-- Source guards should prove the view renders context before confirm, calls
-  confirm only from the explicit Approve action, does not reference
-  `BootstrapError` / `.code`, and does not touch the challenge.
-- The v2 path remains gated (policy=v2; v1 default) at the pair-machine approval
-  submit action. No backup/subsequent path or non-pair-machine operation is
-  exposed here.
+- The app-wrapper preserves the existing join-request lifecycle and B7 external
+  anchor gate: `beginConfirming` -> `queue.claim` -> local anchor pin
+  (`anchorSecret -> hh_id/hh_pub`) -> `confirm(prepared)` -> `confirmClaim`.
+  The pin must complete before `confirm`, because approval-v2 immediately drives
+  the engine-side finalize. The v2 path does **not** call the v1
+  `approve(authorization)` wire path.
+- Source guards prove the view renders context before confirm, pin happens before
+  confirm, confirm only happens from the explicit Approve action, the v1 fallback
+  remains default, and the view/adapter do not reference `BootstrapError`,
+  `.code`, raw errors, or the WebAuthn challenge.
+- Failures are terminal and generic at this layer. Anti-oracle covers observable
+  behavior, not only error values, so retry availability must not reveal whether
+  the failure happened during claim, pin, or confirm. A future retryable path must
+  use a stage-agnostic queue/VM reason.
+- No backup/subsequent path or non-pair-machine operation is exposed here.
 
 **Test boundary:** SPM already covers the enrollment ViewModel, orchestrators,
 clients, CBOR wire, status/E1, anti-oracle state transitions, and the approval
@@ -181,6 +194,8 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
 - (Decided) iOS "Protect your home" screen is merged. macOS enrollment waits on
   the founder identity/PoP architecture decision.
-- (Pending) Approval review screen exact copy/layout and app-target rollout gate.
+- (Decided) iOS approval review screen is merged, default-off, with v1 fallback
+  preserved. The app-wrapper preserves the B7 local-anchor pin before
+  `confirm(prepared)`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
