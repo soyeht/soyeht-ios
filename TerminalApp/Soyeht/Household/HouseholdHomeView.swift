@@ -196,7 +196,17 @@ struct HouseholdHomeView: View {
                     }
                 }
 
-                if let card = JoinRequestConfirmationCardHost(
+                if machineJoinRuntime.isApprovalV2ReviewEnabled,
+                   let card = OwnerApprovalV2ReviewCardHost(
+                    request: top,
+                    household: household,
+                    runtime: machineJoinRuntime
+                ) {
+                    card
+                        .id(topId)
+                        .transition(Self.transition(for: top.envelope.transportOrigin))
+                        .zIndex(1)
+                } else if let card = JoinRequestConfirmationCardHost(
                     request: top,
                     household: household,
                     runtime: machineJoinRuntime
@@ -352,6 +362,34 @@ private struct JoinRequestPeekCard: View {
         seconds <= 30
             ? SoyehtTheme.accentRed
             : SoyehtTheme.textSecondary
+    }
+}
+
+private struct OwnerApprovalV2ReviewCardHost: View {
+    @StateObject private var adapter: OwnerApprovalV2ReviewAdapter
+    private let householdName: String
+
+    init?(
+        request: JoinRequestQueue.PendingRequest,
+        household: ActiveHouseholdState,
+        runtime: HouseholdMachineJoinRuntime
+    ) {
+        guard let adapter = try? runtime.makeOwnerApprovalV2ReviewAdapter(
+            for: request,
+            household: household
+        ) else {
+            return nil
+        }
+        _adapter = StateObject(wrappedValue: adapter)
+        self.householdName = household.householdName
+    }
+
+    var body: some View {
+        OwnerApprovalV2ReviewScreen(
+            adapter: adapter,
+            householdName: householdName
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 20, x: 0, y: 12)
     }
 }
 
