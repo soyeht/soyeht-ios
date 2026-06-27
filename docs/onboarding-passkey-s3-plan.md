@@ -120,10 +120,16 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - iOS: **merged**. `enrollOwnerPasskey(snapshot)` now sits between
   `pairingSuccess(snapshot)` and the recovery/household continuation in the
   post-owner setup flow.
-- macOS: still gated. It is not a direct iOS port: the founder Mac flow does not
-  currently expose owner identity / PoP signer material to the app target. Choose
-  the macOS identity/PoP architecture before adding `.enrollPasskey` after
-  `houseCard`.
+- macOS: still gated, but the identity/caller-auth architecture is decided. It
+  is not a direct iOS port: the app target must not receive owner identity / PoP
+  signer material. The engine keeps owner identity engine-side, exposes a local
+  Unix domain socket to the signed Soyeht app, verifies the peer code signature
+  (audit token -> SecCode -> team/cdhash), and treats WebAuthn attestation as the
+  material grant only when it is constrained to user verification + platform
+  authenticator + owner-exists / NeverEnrolled / default-off gates. TCP loopback
+  or localhost + attestation alone is not authorization. Slice 0 must still pin
+  the wire shape, with HTTP-over-UDS preferred so existing CBOR DTOs/vectors can
+  be reused.
 - The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
   `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
   `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
@@ -203,8 +209,10 @@ because of the xcframework caveat; no local live ceremony is required.
 
 - (Decided) Enrollment is a dedicated step, not a modal; skip is first-class.
 - (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
-- (Decided) iOS "Protect your home" screen is merged. macOS enrollment waits on
-  the founder identity/PoP architecture decision.
+- (Decided) iOS "Protect your home" screen is merged. macOS enrollment uses
+  engine-side owner identity over UDS with peer code-signing caller-auth plus
+  constrained platform WebAuthn attestation; it is still waiting on the Slice 0
+  wire contract before app-target work.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
