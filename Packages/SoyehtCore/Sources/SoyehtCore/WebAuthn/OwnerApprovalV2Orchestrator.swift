@@ -1,21 +1,42 @@
 #if canImport(AuthenticationServices)
 import Foundation
 
+/// A prepared approval-v2 ceremony: the server `start` result bound to the
+/// `cursor` it belongs to.
+///
+/// Produced by ``OwnerApprovalV2Orchestrator/prepare(cursor:)`` so the UI can
+/// render `startResponse.context` for the owner to review BEFORE the gesture,
+/// then hand the SAME bundle to ``OwnerApprovalV2Orchestrator/confirm(_:)``.
+/// Bundling the `cursor` with the reviewed `startResponse` keeps them tied — the
+/// caller can't pass a different cursor after the review screen.
+public struct PreparedOwnerApprovalV2: Sendable {
+    public let cursor: UInt64
+    public let startResponse: OwnerApprovalV2StartResponse
+
+    public init(cursor: UInt64, startResponse: OwnerApprovalV2StartResponse) {
+        self.cursor = cursor
+        self.startResponse = startResponse
+    }
+}
+
 /// Headless coordinator for the owner approval-v2 ceremony (SPM logic; no UI,
 /// no app-target).
 ///
-/// Drives: `client.start(cursor:)` → platform passkey assertion over the
-/// server's OPAQUE challenge → submit the signed `OwnerApprovalV2Finish`
-/// envelope via `client.approveV2(cursor:finish:)`.
+/// **Two-phase** so the UI can show the context-review screen between the network
+/// `start` and the system passkey sheet:
+/// - `prepare(cursor:)` → `start` only, returns the bound `PreparedOwnerApprovalV2`
+///   (the screen renders `startResponse.context`);
+/// - `confirm(_:)` → platform passkey assertion over the server's OPAQUE
+///   challenge → submit the signed `OwnerApprovalV2Finish`.
+/// `approve(cursor:)` is a convenience single-shot = prepare → confirm (no review
+/// screen; behavior identical to the original single-shot).
 ///
 /// There is deliberately NO client-side `challenge == context.challengeDigest()`
-/// check: the WebAuthn challenge in the start response is the server's RANDOM
-/// nonce (from `webauthn-rs`), not the context digest, and the operation binding
-/// is enforced server-side (`challenge_id → context_binding → require_context`).
-/// So the orchestrator forwards the challenge byte-for-byte and echoes the
-/// server's `context` unchanged. "What you see is what you sign" is a UI-layer
-/// concern (the screens present `startResponse.context` before the gesture) — it
-/// is NOT a cryptographic equality here.
+/// check: the WebAuthn challenge is the server's RANDOM nonce (`webauthn-rs`), not
+/// the context digest, and the operation binding is enforced server-side
+/// (`challenge_id → context_binding → require_context`). So the orchestrator
+/// forwards the challenge byte-for-byte and echoes the server `context` unchanged.
+/// "What you see is what you sign" is a UI-layer concern, not a crypto equality.
 ///
 /// `@MainActor` because the assertion ceremony (`PasskeyProvider`) is main-actor
 /// isolated; kept explicit rather than forcing a false `Sendable`.
@@ -42,15 +63,23 @@ public struct OwnerApprovalV2Orchestrator {
         self.authenticate = authenticate
     }
 
-    /// Runs a full approval-v2 ceremony for the pending operation at `cursor`:
-    /// start → assert (opaque challenge) → submit the signed envelope.
-    ///
-    /// Fail-closed: any error propagates unchanged and aborts before the next
-    /// step — a cancelled/failed assertion never reaches `approveV2`, and a
-    /// `start` reject never reaches the ceremony. Server rejects surface as the
-    /// generic `BootstrapError` (no reason inference, no branch on the code).
-    public func approve(cursor: UInt64) async throws {
+    /// Phase 1 — fetch the server's start response for the pending operation at
+    /// `cursor`. Performs ONLY the network `start`: no assertion, no approve. The
+    /// returned bundle carries the `cursor` so `confirm(_:)` posts to the right
+    /// path. The UI renders `startResponse.context` before the gesture.
+    public func prepare(cursor: UInt64) async throws -> PreparedOwnerApprovalV2 {
         let startResponse = try await client.start(cursor: cursor)
+        return PreparedOwnerApprovalV2(cursor: cursor, startResponse: startResponse)
+    }
+
+    /// Phase 2 — assert over the prepared (opaque) challenge and submit the signed
+    /// envelope, posting to the `cursor` carried by the bundle.
+    ///
+    /// Fail-closed: any error propagates unchanged and aborts before the next step
+    /// — a cancelled/failed assertion never reaches `approveV2`. Server rejects
+    /// surface as the generic `BootstrapError` (no reason inference / no branch).
+    public func confirm(_ prepared: PreparedOwnerApprovalV2) async throws {
+        let startResponse = prepared.startResponse
 
         // Forward the server's options verbatim. The challenge is OPAQUE (the
         // server's random nonce) — never recomputed, substituted, or compared.
@@ -62,8 +91,7 @@ public struct OwnerApprovalV2Orchestrator {
         )
         let assertion = try await authenticate(assertionRequest)
 
-        // Echo the server's trusted context EXACTLY (no re-derivation); the
-        // server re-checks it against its stored binding on `/approve`.
+        // Echo the server's trusted context EXACTLY (no re-derivation).
         let approval = OwnerApprovalV2(
             context: startResponse.context,
             credentialID: assertion.credentialID,
@@ -76,7 +104,14 @@ public struct OwnerApprovalV2Orchestrator {
             challengeID: startResponse.challengeID,
             approval: approval
         )
-        try await client.approveV2(cursor: cursor, finish: finish)
+        try await client.approveV2(cursor: prepared.cursor, finish: finish)
+    }
+
+    /// Convenience single-shot = `prepare` → `confirm` (no review screen).
+    /// Behavior identical to the original single-shot `approve(cursor:)`.
+    public func approve(cursor: UInt64) async throws {
+        let prepared = try await prepare(cursor: cursor)
+        try await confirm(prepared)
     }
 }
 #endif

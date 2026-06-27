@@ -27,13 +27,15 @@ import Testing
         private let lock = NSLock()
         private var _authRequest: OwnerPasskeyAssertionRequest?
         private var _approveBody: Data?
+        private var _approvePath: String?
         private var _approveCalled = false
         private var _authCalled = false
 
         func recordAuth(_ r: OwnerPasskeyAssertionRequest) { lock.lock(); _authRequest = r; _authCalled = true; lock.unlock() }
-        func recordApprove(_ body: Data?) { lock.lock(); _approveBody = body; _approveCalled = true; lock.unlock() }
+        func recordApprove(_ body: Data?, path: String?) { lock.lock(); _approveBody = body; _approvePath = path; _approveCalled = true; lock.unlock() }
         var authRequest: OwnerPasskeyAssertionRequest? { lock.lock(); defer { lock.unlock() }; return _authRequest }
         var approveBody: Data? { lock.lock(); defer { lock.unlock() }; return _approveBody }
+        var approvePath: String? { lock.lock(); defer { lock.unlock() }; return _approvePath }
         var approveCalled: Bool { lock.lock(); defer { lock.unlock() }; return _approveCalled }
         var authCalled: Bool { lock.lock(); defer { lock.unlock() }; return _authCalled }
     }
@@ -120,7 +122,7 @@ import Testing
                 if isStart {
                     body = status == 200 ? startResponseBody() : errorEnvelope
                 } else {
-                    recorder.recordApprove(req.httpBody)
+                    recorder.recordApprove(req.httpBody, path: req.url?.path)
                     body = status == 200 ? HouseholdCBOR.encode(.map(["v": .unsigned(1)])) : errorEnvelope
                 }
                 let resp = HTTPURLResponse(
@@ -149,6 +151,49 @@ import Testing
 
         try await orchestrator.approve(cursor: 7)
 
+        let expected = OwnerApprovalV2Finish(
+            challengeID: Self.sampleChallengeID,
+            approval: OwnerApprovalV2(
+                context: Self.sampleContext(),
+                credentialID: assertion.credentialID,
+                authenticatorData: assertion.authenticatorData,
+                clientDataJSON: assertion.clientDataJSON,
+                signature: assertion.signature,
+                userHandle: assertion.userHandle
+            )
+        ).canonicalBytes()
+        #expect(recorder.approveBody == expected)
+    }
+
+    // MARK: 2-phase (prepare / confirm)
+
+    /// Phase 1 (`prepare`) performs ONLY the network start — no assertion, no
+    /// approve — and returns the cursor bound to the decoded start response.
+    @Test @MainActor func prepareDoesNotAuthenticateOrApprove() async throws {
+        let recorder = Recorder()
+        let orchestrator = Self.makeOrchestrator(recorder: recorder)
+
+        let prepared = try await orchestrator.prepare(cursor: 7)
+
+        #expect(recorder.authCalled == false)
+        #expect(recorder.approveCalled == false)
+        #expect(prepared.cursor == 7)
+        #expect(prepared.startResponse.relyingPartyIdentifier == Self.sampleRpId)
+        #expect(prepared.startResponse.challenge == Self.sampleChallenge)
+    }
+
+    /// `confirm` posts to the cursor carried by the bundle (tied to the reviewed
+    /// start response), and submits the same envelope as the single-shot path.
+    @Test @MainActor func confirmUsesBundleCursorInApprovePath() async throws {
+        let recorder = Recorder()
+        let assertion = Self.sampleAssertion()
+        let orchestrator = Self.makeOrchestrator(assertion: assertion, recorder: recorder)
+
+        let prepared = try await orchestrator.prepare(cursor: 9)
+        try await orchestrator.confirm(prepared)
+
+        #expect(recorder.approveCalled == true)
+        #expect(recorder.approvePath == "/api/v1/household/owner-events/9/approve")
         let expected = OwnerApprovalV2Finish(
             challengeID: Self.sampleChallengeID,
             approval: OwnerApprovalV2(
