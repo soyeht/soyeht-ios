@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~97% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, and backup/AddCredential contract/vectors are merged; backup/AddCredential runtime, macOS local engine enrollment route, and flip gates remain. |
+| **Backend (theyos)** | ~98% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, and backup/AddCredential start-only/challenge-only runtime are merged; backup/AddCredential finish/append+one-anchor runtime, macOS local engine enrollment route, and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -56,9 +56,10 @@ gesture (UI-layer WYSIWYS).
   consumed helpers + combined consumable-head helper + consume-readiness
   classifier + fail-closed rate-limit adapter ✅, recovery consume
   context/vectors ✅, R1-B start-only/challenge-only runtime ✅, R1-B
-  finish/two-anchor repair runtime ✅, and backup/AddCredential contract/vectors ✅.
-  **Remaining:** backup/AddCredential runtime, macOS local engine enrollment
-  route, and the flip.
+  finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
+  and backup/AddCredential start-only/challenge-only runtime ✅.
+  **Remaining:** backup/AddCredential finish/append+one-anchor runtime, macOS
+  local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -267,9 +268,19 @@ because of the xcframework caveat; no local live ceremony is required.
     an Add actor `RecoveryProof(X)`; repair must run before any new-Add gate.
     The Add is audit-visible; owner notification is a follow-up mitigation.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
-  not the TOFU path. Placeholder now; gated on backend. Backup/AddCredential
-  **contract/vectors are merged as an inert slice**; runtime is lower priority
-  than recovery because backup is not a flip blocker.
+  not the TOFU path. Backup/AddCredential **contract/vectors are merged as an
+  inert slice**, and #189 adds the start-only/challenge-only runtime as
+  default-off infrastructure. The start route proves owner PoP, classifies the
+  WebAuthn authority read-only, requires `active_count > 0` as the step-up gate,
+  starts two distinct ceremonies, and binds them to the same AddCredential
+  context: the registration ceremony uses a canonical `add-credential`
+  registration binding whose digest is `new_credential_binding_hash`, while the
+  approval assertion challenge stores the full `OwnerApprovalContextV2`. The
+  top-level `context` in the response is the authoritative context for the
+  future finish echo; `approval.context` is a mirrored copy for decoder reuse and
+  must match it. The start route intentionally does **not** finish registration,
+  finish owner approval, append Add, save owner auth, or advance the WebAuthn
+  anchor. **Remaining:** backup/AddCredential finish/append+one-anchor runtime.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
@@ -292,9 +303,9 @@ because of the xcframework caveat; no local live ceremony is required.
   `confirm(prepared)`.
 - (Decided) Pre-flip ordering: recovery-code/no-brick runtime first; the
   start+finish runtime is now merged as default-off infrastructure.
-  Backup/AddCredential contract is merged as inert infrastructure, but backup
-  runtime remains separate. Recovery does not count toward `active_count`;
-  last-revoke remains blocked unless a future explicit recovery-backed
-  operation is designed and reviewed.
+  Backup/AddCredential contract and start-only runtime are merged as default-off
+  infrastructure, but backup finish/append+one-anchor runtime remains separate.
+  Recovery does not count toward `active_count`; last-revoke remains blocked
+  unless a future explicit recovery-backed operation is designed and reviewed.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
