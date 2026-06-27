@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~85% | S0/S1/S2/S3a merged, default-off. Pre-flip gates: 4 done; **3 remaining** (backup/step-up, recovery-code, status/E1) + the enforcement flip still gated. |
-| **Client (soyeht-ios)** | ~50% | **Headless chain 100% merged**; UI/screens 0%. |
+| **Backend (theyos)** | ~90% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors is merged; revoke runtime and recovery/backup gates remain. |
+| **Client (soyeht-ios)** | ~65% | **Headless chain 100% merged**; UI/screens 0%. Enrollment screen is the next app-target slice, gated on UX approval. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
 ---
@@ -50,10 +50,11 @@ gesture (UI-layer WYSIWYS).
   enrollment backend (genesis TOFU).
 - **Pre-flip gates** (apply before flipping enforcement): double-prepare ✅,
   sign_count policy ✅, PolicySnapshot/trust-state ✅, dedicated enrollment op
-  `OwnerAuthEnrollInitial` ✅. **Remaining:** backup/subsequent enrollment
-  (step-up), recovery-code, status/E1 anchor-lag-tolerant endpoint.
+  `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
+  R1 contract/vectors ✅. **Remaining:** backup/subsequent enrollment
+  (step-up), recovery-code/no-brick, revoke R2/R3 runtime, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
-  #170 approval-v2 wire.
+  #170 approval-v2 wire, #174 revoke-credential context.
 
 ---
 
@@ -67,6 +68,9 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - #217 — in-flight cancellation
 - #218 — `OwnerPasskeyEnrollmentClient` (HTTP/CBOR/PoP)
 - #220 — `PasskeyProvider.authenticate` (assertion ceremony; unified `runCeremony<T>`)
+- #229 — `OwnerPasskeyEnrollmentOrchestrator` (headless coordinator)
+- #231 — `OwnerPasskeyRegistrationStatusClient` (E1 status read)
+- #232 — `OwnerPasskeyEnrollmentViewModel` (headless state machine)
 
 **Approval-v2**
 - #219 — `OwnerApprovalContextV2` DTO + challenge-digest
@@ -74,11 +78,14 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   `OwnerApprovalV2StartResponse` decoder
 - #223 — `OwnerApprovalV2Client` (`start` / `approveV2`)
 - #224 — `OwnerApprovalV2Orchestrator` (headless coordinator)
+- #228 — 2-phase `OwnerApprovalV2Orchestrator.prepare` / `confirm` split for
+  review-before-gesture UI
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
 - #225 — first caller migration (`HouseholdPairingService`)
-- #226 — next migration (`HouseNamingFromiPhoneView`, in flight)
+- #226 — `HouseNamingFromiPhoneView` slow-hint migration
+- #230 — `AwaitingMacView` timeout migrations
 
 ---
 
@@ -96,35 +103,54 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
     "no restriction" collapses to `[]` (absent / null / empty array).
 - **No client `challenge == digest` guard** (binding is server-side; challenge is random).
 - **Anti-oracle:** any reject → generic `BootstrapError` (`serverError(code:"unauthenticated", message:nil)`),
-  **never branch on `BootstrapError.code`**. Future UI rule: branch only on HTTP `200`.
+  **never branch on `BootstrapError.code`**. UI rule: branch only on a successful
+  status HTTP `200`; status `401` stays generic.
 - **PoP** fresh-per-request, bound to `method + pathAndQuery + body`.
 
 ---
 
-## 6. Remaining — UI / app-target (not started)
+## 6. Remaining — UI / app-target
 
-**6a. 2-phase orchestrator refactor** (next slice, headless SPM, contract locked, GO given):
-- `PreparedOwnerApprovalV2 { cursor: UInt64, startResponse: OwnerApprovalV2StartResponse }` (Sendable value-type)
-- `prepare(cursor:) -> PreparedOwnerApprovalV2` (start only → UI renders context)
-- `confirm(_ prepared:) -> Void` (authenticate opaque + build exact-context envelope + approveV2)
-- keep `approve(cursor:)` convenience = `confirm(try await prepare(cursor:))` (#224's 5 tests stay)
-- _Why:_ #224's single-shot `approve` can't show a context-review screen between
-  `start` and the system passkey sheet; the 2-phase split gives the UI that point.
+**6a. Enrollment screen: "Protect your home"** (next app-target slice, gated on
+UX approval):
+- iOS: add `enrollOwnerPasskey(snapshot)` between `pairingSuccess(snapshot)` and
+  `householdHome(snapshot)` in the post-owner setup flow.
+- macOS: add `.enrollPasskey` after `houseCard` in the founder welcome flow.
+- The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
+  `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
+  `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
+  first-class and performs no network.
+- The view must never inspect `BootstrapError`, `.code`, or raw errors. It only
+  consumes the VM phase. Retry is manual; there is no automatic re-enroll.
 
-**6b. Screens (app-target / source-guard — no CI live ceremony):**
-- Enrollment passkey #1 — iOS: after `HouseholdPairingService.pair()`
-  (`HouseNamingFromiPhoneView.swift:285-301`), before `onNamed()`→`showMainStoryboard`
-  (`AppDelegate:478-485`). macOS: new `BootstrapStep.ownerPasskeyEnrollment` between
-  `HouseCreationProgressView.onCreated` (:134) and `.houseCard` (`WelcomeRootView`).
-- Approval review screen — renders `startResponse.context` before the gesture; the
-  v2 path is gated (policy=v2; v1 default) at `HouseholdMachineJoinRuntime` submitAction.
-  macOS founder hook: `WelcomeOnboardingState.approving` (`WelcomeRootView:175`, currently unconsumed).
-- `skip`/"set up later" is first-class (skip → NeverEnrolled → legacy).
+**6b. Approval review VM** (SPM slice before the app-target screen):
+- First cut is pair-machine-approve only. The `cursor` comes from the
+  owner-events long-poll / join-request queue and is the cursor used by
+  `/owner-events/{cursor}/approval-v2/start` and `/approve`.
+- Add an `OwnerApprovalV2ReviewViewModel`-style headless VM around the merged
+  2-phase `OwnerApprovalV2Orchestrator`: `prepare(cursor:)` fetches the
+  `startResponse` and exposes `startResponse.context`; `confirm(_:)` performs
+  the gesture and posts the exact-context envelope.
+- The VM owns phases such as `idle`, `prepared(context)`, `confirming`,
+  `completed`, and `failed(canRetry:)`. It never exposes or interprets the
+  opaque WebAuthn challenge, and it never branches on `BootstrapError.code`.
 
-**Test boundary:** ViewModels + the 2-phase orchestrator are SPM-headless-testable
-(inject clients/provider/seam). SwiftUI views, the live `ASAuthorization` ceremony,
-the `.approving` view + nav wiring (macOS), and `AppDelegate` routing (iOS) are
-app-target / **source-guard only** (cannot run live in CI — xcframework caveat).
+**6c. Approval review screen** (app-target after the VM):
+- Renders the pair-machine context fields (op, machine id, addr, transport) before
+  the owner can tap Approve. `confirm` is reachable only after explicit owner
+  approval; it is never triggered automatically after `prepare`.
+- Source guards should prove the view renders context before confirm, calls
+  confirm only from the explicit Approve action, does not reference
+  `BootstrapError` / `.code`, and does not touch the challenge.
+- The v2 path remains gated (policy=v2; v1 default) at the pair-machine approval
+  submit action. No backup/subsequent path or non-pair-machine operation is
+  exposed here.
+
+**Test boundary:** SPM already covers the enrollment ViewModel, orchestrators,
+clients, CBOR wire, status/E1, and anti-oracle state transitions. The approval
+review VM should also be SPM-headless-testable. SwiftUI views, live
+`ASAuthorization`, app navigation, and source guards are app-target / **CI-only**
+because of the xcframework caveat; no local live ceremony is required.
 
 ---
 
@@ -134,17 +160,18 @@ app-target / **source-guard only** (cannot run live in CI — xcframework caveat
   (contract #3 needs pre-provisioned recovery for revoke-last). Placeholder in UI now; real flow gated on backend.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
   not the TOFU path. Placeholder now; gated on backend.
-- **status / E1** (committed-401 recovery) — needs a durable post-save/pre-anchor
-  marker or exact-genesis repair; UI must not depend on it.
+- **revoke runtime R2/R3** — R1 contract/vectors are merged; start and finish
+  mutation remain gated on no-brick, head-binding, active_count>1, and anti-rollback.
 - **enforcement flip** — only after the pre-flip gates land.
 
 ---
 
 ## 8. Open decisions (were @tiana's; now via @code-reviewer / Caio)
 
-- Enrollment: dedicated step vs modal (post-pairing / HouseCard)?
-- Approval v2: inert plumbing only now (v1 default) vs ship the review screen?
-- Ordering: enrollment VM first vs approval?
-- (Decided) 2-phase orchestrator split — **approved**, contract locked (§6a).
+- (Decided) Enrollment is a dedicated step, not a modal; skip is first-class.
+- (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
+- (Pending) Exact copy/layout for the "Protect your home" app-target screens.
+- (Pending) Whether approval review UI ships immediately after enrollment UI or
+  waits behind another product checkpoint.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
