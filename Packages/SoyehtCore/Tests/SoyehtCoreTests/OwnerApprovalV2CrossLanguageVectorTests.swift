@@ -6,9 +6,10 @@ import Testing
 
 /// Swift half of the owner approval Protocol-v2 cross-language golden vectors.
 /// The Rust half lives in `household-rs/tests/data/owner_approval_v2_vectors.json`.
+///
+/// These drive the production ``OwnerApprovalContextV2`` encoder (not a test-local
+/// copy) so the type that ships is the one proven byte-for-byte against Rust.
 @Suite struct OwnerApprovalV2CrossLanguageVectorTests {
-    private static let challengeDomain = Data("soyeht-owner-approval-v2".utf8) + Data([0])
-
     struct Vectors: Decodable {
         let ownerApprovalContextV2: [OwnerApprovalCase]
     }
@@ -56,13 +57,13 @@ import Testing
         let vectors = try Self.loadVectors()
         #expect(!vectors.ownerApprovalContextV2.isEmpty)
         for vector in vectors.ownerApprovalContextV2 {
-            let canonical = Self.ownerApprovalContext(vector.input)
+            let context = try Self.context(vector.input)
             #expect(
-                canonical.soyehtHexEncodedString() == vector.canonicalCborHex,
-                "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(canonical.soyehtHexEncodedString())"
+                context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
+                "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(context.canonicalBytes().soyehtHexEncodedString())"
             )
             #expect(
-                Self.challengeDigestHex(canonical) == vector.challengeSha256Hex,
+                context.challengeDigest().soyehtHexEncodedString() == vector.challengeSha256Hex,
                 "\(vector.id): WebAuthn challenge digest drifted"
             )
         }
@@ -74,7 +75,7 @@ import Testing
             guard let omittedFields = vector.omittedFields, !omittedFields.isEmpty else {
                 continue
             }
-            let canonical = Self.ownerApprovalContext(vector.input)
+            let canonical = try Self.context(vector.input).canonicalBytes()
             guard case .map(let map) = try HouseholdCBOR.decode(canonical) else {
                 Issue.record("\(vector.id): expected context to decode as map")
                 continue
@@ -88,61 +89,45 @@ import Testing
     @Test func challengeDigestChangesWhenBoundFieldsChange() throws {
         let vectors = try Self.loadVectors()
         let vector = try #require(vectors.ownerApprovalContextV2.first)
-        let baseline = Self.challengeDigestHex(Self.ownerApprovalContext(vector.input))
+        let baseline = try Self.context(vector.input).challengeDigest()
 
-        var changedOperation = vector.input
-        changedOperation.op = "bootstrap-teardown"
-        #expect(Self.challengeDigestHex(Self.ownerApprovalContext(changedOperation)) != baseline)
+        var changedOperation = try Self.context(vector.input)
+        changedOperation.op = .bootstrapTeardown
+        #expect(changedOperation.challengeDigest() != baseline)
 
-        var changedAddress = vector.input
+        var changedAddress = try Self.context(vector.input)
         changedAddress.addr = "198.51.100.10:8091"
-        #expect(Self.challengeDigestHex(Self.ownerApprovalContext(changedAddress)) != baseline)
+        #expect(changedAddress.challengeDigest() != baseline)
 
-        var changedNonce = vector.input
-        changedNonce.nonceHex = String(repeating: "44", count: 32)
-        #expect(Self.challengeDigestHex(Self.ownerApprovalContext(changedNonce)) != baseline)
+        var changedNonce = try Self.context(vector.input)
+        changedNonce.nonce = Data(repeating: 0x44, count: 16)
+        #expect(changedNonce.challengeDigest() != baseline)
     }
 
-    private static func ownerApprovalContext(_ input: OwnerApprovalInput) -> Data {
-        var map: [String: HouseholdCBORValue] = [
-            "v": .unsigned(input.v),
-            "purpose": .text(input.purpose),
-            "op": .text(input.op),
-            "hh_id": .text(input.hhId),
-            "owner_p_id": .text(input.ownerPId),
-            "capabilities": .array(input.capabilities.map(HouseholdCBORValue.text)),
-            "issued_at": .unsigned(input.issuedAt),
-            "expires_at": .unsigned(input.expiresAt),
-            "replay_nonce": .bytes(hexDecode(input.replayNonceHex)),
-        ]
-        if let cursor = input.cursor {
-            map["cursor"] = .unsigned(cursor)
-        }
-        if let mId = input.mId {
-            map["m_id"] = .text(mId)
-        }
-        if let addr = input.addr {
-            map["addr"] = .text(addr)
-        }
-        if let transport = input.transport {
-            map["transport"] = .text(transport)
-        }
-        if let ttlUnix = input.ttlUnix {
-            map["ttl_unix"] = .unsigned(ttlUnix)
-        }
-        if let nonceHex = input.nonceHex {
-            map["nonce"] = .bytes(hexDecode(nonceHex))
-        }
-        if let joinRequestHashHex = input.joinRequestHashHex {
-            map["join_request_hash"] = .bytes(hexDecode(joinRequestHashHex))
-        }
-        return HouseholdCBOR.encode(.map(map))
-    }
-
-    private static func challengeDigestHex(_ canonical: Data) -> String {
-        var material = challengeDomain
-        material.append(canonical)
-        return Data(SHA256.hash(data: material)).soyehtHexEncodedString()
+    /// Maps a golden-vector input row into the production ``OwnerApprovalContextV2``.
+    private static func context(_ input: OwnerApprovalInput) throws -> OwnerApprovalContextV2 {
+        let op = try #require(
+            OwnerApprovalOperation(rawValue: input.op),
+            "unknown op in fixture: \(input.op)"
+        )
+        return OwnerApprovalContextV2(
+            version: UInt8(input.v),
+            purpose: input.purpose,
+            op: op,
+            householdID: input.hhId,
+            ownerPersonID: input.ownerPId,
+            cursor: input.cursor,
+            machineID: input.mId,
+            addr: input.addr,
+            transport: input.transport,
+            ttlUnix: input.ttlUnix,
+            nonce: input.nonceHex.map(Self.hexDecode),
+            joinRequestHash: input.joinRequestHashHex.map(Self.hexDecode),
+            capabilities: input.capabilities,
+            issuedAt: input.issuedAt,
+            expiresAt: input.expiresAt,
+            replayNonce: Self.hexDecode(input.replayNonceHex)
+        )
     }
 
     private static func hexDecode(_ string: String) -> Data {
