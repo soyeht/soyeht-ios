@@ -72,6 +72,12 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("OwnerPasskeyEnrollmentViewModel(orchestrator:"))
         // Graceful degrade when the owner key can't be loaded (never blocks onboarding).
         XCTAssertTrue(source.contains("return nil"))
+
+        // Anti-oracle defense-in-depth: the composer wires the phase-driven VM;
+        // it must not inspect server error codes either.
+        XCTAssertFalse(source.contains("BootstrapError"))
+        XCTAssertFalse(source.contains(".serverError"))
+        XCTAssertFalse(source.contains(".code"))
     }
 
     // MARK: helpers (read app-target source; the live screen is not CI-runnable)
