@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~96% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, and backup/AddCredential contract/vectors are merged; recovery consume finish/two-anchor repair runtime, backup/AddCredential runtime, and flip gates remain. |
+| **Backend (theyos)** | ~97% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, and backup/AddCredential contract/vectors are merged; backup/AddCredential runtime, macOS local engine enrollment route, and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -55,10 +55,10 @@ gesture (UI-layer WYSIWYS).
   Recovery R0 provision/readiness ✅, R1-A consume model ✅, R1-B0 cross-log
   consumed helpers + combined consumable-head helper + consume-readiness
   classifier + fail-closed rate-limit adapter ✅, recovery consume
-  context/vectors ✅, R1-B start-only/challenge-only runtime ✅, and
-  backup/AddCredential contract/vectors ✅.
-  **Remaining:** recovery consume finish/two-anchor repair runtime,
-  backup/AddCredential runtime, macOS local engine enrollment route, and the flip.
+  context/vectors ✅, R1-B start-only/challenge-only runtime ✅, R1-B
+  finish/two-anchor repair runtime ✅, and backup/AddCredential contract/vectors ✅.
+  **Remaining:** backup/AddCredential runtime, macOS local engine enrollment
+  route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -205,10 +205,15 @@ because of the xcframework caveat; no local live ceremony is required.
   limiter before recovery-code comparison, checks the code, requires
   `Consumable`, and emits a registration challenge bound to the
   `RecoverCredential` context without mutating either authority or anchor.
-  The finish/two-anchor repair runtime is not implemented yet. This remains the
-  **next runtime pre-flip priority** because recovery
-  closes the "one passkey lost = permanent brick" story before any enforcement
-  flip.
+  #188 adds the finish/two-anchor repair runtime: it revalidates the full
+  `RecoverCredential` context byte-for-byte before registration finish,
+  re-checks the recovery code under the same fail-closed limiter, appends the
+  WebAuthn `RecoveryProof(X)` Add and recovery `Consume(X)` into one atomic
+  `HouseholdAuthState` save, then advances anchors in WebAuthn-before-recovery
+  order. Its repair path completes already-saved Add+Consume pairs without a
+  live challenge and without a second Add/Consume. This closes the recovery
+  no-brick code path in code, but it remains default-off infrastructure until
+  the broader enforcement flip.
   - Recovery is a separate factor/anchor, **not** a WebAuthn credential. It must
     not be counted in `active_count`; `active_count` remains WebAuthn-only.
   - Normal `RevokeCredential` remains hard-blocked by `active_count <= 1`.
@@ -245,6 +250,16 @@ because of the xcframework caveat; no local live ceremony is required.
     `RecoverCredential` context. It intentionally does **not** finish
     registration, append WebAuthn `RecoveryProof` Add, append recovery
     `Consume`, save owner auth, or advance either anchor.
+  - #188 added the recovery-consume finish/two-anchor repair runtime: the
+    handler stays under the mutation lock, re-derives the same canonical
+    `RecoverCredential` context and rejects on byte mismatch before
+    `finish_registration_with_binding`, counts finish attempts with the
+    fail-closed limiter before recovery-code comparison, appends Add+Consume
+    with the same `RecoveryProof(X)`, saves the whole auth state atomically,
+    updates memory, then advances the WebAuthn anchor before the recovery
+    anchor. Repair runs before the normal path and completes already-saved
+    Add+Consume pairs without needing a live registration challenge or signing a
+    duplicate Add/Consume.
   - R1-B runtime eligibility is a deliberate break-glass decision: WebAuthn
     authority must be ever-enrolled with a valid/repairable anchor/prefix, and
     `active_count` is telemetry rather than permission. The recovery head is
@@ -275,10 +290,11 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
-- (Decided) Pre-flip ordering: recovery-code/no-brick runtime first;
-  backup/AddCredential contract is merged as inert infrastructure, but backup
-  runtime waits behind the recovery semantics. Recovery does not count toward
-  `active_count`; last-revoke remains blocked unless a future explicit
-  recovery-backed operation is designed and reviewed.
+- (Decided) Pre-flip ordering: recovery-code/no-brick runtime first; the
+  start+finish runtime is now merged as default-off infrastructure.
+  Backup/AddCredential contract is merged as inert infrastructure, but backup
+  runtime remains separate. Recovery does not count toward `active_count`;
+  last-revoke remains blocked unless a future explicit recovery-backed
+  operation is designed and reviewed.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
