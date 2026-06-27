@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, and backup/AddCredential contract/vectors are merged; recovery consume/add-fresh-credential runtime, backup/AddCredential runtime, and flip gates remain. |
+| **Backend (theyos)** | ~96% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, and backup/AddCredential contract/vectors are merged; recovery consume finish/two-anchor repair runtime, backup/AddCredential runtime, and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -55,8 +55,9 @@ gesture (UI-layer WYSIWYS).
   Recovery R0 provision/readiness ✅, R1-A consume model ✅, R1-B0 cross-log
   consumed helpers + combined consumable-head helper + consume-readiness
   classifier + fail-closed rate-limit adapter ✅, recovery consume
-  context/vectors ✅, and backup/AddCredential contract/vectors ✅.
-  **Remaining:** recovery consume/add-fresh-credential runtime,
+  context/vectors ✅, R1-B start-only/challenge-only runtime ✅, and
+  backup/AddCredential contract/vectors ✅.
+  **Remaining:** recovery consume finish/two-anchor repair runtime,
   backup/AddCredential runtime, macOS local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
@@ -199,8 +200,12 @@ because of the xcframework caveat; no local live ceremony is required.
   invariant. R1-A consume model, R1-B0 cross-log consumed helpers + combined
   consumable-head helper + consume-readiness classifier + fail-closed
   rate-limit adapter, and RecoverCredential context/vectors are merged as inert
-  model/contract infrastructure;
-  consume/add-fresh-credential runtime is not implemented yet. This remains the
+  model/contract infrastructure; #187 adds the start-only/challenge-only
+  runtime path that proves owner PoP, applies the fail-closed recovery-consume
+  limiter before recovery-code comparison, checks the code, requires
+  `Consumable`, and emits a registration challenge bound to the
+  `RecoverCredential` context without mutating either authority or anchor.
+  The finish/two-anchor repair runtime is not implemented yet. This remains the
   **next runtime pre-flip priority** because recovery
   closes the "one passkey lost = permanent brick" story before any enforcement
   flip.
@@ -232,6 +237,14 @@ because of the xcframework caveat; no local live ceremony is required.
     household/owner bucket, and before recovery-code comparison or registration
     challenge consumption, so wrong-code attempts count without creating a
     bucket-burn oracle.
+  - #187 added the recovery-consume start-only runtime: the handler uses the
+    dedicated owner PoP operation, holds the mutation lock for a consistent
+    read, calls the fail-closed limiter before `matches_code_bytes`, classifies
+    both anchors read-only, requires `Consumable`, treats `active_count` only as
+    telemetry, and starts a registration ceremony bound to the full
+    `RecoverCredential` context. It intentionally does **not** finish
+    registration, append WebAuthn `RecoveryProof` Add, append recovery
+    `Consume`, save owner auth, or advance either anchor.
   - R1-B runtime eligibility is a deliberate break-glass decision: WebAuthn
     authority must be ever-enrolled with a valid/repairable anchor/prefix, and
     `active_count` is telemetry rather than permission. The recovery head is
