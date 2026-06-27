@@ -97,6 +97,9 @@ struct SoyehtAppView: View {
         case qrScanner
         case householdHome(SoyehtIdentitySnapshot)
         case pairingSuccess(SoyehtIdentitySnapshot)
+        /// First owner-passkey enrollment ("protect your home"), shown once in
+        /// fresh onboarding between pairing success and the recovery message.
+        case enrollOwnerPasskey(SoyehtIdentitySnapshot)
         case recoveryMessage(SoyehtIdentitySnapshot)
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
@@ -288,6 +291,25 @@ struct SoyehtAppView: View {
                 PairingSuccessView(
                     houseName: snapshot.displayName,
                     onContinue: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .enrollOwnerPasskey(snapshot)
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .enrollOwnerPasskey(let snapshot):
+                // Fresh-onboarding owner passkey enrollment. Both completion and
+                // an explicit "set up later" advance to the recovery message — the
+                // existing next step — so enrollment never blocks the flow.
+                OwnerPasskeyEnrollmentView(
+                    snapshot: snapshot,
+                    onContinue: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .recoveryMessage(snapshot)
+                        }
+                    },
+                    onSkip: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .recoveryMessage(snapshot)
                         }
