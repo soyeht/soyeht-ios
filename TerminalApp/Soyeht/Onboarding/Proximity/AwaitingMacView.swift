@@ -327,7 +327,10 @@ final class AwaitingMacViewModel: ObservableObject {
 
     /// Seconds to wait with no successful Mac discovery before revealing the
     /// "Not finding your Mac?" recovery section underneath the radar.
-    private static let recoveryHintDelaySeconds: UInt64 = 20
+    /// From the OnboardingConfig SSOT (default 20s, pinned by `OnboardingConfigTests`);
+    /// behavior-equivalent to the prior literal `20`. Kept as `UInt64` seconds so the
+    /// existing `* 1_000_000_000` nanosecond sleep mechanism is unchanged.
+    private static let recoveryHintDelaySeconds: UInt64 = UInt64(OnboardingConfig.default.macDiscoveryRecoveryHintDelay)
 
     @Published private(set) var pendingExistingHouse: ExistingHouseCandidate?
     @Published private(set) var fingerprintWords: [String] = []
@@ -665,7 +668,7 @@ final class AwaitingMacViewModel: ObservableObject {
         guard !alreadyFound else { return }
         guard !engineURLs.isEmpty else { return }
 
-        let deadline = Date().addingTimeInterval(60)
+        let deadline = Date().addingTimeInterval(OnboardingConfig.default.macDiscoveryDeadline)
         var attempts = 0
         while !alreadyFound, Date() < deadline {
             attempts += 1
@@ -735,10 +738,10 @@ final class AwaitingMacViewModel: ObservableObject {
         // Info.plist.
         awaitingMacLogger.info("probe.url string=\(probe.absoluteString, privacy: .public) scheme=\(probe.scheme ?? "<nil>", privacy: .public) host=\(probe.host ?? "<nil>", privacy: .public) port=\(probe.port.map(String.init) ?? "<nil>", privacy: .public)")
         var req = URLRequest(url: probe)
-        req.timeoutInterval = 2.0
+        req.timeoutInterval = OnboardingConfig.default.macProbeTimeout
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 2.0
-        config.timeoutIntervalForResource = 2.0
+        config.timeoutIntervalForRequest = OnboardingConfig.default.macProbeTimeout
+        config.timeoutIntervalForResource = OnboardingConfig.default.macProbeTimeout
         let session = URLSession(configuration: config)
         defer { session.invalidateAndCancel() }
         do {
