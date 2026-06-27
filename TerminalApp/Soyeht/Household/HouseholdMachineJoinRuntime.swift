@@ -58,6 +58,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         confirmingRequest?.envelope.idempotencyKey
     }
 
+    var isApprovalV2ReviewEnabled: Bool {
+        approvalV2ReviewEnabled
+    }
+
     let queue: JoinRequestQueue
     let devicePairQueue: DevicePairRequestQueue
 
@@ -65,6 +69,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private let wordlist: BIP39Wordlist
     private let session: URLSession
     private let nowProvider: @Sendable () -> Date
+    private let approvalV2ReviewEnabled: Bool
     private let membershipStore: HouseholdMembershipStore
     private let crlStore: CRLStore?
     private let gossipCursorStore: any HouseholdGossipCursorStoring
@@ -92,6 +97,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         gossipCursorStore: any HouseholdGossipCursorStoring = UserDefaultsHouseholdGossipCursorStore(),
         session: URLSession = .shared,
         nowProvider: @escaping @Sendable () -> Date = { Date() },
+        approvalV2ReviewEnabled: Bool = false,
         phaseObserver: (@MainActor (LifecyclePhase) -> Void)? = nil
     ) {
         self.queue = queue
@@ -100,6 +106,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         self.wordlist = wordlist ?? Self.loadBundledWordlist()
         self.session = session
         self.nowProvider = nowProvider
+        self.approvalV2ReviewEnabled = approvalV2ReviewEnabled
         self.membershipStore = HouseholdMembershipStore()
         self.crlStore = crlStore ?? (try? CRLStore())
         self.gossipCursorStore = gossipCursorStore
@@ -379,6 +386,40 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     transport: JoinRequestStagingClient.urlSessionTransport(session)
                 )
                 _ = try await client.approve(authorization)
+            }
+        )
+    }
+
+    func makeOwnerApprovalV2ReviewAdapter(
+        for request: JoinRequestQueue.PendingRequest,
+        household: ActiveHouseholdState
+    ) throws -> OwnerApprovalV2ReviewAdapter {
+        let ownerIdentity = try keyProvider.loadOwnerIdentity(
+            keyReference: household.signingKeyReference,
+            publicKey: household.signingPublicKey,
+            personId: household.ownerPersonId
+        )
+        let popSigner = HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: nowProvider)
+        let client = OwnerApprovalV2Client(
+            baseURL: household.endpoint,
+            popSigner: popSigner,
+            transport: JoinRequestStagingClient.urlSessionTransport(session)
+        )
+        let passkeyProvider = PasskeyProvider(anchorProvider: KeyWindowPasskeyAnchorProvider())
+        let orchestrator = OwnerApprovalV2Orchestrator(client: client, provider: passkeyProvider)
+        let reviewModel = OwnerApprovalV2ReviewViewModel(cursor: request.cursor, orchestrator: orchestrator)
+        return OwnerApprovalV2ReviewAdapter(
+            request: request,
+            queue: queue,
+            runtime: self,
+            reviewModel: reviewModel,
+            nowProvider: nowProvider,
+            pinAnchor: { [session] envelope in
+                try await OwnerApprovalV2ReviewAdapter.requireAndPinLocalAnchor(
+                    envelope: envelope,
+                    household: household,
+                    transport: LocalAnchorClient.urlSessionTransport(session)
+                )
             }
         )
     }
