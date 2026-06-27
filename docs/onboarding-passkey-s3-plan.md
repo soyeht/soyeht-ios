@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helper, and backup/AddCredential contract/vectors are merged; consume/add runtimes and flip gates remain. |
+| **Backend (theyos)** | ~95% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers, and backup/AddCredential contract/vectors are merged; consume/add runtimes and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -53,7 +53,7 @@ gesture (UI-layer WYSIWYS).
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
   R1 contract/vectors ✅, R2 start/challenge ✅, and R3 finish mutation ✅.
   Recovery R0 provision/readiness ✅, R1-A consume model ✅, R1-B0 cross-log
-  consumed helper ✅, and backup/AddCredential contract/vectors ✅.
+  consumed helpers ✅, and backup/AddCredential contract/vectors ✅.
   **Remaining:** recovery consume/no-brick runtime, backup/AddCredential runtime,
   macOS local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
@@ -193,7 +193,7 @@ because of the xcframework caveat; no local live ceremony is required.
 - **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**.
   R0 provision/readiness is merged as default-off infrastructure, with
   shown-once recovery code semantics protected by the anchored/delivered/ready
-  invariant. R1-A consume model and R1-B0 cross-log consumed helper are merged
+  invariant. R1-A consume model and R1-B0 cross-log consumed helpers are merged
   as inert model infrastructure; consume/add-fresh-credential runtime is not implemented
   yet. This remains the **next runtime pre-flip priority** because recovery
   closes the "one passkey lost = permanent brick" story before any enforcement
@@ -204,6 +204,11 @@ because of the xcframework caveat; no local live ceremony is required.
     Any future "last revoke with recovery" must be a separate explicit
     operation/policy that verifies a recovery anchor under the same lock. Do not
     silently relax the existing revoke path.
+  - R1-B0 merged the SSOT consumed helpers on both sides of the future
+    two-anchor runtime: recovery log `Consume(X)` and WebAuthn log Add actor
+    `RecoveryProof(X)`, both sequence+hash bound. The future runtime must call
+    those predicates only after the relevant authority has been verified and
+    anchor-classified; they are not log validators.
   - R1-B runtime eligibility is a deliberate break-glass decision: WebAuthn
     authority must be ever-enrolled with a valid/repairable anchor/prefix, and
     `active_count` is telemetry rather than permission. The recovery head is
