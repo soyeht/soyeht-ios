@@ -32,7 +32,7 @@ struct OwnerPasskeyEnrollmentView: View {
         }
         .task {
             guard model == nil, !ownerKeyUnavailable else { return }
-            if let vm = OwnerPasskeyEnrollmentComposer.makeViewModel(
+            if let vm = await OwnerPasskeyEnrollmentComposer.makeViewModel(
                 snapshot: snapshot,
                 anchorProvider: anchorProvider
             ) {
@@ -59,18 +59,34 @@ private struct OwnerPasskeyEnrollmentContent: View {
                 Image(systemName: "faceid")
                     .font(.system(size: 56))
                     .foregroundColor(BrandColors.accentGreen)
-                Text("protect your home")
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.title",
+                    defaultValue: "protect your home",
+                    comment: "Headline for the optional owner passkey enrollment screen."
+                ))
                     .font(OnboardingFonts.heading)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                     .multilineTextAlignment(.center)
-                Text("use Face ID to approve important changes — only you can.")
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.subtitle",
+                    defaultValue: "use Face ID to approve important changes — only you can.",
+                    comment: "Subtitle explaining why the owner should set up a passkey."
+                ))
                     .font(OnboardingFonts.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
-                Label("your passkey stays on this device. nothing leaves it.", systemImage: "lock.fill")
-                    .font(OnboardingFonts.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
-                    .multilineTextAlignment(.center)
+                Label {
+                    Text(LocalizedStringResource(
+                        "ownerPasskey.enrollment.privacy",
+                        defaultValue: "your passkey stays on this device. nothing leaves it.",
+                        comment: "Privacy reassurance on the owner passkey enrollment screen."
+                    ))
+                } icon: {
+                    Image(systemName: "lock.fill")
+                }
+                .font(OnboardingFonts.subheadline)
+                .foregroundColor(BrandColors.textMuted)
+                .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
             Spacer()
@@ -95,9 +111,13 @@ private struct OwnerPasskeyEnrollmentContent: View {
             Divider().background(BrandColors.border)
             if isFailed {
                 // Uniform, generic hint — never derived from the underlying error.
-                Text("couldn't set up. try again.")
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.failure",
+                    defaultValue: "couldn't set up. try again.",
+                    comment: "Generic passkey enrollment failure message; intentionally does not expose the underlying reason."
+                ))
                     .font(OnboardingFonts.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
             }
             Button {
@@ -105,7 +125,7 @@ private struct OwnerPasskeyEnrollmentContent: View {
             } label: {
                 Group {
                     if isWorking {
-                        ProgressView().tint(.black)
+                        ProgressView().tint(BrandColors.buttonTextOnAccent)
                     } else {
                         Text(primaryTitle).font(OnboardingFonts.bodyBold)
                     }
@@ -113,15 +133,23 @@ private struct OwnerPasskeyEnrollmentContent: View {
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(BrandColors.accentGreen)
-                .foregroundColor(.black)
+                .foregroundColor(BrandColors.buttonTextOnAccent)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .disabled(isWorking)
 
-            Button("set up later") { model.setUpLater() }
+            Button {
+                model.setUpLater()
+            } label: {
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.skip",
+                    defaultValue: "set up later",
+                    comment: "Skip button for optional owner passkey enrollment."
+                ))
                 .font(OnboardingFonts.subheadline)
-                .foregroundColor(.white.opacity(0.6))
-                .disabled(isWorking)
+                .foregroundColor(BrandColors.textMuted)
+            }
+            .disabled(isWorking)
         }
         .padding(.horizontal, 32)
         .padding(.bottom, 24)
@@ -138,8 +166,19 @@ private struct OwnerPasskeyEnrollmentContent: View {
         return false
     }
 
-    private var primaryTitle: String {
-        isFailed ? "try again" : "continue"
+    private var primaryTitle: LocalizedStringResource {
+        if isFailed {
+            return LocalizedStringResource(
+                "ownerPasskey.enrollment.retry",
+                defaultValue: "try again",
+                comment: "Retry button title for owner passkey enrollment."
+            )
+        }
+        return LocalizedStringResource(
+            "ownerPasskey.enrollment.continue",
+            defaultValue: "continue",
+            comment: "Primary button title to start owner passkey enrollment."
+        )
     }
 }
 
@@ -155,12 +194,20 @@ private struct OwnerPasskeyEnrollmentUnavailableContent: View {
                 Image(systemName: "faceid")
                     .font(.system(size: 56))
                     .foregroundColor(BrandColors.accentGreen)
-                Text("protect your home")
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.title",
+                    defaultValue: "protect your home",
+                    comment: "Headline for the optional owner passkey enrollment screen."
+                ))
                     .font(OnboardingFonts.heading)
-                    .foregroundColor(.white)
-                Text("you can set up a passkey later in settings.")
+                    .foregroundColor(BrandColors.textPrimary)
+                Text(LocalizedStringResource(
+                    "ownerPasskey.enrollment.unavailable",
+                    defaultValue: "you can set up a passkey later in settings.",
+                    comment: "Message shown when passkey enrollment cannot be started because the owner key is unavailable."
+                ))
                     .font(OnboardingFonts.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
@@ -168,12 +215,16 @@ private struct OwnerPasskeyEnrollmentUnavailableContent: View {
             VStack(spacing: 12) {
                 Divider().background(BrandColors.border)
                 Button(action: onContinue) {
-                    Text("continue")
+                    Text(LocalizedStringResource(
+                        "ownerPasskey.enrollment.continue",
+                        defaultValue: "continue",
+                        comment: "Primary button title to start owner passkey enrollment."
+                    ))
                         .font(OnboardingFonts.bodyBold)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(BrandColors.accentGreen)
-                        .foregroundColor(.black)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
