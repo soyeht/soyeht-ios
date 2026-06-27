@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~92% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors, R2 start challenge, and R3 finish mutation are merged; recovery/backup gates remain. |
-| **Client (soyeht-ios)** | ~85% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS enrollment architecture remains. |
+| **Backend (theyos)** | ~94% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness and backup/AddCredential contract/vectors are merged; consume/add runtimes and flip gates remain. |
+| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
 ---
@@ -52,10 +52,12 @@ gesture (UI-layer WYSIWYS).
   sign_count policy ✅, PolicySnapshot/trust-state ✅, dedicated enrollment op
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
   R1 contract/vectors ✅, R2 start/challenge ✅, and R3 finish mutation ✅.
-  **Remaining:** backup/subsequent enrollment (step-up), recovery-code/no-brick,
-  and the flip.
+  Recovery R0 provision/readiness ✅ and backup/AddCredential contract/vectors ✅.
+  **Remaining:** recovery consume/no-brick runtime, backup/AddCredential runtime,
+  macOS local engine enrollment route, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
-  #170 approval-v2 wire, #174 revoke-credential context.
+  #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
+  provision context, and #179 AddCredential context.
 
 ---
 
@@ -72,6 +74,9 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - #229 — `OwnerPasskeyEnrollmentOrchestrator` (headless coordinator)
 - #231 — `OwnerPasskeyRegistrationStatusClient` (E1 status read)
 - #232 — `OwnerPasskeyEnrollmentViewModel` (headless state machine)
+- #242 — macOS local-socket registration/status client foundation
+  (HTTP-over-UDS transport + no-PoP local caller-auth mode, inert until engine
+  routes exist)
 
 **Approval-v2**
 - #219 — `OwnerApprovalContextV2` DTO + challenge-digest
@@ -120,16 +125,18 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - iOS: **merged**. `enrollOwnerPasskey(snapshot)` now sits between
   `pairingSuccess(snapshot)` and the recovery/household continuation in the
   post-owner setup flow.
-- macOS: still gated, but the identity/caller-auth architecture is decided. It
-  is not a direct iOS port: the app target must not receive owner identity / PoP
-  signer material. The engine keeps owner identity engine-side, exposes a local
-  Unix domain socket to the signed Soyeht app, verifies the peer code signature
-  (audit token -> SecCode -> team/cdhash), and treats WebAuthn attestation as the
-  material grant only when it is constrained to user verification + platform
-  authenticator + owner-exists / NeverEnrolled / default-off gates. TCP loopback
-  or localhost + attestation alone is not authorization. Slice 0 must still pin
-  the wire shape, with HTTP-over-UDS preferred so existing CBOR DTOs/vectors can
-  be reused.
+- macOS: still gated, but the identity/caller-auth architecture is decided and
+  the SoyehtCore UDS client foundation is merged. It is not a direct iOS port:
+  the app target must not receive owner identity / PoP signer material. The
+  engine keeps owner identity engine-side, exposes a local Unix domain socket to
+  the signed Soyeht app, verifies the peer code signature (audit token ->
+  SecCode -> designated requirement: apple-generic + team-id + bundle-id, not a
+  raw cdhash pin), and treats WebAuthn attestation as the material grant only
+  when it is constrained to user verification + platform authenticator +
+  owner-exists / NeverEnrolled / default-off gates. TCP loopback or localhost +
+  attestation alone is not authorization. The client foundation uses
+  HTTP-over-UDS so existing CBOR DTOs/vectors can be reused; the security-critical
+  engine route with peer code-signing + constrained attestation is still pending.
 - The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
   `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
   `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
@@ -182,11 +189,12 @@ because of the xcframework caveat; no local live ceremony is required.
 
 ## 7. Gated / pre-flip (NOT in scope yet)
 
-- **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**
-  (contract #3 needs pre-provisioned recovery for any future revoke-last). Placeholder in
-  UI now; real flow gated on backend. This is the **next pre-flip priority**:
-  recovery closes the "one passkey lost = permanent brick" story before any
-  enforcement flip.
+- **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**.
+  R0 provision/readiness is merged as default-off infrastructure, with
+  shown-once recovery code semantics protected by the anchored/delivered/ready
+  invariant. Consume/re-enroll is not implemented yet. This remains the **next
+  runtime pre-flip priority** because recovery closes the "one passkey lost =
+  permanent brick" story before any enforcement flip.
   - Recovery is a separate factor/anchor, **not** a WebAuthn credential. It must
     not be counted in `active_count`; `active_count` remains WebAuthn-only.
   - Normal `RevokeCredential` remains hard-blocked by `active_count <= 1`.
@@ -195,8 +203,8 @@ because of the xcframework caveat; no local live ceremony is required.
     silently relax the existing revoke path.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
   not the TOFU path. Placeholder now; gated on backend. Backup/AddCredential
-  **contract/vectors may proceed in parallel as an inert slice**, but runtime is
-  lower priority than recovery because backup is not a flip blocker.
+  **contract/vectors are merged as an inert slice**; runtime is lower priority
+  than recovery because backup is not a flip blocker.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
@@ -216,10 +224,10 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
-- (Decided) Pre-flip ordering: recovery-code/no-brick first; backup/AddCredential
-  contract can be inert/parallel, but backup runtime waits behind the recovery
-  semantics. Recovery does not count toward `active_count`; last-revoke remains
-  blocked unless a future explicit recovery-backed operation is designed and
-  reviewed.
+- (Decided) Pre-flip ordering: recovery-code/no-brick runtime first;
+  backup/AddCredential contract is merged as inert infrastructure, but backup
+  runtime waits behind the recovery semantics. Recovery does not count toward
+  `active_count`; last-revoke remains blocked unless a future explicit
+  recovery-backed operation is designed and reviewed.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
