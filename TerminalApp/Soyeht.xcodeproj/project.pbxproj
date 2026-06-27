@@ -115,6 +115,10 @@
 		8DDA0000000000000000001D /* MacAliasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011D /* MacAliasView.swift */; };
 		8DDA0000000000000000001E /* PairedMac+Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011E /* PairedMac+Server.swift */; };
 		8DDA0000000000000000001F /* ServerRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011F /* ServerRegistry.swift */; };
+		8DDA00000000000000000500 /* OwnerPasskeyEnrollmentComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */; };
+		8DDA00000000000000000502 /* OwnerPasskeyEnrollmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */; };
+		8DDA00000000000000000504 /* PasskeyPresentationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */; };
+		8DDA00000000000000000506 /* OwnerPasskeyEnrollmentPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */; };
 		8DDA00000000000000000311 /* SoyehtIdentityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000301 /* SoyehtIdentityState.swift */; };
 		8DDA00000000000000000312 /* SoyehtIdentitySnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */; };
 		8DDA00000000000000000313 /* OwnerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000303 /* OwnerDevice.swift */; };
@@ -381,6 +385,10 @@
 		8DDA0000000000000000011D /* MacAliasView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacAliasView.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000011E /* PairedMac+Server.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PairedMac+Server.swift"; sourceTree = "<group>"; };
 		8DDA0000000000000000011F /* ServerRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistry.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentComposer.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentView.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PasskeyPresentationAnchor.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentPresentationTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000301 /* SoyehtIdentityState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityState.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentitySnapshot.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000303 /* OwnerDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerDevice.swift; sourceTree = "<group>"; };
@@ -895,6 +903,7 @@
 				8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */,
 				8DDA00000000000000000118 /* HouseholdApplePushServiceViewModelTests.swift */,
 				8DDA0000000000000000011A /* DevicePairApprovalPresentationTests.swift */,
+				8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */,
 				8DDA0000000000000000011C /* PairedMacAliasTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
 				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
@@ -1079,6 +1088,7 @@
 				2A389575B94885D99B1996D6 /* Carousel */,
 				7ED8B8449FD05C73BE9FC3CD /* HouseNaming */,
 				66080F883DBC4C51E3D0C7A5 /* InstallPicker */,
+				8DDA00000000000000000520 /* OwnerPasskey */,
 				B1FB828D1BEDFB3C1FC0AB4D /* PairingConfirmation */,
 				D2B07FE86A92D772915F66B3 /* ParkingLot */,
 				911E2B6EBB8833CDE4A3D09D /* Proximity */,
@@ -1086,6 +1096,17 @@
 			);
 			name = Onboarding;
 			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		8DDA00000000000000000520 /* OwnerPasskey */ = {
+			isa = PBXGroup;
+			children = (
+				8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */,
+				8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */,
+				8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */,
+			);
+			name = OwnerPasskey;
+			path = OwnerPasskey;
 			sourceTree = "<group>";
 		};
 		F60718293A4B5C6D7E8F9A0B /* Haptic */ = {
@@ -1481,6 +1502,9 @@
 				3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */,
 				E7E4FF225266E8C5624B7C56 /* PairingProgressView.swift in Sources */,
 				4DFA551D71566244E6AADD9F /* PairingSuccessView.swift in Sources */,
+				8DDA00000000000000000500 /* OwnerPasskeyEnrollmentComposer.swift in Sources */,
+				8DDA00000000000000000502 /* OwnerPasskeyEnrollmentView.swift in Sources */,
+				8DDA00000000000000000504 /* PasskeyPresentationAnchor.swift in Sources */,
 				32F3BE21C6D9663C33B30B45 /* LaterParkingLotView.swift in Sources */,
 				5EE2ECB865D963FE80A02153 /* ProximityQuestionView.swift in Sources */,
 				86615F456B96EA68696849DE /* RecoveryMessageView.swift in Sources */,
@@ -1566,6 +1590,7 @@
 				8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */,
 				8DDA00000000000000000018 /* HouseholdApplePushServiceViewModelTests.swift in Sources */,
 				8DDA0000000000000000001A /* DevicePairApprovalPresentationTests.swift in Sources */,
+				8DDA00000000000000000506 /* OwnerPasskeyEnrollmentPresentationTests.swift in Sources */,
 				8DDA0000000000000000001C /* PairedMacAliasTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
