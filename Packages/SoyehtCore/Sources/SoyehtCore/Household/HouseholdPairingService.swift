@@ -125,7 +125,10 @@ public struct HouseholdPairingService {
             )
         } else {
             do {
-                candidate = try await browser.firstMatchingCandidate(for: qr, timeout: 10)
+                candidate = try await browser.firstMatchingCandidate(
+                    for: qr,
+                    timeout: OnboardingConfig.default.householdDiscoveryTimeout
+                )
             } catch let error as HouseholdPairingError {
                 throw error
             } catch {
