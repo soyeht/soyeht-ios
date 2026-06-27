@@ -177,9 +177,20 @@ because of the xcframework caveat; no local live ceremony is required.
 ## 7. Gated / pre-flip (NOT in scope yet)
 
 - **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**
-  (contract #3 needs pre-provisioned recovery for revoke-last). Placeholder in UI now; real flow gated on backend.
+  (contract #3 needs pre-provisioned recovery for any future revoke-last). Placeholder in
+  UI now; real flow gated on backend. This is the **next pre-flip priority**:
+  recovery closes the "one passkey lost = permanent brick" story before any
+  enforcement flip.
+  - Recovery is a separate factor/anchor, **not** a WebAuthn credential. It must
+    not be counted in `active_count`; `active_count` remains WebAuthn-only.
+  - Normal `RevokeCredential` remains hard-blocked by `active_count <= 1`.
+    Any future "last revoke with recovery" must be a separate explicit
+    operation/policy that verifies a recovery anchor under the same lock. Do not
+    silently relax the existing revoke path.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
-  not the TOFU path. Placeholder now; gated on backend.
+  not the TOFU path. Placeholder now; gated on backend. Backup/AddCredential
+  **contract/vectors may proceed in parallel as an inert slice**, but runtime is
+  lower priority than recovery because backup is not a flip blocker.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
@@ -197,5 +208,10 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
+- (Decided) Pre-flip ordering: recovery-code/no-brick first; backup/AddCredential
+  contract can be inert/parallel, but backup runtime waits behind the recovery
+  semantics. Recovery does not count toward `active_count`; last-revoke remains
+  blocked unless a future explicit recovery-backed operation is designed and
+  reviewed.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
