@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~90% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors is merged; revoke runtime and recovery/backup gates remain. |
-| **Client (soyeht-ios)** | ~65% | **Headless chain 100% merged**; UI/screens 0%. Enrollment screen is the next app-target slice, gated on UX approval. |
+| **Backend (theyos)** | ~90% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors + R2 start challenge are merged; revoke finish mutation and recovery/backup gates remain. |
+| **Client (soyeht-ios)** | ~75% | **Headless chain 100% merged**. iOS enrollment screen is merged; approval review VM is merged. Approval review screen and macOS enrollment architecture remain. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
 ---
@@ -51,8 +51,9 @@ gesture (UI-layer WYSIWYS).
 - **Pre-flip gates** (apply before flipping enforcement): double-prepare ✅,
   sign_count policy ✅, PolicySnapshot/trust-state ✅, dedicated enrollment op
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
-  R1 contract/vectors ✅. **Remaining:** backup/subsequent enrollment
-  (step-up), recovery-code/no-brick, revoke R2/R3 runtime, and the flip.
+  R1 contract/vectors ✅ and R2 start/challenge ✅. **Remaining:**
+  backup/subsequent enrollment (step-up), recovery-code/no-brick, revoke R3
+  finish mutation, and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context.
 
@@ -80,6 +81,8 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - #224 — `OwnerApprovalV2Orchestrator` (headless coordinator)
 - #228 — 2-phase `OwnerApprovalV2Orchestrator.prepare` / `confirm` split for
   review-before-gesture UI
+- #235 — `OwnerApprovalV2ReviewViewModel` (pair-machine-approve review state
+  machine; exposes context before confirm)
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -111,11 +114,14 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 
 ## 6. Remaining — UI / app-target
 
-**6a. Enrollment screen: "Protect your home"** (next app-target slice, gated on
-UX approval):
-- iOS: add `enrollOwnerPasskey(snapshot)` between `pairingSuccess(snapshot)` and
-  `householdHome(snapshot)` in the post-owner setup flow.
-- macOS: add `.enrollPasskey` after `houseCard` in the founder welcome flow.
+**6a. Enrollment screen: "Protect your home"**
+- iOS: **merged**. `enrollOwnerPasskey(snapshot)` now sits between
+  `pairingSuccess(snapshot)` and the recovery/household continuation in the
+  post-owner setup flow.
+- macOS: still gated. It is not a direct iOS port: the founder Mac flow does not
+  currently expose owner identity / PoP signer material to the app target. Choose
+  the macOS identity/PoP architecture before adding `.enrollPasskey` after
+  `houseCard`.
 - The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
   `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
   `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
@@ -124,18 +130,19 @@ UX approval):
   consumes the VM phase. Retry is manual; there is no automatic re-enroll.
 
 **6b. Approval review VM** (SPM slice before the app-target screen):
+- **Merged** as #235, pair-machine-approve only.
 - First cut is pair-machine-approve only. The `cursor` comes from the
   owner-events long-poll / join-request queue and is the cursor used by
   `/owner-events/{cursor}/approval-v2/start` and `/approve`.
-- Add an `OwnerApprovalV2ReviewViewModel`-style headless VM around the merged
-  2-phase `OwnerApprovalV2Orchestrator`: `prepare(cursor:)` fetches the
-  `startResponse` and exposes `startResponse.context`; `confirm(_:)` performs
-  the gesture and posts the exact-context envelope.
+- `OwnerApprovalV2ReviewViewModel` wraps the merged 2-phase
+  `OwnerApprovalV2Orchestrator`: `prepare(cursor:)` fetches the `startResponse`
+  and exposes `startResponse.context`; `confirm(_:)` performs the gesture and
+  posts the exact-context envelope.
 - The VM owns phases such as `idle`, `prepared(context)`, `confirming`,
   `completed`, and `failed(canRetry:)`. It never exposes or interprets the
   opaque WebAuthn challenge, and it never branches on `BootstrapError.code`.
 
-**6c. Approval review screen** (app-target after the VM):
+**6c. Approval review screen** (next app-target slice):
 - Renders the pair-machine context fields (op, machine id, addr, transport) before
   the owner can tap Approve. `confirm` is reachable only after explicit owner
   approval; it is never triggered automatically after `prepare`.
@@ -147,8 +154,8 @@ UX approval):
   exposed here.
 
 **Test boundary:** SPM already covers the enrollment ViewModel, orchestrators,
-clients, CBOR wire, status/E1, and anti-oracle state transitions. The approval
-review VM should also be SPM-headless-testable. SwiftUI views, live
+clients, CBOR wire, status/E1, anti-oracle state transitions, and the approval
+review VM. SwiftUI views, live
 `ASAuthorization`, app navigation, and source guards are app-target / **CI-only**
 because of the xcframework caveat; no local live ceremony is required.
 
@@ -160,8 +167,9 @@ because of the xcframework caveat; no local live ceremony is required.
   (contract #3 needs pre-provisioned recovery for revoke-last). Placeholder in UI now; real flow gated on backend.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
   not the TOFU path. Placeholder now; gated on backend.
-- **revoke runtime R2/R3** — R1 contract/vectors are merged; start and finish
-  mutation remain gated on no-brick, head-binding, active_count>1, and anti-rollback.
+- **revoke runtime R3** — R1 contract/vectors and R2 start/challenge are merged;
+  finish mutation remains gated on no-brick, head-binding, active_count>1,
+  duplicate-revoke prevention, save-ok/anchor-fail recovery, and anti-rollback.
 - **enforcement flip** — only after the pre-flip gates land.
 
 ---
@@ -170,8 +178,8 @@ because of the xcframework caveat; no local live ceremony is required.
 
 - (Decided) Enrollment is a dedicated step, not a modal; skip is first-class.
 - (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
-- (Pending) Exact copy/layout for the "Protect your home" app-target screens.
-- (Pending) Whether approval review UI ships immediately after enrollment UI or
-  waits behind another product checkpoint.
+- (Decided) iOS "Protect your home" screen is merged. macOS enrollment waits on
+  the founder identity/PoP architecture decision.
+- (Pending) Approval review screen exact copy/layout and app-target rollout gate.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
