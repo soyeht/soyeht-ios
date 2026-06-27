@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~90% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors + R2 start challenge are merged; revoke finish mutation and recovery/backup gates remain. |
+| **Backend (theyos)** | ~92% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1 contract/vectors, R2 start challenge, and R3 finish mutation are merged; recovery/backup gates remain. |
 | **Client (soyeht-ios)** | ~75% | **Headless chain 100% merged**. iOS enrollment screen is merged; approval review VM is merged. Approval review screen and macOS enrollment architecture remain. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -51,9 +51,9 @@ gesture (UI-layer WYSIWYS).
 - **Pre-flip gates** (apply before flipping enforcement): double-prepare ✅,
   sign_count policy ✅, PolicySnapshot/trust-state ✅, dedicated enrollment op
   `OwnerAuthEnrollInitial` ✅, status/E1 marker-backed endpoint ✅. Revoke
-  R1 contract/vectors ✅ and R2 start/challenge ✅. **Remaining:**
-  backup/subsequent enrollment (step-up), recovery-code/no-brick, revoke R3
-  finish mutation, and the flip.
+  R1 contract/vectors ✅, R2 start/challenge ✅, and R3 finish mutation ✅.
+  **Remaining:** backup/subsequent enrollment (step-up), recovery-code/no-brick,
+  and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context.
 
@@ -167,9 +167,10 @@ because of the xcframework caveat; no local live ceremony is required.
   (contract #3 needs pre-provisioned recovery for revoke-last). Placeholder in UI now; real flow gated on backend.
 - **backup / 2nd passkey** — requires step-up (existing assertion / approval-v2),
   not the TOFU path. Placeholder now; gated on backend.
-- **revoke runtime R3** — R1 contract/vectors and R2 start/challenge are merged;
-  finish mutation remains gated on no-brick, head-binding, active_count>1,
-  duplicate-revoke prevention, save-ok/anchor-fail recovery, and anti-rollback.
+- **revoke runtime R3** — merged. Finish mutation landed with no-brick,
+  head-binding, active_count>1, duplicate-revoke prevention,
+  save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
+  coverage. It remains default-off infrastructure, not the enforcement flip.
 - **enforcement flip** — only after the pre-flip gates land.
 
 ---
