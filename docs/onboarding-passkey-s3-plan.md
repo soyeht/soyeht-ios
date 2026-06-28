@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, and M1b platform-hint prep are merged; active M1b server-side platform proof/local finish activation and flip gates remain. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, and M1b platform-hint prep are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -60,8 +60,9 @@ gesture (UI-layer WYSIWYS).
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, and M1b
-  platform-hint prep ✅. **Remaining:** active M1b server-side platform
-  proof/local finish activation and the flip.
+  platform-hint prep ✅. **Remaining:** Caio decision on active M1b
+  server-side platform proof/local finish activation versus deferring macOS
+  local active enrollment, plus the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -324,6 +325,16 @@ because of the xcframework caveat; no local live ceremony is required.
   active finish remains blocked until a safe server-side platform proof exists
   or an explicit Apple Anonymous attestation policy is separately accepted and
   reviewed.
+  The current security default is **B**: keep local finish inert. Path **A** is
+  a separate heavy objective, not a continuation of #193: accept an explicit
+  Apple Anonymous attestation policy and implement a separate attested
+  challenge/finish path with Apple root verification, UV, peer-auth,
+  challenge-binding, reliable backup-eligibility/state policy if exposed, and
+  source guards against falling back to the normal `Passkey` path. The
+  A-vs-defer decision is a Caio scope/trust-policy decision. Deferring active
+  macOS-local enrollment does not by itself block the broader flip, because a
+  Mac user can enroll through the existing iOS/PoP path; activating macOS local
+  finish still requires A or a stronger safe server-side platform proof.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
@@ -341,6 +352,11 @@ because of the xcframework caveat; no local live ceremony is required.
   constrained platform WebAuthn attestation; the UDS/no-PoP client foundation
   is merged, while the security-critical active engine finish and app
   integration remain pending.
+- (Open) macOS local active finish sequencing: keep B as the default (finish
+  inert) until Caio explicitly chooses either A-now or defer. A-now means the
+  heavy Apple Anonymous attestation policy/path described in §7; defer means the
+  flip can proceed without active macOS-local enrollment, while macOS users use
+  the iOS/PoP enrollment path until the local finish proof is solved.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
