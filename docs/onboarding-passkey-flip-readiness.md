@@ -9,7 +9,7 @@ default-off infrastructure. The default-off rollout/rollback control and its
 env/Nix operational wiring are also merged, along with test-only evidence for
 the reviewed core operations and trust-state boundaries under the real future
 reviewed-core rollout package. The remaining work is the explicit enforcement
-flip decision/operation and the product/security decision on macOS-local active
+flip decision/operation and the A3 active-commit slice for macOS-local active
 finish.
 
 ## Current Default
@@ -27,8 +27,9 @@ The current product state is still inert:
   Nix option only accepts `legacy` or `reviewed-core-v2`.
 - The only reviewed-core activation value is `reviewed-core-v2`; setting that
   value is still a future flip operation and requires the sign-offs below.
-- macOS local start/status are peer-auth capable through the UDS listener, but
-  local finish still rejects with `local_attestation_constraints_unavailable`.
+- macOS local start/status are peer-auth capable through the UDS listener. The
+  A-now attested-start and A2 proof/model foundations are merged, but local
+  finish still rejects with `local_attestation_constraints_unavailable`.
 - The network/TCP router remains PoP-required and does not mount
   `/registration/local/*`.
 
@@ -37,25 +38,29 @@ owner-auth enforcement by default.
 
 ## Decision Gate: macOS-Local
 
-Before the broader flip, Caio must choose one of these paths:
+Caio selected **A-now** for the macOS-local path. That is a strategy decision,
+not active local enrollment:
 
-- **A-now:** build the separate Apple Anonymous attestation policy/path first.
-  This is a new heavy objective. It must include an attested challenge/finish
-  path, Apple root verification, UV, peer-auth, challenge binding, reliable
-  backup-state policy if exposed, and source guards against falling back to the
-  normal `Passkey` path.
-- **B/defer:** keep macOS-local finish inert and proceed toward the broader
-  flip using the existing iOS/PoP enrollment path for Mac users until safe
-  server-side platform proof is solved.
+- #201 stages a separate local attested registration challenge and requests
+  Direct Apple Anonymous/platform/UV/resident/no-sync ceremony options.
+- #202 adds the A2 proof/model inert foundation: Apple-only pinned root policy,
+  core verification helper, and typed proof object after AppleAnonymous,
+  AnonCa, UV=true, BE=false, and BS=false checks.
+- The HTTP `/registration/local/finish` handler still remains hard-inert. It
+  does not consume the proof helper, save owner auth, write memory, advance
+  anchors, or activate local enrollment.
 
-Until Caio chooses, the security default remains B: local finish stays inert and
-no credential is committed through the local macOS path.
+A3 is still required before macOS-local finish can become active. It must add
+positive end-to-end Apple-chain evidence, workspace/allowlist guards for the
+dangerous `Credential -> Passkey` conversion, `NeverEnrolled`/authority-empty
+revalidation under lock, evidence storage, commit ordering, replay coverage, and
+anchor-failure behavior. Until A3 lands and is signed off, no credential is
+committed through the local macOS path.
 
 ## Flip Implementation Checklist
 
-If B/defer is chosen, the flip must use the explicit production control added by
-#195. It must not be an accidental constructor change or an implicit default
-change.
+The flip must use the explicit production control added by #195. It must not be
+an accidental constructor change or an implicit default change.
 
 - Use `THEYOS_OWNER_AUTH_V2_ROLLOUT=reviewed-core-v2` to turn on the approved
   per-operation policies. Pair-machine approval, revoke, and AddCredential use
@@ -77,9 +82,9 @@ change.
   recovery anchor, and recovery-consume limiter before policy-on paths can be
   treated as ready. Missing infrastructure must reject opaquely or prevent the
   flip from being considered healthy.
-- Keep macOS-local finish excluded from the flip unless A is separately built
-  and accepted. The `/registration/local/finish` handler must remain inert in
-  the B/defer path.
+- Keep macOS-local finish excluded from the flip unless A3 is separately built
+  and accepted. The `/registration/local/finish` handler must remain inert until
+  the verified proof object is committed through the reviewed active path.
 - Keep the iOS/macOS client feature gates explicit. Default-off UI paths should
   become active only under the same rollout decision, with v1 fallback preserved
   where the backend policy says `LegacyV1`.
@@ -103,9 +108,13 @@ Evidence for a flip PR should include:
   legacy, Active is covered by #198, and RecoveryRequired or AnchorInvalid fail
   closed with opaque rejects and no mutation. The flip PR still needs the final
   policy-on review/sign-offs and any release-specific evidence.
-- Source guards proving no local macOS finish activation in the B/defer path,
+- Source guards proving no local macOS finish activation before A3,
   no `/registration/local/*` on the TCP router, no TCP PoP bypass, and no
   fallback from active macOS-local work to the normal `Passkey` path.
+  #202 already pins the A2 proof/model inert foundation: Apple-only root policy,
+  typed `VerifiedLocalAppleAttestedCredential`, and no HTTP local-finish call to
+  the proof helper. The flip/A3 evidence still needs positive Apple-chain proof
+  before active commit.
 - Cross-language vector checks for all owner-approval v2 contexts and wire
   shapes touched by the flip. #200/#264 already pin the AddCredential
   composite start/finish wrappers byte-for-byte across Rust and Swift; that is

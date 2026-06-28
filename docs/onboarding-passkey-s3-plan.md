@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged; AddCredential UI remains future optional work. Active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
@@ -61,13 +61,12 @@ gesture (UI-layer WYSIWYS).
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
-  platform-hint prep ✅, owner-auth v2 rollout/rollback control ✅,
+  platform-hint prep ✅, A-now local Apple Anonymous proof/model inert
+  foundation ✅, owner-auth v2 rollout/rollback control ✅,
   env/Nix rollout wiring + required-check path-filter coverage ✅, recovery
   provision reviewed-rollout evidence ✅, reviewed-rollout core operation
   evidence ✅, and reviewed-rollout trust-state boundary evidence ✅.
-  **Remaining:** Caio decision on active M1b
-  server-side platform proof/local finish activation versus deferring macOS
-  local active enrollment, plus the flip.
+  **Remaining:** active M1b local finish commit/activation (A3) plus the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, #184 RecoverCredential
@@ -351,19 +350,26 @@ because of the xcframework caveat; no local live ceremony is required.
   finish remains `local_attestation_constraints_unavailable`. This is
   request-shaping for the macOS ceremony, not a security proof: the platform
   attachment is only a client-side hint in the current WebAuthn wrapper. The
-  active finish remains blocked until a safe server-side platform proof exists
-  or an explicit Apple Anonymous attestation policy is separately accepted and
-  reviewed.
-  The current security default is **B**: keep local finish inert. Path **A** is
-  a separate heavy objective, not a continuation of #193: accept an explicit
-  Apple Anonymous attestation policy and implement a separate attested
-  challenge/finish path with Apple root verification, UV, peer-auth,
-  challenge-binding, reliable backup-eligibility/state policy if exposed, and
-  source guards against falling back to the normal `Passkey` path. The
-  A-vs-defer decision is a Caio scope/trust-policy decision. Deferring active
-  macOS-local enrollment does not by itself block the broader flip, because a
-  Mac user can enroll through the existing iOS/PoP path; activating macOS local
-  finish still requires A or a stronger safe server-side platform proof.
+  active finish remains blocked until the A3 active-commit slice stores and
+  commits a verified proof. Caio selected **A-now** for the Apple-grade local
+  path, but that selection is not itself readiness. #201 adds the attested
+  local-start foundation: local start requests Direct Apple Anonymous
+  attestation with platform attachment, UV required, resident/discoverable
+  behavior, and no-sync request shaping, and stages a separate
+  `LocalAttestedRegistration` challenge that the normal `Passkey` finish cannot
+  consume. #202 adds the A2 proof/model inert foundation: an Apple-only pinned
+  WebAuthn root policy, core verification helper, and typed
+  `VerifiedLocalAppleAttestedCredential` proof object after AppleAnonymous +
+  AnonCa + UV + BE=false + BS=false checks. The HTTP `/registration/local/finish`
+  handler still does not call that helper and still returns
+  `local_attestation_constraints_unavailable`; #202 does not save owner auth,
+  write memory, advance anchors, flip rollout, or activate local enrollment.
+  A3 remains the active finish gate: before commit, it needs positive
+  end-to-end Apple-chain evidence, workspace/allowlist guards around the
+  `Credential -> Passkey` conversion, `NeverEnrolled`/authority-empty
+  revalidated under lock, evidence storage, and the verify -> convert ->
+  genesis/save -> memory -> anchor sequence with replay and anchor-failure
+  coverage.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
@@ -401,8 +407,8 @@ because of the xcframework caveat; no local live ceremony is required.
   coverage. It remains default-off infrastructure, not the enforcement flip.
 - **enforcement flip** — only after the pre-flip gates land. The current
   readiness checklist lives in `docs/onboarding-passkey-flip-readiness.md` and
-  keeps macOS-local active finish excluded unless Caio explicitly chooses the
-  heavier Apple Anonymous attestation path.
+  keeps macOS-local active finish excluded unless A3 is separately built and
+  accepted.
 
 ---
 
@@ -415,11 +421,10 @@ because of the xcframework caveat; no local live ceremony is required.
   constrained platform WebAuthn attestation; the UDS/no-PoP client foundation
   is merged, while the security-critical active engine finish and app
   integration remain pending.
-- (Open) macOS local active finish sequencing: keep B as the default (finish
-  inert) until Caio explicitly chooses either A-now or defer. A-now means the
-  heavy Apple Anonymous attestation policy/path described in §7; defer means the
-  flip can proceed without active macOS-local enrollment, while macOS users use
-  the iOS/PoP enrollment path until the local finish proof is solved.
+- (Decided) macOS local active finish sequencing: Caio chose A-now. #201 and
+  #202 merged the start/staging and A2 proof/model inert foundations, but local
+  finish remains inactive until A3 implements the active commit path described in
+  §7.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
