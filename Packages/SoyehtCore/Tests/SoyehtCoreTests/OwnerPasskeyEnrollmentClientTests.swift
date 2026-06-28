@@ -238,6 +238,48 @@ import Testing
         #expect(mock.requests[1].value(forHTTPHeaderField: "Authorization") == nil)
     }
 
+    @Test func localAttestedStartUsesDedicatedPathAndOmitsPoPAuthorization() async throws {
+        let vectors = try Self.loadVectors()
+        let startResponse = try #require(
+            vectors.startResponses.first { $0.id == "start-macos-local-attested-options" }
+        )
+        let startBody = try #require(Data(soyehtHex: startResponse.canonicalCborHex))
+        let mock = HTTPMock(responses: [.init(status: 200, body: startBody)])
+        let client = OwnerPasskeyEnrollmentClient(
+            localSocketBaseURL: URL(string: "http://soyeht-local")!,
+            transport: { req in try mock.perform(req) }
+        )
+
+        let response = try await client.startMacosLocalAttested()
+
+        let request = try #require(mock.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == OwnerPasskeyEnrollmentClient.macosLocalAttestedStartPath)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(response.challengeID == startResponse.input.challengeId)
+    }
+
+    @Test func localAttestedVectorMapsRequestShapingOptions() throws {
+        let vectors = try Self.loadVectors()
+        let startResponse = try #require(
+            vectors.startResponses.first { $0.id == "start-macos-local-attested-options" }
+        )
+        let cbor = try #require(Data(soyehtHex: startResponse.canonicalCborHex))
+        let response = try OwnerWebauthnRegistrationStartResponse(cbor: HouseholdCBOR.decode(cbor))
+
+        let request = try OwnerPasskeyEnrollmentClient.registrationRequest(from: response)
+
+        #expect(request.requestedOptions.attestation == "direct")
+        #expect(request.requestedOptions.attestationFormats == ["apple"])
+        #expect(request.requestedOptions.authenticatorAttachment == "platform")
+        #expect(request.requestedOptions.residentKey == "required")
+        #expect(request.requestedOptions.requireResidentKey == true)
+        #expect(request.requestedOptions.userVerification == "required")
+        #expect(request.requestedOptions.hints == ["client-device"])
+        #expect(request.requestedOptions.credentialProtectionPolicy == "userVerificationRequired")
+        #expect(request.requestedOptions.enforceCredentialProtectionPolicy == true)
+    }
+
     @Test func mappingFromPlatformAttestationBuildsCanonicalCredential() throws {
         let attestation = OwnerPasskeyAttestation(
             credentialID: Data([0x00, 0x01, 0x02, 0x80, 0xff, 0x7f]),

@@ -44,6 +44,66 @@ final class DevEmbeddedEngineSmokeTests: XCTestCase {
         XCTAssertEqual(decision, .run)
     }
 
+    func test_localAppleCaptureGateIsInertWithoutOptInEnvironment() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [:],
+            bundleIdentifier: DevLocalAppleAttestationCaptureGate.requiredBundleIdentifier,
+            profile: .dev
+        )
+
+        XCTAssertEqual(decision, .notRequested)
+    }
+
+    func test_localAppleCaptureGateRefusesShippingProfile() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [
+                DevLocalAppleAttestationCaptureGate.runEnvKey: "1",
+                DevLocalAppleAttestationCaptureGate.fixtureEnvKey: "/tmp/fixture.json",
+            ],
+            bundleIdentifier: "com.soyeht.mac",
+            profile: .release
+        )
+
+        XCTAssertEqual(decision, .refused(reason: "install_profile_not_dev"))
+    }
+
+    func test_localAppleCaptureGateRequiresExplicitFixturePath() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [DevLocalAppleAttestationCaptureGate.runEnvKey: "1"],
+            bundleIdentifier: DevLocalAppleAttestationCaptureGate.requiredBundleIdentifier,
+            profile: .dev
+        )
+
+        XCTAssertEqual(decision, .refused(reason: "fixture_path_missing"))
+    }
+
+    func test_localAppleCaptureGateRefusesResultPathEqualToFixturePath() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [
+                DevLocalAppleAttestationCaptureGate.runEnvKey: "1",
+                DevLocalAppleAttestationCaptureGate.fixtureEnvKey: "/tmp/fixture.json",
+                DevLocalAppleAttestationCaptureGate.resultEnvKey: "/tmp/fixture.json",
+            ],
+            bundleIdentifier: DevLocalAppleAttestationCaptureGate.requiredBundleIdentifier,
+            profile: .dev
+        )
+
+        XCTAssertEqual(decision, .refused(reason: "result_path_matches_fixture_path"))
+    }
+
+    func test_localAppleCaptureGateRunsOnlyForDevBundleDevProfileAndFixturePath() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [
+                DevLocalAppleAttestationCaptureGate.runEnvKey: "1",
+                DevLocalAppleAttestationCaptureGate.fixtureEnvKey: "/tmp/fixture.json",
+            ],
+            bundleIdentifier: DevLocalAppleAttestationCaptureGate.requiredBundleIdentifier,
+            profile: .dev
+        )
+
+        XCTAssertEqual(decision, .run(fixturePath: "/tmp/fixture.json"))
+    }
+
     func test_probeValidatesFakeDevBundleAgainstInstallProfileSpec() throws {
         let bundle = try FakeEmbeddedEngineBundle.make(profile: .dev)
         defer { bundle.cleanup() }
@@ -101,6 +161,30 @@ final class DevEmbeddedEngineSmokeTests: XCTestCase {
 
         XCTAssertLessThan(hook.lowerBound, firstNormalLaunchWork.lowerBound)
         XCTAssertTrue(source.contains("#if DEBUG\n        if DevEmbeddedEngineSmokeRunner.startIfRequested()"))
+    }
+
+    func test_appDelegateHooksLocalAppleCaptureBeforeNormalLaunchWork() throws {
+        let source = try String(contentsOf: appDelegateSourceURL(), encoding: .utf8)
+        let hook = try XCTUnwrap(
+            source.range(of: "DevLocalAppleAttestationCaptureRunner.startIfRequested()")
+        )
+        let firstNormalLaunchWork = try XCTUnwrap(source.range(of: "AppEnvironment.workspaceStore = workspaceStore"))
+
+        XCTAssertLessThan(hook.lowerBound, firstNormalLaunchWork.lowerBound)
+        XCTAssertTrue(source.contains("if DevLocalAppleAttestationCaptureRunner.startIfRequested()"))
+    }
+
+    func test_localAppleCaptureRunnerStopsBeforeFinishAndShippingApp() throws {
+        let source = try String(contentsOf: appDelegateSourceURL(), encoding: .utf8)
+        let start = try XCTUnwrap(source.range(of: "private enum DevLocalAppleAttestationCaptureRunner"))
+        let segment = source[start.lowerBound...]
+
+        XCTAssertTrue(segment.contains("startMacosLocalAttested()"))
+        XCTAssertTrue(segment.contains("provider.register(request)"))
+        XCTAssertTrue(segment.contains("fixture.write"))
+        XCTAssertFalse(segment.contains("registration/local/finish"))
+        XCTAssertFalse(segment.contains("macosLocalAttestedFinish"))
+        XCTAssertFalse(segment.contains("/Applications/Soyeht.app"))
     }
 
     func test_scriptIsDefaultInert() throws {

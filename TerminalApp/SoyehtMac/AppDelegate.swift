@@ -5,6 +5,7 @@
 
 import Cocoa
 import ApplicationServices
+import AuthenticationServices
 import Darwin
 import SoyehtCore
 
@@ -48,6 +49,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         #if DEBUG
         if DevEmbeddedEngineSmokeRunner.startIfRequested() {
+            return
+        }
+        if DevLocalAppleAttestationCaptureRunner.startIfRequested() {
             return
         }
         #endif
@@ -3042,6 +3046,249 @@ private enum DevEmbeddedEngineSmokeRunner {
 
     private enum DevEmbeddedEngineSmokeError: Error {
         case healthTimeout
+    }
+}
+
+private enum DevLocalAppleAttestationCaptureRunner {
+    static func startIfRequested() -> Bool {
+        let environment = ProcessInfo.processInfo.environment
+        let bundleIdentifier = Bundle.main.bundleIdentifier
+        let profile = SoyehtInstallProfile.current
+
+        switch DevLocalAppleAttestationCaptureGate.decision(
+            environment: environment,
+            bundleIdentifier: bundleIdentifier,
+            profile: profile
+        ) {
+        case .notRequested:
+            return false
+        case .refused(let reason):
+            finish(
+                result: result(
+                    status: "refused",
+                    reason: reason,
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                ),
+                exitCode: 0,
+                environment: environment
+            )
+            return true
+        case .run(let fixturePath):
+            Task { @MainActor in
+                await run(
+                    fixturePath: fixturePath,
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                )
+            }
+            return true
+        }
+    }
+
+    @MainActor
+    private static func run(
+        fixturePath: String,
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) async {
+        do {
+            try EnginePackager.install()
+            try SMAppServiceInstaller.register()
+
+            let healthy = await TheyOSHealthProber().waitForHealthy(timeout: 30)
+            guard healthy else { throw CaptureError.healthTimeout }
+            _ = try await HealthCheckPoller(baseURL: TheyOSEnvironment.bootstrapBaseURL).pollUntilReady()
+
+            let client = OwnerPasskeyEnrollmentClient(
+                localSocketBaseURL: URL(string: "http://soyeht-local")!,
+                socketPath: localRegistrationSocketPath(profile: profile)
+            )
+            let start = try await client.startMacosLocalAttested()
+            let request = try OwnerPasskeyEnrollmentClient.registrationRequest(from: start)
+            let anchor = CaptureAnchor()
+            anchor.show()
+
+            let provider = PasskeyProvider(anchorProvider: anchor)
+            let attestation = try await provider.register(request)
+            let fixture = try OwnerWebauthnLocalAppleAttestationFixture(
+                rpID: start.options.publicKey.rp.id,
+                attestation: attestation
+            )
+            try fixture.write(to: URL(fileURLWithPath: fixturePath))
+
+            finish(
+                result: result(
+                    status: "passed",
+                    reason: nil,
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile,
+                    checks: [
+                        "dev_bundle_gate",
+                        "dev_engine_health",
+                        "local_attested_start",
+                        "platform_attestation_capture",
+                        "untracked_fixture_write",
+                        "no_local_finish_submit",
+                    ]
+                ),
+                exitCode: 0,
+                environment: environment
+            )
+        } catch {
+            finish(
+                result: result(
+                    status: "failed",
+                    reason: publicReason(for: error),
+                    environment: environment,
+                    bundleIdentifier: bundleIdentifier,
+                    profile: profile
+                ),
+                exitCode: 1,
+                environment: environment
+            )
+        }
+    }
+
+    private static func localRegistrationSocketPath(profile: SoyehtInstallProfile) -> String {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent(profile.supportDirectoryName, isDirectory: true)
+            .appendingPathComponent("runtime", isDirectory: true)
+            .appendingPathComponent("owner-webauthn-registration.sock", isDirectory: false)
+            .path
+    }
+
+    private static func result(
+        status: String,
+        reason: String?,
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile,
+        checks: [String] = []
+    ) -> CaptureResult {
+        CaptureResult(
+            status: status,
+            reason: reason,
+            profileKind: profile.kind.rawValue,
+            bundleIdentifier: bundleIdentifier,
+            launchdLabel: profile.engineLaunchdLabel,
+            fixtureWritten: status == "passed",
+            checks: checks
+        )
+    }
+
+    private static func finish(
+        result: CaptureResult,
+        exitCode: Int32,
+        environment: [String: String]
+    ) {
+        write(result: result, environment: environment)
+        NSLog(
+            "[DevLocalAppleAttestationCapture] status=%@ reason=%@",
+            result.status,
+            result.reason ?? "none"
+        )
+        exit(exitCode)
+    }
+
+    private static func write(result: CaptureResult, environment: [String: String]) {
+        guard let path = environment[DevLocalAppleAttestationCaptureGate.resultEnvKey],
+              !path.isEmpty else {
+            return
+        }
+
+        let url = URL(fileURLWithPath: path)
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(result).write(to: url, options: [.atomic])
+        } catch {
+            NSLog("[DevLocalAppleAttestationCapture] result_write_failed")
+        }
+    }
+
+    private static func publicReason(for error: Error) -> String {
+        switch error {
+        case CaptureError.healthTimeout:
+            return "health_timeout"
+        case OwnerPasskeyRegistrationError.canceled:
+            return "ceremony_canceled"
+        case OwnerPasskeyRegistrationError.notHandled:
+            return "ceremony_not_handled"
+        case OwnerPasskeyRegistrationError.invalidResponse:
+            return "ceremony_invalid_response"
+        case OwnerPasskeyRegistrationError.unexpectedCredentialType:
+            return "ceremony_unexpected_credential"
+        case OwnerPasskeyRegistrationError.alreadyInProgress:
+            return "ceremony_already_in_progress"
+        case is OwnerWebauthnRegistrationDTOError:
+            return "local_start_decode_failed"
+        case is OwnerWebauthnLocalAttestationFixtureError:
+            return "fixture_build_failed"
+        case is BootstrapError:
+            return "engine_request_failed"
+        default:
+            return "capture_failed"
+        }
+    }
+
+    private struct CaptureResult: Encodable {
+        let status: String
+        let reason: String?
+        let profileKind: String
+        let bundleIdentifier: String?
+        let launchdLabel: String
+        let fixtureWritten: Bool
+        let checks: [String]
+    }
+
+    private enum CaptureError: Error {
+        case healthTimeout
+    }
+
+    @MainActor
+    private final class CaptureAnchor: NSObject, PasskeyPresentationAnchorProviding {
+        private let window: NSWindow
+
+        override init() {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 460, height: 180),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Soyeht Dev Attestation Capture"
+            let label = NSTextField(labelWithString: "Use this one-time Dev.app prompt to capture a local Apple attestation fixture.")
+            label.alignment = .center
+            label.lineBreakMode = .byWordWrapping
+            label.maximumNumberOfLines = 0
+            label.frame = NSRect(x: 36, y: 58, width: 388, height: 64)
+            let content = NSView(frame: window.contentRect(forFrameRect: window.frame))
+            content.addSubview(label)
+            window.contentView = content
+            self.window = window
+            super.init()
+        }
+
+        func show() {
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        func passkeyPresentationAnchor() -> ASPresentationAnchor {
+            window
+        }
     }
 }
 #endif

@@ -38,7 +38,7 @@ gesture (UI-layer WYSIWYS).
 | Layer | Done | Notes |
 |---|---|---|
 | **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, macOS-local attested-start wire vector, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 positive hardware evidence and the flip gate remains. |
-| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged. The macOS-local attested-start decoder-tolerance vector is merged; AddCredential UI and active macOS capture/enrollment work remain future work. |
+| **Client (soyeht-ios)** | ~89% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged. The macOS-local attested-start decoder-tolerance vector is merged, and the Dev.app minimal-capture front-half is added for hardware evidence. AddCredential UI and active macOS enrollment work remain future work. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
 ---
@@ -130,6 +130,16 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   the current `rp`/`user`/`challenge` view. It does not make the client honor
   attestation options, does not forward an `attestationObject`, and does not
   activate macOS-local finish.
+- Dev.app minimal-capture slice — uses a live server-issued
+  `/registration/local/start`, honors the API-applicable Apple attestation
+  options through `ASAuthorization`, captures the resulting attestation, and
+  writes an untracked local fixture compatible with the #204 harness. It stops
+  before `/registration/local/finish`: no proof verdict, no commit/save/memory/
+  anchor, no rollout, and no active enrollment. If the optional sanitized
+  capture-result file is requested, it must use a different path from the raw
+  fixture. The captured passkey is a throwaway/orphan credential and must be
+  deleted after the dump; the real owner credential will be enrolled fresh in the
+  later A3 active-commit slice.
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -402,8 +412,10 @@ because of the xcframework caveat; no local live ceremony is required.
   lean decoder does not break on those extras. This is not a positive hardware
   verdict, not client honoring of the attestation options, and not active finish
   readiness. Hardware evidence must still come from a live server-issued
-  `/registration/local/start` captured by the future Dev.app minimal-capture
-  path and then verified by the #204 harness.
+  `/registration/local/start` captured by the Dev.app minimal-capture path and
+  then verified by the #204 harness; that smoke proves Apple chain + the five
+  checks + internal consistency only. Server-issued challenge binding,
+  single-use, and anti-replay remain A3 active-commit properties.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
