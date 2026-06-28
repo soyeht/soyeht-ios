@@ -109,8 +109,10 @@ Evidence for a flip PR should include:
 - Cross-language vector checks for all owner-approval v2 contexts and wire
   shapes touched by the flip. #200/#264 already pin the AddCredential
   composite start/finish wrappers byte-for-byte across Rust and Swift; that is
-  evidence for the future client/orchestration slice, not a default change or
-  active enforcement.
+  evidence for the client/orchestration path, not a default change or active
+  enforcement. #266 adds the AddCredential SoyehtCore headless HTTP client,
+  dual-ceremony orchestrator, and ViewModel on top of those vectors; it still
+  does not add UI, flip the rollout, or activate macOS-local finish.
 - Swift tests for the enrollment and approval-review ViewModels and app gating,
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and
