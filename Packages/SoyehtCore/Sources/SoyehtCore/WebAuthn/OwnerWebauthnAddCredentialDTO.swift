@@ -24,6 +24,13 @@ private extension HouseholdCBORValue {
         }
         return value
     }
+
+    func addCredentialCBORBytes(_ context: String) throws -> Data {
+        guard case .bytes(let value) = self else {
+            throw OwnerWebauthnAddCredentialDTOError.malformedCBOR("\(context): expected byte string")
+        }
+        return value
+    }
 }
 
 private func addCredentialCBORRequire(
@@ -43,6 +50,25 @@ private func addCredentialCBORUInt8(_ value: HouseholdCBORValue, _ context: Stri
         throw OwnerWebauthnAddCredentialDTOError.malformedCBOR("\(context): \(raw) out of UInt8 range")
     }
     return narrowed
+}
+
+/// `/owner-webauthn/add-credential/start` request body: canonical CBOR `{ v: 1 }`.
+public struct OwnerWebauthnAddCredentialStartRequest: Equatable, Sendable {
+    public static let currentVersion: UInt8 = 1
+
+    public let version: UInt8
+
+    public init(version: UInt8 = Self.currentVersion) {
+        self.version = version
+    }
+
+    public func cborValue() -> HouseholdCBORValue {
+        .map(["v": .unsigned(UInt64(version))])
+    }
+
+    public func canonicalBytes() -> Data {
+        HouseholdCBOR.encode(cborValue())
+    }
 }
 
 /// `/owner-webauthn/add-credential/start` response wrapper. The top-level
@@ -110,5 +136,42 @@ public struct OwnerWebauthnAddCredentialFinishRequest: Equatable, Sendable {
 
     public func canonicalBytes() -> Data {
         HouseholdCBOR.encode(cborValue())
+    }
+}
+
+/// Result returned by the AddCredential finish endpoint after the WebAuthn Add
+/// is appended and the active credential count advances by one.
+public struct OwnerWebauthnAddCredentialResult: Equatable, Sendable {
+    public let credentialID: Data
+    public let activeCredentialCount: UInt64
+
+    public init(credentialID: Data, activeCredentialCount: UInt64) {
+        self.credentialID = credentialID
+        self.activeCredentialCount = activeCredentialCount
+    }
+}
+
+/// `/owner-webauthn/add-credential/finish` response body.
+public struct OwnerWebauthnAddCredentialFinishResponse: Equatable, Sendable {
+    public let version: UInt8
+    public let credentialID: Data
+    public let activeCredentialCount: UInt64
+
+    public init(cbor: HouseholdCBORValue) throws {
+        let map = try cbor.addCredentialCBORMap("addCredentialFinishResponse")
+        version = try addCredentialCBORUInt8(
+            addCredentialCBORRequire(map, "v", "addCredentialFinishResponse"),
+            "addCredentialFinishResponse.v"
+        )
+        credentialID = try addCredentialCBORRequire(
+            map,
+            "credential_id",
+            "addCredentialFinishResponse"
+        ).addCredentialCBORBytes("addCredentialFinishResponse.credential_id")
+        activeCredentialCount = try addCredentialCBORRequire(
+            map,
+            "active_credential_count",
+            "addCredentialFinishResponse"
+        ).addCredentialCBORUnsigned("addCredentialFinishResponse.active_credential_count")
     }
 }
