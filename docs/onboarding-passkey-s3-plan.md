@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 and the flip gate remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 positive hardware evidence and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged; AddCredential UI remains future optional work. Active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
@@ -62,12 +62,14 @@ gesture (UI-layer WYSIWYS).
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
   platform-hint prep ✅, A-now local Apple Anonymous proof/model inert
-  foundation ✅, A3 dangerous-conversion allowlist guard ✅,
+  foundation ✅, A3 dangerous-conversion allowlist guard ✅, A3 manual
+  evidence harness ✅,
   owner-auth v2 rollout/rollback control ✅,
   env/Nix rollout wiring + required-check path-filter coverage ✅, recovery
   provision reviewed-rollout evidence ✅, reviewed-rollout core operation
   evidence ✅, and reviewed-rollout trust-state boundary evidence ✅.
-  **Remaining:** active M1b local finish commit/activation (A3) plus the flip.
+  **Remaining:** positive A3 hardware verdict, active M1b local finish
+  commit/activation (A3), plus the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, #184 RecoverCredential
@@ -368,11 +370,19 @@ because of the xcframework caveat; no local live ceremony is required.
   #203 adds the A3-prep dangerous-conversion guard: runtime Rust sources under
   `admin/rust/**/src` are scanned so `Credential -> Passkey` conversion remains
   allowlisted to the local attested proof-object helper. This is defense in
-  depth around `danger-credential-internals`, not active finish readiness. A3
-  remains the active finish gate: before commit, it still needs positive
-  end-to-end Apple-chain evidence, `NeverEnrolled`/authority-empty revalidated
-  under lock, evidence storage, and the verify -> convert -> genesis/save ->
-  memory -> anchor sequence with replay and anchor-failure coverage.
+  depth around `danger-credential-internals`, not active finish readiness. #204
+  adds an evidence-only manual hardware harness/runbook for a fresh Apple
+  Anonymous attestation fixture. The harness is ignored by default, reads only
+  an untracked local fixture, routes it through the same pinned Apple-root A2
+  verifier and five checks, and emits only sanitized verdict fields
+  (format/UV/BE/BS/root policy/fingerprint). It also records that public
+  `webauthn-rs-core 0.5.5` has no safe public `verify_at` seam, so the expired
+  Apple fixture remains negative-only evidence. #204 is the mechanism for the
+  A3 evidence gate, not the verdict: active finish still needs a positive fresh
+  hardware run reviewed before commit, `NeverEnrolled`/authority-empty
+  revalidated under lock, evidence storage, and the verify -> convert ->
+  genesis/save -> memory -> anchor sequence with replay and anchor-failure
+  coverage.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
