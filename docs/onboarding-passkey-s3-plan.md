@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 positive hardware evidence and the flip gate remains. |
-| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged; AddCredential UI remains future optional work. Active macOS engine/app enrollment work remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, macOS-local attested-start wire vector, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 positive hardware evidence and the flip gate remains. |
+| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged. The macOS-local attested-start decoder-tolerance vector is merged; AddCredential UI and active macOS capture/enrollment work remain future work. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
 ---
@@ -63,7 +63,7 @@ gesture (UI-layer WYSIWYS).
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
   platform-hint prep ✅, A-now local Apple Anonymous proof/model inert
   foundation ✅, A3 dangerous-conversion allowlist guard ✅, A3 manual
-  evidence harness ✅,
+  evidence harness ✅, macOS-local attested-start wire vector ✅,
   owner-auth v2 rollout/rollback control ✅,
   env/Nix rollout wiring + required-check path-filter coverage ✅, recovery
   provision reviewed-rollout evidence ✅, reviewed-rollout core operation
@@ -73,7 +73,9 @@ gesture (UI-layer WYSIWYS).
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, #184 RecoverCredential
-  context, and #200/#264 AddCredential composite start/finish wire wrappers.
+  context, #200/#264 AddCredential composite start/finish wire wrappers, and
+  #205/#270 macOS-local attested-start request-shaping/decoder-tolerance
+  vectors.
 
 ---
 
@@ -116,6 +118,18 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   dual-ceremony orchestrator, and ViewModel over those DTOs. It remains SPM-only
   and optional/non-flip-blocking: no AddCredential UI, runtime flip, or
   macOS-local finish activation.
+
+**macOS-local attested-start tolerance (optional, non-flip-blocking)**
+- #205 — theyos adds the canonical CBOR registration start-response vector for
+  the A-now `/registration/local/start` request-shaping options: Direct Apple
+  Anonymous attestation, platform attachment, user-verification-required,
+  resident key, client-device hint, and enforced UV credential protection. This
+  is server-emitted option shaping only, not Apple-chain proof and not a finish.
+- #270 — SoyehtCore vendors the same fixture and proves the Swift lean
+  registration decoder tolerates those extra fields while still consuming only
+  the current `rp`/`user`/`challenge` view. It does not make the client honor
+  attestation options, does not forward an `attestationObject`, and does not
+  activate macOS-local finish.
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -382,7 +396,14 @@ because of the xcframework caveat; no local live ceremony is required.
   hardware run reviewed before commit, `NeverEnrolled`/authority-empty
   revalidated under lock, evidence storage, and the verify -> convert ->
   genesis/save -> memory -> anchor sequence with replay and anchor-failure
-  coverage.
+  coverage. #205/#270 add the hardware-free `/local/start` request-shaping and
+  Swift decoder-tolerance vector: it pins the Direct Apple
+  Anonymous/platform/UV/resident option wrapper and proves the current Swift
+  lean decoder does not break on those extras. This is not a positive hardware
+  verdict, not client honoring of the attestation options, and not active finish
+  readiness. Hardware evidence must still come from a live server-issued
+  `/registration/local/start` captured by the future Dev.app minimal-capture
+  path and then verified by the #204 harness.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
