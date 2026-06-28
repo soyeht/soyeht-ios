@@ -8,10 +8,11 @@ revoke, recovery consume, and backup/AddCredential are all merged as
 default-off infrastructure. The default-off rollout/rollback control and its
 env/Nix operational wiring are also merged, along with test-only evidence for
 the reviewed core operations and trust-state boundaries under the real future
-reviewed-core rollout package. The A3 manual evidence harness is also merged,
-but the positive hardware verdict and active-commit slice remain pending. The
-remaining work is the explicit enforcement flip decision/operation and the A3
-active-commit slice for macOS-local active finish.
+reviewed-core rollout package. The A3 manual evidence harness and the
+macOS-local attested-start request-shaping/decoder-tolerance vectors are also
+merged, but the positive hardware verdict and active-commit slice remain
+pending. The remaining work is the explicit enforcement flip decision/operation
+and the A3 active-commit slice for macOS-local active finish.
 
 ## Current Default
 
@@ -56,6 +57,11 @@ not active local enrollment:
   negative-only evidence. The harness reads only an untracked local fixture and
   emits sanitized verdict fields; it does not provide a positive verdict by
   itself.
+- #205/#270 add the hardware-free `/local/start` request-shaping and Swift
+  decoder-tolerance vector. They pin the Direct Apple Anonymous/platform/UV/
+  resident option wrapper and prove the current Swift lean decoder tolerates
+  those extra fields. They do not make the client honor the options, do not
+  forward an `attestationObject`, and are not a positive hardware verdict.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.
@@ -135,6 +141,10 @@ Evidence for a flip PR should include:
   enforcement. #266 adds the AddCredential SoyehtCore headless HTTP client,
   dual-ceremony orchestrator, and ViewModel on top of those vectors; it still
   does not add UI, flip the rollout, or activate macOS-local finish.
+  #205/#270 pin the macOS-local attested-start option wrapper byte-for-byte
+  across Rust and Swift, and prove decoder tolerance only. Hardware evidence
+  still must use a future live server-issued `/registration/local/start`
+  capture, not the synthetic vector.
 - Swift tests for the enrollment and approval-review ViewModels and app gating,
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and
