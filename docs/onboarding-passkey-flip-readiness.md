@@ -5,9 +5,10 @@ _Status as of 2026-06-28. This is a readiness checklist, not a flip approval._
 The S3 owner-auth passkey work is code-complete for the backend mutation paths
 that matter before enforcement: first enrollment, pair-machine approval-v2,
 revoke, recovery consume, and backup/AddCredential are all merged as
-default-off infrastructure. The default-off rollout/rollback control is also
-merged. The remaining work is the explicit enforcement flip decision/operation
-and the product/security decision on macOS-local active finish.
+default-off infrastructure. The default-off rollout/rollback control and its
+env/Nix operational wiring are also merged. The remaining work is the explicit
+enforcement flip decision/operation and the product/security decision on
+macOS-local active finish.
 
 ## Current Default
 
@@ -20,6 +21,8 @@ The current product state is still inert:
 - The daemon router construction in `household_bootstrap.rs` reads
   `THEYOS_OWNER_AUTH_V2_ROLLOUT`; absent, empty, `off`, `legacy`,
   `legacy-only`, and unknown values all preserve `LegacyOnly`.
+- The deployment templates now render that env var as `legacy` by default; the
+  Nix option only accepts `legacy` or `reviewed-core-v2`.
 - The only reviewed-core activation value is `reviewed-core-v2`; setting that
   value is still a future flip operation and requires the sign-offs below.
 - macOS local start/status are peer-auth capable through the UDS listener, but
@@ -57,6 +60,9 @@ change.
   active-credential v2 semantics; recovery provision/rotate/consume uses the
   dedicated recovery-code policy switch while preserving the reviewed
   break-glass semantics, not an active-count gate.
+- Keep the operational default at `legacy` until the flip decision. The Nix
+  module/template and `.env.example` must continue to make `reviewed-core-v2`
+  an explicit opt-in value, not a default or truthy shorthand.
 - Preserve the rollback lever: operators must be able to remove/change the env
   value and restart/rebuild the router to return the policy to `LegacyOnly`
   cleanly, with the legacy/v1 path preserved for active users, if the flip
@@ -95,6 +101,9 @@ Evidence for a flip PR should include:
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and
   test data.
+- Required CI path filters must keep covering rollout deploy surfaces such as
+  `.env.example`, `nix/**`, and `tests/nixos-install/**`; rollout/deploy PRs
+  are code/process changes, not docs-only bypass candidates.
 - Explicit sign-off from backend/security, architecture, client, and governance
   reviewers. The flip itself remains a Caio decision.
 
