@@ -383,6 +383,13 @@ enum DevLocalAppleAttestationCaptureGate {
         guard let fixturePath = environment[fixtureEnvKey], !fixturePath.isEmpty else {
             return .refused(reason: "fixture_path_missing")
         }
+        if let resultPath = environment[resultEnvKey], !resultPath.isEmpty {
+            let fixtureURL = URL(fileURLWithPath: fixturePath).standardizedFileURL
+            let resultURL = URL(fileURLWithPath: resultPath).standardizedFileURL
+            guard fixtureURL.path != resultURL.path else {
+                return .refused(reason: "result_path_matches_fixture_path")
+            }
+        }
         return .run(fixturePath: fixturePath)
     }
 }
