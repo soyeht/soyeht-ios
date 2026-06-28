@@ -31,6 +31,35 @@ import Testing
         #expect(asRequest.name == "owner")
     }
 
+    @Test func makeRegistrationRequestHonorsPublicAttestationOptions() {
+        let request = OwnerPasskeyRegistrationRequest(
+            relyingPartyIdentifier: "household.example",
+            challenge: Data([0x01, 0x02]),
+            userID: Data([0x03]),
+            userName: "owner",
+            userDisplayName: "Owner",
+            requestedOptions: OwnerPasskeyRegistrationRequestOptions(
+                attestation: "direct",
+                attestationFormats: ["apple"],
+                authenticatorAttachment: "platform",
+                residentKey: "required",
+                requireResidentKey: true,
+                userVerification: "required",
+                hints: ["client-device"],
+                credentialProtectionPolicy: "userVerificationRequired",
+                enforceCredentialProtectionPolicy: true
+            )
+        )
+
+        let asRequest = PasskeyProvider.makeRegistrationRequest(request)
+
+        #expect(asRequest.attestationPreference == ASAuthorizationPublicKeyCredentialAttestationKind.direct)
+        #expect(
+            asRequest.userVerificationPreference ==
+            ASAuthorizationPublicKeyCredentialUserVerificationPreference.required
+        )
+    }
+
     // MARK: error mapping
 
     @Test func mapsCanceledError() {
