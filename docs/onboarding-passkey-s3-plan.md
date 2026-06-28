@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
-| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
+| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer get-ahead is merged; the AddCredential orchestration/VM/UI slice remains future optional work. Active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
 ---
@@ -56,7 +56,8 @@ gesture (UI-layer WYSIWYS).
   consumed helpers + combined consumable-head helper + consume-readiness
   classifier + fail-closed rate-limit adapter ✅, recovery consume
   context/vectors ✅, R1-B start-only/challenge-only runtime ✅, R1-B
-  finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
+  finish/two-anchor repair runtime ✅, backup/AddCredential contract/context
+  vectors ✅, backup/AddCredential composite wire vectors ✅,
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
@@ -69,8 +70,8 @@ gesture (UI-layer WYSIWYS).
   local active enrollment, plus the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
-  provision context, #179 AddCredential context, and #184 RecoverCredential
-  context.
+  provision context, #179 AddCredential context, #184 RecoverCredential
+  context, and #200/#264 AddCredential composite start/finish wire wrappers.
 
 ---
 
@@ -104,6 +105,14 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - #238 — iOS approval review screen + app-wrapper adapter (default-off v2 path,
   v1 fallback preserved)
 
+**AddCredential get-ahead (optional, non-flip-blocking)**
+- #264 — AddCredential composite start/finish wrapper DTOs + fixed-point tests
+  over the #200 Rust-emitted canonical CBOR fixture. This pins the client-side
+  consumer for `{v, registration, approval, context}` and
+  `{v, context, registration, approval}`. It is DTO/vector-only: no
+  AddCredential orchestration, VM, UI, runtime flip, or macOS-local finish
+  activation.
+
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
 - #225 — first caller migration (`HouseholdPairingService`)
@@ -124,6 +133,12 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   - StartResponse `options.publicKey.challenge` + `allowCredentials[].id` are
     base64url **TEXT** → decode to `Data` at the edge. `allowCredentials`
     "no restriction" collapses to `[]` (absent / null / empty array).
+  - AddCredential composite wrappers are vector-pinned: start response is
+    `{v, registration, approval, context}` and finish request is
+    `{v, context, registration, approval}`. The top-level AddCredential
+    `context` is authoritative, `approval.context` is a mirror that must match,
+    and the Swift decoder rejects a mismatched mirror before the future
+    orchestrator can use it.
 - **No client `challenge == digest` guard** (binding is server-side; challenge is random).
 - **Anti-oracle:** any reject → generic `BootstrapError` (`serverError(code:"unauthenticated", message:nil)`),
   **never branch on `BootstrapError.code`**. UI rule: branch only on a successful
@@ -301,6 +316,13 @@ because of the xcframework caveat; no local live ceremony is required.
   saves owner auth, updates memory, and advances the WebAuthn anchor. It does
   not touch recovery, revoke, last-revoke policy, TOFU, or PolicySnapshot, and
   it remains default-off infrastructure until the broader enforcement flip.
+  #200/#264 add the vectors-first client get-ahead for AddCredential composite
+  wire: Rust emits canonical CBOR for the start/finish wrappers, and SoyehtCore
+  consumes the same fixture with thin DTOs and fixed-point tests. This pins the
+  wrapper ordering, top-level-context/approval-mirror invariant, and
+  registration-text vs approval-byte-string boundary without adding an
+  AddCredential client orchestrator, VM, UI, runtime flip, or macOS-local finish
+  activation.
 - **macOS local engine enrollment** — M1 foundation is merged as fail-closed
   backend infrastructure (#191), not as an active local enrollment runtime. It
   adds a separate local registration router with dedicated
