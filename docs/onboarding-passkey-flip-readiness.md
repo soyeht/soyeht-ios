@@ -8,9 +8,10 @@ revoke, recovery consume, and backup/AddCredential are all merged as
 default-off infrastructure. The default-off rollout/rollback control and its
 env/Nix operational wiring are also merged, along with test-only evidence for
 the reviewed core operations and trust-state boundaries under the real future
-reviewed-core rollout package. The remaining work is the explicit enforcement
-flip decision/operation and the A3 active-commit slice for macOS-local active
-finish.
+reviewed-core rollout package. The A3 manual evidence harness is also merged,
+but the positive hardware verdict and active-commit slice remain pending. The
+remaining work is the explicit enforcement flip decision/operation and the A3
+active-commit slice for macOS-local active finish.
 
 ## Current Default
 
@@ -49,16 +50,22 @@ not active local enrollment:
 - #203 adds the A3-prep source guard for the dangerous `Credential -> Passkey`
   conversion, allowlisting it to the local attested proof-object helper across
   runtime Rust sources.
+- #204 adds an evidence-only manual hardware harness/runbook for a fresh Apple
+  Anonymous attestation fixture. It documents that public `webauthn-rs-core`
+  has no safe public `verify_at` seam, so the expired Apple fixture remains
+  negative-only evidence. The harness reads only an untracked local fixture and
+  emits sanitized verdict fields; it does not provide a positive verdict by
+  itself.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.
 
 A3 is still required before macOS-local finish can become active. It must add
-positive end-to-end Apple-chain evidence, keep the #203 conversion guard
-enforced, revalidate `NeverEnrolled`/authority-empty under lock, store evidence,
-preserve commit ordering, and cover replay plus anchor-failure behavior. Until
-A3 lands and is signed off, no credential is committed through the local macOS
-path.
+positive end-to-end Apple-chain evidence by running the #204 harness against a
+fresh hardware capture, keep the #203 conversion guard enforced, revalidate
+`NeverEnrolled`/authority-empty under lock, store evidence, preserve commit
+ordering, and cover replay plus anchor-failure behavior. Until A3 lands and is
+signed off, no credential is committed through the local macOS path.
 
 ## Flip Implementation Checklist
 
@@ -118,8 +125,9 @@ Evidence for a flip PR should include:
   typed `VerifiedLocalAppleAttestedCredential`, and no HTTP local-finish call to
   the proof helper. #203 adds a workspace-aware allowlist guard so the dangerous
   `Credential -> Passkey` conversion remains confined to that proof-object
-  helper. The flip/A3 evidence still needs positive Apple-chain proof before
-  active commit.
+  helper. #204 adds the manual evidence harness, but the flip/A3 gate still
+  needs a reviewed positive Apple-chain verdict from a fresh hardware capture
+  before active commit.
 - Cross-language vector checks for all owner-approval v2 contexts and wire
   shapes touched by the flip. #200/#264 already pin the AddCredential
   composite start/finish wrappers byte-for-byte across Rust and Swift; that is
