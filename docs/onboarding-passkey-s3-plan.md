@@ -39,7 +39,7 @@ gesture (UI-layer WYSIWYS).
 |---|---|---|
 | **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, and M1b platform-hint prep are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
-| **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
+| **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
 ---
 
@@ -339,7 +339,10 @@ because of the xcframework caveat; no local live ceremony is required.
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
   coverage. It remains default-off infrastructure, not the enforcement flip.
-- **enforcement flip** — only after the pre-flip gates land.
+- **enforcement flip** — only after the pre-flip gates land. The current
+  readiness checklist lives in `docs/onboarding-passkey-flip-readiness.md` and
+  keeps macOS-local active finish excluded unless Caio explicitly chooses the
+  heavier Apple Anonymous attestation path.
 
 ---
 
