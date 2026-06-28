@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery plus core operations are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
@@ -62,8 +62,8 @@ gesture (UI-layer WYSIWYS).
   M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
   platform-hint prep ✅, owner-auth v2 rollout/rollback control ✅,
   env/Nix rollout wiring + required-check path-filter coverage ✅, recovery
-  provision reviewed-rollout evidence ✅, and reviewed-rollout core operation
-  evidence ✅.
+  provision reviewed-rollout evidence ✅, reviewed-rollout core operation
+  evidence ✅, and reviewed-rollout trust-state boundary evidence ✅.
   **Remaining:** Caio decision on active M1b
   server-side platform proof/local finish activation versus deferring macOS
   local active enrollment, plus the flip.
@@ -365,8 +365,11 @@ because of the xcframework caveat; no local live ceremony is required.
   persists exactly one `Provision` and advances the recovery anchor. #198 extends
   the same evidence to the core active-credential operations by running
   pair-machine approval-v2, revoke start/finish, and AddCredential start/finish
-  happy paths under the same future rollout package. This is evidence for the
-  future flip package, not a default change or active enforcement.
+  happy paths under the same future rollout package. #199 pins the pair-machine
+  trust-state boundary under that package: NeverEnrolled keeps the legacy path,
+  Active is covered by #198, and RecoveryRequired or AnchorInvalid fail closed
+  with opaque rejects and no mutation. This is evidence for the future flip
+  package, not a default change or active enforcement.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity

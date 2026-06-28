@@ -7,9 +7,10 @@ that matter before enforcement: first enrollment, pair-machine approval-v2,
 revoke, recovery consume, and backup/AddCredential are all merged as
 default-off infrastructure. The default-off rollout/rollback control and its
 env/Nix operational wiring are also merged, along with test-only evidence for
-the reviewed core operations under the real future reviewed-core rollout
-package. The remaining work is the explicit enforcement flip decision/operation
-and the product/security decision on macOS-local active finish.
+the reviewed core operations and trust-state boundaries under the real future
+reviewed-core rollout package. The remaining work is the explicit enforcement
+flip decision/operation and the product/security decision on macOS-local active
+finish.
 
 ## Current Default
 
@@ -97,7 +98,10 @@ Evidence for a flip PR should include:
   `OwnerApprovalEnforcementPolicy::reviewed_core_v2_rollout()` as challenge-only
   on start and single-`Provision`/anchor-advance on finish. #198 pins
   pair-machine approval-v2, revoke start/finish, and AddCredential start/finish
-  under the same future rollout package. The flip PR still needs the final
+  under the same future rollout package. #199 pins the pair-machine
+  per-trust-state boundary under that package: NeverEnrolled falls back to
+  legacy, Active is covered by #198, and RecoveryRequired or AnchorInvalid fail
+  closed with opaque rejects and no mutation. The flip PR still needs the final
   policy-on review/sign-offs and any release-specific evidence.
 - Source guards proving no local macOS finish activation in the B/defer path,
   no `/registration/local/*` on the TCP router, no TCP PoP bypass, and no
