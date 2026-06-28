@@ -66,9 +66,10 @@ not active local enrollment:
   fresh hardware fixture: it uses a live server-issued `/registration/local/start`,
   asks `ASAuthorization` for the API-applicable attestation/UV options, writes the
   raw result only to the explicit untracked fixture path, and stops before local
-  finish. It does not produce a proof verdict, commit a credential, or activate
-  enrollment. The captured passkey is throwaway evidence and must be deleted after
-  the dump; the real owner credential is enrolled fresh in A3.
+  finish. Any optional sanitized capture-result file must use a different path
+  from the raw fixture. It does not produce a proof verdict, commit a credential,
+  or activate enrollment. The captured passkey is throwaway evidence and must be
+  deleted after the dump; the real owner credential is enrolled fresh in A3.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.

@@ -77,6 +77,20 @@ final class DevEmbeddedEngineSmokeTests: XCTestCase {
         XCTAssertEqual(decision, .refused(reason: "fixture_path_missing"))
     }
 
+    func test_localAppleCaptureGateRefusesResultPathEqualToFixturePath() {
+        let decision = DevLocalAppleAttestationCaptureGate.decision(
+            environment: [
+                DevLocalAppleAttestationCaptureGate.runEnvKey: "1",
+                DevLocalAppleAttestationCaptureGate.fixtureEnvKey: "/tmp/fixture.json",
+                DevLocalAppleAttestationCaptureGate.resultEnvKey: "/tmp/fixture.json",
+            ],
+            bundleIdentifier: DevLocalAppleAttestationCaptureGate.requiredBundleIdentifier,
+            profile: .dev
+        )
+
+        XCTAssertEqual(decision, .refused(reason: "result_path_matches_fixture_path"))
+    }
+
     func test_localAppleCaptureGateRunsOnlyForDevBundleDevProfileAndFixturePath() {
         let decision = DevLocalAppleAttestationCaptureGate.decision(
             environment: [

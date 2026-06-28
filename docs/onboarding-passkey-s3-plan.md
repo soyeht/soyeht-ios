@@ -135,9 +135,11 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   options through `ASAuthorization`, captures the resulting attestation, and
   writes an untracked local fixture compatible with the #204 harness. It stops
   before `/registration/local/finish`: no proof verdict, no commit/save/memory/
-  anchor, no rollout, and no active enrollment. The captured passkey is a
-  throwaway/orphan credential and must be deleted after the dump; the real owner
-  credential will be enrolled fresh in the later A3 active-commit slice.
+  anchor, no rollout, and no active enrollment. If the optional sanitized
+  capture-result file is requested, it must use a different path from the raw
+  fixture. The captured passkey is a throwaway/orphan credential and must be
+  deleted after the dump; the real owner credential will be enrolled fresh in the
+  later A3 active-commit slice.
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
