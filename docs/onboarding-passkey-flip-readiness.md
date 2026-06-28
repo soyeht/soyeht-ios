@@ -46,16 +46,19 @@ not active local enrollment:
 - #202 adds the A2 proof/model inert foundation: Apple-only pinned root policy,
   core verification helper, and typed proof object after AppleAnonymous,
   AnonCa, UV=true, BE=false, and BS=false checks.
+- #203 adds the A3-prep source guard for the dangerous `Credential -> Passkey`
+  conversion, allowlisting it to the local attested proof-object helper across
+  runtime Rust sources.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.
 
 A3 is still required before macOS-local finish can become active. It must add
-positive end-to-end Apple-chain evidence, workspace/allowlist guards for the
-dangerous `Credential -> Passkey` conversion, `NeverEnrolled`/authority-empty
-revalidation under lock, evidence storage, commit ordering, replay coverage, and
-anchor-failure behavior. Until A3 lands and is signed off, no credential is
-committed through the local macOS path.
+positive end-to-end Apple-chain evidence, keep the #203 conversion guard
+enforced, revalidate `NeverEnrolled`/authority-empty under lock, store evidence,
+preserve commit ordering, and cover replay plus anchor-failure behavior. Until
+A3 lands and is signed off, no credential is committed through the local macOS
+path.
 
 ## Flip Implementation Checklist
 
@@ -113,8 +116,10 @@ Evidence for a flip PR should include:
   fallback from active macOS-local work to the normal `Passkey` path.
   #202 already pins the A2 proof/model inert foundation: Apple-only root policy,
   typed `VerifiedLocalAppleAttestedCredential`, and no HTTP local-finish call to
-  the proof helper. The flip/A3 evidence still needs positive Apple-chain proof
-  before active commit.
+  the proof helper. #203 adds a workspace-aware allowlist guard so the dangerous
+  `Credential -> Passkey` conversion remains confined to that proof-object
+  helper. The flip/A3 evidence still needs positive Apple-chain proof before
+  active commit.
 - Cross-language vector checks for all owner-approval v2 contexts and wire
   shapes touched by the flip. #200/#264 already pin the AddCredential
   composite start/finish wrappers byte-for-byte across Rust and Swift; that is
