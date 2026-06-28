@@ -107,7 +107,10 @@ Evidence for a flip PR should include:
   no `/registration/local/*` on the TCP router, no TCP PoP bypass, and no
   fallback from active macOS-local work to the normal `Passkey` path.
 - Cross-language vector checks for all owner-approval v2 contexts and wire
-  shapes touched by the flip.
+  shapes touched by the flip. #200/#264 already pin the AddCredential
+  composite start/finish wrappers byte-for-byte across Rust and Swift; that is
+  evidence for the future client/orchestration slice, not a default change or
+  active enforcement.
 - Swift tests for the enrollment and approval-review ViewModels and app gating,
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and
