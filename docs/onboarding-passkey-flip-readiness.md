@@ -6,9 +6,10 @@ The S3 owner-auth passkey work is code-complete for the backend mutation paths
 that matter before enforcement: first enrollment, pair-machine approval-v2,
 revoke, recovery consume, and backup/AddCredential are all merged as
 default-off infrastructure. The default-off rollout/rollback control and its
-env/Nix operational wiring are also merged. The remaining work is the explicit
-enforcement flip decision/operation and the product/security decision on
-macOS-local active finish.
+env/Nix operational wiring are also merged, along with test-only evidence for
+recovery provision under the real future reviewed-core rollout package. The
+remaining work is the explicit enforcement flip decision/operation and the
+product/security decision on macOS-local active finish.
 
 ## Current Default
 
@@ -92,6 +93,10 @@ Evidence for a flip PR should include:
 - Rust tests for default-off behavior and policy-on behavior for pair-machine
   approval-v2, revoke, recovery provision/consume, and AddCredential, including
   the recovery break-glass semantics.
+  #197 already pins recovery provision under
+  `OwnerApprovalEnforcementPolicy::reviewed_core_v2_rollout()` as challenge-only
+  on start and single-`Provision`/anchor-advance on finish; the flip PR still
+  needs the full policy-on matrix and sign-offs.
 - Source guards proving no local macOS finish activation in the B/defer path,
   no `/registration/local/*` on the TCP router, no TCP PoP bypass, and no
   fallback from active macOS-local work to the normal `Passkey` path.
