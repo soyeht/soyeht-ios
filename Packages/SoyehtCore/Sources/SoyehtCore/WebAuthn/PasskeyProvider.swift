@@ -26,19 +26,64 @@ public struct OwnerPasskeyRegistrationRequest: Sendable, Equatable {
     /// API takes only `challenge`/`name`/`userID`, so this is not consumed by
     /// the ceremony itself - it is carried for the relying party / UX layer.
     public let userDisplayName: String
+    /// Optional server request-shaping fields. The provider applies only the
+    /// subset exposed by Apple's public platform-passkey API; the engine remains
+    /// the verifier for attestation format/chain/flags.
+    public let requestedOptions: OwnerPasskeyRegistrationRequestOptions
 
     public init(
         relyingPartyIdentifier: String,
         challenge: Data,
         userID: Data,
         userName: String,
-        userDisplayName: String
+        userDisplayName: String,
+        requestedOptions: OwnerPasskeyRegistrationRequestOptions = .init()
     ) {
         self.relyingPartyIdentifier = relyingPartyIdentifier
         self.challenge = challenge
         self.userID = userID
         self.userName = userName
         self.userDisplayName = userDisplayName
+        self.requestedOptions = requestedOptions
+    }
+}
+
+/// Optional request-shaping metadata from `PublicKeyCredentialCreationOptions`.
+///
+/// This is carried so Dev.app can request an Apple Anonymous attestation with
+/// the same server-issued options the engine stages. It is not a trust decision:
+/// A3 server verification still checks Apple chain, format, UV, and BE/BS flags.
+public struct OwnerPasskeyRegistrationRequestOptions: Sendable, Equatable {
+    public let attestation: String?
+    public let attestationFormats: [String]
+    public let authenticatorAttachment: String?
+    public let residentKey: String?
+    public let requireResidentKey: Bool?
+    public let userVerification: String?
+    public let hints: [String]
+    public let credentialProtectionPolicy: String?
+    public let enforceCredentialProtectionPolicy: Bool?
+
+    public init(
+        attestation: String? = nil,
+        attestationFormats: [String] = [],
+        authenticatorAttachment: String? = nil,
+        residentKey: String? = nil,
+        requireResidentKey: Bool? = nil,
+        userVerification: String? = nil,
+        hints: [String] = [],
+        credentialProtectionPolicy: String? = nil,
+        enforceCredentialProtectionPolicy: Bool? = nil
+    ) {
+        self.attestation = attestation
+        self.attestationFormats = attestationFormats
+        self.authenticatorAttachment = authenticatorAttachment
+        self.residentKey = residentKey
+        self.requireResidentKey = requireResidentKey
+        self.userVerification = userVerification
+        self.hints = hints
+        self.credentialProtectionPolicy = credentialProtectionPolicy
+        self.enforceCredentialProtectionPolicy = enforceCredentialProtectionPolicy
     }
 }
 
@@ -326,11 +371,20 @@ public final class PasskeyProvider: NSObject {
         let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
             relyingPartyIdentifier: request.relyingPartyIdentifier
         )
-        return provider.createCredentialRegistrationRequest(
+        let registrationRequest = provider.createCredentialRegistrationRequest(
             challenge: request.challenge,
             name: request.userName,
             userID: request.userID
         )
+        if let attestation = request.requestedOptions.attestation {
+            registrationRequest.attestationPreference =
+                ASAuthorizationPublicKeyCredentialAttestationKind(rawValue: attestation)
+        }
+        if let userVerification = request.requestedOptions.userVerification {
+            registrationRequest.userVerificationPreference =
+                ASAuthorizationPublicKeyCredentialUserVerificationPreference(rawValue: userVerification)
+        }
+        return registrationRequest
     }
 
     /// Builds the platform assertion request from standard WebAuthn options.

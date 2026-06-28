@@ -62,6 +62,14 @@ not active local enrollment:
   resident option wrapper and prove the current Swift lean decoder tolerates
   those extra fields. They do not make the client honor the options, do not
   forward an `attestationObject`, and are not a positive hardware verdict.
+- The Dev.app minimal-capture front-half adds the client mechanism for a
+  fresh hardware fixture: it uses a live server-issued `/registration/local/start`,
+  asks `ASAuthorization` for the API-applicable attestation/UV options, writes the
+  raw result only to the explicit untracked fixture path, and stops before local
+  finish. Any optional sanitized capture-result file must use a different path
+  from the raw fixture. It does not produce a proof verdict, commit a credential,
+  or activate enrollment. The captured passkey is throwaway evidence and must be
+  deleted after the dump; the real owner credential is enrolled fresh in A3.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.
@@ -143,8 +151,10 @@ Evidence for a flip PR should include:
   does not add UI, flip the rollout, or activate macOS-local finish.
   #205/#270 pin the macOS-local attested-start option wrapper byte-for-byte
   across Rust and Swift, and prove decoder tolerance only. Hardware evidence
-  still must use a future live server-issued `/registration/local/start`
-  capture, not the synthetic vector.
+  still must use a live server-issued `/registration/local/start` capture, not
+  the synthetic vector. The #204 harness smoke proves Apple chain + the five
+  checks + internal consistency; server challenge binding, single-use, and
+  anti-replay remain A3 active-commit evidence.
 - Swift tests for the enrollment and approval-review ViewModels and app gating,
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and

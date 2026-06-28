@@ -354,3 +354,42 @@ enum DevEmbeddedEngineSmokeGate {
         environment[strictEnvKey] == "1"
     }
 }
+
+enum DevLocalAppleAttestationCaptureGate {
+    static let runEnvKey = "SOYEHT_LOCAL_APPLE_ATTESTATION_CAPTURE"
+    static let fixtureEnvKey = "SOYEHT_LOCAL_APPLE_ATTESTATION_FIXTURE"
+    static let resultEnvKey = "SOYEHT_LOCAL_APPLE_ATTESTATION_CAPTURE_RESULT"
+    static let requiredBundleIdentifier = DevEmbeddedEngineSmokeGate.requiredBundleIdentifier
+
+    enum Decision: Equatable {
+        case notRequested
+        case refused(reason: String)
+        case run(fixturePath: String)
+    }
+
+    static func decision(
+        environment: [String: String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) -> Decision {
+        guard environment[runEnvKey] == "1" else { return .notRequested }
+        guard profile.kind == .dev else { return .refused(reason: "install_profile_not_dev") }
+        guard bundleIdentifier == requiredBundleIdentifier else {
+            return .refused(reason: "bundle_identifier_not_dev")
+        }
+        guard profile.engineLaunchdLabel == "com.soyeht.engine.dev" else {
+            return .refused(reason: "launchagent_label_not_dev")
+        }
+        guard let fixturePath = environment[fixtureEnvKey], !fixturePath.isEmpty else {
+            return .refused(reason: "fixture_path_missing")
+        }
+        if let resultPath = environment[resultEnvKey], !resultPath.isEmpty {
+            let fixtureURL = URL(fileURLWithPath: fixturePath).standardizedFileURL
+            let resultURL = URL(fileURLWithPath: resultPath).standardizedFileURL
+            guard fixtureURL.path != resultURL.path else {
+                return .refused(reason: "result_path_matches_fixture_path")
+            }
+        }
+        return .run(fixturePath: fixturePath)
+    }
+}

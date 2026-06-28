@@ -22,6 +22,7 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
 
     static let startPath = "/api/v1/household/owner-webauthn/registration/start"
     static let finishPath = "/api/v1/household/owner-webauthn/registration/finish"
+    static let macosLocalAttestedStartPath = "/api/v1/household/owner-webauthn/registration/local/start"
 
     private enum Authentication: Sendable {
         case ownerPoP(HouseholdPoPSigner)
@@ -78,6 +79,15 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
         return try OwnerWebauthnRegistrationStartResponse(cbor: BootstrapWire.decodeCanonical(data))
     }
 
+    /// Starts the macOS local Apple-attested registration capture path over the
+    /// dedicated UDS listener. This is start-only: callers must not submit a local
+    /// finish in the capture slice.
+    public func startMacosLocalAttested() async throws -> OwnerWebauthnRegistrationStartResponse {
+        let body = OwnerWebauthnRegistrationStartRequest().canonicalBytes()
+        let data = try await post(path: Self.macosLocalAttestedStartPath, body: body)
+        return try OwnerWebauthnRegistrationStartResponse(cbor: BootstrapWire.decodeCanonical(data))
+    }
+
     /// Finishes first passkey enrollment with the platform attestation.
     public func finish(
         challengeID: String,
@@ -113,7 +123,18 @@ public struct OwnerPasskeyEnrollmentClient: Sendable {
             challenge: challenge,
             userID: userID,
             userName: publicKey.user.name,
-            userDisplayName: publicKey.user.displayName
+            userDisplayName: publicKey.user.displayName,
+            requestedOptions: OwnerPasskeyRegistrationRequestOptions(
+                attestation: publicKey.attestation,
+                attestationFormats: publicKey.attestationFormats,
+                authenticatorAttachment: publicKey.authenticatorSelection?.authenticatorAttachment,
+                residentKey: publicKey.authenticatorSelection?.residentKey,
+                requireResidentKey: publicKey.authenticatorSelection?.requireResidentKey,
+                userVerification: publicKey.authenticatorSelection?.userVerification,
+                hints: publicKey.hints,
+                credentialProtectionPolicy: publicKey.extensions?.credentialProtectionPolicy,
+                enforceCredentialProtectionPolicy: publicKey.extensions?.enforceCredentialProtectionPolicy
+            )
         )
     }
 

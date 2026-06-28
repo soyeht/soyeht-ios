@@ -68,6 +68,41 @@ private func cborRequire(
     return value
 }
 
+private func cborOptionalText(
+    _ map: [String: HouseholdCBORValue],
+    _ key: String,
+    _ context: String
+) throws -> String? {
+    guard let value = map[key] else { return nil }
+    return try value.cborText("\(context).\(key)")
+}
+
+private func cborOptionalBool(
+    _ map: [String: HouseholdCBORValue],
+    _ key: String,
+    _ context: String
+) throws -> Bool? {
+    guard let value = map[key] else { return nil }
+    guard case .bool(let bool) = value else {
+        throw OwnerWebauthnRegistrationDTOError.malformedCBOR("\(context).\(key): expected bool")
+    }
+    return bool
+}
+
+private func cborOptionalTextArray(
+    _ map: [String: HouseholdCBORValue],
+    _ key: String,
+    _ context: String
+) throws -> [String] {
+    guard let value = map[key] else { return [] }
+    guard case .array(let values) = value else {
+        throw OwnerWebauthnRegistrationDTOError.malformedCBOR("\(context).\(key): expected array")
+    }
+    return try values.enumerated().map { index, value in
+        try value.cborText("\(context).\(key)[\(index)]")
+    }
+}
+
 private func cborUInt8(_ value: HouseholdCBORValue, _ context: String) throws -> UInt8 {
     let raw = try value.cborUnsigned(context)
     guard let narrowed = UInt8(exactly: raw) else {
@@ -136,23 +171,85 @@ public struct OwnerWebauthnUserEntity: Decodable, Equatable, Sendable {
     }
 }
 
-/// Lean view of `publicKey` - only the fields the future `PasskeyProvider`
-/// consumes. Extra server-supplied fields (timeout, authenticatorSelection,
-/// attestation, ...) are intentionally ignored on decode.
+public struct OwnerWebauthnAuthenticatorSelection: Decodable, Equatable, Sendable {
+    public let authenticatorAttachment: String?
+    public let residentKey: String?
+    public let userVerification: String?
+    public let requireResidentKey: Bool?
+
+    public init(
+        authenticatorAttachment: String? = nil,
+        residentKey: String? = nil,
+        userVerification: String? = nil,
+        requireResidentKey: Bool? = nil
+    ) {
+        self.authenticatorAttachment = authenticatorAttachment
+        self.residentKey = residentKey
+        self.userVerification = userVerification
+        self.requireResidentKey = requireResidentKey
+    }
+
+    init(cbor: HouseholdCBORValue) throws {
+        let map = try cbor.cborMap("authenticatorSelection")
+        authenticatorAttachment = try cborOptionalText(map, "authenticatorAttachment", "authenticatorSelection")
+        residentKey = try cborOptionalText(map, "residentKey", "authenticatorSelection")
+        userVerification = try cborOptionalText(map, "userVerification", "authenticatorSelection")
+        requireResidentKey = try cborOptionalBool(map, "requireResidentKey", "authenticatorSelection")
+    }
+}
+
+public struct OwnerWebauthnCreationExtensions: Decodable, Equatable, Sendable {
+    public let credentialProtectionPolicy: String?
+    public let enforceCredentialProtectionPolicy: Bool?
+
+    public init(
+        credentialProtectionPolicy: String? = nil,
+        enforceCredentialProtectionPolicy: Bool? = nil
+    ) {
+        self.credentialProtectionPolicy = credentialProtectionPolicy
+        self.enforceCredentialProtectionPolicy = enforceCredentialProtectionPolicy
+    }
+
+    init(cbor: HouseholdCBORValue) throws {
+        let map = try cbor.cborMap("extensions")
+        credentialProtectionPolicy = try cborOptionalText(map, "credentialProtectionPolicy", "extensions")
+        enforceCredentialProtectionPolicy = try cborOptionalBool(map, "enforceCredentialProtectionPolicy", "extensions")
+    }
+}
+
+/// Lean view of `publicKey`. It always decodes the core rp/user/challenge fields
+/// and preserves optional request-shaping hints for the macOS local attestation
+/// capture path. Those hints are not proof; the engine verifies Apple attestation
+/// format/chain/flags later in the A3 finish path.
 public struct OwnerWebauthnPublicKeyCredentialCreationOptions: Decodable, Equatable, Sendable {
     public let rp: OwnerWebauthnRelyingParty
     public let user: OwnerWebauthnUserEntity
     /// base64url text on the wire.
     public let challenge: String
+    public let attestation: String?
+    public let attestationFormats: [String]
+    public let authenticatorSelection: OwnerWebauthnAuthenticatorSelection?
+    public let extensions: OwnerWebauthnCreationExtensions?
+    public let hints: [String]
 
     public init(
         rp: OwnerWebauthnRelyingParty,
         user: OwnerWebauthnUserEntity,
-        challenge: String
+        challenge: String,
+        attestation: String? = nil,
+        attestationFormats: [String] = [],
+        authenticatorSelection: OwnerWebauthnAuthenticatorSelection? = nil,
+        extensions: OwnerWebauthnCreationExtensions? = nil,
+        hints: [String] = []
     ) {
         self.rp = rp
         self.user = user
         self.challenge = challenge
+        self.attestation = attestation
+        self.attestationFormats = attestationFormats
+        self.authenticatorSelection = authenticatorSelection
+        self.extensions = extensions
+        self.hints = hints
     }
 
     public var challengeData: Data? {
@@ -164,6 +261,11 @@ public struct OwnerWebauthnPublicKeyCredentialCreationOptions: Decodable, Equata
         rp = try OwnerWebauthnRelyingParty(cbor: cborRequire(map, "rp", "publicKey"))
         user = try OwnerWebauthnUserEntity(cbor: cborRequire(map, "user", "publicKey"))
         challenge = try cborRequire(map, "challenge", "publicKey").cborText("publicKey.challenge")
+        attestation = try cborOptionalText(map, "attestation", "publicKey")
+        attestationFormats = try cborOptionalTextArray(map, "attestationFormats", "publicKey")
+        authenticatorSelection = try map["authenticatorSelection"].map(OwnerWebauthnAuthenticatorSelection.init(cbor:))
+        extensions = try map["extensions"].map(OwnerWebauthnCreationExtensions.init(cbor:))
+        hints = try cborOptionalTextArray(map, "hints", "publicKey")
     }
 }
 
