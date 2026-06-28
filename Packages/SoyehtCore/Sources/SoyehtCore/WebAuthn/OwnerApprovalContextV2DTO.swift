@@ -13,6 +13,7 @@ public enum OwnerApprovalOperation: String, Sendable, Equatable, CaseIterable {
     case bootstrapTeardown = "bootstrap-teardown"
     case pairDeviceConfirm = "pair-device-confirm"
     case revokeCredential = "revoke-credential"
+    case addCredential = "add-credential"
 }
 
 // MARK: - Owner approval context (Protocol v2)
@@ -51,6 +52,10 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
     public var ttlUnix: UInt64?
     public var nonce: Data?
     public var joinRequestHash: Data?
+    public var newCredentialBindingHash: Data?
+    public var authorityHeadSequence: UInt64?
+    public var authorityHeadHash: Data?
+    public var preActiveCredentialCount: UInt64?
     public var capabilities: [String]
     public var issuedAt: UInt64
     public var expiresAt: UInt64
@@ -69,6 +74,10 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         ttlUnix: UInt64? = nil,
         nonce: Data? = nil,
         joinRequestHash: Data? = nil,
+        newCredentialBindingHash: Data? = nil,
+        authorityHeadSequence: UInt64? = nil,
+        authorityHeadHash: Data? = nil,
+        preActiveCredentialCount: UInt64? = nil,
         capabilities: [String],
         issuedAt: UInt64,
         expiresAt: UInt64,
@@ -86,6 +95,10 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         self.ttlUnix = ttlUnix
         self.nonce = nonce
         self.joinRequestHash = joinRequestHash
+        self.newCredentialBindingHash = newCredentialBindingHash
+        self.authorityHeadSequence = authorityHeadSequence
+        self.authorityHeadHash = authorityHeadHash
+        self.preActiveCredentialCount = preActiveCredentialCount
         self.capabilities = capabilities
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
@@ -113,6 +126,16 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         if let ttlUnix { map["ttl_unix"] = .unsigned(ttlUnix) }
         if let nonce { map["nonce"] = .bytes(nonce) }
         if let joinRequestHash { map["join_request_hash"] = .bytes(joinRequestHash) }
+        if let newCredentialBindingHash {
+            map["new_credential_binding_hash"] = .bytes(newCredentialBindingHash)
+        }
+        if let authorityHeadSequence {
+            map["authority_head_sequence"] = .unsigned(authorityHeadSequence)
+        }
+        if let authorityHeadHash { map["authority_head_hash"] = .bytes(authorityHeadHash) }
+        if let preActiveCredentialCount {
+            map["pre_active_credential_count"] = .unsigned(preActiveCredentialCount)
+        }
         return .map(map)
     }
 
