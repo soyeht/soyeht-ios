@@ -1,6 +1,6 @@
 # Onboarding Passkey (Owner-Auth) — S3 iOS/macOS Plan & Status
 
-_Status as of 2026-06-27. Owner of the Swift/SoyehtCore slice: @gianna.
+_Status as of 2026-06-28. Owner of the Swift/SoyehtCore slice: @gianna.
 Sequence coordination: @code-reviewer. iOS review: @julia. Backend: theyos._
 
 This is the durable record of the S3 (iOS/macOS passkey **enrollment + approval**)
@@ -37,8 +37,8 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, and backup/AddCredential start+finish runtime are merged; macOS local engine enrollment route and flip gates remain. |
-| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; macOS engine/app enrollment work remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, and macOS local engine M1 fail-closed foundation are merged; active M1b local engine enrollment route and flip gates remain. |
+| **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
 ---
@@ -58,8 +58,9 @@ gesture (UI-layer WYSIWYS).
   context/vectors ✅, R1-B start-only/challenge-only runtime ✅, R1-B
   finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
   backup/AddCredential start-only/challenge-only runtime ✅, and
-  backup/AddCredential finish/append+one-anchor runtime ✅.
-  **Remaining:** macOS local engine enrollment route and the flip.
+  backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
+  M1 fail-closed foundation ✅.
+  **Remaining:** active M1b macOS local engine enrollment route and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -142,7 +143,8 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   owner-exists / NeverEnrolled / default-off gates. TCP loopback or localhost +
   attestation alone is not authorization. The client foundation uses
   HTTP-over-UDS so existing CBOR DTOs/vectors can be reused; the security-critical
-  engine route with peer code-signing + constrained attestation is still pending.
+  engine foundation is merged fail-closed as #191, while the active M1b route
+  with peer code-signing + constrained attestation is still pending.
 - The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
   `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
   `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
@@ -293,6 +295,17 @@ because of the xcframework caveat; no local live ceremony is required.
   saves owner auth, updates memory, and advances the WebAuthn anchor. It does
   not touch recovery, revoke, last-revoke policy, TOFU, or PolicySnapshot, and
   it remains default-off infrastructure until the broader enforcement flip.
+- **macOS local engine enrollment** — M1 foundation is merged as fail-closed
+  backend infrastructure (#191), not as an active local enrollment runtime. It
+  adds a separate local registration router with dedicated
+  `/registration/local/{start,finish,status}` paths and a caller-auth boundary,
+  but production defaults to no real verifier and therefore rejects before
+  request decode or challenge staging. The fake verifier exists only in tests,
+  the network/TCP router remains PoP-required and does not mount `/local/`, and
+  local finish remains inert until M1b. M1b must add peer metadata from the
+  accepted UDS socket, audit-token -> SecCode -> designated-requirement
+  verification, a UDS-only active mount guard, and platform+UV attestation
+  constraints before any local finish can commit.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
