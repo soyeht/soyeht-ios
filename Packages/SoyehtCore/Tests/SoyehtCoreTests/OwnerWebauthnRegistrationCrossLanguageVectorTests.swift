@@ -68,7 +68,7 @@ import Testing
         let vectors = try Self.loadVectors()
         #expect(vectors.contract == "soyeht-owner-webauthn-registration-cbor-cross-language")
         #expect(vectors.version == 1)
-        #expect(vectors.startResponses.count == 3)
+        #expect(vectors.startResponses.count == 4)
 
         for vector in vectors.startResponses {
             let cbor = try Self.decodePinnedCBOR(vector)
@@ -97,6 +97,58 @@ import Testing
             if vector.id == "start-realistic-passkey" {
                 let exclude = try Self.array(publicKey["excludeCredentials"], "\(vector.id).excludeCredentials")
                 #expect(exclude.isEmpty)
+            }
+            if vector.id == "start-macos-local-attested-options" {
+                #expect(try Self.text(publicKey["attestation"], "\(vector.id).attestation") == "direct")
+
+                let formats = try Self.array(publicKey["attestationFormats"], "\(vector.id).attestationFormats")
+                #expect(formats == [.text("apple")])
+
+                let hints = try Self.array(publicKey["hints"], "\(vector.id).hints")
+                #expect(hints == [.text("client-device")])
+
+                let selection = try Self.map(
+                    publicKey["authenticatorSelection"],
+                    "\(vector.id).authenticatorSelection"
+                )
+                #expect(
+                    try Self.text(
+                        selection["authenticatorAttachment"],
+                        "\(vector.id).authenticatorSelection.authenticatorAttachment"
+                    ) == "platform"
+                )
+                #expect(
+                    try Self.text(
+                        selection["residentKey"],
+                        "\(vector.id).authenticatorSelection.residentKey"
+                    ) == "required"
+                )
+                #expect(
+                    try Self.text(
+                        selection["userVerification"],
+                        "\(vector.id).authenticatorSelection.userVerification"
+                    ) == "required"
+                )
+                #expect(
+                    try Self.bool(
+                        selection["requireResidentKey"],
+                        "\(vector.id).authenticatorSelection.requireResidentKey"
+                    )
+                )
+
+                let extensions = try Self.map(publicKey["extensions"], "\(vector.id).extensions")
+                #expect(
+                    try Self.text(
+                        extensions["credentialProtectionPolicy"],
+                        "\(vector.id).extensions.credentialProtectionPolicy"
+                    ) == "userVerificationRequired"
+                )
+                #expect(
+                    try Self.bool(
+                        extensions["enforceCredentialProtectionPolicy"],
+                        "\(vector.id).extensions.enforceCredentialProtectionPolicy"
+                    )
+                )
             }
         }
     }
@@ -203,6 +255,13 @@ import Testing
             throw AssertionError("\(label) is not negative")
         }
         return negative
+    }
+
+    private static func bool(_ value: HouseholdCBORValue?, _ label: String) throws -> Bool {
+        guard case .bool(let bool) = value else {
+            throw AssertionError("\(label) is not bool")
+        }
+        return bool
     }
 
     private static func base64UrlText(_ value: HouseholdCBORValue?, _ label: String) throws -> String {

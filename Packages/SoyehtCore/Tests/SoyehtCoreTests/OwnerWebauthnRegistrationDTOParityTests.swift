@@ -142,7 +142,7 @@ import Testing
 
     @Test func startResponseDTOsDecodeRustVectors() throws {
         let vectors = try Self.loadVectors()
-        #expect(vectors.startResponses.count == 3)
+        #expect(vectors.startResponses.count == 4)
 
         for vector in vectors.startResponses {
             let cbor = try #require(Data(soyehtHex: vector.canonicalCborHex))
@@ -167,6 +167,63 @@ import Testing
             #expect(try Self.base64RoundTrip(publicKey.challenge) == publicKey.challenge)
             #expect(try Self.base64RoundTrip(publicKey.user.id) == publicKey.user.id)
         }
+    }
+
+    @Test func localAttestedStartOptionsDecodeThroughLeanView() throws {
+        let vectors = try Self.loadVectors()
+        let vector = try #require(
+            vectors.startResponses.first { $0.id == "start-macos-local-attested-options" }
+        )
+        let cbor = try #require(Data(soyehtHex: vector.canonicalCborHex))
+        let decoded = try HouseholdCBOR.decode(cbor)
+        #expect(HouseholdCBOR.encode(decoded) == cbor)
+
+        let top = try Self.map(decoded, "\(vector.id).top")
+        let options = try Self.map(top["options"], "\(vector.id).options")
+        let publicKey = try Self.map(options["publicKey"], "\(vector.id).publicKey")
+        #expect(try Self.text(publicKey["attestation"], "\(vector.id).attestation") == "direct")
+        #expect(try Self.array(publicKey["attestationFormats"], "\(vector.id).attestationFormats") == [
+            .text("apple")
+        ])
+        #expect(try Self.array(publicKey["hints"], "\(vector.id).hints") == [
+            .text("client-device")
+        ])
+
+        let selection = try Self.map(
+            publicKey["authenticatorSelection"],
+            "\(vector.id).authenticatorSelection"
+        )
+        #expect(
+            try Self.text(
+                selection["authenticatorAttachment"],
+                "\(vector.id).authenticatorSelection.authenticatorAttachment"
+            ) == "platform"
+        )
+        #expect(
+            try Self.text(
+                selection["residentKey"],
+                "\(vector.id).authenticatorSelection.residentKey"
+            ) == "required"
+        )
+        #expect(
+            try Self.text(
+                selection["userVerification"],
+                "\(vector.id).authenticatorSelection.userVerification"
+            ) == "required"
+        )
+        #expect(
+            try Self.bool(
+                selection["requireResidentKey"],
+                "\(vector.id).authenticatorSelection.requireResidentKey"
+            )
+        )
+
+        let response = try OwnerWebauthnRegistrationStartResponse(cbor: decoded)
+        #expect(response.version == vector.input.v)
+        #expect(response.challengeID == vector.input.challengeId)
+        #expect(response.options.publicKey.rp.id == vector.input.options.publicKey.rp.id)
+        #expect(response.options.publicKey.user.id == vector.input.options.publicKey.user.id)
+        #expect(response.options.publicKey.challenge == vector.input.options.publicKey.challenge)
     }
 
     @Test func startRequestDTOsEncodeCanonicalRustVectors() throws {
@@ -304,6 +361,27 @@ import Testing
             throw AssertionError("\(label) is not a map")
         }
         return map
+    }
+
+    private static func array(_ value: HouseholdCBORValue?, _ label: String) throws -> [HouseholdCBORValue] {
+        guard case .array(let array) = value else {
+            throw AssertionError("\(label) is not an array")
+        }
+        return array
+    }
+
+    private static func text(_ value: HouseholdCBORValue?, _ label: String) throws -> String {
+        guard case .text(let text) = value else {
+            throw AssertionError("\(label) is not text")
+        }
+        return text
+    }
+
+    private static func bool(_ value: HouseholdCBORValue?, _ label: String) throws -> Bool {
+        guard case .bool(let bool) = value else {
+            throw AssertionError("\(label) is not bool")
+        }
+        return bool
     }
 }
 
