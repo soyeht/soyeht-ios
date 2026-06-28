@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, and macOS local engine M1 fail-closed foundation are merged; active M1b local engine enrollment route and flip gates remain. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, and M1b peer-auth/mount foundation are merged; active M1b attestation/local finish activation and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -59,8 +59,8 @@ gesture (UI-layer WYSIWYS).
   finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
-  M1 fail-closed foundation ✅.
-  **Remaining:** active M1b macOS local engine enrollment route and the flip.
+  M1 fail-closed foundation ✅ and M1b peer-auth/mount foundation ✅.
+  **Remaining:** active M1b attestation/local finish activation and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -302,10 +302,17 @@ because of the xcframework caveat; no local live ceremony is required.
   but production defaults to no real verifier and therefore rejects before
   request decode or challenge staging. The fake verifier exists only in tests,
   the network/TCP router remains PoP-required and does not mount `/local/`, and
-  local finish remains inert until M1b. M1b must add peer metadata from the
-  accepted UDS socket, audit-token -> SecCode -> designated-requirement
-  verification, a UDS-only active mount guard, and platform+UV attestation
-  constraints before any local finish can commit.
+  local finish remains inert until M1b. #192 adds the M1b peer-auth/mount
+  foundation: a dedicated UDS listener mounts only the local router, captures
+  `LOCAL_PEERTOKEN` from the accepted `UnixStream`, injects mandatory peer
+  metadata through `ConnectInfo`, and verifies the caller with
+  audit-token -> SecCode -> designated-requirement. The production mount uses
+  the production profile only (`com.soyeht.mac`); the dev bundle is a separate
+  profile and is not accepted by the production verifier. Missing peer metadata,
+  missing verifier, and denied callers still fail closed before decode or
+  challenge staging. This makes start/status peer-auth capable, but **does not**
+  make active local enrollment complete: local finish remains inert until a
+  later M1b-attestation slice proves platform+UV server-side before commit.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
