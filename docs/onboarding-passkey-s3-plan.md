@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, and M1b peer-auth/mount foundation are merged; active M1b attestation/local finish activation and flip gates remain. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, and M1b platform-hint prep are merged; active M1b server-side platform proof/local finish activation and flip gates remain. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip. |
 
@@ -59,8 +59,9 @@ gesture (UI-layer WYSIWYS).
   finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
-  M1 fail-closed foundation ✅ and M1b peer-auth/mount foundation ✅.
-  **Remaining:** active M1b attestation/local finish activation and the flip.
+  M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, and M1b
+  platform-hint prep ✅. **Remaining:** active M1b server-side platform
+  proof/local finish activation and the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, and #184 RecoverCredential
@@ -313,6 +314,16 @@ because of the xcframework caveat; no local live ceremony is required.
   challenge staging. This makes start/status peer-auth capable, but **does not**
   make active local enrollment complete: local finish remains inert until a
   later M1b-attestation slice proves platform+UV server-side before commit.
+  #193 adds the M1b attestation-prep/options slice for local start only: the
+  local registration options now explicitly request
+  `authenticatorAttachment=platform` and resident-key/discoverable credential
+  behavior, while the TCP/PoP start path stays on the generic helper and local
+  finish remains `local_attestation_constraints_unavailable`. This is
+  request-shaping for the macOS ceremony, not a security proof: the platform
+  attachment is only a client-side hint in the current WebAuthn wrapper. The
+  active finish remains blocked until a safe server-side platform proof exists
+  or an explicit Apple Anonymous attestation policy is separately accepted and
+  reviewed.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
@@ -328,8 +339,8 @@ because of the xcframework caveat; no local live ceremony is required.
 - (Decided) iOS "Protect your home" screen is merged. macOS enrollment uses
   engine-side owner identity over UDS with peer code-signing caller-auth plus
   constrained platform WebAuthn attestation; the UDS/no-PoP client foundation
-  is merged, while the security-critical engine route and app integration remain
-  pending.
+  is merged, while the security-critical active engine finish and app
+  integration remain pending.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.
