@@ -37,7 +37,7 @@ gesture (UI-layer WYSIWYS).
 
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, and M1b platform-hint prep are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, and default-off owner-auth v2 rollout/rollback control are merged; active M1b server-side platform proof/local finish activation remains blocked pending a Caio scope/trust-policy decision, and the flip gate remains. |
 | **Client (soyeht-ios)** | ~88% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged; active macOS engine/app enrollment work remains. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
@@ -59,8 +59,9 @@ gesture (UI-layer WYSIWYS).
   finish/two-anchor repair runtime ✅, backup/AddCredential contract/vectors ✅,
   backup/AddCredential start-only/challenge-only runtime ✅, and
   backup/AddCredential finish/append+one-anchor runtime ✅. macOS local engine
-  M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, and M1b
-  platform-hint prep ✅. **Remaining:** Caio decision on active M1b
+  M1 fail-closed foundation ✅, M1b peer-auth/mount foundation ✅, M1b
+  platform-hint prep ✅, and owner-auth v2 rollout/rollback control ✅.
+  **Remaining:** Caio decision on active M1b
   server-side platform proof/local finish activation versus deferring macOS
   local active enrollment, plus the flip.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
@@ -335,6 +336,17 @@ because of the xcframework caveat; no local live ceremony is required.
   macOS-local enrollment does not by itself block the broader flip, because a
   Mac user can enroll through the existing iOS/PoP path; activating macOS local
   finish still requires A or a stronger safe server-side platform proof.
+- **owner-auth v2 rollout control** — #195 adds the default-off production
+  control for the eventual flip. `THEYOS_OWNER_AUTH_V2_ROLLOUT=reviewed-core-v2`
+  enables the reviewed core policies; absent, empty, `off`, `legacy`,
+  `legacy-only`, and unknown values all preserve `LegacyOnly` (unknown values
+  warn and fail safe). Removing or changing the env value gives a clean
+  env/bootstrap rollback to `LegacyOnly` with the v1/legacy path preserved.
+  Recovery uses a dedicated `RecoveryCodeEnforcement::BreakGlassEnabled`
+  switch, not active-credential v2 semantics: recovery consume remains
+  break-glass, and `active_count=0` stays valid when the recovery-code gates
+  pass. This is still not the flip; production remains default-off until Caio's
+  flip decision and the required sign-offs.
 - **revoke runtime R3** — merged. Finish mutation landed with no-brick,
   head-binding, active_count>1, duplicate-revoke prevention,
   save-ok/anchor-fail recovery, anti-rollback, anti-oracle, and audit-integrity
