@@ -53,6 +53,7 @@ final class UnixDomainSocketHTTPTransaction: @unchecked Sendable {
         guard !socketPath.isEmpty else {
             throw BootstrapError.networkDrop
         }
+        try MacosLocalRegistrationSocket.validateParent(forSocketPath: socketPath)
         guard let url = request.url,
               url.scheme?.lowercased() == "http" else {
             throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
