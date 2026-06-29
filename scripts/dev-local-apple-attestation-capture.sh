@@ -59,7 +59,7 @@ if [[ "${bundle_id}" != "com.soyeht.mac.dev" ]]; then
 fi
 
 set +e
-codesign_output="$(codesign -d --requirements :- "${app_bundle}" 2>&1)"
+codesign_output="$(codesign -d -r- "${app_bundle}" 2>&1)"
 codesign_status=$?
 set -e
 
@@ -78,7 +78,19 @@ if [[ "${designated_requirement}" != *'identifier "com.soyeht.mac.dev"'* ]]; the
   json "refused" "codesign_identifier_not_dev"
   exit 0
 fi
-if [[ "${designated_requirement}" != *'W7677A5BK2'* ]]; then
+
+set +e
+codesign_details="$(codesign -dv "${app_bundle}" 2>&1)"
+codesign_details_status=$?
+set -e
+
+if [[ "${codesign_details_status}" != "0" ]]; then
+  json "refused" "codesign_requirement_unavailable"
+  exit 0
+fi
+
+team_identifier="$(printf '%s\n' "${codesign_details}" | awk -F= '/^TeamIdentifier=/ { print $2; exit }')"
+if [[ "${team_identifier}" != "W7677A5BK2" ]]; then
   json "refused" "codesign_team_not_soyeht"
   exit 0
 fi
