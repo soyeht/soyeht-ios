@@ -139,7 +139,9 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   capture-result file is requested, it must use a different path from the raw
   fixture. The captured passkey is a throwaway/orphan credential and must be
   deleted after the dump; the real owner credential will be enrolled fresh in the
-  later A3 active-commit slice.
+  later A3 active-commit slice. Operator steps live in
+  `docs/macos-local-attestation-capture-runbook.md`. The live capture requires
+  the #206 Dev peer-auth selector and a normally signed `Soyeht Dev.app`.
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -415,7 +417,9 @@ because of the xcframework caveat; no local live ceremony is required.
   `/registration/local/start` captured by the Dev.app minimal-capture path and
   then verified by the #204 harness; that smoke proves Apple chain + the five
   checks + internal consistency only. Server-issued challenge binding,
-  single-use, and anti-replay remain A3 active-commit properties.
+  single-use, and anti-replay remain A3 active-commit properties. The capture
+  runbook is `docs/macos-local-attestation-capture-runbook.md`; it depends on
+  the #206 Dev peer-auth selector and a normally signed `Soyeht Dev.app`.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
