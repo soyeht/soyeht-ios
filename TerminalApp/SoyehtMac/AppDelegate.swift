@@ -3155,13 +3155,7 @@ private enum DevLocalAppleAttestationCaptureRunner {
     }
 
     private static func localRegistrationSocketPath(profile: SoyehtInstallProfile) -> String {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent(profile.supportDirectoryName, isDirectory: true)
-            .appendingPathComponent("runtime", isDirectory: true)
-            .appendingPathComponent("owner-webauthn-registration.sock", isDirectory: false)
-            .path
+        MacosLocalRegistrationSocket.path(profile: profile)
     }
 
     private static func result(
