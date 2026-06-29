@@ -71,6 +71,7 @@ xcodebuild build \
   -destination 'platform=macOS' \
   DEVELOPMENT_TEAM=W7677A5BK2 \
   CODE_SIGN_STYLE=Automatic \
+  CODE_SIGN_IDENTITY='Apple Development' \
   -skipPackagePluginValidation \
   -derivedDataPath "$SOYEHT_CAPTURE_DERIVED_DATA"
 
@@ -79,7 +80,9 @@ export SOYEHT_DEV_APP_BUNDLE="$SOYEHT_CAPTURE_DERIVED_DATA/Build/Products/Debug/
 
 Do not point `SOYEHT_DEV_APP_BUNDLE` at `/Applications/Soyeht.app`. The helper
 checks the bundle identifier, designated requirement, and Team ID, and refuses
-non-dev or unsigned/ad-hoc bundles.
+non-dev or unsigned/ad-hoc bundles. The `CODE_SIGN_IDENTITY` override keeps the
+Debug capture build on an Apple Development identity even if local release
+settings specify a Developer ID identity.
 
 ## 3. Run the Dev Capture
 
