@@ -159,13 +159,17 @@ import Darwin
             let source = try String(contentsOf: url, encoding: .utf8)
             for token in forbidden where source.contains(token) {
                 let relative = url.path.replacingOccurrences(of: repoRoot.path + "/", with: "")
+                if relative == "Packages/SoyehtCore/Sources/SoyehtCore/Install/EmbeddedEngineLaunchAgentSpec.swift",
+                   (token == "reviewed-core-v2" || token == "reviewed_core_v2") {
+                    continue
+                }
                 offenders.append("\(relative): \(token)")
             }
         }
 
         #expect(
             offenders.isEmpty,
-            "Secure/Upgrade with iPhone App Attest runtime and explicit approval wire remain STOP-gated; update this guard only with the reviewed proof/signal design. Offending sites: \(offenders)"
+            "Secure/Upgrade direct product API usage remains guarded; only the reviewed LaunchAgent rollout wiring may carry the rollout token. Offending sites: \(offenders)"
         )
 
         let shippingEntitlements = repoRoot.appendingPathComponent("TerminalApp/Soyeht/Soyeht.entitlements")
@@ -174,12 +178,12 @@ import Darwin
         let shippingEntitlementsPlist = try Self.plistDictionary(at: shippingEntitlements)
         let devEntitlementsPlist = try Self.plistDictionary(at: devEntitlements)
         #expect(
-            shippingEntitlementsPlist[appAttestEntitlement] == nil,
-            "shipping Soyeht.entitlements must not carry App Attest until Secure/Upgrade runtime is reviewed"
+            shippingEntitlementsPlist[appAttestEntitlement] as? String == "production",
+            "shipping Soyeht.entitlements must carry the production App Attest entitlement when Secure/Upgrade shipping rollout is wired"
         )
         #expect(
             devEntitlementsPlist[appAttestEntitlement] as? String == "development",
-            "SoyehtDev.entitlements must be the only App Attest capture entitlement and must use the development environment"
+            "SoyehtDev.entitlements must keep the App Attest development environment"
         )
     }
 

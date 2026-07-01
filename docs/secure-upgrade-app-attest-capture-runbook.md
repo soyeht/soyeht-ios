@@ -16,8 +16,9 @@ transcript.
   shipping product flow.
 - Do not modify, quit, restart, or overwrite the user's installed macOS
   `/Applications/Soyeht.app`.
-- Keep the existing Swift STOP guard in force until the capture harness is
-  reviewed. Product sources currently forbid App Attest runtime wiring.
+- Keep the capture harness Dev-only/test-only. Shipping App Attest runtime uses
+  the production entitlement and LaunchAgent environment reviewed with the
+  Secure/Upgrade rollout; raw capture tooling remains outside shipping flows.
 - Do not commit, paste, log, or attach raw attestation objects, certificate
   blobs, credential ids, device names, account names, local hostnames, IPs, or
   other personal infrastructure values.
