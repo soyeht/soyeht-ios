@@ -122,6 +122,7 @@
 		8DDA00000000000000000600 /* OwnerApprovalV2ReviewAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000610 /* OwnerApprovalV2ReviewAdapter.swift */; };
 		8DDA00000000000000000602 /* OwnerApprovalV2ReviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000612 /* OwnerApprovalV2ReviewScreen.swift */; };
 		8DDA00000000000000000606 /* OwnerApprovalV2ReviewPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000616 /* OwnerApprovalV2ReviewPresentationTests.swift */; };
+		5AA700000000000000000001 /* SecureUpgradeAppAttestCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA700000000000000000101 /* SecureUpgradeAppAttestCaptureTests.swift */; };
 		8DDA00000000000000000311 /* SoyehtIdentityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000301 /* SoyehtIdentityState.swift */; };
 		8DDA00000000000000000312 /* SoyehtIdentitySnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */; };
 		8DDA00000000000000000313 /* OwnerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000303 /* OwnerDevice.swift */; };
@@ -336,6 +337,7 @@
 		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
 		4E727C9D02A59FD486849BDF /* ReshowTourView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReshowTourView.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
+		5AA700000000000000000101 /* SecureUpgradeAppAttestCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureUpgradeAppAttestCaptureTests.swift; sourceTree = "<group>"; };
 		5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = HouseCreatedNotificationService; path = HouseCreatedNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
 		55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaterParkingLotView.swift; sourceTree = "<group>"; };
@@ -913,6 +915,7 @@
 				8DDA0000000000000000011A /* DevicePairApprovalPresentationTests.swift */,
 				8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */,
 				8DDA00000000000000000616 /* OwnerApprovalV2ReviewPresentationTests.swift */,
+				5AA700000000000000000101 /* SecureUpgradeAppAttestCaptureTests.swift */,
 				8DDA0000000000000000011C /* PairedMacAliasTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
 				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
@@ -1603,6 +1606,7 @@
 				8DDA0000000000000000001A /* DevicePairApprovalPresentationTests.swift in Sources */,
 				8DDA00000000000000000506 /* OwnerPasskeyEnrollmentPresentationTests.swift in Sources */,
 				8DDA00000000000000000606 /* OwnerApprovalV2ReviewPresentationTests.swift in Sources */,
+				5AA700000000000000000001 /* SecureUpgradeAppAttestCaptureTests.swift in Sources */,
 				8DDA0000000000000000001C /* PairedMacAliasTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,

@@ -35,6 +35,8 @@ enum HouseholdTestFixtures {
         householdId: String? = nil,
         operations: Set<String> = PersonCert.requiredOwnerOperations,
         scopeForOperation: ((String) -> HouseholdCBORValue?)? = nil,
+        ownerAuthTier: HouseholdCBORValue? = nil,
+        ownerProvenance: HouseholdCBORValue? = nil,
         now: Date = Date(timeIntervalSince1970: 1_714_972_800)
     ) throws -> Data {
         let hhPub = householdPrivateKey.publicKey.compressedRepresentation
@@ -47,7 +49,7 @@ enum HouseholdTestFixtures {
                 "scope": scopeForOperation?(op) ?? (op.hasPrefix("household.") ? .null : .map(["all": .bool(true)])),
             ])
         }
-        let withoutSignature = HouseholdCBORValue.map([
+        var withoutSignatureMap: [String: HouseholdCBORValue] = [
             "caveats": .array(caveats),
             "display_name": .text("Owner"),
             "hh_id": .text(resolvedHouseholdId),
@@ -60,11 +62,17 @@ enum HouseholdTestFixtures {
             "p_pub": .bytes(personPublicKey),
             "type": .text("person"),
             "v": .unsigned(1),
-        ])
-        let signingBytes = HouseholdCBOR.encode(withoutSignature)
+        ]
+        if let ownerAuthTier {
+            withoutSignatureMap["owner_auth_tier"] = ownerAuthTier
+        }
+        if let ownerProvenance {
+            withoutSignatureMap["owner_provenance"] = ownerProvenance
+        }
+        let signingBytes = HouseholdCBOR.encode(.map(withoutSignatureMap))
         let signature = try householdPrivateKey.signature(for: signingBytes).rawRepresentation
 
-        guard case .map(var map) = withoutSignature else { fatalError("fixture map expected") }
+        var map = withoutSignatureMap
         map["signature"] = .bytes(signature)
         return HouseholdCBOR.encode(.map(map))
     }
