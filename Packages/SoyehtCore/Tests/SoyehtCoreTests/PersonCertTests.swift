@@ -25,6 +25,128 @@ struct PersonCertTests {
         #expect(cert.hasOwnerCapabilities)
         #expect(cert.caveats.first(where: { $0.operation == "claws.list" })?.scope == .all)
         #expect(cert.caveats.first(where: { $0.operation == "claws.list" })?.scopeDescription == nil)
+        #expect(cert.ownerAuthTierRaw == nil)
+        #expect(cert.ownerProvenanceRaw == nil)
+        #expect(!cert.hasStrongOwnerProvenance)
+        #expect(!cert.canFanOut)
+    }
+
+    @Test func strongOwnerTierRequiresRecognizedProvenance() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let personKey = P256.Signing.PrivateKey()
+        let cbor = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: personKey.publicKey.compressedRepresentation,
+            ownerAuthTier: .text(PersonCert.ownerAuthTierStrong),
+            ownerProvenance: .text(PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        )
+
+        let cert = try PersonCert(cbor: cbor)
+
+        #expect(cert.ownerAuthTierRaw == PersonCert.ownerAuthTierStrong)
+        #expect(cert.ownerProvenanceRaw == PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        #expect(cert.hasStrongOwnerProvenance)
+        #expect(cert.canFanOut)
+        try cert.validate(
+            householdId: try HouseholdIdentifiers.householdIdentifier(for: householdKey.publicKey.compressedRepresentation),
+            householdPublicKey: householdKey.publicKey.compressedRepresentation,
+            ownerPersonId: try HouseholdIdentifiers.personIdentifier(for: personKey.publicKey.compressedRepresentation),
+            ownerPersonPublicKey: personKey.publicKey.compressedRepresentation,
+            now: Date(timeIntervalSince1970: 1_714_972_800)
+        )
+    }
+
+    @Test func appAttestOwnerProvenanceCanFanOutWhenSigned() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let personKey = P256.Signing.PrivateKey()
+        let cbor = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: personKey.publicKey.compressedRepresentation,
+            ownerAuthTier: .text(PersonCert.ownerAuthTierStrong),
+            ownerProvenance: .text(PersonCert.ownerProvenanceIOSAppAttestOwner)
+        )
+
+        let cert = try PersonCert(cbor: cbor)
+
+        #expect(cert.ownerAuthTierRaw == PersonCert.ownerAuthTierStrong)
+        #expect(cert.ownerProvenanceRaw == PersonCert.ownerProvenanceIOSAppAttestOwner)
+        #expect(cert.hasStrongOwnerProvenance)
+        #expect(cert.canFanOut)
+        try cert.validate(
+            householdId: try HouseholdIdentifiers.householdIdentifier(for: householdKey.publicKey.compressedRepresentation),
+            householdPublicKey: householdKey.publicKey.compressedRepresentation,
+            ownerPersonId: try HouseholdIdentifiers.personIdentifier(for: personKey.publicKey.compressedRepresentation),
+            ownerPersonPublicKey: personKey.publicKey.compressedRepresentation,
+            now: Date(timeIntervalSince1970: 1_714_972_800)
+        )
+    }
+
+    @Test func unknownOwnerTierDecodesWeak() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let personKey = P256.Signing.PrivateKey()
+        let cbor = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: personKey.publicKey.compressedRepresentation,
+            ownerAuthTier: .text("future-strong"),
+            ownerProvenance: .text(PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        )
+
+        let cert = try PersonCert(cbor: cbor)
+
+        #expect(cert.ownerAuthTierRaw == "future-strong")
+        #expect(cert.ownerProvenanceRaw == PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        #expect(!cert.hasStrongOwnerProvenance)
+        #expect(!cert.canFanOut)
+    }
+
+    @Test func malformedOwnerTierDecodesWeakWithoutThrowing() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let personKey = P256.Signing.PrivateKey()
+        let cbor = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: personKey.publicKey.compressedRepresentation,
+            ownerAuthTier: .unsigned(7),
+            ownerProvenance: .text(PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        )
+
+        let cert = try PersonCert(cbor: cbor)
+
+        #expect(cert.ownerAuthTierRaw == nil)
+        #expect(cert.ownerProvenanceRaw == PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        #expect(!cert.hasStrongOwnerProvenance)
+        #expect(!cert.canFanOut)
+    }
+
+    @Test func tamperingSignedOwnerTierInvalidatesSignature() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let personKey = P256.Signing.PrivateKey()
+        let cbor = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: personKey.publicKey.compressedRepresentation,
+            ownerAuthTier: .text(PersonCert.ownerAuthTierStrong),
+            ownerProvenance: .text(PersonCert.ownerProvenanceIOSSecureEnclaveOwner)
+        )
+        guard case .map(var map) = try HouseholdCBOR.decode(cbor) else {
+            Issue.record("Expected PersonCert map")
+            return
+        }
+        map["owner_auth_tier"] = .text("future-strong")
+        let tampered = HouseholdCBOR.encode(.map(map))
+        let cert = try PersonCert(cbor: tampered)
+
+        do {
+            try cert.validate(
+                householdId: try HouseholdIdentifiers.householdIdentifier(for: householdKey.publicKey.compressedRepresentation),
+                householdPublicKey: householdKey.publicKey.compressedRepresentation,
+                ownerPersonId: cert.personId,
+                ownerPersonPublicKey: cert.personPublicKey,
+                now: Date(timeIntervalSince1970: 1_714_972_800)
+            )
+            Issue.record("Expected invalid signature")
+        } catch PersonCertError.invalidSignature {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
     }
 
     @Test func tamperedCertSignatureFailsValidation() throws {
