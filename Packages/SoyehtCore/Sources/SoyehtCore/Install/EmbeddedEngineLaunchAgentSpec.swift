@@ -77,10 +77,25 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
     }
 
     private static func commonExportedEnvironment(for profile: SoyehtInstallProfile) -> [String: String] {
-        [
+        let appAttestBundleID: String
+        let appAttestEnvironment: String
+        switch profile.kind {
+        case .release:
+            appAttestBundleID = "com.soyeht.app"
+            appAttestEnvironment = "production"
+        case .dev:
+            appAttestBundleID = "com.soyeht.app.dev"
+            appAttestEnvironment = "development"
+        }
+
+        return [
             "ADMIN_PORT": "\(profile.adminPort)",
             "ADDR": "127.0.0.1:\(profile.adminPort)",
             "SOYEHT_SETUP_INVITATION_ALLOW_LAN": "1",
+            "THEYOS_OWNER_AUTH_V2_ROLLOUT": "reviewed-core-v2-secure-upgrade",
+            "THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID": "W7677A5BK2",
+            "THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID": appAttestBundleID,
+            "THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT": appAttestEnvironment,
             "THEYOS_DIR": "$SOYEHT_DIR",
             "THEYOS_HOME": "$SOYEHT_DIR",
             "THEYOS_BIN_DIR": "$ENGINE_DIR",

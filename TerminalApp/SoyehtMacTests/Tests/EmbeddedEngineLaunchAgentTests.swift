@@ -196,6 +196,21 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         )
     }
 
+    func test_launchAgentsExportSecureUpgradeRuntimeProfile() throws {
+        let releaseExports = try parsedExports(profile: .release)
+        let devExports = try parsedExports(profile: .dev)
+
+        XCTAssertEqual(releaseExports["THEYOS_OWNER_AUTH_V2_ROLLOUT"], "reviewed-core-v2-secure-upgrade")
+        XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID"], "W7677A5BK2")
+        XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID"], "com.soyeht.app")
+        XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT"], "production")
+
+        XCTAssertEqual(devExports["THEYOS_OWNER_AUTH_V2_ROLLOUT"], "reviewed-core-v2-secure-upgrade")
+        XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID"], "W7677A5BK2")
+        XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID"], "com.soyeht.app.dev")
+        XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT"], "development")
+    }
+
     func test_releaseLaunchAgent_doesNotExportDevOnlyRuntimeOverrides() throws {
         let releaseKeys = Set(try parsedExports(profile: .release).keys)
         let devOnlyKeys = EmbeddedEngineLaunchAgentSpec(profile: .dev).devOnlyExportedEnvironmentKeys
