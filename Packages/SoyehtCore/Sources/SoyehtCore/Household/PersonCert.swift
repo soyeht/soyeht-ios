@@ -51,6 +51,12 @@ public struct PersonCertCaveat: Codable, Equatable, Sendable {
 }
 
 public struct PersonCert: Codable, Equatable, Sendable {
+    public static let ownerAuthTierStrong = "strong"
+    public static let ownerProvenanceIOSSecureEnclaveOwner = "ios-secure-enclave-owner"
+    public static let ownerProvenanceIPadOSSecureEnclaveOwner = "ipados-secure-enclave-owner"
+    public static let ownerProvenanceIOSAppAttestOwner = "ios-app-attest-owner"
+    public static let ownerProvenanceIPadOSAppAttestOwner = "ipados-app-attest-owner"
+
     public static let requiredOwnerOperations: Set<String> = [
         "claws.list",
         "claws.create",
@@ -74,6 +80,8 @@ public struct PersonCert: Codable, Equatable, Sendable {
     public let notAfter: Date?
     public let issuedAt: Date?
     public let issuedBy: String
+    public let ownerAuthTierRaw: String?
+    public let ownerProvenanceRaw: String?
     public let nonce: Data
     public let signature: Data
 
@@ -108,6 +116,8 @@ public struct PersonCert: Codable, Equatable, Sendable {
             self.issuedAt = nil
         }
         self.issuedBy = try map.requiredText("issued_by")
+        self.ownerAuthTierRaw = map.optionalTextFailClosed("owner_auth_tier")
+        self.ownerProvenanceRaw = map.optionalTextFailClosed("owner_provenance")
         self.nonce = try map.requiredBytes("nonce")
         self.signature = try map.requiredBytes("signature")
 
@@ -142,6 +152,8 @@ public struct PersonCert: Codable, Equatable, Sendable {
         notAfter: Date?,
         issuedAt: Date?,
         issuedBy: String,
+        ownerAuthTierRaw: String? = nil,
+        ownerProvenanceRaw: String? = nil,
         nonce: Data = Data(repeating: 0, count: 16),
         signature: Data
     ) {
@@ -157,6 +169,8 @@ public struct PersonCert: Codable, Equatable, Sendable {
         self.notAfter = notAfter
         self.issuedAt = issuedAt
         self.issuedBy = issuedBy
+        self.ownerAuthTierRaw = ownerAuthTierRaw
+        self.ownerProvenanceRaw = ownerProvenanceRaw
         self.nonce = nonce
         self.signature = signature
     }
@@ -196,6 +210,20 @@ public struct PersonCert: Codable, Equatable, Sendable {
 
     public var hasOwnerCapabilities: Bool {
         Self.requiredOwnerOperations.allSatisfy { allows($0) }
+    }
+
+    public var hasStrongOwnerProvenance: Bool {
+        ownerAuthTierRaw == Self.ownerAuthTierStrong
+            && (
+                ownerProvenanceRaw == Self.ownerProvenanceIOSSecureEnclaveOwner
+                    || ownerProvenanceRaw == Self.ownerProvenanceIPadOSSecureEnclaveOwner
+                    || ownerProvenanceRaw == Self.ownerProvenanceIOSAppAttestOwner
+                    || ownerProvenanceRaw == Self.ownerProvenanceIPadOSAppAttestOwner
+            )
+    }
+
+    public var canFanOut: Bool {
+        hasStrongOwnerProvenance
     }
 
     public func allows(_ operation: String) -> Bool {
@@ -286,6 +314,11 @@ private extension Dictionary where Key == String, Value == HouseholdCBORValue {
     func optionalText(_ key: String) throws -> String? {
         guard let value = self[key] else { return nil }
         guard case .text(let text) = value else { throw PersonCertError.malformed }
+        return text
+    }
+
+    func optionalTextFailClosed(_ key: String) -> String? {
+        guard case .text(let text) = self[key] else { return nil }
         return text
     }
 

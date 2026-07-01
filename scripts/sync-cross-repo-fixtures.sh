@@ -81,6 +81,26 @@ cp "${SRC_FIXTURES}/owner_cert_auth.cbor" \
    "${TESTS}/HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"
 echo "✓ owner_cert_auth.cbor"
 
+PERSON_CERT_TIER_FIXTURE="${THEYOS_DIR}/admin/rust/household-rs/tests/fixtures/person_cert_tier_vectors.json"
+if [[ ! -f "${PERSON_CERT_TIER_FIXTURE}" ]]; then
+    echo "error: person-cert tier fixture not found at ${PERSON_CERT_TIER_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/PersonCert"
+cp "${PERSON_CERT_TIER_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/PersonCert/person_cert_tier_vectors.json"
+echo "✓ person_cert_tier_vectors.json"
+
+SECURE_UPGRADE_TRANSCRIPT_FIXTURE="${THEYOS_DIR}/admin/rust/household-rs/tests/fixtures/secure_upgrade_transcript_vectors.json"
+if [[ ! -f "${SECURE_UPGRADE_TRANSCRIPT_FIXTURE}" ]]; then
+    echo "error: secure-upgrade transcript fixture not found at ${SECURE_UPGRADE_TRANSCRIPT_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/SecureUpgrade"
+cp "${SECURE_UPGRADE_TRANSCRIPT_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/SecureUpgrade/secure_upgrade_transcript_vectors.json"
+echo "✓ secure_upgrade_transcript_vectors.json"
+
 # ── T067b: casa_nasceu push payload ───────────────────────────────────────────
 mkdir -p "${TESTS}/Fixtures/push"
 cp "${SRC_FIXTURES}/casa_nasceu_push.json" \

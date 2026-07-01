@@ -71,6 +71,10 @@ let package = Package(
                 .copy("HouseholdFixtures/ClawUnavailableReasonCode/claw_unavailable_reason_codes.json"),
                 // T039d — owner-cert CBOR cross-language fixture
                 .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
+                // US-13 - owner auth tier/provenance PersonCert vectors (theyos -> Swift)
+                .copy("HouseholdFixtures/PersonCert/person_cert_tier_vectors.json"),
+                // Secure/Upgrade - proof transcript vectors (theyos -> Swift)
+                .copy("HouseholdFixtures/SecureUpgrade/secure_upgrade_transcript_vectors.json"),
                 // T039e — avatar derivation cross-language fixture (1 000 rows)
                 .copy("HouseholdFixtures/Avatar/avatar-derivation-fixtures.csv"),
                 // FR-045 — emoji security code cross-language fixtures
