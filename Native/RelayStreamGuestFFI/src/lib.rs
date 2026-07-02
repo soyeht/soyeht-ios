@@ -39,7 +39,7 @@ use household_rs::keys::{IdentityKey, P256PublicKey, P256Signature, verify_signa
 use rand::RngCore;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::{Mutex as TokioMutex, mpsc, oneshot};
 
 uniffi::setup_scaffolding!();
 
@@ -282,7 +282,15 @@ impl From<DataTunnelError> for RelayStreamGuestError {
 
 #[derive(uniffi::Object)]
 pub struct RelayStreamGuestSession {
-    stream: TokioMutex<RelayStreamNoiseAsyncStream<TcpStream>>,
+    command_tx: mpsc::Sender<RelayStreamGuestCommand>,
+    frame_rx:
+        TokioMutex<mpsc::Receiver<Result<RelayStreamGuestFrameRecord, RelayStreamGuestError>>>,
+}
+
+enum RelayStreamGuestCommand {
+    Data(Vec<u8>, oneshot::Sender<Result<(), RelayStreamGuestError>>),
+    Resize(u16, u16, oneshot::Sender<Result<(), RelayStreamGuestError>>),
+    Close(oneshot::Sender<Result<(), RelayStreamGuestError>>),
 }
 
 #[uniffi::export]
@@ -326,31 +334,109 @@ pub async fn relay_stream_connect(
     )
     .await?;
     let stream = authenticate_health_open(stream, &request, &signature).await?;
+    let (read_half, write_half) = tokio::io::split(stream);
+    let (command_tx, command_rx) = mpsc::channel(32);
+    let (frame_tx, frame_rx) = mpsc::channel(32);
+    tokio::spawn(drive_guest_writer(write_half, command_rx));
+    tokio::spawn(drive_guest_reader(read_half, frame_tx));
     Ok(Arc::new(RelayStreamGuestSession {
-        stream: TokioMutex::new(stream),
+        command_tx,
+        frame_rx: TokioMutex::new(frame_rx),
     }))
 }
 
 #[uniffi::export(async_runtime = "tokio")]
 impl RelayStreamGuestSession {
     pub async fn send_data(&self, data: Vec<u8>) -> Result<(), RelayStreamGuestError> {
-        let mut stream = self.stream.lock().await;
-        send_data(&mut *stream, &data).await
+        let (tx, rx) = oneshot::channel();
+        self.command_tx
+            .send(RelayStreamGuestCommand::Data(data, tx))
+            .await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?;
+        rx.await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
     }
 
     pub async fn send_resize(&self, cols: u16, rows: u16) -> Result<(), RelayStreamGuestError> {
-        let mut stream = self.stream.lock().await;
-        send_resize(&mut *stream, cols, rows).await
+        let (tx, rx) = oneshot::channel();
+        self.command_tx
+            .send(RelayStreamGuestCommand::Resize(cols, rows, tx))
+            .await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?;
+        rx.await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
     }
 
     pub async fn send_close(&self) -> Result<(), RelayStreamGuestError> {
-        let mut stream = self.stream.lock().await;
-        send_close(&mut *stream).await
+        let (tx, rx) = oneshot::channel();
+        self.command_tx
+            .send(RelayStreamGuestCommand::Close(tx))
+            .await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?;
+        rx.await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
     }
 
     pub async fn read_frame(&self) -> Result<RelayStreamGuestFrameRecord, RelayStreamGuestError> {
-        let mut stream = self.stream.lock().await;
-        recv_guest_frame(&mut *stream).await.map(Into::into)
+        let mut frame_rx = self.frame_rx.lock().await;
+        frame_rx
+            .recv()
+            .await
+            .ok_or_else(|| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
+    }
+}
+
+async fn drive_guest_writer<W>(
+    mut stream: W,
+    mut command_rx: mpsc::Receiver<RelayStreamGuestCommand>,
+) where
+    W: AsyncWrite + Unpin,
+{
+    while let Some(command) = command_rx.recv().await {
+        let should_stop = match command {
+            RelayStreamGuestCommand::Data(data, reply) => {
+                let result = send_data(&mut stream, &data).await;
+                let should_stop = result.is_err();
+                let _ = reply.send(result);
+                should_stop
+            }
+            RelayStreamGuestCommand::Resize(cols, rows, reply) => {
+                let result = send_resize(&mut stream, cols, rows).await;
+                let should_stop = result.is_err();
+                let _ = reply.send(result);
+                should_stop
+            }
+            RelayStreamGuestCommand::Close(reply) => {
+                let result = send_close(&mut stream).await;
+                let _ = reply.send(result);
+                return;
+            }
+        };
+        if should_stop {
+            return;
+        }
+    }
+    let _ = send_close(&mut stream).await;
+}
+
+async fn drive_guest_reader<R>(
+    mut stream: R,
+    frame_tx: mpsc::Sender<Result<RelayStreamGuestFrameRecord, RelayStreamGuestError>>,
+) where
+    R: AsyncRead + Unpin,
+{
+    loop {
+        match recv_guest_frame(&mut stream).await {
+            Ok(frame) => {
+                if frame_tx.send(Ok(frame.into())).await.is_err() {
+                    return;
+                }
+            }
+            Err(error) => {
+                let _ = frame_tx.send(Err(error)).await;
+                return;
+            }
+        }
     }
 }
 
@@ -1246,9 +1332,15 @@ mod tests {
         .await
         .expect("connect session");
 
-        session.send_data(b"ping".to_vec()).await.expect("send");
+        let read_session = Arc::clone(&session);
+        let read_task = tokio::spawn(async move { read_session.read_frame().await });
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        session
+            .send_data(b"ping".to_vec())
+            .await
+            .expect("send while read is pending");
         assert_eq!(
-            session.read_frame().await.expect("recv"),
+            read_task.await.expect("read task").expect("recv"),
             RelayStreamGuestFrameRecord {
                 kind: RelayStreamGuestFrameKind::Data,
                 data: b"ACK:ping".to_vec(),
@@ -1258,5 +1350,64 @@ mod tests {
         );
         session.send_close().await.expect("close");
         server.await.expect("server task");
+    }
+
+    #[tokio::test]
+    async fn ffi_session_preserves_fragmented_inbound_frame_while_sending() {
+        let (client_io, server_io) = duplex(4096);
+        let (client_read, client_write) = tokio::io::split(client_io);
+        let (mut server_read, mut server_write) = tokio::io::split(server_io);
+        let (command_tx, command_rx) = mpsc::channel(32);
+        let (frame_tx, frame_rx) = mpsc::channel(32);
+        tokio::spawn(drive_guest_writer(client_write, command_rx));
+        tokio::spawn(drive_guest_reader(client_read, frame_tx));
+        let session = Arc::new(RelayStreamGuestSession {
+            command_tx,
+            frame_rx: TokioMutex::new(frame_rx),
+        });
+
+        let payload = TunnelFrame::Data(b"ACK:fragment".to_vec()).encode();
+        let mut raw_frame = Vec::with_capacity(4 + payload.len());
+        raw_frame.extend_from_slice(
+            &u32::try_from(payload.len())
+                .expect("payload len fits")
+                .to_be_bytes(),
+        );
+        raw_frame.extend_from_slice(&payload);
+        server_write
+            .write_all(&raw_frame[..2])
+            .await
+            .expect("write partial frame length");
+        server_write.flush().await.expect("flush partial length");
+
+        let read_session = Arc::clone(&session);
+        let read_task = tokio::spawn(async move { read_session.read_frame().await });
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        session
+            .send_data(b"ping".to_vec())
+            .await
+            .expect("send while partial inbound frame is pending");
+        assert_eq!(
+            recv_frame(&mut server_read)
+                .await
+                .expect("recv client input"),
+            TunnelFrame::Data(b"ping".to_vec())
+        );
+
+        server_write
+            .write_all(&raw_frame[2..])
+            .await
+            .expect("finish fragmented frame");
+        server_write.flush().await.expect("flush full frame");
+        assert_eq!(
+            read_task.await.expect("read task").expect("recv"),
+            RelayStreamGuestFrameRecord {
+                kind: RelayStreamGuestFrameKind::Data,
+                data: b"ACK:fragment".to_vec(),
+                number: 0,
+                text: String::new(),
+            }
+        );
+        session.send_close().await.expect("close");
     }
 }
