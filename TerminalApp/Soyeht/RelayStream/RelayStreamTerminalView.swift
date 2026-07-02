@@ -124,14 +124,30 @@ final class RelayStreamTerminalView: TerminalView, TerminalViewDelegate {
         }
     }
 
+    override func insertText(_ text: String) {
+        onSoftKeyboardInput?()
+        var bytes: [UInt8] = []
+        for byte in text.utf8 {
+            if byte == 0x0A {
+                bytes.append(contentsOf: returnByteSequence)
+            } else {
+                bytes.append(byte)
+            }
+        }
+        sendRelayInput(Data(bytes))
+    }
+
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
         guard !isFeedingServerData else { return }
         super.send(source: source, data: data)
     }
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        sendRelayInput(Data(data))
+    }
+
+    private func sendRelayInput(_ bytes: Data) {
         guard isOpen, let session = configuration?.session else { return }
-        let bytes = Data(data)
         Task { [weak self] in
             do {
                 try await session.send(data: bytes)
