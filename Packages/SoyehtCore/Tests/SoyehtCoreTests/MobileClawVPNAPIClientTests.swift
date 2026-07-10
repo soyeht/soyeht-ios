@@ -145,7 +145,7 @@ private func sessionBody(token: String = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") -> 
   )
 }
 
-private func rendezvousAuthorizeBody() -> Data {
+private func rendezvousAuthorizeBody(authorized: Bool = true) -> Data {
   Data(
     """
     {
@@ -153,8 +153,18 @@ private func rendezvousAuthorizeBody() -> Data {
       "mode": "mesh_c_rendezvous_preflight",
       "production_activation": false,
       "operation": "authorize_rendezvous",
-      "authorized": true,
+      "authorized": \(authorized),
       "status": \(String(data: statusBody(), encoding: .utf8)!)
+    }
+    """.utf8
+  )
+}
+
+private func errorBody() -> Data {
+  Data(
+    """
+    {
+      "error": "service_unavailable"
     }
     """.utf8
   )
@@ -484,5 +494,118 @@ struct MobileClawVPNAPIClientTests {
     #expect(request.url?.path == "/api/v1/mobile/claw-vpn/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer ENGINE-BEARER")
     #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+  }
+
+  @Test
+  func rendezvousAuthorizerSequencesControlPlaneAndReturnsCountOnlyResult() async throws {
+    MobileClawVPNTestProtocol.reset()
+    MobileClawVPNTestProtocol.responseBodies = [
+      offerBody(token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      sessionBody(token: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+      rendezvousAuthorizeBody()
+    ]
+    let store = makeMobileClawVPNStore()
+    pairMobileClawVPNServer(store)
+    let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+    let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+    let result = try await authorizer.authorize(
+      deviceId: "device-alpha",
+      clawId: "claw-alpha"
+    )
+
+    #expect(result.product == "product_a_mobile_claw_vpn")
+    #expect(result.mode == "mesh_c_rendezvous_preflight")
+    #expect(result.productionActivation == false)
+    #expect(result.operation == "authorize_rendezvous")
+    #expect(result.authorized)
+    #expect(result.status.sessionCount == 1)
+    #expect(!String(describing: result).contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+    #expect(!String(describing: result).contains("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
+
+    #expect(MobileClawVPNTestProtocol.requests.map { $0.url?.path } == [
+      "/api/v1/mobile/claw-vpn/offers",
+      "/api/v1/mobile/claw-vpn/sessions",
+      "/api/v1/mobile/claw-vpn/rendezvous/authorize"
+    ])
+    let sessionJSON = try jsonObjectBody(MobileClawVPNTestProtocol.requests[1])
+    #expect(sessionJSON["offer_token"] as? String == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    let authorizeJSON = try jsonObjectBody(MobileClawVPNTestProtocol.requests[2])
+    #expect(authorizeJSON["rendezvous_token"] as? String == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  }
+
+  @Test
+  func rendezvousAuthorizerStopsBeforeSessionWhenOfferMintFails() async throws {
+    MobileClawVPNTestProtocol.reset()
+    MobileClawVPNTestProtocol.statusCodes = [503]
+    MobileClawVPNTestProtocol.responseBodies = [errorBody()]
+    let store = makeMobileClawVPNStore()
+    pairMobileClawVPNServer(store)
+    let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+    let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+    do {
+      _ = try await authorizer.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+      Issue.record("expected mint failure")
+    } catch {
+      // expected
+    }
+
+    #expect(MobileClawVPNTestProtocol.requests.count == 1)
+    #expect(MobileClawVPNTestProtocol.requests.first?.url?.path == "/api/v1/mobile/claw-vpn/offers")
+  }
+
+  @Test
+  func rendezvousAuthorizerStopsBeforeAuthorizeWhenOfferConsumeFails() async throws {
+    MobileClawVPNTestProtocol.reset()
+    MobileClawVPNTestProtocol.statusCodes = [200, 503]
+    MobileClawVPNTestProtocol.responseBodies = [
+      offerBody(token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      errorBody()
+    ]
+    let store = makeMobileClawVPNStore()
+    pairMobileClawVPNServer(store)
+    let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+    let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+    do {
+      _ = try await authorizer.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+      Issue.record("expected consume failure")
+    } catch {
+      // expected
+    }
+
+    #expect(MobileClawVPNTestProtocol.requests.map { $0.url?.path } == [
+      "/api/v1/mobile/claw-vpn/offers",
+      "/api/v1/mobile/claw-vpn/sessions"
+    ])
+  }
+
+  @Test
+  func rendezvousAuthorizerRejectsFalseAuthorizationWithoutTokenEcho() async throws {
+    MobileClawVPNTestProtocol.reset()
+    MobileClawVPNTestProtocol.responseBodies = [
+      offerBody(token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+      sessionBody(token: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+      rendezvousAuthorizeBody(authorized: false)
+    ]
+    let store = makeMobileClawVPNStore()
+    pairMobileClawVPNServer(store)
+    let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+    let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+    do {
+      _ = try await authorizer.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+      Issue.record("expected not authorized")
+    } catch let error as MobileClawVPNRendezvousAuthorizerError {
+      #expect(error == .notAuthorized)
+      #expect(error.kind == "not_authorized")
+      #expect(!String(describing: error).contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      #expect(!String(reflecting: error).contains("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
+    } catch {
+      Issue.record("wrong error: \(error)")
+    }
+
+    #expect(MobileClawVPNTestProtocol.requests.count == 3)
   }
 }
