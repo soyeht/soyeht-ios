@@ -6,6 +6,10 @@ private final class MobileClawVPNTestProtocol: URLProtocol, @unchecked Sendable 
   nonisolated(unsafe) static var requests: [URLRequest] = []
   nonisolated(unsafe) static var responseBodies: [Data] = []
   nonisolated(unsafe) static var statusCodes: [Int] = []
+  nonisolated(unsafe) static var responseHeaderFields: [String: String] = [
+    "Content-Type": "application/json"
+  ]
+  nonisolated(unsafe) static var loadingError: Error?
   nonisolated(unsafe) static var beforeCapture: ((URLRequest) -> Void)?
 
   override class func canInit(with request: URLRequest) -> Bool { true }
@@ -33,13 +37,18 @@ private final class MobileClawVPNTestProtocol: URLProtocol, @unchecked Sendable 
     }
     Self.requests.append(captured)
 
+    if let loadingError = Self.loadingError {
+      client?.urlProtocol(self, didFailWithError: loadingError)
+      return
+    }
+
     let status = Self.statusCodes.isEmpty ? 200 : Self.statusCodes.removeFirst()
     let body = Self.responseBodies.isEmpty ? statusBody() : Self.responseBodies.removeFirst()
     let response = HTTPURLResponse(
       url: request.url!,
       statusCode: status,
       httpVersion: nil,
-      headerFields: ["Content-Type": "application/json"]
+      headerFields: Self.responseHeaderFields
     )!
     client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
     client?.urlProtocol(self, didLoad: body)
@@ -52,6 +61,8 @@ private final class MobileClawVPNTestProtocol: URLProtocol, @unchecked Sendable 
     requests = []
     responseBodies = []
     statusCodes = []
+    responseHeaderFields = ["Content-Type": "application/json"]
+    loadingError = nil
     beforeCapture = nil
   }
 }
@@ -145,7 +156,10 @@ private func sessionBody(token: String = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") -> 
   )
 }
 
-private func rendezvousAuthorizeBody(authorized: Bool = true) -> Data {
+private func rendezvousAuthorizeBody(
+  authorized: Bool = true,
+  statusState: String = "configured"
+) -> Data {
   Data(
     """
     {
@@ -154,7 +168,7 @@ private func rendezvousAuthorizeBody(authorized: Bool = true) -> Data {
       "production_activation": false,
       "operation": "authorize_rendezvous",
       "authorized": \(authorized),
-      "status": \(String(data: statusBody(), encoding: .utf8)!)
+      "status": \(String(data: statusBody(state: statusState), encoding: .utf8)!)
     }
     """.utf8
   )
@@ -229,6 +243,137 @@ private func expectUnsupportedAdminHost<T>(
     #expect(kind == .adminHost)
   } catch {
     Issue.record("Wrong error type: \(error)")
+  }
+}
+
+private enum MobileClawVPNEndpointCase: String, CaseIterable {
+  case status
+  case mintOffer
+  case consumeOffer
+  case authorizeRendezvous
+
+  var path: String {
+    switch self {
+    case .status:
+      "/api/v1/mobile/claw-vpn/status"
+    case .mintOffer:
+      "/api/v1/mobile/claw-vpn/offers"
+    case .consumeOffer:
+      "/api/v1/mobile/claw-vpn/sessions"
+    case .authorizeRendezvous:
+      "/api/v1/mobile/claw-vpn/rendezvous/authorize"
+    }
+  }
+
+  func invoke(_ client: SoyehtAPIClient) async throws {
+    switch self {
+    case .status:
+      _ = try await client.mobileClawVPNStatus()
+    case .mintOffer:
+      _ = try await client.mobileClawVPNMintOffer(
+        deviceId: "device-alpha",
+        clawId: "claw-alpha"
+      )
+    case .consumeOffer:
+      _ = try await client.mobileClawVPNConsumeOffer(
+        deviceId: "device-alpha",
+        clawId: "claw-alpha",
+        offerToken: "synthetic-offer-token"
+      )
+    case .authorizeRendezvous:
+      _ = try await client.mobileClawVPNAuthorizeRendezvous(
+        deviceId: "device-alpha",
+        clawId: "claw-alpha",
+        rendezvousToken: "synthetic-rendezvous-token"
+      )
+    }
+  }
+}
+
+private enum MobileClawVPNFailureCase: String, CaseIterable {
+  case httpResponse
+  case unexpectedHTML
+  case missingContentType
+  case plainText
+  case malformedJSON
+  case transport
+
+  var expectedError: MobileClawVPNRequestError {
+    switch self {
+    case .httpResponse:
+      .httpResponse
+    case .unexpectedHTML, .missingContentType, .plainText:
+      .unexpectedContentType
+    case .malformedJSON:
+      .invalidResponse
+    case .transport:
+      .transportFailed
+    }
+  }
+
+  func configure(needle: String, endpoint: MobileClawVPNEndpointCase) {
+    switch self {
+    case .httpResponse:
+      MobileClawVPNTestProtocol.statusCodes = [503]
+      MobileClawVPNTestProtocol.responseBodies = [
+        Data("{\"error\":\"\(needle)\"}".utf8)
+      ]
+    case .unexpectedHTML:
+      MobileClawVPNTestProtocol.responseHeaderFields = ["Content-Type": "text/html"]
+      MobileClawVPNTestProtocol.responseBodies = [Data("<html>\(needle)</html>".utf8)]
+    case .missingContentType:
+      MobileClawVPNTestProtocol.responseHeaderFields = [:]
+      MobileClawVPNTestProtocol.responseBodies = [validResponseBody(for: endpoint, needle: needle)]
+    case .plainText:
+      MobileClawVPNTestProtocol.responseHeaderFields = ["Content-Type": "text/plain"]
+      MobileClawVPNTestProtocol.responseBodies = [validResponseBody(for: endpoint, needle: needle)]
+    case .malformedJSON:
+      MobileClawVPNTestProtocol.responseBodies = [
+        Data("{\"unexpected\":\"\(needle)\"}".utf8)
+      ]
+    case .transport:
+      MobileClawVPNTestProtocol.loadingError = URLError(
+        .cannotConnectToHost,
+        userInfo: [NSURLErrorFailingURLStringErrorKey: "https://\(needle).invalid"]
+      )
+    }
+  }
+
+  private func validResponseBody(
+    for endpoint: MobileClawVPNEndpointCase,
+    needle: String
+  ) -> Data {
+    switch endpoint {
+    case .status:
+      statusBody(state: needle)
+    case .mintOffer:
+      offerBody(token: needle)
+    case .consumeOffer:
+      sessionBody(token: needle)
+    case .authorizeRendezvous:
+      rendezvousAuthorizeBody(statusState: needle)
+    }
+  }
+}
+
+private func expectMobileClawVPNRequestError<T>(
+  _ expected: MobileClawVPNRequestError,
+  excluding needles: [String],
+  caseLabel: String,
+  operation: () async throws -> T
+) async {
+  do {
+    _ = try await operation()
+    Issue.record("Expected a kind-only Mobile Claw VPN request error for \(caseLabel)")
+  } catch let error as MobileClawVPNRequestError {
+    #expect(error == expected)
+    let rendered = [String(describing: error), String(reflecting: error), error.kind]
+      .joined(separator: " ")
+    for needle in needles {
+      #expect(!rendered.contains(needle))
+    }
+  } catch {
+    Issue.record("Wrong error type for \(caseLabel)")
   }
 }
 
@@ -494,6 +639,82 @@ struct MobileClawVPNAPIClientTests {
     #expect(request.url?.path == "/api/v1/mobile/claw-vpn/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer ENGINE-BEARER")
     #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+  }
+
+  @Test
+  func everyMobileClawVPNEndpointUsesKindOnlyFailureBoundary() async throws {
+    for endpoint in MobileClawVPNEndpointCase.allCases {
+      for failure in MobileClawVPNFailureCase.allCases {
+        MobileClawVPNTestProtocol.reset()
+        let needle = "private-\(endpoint.rawValue)-\(failure.rawValue)-must-not-escape"
+        failure.configure(needle: needle, endpoint: endpoint)
+        let store = makeMobileClawVPNStore()
+        pairMobileClawVPNServer(store)
+        let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+        let caseLabel = "\(endpoint.rawValue)/\(failure.rawValue)"
+
+        await expectMobileClawVPNRequestError(
+          failure.expectedError,
+          excluding: [needle],
+          caseLabel: caseLabel
+        ) {
+          try await endpoint.invoke(client)
+        }
+        #expect(
+          MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [endpoint.path],
+          "Wrong request path for \(caseLabel)"
+        )
+      }
+    }
+  }
+
+  @Test
+  func mobileClawVPNAcceptsAllowedJSONContentTypes() async throws {
+    for contentType in [
+      "application/json; charset=utf-8",
+      "application/vnd.soyeht.control-plane+json"
+    ] {
+      MobileClawVPNTestProtocol.reset()
+      MobileClawVPNTestProtocol.responseHeaderFields = ["Content-Type": contentType]
+      MobileClawVPNTestProtocol.responseBodies = [statusBody()]
+      let store = makeMobileClawVPNStore()
+      pairMobileClawVPNServer(store)
+      let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+
+      let status = try await client.mobileClawVPNStatus()
+
+      #expect(status.product == "product_a_mobile_claw_vpn")
+      #expect(MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [
+        "/api/v1/mobile/claw-vpn/status"
+      ])
+    }
+  }
+
+  @Test
+  func mobileClawVPNTransportSourceHasNoValueBearingDiagnostics() throws {
+    let packageRoot = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let sourceURL = packageRoot
+      .appendingPathComponent("Sources/SoyehtCore/API/SoyehtAPIClient+MobileClawVPN.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+    for forbidden in [
+      "checkResponse(",
+      "Logger(",
+      ".logger.",
+      "os_log(",
+      "print(",
+      "debugPrint(",
+      "String(data:",
+      "String(decoding:"
+    ] {
+      #expect(!source.contains(forbidden))
+    }
+    #expect(source.contains("throw MobileClawVPNRequestError.httpResponse"))
+    #expect(source.contains("throw MobileClawVPNRequestError.transportFailed"))
+    #expect(source.contains("throw MobileClawVPNRequestError.invalidResponse"))
   }
 
   @Test
