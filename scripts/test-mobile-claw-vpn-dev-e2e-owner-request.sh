@@ -302,10 +302,19 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "${script_dir}/.." && pwd -P)"
+fake_case="${OWNER_REQUEST_FAKE_CASE:-extra_stdout}"
+
+if [[ "${fake_case}" == "runner_nonzero" ]]; then
+  exit 9
+fi
+if [[ "${fake_case}" == "invalid_json" ]]; then
+  printf '{bad json}\n'
+  exit 0
+fi
 
 python3 - \
   "${SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR}" \
-  "${OWNER_REQUEST_FAKE_CASE:-extra_stdout}" \
+  "${fake_case}" \
   "${repo_root}" <<'PY'
 import json
 import os
@@ -364,6 +373,8 @@ elif case == "raw_summary":
     summary["raw_values_printed"] = True
 elif case == "raw_stdout":
     stdout["raw_values_printed"] = True
+elif case == "stdout_status":
+    stdout["status"] = "skipped"
 elif case == "stdout_owner":
     stdout["owner_present_required"] = False
 elif case == "stdout_summary_missing":
@@ -372,6 +383,14 @@ elif case == "stdout_app":
     stdout["app_launch_attempted"] = True
 elif case == "stdout_relay":
     stdout["relay_contact_attempted"] = True
+elif case == "stdout_bundle":
+    stdout["bundle_id"] = "com.soyeht.app"
+elif case == "stdout_alias":
+    stdout["device_alias"] = "private-device-alias"
+elif case == "stdout_run_id":
+    stdout["run_id"] = "not-a-uuid"
+elif case == "summary_status":
+    summary["status"] = "skipped"
 elif case == "summary_app":
     summary["app_launch_attempted"] = True
 elif case == "summary_relay":
@@ -380,6 +399,12 @@ elif case == "summary_preflight":
     summary["preflight_status"] = "skipped"
 elif case == "summary_evidence":
     summary["preflight_summary_observed"] = False
+elif case == "summary_bundle":
+    summary["bundle_id"] = "com.soyeht.app"
+elif case == "summary_alias":
+    summary["device_alias"] = "private-device-alias"
+elif case == "summary_run_id":
+    summary["run_id"] = "not-a-uuid"
 elif case == "mismatched_run_ids":
     summary["run_id"] = str(uuid.uuid4())
 elif case == "bad_stdout_preflight":
@@ -420,15 +445,20 @@ elif case == "clean_advance_during_runner":
         stderr=subprocess.DEVNULL,
     )
 
-descriptor = os.open(summary_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-    os.fchmod(handle.fileno(), 0o600)
-    json.dump(summary, handle, sort_keys=True)
-    handle.write("\n")
-if case == "mode":
-    os.chmod(summary_path, 0o644)
-elif case == "old_mtime":
-    os.utime(summary_path, (0, 0))
+if case != "missing_summary":
+    descriptor = os.open(
+        summary_path,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        os.fchmod(handle.fileno(), 0o600)
+        json.dump(summary, handle, sort_keys=True)
+        handle.write("\n")
+    if case == "mode":
+        os.chmod(summary_path, 0o644)
+    elif case == "old_mtime":
+        os.utime(summary_path, (0, 0))
 print(json.dumps(stdout, sort_keys=True))
 PY
 EOF
@@ -438,33 +468,54 @@ chmod 755 "${test_repo}/scripts/mobile-claw-vpn-dev-e2e-runner.sh"
 /usr/bin/git -C "${test_repo}" update-ref refs/remotes/origin/main HEAD
 
 for specification in \
-  'extra_stdout:runner_stdout_schema_invalid' \
-  'bad_summary:runner_summary_owner_present_contract_invalid' \
-  'extra_summary:runner_summary_schema_invalid' \
-  'raw_summary:runner_summary_raw_values_state_invalid' \
-  'raw_stdout:runner_raw_values_state_invalid' \
-  'stdout_owner:runner_owner_present_contract_invalid' \
-  'stdout_summary_missing:runner_ready_without_summary' \
-  'stdout_app:runner_app_launch_state_invalid' \
-  'stdout_relay:runner_relay_contact_state_invalid' \
-  'summary_app:runner_summary_app_launch_state_invalid' \
-  'summary_relay:runner_summary_relay_contact_state_invalid' \
-  'summary_preflight:runner_summary_preflight_status_invalid' \
-  'summary_evidence:runner_summary_preflight_evidence_invalid' \
-  'mismatched_run_ids:runner_stdout_summary_run_id_mismatch' \
-  'bad_stdout_preflight:runner_stdout_preflight_status_invalid' \
-  'stdout_reason:runner_stdout_reason_invalid' \
-  'summary_reason:runner_summary_reason_invalid' \
-  'mode:runner_summary_mode_refused' \
-  'old_mtime:runner_summary_not_fresh'; do
+  'runner_nonzero:failed:runner_command_failed' \
+  'invalid_json:failed:runner_json_invalid' \
+  'extra_stdout:refused:runner_stdout_schema_invalid' \
+  'stdout_status:skipped:runner_not_ready_for_owner_present' \
+  'bad_stdout_preflight:refused:runner_stdout_preflight_status_invalid' \
+  'stdout_reason:refused:runner_stdout_reason_invalid' \
+  'raw_stdout:refused:runner_raw_values_state_invalid' \
+  'stdout_owner:refused:runner_owner_present_contract_invalid' \
+  'stdout_summary_missing:refused:runner_ready_without_summary' \
+  'stdout_app:refused:runner_app_launch_state_invalid' \
+  'stdout_relay:refused:runner_relay_contact_state_invalid' \
+  'stdout_bundle:refused:runner_bundle_id_not_dev_refused' \
+  'stdout_alias:refused:runner_alias_mismatch' \
+  'stdout_run_id:refused:runner_run_id_invalid' \
+  'missing_summary:refused:runner_summary_missing' \
+  'extra_summary:refused:runner_summary_schema_invalid' \
+  'summary_status:refused:runner_summary_status_invalid' \
+  'summary_reason:refused:runner_summary_reason_invalid' \
+  'summary_preflight:refused:runner_summary_preflight_status_invalid' \
+  'summary_evidence:refused:runner_summary_preflight_evidence_invalid' \
+  'bad_summary:refused:runner_summary_owner_present_contract_invalid' \
+  'summary_app:refused:runner_summary_app_launch_state_invalid' \
+  'summary_relay:refused:runner_summary_relay_contact_state_invalid' \
+  'raw_summary:refused:runner_summary_raw_values_state_invalid' \
+  'summary_bundle:refused:runner_summary_bundle_id_not_dev_refused' \
+  'summary_alias:refused:runner_summary_alias_mismatch' \
+  'summary_run_id:refused:runner_summary_run_id_invalid' \
+  'mismatched_run_ids:refused:runner_stdout_summary_run_id_mismatch' \
+  'mode:refused:runner_summary_mode_refused' \
+  'old_mtime:refused:runner_summary_not_fresh'; do
   fake_case="${specification%%:*}"
-  expected_reason="${specification#*:}"
+  remaining="${specification#*:}"
+  expected_status="${remaining%%:*}"
+  expected_reason="${remaining#*:}"
   evidence_case="${tmp_root}/runner-${fake_case}"
+  case_exit=0
   case_output="$(
     prepare_request "${evidence_case}" OWNER_REQUEST_FAKE_CASE="${fake_case}"
-  )"
-  assert_json "${case_output}" "refused" "${expected_reason}"
-  test -z "$(find "${evidence_case}" -name 'mobile-claw-vpn-owner-request-*.json' -print -quit)"
+  )" || case_exit=$?
+  assert_json "${case_output}" "${expected_status}" "${expected_reason}"
+  if [[ "${expected_status}" == "failed" ]]; then
+    test "${case_exit}" = '1'
+  else
+    test "${case_exit}" = '0'
+  fi
+  if [[ -d "${evidence_case}" ]]; then
+    test -z "$(find "${evidence_case}" -name 'mobile-claw-vpn-owner-request-*.json' -print -quit)"
+  fi
 done
 
 evidence_reuse="${tmp_root}/runner-reuse"
@@ -509,6 +560,30 @@ test -z "$(find "${evidence_advance}" -name 'mobile-claw-vpn-owner-request-*.jso
 test ! -e "${ledger}"
 printf 'ok malformed_stale_or_drifted_readiness_is_never_promoted_to_request\n'
 
+attacker_repo="${tmp_root}/attacker-repo"
+mkdir -p "${attacker_repo}"
+/usr/bin/git -C "${attacker_repo}" init -q -b main
+/usr/bin/git -C "${attacker_repo}" config user.name 'Soyeht Test'
+/usr/bin/git -C "${attacker_repo}" config user.email 'test@example.invalid'
+printf 'attacker-selected repository\n' >"${attacker_repo}/fixture.txt"
+/usr/bin/git -C "${attacker_repo}" add fixture.txt
+/usr/bin/git -C "${attacker_repo}" commit -q -m attacker-fixture
+/usr/bin/git -C "${attacker_repo}" update-ref refs/remotes/origin/main HEAD
+
+printf 'real repo remains authoritative\n' >>"${test_repo}/fixture.txt"
+git_env_evidence="${tmp_root}/git-env-provenance"
+git_env_output="$(
+  prepare_request \
+    "${git_env_evidence}" \
+    GIT_DIR="${attacker_repo}/.git" \
+    GIT_WORK_TREE="${attacker_repo}"
+)"
+assert_json "${git_env_output}" "refused" "repository_not_clean"
+test ! -e "${git_env_evidence}"
+/usr/bin/git -C "${test_repo}" restore fixture.txt
+test ! -e "${ledger}"
+printf 'ok git_environment_cannot_select_repository_provenance\n'
+
 python3 - "${request_python}" <<'PY'
 from pathlib import Path
 import sys
@@ -528,8 +603,9 @@ for forbidden in (
 assert '"owner_acknowledged": False' in source
 assert '"execution_authorized": False' in source
 assert 'repo_root = SCRIPT_DIR.parent' in source
+assert 'if not key.startswith("GIT_")' in source
 PY
 test ! -e "${ledger}"
 printf 'ok source_has_no_ack_execute_or_runtime_authority\n'
 
-printf 'mobile Claw VPN DEV owner request self-test passed (8/8)\n'
+printf 'mobile Claw VPN DEV owner request self-test passed (9/9)\n'
