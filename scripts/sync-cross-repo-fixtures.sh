@@ -53,6 +53,17 @@ sync_claw_store_contract() {
 
 sync_claw_store_contract
 
+# ── Product A mobile Claw VPN Mesh-C API shapes ───────────────────────────────
+MOBILE_CLAW_VPN_API_SHAPES="${THEYOS_DIR}/admin/contracts/mobile-claw-vpn/v1/api_shapes.json"
+if [[ ! -f "${MOBILE_CLAW_VPN_API_SHAPES}" ]]; then
+    echo "error: mobile Claw VPN API shape contract not found at ${MOBILE_CLAW_VPN_API_SHAPES}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/Fixtures/mobile-claw-vpn/v1"
+cp "${MOBILE_CLAW_VPN_API_SHAPES}" \
+   "${TESTS}/Fixtures/mobile-claw-vpn/v1/api_shapes.json"
+echo "✓ mobile-claw-vpn/v1/api_shapes.json"
+
 if [[ "${SOYEHT_SYNC_ONLY:-}" == "claw-store" ]]; then
     echo ""
     echo "Sync complete. Commit the updated fixture files if they changed."
