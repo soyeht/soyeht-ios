@@ -58,7 +58,8 @@ public final class MobileClawVPNRendezvousViewModel: ObservableObject {
     phase = .authorizing
     do {
       let authorization = try await performAuthorization(deviceId, clawId)
-      guard !authorization.productionActivation else {
+      guard !authorization.productionActivation,
+            !authorization.status.productionActivation else {
         phase = .failed(canRetry: true)
         return
       }

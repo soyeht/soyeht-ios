@@ -30,16 +30,23 @@ public struct MobileClawVPNRendezvousAuthorization: Equatable, Sendable {
   public let status: MobileClawVPNStatusResponse
 }
 
-extension MobileClawVPNRendezvousAuthorization: CustomDebugStringConvertible {
-  public var debugDescription: String {
+extension MobileClawVPNRendezvousAuthorization: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+  private var redactedDescription: String {
     """
-    MobileClawVPNRendezvousAuthorization(product: \(product), mode: \(mode), \
-    productionActivation: \(productionActivation), operation: \(operation), \
-    authorized: \(authorized), statusState: \(status.state), \
+    MobileClawVPNRendezvousAuthorization(productionActivation: \(productionActivation), \
+    authorized: \(authorized), \
     enrolledDeviceCount: \(status.enrolledDeviceCount), \
     availableClawCount: \(status.availableClawCount), grantCount: \(status.grantCount), \
     offerCount: \(status.offerCount), sessionCount: \(status.sessionCount))
     """
+  }
+
+  public var description: String { redactedDescription }
+
+  public var debugDescription: String { redactedDescription }
+
+  public var customMirror: Mirror {
+    Mirror(self, children: ["description": redactedDescription], displayStyle: .struct)
   }
 }
 
@@ -62,17 +69,33 @@ public struct MobileClawVPNRendezvousAuthorizer {
     deviceId: String,
     clawId: String
   ) async throws -> MobileClawVPNRendezvousAuthorization {
-    let offer = try await client.mobileClawVPNMintOffer(deviceId: deviceId, clawId: clawId)
+    // Mint is the authoritative server-side gate for the first write. A prior
+    // count-only status read would be unbound to this Device-D/Claw grant and
+    // immediately stale, so it must never be treated as authorization.
+    let context = try client.mobileClawVPNEngineContext(
+      operation: "Mobile Claw VPN rendezvous authorization"
+    )
+    let offer = try await client.mobileClawVPNMintOffer(
+      deviceId: deviceId,
+      clawId: clawId,
+      context: context
+    )
     let session = try await client.mobileClawVPNConsumeOffer(
       deviceId: deviceId,
       clawId: clawId,
-      offerToken: offer.offerToken
+      offerToken: offer.offerToken,
+      context: context
     )
     let authorization = try await client.mobileClawVPNAuthorizeRendezvous(
       deviceId: deviceId,
       clawId: clawId,
-      rendezvousToken: session.rendezvousToken
+      rendezvousToken: session.rendezvousToken,
+      context: context
     )
+    guard !authorization.productionActivation,
+          !authorization.status.productionActivation else {
+      throw MobileClawVPNRequestError.invalidResponse
+    }
     guard authorization.authorized else {
       throw MobileClawVPNRendezvousAuthorizerError.notAuthorized
     }
