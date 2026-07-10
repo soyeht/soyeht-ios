@@ -95,6 +95,28 @@ struct MobileClawVPNRendezvousViewModelTests {
     )
   }
 
+  private static func nestedProductionAuthorization() -> MobileClawVPNRendezvousAuthorization {
+    MobileClawVPNRendezvousAuthorization(
+      product: "product_a_mobile_claw_vpn",
+      mode: "mesh_c_rendezvous_preflight",
+      productionActivation: false,
+      operation: "authorize_rendezvous",
+      authorized: true,
+      status: MobileClawVPNStatusResponse(
+        product: "product_a_mobile_claw_vpn",
+        mode: "mesh_c_status_only",
+        productionActivation: true,
+        state: "configured",
+        snapshotPresent: true,
+        enrolledDeviceCount: 1,
+        availableClawCount: 2,
+        grantCount: 3,
+        offerCount: 4,
+        sessionCount: 5
+      )
+    )
+  }
+
   @Test @MainActor
   func authorizePublishesAuthorizedStateWithoutTokenEcho() async {
     let calls = Calls()
@@ -119,6 +141,20 @@ struct MobileClawVPNRendezvousViewModelTests {
   @Test @MainActor
   func productionActivationResponseFailsClosed() async {
     let authorization = Self.productionAuthorization()
+    let vm = MobileClawVPNRendezvousViewModel(
+      authorize: { _, _ in authorization }
+    )
+
+    await vm.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+
+    #expect(vm.phase == .failed(canRetry: true))
+    #expect(!String(describing: vm.phase).contains("Production active"))
+    #expect(!String(reflecting: vm.phase).contains("productionActivation: true"))
+  }
+
+  @Test @MainActor
+  func nestedProductionActivationResponseFailsClosed() async {
+    let authorization = Self.nestedProductionAuthorization()
     let vm = MobileClawVPNRendezvousViewModel(
       authorize: { _, _ in authorization }
     )
