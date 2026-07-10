@@ -27,6 +27,21 @@ jobs:
     - name: List all files, because this is driving me insane, this does not repro anywhere but github
       run: ls -lR
 
+    - name: Mobile Claw VPN DEV E2E tooling tests
+      run: |
+        bash -n \
+          scripts/mobile-claw-vpn-dev-e2e-env.sh \
+          scripts/mobile-claw-vpn-dev-e2e-preflight.sh \
+          scripts/mobile-claw-vpn-dev-e2e-runner.sh \
+          scripts/mobile-claw-vpn-dev-e2e-owner-request.sh \
+          scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh \
+          scripts/test-mobile-claw-vpn-dev-e2e-runner.sh \
+          scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh
+        python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("scripts/mobile-claw-vpn-dev-e2e-owner-request.py").read_text())'
+        scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh
+        scripts/test-mobile-claw-vpn-dev-e2e-runner.sh
+        scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh
+
     - name: Install Rust toolchain
       run: |
         if ! command -v rustup >/dev/null 2>&1; then
