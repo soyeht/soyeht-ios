@@ -51,13 +51,17 @@ public final class MobileClawVPNRendezvousViewModel: ObservableObject {
   }
 
   /// Authorize the rendezvous control-plane workflow. Any underlying error
-  /// collapses to one retryable state so UI cannot branch on token-bearing or
-  /// server-side details.
+  /// or production-activation response collapses to one retryable state so UI
+  /// cannot branch on token-bearing or server-side details.
   public func authorize(deviceId: String, clawId: String) async {
     guard phase != .authorizing else { return }
     phase = .authorizing
     do {
       let authorization = try await performAuthorization(deviceId, clawId)
+      guard !authorization.productionActivation else {
+        phase = .failed(canRetry: true)
+        return
+      }
       phase = .authorized(authorization)
     } catch {
       phase = .failed(canRetry: true)
