@@ -302,6 +302,10 @@ def validate_runner_payload(payload: dict[str, object]) -> str:
         raise RequestError("refused", "runner_stdout_schema_invalid")
     if payload.get("status") != "ready_for_owner_present":
         raise RequestError("skipped", "runner_not_ready_for_owner_present")
+    if payload.get("reason") is not None:
+        raise RequestError("refused", "runner_stdout_reason_invalid")
+    if payload.get("preflight_status") != "ready":
+        raise RequestError("refused", "runner_stdout_preflight_status_invalid")
     if payload.get("summary_written") is not True:
         raise RequestError("refused", "runner_ready_without_summary")
     if payload.get("owner_present_required") is not True:
@@ -342,6 +346,8 @@ def validate_runner_summary(payload: dict[str, object]) -> str:
         raise RequestError("refused", "runner_summary_schema_invalid")
     if payload.get("status") != "ready_for_owner_present":
         raise RequestError("refused", "runner_summary_status_invalid")
+    if payload.get("reason") is not None:
+        raise RequestError("refused", "runner_summary_reason_invalid")
     if payload.get("preflight_status") != "ready":
         raise RequestError("refused", "runner_summary_preflight_status_invalid")
     if payload.get("preflight_summary_observed") is not True:
@@ -450,6 +456,9 @@ def prepare(repo_root: Path) -> None:
         "raw_values_printed": False,
     }
     request_path = evidence_dir / f"mobile-claw-vpn-owner-request-{attempt_id}.json"
+    current_artifact_sha = validated_artifact_sha(repo_root)
+    if current_artifact_sha != artifact_sha:
+        raise RequestError("refused", "repository_artifact_changed_during_readiness")
     atomic_create_json(request_path, request)
     emit(
         "owner_confirmation_required",

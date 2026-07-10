@@ -300,15 +300,23 @@ cat >"${test_repo}/scripts/mobile-claw-vpn-dev-e2e-runner.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 - "${SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR}" "${OWNER_REQUEST_FAKE_CASE:-extra_stdout}" <<'PY'
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "${script_dir}/.." && pwd -P)"
+
+python3 - \
+  "${SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR}" \
+  "${OWNER_REQUEST_FAKE_CASE:-extra_stdout}" \
+  "${repo_root}" <<'PY'
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import uuid
 
 evidence_dir = Path(sys.argv[1])
 case = sys.argv[2]
+repo_root = Path(sys.argv[3])
 evidence_dir.mkdir(parents=True, exist_ok=True)
 os.chmod(evidence_dir, 0o700)
 summary_path = evidence_dir / "mobile-claw-vpn-dev-e2e-runner-summary.json"
@@ -350,6 +358,49 @@ if case == "extra_stdout":
     stdout["unexpected"] = True
 elif case == "bad_summary":
     summary["owner_present_required"] = False
+elif case == "extra_summary":
+    summary["unexpected"] = True
+elif case == "raw_summary":
+    summary["raw_values_printed"] = True
+elif case == "mismatched_run_ids":
+    summary["run_id"] = str(uuid.uuid4())
+elif case == "bad_stdout_preflight":
+    stdout["preflight_status"] = "skipped"
+elif case == "stdout_reason":
+    stdout["reason"] = "unexpected"
+elif case == "summary_reason":
+    summary["reason"] = "unexpected"
+elif case == "dirty_during_runner":
+    with open(repo_root / "fixture.txt", "a", encoding="utf-8") as handle:
+        handle.write("dirty during runner\n")
+elif case == "clean_advance_during_runner":
+    with open(repo_root / "fixture.txt", "a", encoding="utf-8") as handle:
+        handle.write("clean advance during runner\n")
+    subprocess.run(
+        ["/usr/bin/git", "-C", str(repo_root), "add", "fixture.txt"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["/usr/bin/git", "-C", str(repo_root), "commit", "-q", "-m", "advance"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        [
+            "/usr/bin/git",
+            "-C",
+            str(repo_root),
+            "update-ref",
+            "refs/remotes/origin/main",
+            "HEAD",
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 descriptor = os.open(summary_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
 with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -371,6 +422,12 @@ chmod 755 "${test_repo}/scripts/mobile-claw-vpn-dev-e2e-runner.sh"
 for specification in \
   'extra_stdout:runner_stdout_schema_invalid' \
   'bad_summary:runner_summary_owner_present_contract_invalid' \
+  'extra_summary:runner_summary_schema_invalid' \
+  'raw_summary:runner_summary_raw_values_state_invalid' \
+  'mismatched_run_ids:runner_stdout_summary_run_id_mismatch' \
+  'bad_stdout_preflight:runner_stdout_preflight_status_invalid' \
+  'stdout_reason:runner_stdout_reason_invalid' \
+  'summary_reason:runner_summary_reason_invalid' \
   'mode:runner_summary_mode_refused' \
   'old_mtime:runner_summary_not_fresh'; do
   fake_case="${specification%%:*}"
@@ -400,8 +457,30 @@ PY
 reuse_output="$(prepare_request "${evidence_reuse}" OWNER_REQUEST_FAKE_CASE='reuse')"
 assert_json "${reuse_output}" "refused" "runner_run_id_not_fresh"
 test -z "$(find "${evidence_reuse}" -name 'mobile-claw-vpn-owner-request-*.json' -print -quit)"
+
+evidence_during_runner="${tmp_root}/dirty-during-runner"
+drift_output="$(
+  prepare_request \
+    "${evidence_during_runner}" \
+    OWNER_REQUEST_FAKE_CASE='dirty_during_runner'
+)"
+assert_json "${drift_output}" "refused" "repository_not_clean"
+test -z "$(find "${evidence_during_runner}" -name 'mobile-claw-vpn-owner-request-*.json' -print -quit)"
+/usr/bin/git -C "${test_repo}" restore fixture.txt
+
+evidence_advance="${tmp_root}/clean-advance-during-runner"
+advance_output="$(
+  prepare_request \
+    "${evidence_advance}" \
+    OWNER_REQUEST_FAKE_CASE='clean_advance_during_runner'
+)"
+assert_json \
+  "${advance_output}" \
+  "refused" \
+  "repository_artifact_changed_during_readiness"
+test -z "$(find "${evidence_advance}" -name 'mobile-claw-vpn-owner-request-*.json' -print -quit)"
 test ! -e "${ledger}"
-printf 'ok malformed_or_stale_readiness_is_never_promoted_to_request\n'
+printf 'ok malformed_stale_or_drifted_readiness_is_never_promoted_to_request\n'
 
 python3 - "${request_python}" <<'PY'
 from pathlib import Path
