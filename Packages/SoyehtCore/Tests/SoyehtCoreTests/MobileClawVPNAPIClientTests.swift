@@ -184,6 +184,34 @@ private func errorBody() -> Data {
   )
 }
 
+private enum MobileClawVPNTestBodyError: Error {
+  case invalidObject
+  case missingStatus
+}
+
+private func mutatingResponseBody(
+  _ body: Data,
+  topLevel: [String: Any] = [:],
+  status: [String: Any] = [:]
+) throws -> Data {
+  guard var object = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+    throw MobileClawVPNTestBodyError.invalidObject
+  }
+  for (key, value) in topLevel {
+    object[key] = value
+  }
+  if !status.isEmpty {
+    guard var nestedStatus = object["status"] as? [String: Any] else {
+      throw MobileClawVPNTestBodyError.missingStatus
+    }
+    for (key, value) in status {
+      nestedStatus[key] = value
+    }
+    object["status"] = nestedStatus
+  }
+  return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+}
+
 private func jsonObjectBody(_ request: URLRequest) throws -> [String: Any] {
   let data = try #require(request.httpBody)
   let object = try JSONSerialization.jsonObject(with: data)
@@ -288,6 +316,173 @@ private enum MobileClawVPNEndpointCase: String, CaseIterable {
       )
     }
   }
+
+  var validResponseBody: Data {
+    switch self {
+    case .status:
+      statusBody()
+    case .mintOffer:
+      offerBody()
+    case .consumeOffer:
+      sessionBody()
+    case .authorizeRendezvous:
+      rendezvousAuthorizeBody()
+    }
+  }
+
+  func authorizerResponses(endingWith invalidBody: Data) -> [Data]? {
+    switch self {
+    case .status:
+      nil
+    case .mintOffer:
+      [invalidBody]
+    case .consumeOffer:
+      [offerBody(), invalidBody]
+    case .authorizeRendezvous:
+      [offerBody(), sessionBody(), invalidBody]
+    }
+  }
+
+  var authorizerPaths: [String]? {
+    switch self {
+    case .status:
+      nil
+    case .mintOffer:
+      [MobileClawVPNEndpointCase.mintOffer.path]
+    case .consumeOffer:
+      [
+        MobileClawVPNEndpointCase.mintOffer.path,
+        MobileClawVPNEndpointCase.consumeOffer.path
+      ]
+    case .authorizeRendezvous:
+      [
+        MobileClawVPNEndpointCase.mintOffer.path,
+        MobileClawVPNEndpointCase.consumeOffer.path,
+        MobileClawVPNEndpointCase.authorizeRendezvous.path
+      ]
+    }
+  }
+}
+
+private struct MobileClawVPNSemanticFailureCase {
+  let label: String
+  let endpoint: MobileClawVPNEndpointCase
+  let body: Data
+  let needle: String
+}
+
+private func mobileClawVPNSemanticFailureCases() throws -> [MobileClawVPNSemanticFailureCase] {
+  let needle = "private-semantic-response-needle"
+  let countFields = [
+    "enrolled_device_count",
+    "available_claw_count",
+    "grant_count",
+    "offer_count",
+    "session_count"
+  ]
+  var result: [MobileClawVPNSemanticFailureCase] = []
+
+  func add(
+    _ endpoint: MobileClawVPNEndpointCase,
+    _ label: String,
+    topLevel: [String: Any] = [:],
+    status: [String: Any] = [:],
+    redactionNeedle: String? = nil
+  ) throws {
+    result.append(
+      MobileClawVPNSemanticFailureCase(
+        label: "\(endpoint.rawValue)/\(label)",
+        endpoint: endpoint,
+        body: try mutatingResponseBody(
+          endpoint.validResponseBody,
+          topLevel: topLevel,
+          status: status
+        ),
+        needle: redactionNeedle ?? needle
+      )
+    )
+  }
+
+  try add(.status, "product", topLevel: ["product": needle])
+  try add(.status, "mode", topLevel: ["mode": needle])
+  try add(.status, "production", topLevel: ["production_activation": true])
+  try add(.status, "state", topLevel: ["state": needle])
+  try add(.status, "configured_without_snapshot", topLevel: ["snapshot_present": false])
+  try add(
+    .status,
+    "not_configured_with_snapshot",
+    topLevel: ["state": "not_configured", "snapshot_present": true]
+  )
+  for countField in countFields {
+    var notConfigured: [String: Any] = [
+      "state": "not_configured",
+      "snapshot_present": false
+    ]
+    for field in countFields {
+      notConfigured[field] = field == countField ? 1 : 0
+    }
+    try add(
+      .status,
+      "not_configured_with_\(countField)",
+      topLevel: notConfigured
+    )
+    try add(.status, "negative_\(countField)", topLevel: [countField: -1])
+  }
+
+  for endpoint in [
+    MobileClawVPNEndpointCase.mintOffer,
+    .consumeOffer,
+    .authorizeRendezvous
+  ] {
+    try add(endpoint, "product", topLevel: ["product": needle])
+    try add(endpoint, "mode", topLevel: ["mode": needle])
+    try add(endpoint, "production", topLevel: ["production_activation": true])
+    try add(endpoint, "operation", topLevel: ["operation": needle])
+    try add(endpoint, "status_product", status: ["product": needle])
+    try add(endpoint, "status_mode", status: ["mode": needle])
+    try add(endpoint, "status_production", status: ["production_activation": true])
+    try add(endpoint, "status_state", status: ["state": needle])
+    try add(endpoint, "status_snapshot", status: ["snapshot_present": false])
+    try add(
+      endpoint,
+      "status_not_configured",
+      status: [
+        "state": "not_configured",
+        "snapshot_present": false,
+        "enrolled_device_count": 0,
+        "available_claw_count": 0,
+        "grant_count": 0,
+        "offer_count": 0,
+        "session_count": 0
+      ]
+    )
+    for countField in countFields {
+      try add(
+        endpoint,
+        "status_negative_\(countField)",
+        status: [countField: -1]
+      )
+    }
+  }
+
+  try add(.mintOffer, "offer_token_non_hex", topLevel: ["offer_token": needle])
+  try add(.consumeOffer, "rendezvous_token_non_hex", topLevel: ["rendezvous_token": needle])
+  for length in [31, 33] {
+    let invalidToken = String(repeating: "a", count: length)
+    try add(
+      .mintOffer,
+      "offer_token_\(length)_hex",
+      topLevel: ["offer_token": invalidToken],
+      redactionNeedle: invalidToken
+    )
+    try add(
+      .consumeOffer,
+      "rendezvous_token_\(length)_hex",
+      topLevel: ["rendezvous_token": invalidToken],
+      redactionNeedle: invalidToken
+    )
+  }
+  return result
 }
 
 private enum MobileClawVPNFailureCase: String, CaseIterable {
@@ -642,6 +837,89 @@ struct MobileClawVPNAPIClientTests {
   }
 
   @Test
+  func rendezvousAuthorizerPinsOneEngineContextAcrossActiveServerChanges() async throws {
+    for replacementKind in [ServerKind.engine, .adminHost] {
+      MobileClawVPNTestProtocol.reset()
+      MobileClawVPNTestProtocol.responseBodies = [
+        offerBody(),
+        sessionBody(),
+        rendezvousAuthorizeBody()
+      ]
+      let store = makeMobileClawVPNStore()
+      let engine = pairMobileClawVPNServer(
+        store,
+        kind: .engine,
+        host: "engine-a.example.test",
+        token: "ENGINE-A-BEARER"
+      )
+      let replacement = pairMobileClawVPNServer(
+        store,
+        kind: replacementKind,
+        host: "replacement.example.test",
+        token: "REPLACEMENT-CREDENTIAL"
+      )
+      store.setActiveServer(id: engine.id)
+      MobileClawVPNTestProtocol.beforeCapture = { _ in
+        if MobileClawVPNTestProtocol.requests.isEmpty {
+          store.setActiveServer(id: replacement.id)
+        }
+      }
+      let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+      let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+      _ = try await authorizer.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+
+      #expect(MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [
+        "/api/v1/mobile/claw-vpn/offers",
+        "/api/v1/mobile/claw-vpn/sessions",
+        "/api/v1/mobile/claw-vpn/rendezvous/authorize"
+      ])
+      for request in MobileClawVPNTestProtocol.requests {
+        #expect(request.url?.host == "engine-a.example.test")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer ENGINE-A-BEARER")
+        #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+      }
+      #expect(store.activeServerId == replacement.id)
+    }
+  }
+
+  @Test
+  func contextBoundEndpointsRequireOpaqueEngineProof() throws {
+    let packageRoot = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let apiSourceURL = packageRoot
+      .appendingPathComponent("Sources/SoyehtCore/API/SoyehtAPIClient+MobileClawVPN.swift")
+    let authorizerSourceURL = packageRoot
+      .appendingPathComponent("Sources/SoyehtCore/API/MobileClawVPNRendezvousAuthorizer.swift")
+    let source = try String(contentsOf: apiSourceURL, encoding: .utf8)
+    let authorizerSource = try String(contentsOf: authorizerSourceURL, encoding: .utf8)
+
+    #expect(source.contains("struct MobileClawVPNEngineContext: Sendable"))
+    #expect(source.contains("fileprivate let serverContext: ServerContext"))
+    #expect(source.contains("fileprivate init(serverContext: ServerContext)"))
+    #expect(
+      source.components(separatedBy: "MobileClawVPNEngineContext(serverContext:").count - 1 == 1
+    )
+
+    let endpointStart = try #require(source.range(of: "  public func mobileClawVPNMintOffer("))
+    let endpointEnd = try #require(source.range(of: "  func mobileClawVPNEngineContext("))
+    let endpointSlice = String(source[endpointStart.lowerBound..<endpointEnd.lowerBound])
+    #expect(
+      endpointSlice.components(separatedBy: "context: MobileClawVPNEngineContext").count - 1 == 3
+    )
+    #expect(!endpointSlice.contains("context: ServerContext"))
+
+    let factoryEnd = try #require(source.range(of: "  private func mobileClawVPNGet"))
+    let factorySlice = String(source[endpointEnd.lowerBound..<factoryEnd.lowerBound])
+    #expect(factorySlice.contains("guard context.server.kind == .engine"))
+    #expect(factorySlice.contains("return MobileClawVPNEngineContext(serverContext: context)"))
+    #expect(!authorizerSource.contains("ServerContext"))
+    #expect(!authorizerSource.contains("currentContext("))
+  }
+
+  @Test
   func everyMobileClawVPNEndpointUsesKindOnlyFailureBoundary() async throws {
     for endpoint in MobileClawVPNEndpointCase.allCases {
       for failure in MobileClawVPNFailureCase.allCases {
@@ -669,6 +947,29 @@ struct MobileClawVPNAPIClientTests {
   }
 
   @Test
+  func everyMobileClawVPNEndpointRejectsSemanticMismatchKindOnly() async throws {
+    for testCase in try mobileClawVPNSemanticFailureCases() {
+      MobileClawVPNTestProtocol.reset()
+      MobileClawVPNTestProtocol.responseBodies = [testCase.body]
+      let store = makeMobileClawVPNStore()
+      pairMobileClawVPNServer(store)
+      let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+
+      await expectMobileClawVPNRequestError(
+        .invalidResponse,
+        excluding: [testCase.needle],
+        caseLabel: testCase.label
+      ) {
+        try await testCase.endpoint.invoke(client)
+      }
+      #expect(
+        MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [testCase.endpoint.path],
+        "Semantic failure reached the wrong endpoint for \(testCase.label)"
+      )
+    }
+  }
+
+  @Test
   func mobileClawVPNAcceptsAllowedJSONContentTypes() async throws {
     for contentType in [
       "application/json; charset=utf-8",
@@ -684,6 +985,33 @@ struct MobileClawVPNAPIClientTests {
       let status = try await client.mobileClawVPNStatus()
 
       #expect(status.product == "product_a_mobile_claw_vpn")
+      #expect(MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [
+        "/api/v1/mobile/claw-vpn/status"
+      ])
+    }
+  }
+
+  @Test
+  func mobileClawVPNStatusAcceptsCanonicalConfiguredAndNotConfiguredStates() async throws {
+    let canonicalBodies = [
+      statusBody(),
+      statusBody(
+        state: "not_configured",
+        snapshotPresent: false,
+        counts: (devices: 0, claws: 0, grants: 0, offers: 0, sessions: 0)
+      )
+    ]
+
+    for body in canonicalBodies {
+      MobileClawVPNTestProtocol.reset()
+      MobileClawVPNTestProtocol.responseBodies = [body]
+      let store = makeMobileClawVPNStore()
+      pairMobileClawVPNServer(store)
+      let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+
+      let status = try await client.mobileClawVPNStatus()
+
+      #expect((status.state == "configured") == status.snapshotPresent)
       #expect(MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == [
         "/api/v1/mobile/claw-vpn/status"
       ])
@@ -753,6 +1081,34 @@ struct MobileClawVPNAPIClientTests {
     #expect(sessionJSON["offer_token"] as? String == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     let authorizeJSON = try jsonObjectBody(MobileClawVPNTestProtocol.requests[2])
     #expect(authorizeJSON["rendezvous_token"] as? String == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  }
+
+  @Test
+  func rendezvousAuthorizerStopsBeforeUsingSemanticallyInvalidResponse() async throws {
+    for testCase in try mobileClawVPNSemanticFailureCases() {
+      guard let responseBodies = testCase.endpoint.authorizerResponses(endingWith: testCase.body),
+            let expectedPaths = testCase.endpoint.authorizerPaths else {
+        continue
+      }
+      MobileClawVPNTestProtocol.reset()
+      MobileClawVPNTestProtocol.responseBodies = responseBodies
+      let store = makeMobileClawVPNStore()
+      pairMobileClawVPNServer(store)
+      let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+      let authorizer = MobileClawVPNRendezvousAuthorizer(client: client)
+
+      await expectMobileClawVPNRequestError(
+        .invalidResponse,
+        excluding: [testCase.needle],
+        caseLabel: "authorizer/\(testCase.label)"
+      ) {
+        try await authorizer.authorize(deviceId: "device-alpha", clawId: "claw-alpha")
+      }
+      #expect(
+        MobileClawVPNTestProtocol.requests.compactMap { $0.url?.path } == expectedPaths,
+        "Semantic failure did not stop before the next request for \(testCase.label)"
+      )
+    }
   }
 
   @Test
@@ -828,5 +1184,78 @@ struct MobileClawVPNAPIClientTests {
     }
 
     #expect(MobileClawVPNTestProtocol.requests.count == 3)
+  }
+
+  @Test
+  func mobileClawVPNServerControlledDescriptionsRedactTokensAndLabels() {
+    let productNeedle = "private-product-label"
+    let modeNeedle = "private-mode-label"
+    let operationNeedle = "private-operation-label"
+    let stateNeedle = "private-state-label"
+    let offerToken = "private-offer-token"
+    let rendezvousToken = "private-rendezvous-token"
+    let status = MobileClawVPNStatusResponse(
+      product: productNeedle,
+      mode: modeNeedle,
+      productionActivation: false,
+      state: stateNeedle,
+      snapshotPresent: true,
+      enrolledDeviceCount: 1,
+      availableClawCount: 2,
+      grantCount: 3,
+      offerCount: 4,
+      sessionCount: 5
+    )
+    let offer = MobileClawVPNOfferResponse(
+      product: productNeedle,
+      mode: modeNeedle,
+      productionActivation: false,
+      operation: operationNeedle,
+      offerToken: offerToken,
+      status: status
+    )
+    let session = MobileClawVPNSessionResponse(
+      product: productNeedle,
+      mode: modeNeedle,
+      productionActivation: false,
+      operation: operationNeedle,
+      rendezvousToken: rendezvousToken,
+      status: status
+    )
+    let authorize = MobileClawVPNRendezvousAuthorizeResponse(
+      product: productNeedle,
+      mode: modeNeedle,
+      productionActivation: false,
+      operation: operationNeedle,
+      authorized: true,
+      status: status
+    )
+    let authorization = MobileClawVPNRendezvousAuthorization(
+      product: productNeedle,
+      mode: modeNeedle,
+      productionActivation: false,
+      operation: operationNeedle,
+      authorized: true,
+      status: status
+    )
+    let phase = MobileClawVPNRendezvousViewModel.Phase.authorized(authorization)
+    let values: [Any] = [status, offer, session, authorize, authorization, phase]
+    var renderedValues: [String] = []
+    for value in values {
+      renderedValues.append(String(describing: value))
+      renderedValues.append(String(reflecting: value))
+      var dumped = ""
+      dump(value, to: &dumped)
+      renderedValues.append(dumped)
+    }
+
+    for rendered in renderedValues {
+      #expect(!rendered.contains(productNeedle))
+      #expect(!rendered.contains(modeNeedle))
+      #expect(!rendered.contains(operationNeedle))
+      #expect(!rendered.contains(stateNeedle))
+      #expect(!rendered.contains(offerToken))
+      #expect(!rendered.contains(rendezvousToken))
+    }
   }
 }
