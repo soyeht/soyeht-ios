@@ -6,10 +6,9 @@
 # previously only required a linked companion PR (cross-repo-dep-check.yml) but
 # never compared the bytes.
 #
-# Source resolution (in order):
-#   1. THEYOS_DIR=<path>  — diff against a local theyos checkout (dev / local CI).
-#   2. otherwise          — fetch from github raw at the SHA in
-#                           scripts/cross-repo-contract.sha (hosted CI).
+# Sources are read from the Git object database at the SHA in
+# scripts/cross-repo-contract.sha. The pin must be an ancestor of theyos/main;
+# a branch-only commit can never become fixture authority.
 #
 # Required Claw Store sources must be present at the resolved point. Optional
 # legacy fixture sources can still skip while a source has not landed yet.
@@ -47,6 +46,26 @@ materialize_tracked_ios_file() {
   fi
 }
 
+materialize_regular_git_blob() {
+  local repository="$1" commit="$2" relative_path="$3" destination="$4" label="$5"
+  local entry mode type object ignored
+
+  entry="$(git -C "${repository}" ls-tree "${commit}" -- "${relative_path}")"
+  if [[ -z "${entry}" || "${entry}" == *$'\n'* ]]; then
+    echo "::error::${label} must have exactly one Git entry: ${relative_path}" >&2
+    return 1
+  fi
+  read -r mode type object ignored <<< "${entry}"
+  if [[ "${mode}" != "100644" || "${type}" != "blob" ]]; then
+    echo "::error::${label} must be an ordinary 100644 Git blob: ${relative_path}" >&2
+    return 1
+  fi
+  if ! git -C "${repository}" cat-file blob "${object}" > "${destination}"; then
+    echo "::error::could not materialize ${label}: ${relative_path}" >&2
+    return 1
+  fi
+}
+
 PIN_REL="scripts/cross-repo-contract.sha"
 PIN_FILE="${REPO_ROOT}/${PIN_REL}"
 PIN_BLOB="${TMP_DIR}/cross-repo-contract.sha"
@@ -65,6 +84,36 @@ if [[ -n "${THEYOS_DIR:-}" && "${SOYEHT_REQUIRE_LOCAL_PIN:-0}" == "1" ]]; then
   fi
 fi
 
+THEYOS_AUTHORITY_REPOSITORY="${THEYOS_AUTHORITY_REPOSITORY:-https://github.com/soyeht/theyos.git}"
+THEYOS_AUTHORITY_DIR="${TMP_DIR}/theyos-authority.git"
+if ! git clone --quiet --bare --filter=blob:none --single-branch --branch main \
+  "${THEYOS_AUTHORITY_REPOSITORY}" "${THEYOS_AUTHORITY_DIR}"; then
+  echo "::error::could not fetch authoritative theyos/main"
+  exit 1
+fi
+THEYOS_MAIN_REF="refs/heads/main"
+THEYOS_MAIN_SHA="$(git -C "${THEYOS_AUTHORITY_DIR}" rev-parse "${THEYOS_MAIN_REF}")"
+if ! git -C "${THEYOS_AUTHORITY_DIR}" cat-file -e "${THEYOS_SHA}^{commit}" 2>/dev/null \
+  || ! git -C "${THEYOS_AUTHORITY_DIR}" merge-base --is-ancestor \
+    "${THEYOS_SHA}" "${THEYOS_MAIN_REF}"; then
+  echo "::error::iOS cross-repo pin is not landed on authoritative theyos/main"
+  exit 1
+fi
+
+OWNER_APPROVAL_SOURCE_REL="admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json"
+PINNED_OWNER_APPROVAL_SOURCE="${TMP_DIR}/pinned-owner-approval-source"
+MAIN_OWNER_APPROVAL_SOURCE="${TMP_DIR}/main-owner-approval-source"
+materialize_regular_git_blob \
+  "${THEYOS_AUTHORITY_DIR}" "${THEYOS_SHA}" "${OWNER_APPROVAL_SOURCE_REL}" \
+  "${PINNED_OWNER_APPROVAL_SOURCE}" "pinned theyos fixture"
+materialize_regular_git_blob \
+  "${THEYOS_AUTHORITY_DIR}" "${THEYOS_MAIN_SHA}" "${OWNER_APPROVAL_SOURCE_REL}" \
+  "${MAIN_OWNER_APPROVAL_SOURCE}" "authoritative theyos/main fixture"
+if ! cmp -s "${PINNED_OWNER_APPROVAL_SOURCE}" "${MAIN_OWNER_APPROVAL_SOURCE}"; then
+  echo "::error::pinned mobile owner-approval V1 differs from authoritative theyos/main"
+  exit 1
+fi
+
 # requirement : vendored-iOS-relative-path : theyos-relative-path
 PAIRS=(
   "required:Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
@@ -79,36 +128,35 @@ PAIRS=(
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/ClawUnavailableReasonCode/claw_unavailable_reason_codes.json:admin/rust/core-rs/tests/fixtures/claw_unavailable_reason_codes.json"
 )
 
-# Write the theyos source for $1 into the file $2.
+# Write the pinned theyos source for $1 into the file $2.
 # Echoes one of: present | absent | error
 materialize_source() {
   local path="$1" dest="$2"
-  if [[ -n "${THEYOS_DIR:-}" ]]; then
-    if [[ -L "${THEYOS_DIR}/${path}" ]]; then
-      echo error
-    elif [[ -f "${THEYOS_DIR}/${path}" ]]; then
-      cp "${THEYOS_DIR}/${path}" "${dest}"
-      echo present
-    else
-      echo absent
-    fi
+  local entry mode type object ignored
+  entry="$(git -C "${THEYOS_AUTHORITY_DIR}" ls-tree "${THEYOS_SHA}" -- "${path}")"
+  if [[ -z "${entry}" ]]; then
+    echo absent
     return 0
   fi
-  local url="https://raw.githubusercontent.com/soyeht/theyos/${THEYOS_SHA}/${path}"
-  local status
-  status="$(curl -fsSL -o "${dest}" -w '%{http_code}' "${url}" 2>/dev/null || true)"
-  case "${status}" in
-    200) echo present ;;
-    404) echo absent ;;
-    *) echo error ;;
-  esac
+  if [[ "${entry}" == *$'\n'* ]]; then
+    echo "::error::pinned theyos source has multiple Git entries: ${path}" >&2
+    echo error
+    return 0
+  fi
+  read -r mode type object ignored <<< "${entry}"
+  if [[ "${mode}" != "100644" || "${type}" != "blob" ]]; then
+    echo "::error::pinned theyos source must be an ordinary 100644 Git blob: ${path}" >&2
+    echo error
+    return 0
+  fi
+  if ! git -C "${THEYOS_AUTHORITY_DIR}" cat-file blob "${object}" > "${dest}"; then
+    echo error
+    return 0
+  fi
+  echo present
 }
 
-if [[ -n "${THEYOS_DIR:-}" ]]; then
-  echo "Checking iOS contract fixtures against local theyos at: ${THEYOS_DIR}"
-else
-  echo "Checking iOS contract fixtures against theyos@${THEYOS_SHA}"
-fi
+echo "Checking iOS contract fixtures against landed theyos@${THEYOS_SHA}"
 
 DRIFT=0
 for pair in "${PAIRS[@]}"; do
