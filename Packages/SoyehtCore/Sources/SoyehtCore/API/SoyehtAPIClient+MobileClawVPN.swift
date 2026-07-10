@@ -40,6 +40,39 @@ public struct MobileClawVPNRendezvousAuthorizeResponse: Decodable, Equatable, Se
   public let status: MobileClawVPNStatusResponse
 }
 
+enum MobileClawVPNRequestError: Error, Equatable, Sendable {
+  case invalidRequest
+  case transportFailed
+  case httpResponse
+  case unexpectedContentType
+  case invalidResponse
+}
+
+extension MobileClawVPNRequestError: CustomStringConvertible, CustomDebugStringConvertible {
+  var description: String {
+    "mobile Claw VPN request failed"
+  }
+
+  var debugDescription: String {
+    "MobileClawVPNRequestError(kind: \(kind))"
+  }
+
+  var kind: String {
+    switch self {
+    case .invalidRequest:
+      "invalid_request"
+    case .transportFailed:
+      "transport_failed"
+    case .httpResponse:
+      "http_response"
+    case .unexpectedContentType:
+      "unexpected_content_type"
+    case .invalidResponse:
+      "invalid_response"
+    }
+  }
+}
+
 extension SoyehtAPIClient {
   public func mobileClawVPNStatus() async throws -> MobileClawVPNStatusResponse {
     let context = try mobileClawVPNEngineContext(operation: "Mobile Claw VPN status")
@@ -104,16 +137,18 @@ extension SoyehtAPIClient {
     path: String,
     context: ServerContext
   ) async throws -> Response {
-    let url = try buildURL(host: context.host, path: path)
+    let url: URL
+    do {
+      url = try buildURL(host: context.host, path: path)
+    } catch {
+      throw MobileClawVPNRequestError.invalidRequest
+    }
     var request = URLRequest(url: url)
     request.httpMethod = "GET"
     request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     context.server.kind.applyAuth(to: &request, token: context.token)
-
-    let (data, response) = try await session.data(for: request)
-    try checkResponse(response, data: data)
-    return try decoder.decode(Response.self, from: data)
+    return try await mobileClawVPNPerform(request)
   }
 
   private func mobileClawVPNPost<Body: Encodable, Response: Decodable>(
@@ -121,18 +156,56 @@ extension SoyehtAPIClient {
     body: Body,
     context: ServerContext
   ) async throws -> Response {
-    let url = try buildURL(host: context.host, path: path)
+    let url: URL
+    do {
+      url = try buildURL(host: context.host, path: path)
+    } catch {
+      throw MobileClawVPNRequestError.invalidRequest
+    }
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     context.server.kind.applyAuth(to: &request, token: context.token)
-    request.httpBody = try encoder.encode(body)
+    do {
+      request.httpBody = try encoder.encode(body)
+    } catch {
+      throw MobileClawVPNRequestError.invalidRequest
+    }
+    return try await mobileClawVPNPerform(request)
+  }
 
-    let (data, response) = try await session.data(for: request)
-    try checkResponse(response, data: data)
-    return try decoder.decode(Response.self, from: data)
+  private func mobileClawVPNPerform<Response: Decodable>(
+    _ request: URLRequest
+  ) async throws -> Response {
+    // Mobile Claw responses may carry tokens or private infrastructure values.
+    // Keep failures kind-only instead of using the generic body-snippet logger.
+    let data: Data
+    let response: URLResponse
+    do {
+      (data, response) = try await session.data(for: request)
+    } catch {
+      throw MobileClawVPNRequestError.transportFailed
+    }
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw MobileClawVPNRequestError.invalidResponse
+    }
+    guard (200...299).contains(httpResponse.statusCode) else {
+      throw MobileClawVPNRequestError.httpResponse
+    }
+    guard let mimeType = httpResponse.mimeType?.lowercased(),
+          mimeType == "application/json"
+            || (mimeType.hasPrefix("application/") && mimeType.hasSuffix("+json")) else {
+      throw MobileClawVPNRequestError.unexpectedContentType
+    }
+
+    do {
+      return try decoder.decode(Response.self, from: data)
+    } catch {
+      throw MobileClawVPNRequestError.invalidResponse
+    }
   }
 }
 
