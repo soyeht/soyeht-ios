@@ -165,6 +165,58 @@ bindings, and atomically consume the request before its first app effect. The
 request tool does not run `xcodebuild`, `devicectl`, the app, a relay,
 NetworkExtension, or host networking.
 
+## Local Biometric Presence Primitive
+
+The request above is still not authority. The future executor may use a fresh
+local biometric gesture as one input to the DEV-only point-of-use gate. This is
+strictly a **local biometric presence** signal; it does not authenticate the
+Soyeht household owner and must never be reported as `owner_authenticated` or
+`execution_authorized`.
+
+`scripts/mobile-claw-vpn-dev-local-presence.swift` defines the helper used by
+that future executor. It is intentionally not wrapped as a standalone operator
+command and does not read local env files. The executor must:
+
+- compile the helper before the gesture and include the exact source and binary
+  digests in the immutable execution manifest;
+- re-hash the fixed binary immediately before spawning it;
+- generate the execution run id and replay nonce itself;
+- send one canonical challenge through the child's stdin, never by path, argv,
+  environment variable, or reusable file;
+- read the response only from the pipe belonging to that child invocation;
+- require the returned challenge digest and execution run id to match its
+  in-memory tuple;
+- revalidate the request, readiness, repository, manifest, and Device-D after
+  the gesture, then atomically consume the request before the first effect.
+
+The helper decodes the stdin bytes once, validates a maximum two-minute TTL,
+shows only the approved aliases and short source/run hashes, and signs the exact
+challenge digest with a process-local Secure Enclave P-256 key protected by
+`biometryCurrentSet` and private-key usage. It uses a new `LAContext`, disables
+authentication reuse, invalidates the context at the end, does not export a key
+reference or signature, and revalidates expiry after the gesture. It writes no
+anchor, proof, result, or authority file.
+
+Successful output is correlation-only and includes
+`local_biometric_presence_observed=true`, the challenge digest, and execution
+run id. It always includes `owner_authenticated=false`,
+`execution_authorized=false`, `app_launch_attempted=false`, and
+`raw_values_printed=false`. The output is not replayable authority and must not
+be stored for a later run. Cancel, lockout, missing biometry, Secure Enclave
+unavailability, malformed input, mismatch, or expiry all stop before any app or
+device effect.
+
+CI compiles the production shape and runs only a software-key codec/binding
+self-test. CI does not claim biometric presence. Before an executor can receive
+GO for a physical run, a manual DEV check must prove that each invocation asks
+for Touch ID, cancellation fails, a second invocation requires a fresh gesture,
+and no authority artifact remains.
+
+This local signal does not prove Device-D identity, paired Engine identity or
+artifact SHA, Relay-R contact, NetworkExtension, TUN/utun, routing, forwarding,
+or production activation. A remote, durable, household-owner, or production
+authorization requires the separate OwnerApprovalV2/passkey trust path.
+
 ## Owner-Present E2E Shape
 
 After the preflight and status-aware runner are green, a fresh owner request is
