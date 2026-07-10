@@ -362,6 +362,24 @@ elif case == "extra_summary":
     summary["unexpected"] = True
 elif case == "raw_summary":
     summary["raw_values_printed"] = True
+elif case == "raw_stdout":
+    stdout["raw_values_printed"] = True
+elif case == "stdout_owner":
+    stdout["owner_present_required"] = False
+elif case == "stdout_summary_missing":
+    stdout["summary_written"] = False
+elif case == "stdout_app":
+    stdout["app_launch_attempted"] = True
+elif case == "stdout_relay":
+    stdout["relay_contact_attempted"] = True
+elif case == "summary_app":
+    summary["app_launch_attempted"] = True
+elif case == "summary_relay":
+    summary["relay_contact_attempted"] = True
+elif case == "summary_preflight":
+    summary["preflight_status"] = "skipped"
+elif case == "summary_evidence":
+    summary["preflight_summary_observed"] = False
 elif case == "mismatched_run_ids":
     summary["run_id"] = str(uuid.uuid4())
 elif case == "bad_stdout_preflight":
@@ -424,6 +442,15 @@ for specification in \
   'bad_summary:runner_summary_owner_present_contract_invalid' \
   'extra_summary:runner_summary_schema_invalid' \
   'raw_summary:runner_summary_raw_values_state_invalid' \
+  'raw_stdout:runner_raw_values_state_invalid' \
+  'stdout_owner:runner_owner_present_contract_invalid' \
+  'stdout_summary_missing:runner_ready_without_summary' \
+  'stdout_app:runner_app_launch_state_invalid' \
+  'stdout_relay:runner_relay_contact_state_invalid' \
+  'summary_app:runner_summary_app_launch_state_invalid' \
+  'summary_relay:runner_summary_relay_contact_state_invalid' \
+  'summary_preflight:runner_summary_preflight_status_invalid' \
+  'summary_evidence:runner_summary_preflight_evidence_invalid' \
   'mismatched_run_ids:runner_stdout_summary_run_id_mismatch' \
   'bad_stdout_preflight:runner_stdout_preflight_status_invalid' \
   'stdout_reason:runner_stdout_reason_invalid' \
