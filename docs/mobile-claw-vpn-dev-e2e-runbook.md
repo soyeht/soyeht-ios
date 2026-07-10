@@ -43,6 +43,17 @@ Put real values in an ignored local file, for example
 `.env.mobile-claw-vpn.local`. Do not paste the file contents into chat, PRs, or
 docs.
 
+The preflight and runner load the first local config file found in this order:
+
+1. `SOYEHT_MOBILE_CLAW_VPN_DEV_E2E_ENV_FILE`, if set in the shell;
+2. `.env.mobile-claw-vpn.local`;
+3. `.env.local`;
+4. `.env`.
+
+Shell environment values take precedence over file values. The loader reads only
+the Mobile Claw VPN DEV E2E allowlisted keys; unknown keys are ignored, and the
+file is not evaluated as shell code.
+
 ```sh
 export SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR="$HOME/Library/Application Support/SoyehtDev/MobileClawVPN/Evidence"
 export SOYEHT_MOBILE_CLAW_VPN_BUNDLE_ID="com.soyeht.app.dev"
