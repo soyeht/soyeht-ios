@@ -5,14 +5,19 @@ import Testing
 @testable import SoyehtCore
 
 /// Swift half of the owner approval Protocol-v2 cross-language golden vectors.
-/// The Rust half lives in `household-rs/tests/data/owner_approval_v2_vectors.json`.
+/// Mobile vectors are vendored byte-for-byte from the authoritative theyos
+/// `admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json`.
 ///
 /// These drive the production ``OwnerApprovalContextV2`` encoder (not a test-local
 /// copy) so the type that ships is the one proven byte-for-byte against Rust.
 @Suite struct OwnerApprovalV2CrossLanguageVectorTests {
     struct Vectors: Decodable {
         let ownerApprovalContextV2: [OwnerApprovalCase]
+    }
+
+    struct MobileVectors: Decodable {
         let mobileClawVpnDevE2EExecutionTupleV1: [MobileExecutionCase]
+        let ownerApprovalContextV2: [OwnerApprovalCase]
     }
 
     struct MobileExecutionCase: Decodable {
@@ -86,27 +91,45 @@ import Testing
         return try decoder.decode(Vectors.self, from: data)
     }
 
+    static func loadMobileVectors() throws -> MobileVectors {
+        guard let url = Bundle.module.url(
+            forResource: "owner_approval_v2_execution_vectors",
+            withExtension: "json",
+            subdirectory: "Fixtures/mobile-claw-vpn/v1"
+        ) else {
+            throw VectorError.fixtureMissing
+        }
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(MobileVectors.self, from: data)
+    }
+
     @Test func canonicalBytesAndChallengeDigestMatchRustFixture() throws {
         let vectors = try Self.loadVectors()
+        let mobileVectors = try Self.loadMobileVectors()
         #expect(!vectors.ownerApprovalContextV2.isEmpty)
-        for vector in vectors.ownerApprovalContextV2 {
-            let context = try Self.context(
-                vector.input,
-                executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
-            )
-            #expect(
-                context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
-                "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(context.canonicalBytes().soyehtHexEncodedString())"
-            )
-            #expect(
-                try context.challengeDigest().soyehtHexEncodedString() == vector.challengeSha256Hex,
-                "\(vector.id): WebAuthn challenge digest drifted"
-            )
+        #expect(!mobileVectors.ownerApprovalContextV2.isEmpty)
+        for fixture in [
+            (vectors.ownerApprovalContextV2, [MobileExecutionCase]()),
+            (mobileVectors.ownerApprovalContextV2, mobileVectors.mobileClawVpnDevE2EExecutionTupleV1),
+        ] {
+            for vector in fixture.0 {
+                let context = try Self.context(vector.input, executions: fixture.1)
+                #expect(
+                    context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
+                    "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(context.canonicalBytes().soyehtHexEncodedString())"
+                )
+                #expect(
+                    try context.challengeDigest().soyehtHexEncodedString() == vector.challengeSha256Hex,
+                    "\(vector.id): WebAuthn challenge digest drifted"
+                )
+            }
         }
     }
 
     @Test func executionTupleCanonicalBytesAndHashMatchRustFixture() throws {
-        let vectors = try Self.loadVectors()
+        let vectors = try Self.loadMobileVectors()
         #expect(!vectors.mobileClawVpnDevE2EExecutionTupleV1.isEmpty)
         for vector in vectors.mobileClawVpnDevE2EExecutionTupleV1 {
             let execution = try Self.execution(vector.input)
@@ -125,7 +148,7 @@ import Testing
     }
 
     @Test func executionHashChangesForEveryMutableTupleField() throws {
-        let vectors = try Self.loadVectors()
+        let vectors = try Self.loadMobileVectors()
         let vector = try #require(vectors.mobileClawVpnDevE2EExecutionTupleV1.first)
         let baseline = try Self.execution(vector.input)
         let baselineBytes = try baseline.canonicalBytes()
@@ -203,7 +226,7 @@ import Testing
     }
 
     @Test func executionTupleRejectsFixedFieldAndLengthDrift() throws {
-        let vectors = try Self.loadVectors()
+        let vectors = try Self.loadMobileVectors()
         let vector = try #require(vectors.mobileClawVpnDevE2EExecutionTupleV1.first)
         let baseline = try Self.execution(vector.input)
 
@@ -250,7 +273,7 @@ import Testing
     }
 
     @Test func executionHashIsDomainSeparatedAndLengthDelimited() throws {
-        let vectors = try Self.loadVectors()
+        let vectors = try Self.loadMobileVectors()
         let vector = try #require(vectors.mobileClawVpnDevE2EExecutionTupleV1.first)
         let baseline = try Self.execution(vector.input)
         let canonical = try baseline.canonicalBytes()
@@ -267,7 +290,7 @@ import Testing
     }
 
     @Test func contextRequiresExactOperationSpecificExecutionHash() throws {
-        let vectors = try Self.loadVectors()
+        let vectors = try Self.loadMobileVectors()
         let vector = try #require(vectors.mobileClawVpnDevE2EExecutionTupleV1.first)
         let execution = try Self.execution(vector.input)
         let context = try OwnerApprovalContextV2.mobileClawVPNDevE2EExecute(
@@ -396,21 +419,27 @@ import Testing
 
     @Test func optionalFieldsAreOmittedNotNull() throws {
         let vectors = try Self.loadVectors()
-        for vector in vectors.ownerApprovalContextV2 {
-            let omittedFields = vector.omittedFields ?? []
-            let canonical = try Self.context(
-                vector.input,
-                executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
-            ).canonicalBytes()
-            guard case .map(let map) = try HouseholdCBOR.decode(canonical) else {
-                Issue.record("\(vector.id): expected context to decode as map")
-                continue
-            }
-            for omitted in omittedFields {
-                #expect(map[omitted] == nil, "\(vector.id): optional field \(omitted) was encoded")
-            }
-            if vector.input.op != OwnerApprovalOperation.mobileClawVPNDevE2EExecute.rawValue {
-                #expect(map["mobile_claw_vpn_execution_hash"] == nil)
+        let mobileVectors = try Self.loadMobileVectors()
+        for fixture in [
+            (vectors.ownerApprovalContextV2, [MobileExecutionCase]()),
+            (mobileVectors.ownerApprovalContextV2, mobileVectors.mobileClawVpnDevE2EExecutionTupleV1),
+        ] {
+            for vector in fixture.0 {
+                let omittedFields = vector.omittedFields ?? []
+                let canonical = try Self.context(
+                    vector.input,
+                    executions: fixture.1
+                ).canonicalBytes()
+                guard case .map(let map) = try HouseholdCBOR.decode(canonical) else {
+                    Issue.record("\(vector.id): expected context to decode as map")
+                    continue
+                }
+                for omitted in omittedFields {
+                    #expect(map[omitted] == nil, "\(vector.id): optional field \(omitted) was encoded")
+                }
+                if vector.input.op != OwnerApprovalOperation.mobileClawVPNDevE2EExecute.rawValue {
+                    #expect(map["mobile_claw_vpn_execution_hash"] == nil)
+                }
             }
         }
     }
@@ -420,26 +449,26 @@ import Testing
         let vector = try #require(vectors.ownerApprovalContextV2.first)
         let baseline = try Self.context(
             vector.input,
-            executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
+            executions: []
         ).challengeDigest()
 
         var changedOperation = try Self.context(
             vector.input,
-            executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
+            executions: []
         )
         changedOperation.op = .bootstrapTeardown
         #expect(try changedOperation.challengeDigest() != baseline)
 
         var changedAddress = try Self.context(
             vector.input,
-            executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
+            executions: []
         )
         changedAddress.addr = "198.51.100.10:8091"
         #expect(try changedAddress.challengeDigest() != baseline)
 
         var changedNonce = try Self.context(
             vector.input,
-            executions: vectors.mobileClawVpnDevE2EExecutionTupleV1
+            executions: []
         )
         changedNonce.nonce = Data(repeating: 0x44, count: 16)
         #expect(try changedNonce.challengeDigest() != baseline)
