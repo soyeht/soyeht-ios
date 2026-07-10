@@ -68,8 +68,10 @@ OWNER_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw
 OWNER_SOURCE_REL="admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json"
 
 printf '\n' >> "${IOS_ROOT}/${OWNER_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
 expect_guard_failure vendor_only
 cp "${THEYOS_ROOT}/${OWNER_SOURCE_REL}" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
 run_guard >/dev/null
 
 cp "${IOS_ROOT}/${OWNER_VENDOR_REL}" "${TMP_ROOT}/vendor-target.json"
@@ -88,8 +90,10 @@ cp "${IOS_ROOT}/${OWNER_VENDOR_REL}" "${THEYOS_ROOT}/${OWNER_SOURCE_REL}"
 run_guard >/dev/null
 
 printf '%040d\n' 0 > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
 expect_guard_failure pin_only
 printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
 run_guard >/dev/null
 
 printf '%s\n' "${PIN}" > "${TMP_ROOT}/pin-target.sha"
