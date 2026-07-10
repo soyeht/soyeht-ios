@@ -99,6 +99,11 @@ def emit(
 
 
 def run_git(repo_root: Path, *args: str) -> str:
+    child_environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+    child_environment["GIT_CONFIG_GLOBAL"] = os.devnull
+    child_environment["GIT_CONFIG_SYSTEM"] = os.devnull
     try:
         completed = subprocess.run(
             ["/usr/bin/git", "-C", str(repo_root), *args],
@@ -106,6 +111,7 @@ def run_git(repo_root: Path, *args: str) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            env=child_environment,
             timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as error:
