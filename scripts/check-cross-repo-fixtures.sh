@@ -17,14 +17,59 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
 
-PIN_FILE="${SCRIPT_DIR}/cross-repo-contract.sha"
-THEYOS_SHA="$(grep -vE '^[[:space:]]*#' "${PIN_FILE}" | tr -d '[:space:]')"
+materialize_tracked_ios_file() {
+  local relative_path="$1" destination="$2"
+  local entry mode object stage ignored absolute_path
+
+  entry="$(git -C "${REPO_ROOT}" ls-files --stage -- "${relative_path}")"
+  if [[ -z "${entry}" || "${entry}" == *$'\n'* ]]; then
+    echo "::error::vendored contract must have exactly one tracked Git entry: ${relative_path}"
+    return 1
+  fi
+  read -r mode object stage ignored <<< "${entry}"
+  if [[ "${mode}" != "100644" || "${stage}" != "0" ]]; then
+    echo "::error::vendored contract must be an ordinary 100644 Git blob: ${relative_path}"
+    return 1
+  fi
+
+  absolute_path="${REPO_ROOT}/${relative_path}"
+  if [[ -L "${absolute_path}" || ! -f "${absolute_path}" ]]; then
+    echo "::error::vendored contract checkout must be a regular file, not a symlink: ${relative_path}"
+    return 1
+  fi
+  git -C "${REPO_ROOT}" cat-file blob "${object}" > "${destination}"
+  if ! cmp -s "${destination}" "${absolute_path}"; then
+    echo "::error::vendored contract working copy differs from its tracked blob: ${relative_path}"
+    return 1
+  fi
+}
+
+PIN_REL="scripts/cross-repo-contract.sha"
+PIN_FILE="${REPO_ROOT}/${PIN_REL}"
+PIN_BLOB="${TMP_DIR}/cross-repo-contract.sha"
+materialize_tracked_ios_file "${PIN_REL}" "${PIN_BLOB}"
+THEYOS_SHA="$(grep -vE '^[[:space:]]*#' "${PIN_BLOB}" | tr -d '[:space:]')"
+if [[ ! "${THEYOS_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "::error::${PIN_FILE} must contain exactly one lowercase 40-hex theyos commit"
+  exit 1
+fi
+
+if [[ -n "${THEYOS_DIR:-}" && "${SOYEHT_REQUIRE_LOCAL_PIN:-0}" == "1" ]]; then
+  local_head="$(git -C "${THEYOS_DIR}" rev-parse HEAD 2>/dev/null || true)"
+  if [[ "${local_head}" != "${THEYOS_SHA}" ]]; then
+    echo "::error::local theyos HEAD ${local_head:-missing} does not match pin ${THEYOS_SHA}"
+    exit 1
+  fi
+fi
 
 # requirement : vendored-iOS-relative-path : theyos-relative-path
 PAIRS=(
   "required:Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
   "required:Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/api_shapes.json:admin/contracts/mobile-claw-vpn/v1/api_shapes.json"
+  "required:Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json:admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json"
   "required:docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json:admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
@@ -39,7 +84,9 @@ PAIRS=(
 materialize_source() {
   local path="$1" dest="$2"
   if [[ -n "${THEYOS_DIR:-}" ]]; then
-    if [[ -f "${THEYOS_DIR}/${path}" ]]; then
+    if [[ -L "${THEYOS_DIR}/${path}" ]]; then
+      echo error
+    elif [[ -f "${THEYOS_DIR}/${path}" ]]; then
       cp "${THEYOS_DIR}/${path}" "${dest}"
       echo present
     else
@@ -69,10 +116,8 @@ for pair in "${PAIRS[@]}"; do
   rest="${pair#*:}"
   ios="${rest%%:*}"
   src="${rest#*:}"
-  ios_abs="${REPO_ROOT}/${ios}"
-
-  if [[ ! -f "${ios_abs}" ]]; then
-    echo "::error::vendored fixture missing in this repo: ${ios}"
+  ios_tmp="$(mktemp "${TMP_DIR}/ios.XXXXXX")"
+  if ! materialize_tracked_ios_file "${ios}" "${ios_tmp}"; then
     DRIFT=1
     continue
   fi
@@ -99,12 +144,12 @@ for pair in "${PAIRS[@]}"; do
       DRIFT=1
       ;;
     present)
-      if diff -u "${src_tmp}" "${ios_abs}" >/dev/null; then
+      if diff -u "${src_tmp}" "${ios_tmp}" >/dev/null; then
         echo "✓ ${ios} matches theyos:${src}"
       else
         echo "::error::contract drift: ${ios} differs from theyos:${src}"
         echo "  re-sync with: THEYOS_DIR=<theyos> scripts/sync-cross-repo-fixtures.sh"
-        diff -u "${src_tmp}" "${ios_abs}" || true
+        diff -u "${src_tmp}" "${ios_tmp}" || true
         DRIFT=1
       fi
       ;;

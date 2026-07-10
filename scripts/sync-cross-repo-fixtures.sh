@@ -8,6 +8,7 @@
 #   scripts/sync-cross-repo-fixtures.sh
 #   THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 #   SOYEHT_SYNC_ONLY=claw-store THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
+#   SOYEHT_SYNC_ONLY=mobile-claw-vpn THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,20 +52,35 @@ sync_claw_store_contract() {
     uv run python "${SCRIPT_DIR}/gen-claw-store-contract-constants.py"
 }
 
-sync_claw_store_contract
-
-# ── Product A mobile Claw VPN Mesh-C API shapes ───────────────────────────────
-MOBILE_CLAW_VPN_API_SHAPES="${THEYOS_DIR}/admin/contracts/mobile-claw-vpn/v1/api_shapes.json"
-if [[ ! -f "${MOBILE_CLAW_VPN_API_SHAPES}" ]]; then
-    echo "error: mobile Claw VPN API shape contract not found at ${MOBILE_CLAW_VPN_API_SHAPES}" >&2
-    exit 1
+if [[ "${SOYEHT_SYNC_ONLY:-}" != "mobile-claw-vpn" ]]; then
+    sync_claw_store_contract
 fi
-mkdir -p "${TESTS}/Fixtures/mobile-claw-vpn/v1"
-cp "${MOBILE_CLAW_VPN_API_SHAPES}" \
-   "${TESTS}/Fixtures/mobile-claw-vpn/v1/api_shapes.json"
-echo "✓ mobile-claw-vpn/v1/api_shapes.json"
-
 if [[ "${SOYEHT_SYNC_ONLY:-}" == "claw-store" ]]; then
+    echo ""
+    echo "Sync complete. Commit the updated fixture files if they changed."
+    exit 0
+fi
+
+# ── Product A mobile Claw VPN contracts ───────────────────────────────────────
+sync_mobile_claw_vpn_contracts() {
+    local src_dir="${THEYOS_DIR}/admin/contracts/mobile-claw-vpn/v1"
+    local dest_dir="${TESTS}/Fixtures/mobile-claw-vpn/v1"
+    local fixture
+
+    mkdir -p "${dest_dir}"
+    for fixture in api_shapes.json owner_approval_v2_execution_vectors.json; do
+        if [[ ! -f "${src_dir}/${fixture}" ]]; then
+            echo "error: mobile Claw VPN contract not found at ${src_dir}/${fixture}" >&2
+            exit 1
+        fi
+        cp "${src_dir}/${fixture}" "${dest_dir}/${fixture}"
+        echo "✓ mobile-claw-vpn/v1/${fixture}"
+    done
+}
+
+sync_mobile_claw_vpn_contracts
+
+if [[ "${SOYEHT_SYNC_ONLY:-}" == "mobile-claw-vpn" ]]; then
     echo ""
     echo "Sync complete. Commit the updated fixture files if they changed."
     exit 0
