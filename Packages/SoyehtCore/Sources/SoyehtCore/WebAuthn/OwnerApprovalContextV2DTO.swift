@@ -14,6 +14,7 @@ public enum OwnerApprovalOperation: String, Sendable, Equatable, CaseIterable {
     case pairDeviceConfirm = "pair-device-confirm"
     case revokeCredential = "revoke-credential"
     case addCredential = "add-credential"
+    case mobileClawVPNDevE2EExecute = "mobile-claw-vpn-dev-e2e-execute"
 }
 
 // MARK: - Owner approval context (Protocol v2)
@@ -56,6 +57,9 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
     public var authorityHeadSequence: UInt64?
     public var authorityHeadHash: Data?
     public var preActiveCredentialCount: UInt64?
+    /// Required only by the DEV mobile execution operation. Owner approval-v2
+    /// signs the canonical context containing this tuple hash.
+    public var mobileClawVPNExecutionHash: Data?
     public var capabilities: [String]
     public var issuedAt: UInt64
     public var expiresAt: UInt64
@@ -78,6 +82,7 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         authorityHeadSequence: UInt64? = nil,
         authorityHeadHash: Data? = nil,
         preActiveCredentialCount: UInt64? = nil,
+        mobileClawVPNExecutionHash: Data? = nil,
         capabilities: [String],
         issuedAt: UInt64,
         expiresAt: UInt64,
@@ -99,6 +104,7 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         self.authorityHeadSequence = authorityHeadSequence
         self.authorityHeadHash = authorityHeadHash
         self.preActiveCredentialCount = preActiveCredentialCount
+        self.mobileClawVPNExecutionHash = mobileClawVPNExecutionHash
         self.capabilities = capabilities
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
@@ -136,7 +142,76 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         if let preActiveCredentialCount {
             map["pre_active_credential_count"] = .unsigned(preActiveCredentialCount)
         }
+        if let mobileClawVPNExecutionHash {
+            map["mobile_claw_vpn_execution_hash"] = .bytes(mobileClawVPNExecutionHash)
+        }
         return .map(map)
+    }
+
+    /// Construct the inert signed context for the DEV-only mobile Claw VPN
+    /// operation. The execution hash is always derived from the validated tuple;
+    /// callers cannot supply an unrelated hash to this constructor.
+    public static func mobileClawVPNDevE2EExecute(
+        ownerPersonID: String,
+        execution: MobileClawVPNDevE2EExecutionTupleV1,
+        replayNonce: Data
+    ) throws -> OwnerApprovalContextV2 {
+        let context = OwnerApprovalContextV2(
+            op: .mobileClawVPNDevE2EExecute,
+            householdID: execution.householdID,
+            ownerPersonID: ownerPersonID,
+            mobileClawVPNExecutionHash: try execution.executionHash(),
+            capabilities: [MobileClawVPNDevE2EExecutionTupleV1.capability],
+            issuedAt: execution.issuedAt,
+            expiresAt: execution.expiresAt,
+            replayNonce: replayNonce
+        )
+        try context.validateMobileClawVPNOperationShape()
+        return context
+    }
+
+    func validateMobileClawVPNOperationShape() throws {
+        if op == .mobileClawVPNDevE2EExecute {
+            guard version == Self.currentVersion,
+                  purpose == Self.purpose,
+                  Self.isCanonicalHouseholdID(householdID),
+                  Self.isCanonicalPersonID(ownerPersonID),
+                  cursor == nil,
+                  machineID == nil,
+                  addr == nil,
+                  transport == nil,
+                  ttlUnix == nil,
+                  nonce == nil,
+                  joinRequestHash == nil,
+                  newCredentialBindingHash == nil,
+                  authorityHeadSequence == nil,
+                  authorityHeadHash == nil,
+                  preActiveCredentialCount == nil,
+                  mobileClawVPNExecutionHash?.count == 32,
+                  capabilities == [MobileClawVPNDevE2EExecutionTupleV1.capability],
+                  expiresAt > issuedAt,
+                  expiresAt - issuedAt <= MobileClawVPNDevE2EExecutionTupleV1.maximumApprovalTTL,
+                  replayNonce.count == 32 else {
+                throw OwnerApprovalV2DTOError.malformedCBOR(
+                    "context: invalid mobile Claw VPN execution binding"
+                )
+            }
+        } else if mobileClawVPNExecutionHash != nil {
+            throw OwnerApprovalV2DTOError.malformedCBOR(
+                "context: mobile Claw VPN execution hash is not allowed for this operation"
+            )
+        }
+    }
+
+    private static func isCanonicalHouseholdID(_ value: String) -> Bool {
+        guard value.hasPrefix("hh_") else { return false }
+        let suffix = value.dropFirst(3)
+        return suffix.utf8.count == HouseholdIdentifiers.base32EncodedBLAKE3DigestLength
+            && suffix.utf8.allSatisfy { (0x61 ... 0x7a).contains($0) || (0x32 ... 0x37).contains($0) }
+    }
+
+    private static func isCanonicalPersonID(_ value: String) -> Bool {
+        value.hasPrefix("p_") && value.utf8.count > 2
     }
 
     /// Canonical (key-sorted, deterministic) CBOR encoding of the context.
@@ -147,7 +222,8 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
     /// The WebAuthn challenge bound to this context:
     /// `SHA256(challengeDomain || canonicalBytes())`. This is the value the
     /// platform authenticator signs during the approval assertion ceremony.
-    public func challengeDigest() -> Data {
+    public func challengeDigest() throws -> Data {
+        try validateMobileClawVPNOperationShape()
         var material = Self.challengeDomain
         material.append(canonicalBytes())
         return Data(SHA256.hash(data: material))

@@ -108,10 +108,20 @@ private func cborOptionalBytes(
 public extension OwnerApprovalContextV2 {
     /// Decode a canonical-CBOR context (the form the server emits inside the
     /// approval-v2 envelope and start response). Fail-closed on a missing/typed
-    /// field or an unknown operation. The byte-string fields (`nonce`,
-    /// `join_request_hash`, `replay_nonce`) decode as raw `Data`.
+    /// field, unknown field, or unknown operation. Byte-string fields decode as
+    /// raw `Data`; no operation-specific binding is coerced or defaulted.
     init(cbor: HouseholdCBORValue) throws {
         let map = try cbor.cborMap("context")
+        let allowedKeys: Set<String> = [
+            "v", "purpose", "op", "hh_id", "owner_p_id", "cursor", "m_id", "addr",
+            "transport", "ttl_unix", "nonce", "join_request_hash",
+            "new_credential_binding_hash", "authority_head_sequence", "authority_head_hash",
+            "pre_active_credential_count", "mobile_claw_vpn_execution_hash", "capabilities",
+            "issued_at", "expires_at", "replay_nonce",
+        ]
+        guard Set(map.keys).isSubset(of: allowedKeys) else {
+            throw OwnerApprovalV2DTOError.malformedCBOR("context: unknown field")
+        }
         let opText = try cborRequire(map, "op", "context").cborText("context.op")
         guard let op = OwnerApprovalOperation(rawValue: opText) else {
             throw OwnerApprovalV2DTOError.malformedCBOR("context.op: unknown operation '\(opText)'")
@@ -136,11 +146,17 @@ public extension OwnerApprovalContextV2 {
             authorityHeadSequence: try cborOptionalUnsigned(map, "authority_head_sequence", "context"),
             authorityHeadHash: try cborOptionalBytes(map, "authority_head_hash", "context"),
             preActiveCredentialCount: try cborOptionalUnsigned(map, "pre_active_credential_count", "context"),
+            mobileClawVPNExecutionHash: try cborOptionalBytes(
+                map,
+                "mobile_claw_vpn_execution_hash",
+                "context"
+            ),
             capabilities: capabilities,
             issuedAt: try cborRequire(map, "issued_at", "context").cborUnsigned("context.issued_at"),
             expiresAt: try cborRequire(map, "expires_at", "context").cborUnsigned("context.expires_at"),
             replayNonce: try cborRequire(map, "replay_nonce", "context").cborBytes("context.replay_nonce")
         )
+        try validateMobileClawVPNOperationShape()
     }
 }
 
