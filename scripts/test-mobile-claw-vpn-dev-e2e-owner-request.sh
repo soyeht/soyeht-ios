@@ -584,6 +584,17 @@ test ! -e "${git_env_evidence}"
 test ! -e "${ledger}"
 printf 'ok git_environment_cannot_select_repository_provenance\n'
 
+/usr/bin/git -C "${test_repo}" config core.worktree "${attacker_repo}"
+printf 'configured worktree must not hide this change\n' >>"${test_repo}/fixture.txt"
+local_config_evidence="${tmp_root}/local-config-provenance"
+local_config_output="$(prepare_request "${local_config_evidence}")"
+assert_json "${local_config_output}" "refused" "repository_not_clean"
+test ! -e "${local_config_evidence}"
+/usr/bin/git --git-dir="${test_repo}/.git" config --unset core.worktree
+/usr/bin/git -C "${test_repo}" restore fixture.txt
+test ! -e "${ledger}"
+printf 'ok local_git_config_cannot_select_worktree_provenance\n'
+
 python3 - "${request_python}" <<'PY'
 from pathlib import Path
 import sys
@@ -604,8 +615,10 @@ assert '"owner_acknowledged": False' in source
 assert '"execution_authorized": False' in source
 assert 'repo_root = SCRIPT_DIR.parent' in source
 assert 'if not key.startswith("GIT_")' in source
+assert '"--work-tree"' in source
+assert '"core.fsmonitor=false"' in source
 PY
 test ! -e "${ledger}"
 printf 'ok source_has_no_ack_execute_or_runtime_authority\n'
 
-printf 'mobile Claw VPN DEV owner request self-test passed (9/9)\n'
+printf 'mobile Claw VPN DEV owner request self-test passed (10/10)\n'

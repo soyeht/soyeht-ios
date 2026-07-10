@@ -99,6 +99,7 @@ def emit(
 
 
 def run_git(repo_root: Path, *args: str) -> str:
+    resolved_repo_root = repo_root.resolve()
     child_environment = {
         key: value for key, value in os.environ.items() if not key.startswith("GIT_")
     }
@@ -106,7 +107,18 @@ def run_git(repo_root: Path, *args: str) -> str:
     child_environment["GIT_CONFIG_SYSTEM"] = os.devnull
     try:
         completed = subprocess.run(
-            ["/usr/bin/git", "-C", str(repo_root), *args],
+            [
+                "/usr/bin/git",
+                "-C",
+                str(resolved_repo_root),
+                "--work-tree",
+                str(resolved_repo_root),
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                *args,
+            ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -120,6 +132,9 @@ def run_git(repo_root: Path, *args: str) -> str:
 
 
 def validated_artifact_sha(repo_root: Path) -> str:
+    top_level = Path(run_git(repo_root, "rev-parse", "--show-toplevel")).resolve()
+    if top_level != repo_root.resolve():
+        raise RequestError("refused", "repository_worktree_mismatch")
     head = run_git(repo_root, "rev-parse", "HEAD")
     main = run_git(repo_root, "rev-parse", "origin/main")
     if len(head) != 40 or any(ch not in "0123456789abcdef" for ch in head):
