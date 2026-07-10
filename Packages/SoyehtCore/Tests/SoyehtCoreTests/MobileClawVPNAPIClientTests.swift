@@ -166,6 +166,45 @@ private func jsonObjectBody(_ request: URLRequest) throws -> [String: Any] {
   return try #require(object as? [String: Any])
 }
 
+private func mobileClawVPNAPIShapeContract() throws -> [String: Any] {
+  let url = try #require(
+    Bundle.module.url(
+      forResource: "api_shapes",
+      withExtension: "json",
+      subdirectory: "Fixtures/mobile-claw-vpn/v1"
+    )
+  )
+  let data = try Data(contentsOf: url)
+  let object = try JSONSerialization.jsonObject(with: data)
+  return try #require(object as? [String: Any])
+}
+
+private func contractSection(
+  _ contract: [String: Any],
+  _ name: String
+) throws -> [String: [String: Any]] {
+  try #require(contract[name] as? [String: [String: Any]])
+}
+
+private func contractBody(
+  _ section: [String: [String: Any]],
+  _ name: String
+) throws -> [String: Any] {
+  try #require(section[name])
+}
+
+private func bodyData(_ body: [String: Any]) throws -> Data {
+  try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
+}
+
+private func expectJSONObject(
+  _ actual: [String: Any],
+  equals expected: [String: Any]
+) {
+  #expect(Set(actual.keys) == Set(expected.keys))
+  #expect(NSDictionary(dictionary: actual).isEqual(to: expected))
+}
+
 private func expectUnsupportedAdminHost<T>(
   _ operation: @escaping () async throws -> T
 ) async {
@@ -185,6 +224,105 @@ private func expectUnsupportedAdminHost<T>(
 
 @Suite("Mobile Claw VPN API client", .serialized)
 struct MobileClawVPNAPIClientTests {
+  @Test
+  func apiShapeContractDecodesResponsesAndPinsRequestBodies() async throws {
+    let contract = try mobileClawVPNAPIShapeContract()
+    #expect(contract["contract"] as? String == "product-a-mobile-claw-vpn-api-shapes")
+    #expect(contract["version"] as? Int == 1)
+    let requests = try contractSection(contract, "requests")
+    let responses = try contractSection(contract, "responses")
+    #expect(Set(requests.keys) == ["mint_offer", "consume_offer", "authorize_rendezvous"])
+    #expect(Set(responses.keys) == [
+      "status_not_configured",
+      "status_configured",
+      "mint_offer",
+      "consume_offer",
+      "authorize_rendezvous"
+    ])
+
+    let mintRequest = try contractBody(requests, "mint_offer")
+    let consumeRequest = try contractBody(requests, "consume_offer")
+    let rendezvousRequest = try contractBody(requests, "authorize_rendezvous")
+    #expect(Set(mintRequest.keys) == ["device_id", "claw_id"])
+    #expect(Set(consumeRequest.keys) == ["device_id", "claw_id", "offer_token"])
+    #expect(Set(rendezvousRequest.keys) == ["device_id", "claw_id", "rendezvous_token"])
+    for request in [mintRequest, consumeRequest, rendezvousRequest] {
+      #expect(request["member_id"] == nil)
+    }
+
+    let consumeResponse = try contractBody(responses, "consume_offer")
+    #expect(Set(consumeResponse.keys) == [
+      "product",
+      "mode",
+      "production_activation",
+      "operation",
+      "rendezvous_token",
+      "status"
+    ])
+    #expect(consumeResponse["session_id"] == nil)
+    let authorizeResponse = try contractBody(responses, "authorize_rendezvous")
+    #expect(authorizeResponse["rendezvous_token"] == nil)
+    #expect(authorizeResponse["session_id"] == nil)
+
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let status = try decoder.decode(
+      MobileClawVPNStatusResponse.self,
+      from: bodyData(try contractBody(responses, "status_configured"))
+    )
+    let offer = try decoder.decode(
+      MobileClawVPNOfferResponse.self,
+      from: bodyData(try contractBody(responses, "mint_offer"))
+    )
+    let session = try decoder.decode(
+      MobileClawVPNSessionResponse.self,
+      from: bodyData(consumeResponse)
+    )
+    let preflight = try decoder.decode(
+      MobileClawVPNRendezvousAuthorizeResponse.self,
+      from: bodyData(authorizeResponse)
+    )
+    #expect(status.product == "product_a_mobile_claw_vpn")
+    #expect(status.sessionCount == 1)
+    #expect(offer.offerToken == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    #expect(session.rendezvousToken == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    #expect(preflight.authorized)
+    #expect(preflight.productionActivation == false)
+
+    MobileClawVPNTestProtocol.reset()
+    MobileClawVPNTestProtocol.responseBodies = [
+      try bodyData(try contractBody(responses, "mint_offer")),
+      try bodyData(consumeResponse),
+      try bodyData(authorizeResponse)
+    ]
+    let store = makeMobileClawVPNStore()
+    pairMobileClawVPNServer(store)
+    let client = SoyehtAPIClient(session: makeMobileClawVPNTestSession(), store: store)
+
+    _ = try await client.mobileClawVPNMintOffer(
+      deviceId: "device-alpha",
+      clawId: "claw-alpha"
+    )
+    _ = try await client.mobileClawVPNConsumeOffer(
+      deviceId: "device-alpha",
+      clawId: "claw-alpha",
+      offerToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    )
+    _ = try await client.mobileClawVPNAuthorizeRendezvous(
+      deviceId: "device-alpha",
+      clawId: "claw-alpha",
+      rendezvousToken: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    )
+
+    #expect(MobileClawVPNTestProtocol.requests.count == 3)
+    expectJSONObject(try jsonObjectBody(MobileClawVPNTestProtocol.requests[0]), equals: mintRequest)
+    expectJSONObject(try jsonObjectBody(MobileClawVPNTestProtocol.requests[1]), equals: consumeRequest)
+    expectJSONObject(
+      try jsonObjectBody(MobileClawVPNTestProtocol.requests[2]),
+      equals: rendezvousRequest
+    )
+  }
+
   @Test
   func statusUsesEngineBearerAndDecodesCountOnlyBody() async throws {
     MobileClawVPNTestProtocol.reset()
