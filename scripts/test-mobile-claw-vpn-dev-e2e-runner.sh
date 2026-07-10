@@ -31,6 +31,10 @@ assert payload["owner_present_required"] is True, payload
 assert payload["app_launch_attempted"] is False, payload
 assert payload["relay_contact_attempted"] is False, payload
 assert payload["raw_values_printed"] is False, payload
+if expected_status == "ready_for_owner_present":
+    assert isinstance(payload["run_id"], str) and payload["run_id"], payload
+else:
+    assert payload["run_id"] is None, payload
 PY
 }
 
@@ -131,18 +135,20 @@ assert_not_contains_private_values "${evidence_ready}" \
   "${private_device_id}" \
   "${private_claw_id}"
 
-python3 - "${runner_summary}" "${preflight_summary}" <<'PY'
+python3 - "${output}" "${runner_summary}" "${preflight_summary}" <<'PY'
 import json
 import os
 import stat
 import sys
 
-runner_path, preflight_path = sys.argv[1:]
+raw, runner_path, preflight_path = sys.argv[1:]
+stdout = json.loads(raw)
 with open(runner_path, "r", encoding="utf-8") as f:
     runner = json.load(f)
 with open(preflight_path, "r", encoding="utf-8") as f:
     preflight = json.load(f)
 assert runner["status"] == "ready_for_owner_present", runner
+assert stdout["run_id"] == runner["run_id"], (stdout, runner)
 assert runner["preflight_status"] == "ready", runner
 assert runner["owner_present_required"] is True, runner
 assert runner["app_launch_attempted"] is False, runner
@@ -193,16 +199,18 @@ assert_not_contains_private_values "${evidence_env_file}" \
   "${private_claw_id}" \
   "private-ignored-value"
 
-python3 - "${evidence_env_file}/mobile-claw-vpn-dev-e2e-runner-summary.json" <<'PY'
+python3 - "${env_file_output}" "${evidence_env_file}/mobile-claw-vpn-dev-e2e-runner-summary.json" <<'PY'
 import json
 import os
 import stat
 import sys
 
-path = sys.argv[1]
+raw, path = sys.argv[1:]
+stdout = json.loads(raw)
 with open(path, "r", encoding="utf-8") as f:
     payload = json.load(f)
 assert payload["status"] == "ready_for_owner_present", payload
+assert stdout["run_id"] == payload["run_id"], (stdout, payload)
 assert payload["raw_values_printed"] is False, payload
 mode = stat.S_IMODE(os.stat(path).st_mode)
 assert mode == 0o600, oct(mode)
