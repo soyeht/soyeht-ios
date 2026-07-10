@@ -595,6 +595,29 @@ test ! -e "${local_config_evidence}"
 test ! -e "${ledger}"
 printf 'ok local_git_config_cannot_select_worktree_provenance\n'
 
+hostile_home="${tmp_root}/hostile-home"
+hostile_xdg="${tmp_root}/hostile-xdg"
+mkdir -p "${hostile_home}" "${hostile_xdg}"
+hostile_excludes="${tmp_root}/hostile-global-excludes"
+printf 'global-config-hidden.txt\n' >"${hostile_excludes}"
+cat >"${hostile_home}/.gitconfig" <<EOF
+[core]
+    excludesFile = ${hostile_excludes}
+EOF
+printf 'global config must not hide this file\n' >"${test_repo}/global-config-hidden.txt"
+global_config_evidence="${tmp_root}/global-config-provenance"
+global_config_output="$(
+  prepare_request \
+    "${global_config_evidence}" \
+    HOME="${hostile_home}" \
+    XDG_CONFIG_HOME="${hostile_xdg}"
+)"
+assert_json "${global_config_output}" "refused" "repository_not_clean"
+test ! -e "${global_config_evidence}"
+rm -f "${test_repo}/global-config-hidden.txt"
+test ! -e "${ledger}"
+printf 'ok global_git_config_cannot_hide_repository_drift\n'
+
 python3 - "${request_python}" <<'PY'
 from pathlib import Path
 import sys
@@ -615,10 +638,12 @@ assert '"owner_acknowledged": False' in source
 assert '"execution_authorized": False' in source
 assert 'repo_root = SCRIPT_DIR.parent' in source
 assert 'if not key.startswith("GIT_")' in source
+assert 'child_environment["GIT_CONFIG_GLOBAL"] = os.devnull' in source
+assert 'child_environment["GIT_CONFIG_SYSTEM"] = os.devnull' in source
 assert '"--work-tree"' in source
 assert '"core.fsmonitor=false"' in source
 PY
 test ! -e "${ledger}"
 printf 'ok source_has_no_ack_execute_or_runtime_authority\n'
 
-printf 'mobile Claw VPN DEV owner request self-test passed (10/10)\n'
+printf 'mobile Claw VPN DEV owner request self-test passed (11/11)\n'
