@@ -123,6 +123,7 @@ evidence directory and preflight summary permissions, then writes a sanitized
 `mobile-claw-vpn-dev-e2e-runner-summary.json` with:
 
 - `status: "ready_for_owner_present"`;
+- a fresh `run_id` that matches the private runner summary;
 - `owner_present_required: true`;
 - `app_launch_attempted: false`;
 - `relay_contact_attempted: false`;
@@ -133,10 +134,41 @@ If the preflight returns `skipped` or `refused`, the runner emits a sanitized
 `status == "ready_for_owner_present"` before asking the owner to run the real
 device flow.
 
+## Fresh Owner-Confirmation Request
+
+Readiness is not authorization to launch the app. The owner-request tool turns
+one fresh runner result into a short-lived request carrying the merged code,
+readiness, and Device-D bindings needed for a future owner confirmation. The
+request is context only: it does not prove owner presence or authorize any
+execution.
+
+Prepare a request:
+
+```sh
+SOYEHT_PREPARE_MOBILE_CLAW_VPN_DEV_E2E_OWNER_REQUEST=1 \
+  scripts/mobile-claw-vpn-dev-e2e-owner-request.sh
+```
+
+The command reruns the status-aware runner, requires its stdout and `0600`
+summary to carry the same fresh `run_id`, binds the request to the merged clean
+`origin/main` SHA and the explicit Device-D selection, and writes a private
+request that expires after five minutes. The output and request always report
+`owner_acknowledged=false`, `execution_authorized=false`,
+`app_launch_attempted=false`, and `relay_contact_attempted=false`.
+
+The request opt-in is intentionally **not** accepted by the local env-file
+loader. More importantly, the request, its `attempt_id`, readiness status, and
+exit code are never permission to install or launch anything. This slice has no
+acknowledgment or execution path. A future physical-device executor must obtain
+a distinct owner-originated confirmation at the point of use, revalidate all
+bindings, and atomically consume the request before its first app effect. The
+request tool does not run `xcodebuild`, `devicectl`, the app, a relay,
+NetworkExtension, or host networking.
+
 ## Owner-Present E2E Shape
 
-After the preflight and status-aware runner are green, and the owner has
-Device-D unlocked:
+After the preflight and status-aware runner are green, a fresh owner request is
+prepared, and the owner is physically present with Device-D unlocked:
 
 1. Build and install `Soyeht Dev` with normal development signing for
    `com.soyeht.app.dev`.
