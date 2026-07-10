@@ -7,6 +7,8 @@ json_string() {
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "${script_dir}/.." && pwd -P)"
+source "${script_dir}/mobile-claw-vpn-dev-e2e-env.sh"
+load_mobile_claw_vpn_dev_e2e_env "${repo_root}"
 preflight_bin="${SOYEHT_MOBILE_CLAW_VPN_DEV_E2E_PREFLIGHT_BIN:-${script_dir}/mobile-claw-vpn-dev-e2e-preflight.sh}"
 
 json() {

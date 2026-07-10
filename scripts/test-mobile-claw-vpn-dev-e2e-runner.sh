@@ -162,3 +162,50 @@ assert parent_mode == 0o700, oct(parent_mode)
 PY
 
 printf 'ok ready_writes_sanitized_owner_present_summary\n'
+
+evidence_env_file="${tmp_root}/runner ready from env file"
+env_file="${tmp_root}/runner-mobile-claw-vpn.local"
+cat >"${env_file}" <<EOF
+SOYEHT_RUN_MOBILE_CLAW_VPN_DEV_E2E_PREFLIGHT=1
+SOYEHT_RUN_MOBILE_CLAW_VPN_DEV_E2E=1
+SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR="${evidence_env_file}"
+SOYEHT_IOS_DEVICE_DESTINATION="${private_device_destination}"
+SOYEHT_IOS_DEVICE_ID="${private_device_id}"
+SOYEHT_MOBILE_CLAW_VPN_DEVICE_ID="${private_device_id}"
+SOYEHT_MOBILE_CLAW_VPN_CLAW_ID="${private_claw_id}"
+PRIVATE_VALUE_THAT_MUST_NOT_LOAD=private-ignored-value
+EOF
+env_file_output="$(
+  env SOYEHT_MOBILE_CLAW_VPN_DEV_E2E_ENV_FILE="${env_file}" \
+    "${runner_script}"
+)"
+assert_json "${env_file_output}" "ready_for_owner_present" "null" "ready" "true"
+for private_value in "${private_device_destination}" "${private_device_id}" "${private_claw_id}" "private-ignored-value"; do
+  if [[ "${env_file_output}" == *"${private_value}"* ]]; then
+    printf 'private value leaked in env-file stdout: %s\n' "${private_value}" >&2
+    exit 1
+  fi
+done
+
+assert_not_contains_private_values "${evidence_env_file}" \
+  "${private_device_destination}" \
+  "${private_device_id}" \
+  "${private_claw_id}" \
+  "private-ignored-value"
+
+python3 - "${evidence_env_file}/mobile-claw-vpn-dev-e2e-runner-summary.json" <<'PY'
+import json
+import os
+import stat
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as f:
+    payload = json.load(f)
+assert payload["status"] == "ready_for_owner_present", payload
+assert payload["raw_values_printed"] is False, payload
+mode = stat.S_IMODE(os.stat(path).st_mode)
+assert mode == 0o600, oct(mode)
+PY
+
+printf 'ok ready_from_local_env_file_is_redacted\n'

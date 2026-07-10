@@ -11,11 +11,60 @@ normalize_path() {
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "${script_dir}/.." && pwd -P)"
+source "${script_dir}/mobile-claw-vpn-dev-e2e-env.sh"
+load_mobile_claw_vpn_dev_e2e_env "${repo_root}"
+
+safe_bundle_id() {
+  case "$1" in
+    com.soyeht.app.dev) printf '%s' "$1" ;;
+    *) printf '%s' "com.soyeht.app.dev" ;;
+  esac
+}
+
+safe_device_alias() {
+  case "$1" in
+    Device-D) printf '%s' "$1" ;;
+    *) printf '%s' "Device-D" ;;
+  esac
+}
+
+safe_claw_alias() {
+  case "$1" in
+    Claw-M|Claw-L) printf '%s' "$1" ;;
+    *) printf '%s' "Claw-M" ;;
+  esac
+}
+
+safe_relay_alias() {
+  case "$1" in
+    Relay-R) printf '%s' "$1" ;;
+    *) printf '%s' "Relay-R" ;;
+  esac
+}
+
+safe_mesh_alias() {
+  case "$1" in
+    Mesh-C) printf '%s' "$1" ;;
+    *) printf '%s' "Mesh-C" ;;
+  esac
+}
 
 json() {
+  local output_bundle_id
+  local output_device_alias
+  local output_claw_alias
+  local output_relay_alias
+  local output_mesh_alias
+
+  output_bundle_id="$(safe_bundle_id "$4")"
+  output_device_alias="$(safe_device_alias "$5")"
+  output_claw_alias="$(safe_claw_alias "$6")"
+  output_relay_alias="$(safe_relay_alias "$7")"
+  output_mesh_alias="$(safe_mesh_alias "$8")"
+
   printf '{"status":"%s","reason":%s,"summary_written":%s,"bundle_id":%s,"device_alias":%s,"claw_alias":%s,"relay_alias":%s,"mesh_alias":%s,"raw_values_printed":false}\n' \
-    "$1" "$2" "$3" "$(json_string "$4")" "$(json_string "$5")" \
-    "$(json_string "$6")" "$(json_string "$7")" "$(json_string "$8")"
+    "$1" "$2" "$3" "$(json_string "${output_bundle_id}")" "$(json_string "${output_device_alias}")" \
+    "$(json_string "${output_claw_alias}")" "$(json_string "${output_relay_alias}")" "$(json_string "${output_mesh_alias}")"
 }
 
 is_inside_repo() {
