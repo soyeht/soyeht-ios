@@ -222,24 +222,36 @@ authorization requires the separate OwnerApprovalV2/passkey trust path.
 After the preflight and status-aware runner are green, a fresh owner request is
 prepared, and the owner is physically present with Device-D unlocked:
 
-1. Build and install `Soyeht Dev` with normal development signing for
-   `com.soyeht.app.dev`.
-2. Ensure Device-D is paired to the DEV Engine context that can reach Mesh-C.
-3. Ensure the backend DEV side has Device-D enrolled and authorized to access
-   the target Claw-M or Claw-L.
-4. Ensure Relay-R is configured only in DEV backend configuration. Do not place
-   the relay endpoint in iOS source, tests, screenshots, or PR text.
-5. Launch `Soyeht Dev` with the control-plane flag and private Device-D/Claw
-   launch args.
-6. In Settings, verify the Mobile Claw VPN row appears, the config state is
-   `Configured`, and tap `Authorize`.
-7. Expected DEV result today:
-   - success: `Control-plane authorized`, with count/status-only UI;
-   - fail-closed: `Failed`, with no token, endpoint, ID, or error echo.
+1. Build `Soyeht Dev`, `SoyehtTests`, the generated xctestrun, and the local
+   presence helper before the biometric gesture. Freeze their hashes in one
+   private execution manifest; do not rebuild after the gesture.
+2. Create a fresh owner request, validate Device-D, observe local biometric
+   presence through the exact manifest-bound helper, then revalidate every
+   binding and consume the request with a durable create-new claim.
+3. Only after the claim, install the manifest-bound Dev app. Copy exactly one
+   private `input.json` into the app container's `MobileClawVPNDevE2E`
+   directory. Do not put private IDs in xctestrun environment variables,
+   launch arguments, test names, or command lines.
+4. Run only
+   `SoyehtTests/MobileClawVPNOwnerPresentProbeTests/testRunOwnerPresentControlPlane`.
+   The app-hosted test consumes and unlinks the input before calling the public
+   default `MobileClawVPNRendezvousViewModel`, which drives the production
+   ViewModel -> Authorizer -> API client sequence.
+5. Download only the run-scoped sanitized result from the same Dev bundle and
+   Device-D. Success requires the expected XCTest to pass exactly once and the
+   result to match the in-memory execution tuple, manifest, claim, and run id.
 
-The UI must never render raw Device-D/Claw IDs, rendezvous tokens, relay
-endpoints, hostnames, or production-active success. If `productionActivation`
-ever arrives as `true`, the ViewModel must publish a retryable failure.
+The probe result contains only aliases, hashes, booleans, and status counts. It
+never contains Device-D/Claw IDs, offer or rendezvous tokens, endpoint, host,
+URL, or raw errors. A failed or production-active authorization cannot produce
+`control_plane_sequence_completed=true`.
+
+This test proves the Dev app's production control-plane composition reached its
+paired host and completed the validated mint -> consume -> authorize sequence.
+It does not independently attest a specific Engine artifact and does not prove
+Relay-R contact, relay pairing/splice, NetworkExtension, tunnel establishment,
+packet forwarding, TUN/utun, route, DNS, or host mutation. Relay contact must be
+reported as unknown unless authoritative backend evidence is collected.
 
 ## Sanitized Evidence
 
@@ -247,14 +259,19 @@ Public evidence may include only:
 
 - commit SHA and build identifier;
 - `Device-D`, `Claw-M` or `Claw-L`, `Relay-R`, `Mesh-C` aliases;
-- the preflight status and sanitized run id;
-- whether the Settings row was visible behind the DEV flag;
-- whether the final state was `Control-plane authorized` or `Failed`;
+- the preflight status and sanitized execution run id;
+- whether the exact app-hosted XCTest ran once and passed or failed;
+- `control_plane_sequence_completed`, `authorized`, snapshot presence, and the
+  five status counts from the sanitized run-scoped result;
+- relay contact as `unknown` unless authoritative backend evidence exists;
 - CI/test command names and pass/fail status.
 
 Raw evidence must remain private:
 
-- app launch arguments;
+- the private input and result files in the Dev app container;
+- generated xctestrun and DerivedData;
+- `.xcresult` bundles and xcodebuild stdout/stderr;
+- devicectl stdout/stderr and copy/install logs;
 - device IDs/UDIDs;
 - Device-D/Claw IDs;
 - relay endpoints;

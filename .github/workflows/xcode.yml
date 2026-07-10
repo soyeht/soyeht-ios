@@ -37,12 +37,14 @@ jobs:
           scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh \
           scripts/test-mobile-claw-vpn-dev-e2e-runner.sh \
           scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh \
-          scripts/test-mobile-claw-vpn-dev-local-presence.sh
+          scripts/test-mobile-claw-vpn-dev-local-presence.sh \
+          scripts/test-mobile-claw-vpn-dev-e2e-probe-source.sh
         python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("scripts/mobile-claw-vpn-dev-e2e-owner-request.py").read_text())'
         scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh
         scripts/test-mobile-claw-vpn-dev-e2e-runner.sh
         scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh
         scripts/test-mobile-claw-vpn-dev-local-presence.sh
+        scripts/test-mobile-claw-vpn-dev-e2e-probe-source.sh
 
     - name: Install Rust toolchain
       run: |
