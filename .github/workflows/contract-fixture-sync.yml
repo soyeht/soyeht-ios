@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/**"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/**"
       - "docs/contracts/**"
       - "scripts/check-cross-repo-fixtures.sh"
       - "scripts/cross-repo-contract.sha"
