@@ -95,9 +95,37 @@ never prints the private Device-D id, Claw id, device UDID, endpoint, token, or
 hostname. If the script returns `skipped` or `refused`, treat the E2E evidence
 as missing.
 
+## Status-Aware Owner-Present Gate
+
+The optional runner consumes the preflight JSON and refuses to treat exit code
+`0` as readiness by itself:
+
+```sh
+SOYEHT_RUN_MOBILE_CLAW_VPN_DEV_E2E=1 \
+  scripts/mobile-claw-vpn-dev-e2e-runner.sh
+```
+
+The runner still does not launch the app, contact Relay-R, open a socket, or
+mutate host networking. It requires the preflight payload to be
+`status == "ready"` with `summary_written == true`, verifies the private
+evidence directory and preflight summary permissions, then writes a sanitized
+`mobile-claw-vpn-dev-e2e-runner-summary.json` with:
+
+- `status: "ready_for_owner_present"`;
+- `owner_present_required: true`;
+- `app_launch_attempted: false`;
+- `relay_contact_attempted: false`;
+- `raw_values_printed: false`.
+
+If the preflight returns `skipped` or `refused`, the runner emits a sanitized
+`preflight_not_ready` result. Future E2E automation must gate on
+`status == "ready_for_owner_present"` before asking the owner to run the real
+device flow.
+
 ## Owner-Present E2E Shape
 
-After the preflight is green and the owner has Device-D unlocked:
+After the preflight and status-aware runner are green, and the owner has
+Device-D unlocked:
 
 1. Build and install `Soyeht Dev` with normal development signing for
    `com.soyeht.app.dev`.
