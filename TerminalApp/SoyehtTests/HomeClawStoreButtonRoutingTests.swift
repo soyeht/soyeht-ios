@@ -171,6 +171,141 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
+    func test_mobileClawVPNControlPlaneFlag_isDevOnlyAndDefaultOff() throws {
+        let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
+
+        XCTAssertTrue(featureFlags.contains("private static let mobileClawVPNControlPlaneDefault = false"),
+            "The mobile Claw VPN control-plane surface must ship default-off."
+        )
+        XCTAssertTrue(featureFlags.contains("public static var mobileClawVPNControlPlaneEnabled: Bool"),
+            "The mobile Claw VPN control-plane flag should be computed so DEV/E2E can override it without changing the shipped default."
+        )
+        XCTAssertTrue(featureFlags.contains("\"-SoyehtMobileClawVPNControlPlaneE2E\""),
+            "The mobile Claw VPN control-plane E2E launch argument literal must live in the shared feature flag helper."
+        )
+        XCTAssertTrue(featureFlags.contains("isMobileClawVPNControlPlaneE2ELaunchArgumentEnabled"),
+            "The E2E launch argument must be exposed through a testable helper."
+        )
+        XCTAssertTrue(featureFlags.contains("@_spi(ClawStoreE2E)"),
+            "The E2E override setter must remain SPI-only."
+        )
+        XCTAssertTrue(featureFlags.contains("\"com.soyeht.app.dev\""))
+        XCTAssertTrue(featureFlags.contains("\"com.soyeht.mac.dev\""))
+        XCTAssertTrue(featureFlags.contains("_isDebugAssertConfiguration()"),
+            "Debug overrides must have no effect in optimized Release builds."
+        )
+    }
+
+    func test_mobileClawVPNControlPlaneSettingsRoute_isFlagGated() throws {
+        let settings = SourceCommentStripper.strip(try iosSource("Settings/SettingsRootView.swift"))
+        let routes = try iosSource("Settings/SettingsRoute.swift")
+        let accessibilityIDs = try iosSource("AccessibilityID.swift")
+
+        let row = try slice(
+            settings,
+            from: "if SoyehtFeatureFlags.mobileClawVPNControlPlaneEnabled",
+            to: "if identity.isActive"
+        )
+        XCTAssertTrue(row.contains("path.append(SettingsRoute.mobileClawVPNControlPlane)"),
+            "The Settings row must route through the dedicated mobile Claw VPN settings route."
+        )
+        XCTAssertTrue(row.contains("AccessibilityID.Settings.mobileClawVPNButton"),
+            "The row needs a stable automation identifier for DEV/E2E."
+        )
+
+        let destination = try slice(
+            settings,
+            from: ".navigationDestination(for: SettingsRoute.self)",
+            to: ".preferredColorScheme"
+        )
+        XCTAssertTrue(routes.contains("case mobileClawVPNControlPlane"),
+            "The mobile Claw VPN settings route must be explicit."
+        )
+        XCTAssertTrue(destination.contains("case .mobileClawVPNControlPlane:"))
+        XCTAssertTrue(destination.contains("MobileClawVPNRendezvousControlPlaneView()"))
+        XCTAssertTrue(accessibilityIDs.contains("mobileClawVPNAuthorizeButton"))
+        XCTAssertTrue(accessibilityIDs.contains("mobileClawVPNStatusLabel"))
+    }
+
+    func test_mobileClawVPNControlPlaneLaunchConfig_requiresExplicitDeviceAndClawIDs() {
+        let configured = MobileClawVPNRendezvousControlPlaneLaunchConfig.current(arguments: [
+            "Soyeht",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.deviceIDArgument,
+            "device-alpha",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.clawIDArgument,
+            "claw-alpha",
+        ])
+
+        XCTAssertTrue(configured.isConfigured)
+        XCTAssertEqual(configured.deviceId, "device-alpha")
+        XCTAssertEqual(configured.clawId, "claw-alpha")
+
+        let missingClaw = MobileClawVPNRendezvousControlPlaneLaunchConfig.current(arguments: [
+            "Soyeht",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.deviceIDArgument,
+            "device-alpha",
+        ])
+        XCTAssertFalse(missingClaw.isConfigured)
+        XCTAssertEqual(missingClaw.deviceId, "device-alpha")
+        XCTAssertNil(missingClaw.clawId)
+
+        let emptyDevice = MobileClawVPNRendezvousControlPlaneLaunchConfig.current(arguments: [
+            "Soyeht",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.deviceIDArgument,
+            "  ",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.clawIDArgument,
+            "claw-alpha",
+        ])
+        XCTAssertFalse(emptyDevice.isConfigured)
+        XCTAssertNil(emptyDevice.deviceId)
+        XCTAssertEqual(emptyDevice.clawId, "claw-alpha")
+
+        let nextFlagIsNotAValue = MobileClawVPNRendezvousControlPlaneLaunchConfig.current(arguments: [
+            "Soyeht",
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.deviceIDArgument,
+            MobileClawVPNRendezvousControlPlaneLaunchConfig.clawIDArgument,
+            "claw-alpha",
+        ])
+        XCTAssertFalse(nextFlagIsNotAValue.isConfigured)
+        XCTAssertNil(nextFlagIsNotAValue.deviceId)
+        XCTAssertEqual(nextFlagIsNotAValue.clawId, "claw-alpha")
+    }
+
+    func test_mobileClawVPNControlPlaneView_isHeadlessAndNoEcho() throws {
+        let settings = SourceCommentStripper.strip(try iosSource("Settings/SettingsRootView.swift"))
+        let view = try slice(
+            settings,
+            from: "struct MobileClawVPNRendezvousControlPlaneView",
+            to: "struct MobileClawVPNRendezvousControlPlaneLaunchConfig"
+        )
+
+        XCTAssertTrue(view.contains("@StateObject private var model: MobileClawVPNRendezvousViewModel"),
+            "The app surface must consume the headless ViewModel from SoyehtCore."
+        )
+        XCTAssertTrue(view.contains("await model.authorize(deviceId: deviceId, clawId: clawId)"),
+            "The button must only start the already-reviewed control-plane authorization workflow."
+        )
+        XCTAssertTrue(view.contains("guard let deviceId = config.deviceId, let clawId = config.clawId else { return }"),
+            "Missing launch config must fail closed before invoking the token-bearing authorizer."
+        )
+
+        XCTAssertFalse(view.contains("Production active"))
+        XCTAssertFalse(view.contains("authorization.productionActivation ?"))
+        XCTAssertFalse(view.contains("Text(deviceId"))
+        XCTAssertFalse(view.contains("Text(clawId"))
+        XCTAssertFalse(view.contains("NetworkExtension"))
+        XCTAssertFalse(view.contains("NEPacketTunnel"))
+        XCTAssertFalse(view.contains("NWConnection"))
+        XCTAssertFalse(view.contains("URLSession"))
+        XCTAssertFalse(view.contains("socket"))
+        XCTAssertFalse(view.contains("TUN"))
+        XCTAssertFalse(view.contains("utun"))
+        XCTAssertFalse(view.contains("route"))
+        XCTAssertFalse(view.contains("Logger"))
+        XCTAssertFalse(view.contains("os_log"))
+        XCTAssertFalse(view.contains("print("))
+    }
+
     func test_macHomeRowsExposeStableAutomationIdentifier() throws {
         let source = try iosSource("InstanceListView.swift")
         let accessibilityIDs = try iosSource("AccessibilityID.swift")
