@@ -123,6 +123,7 @@ evidence directory and preflight summary permissions, then writes a sanitized
 `mobile-claw-vpn-dev-e2e-runner-summary.json` with:
 
 - `status: "ready_for_owner_present"`;
+- a fresh `run_id` that matches the private runner summary;
 - `owner_present_required: true`;
 - `app_launch_attempted: false`;
 - `relay_contact_attempted: false`;
@@ -133,10 +134,51 @@ If the preflight returns `skipped` or `refused`, the runner emits a sanitized
 `status == "ready_for_owner_present"` before asking the owner to run the real
 device flow.
 
+## Fresh Owner-Presence Gate
+
+Readiness is not authorization to launch the app. The owner gate turns one
+fresh runner result into a short-lived, single-use execution gate without
+launching `Soyeht Dev` or contacting Relay-R.
+
+First, prepare an owner request:
+
+```sh
+SOYEHT_PREPARE_MOBILE_CLAW_VPN_DEV_E2E_OWNER_GATE=1 \
+  scripts/mobile-claw-vpn-dev-e2e-owner-gate.sh
+```
+
+The command reruns the status-aware runner, requires its stdout and `0600`
+summary to carry the same fresh `run_id`, binds the request to the merged clean
+`origin/main` SHA and the explicit Device-D selection, and returns a sanitized
+`attempt_id`. It writes no app-launch authority and still reports
+`app_launch_attempted=false`.
+
+With the owner present, acknowledge that exact attempt in the current shell:
+
+```sh
+SOYEHT_RUN_MOBILE_CLAW_VPN_DEV_E2E_OWNER_GATE=1 \
+SOYEHT_MOBILE_CLAW_VPN_OWNER_PRESENT_ACK='<attempt-id>' \
+  scripts/mobile-claw-vpn-dev-e2e-owner-gate.sh
+```
+
+The two owner-gate variables above are intentionally **not** accepted by the
+local env-file loader. Do not put them in `.env`, `.env.local`, or
+`.env.*.local`; they must be supplied for the owner-present invocation. The
+request expires after five minutes, can be acknowledged only once, and emits a
+two-minute `ready_for_dev_control_plane_run` gate. Artifact, readiness, alias,
+or Device-D binding changes fail closed. The gate remains tooling-only: it
+does not run `xcodebuild`, `devicectl`, the app, a relay, NetworkExtension, or
+host networking.
+
+The future physical-device executor must atomically consume both the
+owner-acknowledged state and execution-gate files before its first app install
+or launch. Exit code, a runner summary, an `attempt_id`, or an execution-gate
+file alone is not authority.
+
 ## Owner-Present E2E Shape
 
-After the preflight and status-aware runner are green, and the owner has
-Device-D unlocked:
+After the preflight, status-aware runner, and fresh owner-presence gate are
+green, and the owner has Device-D unlocked:
 
 1. Build and install `Soyeht Dev` with normal development signing for
    `com.soyeht.app.dev`.

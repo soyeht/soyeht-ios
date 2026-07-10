@@ -12,7 +12,7 @@ load_mobile_claw_vpn_dev_e2e_env "${repo_root}"
 preflight_bin="${SOYEHT_MOBILE_CLAW_VPN_DEV_E2E_PREFLIGHT_BIN:-${script_dir}/mobile-claw-vpn-dev-e2e-preflight.sh}"
 
 json() {
-  printf '{"status":"%s","reason":%s,"preflight_status":%s,"summary_written":%s,"bundle_id":"com.soyeht.app.dev","device_alias":"Device-D","claw_alias":"Claw-M","relay_alias":"Relay-R","mesh_alias":"Mesh-C","owner_present_required":true,"app_launch_attempted":false,"relay_contact_attempted":false,"raw_values_printed":false}\n' \
+  printf '{"status":"%s","reason":%s,"run_id":null,"preflight_status":%s,"summary_written":%s,"bundle_id":"com.soyeht.app.dev","device_alias":"Device-D","claw_alias":"Claw-M","relay_alias":"Relay-R","mesh_alias":"Mesh-C","owner_present_required":true,"app_launch_attempted":false,"relay_contact_attempted":false,"raw_values_printed":false}\n' \
     "$1" "$2" "$3" "$4"
 }
 
@@ -46,11 +46,12 @@ RELAY_ALIASES = {"Relay-R"}
 MESH_ALIASES = {"Mesh-C"}
 
 
-def emit(status, reason, preflight_status=None, summary_written=False, aliases=None):
+def emit(status, reason, preflight_status=None, summary_written=False, aliases=None, run_id=None):
     aliases = aliases or {}
     payload = {
         "status": status,
         "reason": reason,
+        "run_id": run_id,
         "preflight_status": preflight_status,
         "summary_written": summary_written,
         "bundle_id": aliases.get("bundle_id", "com.soyeht.app.dev"),
@@ -160,5 +161,12 @@ except OSError:
     emit("failed", "runner_summary_write_failed", "ready", False, aliases)
     raise SystemExit(0)
 
-emit("ready_for_owner_present", None, "ready", True, aliases)
+emit(
+    "ready_for_owner_present",
+    None,
+    "ready",
+    True,
+    aliases,
+    run_id=summary["run_id"],
+)
 PY
