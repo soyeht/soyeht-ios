@@ -38,6 +38,7 @@ git -C "${THEYOS_ROOT}" config user.name "contract-guard-test"
 git -C "${THEYOS_ROOT}" config user.email "contract-guard@example.invalid"
 git -C "${THEYOS_ROOT}" add .
 git -C "${THEYOS_ROOT}" commit --quiet -m fixture
+git -C "${THEYOS_ROOT}" branch -M main
 PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
 printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 
@@ -48,14 +49,20 @@ git -C "${IOS_ROOT}" add .
 git -C "${IOS_ROOT}" commit --quiet -m fixture
 
 run_guard() {
-  THEYOS_DIR="${THEYOS_ROOT}" SOYEHT_REQUIRE_LOCAL_PIN=1 \
+  THEYOS_DIR="${THEYOS_ROOT}" \
+    THEYOS_AUTHORITY_REPOSITORY="file://${THEYOS_ROOT}" \
+    SOYEHT_REQUIRE_LOCAL_PIN=1 \
     "${IOS_ROOT}/scripts/check-cross-repo-fixtures.sh"
 }
 
 expect_guard_failure() {
-  local label="$1"
+  local label="$1" expected="$2"
   if run_guard >"${TMP_ROOT}/${label}.log" 2>&1; then
     echo "error: guard accepted ${label} drift" >&2
+    exit 1
+  fi
+  if ! grep -Fq "${expected}" "${TMP_ROOT}/${label}.log"; then
+    echo "error: ${label} failed before the intended guard: ${expected}" >&2
     exit 1
   fi
   echo "PASS ${label}_drift_refused"
@@ -69,7 +76,7 @@ OWNER_SOURCE_REL="admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution
 
 printf '\n' >> "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
-expect_guard_failure vendor_only
+expect_guard_failure vendor_only "contract drift: ${OWNER_VENDOR_REL} differs"
 cp "${THEYOS_ROOT}/${OWNER_SOURCE_REL}" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
 run_guard >/dev/null
@@ -78,20 +85,47 @@ cp "${IOS_ROOT}/${OWNER_VENDOR_REL}" "${TMP_ROOT}/vendor-target.json"
 rm "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 ln -s "${TMP_ROOT}/vendor-target.json" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
-expect_guard_failure vendor_symlink
+expect_guard_failure vendor_symlink "must be an ordinary 100644 Git blob: ${OWNER_VENDOR_REL}"
 rm "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 cp "${THEYOS_ROOT}/${OWNER_SOURCE_REL}" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
 git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
 run_guard >/dev/null
 
 printf '\n' >> "${THEYOS_ROOT}/${OWNER_SOURCE_REL}"
-expect_guard_failure source_only
+git -C "${THEYOS_ROOT}" add "${OWNER_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" commit --quiet -m source-drift
+PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
+printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
+expect_guard_failure source_only "contract drift: ${OWNER_VENDOR_REL} differs"
 cp "${IOS_ROOT}/${OWNER_VENDOR_REL}" "${THEYOS_ROOT}/${OWNER_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" add "${OWNER_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" commit --quiet -m restore-source
+PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
+printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
+run_guard >/dev/null
+
+git -C "${THEYOS_ROOT}" switch --quiet -c unlanded-owner-fixture
+printf '\n' >> "${THEYOS_ROOT}/${OWNER_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" add "${OWNER_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" commit --quiet -m unlanded-source
+UNLANDED_PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
+cp "${THEYOS_ROOT}/${OWNER_SOURCE_REL}" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
+printf '%s\n' "${UNLANDED_PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
+expect_guard_failure unlanded_pin "iOS cross-repo pin is not landed on authoritative theyos/main"
+git -C "${THEYOS_ROOT}" switch --quiet main
+cp "${THEYOS_ROOT}/${OWNER_SOURCE_REL}" "${IOS_ROOT}/${OWNER_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${OWNER_VENDOR_REL}"
+printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
 run_guard >/dev/null
 
 printf '%040d\n' 0 > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
-expect_guard_failure pin_only
+expect_guard_failure pin_only "local theyos HEAD"
 printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
 run_guard >/dev/null
@@ -100,7 +134,7 @@ printf '%s\n' "${PIN}" > "${TMP_ROOT}/pin-target.sha"
 rm "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 ln -s "${TMP_ROOT}/pin-target.sha" "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
-expect_guard_failure pin_symlink
+expect_guard_failure pin_symlink "must be an ordinary 100644 Git blob: scripts/cross-repo-contract.sha"
 rm "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
 git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
