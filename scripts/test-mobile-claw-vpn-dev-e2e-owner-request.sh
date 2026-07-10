@@ -169,6 +169,19 @@ prepare_request() {
     "${request_wrapper}"
 }
 
+argument_evidence="${tmp_root}/caller-selected-repo-evidence"
+argument_output="$(
+  env -u SOYEHT_MOBILE_CLAW_VPN_DEV_E2E_ENV_FILE \
+    "${request_env[@]}" \
+    SOYEHT_MOBILE_CLAW_VPN_EVIDENCE_DIR="${argument_evidence}" \
+    SOYEHT_PREPARE_MOBILE_CLAW_VPN_DEV_E2E_OWNER_REQUEST=1 \
+    python3 "${request_python}" "${tmp_root}/caller-selected-repo"
+)" || true
+assert_json "${argument_output}" "failed" "owner_request_argument_refused"
+test ! -e "${argument_evidence}"
+test ! -e "${ledger}"
+printf 'ok caller_cannot_select_repository_provenance\n'
+
 evidence_ready="${tmp_root}/ready"
 prepare_output="$(
   umask 0377
@@ -413,4 +426,4 @@ PY
 test ! -e "${ledger}"
 printf 'ok source_has_no_ack_execute_or_runtime_authority\n'
 
-printf 'mobile Claw VPN DEV owner request self-test passed (7/7)\n'
+printf 'mobile Claw VPN DEV owner request self-test passed (8/8)\n'
