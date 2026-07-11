@@ -73,7 +73,7 @@ import Testing
     }
 
     /// Build a server-shaped start-response (random challenge — NOT a digest).
-    private static func startResponseBody() -> Data {
+    private static func startResponseBody() throws -> Data {
         let publicKey: [String: HouseholdCBORValue] = [
             "rpId": .text(sampleRpId),
             "challenge": .text(sampleChallenge.soyehtBase64URLEncodedString()),
@@ -88,7 +88,7 @@ import Testing
         return HouseholdCBOR.encode(.map([
             "v": .unsigned(1),
             "challenge_id": .text(sampleChallengeID),
-            "context": sampleContext().cborValue(),
+            "context": try sampleContext().cborValue(),
             "options": .map(["publicKey": .map(publicKey)]),
         ]))
     }
@@ -120,7 +120,7 @@ import Testing
                 let status = isStart ? startStatus : approveStatus
                 let body: Data
                 if isStart {
-                    body = status == 200 ? startResponseBody() : errorEnvelope
+                    body = status == 200 ? try startResponseBody() : errorEnvelope
                 } else {
                     recorder.recordApprove(req.httpBody, path: req.url?.path)
                     body = status == 200 ? HouseholdCBOR.encode(.map(["v": .unsigned(1)])) : errorEnvelope
@@ -151,7 +151,7 @@ import Testing
 
         try await orchestrator.approve(cursor: 7)
 
-        let expected = OwnerApprovalV2Finish(
+        let expected = try OwnerApprovalV2Finish(
             challengeID: Self.sampleChallengeID,
             approval: OwnerApprovalV2(
                 context: Self.sampleContext(),
@@ -194,7 +194,7 @@ import Testing
 
         #expect(recorder.approveCalled == true)
         #expect(recorder.approvePath == "/api/v1/household/owner-events/9/approve")
-        let expected = OwnerApprovalV2Finish(
+        let expected = try OwnerApprovalV2Finish(
             challengeID: Self.sampleChallengeID,
             approval: OwnerApprovalV2(
                 context: Self.sampleContext(),

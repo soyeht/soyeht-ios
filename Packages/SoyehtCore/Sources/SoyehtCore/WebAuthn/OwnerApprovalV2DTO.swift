@@ -197,10 +197,10 @@ public struct OwnerApprovalV2: Sendable, Equatable {
         self.userHandle = userHandle
     }
 
-    public func cborValue() -> HouseholdCBORValue {
+    public func cborValue() throws -> HouseholdCBORValue {
         var map: [String: HouseholdCBORValue] = [
             "v": .unsigned(UInt64(version)),
-            "context": context.cborValue(),
+            "context": try context.cborValue(),
             "credential_id": .bytes(credentialID),
             "authenticator_data": .bytes(authenticatorData),
             "client_data_json": .bytes(clientDataJSON),
@@ -212,8 +212,8 @@ public struct OwnerApprovalV2: Sendable, Equatable {
         return .map(map)
     }
 
-    public func canonicalBytes() -> Data {
-        HouseholdCBOR.encode(cborValue())
+    public func canonicalBytes() throws -> Data {
+        HouseholdCBOR.encode(try cborValue())
     }
 }
 
@@ -238,16 +238,16 @@ public struct OwnerApprovalV2Finish: Sendable, Equatable {
         self.approval = approval
     }
 
-    public func cborValue() -> HouseholdCBORValue {
+    public func cborValue() throws -> HouseholdCBORValue {
         .map([
             "v": .unsigned(UInt64(version)),
             "challenge_id": .text(challengeID),
-            "approval": approval.cborValue(),
+            "approval": try approval.cborValue(),
         ])
     }
 
-    public func canonicalBytes() -> Data {
-        HouseholdCBOR.encode(cborValue())
+    public func canonicalBytes() throws -> Data {
+        HouseholdCBOR.encode(try cborValue())
     }
 }
 
