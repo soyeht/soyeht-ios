@@ -1,0 +1,50 @@
+name: Owner-Present PRE-EFFECT Integrity
+
+# pull_request_target runs this trusted base-branch workflow. It fetches the PR
+# object but never checks out or executes code from that object.
+# The first landing is SHA-reviewed bootstrap; once present on main, this base
+# workflow makes later edits to the protected gate fail before PR-owned tests.
+on:
+  pull_request_target:
+    branches: [main]
+    paths:
+      - ".github/workflows/owner-present-pre-effect-gate.yml"
+      - ".github/workflows/owner-present-pre-effect-integrity.yml"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-gate:
+    name: Base-owned PRE-EFFECT gate integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted base
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+          path: soyeht-ios
+
+      - name: Compare protected objects without executing PR code
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          [[ "${BASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${EXPECTED_HEAD_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]]
+          git -C soyeht-ios fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          head_sha="$(git -C soyeht-ios rev-parse FETCH_HEAD)"
+          [[ "${head_sha}" == "${EXPECTED_HEAD_SHA}" ]]
+          bash -n \
+            soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh
+          bash soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh \
+            soyeht-ios "${BASE_SHA}" "${head_sha}"

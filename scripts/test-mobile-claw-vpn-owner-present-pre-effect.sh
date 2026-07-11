@@ -118,9 +118,20 @@ UPPERCASE_CASES=(
   "uppercase_symbol:Native/RelayStreamGuestFFI/src/uppercase_symbol.h"
   "uppercase_path:Native/RelayStreamGuestFFI/src/uppercase_path.rs"
 )
+BINARY_SURFACES=(
+  "existing_xcframework:Native/RelayStreamGuestFFI/RelayStreamGuestFFI.xcframework/macos-arm64/RelayStreamGuestFFI"
+  "future_xcframework:FutureExtension/Binaries/Future.xcframework/ios-arm64/Future"
+  "future_framework:FutureExtension/Binaries/Future.framework/Future"
+  "future_artifact_bundle:FutureExtension/Binaries/Future.artifactbundle/bin/Future"
+  "future_static_archive:FutureExtension/Binaries/libFuture.a"
+  "future_object:FutureExtension/Binaries/Future.o"
+  "future_dylib:FutureExtension/Binaries/libFuture.dylib"
+  "future_so:FutureExtension/Binaries/libFuture.so"
+)
 NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/check-cross-repo-fixtures.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
   "scripts/ci/lint-ui-resources.py"
   "scripts/dev-embedded-engine-smoke.sh"
   "scripts/dev-local-apple-attestation-capture.sh"
@@ -140,6 +151,7 @@ NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
   "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
   "scripts/test-secure-upgrade-app-attest-capture.sh"
 )
 NON_SHIPPING_CI_WORKFLOW_PATHS=(
@@ -148,6 +160,7 @@ NON_SHIPPING_CI_WORKFLOW_PATHS=(
   ".github/workflows/cross-repo-dep-check.yml"
   ".github/workflows/onboarding-quality.yml"
   ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/owner-present-pre-effect-integrity.yml"
   ".github/workflows/plural-rules-lint.yml"
   ".github/workflows/snapshot-record.yml"
   ".github/workflows/xcode.yml"
@@ -214,6 +227,14 @@ write_probe() {
         > "${output}"
       ;;
   esac
+}
+
+write_neutral_binary() {
+  local output="$1"
+  mkdir -p "$(dirname "${output}")"
+  # Mach-O magic plus neutral bytes proves binary crossing is path-structural,
+  # not dependent on an owner-present string surviving a binary grep.
+  printf '\317\372\355\376\000\000\000\000' > "${output}"
 }
 
 write_marker() {
@@ -306,6 +327,8 @@ write_probe \
 write_probe \
   "${TEST_ROOT_IOS}/Native/RelayStreamGuestFFI/SwiftTests/OwnerPresentNativeTests.swift" \
   direct
+write_neutral_binary \
+  "${TEST_ROOT_IOS}/Tests/Fixtures/Neutral.framework/Neutral"
 for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
   write_probe "${TEST_ROOT_IOS}/${automation_path}" direct
   if [[ "${automation_path}" == *.sh || "${automation_path}" == *.py ]]; then
@@ -369,6 +392,38 @@ for uppercase_pair in "${UPPERCASE_CASES[@]}"; do
   expect_fail "${uppercase_form}" "requires the ODB-verified activation marker" \
     "${CHECKER}" "${UPPERCASE_IOS}" "${UPPERCASE_THEYOS}"
 done
+
+for binary_pair in "${BINARY_SURFACES[@]}"; do
+  binary_label="${binary_pair%%:*}"
+  binary_path="${binary_pair#*:}"
+  BINARY_IOS="${TMP_DIR}/${binary_label}-ios"
+  BINARY_THEYOS="${TMP_DIR}/${binary_label}-theyos"
+  git clone -q "${INERT_IOS}" "${BINARY_IOS}"
+  git clone -q "${INERT_THEYOS}" "${BINARY_THEYOS}"
+  git -C "${BINARY_IOS}" config user.name "PRE-EFFECT Gate Test"
+  git -C "${BINARY_IOS}" config user.email "pre-effect-gate@example.test"
+  write_neutral_binary "${BINARY_IOS}/${binary_path}"
+  case "${binary_path}" in
+    *.a|*.o) ;;
+    *) chmod +x "${BINARY_IOS}/${binary_path}" ;;
+  esac
+  commit_all "${BINARY_IOS}" "neutral precompiled binary in ${binary_label}" >/dev/null
+  expect_fail "${binary_label}" "requires the ODB-verified activation marker" \
+    "${CHECKER}" "${BINARY_IOS}" "${BINARY_THEYOS}"
+done
+
+BINARY_LINK_IOS="${TMP_DIR}/binary-bundle-symlink-ios"
+BINARY_LINK_THEYOS="${TMP_DIR}/binary-bundle-symlink-theyos"
+git clone -q "${INERT_IOS}" "${BINARY_LINK_IOS}"
+git clone -q "${INERT_THEYOS}" "${BINARY_LINK_THEYOS}"
+git -C "${BINARY_LINK_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${BINARY_LINK_IOS}" config user.email "pre-effect-gate@example.test"
+mkdir -p "${BINARY_LINK_IOS}/FutureExtension/Binaries"
+ln -s neutral-target \
+  "${BINARY_LINK_IOS}/FutureExtension/Binaries/Future.xcframework"
+commit_all "${BINARY_LINK_IOS}" "precompiled binary bundle symlink" >/dev/null
+expect_fail binary_bundle_symlink "must be a regular 100644 or 100755 Git blob" \
+  "${CHECKER}" "${BINARY_LINK_IOS}" "${BINARY_LINK_THEYOS}"
 
 MARKER_IOS="${TMP_DIR}/marker-ios"
 MARKER_THEYOS="${TMP_DIR}/marker-theyos"

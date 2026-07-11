@@ -56,11 +56,24 @@ on:
       - "**/CMakeLists.txt"
       - "**/Podfile"
       - "**/Fastfile"
+      - "**/*.xcframework/**"
+      - "**/*.xcframework"
+      - "**/*.framework/**"
+      - "**/*.framework"
+      - "**/*.artifactbundle/**"
+      - "**/*.artifactbundle"
+      - "**/*.a"
+      - "**/*.o"
+      - "**/*.dylib"
+      - "**/*.so"
       - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
       - "scripts/cross-repo-contract.sha"
       - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
       - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
       - ".github/workflows/owner-present-pre-effect-gate.yml"
+      - ".github/workflows/owner-present-pre-effect-integrity.yml"
   push:
     branches: [main]
     paths:
@@ -113,12 +126,28 @@ on:
       - "**/CMakeLists.txt"
       - "**/Podfile"
       - "**/Fastfile"
+      - "**/*.xcframework/**"
+      - "**/*.xcframework"
+      - "**/*.framework/**"
+      - "**/*.framework"
+      - "**/*.artifactbundle/**"
+      - "**/*.artifactbundle"
+      - "**/*.a"
+      - "**/*.o"
+      - "**/*.dylib"
+      - "**/*.so"
       - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
       - "scripts/cross-repo-contract.sha"
       - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
       - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
       - ".github/workflows/owner-present-pre-effect-gate.yml"
+      - ".github/workflows/owner-present-pre-effect-integrity.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   crossing-check:
@@ -143,7 +172,10 @@ jobs:
         run: |
           bash -n \
             soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh \
-            soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh
+            soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh \
+            soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh \
+            soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh
+          bash soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh
           bash soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh
           bash soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh \
             soyeht-ios theyos

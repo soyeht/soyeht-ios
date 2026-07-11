@@ -24,6 +24,7 @@ SEALED_PRE_EFFECT_BLOBS=(
 NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/check-cross-repo-fixtures.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
   "scripts/ci/lint-ui-resources.py"
   "scripts/dev-embedded-engine-smoke.sh"
   "scripts/dev-local-apple-attestation-capture.sh"
@@ -43,6 +44,7 @@ NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
   "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
   "scripts/test-secure-upgrade-app-attest-capture.sh"
 )
 NON_SHIPPING_CI_WORKFLOW_PATHS=(
@@ -51,6 +53,7 @@ NON_SHIPPING_CI_WORKFLOW_PATHS=(
   ".github/workflows/cross-repo-dep-check.yml"
   ".github/workflows/onboarding-quality.yml"
   ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/owner-present-pre-effect-integrity.yml"
   ".github/workflows/plural-rules-lint.yml"
   ".github/workflows/snapshot-record.yml"
   ".github/workflows/xcode.yml"
@@ -100,6 +103,19 @@ sha256_file() {
   fi
 }
 
+is_shipping_binary_surface() {
+  local path="$1"
+  case "${path}" in
+    *.xcframework|*.xcframework/*|*.framework|*.framework/*|\
+    *.artifactbundle|*.artifactbundle/*|*.a|*.o|*.dylib|*.so)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 is_shipping_surface() {
   local path="$1" automation_path workflow_path
   # Exclude only explicit test/automation roots. A file named *Tests.swift or
@@ -121,6 +137,9 @@ is_shipping_surface() {
       return 1
     fi
   done
+  if is_shipping_binary_surface "${path}"; then
+    return 0
+  fi
   if [[ "${path}" =~ (^|/)(scripts|Scripts)/ ]]; then
     return 0
   fi
@@ -194,6 +213,15 @@ while IFS= read -r -d '' path; do
   is_sealed_path "${path}" && continue
   [[ "${path}" == "${PIN_REL}" ]] && continue
   candidate="${TMP_DIR}/candidate-${candidate_index}"
+  if is_shipping_binary_surface "${path}"; then
+    materialize_regular_blob \
+      "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" \
+      "shipping precompiled binary" "100644 100755"
+    echo "Shipping precompiled binary detected: ${path}"
+    runtime_detected=1
+    candidate_index=$((candidate_index + 1))
+    continue
+  fi
   materialize_regular_blob \
     "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" "shipping source" \
     "100644 100755"
