@@ -19,9 +19,36 @@ SEALED_PRE_EFFECT_BLOBS=(
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/OwnerApprovalV2DTO.swift:c26db58cdc5c9e8dddfb98f21eda4c024ba5ac79"
 )
 
+# Exact dev/test/CI automation that is not consumed by a shipping build. Every
+# other file under a scripts/Scripts directory is scanned by default.
+NON_SHIPPING_AUTOMATION_PATHS=(
+  "scripts/check-cross-repo-fixtures.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/ci/lint-ui-resources.py"
+  "scripts/dev-embedded-engine-smoke.sh"
+  "scripts/dev-local-apple-attestation-capture.sh"
+  "scripts/gen-claw-store-contract-constants.py"
+  "scripts/mobile-claw-vpn-dev-e2e-env.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.py"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-preflight.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/secure-upgrade-app-attest-capture.sh"
+  "scripts/sync-cross-repo-fixtures.sh"
+  "scripts/test-cross-repo-fixture-guard.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-secure-upgrade-app-attest-capture.sh"
+)
+
 DIRECT_PATTERN='owner[-_ -]?present|owner_approval_consumed|RevalidatedCapability|ConsumedCapability|PointOfUsePermit|proof[-_ ]?token|mesh_c_owner_present_offer_control|owner_present_mint_offer'
 DOMAIN_PATTERN='MobileClawVPN|mobileClawVPN|mobile_claw_vpn|mobile-claw-vpn'
-SECURITY_PATTERN='OwnerApproval|ownerApproval|owner_approval|Passkey|passkey|WebAuthn|webauthn|Proof|proof|MintLease|RevalidatedCapability|ConsumedCapability|PointOfUsePermit|ApprovalTransport|approvalTransport|Ceremony|ceremony|PasskeyAssertion|OwnerAssertion'
+SECURITY_PATTERN='OwnerApproval|ownerApproval|owner_approval|Passkey|passkey|WebAuthn|webauthn|Proof|proof|MintLease|RevalidatedCapability|ConsumedCapability|PointOfUsePermit|ApprovalTransport|approvalTransport|approval_transport|Ceremony|ceremony|PasskeyAssertion|OwnerAssertion'
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
@@ -64,18 +91,26 @@ sha256_file() {
 }
 
 is_shipping_surface() {
-  local path="$1"
+  local path="$1" automation_path
   # Exclude only explicit test/automation roots. A file named *Tests.swift or
   # placed in TestSupport inside a Sources/app target is still shipping code.
   if [[ "${path}" =~ ^Tests/ \
     || "${path}" =~ ^Packages/[^/]+/Tests/ \
     || "${path}" =~ ^Native/[^/]+/SwiftTests/ \
     || "${path}" =~ ^TerminalApp/(SoyehtTests|SoyehtMacTests)/ \
-    || "${path}" =~ ^(scripts|Benchmarks|QA)/ ]]; then
+    || "${path}" =~ ^(Benchmarks|QA)/ ]]; then
     return 1
   fi
+  for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
+    if [[ "${path}" == "${automation_path}" ]]; then
+      return 1
+    fi
+  done
+  if [[ "${path}" =~ (^|/)(scripts|Scripts)/ ]]; then
+    return 0
+  fi
   case "${path}" in
-    *.swift|*.sh|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
+    *.swift|*.sh|*.py|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
     Cargo.toml|Cargo.lock|*/Cargo.lock|*.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
       return 0
       ;;
@@ -100,11 +135,11 @@ contains_runtime_signal() {
   if grep -Eiq "${DIRECT_PATTERN}" "${file}"; then
     return 0
   fi
-  if grep -Eq "${DOMAIN_PATTERN}" "${file}" \
+  if grep -Eiq "${DOMAIN_PATTERN}" "${file}" \
     && grep -Eiq "${SECURITY_PATTERN}" "${file}"; then
     return 0
   fi
-  if grep -Eq "${DOMAIN_PATTERN}" "${file}" \
+  if grep -Eiq "${DOMAIN_PATTERN}" "${file}" \
     && grep -Eiq '(^|[^[:alnum:]_])owner([^[:alnum:]_]|$)' "${file}" \
     && grep -Eiq '(^|[^[:alnum:]_])present([^[:alnum:]_]|$)' "${file}"; then
     return 0
@@ -135,6 +170,7 @@ while IFS= read -r -d '' path; do
   [[ -z "${path}" ]] && continue
   is_shipping_surface "${path}" || continue
   is_sealed_path "${path}" && continue
+  [[ "${path}" == "${PIN_REL}" ]] && continue
   candidate="${TMP_DIR}/candidate-${candidate_index}"
   materialize_regular_blob \
     "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" "shipping source" \

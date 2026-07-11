@@ -20,6 +20,16 @@ SEALED_PATHS=(
 )
 SURFACES=(
   "core:Packages/SoyehtCore/Sources/SoyehtCore/API/CrossingProbe.swift"
+  "top_bootstrap_shell:scripts/bootstrap-relay-stream-guest-ffi.sh"
+  "top_build_dmg_shell:scripts/build-dmg.sh"
+  "top_bundle_apns_shell:scripts/bundle-apns-key.sh"
+  "top_embed_engine_shell:scripts/embed-engine.sh"
+  "top_fetch_engine_shell:scripts/fetch-engine.sh"
+  "top_regen_unicode_python:scripts/regen_unicode_width_data.py"
+  "top_future_build_shell:scripts/future-shipping-build.sh"
+  "top_export_options:scripts/ExportOptions.plist"
+  "top_engine_digest:scripts/theyos-engine.sha256"
+  "top_engine_version:scripts/theyos-engine.version"
   "core_tests_suffix:Packages/SoyehtCore/Sources/SoyehtCore/API/MobileClawVPNOwnerPresentTests.swift"
   "core_test_support:Packages/SoyehtCore/Sources/SoyehtCore/TestSupport/MobileClawVPNOwnerPresentAdapter.swift"
   "core_snapshots_name:Packages/SoyehtCore/Sources/SoyehtCore/__Snapshots__/CrossingProbe.swift"
@@ -77,8 +87,38 @@ SURFACES=(
   "future_plist:FutureExtension/Resources/CrossingProbe.plist"
   "future_entitlements:FutureExtension/CrossingProbe.entitlements"
   "future_extension:FutureExtension/Sources/CrossingProbe.swift"
+  "future_lowercase_generator:FutureExtension/scripts/generate"
+  "future_uppercase_generator:FutureExtension/Scripts/generate"
   $'filename_tab:FutureExtension/Sources/Crossing\tProbe.swift'
   $'filename_newline:FutureExtension/Sources/Crossing\nProbe.swift'
+)
+UPPERCASE_CASES=(
+  "uppercase_symbol:Native/RelayStreamGuestFFI/src/uppercase_symbol.h"
+  "uppercase_path:Native/RelayStreamGuestFFI/src/uppercase_path.rs"
+)
+NON_SHIPPING_AUTOMATION_PATHS=(
+  "scripts/check-cross-repo-fixtures.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/ci/lint-ui-resources.py"
+  "scripts/dev-embedded-engine-smoke.sh"
+  "scripts/dev-local-apple-attestation-capture.sh"
+  "scripts/gen-claw-store-contract-constants.py"
+  "scripts/mobile-claw-vpn-dev-e2e-env.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.py"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-preflight.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/secure-upgrade-app-attest-capture.sh"
+  "scripts/sync-cross-repo-fixtures.sh"
+  "scripts/test-cross-repo-fixture-guard.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-secure-upgrade-app-attest-capture.sh"
 )
 
 sha256_file() {
@@ -132,6 +172,14 @@ write_probe() {
         'enum MobileClawVPNRouteProbe {' \
         '    static let route = ["owner", "present", "finish"].joined(separator: "-")' \
         '}' > "${output}"
+      ;;
+    uppercase_symbol)
+      printf '%s\n' '#define MOBILE_CLAW_VPN_APPROVAL_TRANSPORT 1' > "${output}"
+      ;;
+    uppercase_path)
+      printf '%s\n' \
+        'static const char *MOBILE_CLAW_VPN_ROUTE = "OWNER/PRESENT/FINISH";' \
+        > "${output}"
       ;;
   esac
 }
@@ -226,8 +274,16 @@ write_probe \
 write_probe \
   "${TEST_ROOT_IOS}/Native/RelayStreamGuestFFI/SwiftTests/OwnerPresentNativeTests.swift" \
   direct
-commit_all "${TEST_ROOT_IOS}" "owner-present test roots remain non-shipping" >/dev/null
-expect_pass explicit_test_roots "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
+for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
+  write_probe "${TEST_ROOT_IOS}/${automation_path}" direct
+  if [[ "${automation_path}" == *.sh || "${automation_path}" == *.py ]]; then
+    chmod +x "${TEST_ROOT_IOS}/${automation_path}"
+  fi
+done
+commit_all "${TEST_ROOT_IOS}" \
+  "owner-present test roots and automation remain non-shipping" >/dev/null
+expect_pass explicit_test_and_automation_roots \
+  "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
 
 SEALED_IOS="${TMP_DIR}/sealed-mutation-ios"
 SEALED_THEYOS="${TMP_DIR}/sealed-mutation-theyos"
@@ -252,13 +308,29 @@ for surface_pair in "${SURFACES[@]}"; do
     git -C "${CASE_IOS}" config user.name "PRE-EFFECT Gate Test"
     git -C "${CASE_IOS}" config user.email "pre-effect-gate@example.test"
     write_probe "${CASE_IOS}/${relative_path}" "${form}"
-    if [[ "${relative_path}" == *.sh ]]; then
+    if [[ "${relative_path}" == *.sh || "${relative_path}" == *.py ]]; then
       chmod +x "${CASE_IOS}/${relative_path}"
     fi
     commit_all "${CASE_IOS}" "${form} crossing in ${surface}" >/dev/null
     expect_fail "${surface}_${form}" "requires the ODB-verified activation marker" \
       "${CHECKER}" "${CASE_IOS}" "${CASE_THEYOS}"
   done
+done
+
+for uppercase_pair in "${UPPERCASE_CASES[@]}"; do
+  uppercase_form="${uppercase_pair%%:*}"
+  uppercase_path="${uppercase_pair#*:}"
+  UPPERCASE_IOS="${TMP_DIR}/${uppercase_form}-ios"
+  UPPERCASE_THEYOS="${TMP_DIR}/${uppercase_form}-theyos"
+  git clone -q "${INERT_IOS}" "${UPPERCASE_IOS}"
+  git clone -q "${INERT_THEYOS}" "${UPPERCASE_THEYOS}"
+  git -C "${UPPERCASE_IOS}" config user.name "PRE-EFFECT Gate Test"
+  git -C "${UPPERCASE_IOS}" config user.email "pre-effect-gate@example.test"
+  write_probe "${UPPERCASE_IOS}/${uppercase_path}" "${uppercase_form}"
+  commit_all "${UPPERCASE_IOS}" \
+    "${uppercase_form} uppercase Native crossing" >/dev/null
+  expect_fail "${uppercase_form}" "requires the ODB-verified activation marker" \
+    "${CHECKER}" "${UPPERCASE_IOS}" "${UPPERCASE_THEYOS}"
 done
 
 MARKER_IOS="${TMP_DIR}/marker-ios"
