@@ -9,6 +9,7 @@
 #   THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 #   SOYEHT_SYNC_ONLY=claw-store THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 #   SOYEHT_SYNC_ONLY=mobile-claw-vpn THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
+#   SOYEHT_SYNC_ONLY=owner-approval-v2 THEYOS_DIR=/path/to/theyos scripts/sync-cross-repo-fixtures.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -52,7 +53,8 @@ sync_claw_store_contract() {
     uv run python "${SCRIPT_DIR}/gen-claw-store-contract-constants.py"
 }
 
-if [[ "${SOYEHT_SYNC_ONLY:-}" != "mobile-claw-vpn" ]]; then
+if [[ "${SOYEHT_SYNC_ONLY:-}" != "mobile-claw-vpn" \
+  && "${SOYEHT_SYNC_ONLY:-}" != "owner-approval-v2" ]]; then
     sync_claw_store_contract
 fi
 if [[ "${SOYEHT_SYNC_ONLY:-}" == "claw-store" ]]; then
@@ -78,11 +80,35 @@ sync_mobile_claw_vpn_contracts() {
     done
 }
 
-sync_mobile_claw_vpn_contracts
+if [[ "${SOYEHT_SYNC_ONLY:-}" != "owner-approval-v2" ]]; then
+    sync_mobile_claw_vpn_contracts
+fi
 
 if [[ "${SOYEHT_SYNC_ONLY:-}" == "mobile-claw-vpn" ]]; then
     echo ""
     echo "Sync complete. Commit the updated fixture files if they changed."
+    exit 0
+fi
+
+# -- OwnerApprovalV2 generic success-wire vectors -----------------------------
+sync_owner_approval_v2_contract() {
+    local source="${THEYOS_DIR}/admin/rust/server-rs/tests/data/owner_approval_v2_wire_vectors.json"
+    local destination="${TESTS}/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json"
+
+    if [[ ! -f "${source}" ]]; then
+        echo "error: OwnerApprovalV2 wire fixture not found at ${source}" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "${destination}")"
+    cp "${source}" "${destination}"
+    echo "✓ owner_approval_v2_wire_vectors.json"
+}
+
+sync_owner_approval_v2_contract
+
+if [[ "${SOYEHT_SYNC_ONLY:-}" == "owner-approval-v2" ]]; then
+    echo ""
+    echo "Sync complete. Commit the updated fixture file if it changed."
     exit 0
 fi
 
