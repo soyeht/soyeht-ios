@@ -127,7 +127,7 @@ import Testing
             attestation: attestation,
             assertion: assertion
         )
-        #expect(recorder.finishBody == expectedFinish.canonicalBytes())
+        #expect(recorder.finishBody == (try expectedFinish.canonicalBytes()))
         #expect(result.credentialID == Data([0x44, 0x55, 0x66]))
         #expect(result.activeCredentialCount == 2)
     }

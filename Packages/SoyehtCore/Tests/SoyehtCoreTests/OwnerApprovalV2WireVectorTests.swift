@@ -155,7 +155,7 @@ import Testing
         let vectors = try Self.load(WireVectors.self, "owner_approval_v2_wire_vectors")
         #expect(vectors.ownerApprovals.count == 2)
         for vector in vectors.ownerApprovals {
-            let encoded = Self.approval(vector.input).canonicalBytes().soyehtHexEncodedString()
+            let encoded = try Self.approval(vector.input).canonicalBytes().soyehtHexEncodedString()
             #expect(
                 encoded == vector.canonicalCborHex,
                 "\(vector.id): OwnerApprovalV2 canonical CBOR != Rust. got \(encoded)"
@@ -172,7 +172,7 @@ import Testing
                 challengeID: vector.input.challengeId,
                 approval: Self.approval(vector.input.approval)
             )
-            let encoded = finish.canonicalBytes().soyehtHexEncodedString()
+            let encoded = try finish.canonicalBytes().soyehtHexEncodedString()
             #expect(
                 encoded == vector.canonicalCborHex,
                 "\(vector.id): OwnerApprovalV2Finish canonical CBOR != Rust. got \(encoded)"
@@ -206,7 +206,7 @@ import Testing
 
     @Test func startResponseAllowCredentialsAbsentEmptyOrNullDecodeToEmpty() throws {
         for variant in [AllowCredentialsVariant.absent, .null, .empty] {
-            let cbor = Self.makeStartResponse(allowCredentials: variant)
+            let cbor = try Self.makeStartResponse(allowCredentials: variant)
             let decoded = try OwnerApprovalV2StartResponse(cbor: cbor)
             #expect(decoded.allowedCredentialIDs.isEmpty, "variant \(variant) should decode to []")
         }
@@ -216,7 +216,9 @@ import Testing
 
     /// Build a minimal valid start-response CBOR with the chosen allowCredentials
     /// representation, to exercise the decoder's absent/null/empty collapse.
-    static func makeStartResponse(allowCredentials: AllowCredentialsVariant) -> HouseholdCBORValue {
+    static func makeStartResponse(
+        allowCredentials: AllowCredentialsVariant
+    ) throws -> HouseholdCBORValue {
         let context = OwnerApprovalContextV2(
             op: .pairMachineApprove,
             householdID: "hh_test",
@@ -239,7 +241,7 @@ import Testing
         return .map([
             "v": .unsigned(1),
             "challenge_id": .text("00"),
-            "context": context.cborValue(),
+            "context": try context.cborValue(),
             "options": .map(["publicKey": .map(publicKey)]),
         ])
     }
@@ -253,7 +255,7 @@ import Testing
             let bytes = Self.hexDecode(vector.canonicalCborHex)
             let context = try OwnerApprovalContextV2(cbor: HouseholdCBOR.decode(bytes))
             #expect(
-                context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
+                try context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
                 "\(vector.id): context decode->re-encode drifted"
             )
         }
