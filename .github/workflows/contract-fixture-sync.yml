@@ -16,6 +16,7 @@ on:
     paths:
       - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/**"
       - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/**"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/**"
       - "docs/contracts/**"
       - "scripts/check-cross-repo-fixtures.sh"
       - "scripts/sync-cross-repo-fixtures.sh"
