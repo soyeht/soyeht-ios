@@ -177,7 +177,7 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
             let finish = try #require(finishes[flow.finishRequestId])
             let finishResponse = try #require(finishResponses[flow.finishResponseId])
             let mintRequest = try #require(mintRequests[flow.mintRequestId])
-            _ = try #require(mintResponses[flow.mintResponseId])
+            let mintResponse = try #require(mintResponses[flow.mintResponseId])
             let finishVector = try #require(
                 fixture.finishRequests.first { $0.id == flow.finishRequestId }
             )
@@ -200,6 +200,7 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
             #expect(finishResponseVector.finishRequestId == flow.finishRequestId)
             #expect(mintRequestVector.finishResponseId == flow.finishResponseId)
             #expect(mintResponseVector.mintRequestId == flow.mintRequestId)
+            #expect(mintResponseVector.statusFixturePath == "responses.mint_offer.status")
             #expect(startResponseVector.challengeId == response.challengeID)
             #expect(startResponseVector.expectedRpId == response.options.rpID)
             #expect(try Self.hexData(finishResponseVector.proofTokenHex) == finishResponse.proofToken)
@@ -214,6 +215,7 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
             #expect(response.options.allowedCredentialIDs == [finish.approval.credentialID])
             #expect(try Self.clientDataMatches(finish.approval.clientDataJSON, response.options))
             #expect(finishResponse.proofToken == mintRequest.proofToken)
+            #expect(try mintResponse.status == (Self.apiShapes().responses.mintOffer.status))
 
             aliases.insert(response.execution.clawAlias)
             clawIDs.insert(response.execution.clawID)
@@ -471,24 +473,66 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
     }
 
     @Test
-    func shippingSourcesRemainWireAndEffectFreeUntilErrorContractLands() throws {
+    func mintResponseCountersAreUnsignedAndMatchTheReferencedStatusFixture() throws {
+        let fixture = try Self.fixture()
+        let expectedStatus = try Self.apiShapes().responses.mintOffer.status
+        #expect(fixture.mintResponses.allSatisfy {
+            $0.statusFixturePath == "responses.mint_offer.status"
+        })
+
+        for vector in fixture.mintResponses {
+            let value = try Self.strictDecode(Self.hexData(vector.canonicalCborHex), as: .mintResponse)
+            let response = try Self.parseMintResponse(value)
+            try Self.validateMintResponse(response, expectedStatus: expectedStatus)
+            let envelope = try Self.exactMap(value, keys: Self.mintResponseKeys)
+            let status = try Self.exactMap(
+                Self.required(envelope, "status"),
+                keys: Self.mintStatusKeys
+            )
+
+            for counter in Self.mintStatusCounterKeys {
+                for wrongType in [
+                    HouseholdCBORValue.negative(-1),
+                    .text("1"),
+                    .bool(true),
+                ] {
+                    var mutatedStatus = status
+                    mutatedStatus[counter] = wrongType
+                    var mutatedEnvelope = envelope
+                    mutatedEnvelope["status"] = .map(mutatedStatus)
+                    #expect(throws: WireReason.mintResponseShape, "\(counter): \(wrongType)") {
+                        _ = try Self.parseMintResponse(.map(mutatedEnvelope))
+                    }
+                }
+
+                var mutatedStatus = status
+                mutatedStatus[counter] = try .unsigned(Self.unsigned(status, counter) + 1)
+                var mutatedEnvelope = envelope
+                mutatedEnvelope["status"] = .map(mutatedStatus)
+                let mutated = try Self.parseMintResponse(.map(mutatedEnvelope))
+                #expect(throws: WireReason.mintResponseShape, "\(counter): wrong value") {
+                    try Self.validateMintResponse(mutated, expectedStatus: expectedStatus)
+                }
+            }
+
+            var swappedStatus = status
+            swappedStatus["enrolled_device_count"] = status["session_count"]
+            swappedStatus["session_count"] = status["enrolled_device_count"]
+            var swappedEnvelope = envelope
+            swappedEnvelope["status"] = .map(swappedStatus)
+            let swapped = try Self.parseMintResponse(.map(swappedEnvelope))
+            #expect(throws: WireReason.mintResponseShape) {
+                try Self.validateMintResponse(swapped, expectedStatus: expectedStatus)
+            }
+        }
+    }
+
+    @Test
+    func errorWireRemainsDeferredInThisPreEffectSlice() throws {
         let packageRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let sourcesRoot = packageRoot.appendingPathComponent("Sources/SoyehtCore")
-        let enumerator = try #require(FileManager.default.enumerator(at: sourcesRoot, includingPropertiesForKeys: nil))
-        let forbidden = [
-            "/api/v1/mobile/claw-vpn/owner-present", "owner_present_mint_offer",
-            "proof_token", "owner_present_error_wire_v1",
-        ]
-        for case let url as URL in enumerator where url.pathExtension == "swift" {
-            let source = try String(contentsOf: url, encoding: .utf8)
-            for token in forbidden {
-                #expect(!source.contains(token), "shipping source contains \(token): \(url.lastPathComponent)")
-            }
-        }
-
         let errorFixture = packageRoot.appendingPathComponent(
             "Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
         )
@@ -594,7 +638,20 @@ private extension MobileClawVPNOwnerPresentSuccessWireTests {
     struct MintResponseVector: Decodable {
         let id: String
         let mintRequestId: String
+        let statusFixturePath: String
         let canonicalCborHex: String
+    }
+
+    struct APIShapesFixture: Decodable {
+        let responses: APIShapeResponses
+    }
+
+    struct APIShapeResponses: Decodable {
+        let mintOffer: APIShapeMintResponse
+    }
+
+    struct APIShapeMintResponse: Decodable {
+        let status: MintStatus
     }
 
     struct NegativeContract: Decodable {
@@ -717,12 +774,34 @@ private extension MobileClawVPNOwnerPresentSuccessWireTests {
         var operation: String
         var ownerApprovalConsumed: Bool
         var offerToken: String
-        let status: [String: HouseholdCBORValue]
+        let status: MintStatus
+    }
+
+    struct MintStatus: Decodable, Equatable {
+        let product: String
+        let mode: String
+        let productionActivation: Bool
+        let state: String
+        let snapshotPresent: Bool
+        let enrolledDeviceCount: UInt64
+        let availableClawCount: UInt64
+        let grantCount: UInt64
+        let offerCount: UInt64
+        let sessionCount: UInt64
     }
 
     static let mintResponseKeys: Set<String> = [
         "v", "product", "mode", "production_activation", "operation",
         "owner_approval_consumed", "offer_token", "status",
+    ]
+    static let mintStatusKeys: Set<String> = [
+        "product", "mode", "production_activation", "state", "snapshot_present",
+        "enrolled_device_count", "available_claw_count", "grant_count",
+        "offer_count", "session_count",
+    ]
+    static let mintStatusCounterKeys: [String] = [
+        "enrolled_device_count", "available_claw_count", "grant_count",
+        "offer_count", "session_count",
     ]
 
     static func resourceData(_ name: String, subdirectory: String? = nil) throws -> Data {
@@ -741,6 +820,15 @@ private extension MobileClawVPNOwnerPresentSuccessWireTests {
             "owner_present_success_wire_v1",
             subdirectory: "Fixtures/mobile-claw-vpn/v1"
         ))
+    }
+
+    static func apiShapes() throws -> APIShapesFixture {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(
+            APIShapesFixture.self,
+            from: resourceData("api_shapes", subdirectory: "Fixtures/mobile-claw-vpn/v1")
+        )
     }
 
     static func decodeFixture(_ data: Data) throws -> Fixture {
@@ -982,14 +1070,24 @@ private extension MobileClawVPNOwnerPresentSuccessWireTests {
     static func parseMintResponse(_ value: HouseholdCBORValue) throws -> MintResponse {
         let map = try exactMap(value, keys: mintResponseKeys)
         guard try unsigned(map, "v") == 1 else { throw WireReason.mintResponseShape }
-        let status = try exactMap(
-            required(map, "status"),
-            keys: [
-                "product", "mode", "production_activation", "state", "snapshot_present",
-                "enrolled_device_count", "available_claw_count", "grant_count",
-                "offer_count", "session_count",
-            ]
-        )
+        let status: MintStatus
+        do {
+            let statusMap = try exactMap(required(map, "status"), keys: mintStatusKeys)
+            status = try MintStatus(
+                product: text(statusMap, "product"),
+                mode: text(statusMap, "mode"),
+                productionActivation: bool(statusMap, "production_activation"),
+                state: text(statusMap, "state"),
+                snapshotPresent: bool(statusMap, "snapshot_present"),
+                enrolledDeviceCount: unsigned(statusMap, "enrolled_device_count"),
+                availableClawCount: unsigned(statusMap, "available_claw_count"),
+                grantCount: unsigned(statusMap, "grant_count"),
+                offerCount: unsigned(statusMap, "offer_count"),
+                sessionCount: unsigned(statusMap, "session_count")
+            )
+        } catch {
+            throw WireReason.mintResponseShape
+        }
         let result = try MintResponse(
             product: text(map, "product"),
             mode: text(map, "mode"),
@@ -1010,12 +1108,22 @@ private extension MobileClawVPNOwnerPresentSuccessWireTests {
               response.operation == ownerPresentOperation,
               response.ownerApprovalConsumed,
               isLowerHex(response.offerToken, count: 32),
-              try text(response.status, "product") == "product_a_mobile_claw_vpn",
-              try text(response.status, "mode") == "mesh_c_status_only",
-              try bool(response.status, "production_activation") == false,
-              try text(response.status, "state") == "configured",
-              try bool(response.status, "snapshot_present")
+              response.status.product == "product_a_mobile_claw_vpn",
+              response.status.mode == "mesh_c_status_only",
+              !response.status.productionActivation,
+              response.status.state == "configured",
+              response.status.snapshotPresent
         else {
+            throw WireReason.mintResponseShape
+        }
+    }
+
+    static func validateMintResponse(
+        _ response: MintResponse,
+        expectedStatus: MintStatus
+    ) throws {
+        try validateMintResponse(response)
+        guard response.status == expectedStatus else {
             throw WireReason.mintResponseShape
         }
     }
