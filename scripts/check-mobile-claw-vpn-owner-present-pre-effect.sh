@@ -54,23 +54,17 @@ sha256_file() {
 
 is_shipping_surface() {
   local path="$1"
+  # Exclude only explicit test/automation roots. A file named *Tests.swift or
+  # placed in TestSupport inside a Sources/app target is still shipping code.
   case "${path}" in
-    *Tests/*|*Tests.swift|*/TestSupport/*|*/__Snapshots__/*|scripts/*|Benchmarks/*)
+    Tests/*|Packages/*/Tests/*|Native/*/SwiftTests/*|TerminalApp/SoyehtTests/*|\
+    TerminalApp/SoyehtMacTests/*|scripts/*|Benchmarks/*|QA/*)
       return 1
       ;;
   esac
   case "${path}" in
-    Package.swift|Packages/*/Package.swift|Packages/*/Sources/*|Sources/*|Native/*|\
-    TerminalApp/main.swift|TerminalApp/Base.xcconfig|TerminalApp/Soyeht/*|\
-    TerminalApp/SoyehtMac/*|TerminalApp/HouseCreatedNotificationService/*|\
-    TerminalApp/SoyehtLiveActivity/*|TerminalApp/*.xcodeproj/project.pbxproj)
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-  case "${path}" in
-    *.swift|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
+    *.swift|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
+    Cargo.toml|Cargo.lock|*/Cargo.lock|*.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
       return 0
       ;;
     *)

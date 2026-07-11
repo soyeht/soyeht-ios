@@ -20,10 +20,39 @@ SEALED_PATHS=(
 )
 SURFACES=(
   "core:Packages/SoyehtCore/Sources/SoyehtCore/API/CrossingProbe.swift"
+  "core_tests_suffix:Packages/SoyehtCore/Sources/SoyehtCore/API/MobileClawVPNOwnerPresentTests.swift"
+  "core_test_support:Packages/SoyehtCore/Sources/SoyehtCore/TestSupport/MobileClawVPNOwnerPresentAdapter.swift"
+  "core_snapshots_name:Packages/SoyehtCore/Sources/SoyehtCore/__Snapshots__/CrossingProbe.swift"
+  "root_test_prefix:TestsSupport/CrossingProbe.swift"
+  "package_test_prefix:Packages/SoyehtCore/TestsSupport/CrossingProbe.swift"
   "ios_app:TerminalApp/Soyeht/Settings/CrossingProbe.swift"
+  "terminal_test_prefix:TerminalApp/SoyehtTestsSupport/CrossingProbe.swift"
+  "terminal_mac_test_prefix:TerminalApp/SoyehtMacTestsSupport/CrossingProbe.swift"
   "mac_app:TerminalApp/SoyehtMac/CrossingProbe.swift"
   "notification_extension:TerminalApp/HouseCreatedNotificationService/CrossingProbe.swift"
   "live_activity_extension:TerminalApp/SoyehtLiveActivity/CrossingProbe.swift"
+  "native_rust:Native/RelayStreamGuestFFI/src/crossing_probe.rs"
+  "native_c:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.c"
+  "native_cc:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.cc"
+  "native_cpp:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.cpp"
+  "native_cxx:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.cxx"
+  "native_objc:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.m"
+  "native_objcpp:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.mm"
+  "native_header:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/include/crossing_probe.h"
+  "native_hh:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/include/crossing_probe.hh"
+  "native_hpp:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/include/crossing_probe.hpp"
+  "native_modulemap:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/include/crossing_probe.modulemap"
+  "native_cargo:Native/RelayStreamGuestFFI/Cargo.toml"
+  "native_cargo_lock:Native/RelayStreamGuestFFI/Cargo.lock"
+  "native_udl:Native/RelayStreamGuestFFI/src/crossing_probe.udl"
+  "native_toml:Native/RelayStreamGuestFFI/config/crossing_probe.toml"
+  "native_test_prefix:Native/RelayStreamGuestFFI/TestsSupport/crossing_probe.rs"
+  "native_swift_test_prefix:Native/RelayStreamGuestFFI/SwiftTestsSupport/CrossingProbe.swift"
+  "future_xcconfig:FutureExtension/Config/CrossingProbe.xcconfig"
+  "future_pbxproj:FutureExtension/CrossingProbe.xcodeproj/project.pbxproj"
+  "future_plist:FutureExtension/Resources/CrossingProbe.plist"
+  "future_entitlements:FutureExtension/CrossingProbe.entitlements"
+  "future_extension:FutureExtension/Sources/CrossingProbe.swift"
 )
 
 sha256_file() {
@@ -149,6 +178,30 @@ printf '%s\n' 'struct UnrelatedSettingsProbe {}' \
   > "${UNRELATED_IOS}/TerminalApp/Soyeht/Settings/UnrelatedSettingsProbe.swift"
 commit_all "${UNRELATED_IOS}" "unrelated shipping change" >/dev/null
 expect_pass unrelated_shipping "${CHECKER}" "${UNRELATED_IOS}" "${UNRELATED_THEYOS}"
+
+TEST_ROOT_IOS="${TMP_DIR}/test-root-ios"
+TEST_ROOT_THEYOS="${TMP_DIR}/test-root-theyos"
+git clone -q "${INERT_IOS}" "${TEST_ROOT_IOS}"
+git clone -q "${INERT_THEYOS}" "${TEST_ROOT_THEYOS}"
+git -C "${TEST_ROOT_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${TEST_ROOT_IOS}" config user.email "pre-effect-gate@example.test"
+write_probe \
+  "${TEST_ROOT_IOS}/Tests/OwnerPresentRootTests.swift" \
+  direct
+write_probe \
+  "${TEST_ROOT_IOS}/Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerPresentContractTests.swift" \
+  direct
+write_probe \
+  "${TEST_ROOT_IOS}/TerminalApp/SoyehtTests/OwnerPresentPresentationTests.swift" \
+  direct
+write_probe \
+  "${TEST_ROOT_IOS}/TerminalApp/SoyehtMacTests/OwnerPresentPresentationTests.swift" \
+  direct
+write_probe \
+  "${TEST_ROOT_IOS}/Native/RelayStreamGuestFFI/SwiftTests/OwnerPresentNativeTests.swift" \
+  direct
+commit_all "${TEST_ROOT_IOS}" "owner-present test roots remain non-shipping" >/dev/null
+expect_pass explicit_test_roots "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
 
 SEALED_IOS="${TMP_DIR}/sealed-mutation-ios"
 SEALED_THEYOS="${TMP_DIR}/sealed-mutation-theyos"
