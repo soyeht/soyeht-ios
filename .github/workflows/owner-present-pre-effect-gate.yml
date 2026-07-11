@@ -1,0 +1,63 @@
+name: Owner-Present PRE-EFFECT Gate
+
+# This gate is deliberately repo-wide. Test-only and unrelated shipping changes
+# may pass, but every current or future app/extension/package surface is scanned
+# from the Git object database before owner-present runtime may appear.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Package.swift"
+      - "Packages/**/Package.swift"
+      - "Packages/**/Sources/**"
+      - "Sources/**"
+      - "Native/**"
+      - "TerminalApp/**"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
+      - "scripts/cross-repo-contract.sha"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - ".github/workflows/owner-present-pre-effect-gate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "Package.swift"
+      - "Packages/**/Package.swift"
+      - "Packages/**/Sources/**"
+      - "Sources/**"
+      - "Native/**"
+      - "TerminalApp/**"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
+      - "scripts/cross-repo-contract.sha"
+      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+      - ".github/workflows/owner-present-pre-effect-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  crossing-check:
+    name: iOS owner-present PRE-EFFECT crossing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout soyeht-ios
+        uses: actions/checkout@v5
+        with:
+          path: soyeht-ios
+
+      - name: Checkout theyos authority
+        uses: actions/checkout@v5
+        with:
+          repository: soyeht/theyos
+          path: theyos
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prove the PRE-EFFECT crossing remains closed
+        shell: bash
+        run: |
+          bash -n \
+            soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh \
+            soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh
+          bash soyeht-ios/scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh
+          bash soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh \
+            soyeht-ios theyos
