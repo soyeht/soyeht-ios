@@ -31,13 +31,13 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
         await task.value
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.count("finish") == 1)
         #expect(recorder.count("mint") == 0)
     }
 
     @Test @MainActor
-    func alreadyCancelledPrepareDoesNotInvokeStart() async throws {
+    func alreadyCancelledPrepareCanRetryBeforeStartIsInvoked() async throws {
         let recorder = Recorder()
         let binding = try Self.binding()
         let coordinator = MobileClawVPNOwnerPresentTestHarness.makeCoordinator(
@@ -64,6 +64,14 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
 
         #expect(coordinator.phase == .failed(canRetry: true))
         #expect(recorder.events.isEmpty)
+
+        await coordinator.prepare(target: .clawM)
+
+        guard case .prepared = coordinator.phase else {
+            Issue.record("expected pre-start cancellation to remain retryable")
+            return
+        }
+        #expect(recorder.events == ["start"])
     }
 
     @Test @MainActor
@@ -91,7 +99,7 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
         await task.value
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.events.isEmpty)
     }
 
@@ -122,8 +130,9 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
         task.cancel()
         await gate.release()
         await task.value
+        await coordinator.prepare(target: .clawM)
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.events == ["start"])
     }
 
@@ -154,9 +163,46 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
         await task.value
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.count("finish") == 1)
         #expect(recorder.count("mint") == 0)
+    }
+
+    @Test @MainActor
+    func cancellationDuringNonCooperativeMintCannotPublishOrRearm() async throws {
+        let recorder = Recorder()
+        let gate = Gate()
+        let binding = try Self.binding()
+        let coordinator = MobileClawVPNOwnerPresentTestHarness.makeCoordinator(
+            context: "engine-a",
+            start: { context, _ in
+                recorder.record("start", context: context)
+                return (binding, "prepared")
+            },
+            finish: { context, _, _ in
+                recorder.record("finish", context: context)
+                return "finish-artifact"
+            },
+            mint: { context, _ in
+                recorder.record("mint", context: context)
+                await gate.wait()
+                return try MobileClawVPNOwnerPresentSummary(status: Self.status())
+            }
+        )
+        await coordinator.prepare(target: .clawM)
+
+        let task = Task { @MainActor in await coordinator.confirm() }
+        await gate.waitUntilEntered()
+        task.cancel()
+        await gate.release()
+        await task.value
+        await coordinator.prepare(target: .clawM)
+        await coordinator.confirm()
+
+        #expect(coordinator.phase == .failed(canRetry: false))
+        #expect(recorder.count("start") == 1)
+        #expect(recorder.count("finish") == 1)
+        #expect(recorder.count("mint") == 1)
     }
 }
 #endif

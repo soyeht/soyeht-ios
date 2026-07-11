@@ -41,7 +41,7 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
 
         await coordinator.prepare(target: .clawM)
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.events == ["start"])
     }
 
@@ -73,7 +73,7 @@ extension MobileClawVPNOwnerPresentBoundaryTests {
             }
         )
         #expect(source.contains("fileprivate init(\n        execution:"))
-        #expect(source.components(separatedBy: "try Task.checkCancellation()").count - 1 == 4)
+        #expect(source.components(separatedBy: "try Task.checkCancellation()").count - 1 == 5)
         #expect(!source.contains("SoyehtAPIClient"))
         #expect(!source.contains("mobileClawVPNMintOffer"))
         #expect(!source.contains("ServerContext"))
