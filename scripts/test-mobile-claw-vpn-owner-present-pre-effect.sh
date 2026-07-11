@@ -24,6 +24,9 @@ SURFACES=(
   "core_test_support:Packages/SoyehtCore/Sources/SoyehtCore/TestSupport/MobileClawVPNOwnerPresentAdapter.swift"
   "core_snapshots_name:Packages/SoyehtCore/Sources/SoyehtCore/__Snapshots__/CrossingProbe.swift"
   "core_nested_tests:Packages/SoyehtCore/Sources/SoyehtCore/Tests/CrossingProbe.swift"
+  "core_nested_swift_tests:Packages/SoyehtCore/Sources/SoyehtCore/SwiftTests/CrossingProbe.swift"
+  "core_nested_soyeht_tests:Packages/SoyehtCore/Sources/SoyehtCore/SoyehtTests/CrossingProbe.swift"
+  "core_nested_soyeht_mac_tests:Packages/SoyehtCore/Sources/SoyehtCore/SoyehtMacTests/CrossingProbe.swift"
   "core_nested_scripts:Packages/SoyehtCore/Sources/SoyehtCore/scripts/CrossingProbe.swift"
   "core_nested_benchmarks:Packages/SoyehtCore/Sources/SoyehtCore/Benchmarks/CrossingProbe.swift"
   "core_nested_qa:Packages/SoyehtCore/Sources/SoyehtCore/QA/CrossingProbe.swift"
@@ -35,10 +38,17 @@ SURFACES=(
   "terminal_mac_test_prefix:TerminalApp/SoyehtMacTestsSupport/CrossingProbe.swift"
   "terminal_nested_tests:TerminalApp/Soyeht/Sources/Foo/SoyehtTests/CrossingProbe.swift"
   "terminal_nested_mac_tests:TerminalApp/SoyehtMac/Sources/Foo/SoyehtMacTests/CrossingProbe.swift"
+  "terminal_nested_generic_tests:TerminalApp/Soyeht/Sources/Foo/Tests/CrossingProbe.swift"
+  "terminal_nested_swift_tests:TerminalApp/Soyeht/Sources/Foo/SwiftTests/CrossingProbe.swift"
+  "terminal_nested_scripts:TerminalApp/Soyeht/Sources/Foo/scripts/CrossingProbe.swift"
+  "terminal_nested_benchmarks:TerminalApp/Soyeht/Sources/Foo/Benchmarks/CrossingProbe.swift"
+  "terminal_nested_qa:TerminalApp/Soyeht/Sources/Foo/QA/CrossingProbe.swift"
   "mac_app:TerminalApp/SoyehtMac/CrossingProbe.swift"
   "notification_extension:TerminalApp/HouseCreatedNotificationService/CrossingProbe.swift"
   "live_activity_extension:TerminalApp/SoyehtLiveActivity/CrossingProbe.swift"
   "native_rust:Native/RelayStreamGuestFFI/src/crossing_probe.rs"
+  "native_build_shell:Native/RelayStreamGuestFFI/Scripts/build-relay-stream-guest-ffi-xcframework.sh"
+  "native_postprocess_shell:Native/RelayStreamGuestFFI/Scripts/postprocess-uniffi-swift.sh"
   "native_c:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.c"
   "native_cc:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.cc"
   "native_cpp:Native/RelayStreamGuestFFI/Sources/relay_stream_guest_ffiFFI/crossing_probe.cpp"
@@ -56,11 +66,19 @@ SURFACES=(
   "native_test_prefix:Native/RelayStreamGuestFFI/TestsSupport/crossing_probe.rs"
   "native_swift_test_prefix:Native/RelayStreamGuestFFI/SwiftTestsSupport/CrossingProbe.swift"
   "native_nested_swift_tests:Native/RelayStreamGuestFFI/Sources/Foo/SwiftTests/CrossingProbe.rs"
+  "native_nested_generic_tests:Native/RelayStreamGuestFFI/Sources/Foo/Tests/CrossingProbe.rs"
+  "native_nested_soyeht_tests:Native/RelayStreamGuestFFI/Sources/Foo/SoyehtTests/CrossingProbe.rs"
+  "native_nested_soyeht_mac_tests:Native/RelayStreamGuestFFI/Sources/Foo/SoyehtMacTests/CrossingProbe.rs"
+  "native_nested_scripts:Native/RelayStreamGuestFFI/Sources/Foo/scripts/crossing_probe.rs"
+  "native_nested_benchmarks:Native/RelayStreamGuestFFI/Sources/Foo/Benchmarks/crossing_probe.rs"
+  "native_nested_qa:Native/RelayStreamGuestFFI/Sources/Foo/QA/crossing_probe.rs"
   "future_xcconfig:FutureExtension/Config/CrossingProbe.xcconfig"
   "future_pbxproj:FutureExtension/CrossingProbe.xcodeproj/project.pbxproj"
   "future_plist:FutureExtension/Resources/CrossingProbe.plist"
   "future_entitlements:FutureExtension/CrossingProbe.entitlements"
   "future_extension:FutureExtension/Sources/CrossingProbe.swift"
+  $'filename_tab:FutureExtension/Sources/Crossing\tProbe.swift'
+  $'filename_newline:FutureExtension/Sources/Crossing\nProbe.swift'
 )
 
 sha256_file() {
@@ -234,6 +252,9 @@ for surface_pair in "${SURFACES[@]}"; do
     git -C "${CASE_IOS}" config user.name "PRE-EFFECT Gate Test"
     git -C "${CASE_IOS}" config user.email "pre-effect-gate@example.test"
     write_probe "${CASE_IOS}/${relative_path}" "${form}"
+    if [[ "${relative_path}" == *.sh ]]; then
+      chmod +x "${CASE_IOS}/${relative_path}"
+    fi
     commit_all "${CASE_IOS}" "${form} crossing in ${surface}" >/dev/null
     expect_fail "${surface}_${form}" "requires the ODB-verified activation marker" \
       "${CHECKER}" "${CASE_IOS}" "${CASE_THEYOS}"

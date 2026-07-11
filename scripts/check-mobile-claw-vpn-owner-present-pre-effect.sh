@@ -31,16 +31,27 @@ THEYOS_HEAD_SHA="$(git -C "${THEYOS_DIR}" rev-parse HEAD)"
 
 materialize_regular_blob() {
   local repo="$1" commit="$2" path="$3" destination="$4" label="$5"
-  local entry mode type object
-  entry="$(git -C "${repo}" ls-tree "${commit}" -- "${path}")"
+  local allowed_modes="${6:-100644}"
+  local entry mode type object mode_description
+  entry="$(git -C "${repo}" ls-tree \
+    --format='%(objectmode) %(objecttype) %(objectname)' \
+    "${commit}" -- ":(literal)${path}")"
   if [[ -z "${entry}" ]]; then
     return 1
   fi
-  read -r mode type object _ <<< "${entry}"
-  if [[ "${mode}" != "100644" || "${type}" != "blob" ]]; then
-    echo "::error file=${path}::${label} must be a regular 100644 Git blob"
+  read -r mode type object <<< "${entry}"
+  mode_description="${allowed_modes// / or }"
+  if [[ "${type}" != "blob" ]]; then
+    echo "::error file=${path}::${label} must be a regular ${mode_description} Git blob"
     exit 1
   fi
+  case " ${allowed_modes} " in
+    *" ${mode} "*) ;;
+    *)
+      echo "::error file=${path}::${label} must be a regular ${mode_description} Git blob"
+      exit 1
+      ;;
+  esac
   git -C "${repo}" cat-file blob "${object}" > "${destination}"
 }
 
@@ -64,7 +75,7 @@ is_shipping_surface() {
     return 1
   fi
   case "${path}" in
-    *.swift|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
+    *.swift|*.sh|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
     Cargo.toml|Cargo.lock|*/Cargo.lock|*.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
       return 0
       ;;
@@ -120,19 +131,20 @@ for pair in "${SEALED_PRE_EFFECT_BLOBS[@]}"; do
 done
 
 candidate_index=0
-while IFS= read -r path; do
+while IFS= read -r -d '' path; do
   [[ -z "${path}" ]] && continue
   is_shipping_surface "${path}" || continue
   is_sealed_path "${path}" && continue
   candidate="${TMP_DIR}/candidate-${candidate_index}"
   materialize_regular_blob \
-    "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" "shipping source"
+    "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" "shipping source" \
+    "100644 100755"
   if contains_runtime_signal "${candidate}"; then
     echo "Shipping owner-present runtime signal detected: ${path}"
     runtime_detected=1
   fi
   candidate_index=$((candidate_index + 1))
-done < <(git -C "${IOS_DIR}" ls-tree -r --name-only "${IOS_HEAD_SHA}")
+done < <(git -C "${IOS_DIR}" ls-tree -rz --name-only "${IOS_HEAD_SHA}")
 
 MARKER="${TMP_DIR}/activation-marker"
 marker_exists=1

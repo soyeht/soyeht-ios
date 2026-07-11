@@ -9,6 +9,7 @@ on:
     paths:
       - "Package.swift"
       - "**/*.swift"
+      - "**/*.sh"
       - "**/*.m"
       - "**/*.mm"
       - "**/*.h"
@@ -38,6 +39,7 @@ on:
     paths:
       - "Package.swift"
       - "**/*.swift"
+      - "**/*.sh"
       - "**/*.m"
       - "**/*.mm"
       - "**/*.h"
