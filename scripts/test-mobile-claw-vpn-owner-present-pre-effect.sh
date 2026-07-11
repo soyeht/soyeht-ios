@@ -30,6 +30,17 @@ SURFACES=(
   "top_export_options:scripts/ExportOptions.plist"
   "top_engine_digest:scripts/theyos-engine.sha256"
   "top_engine_version:scripts/theyos-engine.version"
+  "macos_release_workflow:.github/workflows/macos-release.yml"
+  "future_release_workflow:.github/workflows/future-release.yaml"
+  "root_makefile:Makefile"
+  "root_package_resolved:Package.resolved"
+  "package_resolved:Packages/SoyehtCore/Package.resolved"
+  "metal_shader:Sources/SwiftTerm/Apple/Metal/CrossingProbe.metal"
+  "core_localization:Packages/SoyehtCore/Sources/SoyehtCore/Resources/Localizable.xcstrings"
+  "ios_storyboard:TerminalApp/Soyeht/Base.lproj/CrossingProbe.storyboard"
+  "ios_scheme:TerminalApp/Soyeht.xcodeproj/xcshareddata/xcschemes/CrossingProbe.xcscheme"
+  "ios_workspace:TerminalApp/Soyeht.xcodeproj/project.xcworkspace/contents.xcworkspacedata"
+  "ios_asset_json:TerminalApp/Soyeht/Assets.xcassets/CrossingProbe.imageset/Contents.json"
   "core_tests_suffix:Packages/SoyehtCore/Sources/SoyehtCore/API/MobileClawVPNOwnerPresentTests.swift"
   "core_test_support:Packages/SoyehtCore/Sources/SoyehtCore/TestSupport/MobileClawVPNOwnerPresentAdapter.swift"
   "core_snapshots_name:Packages/SoyehtCore/Sources/SoyehtCore/__Snapshots__/CrossingProbe.swift"
@@ -89,6 +100,17 @@ SURFACES=(
   "future_extension:FutureExtension/Sources/CrossingProbe.swift"
   "future_lowercase_generator:FutureExtension/scripts/generate"
   "future_uppercase_generator:FutureExtension/Scripts/generate"
+  "future_strings:FutureExtension/Resources/CrossingProbe.strings"
+  "future_stringsdict:FutureExtension/Resources/CrossingProbe.stringsdict"
+  "future_swiftinterface:FutureExtension/Interfaces/CrossingProbe.swiftinterface"
+  "future_cmake:FutureExtension/Native/CMakeLists.txt"
+  "future_cmake_module:FutureExtension/Native/crossing_probe.cmake"
+  "future_ruby_build:FutureExtension/fastlane/build.rb"
+  "future_fastfile:FutureExtension/fastlane/Fastfile"
+  "future_podfile:FutureExtension/Podfile"
+  "future_storekit:FutureExtension/Resources/CrossingProbe.storekit"
+  "future_kotlin:FutureExtension/Kotlin/CrossingProbe.kt"
+  "future_gradle:FutureExtension/Kotlin/build.gradle.kts"
   $'filename_tab:FutureExtension/Sources/Crossing\tProbe.swift'
   $'filename_newline:FutureExtension/Sources/Crossing\nProbe.swift'
 )
@@ -119,6 +141,16 @@ NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/test-secure-upgrade-app-attest-capture.sh"
+)
+NON_SHIPPING_CI_WORKFLOW_PATHS=(
+  ".github/workflows/accessibility-audit.yml"
+  ".github/workflows/contract-fixture-sync.yml"
+  ".github/workflows/cross-repo-dep-check.yml"
+  ".github/workflows/onboarding-quality.yml"
+  ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/plural-rules-lint.yml"
+  ".github/workflows/snapshot-record.yml"
+  ".github/workflows/xcode.yml"
 )
 
 sha256_file() {
@@ -280,8 +312,11 @@ for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
     chmod +x "${TEST_ROOT_IOS}/${automation_path}"
   fi
 done
+for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
+  write_probe "${TEST_ROOT_IOS}/${workflow_path}" direct
+done
 commit_all "${TEST_ROOT_IOS}" \
-  "owner-present test roots and automation remain non-shipping" >/dev/null
+  "owner-present test roots, automation, and CI remain non-shipping" >/dev/null
 expect_pass explicit_test_and_automation_roots \
   "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
 
@@ -308,7 +343,9 @@ for surface_pair in "${SURFACES[@]}"; do
     git -C "${CASE_IOS}" config user.name "PRE-EFFECT Gate Test"
     git -C "${CASE_IOS}" config user.email "pre-effect-gate@example.test"
     write_probe "${CASE_IOS}/${relative_path}" "${form}"
-    if [[ "${relative_path}" == *.sh || "${relative_path}" == *.py ]]; then
+    if [[ "${relative_path}" == *.sh \
+      || "${relative_path}" == *.py \
+      || "${relative_path}" == *.rb ]]; then
       chmod +x "${CASE_IOS}/${relative_path}"
     fi
     commit_all "${CASE_IOS}" "${form} crossing in ${surface}" >/dev/null

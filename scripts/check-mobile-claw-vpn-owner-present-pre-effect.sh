@@ -45,6 +45,16 @@ NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/test-secure-upgrade-app-attest-capture.sh"
 )
+NON_SHIPPING_CI_WORKFLOW_PATHS=(
+  ".github/workflows/accessibility-audit.yml"
+  ".github/workflows/contract-fixture-sync.yml"
+  ".github/workflows/cross-repo-dep-check.yml"
+  ".github/workflows/onboarding-quality.yml"
+  ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/plural-rules-lint.yml"
+  ".github/workflows/snapshot-record.yml"
+  ".github/workflows/xcode.yml"
+)
 
 DIRECT_PATTERN='owner[-_ -]?present|owner_approval_consumed|RevalidatedCapability|ConsumedCapability|PointOfUsePermit|proof[-_ ]?token|mesh_c_owner_present_offer_control|owner_present_mint_offer'
 DOMAIN_PATTERN='MobileClawVPN|mobileClawVPN|mobile_claw_vpn|mobile-claw-vpn'
@@ -91,7 +101,7 @@ sha256_file() {
 }
 
 is_shipping_surface() {
-  local path="$1" automation_path
+  local path="$1" automation_path workflow_path
   # Exclude only explicit test/automation roots. A file named *Tests.swift or
   # placed in TestSupport inside a Sources/app target is still shipping code.
   if [[ "${path}" =~ ^Tests/ \
@@ -106,12 +116,24 @@ is_shipping_surface() {
       return 1
     fi
   done
+  for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
+    if [[ "${path}" == "${workflow_path}" ]]; then
+      return 1
+    fi
+  done
   if [[ "${path}" =~ (^|/)(scripts|Scripts)/ ]]; then
     return 0
   fi
+  if [[ "${path}" =~ ^\.github/workflows/[^/]+\.(yml|yaml)$ ]]; then
+    return 0
+  fi
   case "${path}" in
-    *.swift|*.sh|*.py|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
-    Cargo.toml|Cargo.lock|*/Cargo.lock|*.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
+    *.swift|*.swiftinterface|*.sh|*.py|*.rb|*.yml|*.yaml|*.json|*.m|*.mm|*.h|*.hh|*.hpp|\
+    *.c|*.cc|*.cpp|*.cxx|*.rs|*.kt|*.kts|*.gradle|*.modulemap|*.toml|*.cmake|*.metal|\
+    *.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig|*.xcstrings|*.strings|*.stringsdict|\
+    *.storyboard|*.xcscheme|*.xcworkspacedata|*.storekit|Cargo.toml|Cargo.lock|*/Cargo.lock|\
+    Package.resolved|*/Package.resolved|Makefile|*/Makefile|CMakeLists.txt|*/CMakeLists.txt|\
+    Podfile|*/Podfile|Fastfile|*/Fastfile)
       return 0
       ;;
     *)
