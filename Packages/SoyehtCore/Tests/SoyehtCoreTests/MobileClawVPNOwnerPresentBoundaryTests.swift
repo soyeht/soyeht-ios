@@ -112,7 +112,7 @@ import Testing
         await coordinator.prepare(target: .clawM)
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.events == ["start"])
     }
 
@@ -137,7 +137,7 @@ import Testing
         await coordinator.confirm()
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
         #expect(recorder.count("finish") == 1)
         #expect(recorder.count("mint") == 0)
     }
@@ -148,8 +148,14 @@ import Testing
         let binding = try Self.binding()
         let coordinator = MobileClawVPNOwnerPresentTestHarness.makeCoordinator(
             context: "engine-a",
-            start: { _, _ in (binding, "prepared") },
-            finish: { _, _, _ in "finish-artifact" },
+            start: { context, _ in
+                recorder.record("start", context: context)
+                return (binding, "prepared")
+            },
+            finish: { context, _, _ in
+                recorder.record("finish", context: context)
+                return "finish-artifact"
+            },
             mint: { context, _ in
                 recorder.record("mint", context: context)
                 throw TestError.responseLost
@@ -158,9 +164,12 @@ import Testing
 
         await coordinator.prepare(target: .clawM)
         await coordinator.confirm()
+        await coordinator.prepare(target: .clawM)
         await coordinator.confirm()
 
-        #expect(coordinator.phase == .failed(canRetry: true))
+        #expect(coordinator.phase == .failed(canRetry: false))
+        #expect(recorder.count("start") == 1)
+        #expect(recorder.count("finish") == 1)
         #expect(recorder.count("mint") == 1)
     }
 

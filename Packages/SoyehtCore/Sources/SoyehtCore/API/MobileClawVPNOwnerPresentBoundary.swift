@@ -275,16 +275,21 @@ final class MobileClawVPNOwnerPresentCoordinator {
 
     func prepare(target: MobileClawVPNOwnerPresentTarget) async {
         switch phase {
-        case .idle, .failed:
+        case .idle:
             break
-        case .preparing, .prepared, .executing, .completed:
+        case .failed(let canRetry) where canRetry:
+            break
+        case .failed, .preparing, .prepared, .executing, .completed:
             return
         }
 
         prepared = nil
         phase = .preparing
+        var canRetry = true
         do {
             try Task.checkCancellation()
+            // After start is invoked, its remote outcome may be ambiguous.
+            canRetry = false
             let next = try await session.start(target: target)
             try Task.checkCancellation()
             let review = next.review
@@ -292,7 +297,7 @@ final class MobileClawVPNOwnerPresentCoordinator {
             phase = .prepared(review)
         } catch {
             prepared = nil
-            phase = .failed(canRetry: true)
+            phase = .failed(canRetry: canRetry)
         }
     }
 
@@ -303,9 +308,10 @@ final class MobileClawVPNOwnerPresentCoordinator {
         phase = .executing
         do {
             let summary = try await prepared.confirmAndMint()
+            try Task.checkCancellation()
             phase = .completed(summary)
         } catch {
-            phase = .failed(canRetry: true)
+            phase = .failed(canRetry: false)
         }
     }
 }
