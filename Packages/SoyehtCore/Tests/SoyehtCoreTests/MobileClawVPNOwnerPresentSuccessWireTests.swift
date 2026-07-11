@@ -3,7 +3,9 @@ import Foundation
 @testable import SoyehtCore
 import Testing
 
-@Suite("Mobile Claw VPN owner-present success wire C1")
+// V1 is historical PRE-EFFECT evidence. Phase 1 must use the server-held
+// capability contract required by the 2026-07-11 architecture decision.
+@Suite("Historical PRE-EFFECT owner-present success wire C1")
 struct MobileClawVPNOwnerPresentSuccessWireTests {
     private static let successFixtureSHA256 =
         "ff9ad533567e29261ecbd8e11e84e9490f1829bd4d2e5b50fe8783dc82b000d1"

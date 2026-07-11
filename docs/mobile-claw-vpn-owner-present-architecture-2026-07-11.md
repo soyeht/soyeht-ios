@@ -22,8 +22,9 @@ The authoritative controls are:
    explicit activation.
 2. The server-side owner-present effect has no production route or issuer before
    activation.
-3. After activation, one private server mutation sink accepts only a fresh,
-   server-produced, single-use capability bound to the exact operation.
+3. Phase 1 implements one private server mutation sink that accepts only a
+   fresh, server-produced, single-use capability bound to the exact operation;
+   production activation remains a later human gate.
 4. Release provenance covers the complete shipped product and all external
    native inputs.
 5. Activation remains an explicit human gate. This document is not that gate.
@@ -95,15 +96,34 @@ The production system is closed before activation:
 
 No runtime configuration flag may silently turn Phase 0 into Phase 1.
 
-## Phase 1: Explicit Activation
+## Historical V1 Wire Status
 
-Phase 1 requires a separate implementation and review. The minimum accepted
-shape is:
+`owner_present_success_wire_v1` is retained only as immutable, test-only
+evidence from the PRE-EFFECT contract work. It is not an implementation
+authority for Phase 1. In particular, its client-carried `proof_token` and
+separate proof-bearing mint request are superseded by this decision and must
+never be wired into a production client or server.
 
-1. The server creates a fresh WebAuthn challenge.
-2. The challenge commits to the exact reviewed context, including member,
-   device, Claw, operation, nonce, configuration generation, authority state,
-   expiry, and approved release artifact identity.
+Phase 1 must first land a new versioned wire contract in which finish,
+capability consumption, and mint remain server-side. The client may receive a
+non-authoritative operation handle or count-only status, but no bearer value
+whose possession authorizes mint. Until that replacement contract is reviewed
+and landed, the historical V1 vectors are useful only for interoperability,
+decoder, and negative-regression tests.
+
+## Phase 1: Owner-Present Implementation
+
+Phase 1 implementation and review proceed after Phase 0 without enabling the
+production route or Apple capability. The minimum accepted shape is:
+
+1. The server creates a fresh, random WebAuthn challenge independent of any
+   context digest.
+2. In one authoritative state record, the server atomically associates that
+   challenge and its identifier with the exact canonical reviewed context,
+   including member, device, Claw, operation, nonce, configuration generation,
+   authority state, expiry, and approved release artifact identity. Finish must
+   require the stored, submitted, and reconstructed context bytes to be
+   identical; the challenge itself is not the context commitment.
 3. The trusted RP renders the canonical operation summary. Native UI is not the
    authority for WYSIWYS.
 4. Successful verification produces `VerifiedOwnerPresence` inside the server.
@@ -230,9 +250,39 @@ entire effect and return only a result, which is a different product design.
 10. Request a separate human activation decision. No prior review GO transfers
     to that decision.
 
-## Review And Phase Transition Rule
+## Continuous Execution Policy
 
-Each phase requires an explicit objective and stops at its own approval
-boundary. Resuming Phase 0 does not authorize Phase 1 or activation. All future
-reviews start from the exact new SHA with no automatic GO transfer from #296 or
-from this architecture discussion.
+Phase boundaries are engineering and review gates, not mandatory pauses for
+user input.
+
+After the user resumes the implementation goal with this architecture as its
+scope, agents should continue autonomously through Phase 0, Phase 1, client
+integration, and sanitized DEV E2E readiness. They should create bounded PRs,
+run CI, obtain SHA-bound reviews, fix findings, merge approved slices, and begin
+the next safe slice without waiting for another user message.
+
+Agents must not remain idle while a safe, reversible task from the
+implementation order is available. A failed review or CI job starts a fix and
+re-review loop; it does not by itself require a human decision.
+
+Human confirmation is required only before an irreversible or external action:
+
+- requesting or enabling the Apple Network Extension entitlement;
+- enabling the production owner-present route or issuer;
+- using production secrets, private infrastructure, physical devices, or
+  owner-present sudo interaction;
+- publishing or activating a production release;
+- changing the signed definition of the effective security boundary.
+
+At those gates, agents provide the evidence accumulated so far and wait for an
+explicit activation decision. The software implementation should otherwise
+continue until it is complete and DEV-E2E-ready.
+
+## Review And Goal Resume Rule
+
+This decision does not automatically resume any blocked agent goal. Once the
+user resumes the implementation objective, completion of Phase 0 does not pause
+that active goal or require another message.
+
+All future reviews start from the exact new SHA with no automatic GO transfer
+from #296 or from this architecture discussion.
