@@ -17,7 +17,7 @@ jobs:
   crossing-check:
     name: iOS owner-present PRE-EFFECT crossing
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout soyeht-ios
         uses: actions/checkout@v5

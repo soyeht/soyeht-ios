@@ -9,6 +9,8 @@ MARKER_REL="admin/contracts/mobile-claw-vpn/v1/owner_present_runtime_activation_
 ERROR_SOURCE_REL="admin/contracts/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
 ERROR_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
 PIN_REL="scripts/cross-repo-contract.sha"
+AUTOMATION_SIGNAL_BASELINE_REL="scripts/mobile-claw-vpn-owner-present-automation-baseline.tsv"
+BINARY_BASELINE_REL="scripts/mobile-claw-vpn-owner-present-binary-baseline.tsv"
 
 # These are the reviewed, inert type/contract surfaces. Changing one is itself
 # a crossing until the shared runtime marker and error contract are complete.
@@ -57,6 +59,87 @@ REVIEWED_TEST_ONLY_ENTRIES=(
   "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/WorkspaceStore.swift|120000|blob|5185536a5b361ccccd40d90e083897540850c129"
 )
 
+# This exact ordered set must match the base-owned TSV. The TSV breaks the
+# self-hash cycle for the checker/harness/workflow while preserving full ODB
+# identity for every existing signal-bearing automation exemption.
+SIGNAL_AUTOMATION_PATHS=(
+  "docs/mobile-claw-vpn-dev-e2e-runbook.md"
+  "scripts/check-cross-repo-fixtures.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.py"
+  "scripts/mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/sync-cross-repo-fixtures.sh"
+  "scripts/test-cross-repo-fixture-guard.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+  ".github/workflows/contract-fixture-sync.yml"
+  ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/owner-present-pre-effect-integrity.yml"
+)
+REVIEWED_AUTOMATION_SIGNAL_ENTRIES=()
+
+# These current test, documentation, and automation blobs reference reviewed
+# tooling/resources without reaching a shipping build. Identity, not pathname,
+# is the exemption; any mutation is scanned again.
+REVIEWED_REFERENCE_ONLY_ENTRIES=(
+  "docs/claw-store-architecture.md|100644|blob|815056e14a6b55f0a2a943e0c83695713f73f442"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/ClawStoreContractConstantsGuardTests.swift|100644|blob|ceeb0ab8338256245497ea08b3d7ee08ad722998"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Generated/ClawStoreContractConstants.generated.swift|100644|blob|35e91a274bdf0bdb3d98c9e7aef40f5e4f974a7c"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/Avatar/README.md|100644|blob|204f585603cef8a95fadb03bd0414be19dcafced"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json|100644|blob|80626ae46d6c459471f1c17227d3f67b3652f4f8"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json|100644|blob|a34ae5d3c1f54a65c8dded57e7b5696bdfa3f908"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerCert/README.md|100644|blob|de04c14b8c786623409b3b4a652c1109255805ff"
+  "QA/scripts/run_claw_store_matrix.py|100755|blob|d0410097cef9b1efb65542f2148ca5ece824ef84"
+  "QA/scripts/run_claw_client_ui_smoke.py|100644|blob|558ce4c5f143eae96616cddccefc4ad0e96200c7"
+  "QA/scripts/run_file_live_appium.py|100644|blob|b49d448c45509098141705ce870709749094b8c1"
+  "QA/scripts/test_terminal_scroll.py|100644|blob|ae2e8c978c94cd8c69d824018f2658f1227d7967"
+  "TerminalApp/SoyehtMacTests/Tests/DevEmbeddedEngineSmokeTests.swift|100644|blob|a1a21ff229684d1f8de365f2e8396d8f5683ffe3"
+  "docs/macos-local-attestation-capture-runbook.md|100644|blob|548a7eee27dde8eca4c98a8adf3f395ef3853403"
+  "docs/secure-upgrade-app-attest-capture-runbook.md|100644|blob|cf06c31e00cfe5582d7eac91179a34022b4d19cc"
+  "scripts/gen-claw-store-contract-constants.py|100644|blob|bca4ca2e68d6bef5052f3835b81e5c225bad958a"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.sh|100755|blob|9d40c7e2f02ce667f9ded6798d456ddd69c609dc"
+  "scripts/mobile-claw-vpn-dev-e2e-preflight.sh|100755|blob|0c08c8670c74922250462d1b75b1a48aed8d934a"
+  "scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh|100755|blob|830a9c6082ea37857bc54237553b30432e3e8312"
+  "scripts/test-secure-upgrade-app-attest-capture.sh|100755|blob|525470c1a73f106b4dc0390b2fdc4039abced35b"
+)
+
+# Existing dependency resolvers and artifact provenance inputs are allowed only
+# at their reviewed identities. A removed resolver is safe; a new or changed
+# resolver is a crossing because its executable bytes do not live in this ODB.
+REVIEWED_EXTERNAL_CODE_ENTRIES=(
+  ".github/workflows/accessibility-audit.yml|100644|blob|34d8132d424d427ee1a7fd7f3ba8fc4e1b815c27"
+  ".github/workflows/cross-repo-dep-check.yml|100644|blob|66fc5e4a99121d01c3cef7d8c23d5d9ddb18d109"
+  ".github/workflows/macos-release.yml|100644|blob|509389030f866c9a4cf860e5ed49b3f8fe47f83f"
+  ".github/workflows/onboarding-quality.yml|100644|blob|f93258585fd2a533049712a10013aa833995c2b9"
+  ".github/workflows/plural-rules-lint.yml|100644|blob|82077934b9651b895881b5ed8cf2761725ef057f"
+  ".github/workflows/snapshot-record.yml|100644|blob|50a0a106fb7de2f5bd357d6d794145e230301a0b"
+  ".github/workflows/xcode.yml|100644|blob|4b8ca2282ab70e33ba79408c997108ff5e6ecff2"
+  "Makefile|100644|blob|c512ed200c88e0a4e6551c1c76d1d152d48ee6d6"
+  "Native/RelayStreamGuestFFI/Cargo.lock|100644|blob|36098cc8bd63548682a067bc4764a4d26630e93b"
+  "Native/RelayStreamGuestFFI/Cargo.toml|100644|blob|c355209f2ec690f6d2e36caef13c69823d2fd5f5"
+  "Native/RelayStreamGuestFFI/Package.swift|100644|blob|1b1128718d3a82c652ea29e5130ddd2c857664b7"
+  "Package.resolved|100644|blob|8774fb182ee90c27d9f627b0984f7e0a8056b3af"
+  "Package.swift|100644|blob|0265194fcfa53ced8a7675112c6e91b5d20be4f3"
+  "Packages/SoyehtCore/Package.resolved|100644|blob|ba5e6c7eceaa1f6104a24586cbc018deeecf8693"
+  "Packages/SoyehtCore/Package.swift|100644|blob|269c6af249d525b1639b20fad988a1a2acf519cd"
+  "QA/contract-smoke.sh|100755|blob|b382d7dff95cc3d4e2363de33b31dfc1507f2308"
+  "TerminalApp/Soyeht.xcodeproj/project.pbxproj|100644|blob|4d749a653d83348b30ce80e23778073fd356f8a9"
+  "TerminalApp/Soyeht.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved|100644|blob|80df6f07da9f77e9ccfcb31f201f1b803b83ce7a"
+  "TerminalApp/SoyehtMac.xcodeproj/project.pbxproj|100644|blob|911bdd07f70e1a0ffc11c2737e39bd1391a0847b"
+  "TerminalApp/SoyehtMacTests/Package.resolved|100644|blob|ba5e6c7eceaa1f6104a24586cbc018deeecf8693"
+  "TerminalApp/SoyehtMacTests/Package.swift|100644|blob|15353b048c87a906cf2eabf2843ffc481e1f45c3"
+  "scripts/fetch-engine.sh|100755|blob|f43dbceaa70fc986807f551e4bc6f59937c0521f"
+  "scripts/theyos-engine.sha256|100644|blob|72869aeb5894a0f4bbf112fed3abe664d70589a7"
+  "scripts/theyos-engine.version|100644|blob|3bfcb4996f32116a7dae73f01a2f951129569c3a"
+)
+REVIEWED_BINARY_ENTRIES=()
+
 # Exact dev/test/CI artifacts that are not consumed by a shipping build. Every
 # other path is classified from its ODB type and content.
 NON_SHIPPING_AUTOMATION_PATHS=(
@@ -74,6 +157,8 @@ NON_SHIPPING_AUTOMATION_PATHS=(
   "scripts/mobile-claw-vpn-dev-e2e-preflight.sh"
   "scripts/mobile-claw-vpn-dev-e2e-runner.sh"
   "scripts/mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/mobile-claw-vpn-owner-present-automation-baseline.tsv"
+  "scripts/mobile-claw-vpn-owner-present-binary-baseline.tsv"
   "scripts/secure-upgrade-app-attest-capture.sh"
   "scripts/sync-cross-repo-fixtures.sh"
   "scripts/test-cross-repo-fixture-guard.sh"
@@ -104,6 +189,17 @@ SECURITY_PATTERN='OwnerApproval|ownerApproval|owner_approval|Passkey|passkey|Web
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
+AUTOMATION_REFERENCE_PATTERNS="${TMP_DIR}/automation-reference-patterns"
+BINARY_REFERENCE_PATTERNS="${TMP_DIR}/binary-reference-patterns"
+: > "${AUTOMATION_REFERENCE_PATTERNS}"
+: > "${BINARY_REFERENCE_PATTERNS}"
+for reference_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}" \
+  "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
+  printf '%s\n%s\n' "${reference_path}" "${reference_path##*/}" \
+    >> "${AUTOMATION_REFERENCE_PATTERNS}"
+done
+LC_ALL=C sort -u -o "${AUTOMATION_REFERENCE_PATTERNS}" \
+  "${AUTOMATION_REFERENCE_PATTERNS}"
 
 IOS_HEAD_SHA="$(git -C "${IOS_DIR}" rev-parse HEAD)"
 THEYOS_HEAD_SHA="$(git -C "${THEYOS_DIR}" rev-parse HEAD)"
@@ -154,21 +250,6 @@ is_test_root_path() {
   return 1
 }
 
-is_exact_non_shipping_automation_path() {
-  local path="$1" automation_path workflow_path
-  for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
-    if [[ "${path}" == "${automation_path}" ]]; then
-      return 0
-    fi
-  done
-  for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
-    if [[ "${path}" == "${workflow_path}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
 is_reviewed_test_only_entry() {
   local path="$1" mode="$2" type="$3" object="$4" entry
   for entry in "${REVIEWED_TEST_ONLY_ENTRIES[@]}"; do
@@ -176,6 +257,133 @@ is_reviewed_test_only_entry() {
       return 0
     fi
   done
+  return 1
+}
+
+is_reviewed_automation_signal_entry() {
+  local path="$1" mode="$2" type="$3" object="$4" entry
+  for entry in "${REVIEWED_AUTOMATION_SIGNAL_ENTRIES[@]}"; do
+    if [[ "${path}|${mode}|${type}|${object}" == "${entry}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_reviewed_reference_only_entry() {
+  local path="$1" mode="$2" type="$3" object="$4" entry
+  for entry in "${REVIEWED_REFERENCE_ONLY_ENTRIES[@]}"; do
+    if [[ "${path}|${mode}|${type}|${object}" == "${entry}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_reviewed_external_code_entry() {
+  local path="$1" mode="$2" type="$3" object="$4" entry
+  for entry in "${REVIEWED_EXTERNAL_CODE_ENTRIES[@]}"; do
+    if [[ "${path}|${mode}|${type}|${object}" == "${entry}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+classify_reviewed_binary_entry() {
+  local path="$1" mode="$2" type="$3" object="$4" entry entry_path
+  reviewed_binary_path=0
+  reviewed_binary_entry=0
+  for entry in "${REVIEWED_BINARY_ENTRIES[@]}"; do
+    entry_path="${entry%%|*}"
+    if [[ "${path}" == "${entry_path}" ]]; then
+      reviewed_binary_path=1
+      if [[ "${path}|${mode}|${type}|${object}" == "${entry}" ]]; then
+        reviewed_binary_entry=1
+      fi
+      return
+    fi
+  done
+}
+
+is_reviewed_binary_candidate_path() {
+  local path="$1"
+  case "${path}" in
+    *.png|*.ttf|*.caf|\
+    QA/runs/2026-04-18-wpl/report.md|\
+    QA/runs/2026-05-05-mcpa-021-104/runner.py|\
+    Sources/SwiftTerm/Documentation.docc/SSHIntegration.md)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+is_control_metadata_path() {
+  local path="$1"
+  [[ "${path}" == "${AUTOMATION_SIGNAL_BASELINE_REL}" \
+    || "${path}" == "${BINARY_BASELINE_REL}" ]]
+}
+
+contains_external_code_resolution() {
+  local path="$1" file="$2"
+  case "${path}" in
+    */Package.resolved|Package.resolved|*/Cargo.lock)
+      return 0
+      ;;
+    */Cargo.toml)
+      return 0
+      ;;
+    */Package.swift|Package.swift)
+      return 0
+      ;;
+    *.pbxproj)
+      return 0
+      ;;
+    scripts/fetch-engine.sh|scripts/theyos-engine.sha256|scripts/theyos-engine.version|\
+    .github/workflows/macos-release.yml)
+      return 0
+      ;;
+    .github/workflows/*.yml|.github/workflows/*.yaml)
+      return 0
+      ;;
+    Makefile)
+      return 0
+      ;;
+    *.sh|*.py|Makefile|CMakeLists.txt|*.cmake|*.rb|Fastfile|Podfile)
+      grep -Eiq '(^|[;&|[:space:]])(curl|wget)([[:space:]]|$)|git[[:space:]]+(clone|fetch)' \
+        "${file}"
+      return
+      ;;
+  esac
+  return 1
+}
+
+contains_non_shipping_automation_reference() {
+  local file="$1" current_path="$2" match
+  while IFS= read -r match; do
+    if [[ "${match}" != "${current_path}" \
+      && "${match}" != "${current_path##*/}" ]]; then
+      return 0
+    fi
+  done < <(LC_ALL=C grep -F -o -f "${AUTOMATION_REFERENCE_PATTERNS}" \
+    "${file}" 2>/dev/null || true)
+  return 1
+}
+
+contains_reviewed_binary_reference() {
+  grep -Fq -f "${BINARY_REFERENCE_PATTERNS}" "$1"
+}
+
+is_build_or_execution_input() {
+  local path="$1"
+  case "${path}" in
+    *.sh|*.py|Makefile|CMakeLists.txt|*.cmake|*.rb|Fastfile|Podfile|\
+    */Package.swift|Package.swift|*.pbxproj|*.xcconfig|\
+    .github/workflows/*.yml|.github/workflows/*.yaml)
+      return 0
+      ;;
+  esac
   return 1
 }
 
@@ -232,10 +440,7 @@ is_utf8_text_blob() {
   local file="$1"
   [[ ! -s "${file}" ]] && return 0
   LC_ALL=C grep -Iq '' "${file}" || return 1
-  (
-    set -o pipefail
-    iconv -f UTF-8 -t UTF-8 "${file}" 2>/dev/null | cat >/dev/null
-  )
+  iconv -f UTF-8 -t UTF-8 "${file}" >/dev/null 2>&1
 }
 
 is_external_content_pointer() {
@@ -246,16 +451,6 @@ is_external_content_pointer() {
     || return 1
   LC_ALL=C grep -aEq '^oid sha256:[0-9a-f]{64}\r?$' "${file}" \
     && LC_ALL=C grep -aEq '^size [0-9]+\r?$' "${file}"
-}
-
-is_proven_passive_resource() {
-  local path="$1" prefix="$2"
-  case "${path}" in
-    *.png) [[ "${prefix}" == 89504e470d0a1a0a* ]] ;;
-    *.ttf) [[ "${prefix}" == 00010000* || "${prefix}" == 74727565* ]] ;;
-    *.caf) [[ "${prefix}" == 63616666* ]] ;;
-    *) return 1 ;;
-  esac
 }
 
 is_sealed_path() {
@@ -286,6 +481,100 @@ contains_runtime_signal() {
 }
 
 runtime_detected=0
+
+AUTOMATION_BASELINE_FILE="${TMP_DIR}/automation-signal-baseline"
+if ! materialize_regular_blob \
+  "${IOS_DIR}" "${IOS_HEAD_SHA}" "${AUTOMATION_SIGNAL_BASELINE_REL}" \
+  "${AUTOMATION_BASELINE_FILE}" "automation signal baseline"; then
+  echo "Automation signal baseline is missing: ${AUTOMATION_SIGNAL_BASELINE_REL}"
+  runtime_detected=1
+else
+  automation_index=0
+  while IFS=$'\t' read -r baseline_path baseline_mode baseline_type \
+    baseline_object baseline_extra; do
+    [[ -z "${baseline_path}" ]] && continue
+    if [[ -n "${baseline_extra:-}" \
+      || "${baseline_mode}" != "100644" && "${baseline_mode}" != "100755" \
+      || "${baseline_type}" != "blob" \
+      || ! "${baseline_object}" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "Invalid automation signal baseline entry: ${baseline_path}"
+      runtime_detected=1
+      continue
+    fi
+    if [[ "${automation_index}" -ge "${#SIGNAL_AUTOMATION_PATHS[@]}" \
+      || "${baseline_path}" != "${SIGNAL_AUTOMATION_PATHS[automation_index]}" ]]; then
+      echo "Automation signal baseline path set or order changed: ${baseline_path}"
+      runtime_detected=1
+    fi
+    actual_entry="$(git -C "${IOS_DIR}" ls-tree \
+      --format='%(objectmode) %(objecttype) %(objectname)' \
+      "${IOS_HEAD_SHA}" -- ":(literal)${baseline_path}")"
+    if [[ "${actual_entry}" \
+      != "${baseline_mode} ${baseline_type} ${baseline_object}" ]]; then
+      echo "Reviewed automation signal baseline changed: ${baseline_path}"
+      runtime_detected=1
+    fi
+    REVIEWED_AUTOMATION_SIGNAL_ENTRIES+=(
+      "${baseline_path}|${baseline_mode}|${baseline_type}|${baseline_object}"
+    )
+    automation_index=$((automation_index + 1))
+  done < "${AUTOMATION_BASELINE_FILE}"
+  if [[ "${automation_index}" != "${#SIGNAL_AUTOMATION_PATHS[@]}" \
+    || "${automation_index}" != "18" ]]; then
+    echo "Automation signal baseline must contain exactly 18 reviewed entries"
+    runtime_detected=1
+  fi
+fi
+
+BINARY_BASELINE_FILE="${TMP_DIR}/binary-baseline"
+if ! materialize_regular_blob \
+  "${IOS_DIR}" "${IOS_HEAD_SHA}" "${BINARY_BASELINE_REL}" \
+  "${BINARY_BASELINE_FILE}" "reviewed binary baseline"; then
+  echo "Reviewed binary baseline is missing: ${BINARY_BASELINE_REL}"
+  runtime_detected=1
+else
+  if ! cmp -s "${BINARY_BASELINE_FILE}" \
+    <(LC_ALL=C sort -u "${BINARY_BASELINE_FILE}"); then
+    echo "Reviewed binary baseline must be sorted and unique"
+    runtime_detected=1
+  fi
+  binary_baseline_count=0
+  while IFS=$'\t' read -r baseline_path baseline_mode baseline_type \
+    baseline_object baseline_extra; do
+    [[ -z "${baseline_path}" ]] && continue
+    if [[ -n "${baseline_extra:-}" \
+      || "${baseline_mode}" != "100644" \
+      || "${baseline_type}" != "blob" \
+      || ! "${baseline_object}" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "Invalid reviewed binary baseline entry: ${baseline_path}"
+      runtime_detected=1
+      continue
+    fi
+    case "${baseline_path}" in
+      *.png|*.ttf|*.caf|\
+      QA/runs/2026-04-18-wpl/report.md|\
+      QA/runs/2026-05-05-mcpa-021-104/runner.py|\
+      Sources/SwiftTerm/Documentation.docc/SSHIntegration.md) ;;
+      *)
+        echo "Reviewed binary baseline contains unsupported path: ${baseline_path}"
+        runtime_detected=1
+        ;;
+    esac
+    REVIEWED_BINARY_ENTRIES+=(
+      "${baseline_path}|${baseline_mode}|${baseline_type}|${baseline_object}"
+    )
+    printf '%s\n%s\n' "${baseline_path}" "${baseline_path##*/}" \
+      >> "${BINARY_REFERENCE_PATTERNS}"
+    binary_baseline_count=$((binary_baseline_count + 1))
+  done < "${BINARY_BASELINE_FILE}"
+  if [[ "${binary_baseline_count}" != "208" ]]; then
+    echo "Reviewed binary baseline must contain exactly 208 entries"
+    runtime_detected=1
+  fi
+  LC_ALL=C sort -u -o "${BINARY_REFERENCE_PATTERNS}" \
+    "${BINARY_REFERENCE_PATTERNS}"
+fi
+
 sealed_index=0
 for pair in "${SEALED_PRE_EFFECT_BLOBS[@]}"; do
   sealed_path="${pair%%:*}"
@@ -335,13 +624,31 @@ while IFS= read -r -d '' record; do
   [[ -z "${path}" ]] && continue
   is_sealed_path "${path}" && continue
   [[ "${path}" == "${PIN_REL}" ]] && continue
+  is_control_metadata_path "${path}" && continue
   test_root=0
-  exact_automation=0
   reviewed_test_entry=0
+  reviewed_automation_entry=0
+  reviewed_reference_entry=0
+  reviewed_external_entry=0
+  reviewed_binary_entry=0
+  reviewed_binary_path=0
   is_test_root_path "${path}" && test_root=1
-  is_exact_non_shipping_automation_path "${path}" && exact_automation=1
   is_reviewed_test_only_entry "${path}" "${mode}" "${type}" "${object}" \
     && reviewed_test_entry=1
+  is_reviewed_automation_signal_entry "${path}" "${mode}" "${type}" "${object}" \
+    && reviewed_automation_entry=1
+  is_reviewed_reference_only_entry "${path}" "${mode}" "${type}" "${object}" \
+    && reviewed_reference_entry=1
+  is_reviewed_external_code_entry "${path}" "${mode}" "${type}" "${object}" \
+    && reviewed_external_entry=1
+  if is_reviewed_binary_candidate_path "${path}"; then
+    classify_reviewed_binary_entry "${path}" "${mode}" "${type}" "${object}"
+  fi
+  if [[ "${reviewed_binary_path}" == "1" \
+    && "${reviewed_binary_entry}" != "1" ]]; then
+    echo "Reviewed binary baseline changed: ${path}"
+    runtime_detected=1
+  fi
   if [[ "${type}" == "commit" || "${mode}" == "160000" ]]; then
     if [[ "${test_root}" == "1" && "${reviewed_test_entry}" == "1" ]]; then
       :
@@ -381,14 +688,35 @@ while IFS= read -r -d '' record; do
     echo "Opaque ${magic_name} shipping blob detected: ${path}"
     runtime_detected=1
   elif is_utf8_text_blob "${candidate}"; then
-    if [[ "${exact_automation}" == "1" ]]; then
-      :
-    elif contains_runtime_signal "${candidate}" \
-      && [[ "${test_root}" != "1" || "${reviewed_test_entry}" != "1" ]]; then
+    if contains_external_code_resolution "${path}" "${candidate}" \
+      && [[ "${reviewed_external_entry}" != "1" \
+        && "${reviewed_automation_entry}" != "1" ]]; then
+      echo "Unreviewed external executable resolver detected: ${path}"
+      runtime_detected=1
+    fi
+    if contains_runtime_signal "${candidate}" \
+      && [[ "${reviewed_test_entry}" != "1" \
+        && "${reviewed_automation_entry}" != "1" ]]; then
       echo "Shipping owner-present runtime signal detected: ${path}"
       runtime_detected=1
     fi
-  elif is_proven_passive_resource "${path}" "${prefix}"; then
+    if [[ "${reviewed_test_entry}" != "1" \
+        && "${reviewed_automation_entry}" != "1" \
+        && "${reviewed_reference_entry}" != "1" \
+        && "${reviewed_external_entry}" != "1" ]] \
+      && contains_non_shipping_automation_reference "${candidate}" "${path}"; then
+      echo "Shipping input reaches reviewed non-shipping automation: ${path}"
+      runtime_detected=1
+    fi
+    if is_build_or_execution_input "${path}" \
+      && [[ "${reviewed_reference_entry}" != "1" \
+        && "${reviewed_automation_entry}" != "1" \
+        && "${reviewed_external_entry}" != "1" ]] \
+      && contains_reviewed_binary_reference "${candidate}"; then
+      echo "Shipping build input reaches reviewed binary payload: ${path}"
+      runtime_detected=1
+    fi
+  elif [[ "${reviewed_binary_entry}" == "1" ]]; then
     :
   elif [[ "${test_root}" == "1" && "${reviewed_test_entry}" == "1" ]]; then
     :

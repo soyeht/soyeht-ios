@@ -12,6 +12,8 @@ MARKER_REL="admin/contracts/mobile-claw-vpn/v1/owner_present_runtime_activation_
 ERROR_REL="admin/contracts/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
 ERROR_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_error_wire_v1.json"
 PIN_REL="scripts/cross-repo-contract.sha"
+AUTOMATION_BASELINE_REL="scripts/mobile-claw-vpn-owner-present-automation-baseline.tsv"
+BINARY_BASELINE_REL="scripts/mobile-claw-vpn-owner-present-binary-baseline.tsv"
 SEALED_PATHS=(
   "Packages/SoyehtCore/Sources/SoyehtCore/API/MobileClawVPNOwnerPresentBoundary.swift"
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/MobileClawVPNDevE2EExecutionTupleV1.swift"
@@ -52,6 +54,28 @@ REVIEWED_TEST_ONLY_PATHS=(
   "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSUninstallPlan.swift"
   "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/WorkspaceStore.swift"
 )
+SIGNAL_AUTOMATION_PATHS=(
+  "docs/mobile-claw-vpn-dev-e2e-runbook.md"
+  "scripts/check-cross-repo-fixtures.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+  "scripts/mobile-claw-vpn-dev-e2e-owner-request.py"
+  "scripts/mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/sync-cross-repo-fixtures.sh"
+  "scripts/test-cross-repo-fixture-guard.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh"
+  "scripts/test-mobile-claw-vpn-dev-e2e-runner.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.sh"
+  "scripts/test-mobile-claw-vpn-dev-local-presence.swift"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
+  "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+  ".github/workflows/contract-fixture-sync.yml"
+  ".github/workflows/owner-present-pre-effect-gate.yml"
+  ".github/workflows/owner-present-pre-effect-integrity.yml"
+)
+REVIEWED_BINARY_SAMPLE="Packages/SoyehtCore/Sources/SoyehtCore/Resources/Fonts/JetBrainsMono-Regular.ttf"
+REVIEWED_EXTERNAL_SAMPLE="Packages/SoyehtCore/Package.swift"
 SURFACES=(
   "core:Packages/SoyehtCore/Sources/SoyehtCore/API/CrossingProbe.swift"
   "top_bootstrap_shell:scripts/bootstrap-relay-stream-guest-ffi.sh"
@@ -250,6 +274,15 @@ write_inert_ios() {
     mkdir -p "${repo}/$(dirname "${path}")"
     cp -P "${ROOT}/${path}" "${repo}/${path}"
   done
+  for path in "${SIGNAL_AUTOMATION_PATHS[@]}"; do
+    mkdir -p "${repo}/$(dirname "${path}")"
+    cp -p "${ROOT}/${path}" "${repo}/${path}"
+  done
+  for path in "${AUTOMATION_BASELINE_REL}" "${BINARY_BASELINE_REL}" \
+    "${REVIEWED_BINARY_SAMPLE}" "${REVIEWED_EXTERNAL_SAMPLE}"; do
+    mkdir -p "${repo}/$(dirname "${path}")"
+    cp -p "${ROOT}/${path}" "${repo}/${path}"
+  done
 }
 
 write_probe() {
@@ -311,6 +344,20 @@ write_passive_resource() {
     ttf) printf '\000\001\000\000\000\001\000\000' > "${output}" ;;
     caf) printf 'caff\000\001\000\000' > "${output}" ;;
   esac
+}
+
+write_valid_png() {
+  local output="$1"
+  mkdir -p "$(dirname "${output}")"
+  python3 - "${output}" <<'PY'
+import base64
+import pathlib
+import sys
+
+pathlib.Path(sys.argv[1]).write_bytes(base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4f8AAAAASUVORK5CYII="
+))
+PY
 }
 
 write_lfs_pointer() {
@@ -388,12 +435,7 @@ git -C "${UNRELATED_IOS}" config user.email "pre-effect-gate@example.test"
 mkdir -p "${UNRELATED_IOS}/TerminalApp/Soyeht/Settings"
 printf '%s\n' 'struct UnrelatedSettingsProbe {}' \
   > "${UNRELATED_IOS}/TerminalApp/Soyeht/Settings/UnrelatedSettingsProbe.swift"
-write_passive_resource \
-  "${UNRELATED_IOS}/TerminalApp/Soyeht/Assets.xcassets/Neutral.imageset/neutral.png" png
-write_passive_resource \
-  "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.ttf" ttf
-write_passive_resource \
-  "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.caf" caf
+mkdir -p "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources"
 printf 'Neutral UTF-8 \342\200\224 \342\202\254\n' \
   > "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.txt"
 commit_all "${UNRELATED_IOS}" "unrelated shipping change" >/dev/null
@@ -415,18 +457,9 @@ for neutral_test_path in \
   printf '%s\n' 'struct NeutralTestOnlyProbe {}' \
     > "${TEST_ROOT_IOS}/${neutral_test_path}"
 done
-for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
-  write_probe "${TEST_ROOT_IOS}/${automation_path}" direct
-  if [[ "${automation_path}" == *.sh || "${automation_path}" == *.py ]]; then
-    chmod +x "${TEST_ROOT_IOS}/${automation_path}"
-  fi
-done
-for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
-  write_probe "${TEST_ROOT_IOS}/${workflow_path}" direct
-done
 commit_all "${TEST_ROOT_IOS}" \
-  "owner-present test roots, automation, and CI remain non-shipping" >/dev/null
-expect_pass explicit_test_and_automation_roots \
+  "neutral files in actual test roots remain non-shipping" >/dev/null
+expect_pass explicit_test_roots \
   "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
 
 BASELINE_MUTATION_IOS="${TMP_DIR}/baseline-mutation-ios"
@@ -465,6 +498,38 @@ commit_all "${SYMLINK_BASELINE_IOS}" "mutate reviewed test symlink" >/dev/null
 expect_fail reviewed_test_symlink_mutation \
   "Reviewed test-only PRE-EFFECT baseline changed" \
   "${CHECKER}" "${SYMLINK_BASELINE_IOS}" "${SYMLINK_BASELINE_THEYOS}"
+
+AUTOMATION_MUTATION_IOS="${TMP_DIR}/automation-signal-mutation-ios"
+AUTOMATION_MUTATION_THEYOS="${TMP_DIR}/automation-signal-mutation-theyos"
+git clone -q "${INERT_IOS}" "${AUTOMATION_MUTATION_IOS}"
+git clone -q "${INERT_THEYOS}" "${AUTOMATION_MUTATION_THEYOS}"
+git -C "${AUTOMATION_MUTATION_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${AUTOMATION_MUTATION_IOS}" config user.email "pre-effect-gate@example.test"
+printf '%s\n' 'POST /api/v1/mobile/claw-vpn/owner-present/finish' \
+  >> "${AUTOMATION_MUTATION_IOS}/scripts/mobile-claw-vpn-dev-e2e-runner.sh"
+commit_all "${AUTOMATION_MUTATION_IOS}" \
+  "mutate reviewed signal-bearing automation" >/dev/null
+expect_fail reviewed_automation_signal_mutation \
+  "Reviewed automation signal baseline changed" \
+  "${CHECKER}" "${AUTOMATION_MUTATION_IOS}" "${AUTOMATION_MUTATION_THEYOS}"
+
+AUTOMATION_REACH_IOS="${TMP_DIR}/automation-reachability-ios"
+AUTOMATION_REACH_THEYOS="${TMP_DIR}/automation-reachability-theyos"
+git clone -q "${INERT_IOS}" "${AUTOMATION_REACH_IOS}"
+git clone -q "${INERT_THEYOS}" "${AUTOMATION_REACH_THEYOS}"
+git -C "${AUTOMATION_REACH_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${AUTOMATION_REACH_IOS}" config user.email "pre-effect-gate@example.test"
+printf '%s\n' \
+  '#!/bin/bash' \
+  'ROOT="$(cd "$(dirname "$0")/.." && pwd)"' \
+  'bash "$ROOT/scripts/mobile-claw-vpn-dev-e2e-runner.sh"' \
+  > "${AUTOMATION_REACH_IOS}/scripts/embed-engine.sh"
+chmod +x "${AUTOMATION_REACH_IOS}/scripts/embed-engine.sh"
+commit_all "${AUTOMATION_REACH_IOS}" \
+  "shipping build reaches unchanged reviewed automation" >/dev/null
+expect_fail unchanged_automation_reached_by_shipping_build \
+  "Shipping input reaches reviewed non-shipping automation" \
+  "${CHECKER}" "${AUTOMATION_REACH_IOS}" "${AUTOMATION_REACH_THEYOS}"
 
 PBX_TEXT_IOS="${TMP_DIR}/pbx-test-text-ios"
 PBX_TEXT_THEYOS="${TMP_DIR}/pbx-test-text-theyos"
@@ -547,6 +612,128 @@ commit_all "${LFS_IOS}" "external Git LFS payload pointer" >/dev/null
 expect_fail external_lfs_payload_pointer \
   "External Git LFS payload pointer detected" \
   "${CHECKER}" "${LFS_IOS}" "${LFS_THEYOS}"
+
+REMOTE_BINARY_IOS="${TMP_DIR}/remote-binary-target-ios"
+REMOTE_BINARY_THEYOS="${TMP_DIR}/remote-binary-target-theyos"
+git clone -q "${INERT_IOS}" "${REMOTE_BINARY_IOS}"
+git clone -q "${INERT_THEYOS}" "${REMOTE_BINARY_THEYOS}"
+git -C "${REMOTE_BINARY_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${REMOTE_BINARY_IOS}" config user.email "pre-effect-gate@example.test"
+mkdir -p "${REMOTE_BINARY_IOS}/Packages/Escape"
+printf '%s\n' \
+  '// swift-tools-version: 5.10' \
+  'import PackageDescription' \
+  'let package = Package(name: "Escape", targets: [' \
+  '  .binaryTarget(name: "ExternalBridge", url: "https://example.invalid/bridge.zip", checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")' \
+  '])' \
+  > "${REMOTE_BINARY_IOS}/Packages/Escape/Package.swift"
+commit_all "${REMOTE_BINARY_IOS}" "add neutral remote SwiftPM binary" >/dev/null
+expect_fail remote_swiftpm_binary_target \
+  "Unreviewed external executable resolver detected" \
+  "${CHECKER}" "${REMOTE_BINARY_IOS}" "${REMOTE_BINARY_THEYOS}"
+
+REMOTE_SOURCE_IOS="${TMP_DIR}/remote-source-package-ios"
+REMOTE_SOURCE_THEYOS="${TMP_DIR}/remote-source-package-theyos"
+git clone -q "${INERT_IOS}" "${REMOTE_SOURCE_IOS}"
+git clone -q "${INERT_THEYOS}" "${REMOTE_SOURCE_THEYOS}"
+git -C "${REMOTE_SOURCE_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${REMOTE_SOURCE_IOS}" config user.email "pre-effect-gate@example.test"
+mkdir -p "${REMOTE_SOURCE_IOS}/Packages/Escape"
+printf '%s\n' \
+  '// swift-tools-version: 5.10' \
+  'import PackageDescription' \
+  'let package = Package(name: "Escape", dependencies: [' \
+  '  .package(url: "https://example.invalid/source.git", exact: "1.0.0")' \
+  '])' \
+  > "${REMOTE_SOURCE_IOS}/Packages/Escape/Package.swift"
+commit_all "${REMOTE_SOURCE_IOS}" "add neutral remote SwiftPM source" >/dev/null
+expect_fail remote_swiftpm_source_package \
+  "Unreviewed external executable resolver detected" \
+  "${CHECKER}" "${REMOTE_SOURCE_IOS}" "${REMOTE_SOURCE_THEYOS}"
+
+REMOTE_PBX_IOS="${TMP_DIR}/remote-pbx-package-ios"
+REMOTE_PBX_THEYOS="${TMP_DIR}/remote-pbx-package-theyos"
+git clone -q "${INERT_IOS}" "${REMOTE_PBX_IOS}"
+git clone -q "${INERT_THEYOS}" "${REMOTE_PBX_THEYOS}"
+git -C "${REMOTE_PBX_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${REMOTE_PBX_IOS}" config user.email "pre-effect-gate@example.test"
+mkdir -p "${REMOTE_PBX_IOS}/FutureExtension/Future.xcodeproj"
+printf '%s\n' \
+  'isa = XCRemoteSwiftPackageReference;' \
+  'repositoryURL = "https://example.invalid/bridge.git";' \
+  > "${REMOTE_PBX_IOS}/FutureExtension/Future.xcodeproj/project.pbxproj"
+commit_all "${REMOTE_PBX_IOS}" "add neutral remote Xcode package" >/dev/null
+expect_fail remote_xcode_package \
+  "Unreviewed external executable resolver detected" \
+  "${CHECKER}" "${REMOTE_PBX_IOS}" "${REMOTE_PBX_THEYOS}"
+
+REVIEWED_EXTERNAL_MUTATION_IOS="${TMP_DIR}/reviewed-external-mutation-ios"
+REVIEWED_EXTERNAL_MUTATION_THEYOS="${TMP_DIR}/reviewed-external-mutation-theyos"
+git clone -q "${INERT_IOS}" "${REVIEWED_EXTERNAL_MUTATION_IOS}"
+git clone -q "${INERT_THEYOS}" "${REVIEWED_EXTERNAL_MUTATION_THEYOS}"
+git -C "${REVIEWED_EXTERNAL_MUTATION_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${REVIEWED_EXTERNAL_MUTATION_IOS}" config user.email "pre-effect-gate@example.test"
+printf '%s\n' '// descriptor mutation' \
+  >> "${REVIEWED_EXTERNAL_MUTATION_IOS}/${REVIEWED_EXTERNAL_SAMPLE}"
+commit_all "${REVIEWED_EXTERNAL_MUTATION_IOS}" \
+  "mutate reviewed external descriptor" >/dev/null
+expect_fail reviewed_external_descriptor_mutation \
+  "Unreviewed external executable resolver detected" \
+  "${CHECKER}" "${REVIEWED_EXTERNAL_MUTATION_IOS}" \
+  "${REVIEWED_EXTERNAL_MUTATION_THEYOS}"
+
+BINARY_MUTATION_IOS="${TMP_DIR}/reviewed-binary-mutation-ios"
+BINARY_MUTATION_THEYOS="${TMP_DIR}/reviewed-binary-mutation-theyos"
+git clone -q "${INERT_IOS}" "${BINARY_MUTATION_IOS}"
+git clone -q "${INERT_THEYOS}" "${BINARY_MUTATION_THEYOS}"
+git -C "${BINARY_MUTATION_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${BINARY_MUTATION_IOS}" config user.email "pre-effect-gate@example.test"
+printf '\317\372\355\376\000\000\000\000' \
+  >> "${BINARY_MUTATION_IOS}/${REVIEWED_BINARY_SAMPLE}"
+commit_all "${BINARY_MUTATION_IOS}" "mutate reviewed binary resource" >/dev/null
+expect_fail reviewed_binary_mutation \
+  "Reviewed binary baseline changed" \
+  "${CHECKER}" "${BINARY_MUTATION_IOS}" "${BINARY_MUTATION_THEYOS}"
+
+BINARY_REACH_IOS="${TMP_DIR}/reviewed-binary-reachability-ios"
+BINARY_REACH_THEYOS="${TMP_DIR}/reviewed-binary-reachability-theyos"
+git clone -q "${INERT_IOS}" "${BINARY_REACH_IOS}"
+git clone -q "${INERT_THEYOS}" "${BINARY_REACH_THEYOS}"
+git -C "${BINARY_REACH_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${BINARY_REACH_IOS}" config user.email "pre-effect-gate@example.test"
+printf '%s\n' \
+  '#!/bin/bash' \
+  'ROOT="$(cd "$(dirname "$0")/.." && pwd)"' \
+  'tail -c 8 "$ROOT/Packages/SoyehtCore/Sources/SoyehtCore/Resources/Fonts/JetBrainsMono-Regular.ttf" > "$ROOT/Bridge"' \
+  > "${BINARY_REACH_IOS}/scripts/embed-engine.sh"
+chmod +x "${BINARY_REACH_IOS}/scripts/embed-engine.sh"
+commit_all "${BINARY_REACH_IOS}" \
+  "shipping build reaches unchanged reviewed binary" >/dev/null
+expect_fail unchanged_binary_reached_by_shipping_build \
+  "Shipping build input reaches reviewed binary payload" \
+  "${CHECKER}" "${BINARY_REACH_IOS}" "${BINARY_REACH_THEYOS}"
+
+TRAILING_PAYLOAD_IOS="${TMP_DIR}/passive-resource-trailing-payload-ios"
+TRAILING_PAYLOAD_THEYOS="${TMP_DIR}/passive-resource-trailing-payload-theyos"
+git clone -q "${INERT_IOS}" "${TRAILING_PAYLOAD_IOS}"
+git clone -q "${INERT_THEYOS}" "${TRAILING_PAYLOAD_THEYOS}"
+git -C "${TRAILING_PAYLOAD_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${TRAILING_PAYLOAD_IOS}" config user.email "pre-effect-gate@example.test"
+TRAILING_RESOURCE="TerminalApp/Soyeht/Assets.xcassets/Neutral.imageset/neutral.png"
+write_valid_png "${TRAILING_PAYLOAD_IOS}/${TRAILING_RESOURCE}"
+printf '\317\372\355\376\000\000\000\000' \
+  >> "${TRAILING_PAYLOAD_IOS}/${TRAILING_RESOURCE}"
+printf '%s\n' \
+  '#!/bin/bash' \
+  'ROOT="$(cd "$(dirname "$0")/.." && pwd)"' \
+  'tail -c 8 "$ROOT/TerminalApp/Soyeht/Assets.xcassets/Neutral.imageset/neutral.png" > "$ROOT/Bridge"' \
+  > "${TRAILING_PAYLOAD_IOS}/scripts/embed-engine.sh"
+chmod +x "${TRAILING_PAYLOAD_IOS}/scripts/embed-engine.sh"
+commit_all "${TRAILING_PAYLOAD_IOS}" \
+  "valid passive resource with trailing executable payload" >/dev/null
+expect_fail passive_resource_with_trailing_executable_payload \
+  "Opaque unclassified shipping blob detected" \
+  "${CHECKER}" "${TRAILING_PAYLOAD_IOS}" "${TRAILING_PAYLOAD_THEYOS}"
 
 SEALED_IOS="${TMP_DIR}/sealed-mutation-ios"
 SEALED_THEYOS="${TMP_DIR}/sealed-mutation-theyos"

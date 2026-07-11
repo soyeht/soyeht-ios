@@ -18,6 +18,8 @@ PROTECTED_PATHS=(
   ".github/workflows/owner-present-pre-effect-integrity.yml"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+  "scripts/mobile-claw-vpn-owner-present-automation-baseline.tsv"
+  "scripts/mobile-claw-vpn-owner-present-binary-baseline.tsv"
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
 )
