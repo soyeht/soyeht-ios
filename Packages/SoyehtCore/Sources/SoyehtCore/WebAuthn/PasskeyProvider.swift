@@ -119,9 +119,9 @@ public struct OwnerPasskeyAttestation: Sendable, Equatable {
 public struct OwnerPasskeyAssertionRequest: Sendable, Equatable {
     /// Relying-party identifier (`rp.id`).
     public let relyingPartyIdentifier: String
-    /// Raw challenge bytes. OPAQUE: the approval orchestrator passes the
-    /// `OwnerApprovalContextV2.challengeDigest()`; forwarded to the platform
-    /// unchanged and never re-encoded here.
+    /// Raw challenge bytes. OPAQUE: the approval orchestrator forwards the
+    /// random RP challenge unchanged and never re-encodes it here. Context
+    /// binding is enforced server-side; this is not `challengeDigest()`.
     public let challenge: Data
     /// Allowed credential ids (`allowCredentials[].id`). Empty = no restriction.
     public let allowedCredentialIDs: [Data]
