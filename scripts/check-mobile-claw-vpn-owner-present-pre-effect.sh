@@ -19,9 +19,10 @@ SEALED_PRE_EFFECT_BLOBS=(
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/OwnerApprovalV2DTO.swift:c26db58cdc5c9e8dddfb98f21eda4c024ba5ac79"
 )
 
-# Exact dev/test/CI automation that is not consumed by a shipping build. Every
-# other file under a scripts/Scripts directory is scanned by default.
+# Exact dev/test/CI artifacts that are not consumed by a shipping build. Every
+# other path is classified from its ODB type and content.
 NON_SHIPPING_AUTOMATION_PATHS=(
+  "docs/mobile-claw-vpn-dev-e2e-runbook.md"
   "scripts/check-cross-repo-fixtures.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
@@ -103,11 +104,35 @@ sha256_file() {
   fi
 }
 
-is_shipping_binary_surface() {
+is_explicit_non_shipping_path() {
+  local path="$1" automation_path workflow_path
+  if [[ "${path}" =~ ^Tests/ \
+    || "${path}" =~ ^Packages/[^/]+/Tests/ \
+    || "${path}" =~ ^Native/[^/]+/SwiftTests/ \
+    || "${path}" =~ ^TerminalApp/(SoyehtTests|SoyehtMacTests)/ \
+    || "${path}" =~ ^(Benchmarks|QA)/ ]]; then
+    return 0
+  fi
+  for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
+    if [[ "${path}" == "${automation_path}" ]]; then
+      return 0
+    fi
+  done
+  for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
+    if [[ "${path}" == "${workflow_path}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_named_opaque_binary_surface() {
   local path="$1"
   case "${path}" in
     *.xcframework|*.xcframework/*|*.framework|*.framework/*|\
-    *.artifactbundle|*.artifactbundle/*|*.a|*.o|*.dylib|*.so)
+    *.artifactbundle|*.artifactbundle/*|*.app|*.app/*|*.appex|*.appex/*|\
+    *.xpc|*.xpc/*|*.bundle|*.bundle/*|*.a|*.o|*.dylib|*.so|*.wasm|\
+    *.class|*.jar|*.aar|*.pyc|*.exe|*.dll|*.ipa)
       return 0
       ;;
     *)
@@ -116,48 +141,54 @@ is_shipping_binary_surface() {
   esac
 }
 
-is_shipping_surface() {
-  local path="$1" automation_path workflow_path
-  # Exclude only explicit test/automation roots. A file named *Tests.swift or
-  # placed in TestSupport inside a Sources/app target is still shipping code.
-  if [[ "${path}" =~ ^Tests/ \
-    || "${path}" =~ ^Packages/[^/]+/Tests/ \
-    || "${path}" =~ ^Native/[^/]+/SwiftTests/ \
-    || "${path}" =~ ^TerminalApp/(SoyehtTests|SoyehtMacTests)/ \
-    || "${path}" =~ ^(Benchmarks|QA)/ ]]; then
-    return 1
+materialize_enumerated_blob() {
+  local repo="$1" object="$2" mode="$3" type="$4" path="$5"
+  local destination="$6" label="$7" allowed_modes="${8:-100644}"
+  local mode_description
+  mode_description="${allowed_modes// / or }"
+  if [[ "${type}" != "blob" ]]; then
+    echo "::error file=${path}::${label} must be a regular ${mode_description} Git blob"
+    exit 1
   fi
-  for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
-    if [[ "${path}" == "${automation_path}" ]]; then
-      return 1
-    fi
-  done
-  for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
-    if [[ "${path}" == "${workflow_path}" ]]; then
-      return 1
-    fi
-  done
-  if is_shipping_binary_surface "${path}"; then
-    return 0
-  fi
-  if [[ "${path}" =~ (^|/)(scripts|Scripts)/ ]]; then
-    return 0
-  fi
-  if [[ "${path}" =~ ^\.github/workflows/[^/]+\.(yml|yaml)$ ]]; then
-    return 0
-  fi
-  case "${path}" in
-    *.swift|*.swiftinterface|*.sh|*.py|*.rb|*.yml|*.yaml|*.json|*.m|*.mm|*.h|*.hh|*.hpp|\
-    *.c|*.cc|*.cpp|*.cxx|*.rs|*.kt|*.kts|*.gradle|*.modulemap|*.toml|*.cmake|*.metal|\
-    *.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig|*.xcstrings|*.strings|*.stringsdict|\
-    *.storyboard|*.xcscheme|*.xcworkspacedata|*.storekit|Cargo.toml|Cargo.lock|*/Cargo.lock|\
-    Package.resolved|*/Package.resolved|Makefile|*/Makefile|CMakeLists.txt|*/CMakeLists.txt|\
-    Podfile|*/Podfile|Fastfile|*/Fastfile)
-      return 0
-      ;;
+  case " ${allowed_modes} " in
+    *" ${mode} "*) ;;
     *)
-      return 1
+      echo "::error file=${path}::${label} must be a regular ${mode_description} Git blob"
+      exit 1
       ;;
+  esac
+  git -C "${repo}" cat-file blob "${object}" > "${destination}"
+}
+
+executable_magic_name() {
+  local magic="$1"
+  case "${magic}" in
+    feedface*|cefaedfe*|feedfacf*|cffaedfe*) echo "Mach-O" ;;
+    cafebabe*|bebafeca*|cafebabf*|bfbafeca*) echo "fat executable/class" ;;
+    7f454c46*) echo "ELF" ;;
+    213c617263683e0a*|213c7468696e3e*) echo "ar archive" ;;
+    0061736d*) echo "WebAssembly" ;;
+    4243c0de*|dec0170b*) echo "LLVM bitcode" ;;
+    4d5a*) echo "PE executable" ;;
+    6465780a*) echo "DEX executable" ;;
+    *) return 1 ;;
+  esac
+}
+
+is_utf8_text_blob() {
+  local file="$1"
+  [[ ! -s "${file}" ]] && return 0
+  LC_ALL=C grep -Iq '' "${file}" || return 1
+  iconv -f UTF-8 -t UTF-8 "${file}" 2>/dev/null | cat >/dev/null
+}
+
+is_proven_passive_resource() {
+  local path="$1" prefix="$2"
+  case "${path}" in
+    *.png) [[ "${prefix}" == 89504e470d0a1a0a* ]] ;;
+    *.ttf) [[ "${prefix}" == 00010000* || "${prefix}" == 74727565* ]] ;;
+    *.caf) [[ "${prefix}" == 63616666* ]] ;;
+    *) return 1 ;;
   esac
 }
 
@@ -207,30 +238,56 @@ for pair in "${SEALED_PRE_EFFECT_BLOBS[@]}"; do
 done
 
 candidate_index=0
-while IFS= read -r -d '' path; do
+while IFS= read -r -d '' record; do
+  mode="${record%%$'\t'*}"
+  remainder="${record#*$'\t'}"
+  type="${remainder%%$'\t'*}"
+  remainder="${remainder#*$'\t'}"
+  object="${remainder%%$'\t'*}"
+  path="${remainder#*$'\t'}"
   [[ -z "${path}" ]] && continue
-  is_shipping_surface "${path}" || continue
+  is_explicit_non_shipping_path "${path}" && continue
   is_sealed_path "${path}" && continue
   [[ "${path}" == "${PIN_REL}" ]] && continue
+  if [[ "${type}" == "commit" || "${mode}" == "160000" ]]; then
+    echo "Opaque shipping Gitlink detected: ${path}"
+    runtime_detected=1
+    continue
+  fi
+  if [[ "${type}" != "blob" || ( "${mode}" != "100644" && "${mode}" != "100755" ) ]]; then
+    echo "Opaque non-regular shipping entry detected: ${path} (${mode} ${type})"
+    runtime_detected=1
+    continue
+  fi
   candidate="${TMP_DIR}/candidate-${candidate_index}"
-  if is_shipping_binary_surface "${path}"; then
-    materialize_regular_blob \
-      "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" \
-      "shipping precompiled binary" "100644 100755"
+  materialize_enumerated_blob \
+    "${IOS_DIR}" "${object}" "${mode}" "${type}" "${path}" "${candidate}" \
+    "shipping ODB entry" "100644 100755"
+  if is_named_opaque_binary_surface "${path}"; then
     echo "Shipping precompiled binary detected: ${path}"
     runtime_detected=1
     candidate_index=$((candidate_index + 1))
     continue
   fi
-  materialize_regular_blob \
-    "${IOS_DIR}" "${IOS_HEAD_SHA}" "${path}" "${candidate}" "shipping source" \
-    "100644 100755"
-  if contains_runtime_signal "${candidate}"; then
-    echo "Shipping owner-present runtime signal detected: ${path}"
+  prefix="$(od -An -tx1 -N16 "${candidate}" | tr -d '[:space:]')"
+  if magic_name="$(executable_magic_name "${prefix}")"; then
+    echo "Opaque ${magic_name} shipping blob detected: ${path}"
+    runtime_detected=1
+  elif is_utf8_text_blob "${candidate}"; then
+    if contains_runtime_signal "${candidate}"; then
+      echo "Shipping owner-present runtime signal detected: ${path}"
+      runtime_detected=1
+    fi
+  elif is_proven_passive_resource "${path}" "${prefix}"; then
+    :
+  else
+    echo "Opaque unclassified shipping blob detected: ${path}"
     runtime_detected=1
   fi
   candidate_index=$((candidate_index + 1))
-done < <(git -C "${IOS_DIR}" ls-tree -rz --name-only "${IOS_HEAD_SHA}")
+done < <(git -C "${IOS_DIR}" ls-tree -rz \
+  --format='%(objectmode)%x09%(objecttype)%x09%(objectname)%x09%(path)' \
+  "${IOS_HEAD_SHA}")
 
 MARKER="${TMP_DIR}/activation-marker"
 marker_exists=1

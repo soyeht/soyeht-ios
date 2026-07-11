@@ -123,12 +123,27 @@ BINARY_SURFACES=(
   "future_xcframework:FutureExtension/Binaries/Future.xcframework/ios-arm64/Future"
   "future_framework:FutureExtension/Binaries/Future.framework/Future"
   "future_artifact_bundle:FutureExtension/Binaries/Future.artifactbundle/bin/Future"
+  "future_app:FutureExtension/Binaries/Future.app/Contents/MacOS/Future"
+  "future_appex:FutureExtension/Binaries/Future.appex/Future"
+  "future_xpc:FutureExtension/Binaries/Future.xpc/Contents/MacOS/Future"
+  "future_bundle:FutureExtension/Binaries/Future.bundle/Contents/MacOS/Future"
   "future_static_archive:FutureExtension/Binaries/libFuture.a"
   "future_object:FutureExtension/Binaries/Future.o"
   "future_dylib:FutureExtension/Binaries/libFuture.dylib"
   "future_so:FutureExtension/Binaries/libFuture.so"
 )
+MAGIC_SURFACES=(
+  "magic_macho_thin:Native/RelayStreamGuestFFI/bin/transport:macho:100755"
+  "magic_macho_fat:Native/RelayStreamGuestFFI/bin/universal:fat:100755"
+  "magic_elf:Native/RelayStreamGuestFFI/bin/relay:elf:100755"
+  "magic_ar:Native/RelayStreamGuestFFI/bin/archive:ar:100644"
+  "magic_wasm:Native/RelayStreamGuestFFI/bin/module:wasm:100644"
+  "magic_pe:Native/RelayStreamGuestFFI/bin/windows:pe:100644"
+  "magic_bitcode:Native/RelayStreamGuestFFI/bin/llvm:bitcode:100644"
+  "magic_unknown_opaque:Native/RelayStreamGuestFFI/bin/payload:opaque:100644"
+)
 NON_SHIPPING_AUTOMATION_PATHS=(
+  "docs/mobile-claw-vpn-dev-e2e-runbook.md"
   "scripts/check-cross-repo-fixtures.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
   "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
@@ -229,12 +244,35 @@ write_probe() {
   esac
 }
 
-write_neutral_binary() {
+write_neutral_blob() {
   local output="$1"
   mkdir -p "$(dirname "${output}")"
-  # Mach-O magic plus neutral bytes proves binary crossing is path-structural,
-  # not dependent on an owner-present string surviving a binary grep.
-  printf '\317\372\355\376\000\000\000\000' > "${output}"
+  printf '%s\n' 'neutral opaque payload' > "${output}"
+}
+
+write_magic_blob() {
+  local output="$1" kind="$2"
+  mkdir -p "$(dirname "${output}")"
+  case "${kind}" in
+    macho) printf '\317\372\355\376\000\000\000\000' > "${output}" ;;
+    fat) printf '\312\376\272\276\000\000\000\001' > "${output}" ;;
+    elf) printf '\177ELF\002\001\001\000' > "${output}" ;;
+    ar) printf '!<arch>\n' > "${output}" ;;
+    wasm) printf '\000asm\001\000\000\000' > "${output}" ;;
+    pe) printf 'MZ\220\000\003\000\000\000' > "${output}" ;;
+    bitcode) printf 'BC\300\336\065\024\000\000' > "${output}" ;;
+    opaque) printf '\377\376\375\374\001\002\003\004' > "${output}" ;;
+  esac
+}
+
+write_passive_resource() {
+  local output="$1" kind="$2"
+  mkdir -p "$(dirname "${output}")"
+  case "${kind}" in
+    png) printf '\211PNG\015\012\032\012' > "${output}" ;;
+    ttf) printf '\000\001\000\000\000\001\000\000' > "${output}" ;;
+    caf) printf 'caff\000\001\000\000' > "${output}" ;;
+  esac
 }
 
 write_marker() {
@@ -303,6 +341,14 @@ git -C "${UNRELATED_IOS}" config user.email "pre-effect-gate@example.test"
 mkdir -p "${UNRELATED_IOS}/TerminalApp/Soyeht/Settings"
 printf '%s\n' 'struct UnrelatedSettingsProbe {}' \
   > "${UNRELATED_IOS}/TerminalApp/Soyeht/Settings/UnrelatedSettingsProbe.swift"
+write_passive_resource \
+  "${UNRELATED_IOS}/TerminalApp/Soyeht/Assets.xcassets/Neutral.imageset/neutral.png" png
+write_passive_resource \
+  "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.ttf" ttf
+write_passive_resource \
+  "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.caf" caf
+printf 'Neutral UTF-8 \342\200\224 \342\202\254\n' \
+  > "${UNRELATED_IOS}/TerminalApp/Soyeht/Resources/neutral.txt"
 commit_all "${UNRELATED_IOS}" "unrelated shipping change" >/dev/null
 expect_pass unrelated_shipping "${CHECKER}" "${UNRELATED_IOS}" "${UNRELATED_THEYOS}"
 
@@ -327,7 +373,7 @@ write_probe \
 write_probe \
   "${TEST_ROOT_IOS}/Native/RelayStreamGuestFFI/SwiftTests/OwnerPresentNativeTests.swift" \
   direct
-write_neutral_binary \
+write_neutral_blob \
   "${TEST_ROOT_IOS}/Tests/Fixtures/Neutral.framework/Neutral"
 for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
   write_probe "${TEST_ROOT_IOS}/${automation_path}" direct
@@ -402,7 +448,7 @@ for binary_pair in "${BINARY_SURFACES[@]}"; do
   git clone -q "${INERT_THEYOS}" "${BINARY_THEYOS}"
   git -C "${BINARY_IOS}" config user.name "PRE-EFFECT Gate Test"
   git -C "${BINARY_IOS}" config user.email "pre-effect-gate@example.test"
-  write_neutral_binary "${BINARY_IOS}/${binary_path}"
+  write_neutral_blob "${BINARY_IOS}/${binary_path}"
   case "${binary_path}" in
     *.a|*.o) ;;
     *) chmod +x "${BINARY_IOS}/${binary_path}" ;;
@@ -410,6 +456,28 @@ for binary_pair in "${BINARY_SURFACES[@]}"; do
   commit_all "${BINARY_IOS}" "neutral precompiled binary in ${binary_label}" >/dev/null
   expect_fail "${binary_label}" "requires the ODB-verified activation marker" \
     "${CHECKER}" "${BINARY_IOS}" "${BINARY_THEYOS}"
+done
+
+for magic_pair in "${MAGIC_SURFACES[@]}"; do
+  magic_label="${magic_pair%%:*}"
+  magic_remainder="${magic_pair#*:}"
+  magic_path="${magic_remainder%%:*}"
+  magic_remainder="${magic_remainder#*:}"
+  magic_kind="${magic_remainder%%:*}"
+  magic_mode="${magic_remainder#*:}"
+  MAGIC_IOS="${TMP_DIR}/${magic_label}-ios"
+  MAGIC_THEYOS="${TMP_DIR}/${magic_label}-theyos"
+  git clone -q "${INERT_IOS}" "${MAGIC_IOS}"
+  git clone -q "${INERT_THEYOS}" "${MAGIC_THEYOS}"
+  git -C "${MAGIC_IOS}" config user.name "PRE-EFFECT Gate Test"
+  git -C "${MAGIC_IOS}" config user.email "pre-effect-gate@example.test"
+  write_magic_blob "${MAGIC_IOS}/${magic_path}" "${magic_kind}"
+  if [[ "${magic_mode}" == "100755" ]]; then
+    chmod +x "${MAGIC_IOS}/${magic_path}"
+  fi
+  commit_all "${MAGIC_IOS}" "neutral ${magic_kind} blob without extension" >/dev/null
+  expect_fail "${magic_label}" "requires the ODB-verified activation marker" \
+    "${CHECKER}" "${MAGIC_IOS}" "${MAGIC_THEYOS}"
 done
 
 BINARY_LINK_IOS="${TMP_DIR}/binary-bundle-symlink-ios"
@@ -422,8 +490,33 @@ mkdir -p "${BINARY_LINK_IOS}/FutureExtension/Binaries"
 ln -s neutral-target \
   "${BINARY_LINK_IOS}/FutureExtension/Binaries/Future.xcframework"
 commit_all "${BINARY_LINK_IOS}" "precompiled binary bundle symlink" >/dev/null
-expect_fail binary_bundle_symlink "must be a regular 100644 or 100755 Git blob" \
+expect_fail binary_bundle_symlink "Opaque non-regular shipping entry detected" \
   "${CHECKER}" "${BINARY_LINK_IOS}" "${BINARY_LINK_THEYOS}"
+
+OPAQUE_LINK_IOS="${TMP_DIR}/opaque-symlink-ios"
+OPAQUE_LINK_THEYOS="${TMP_DIR}/opaque-symlink-theyos"
+git clone -q "${INERT_IOS}" "${OPAQUE_LINK_IOS}"
+git clone -q "${INERT_THEYOS}" "${OPAQUE_LINK_THEYOS}"
+git -C "${OPAQUE_LINK_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${OPAQUE_LINK_IOS}" config user.email "pre-effect-gate@example.test"
+mkdir -p "${OPAQUE_LINK_IOS}/Native"
+ln -s neutral-target "${OPAQUE_LINK_IOS}/Native/TransportLink"
+commit_all "${OPAQUE_LINK_IOS}" "opaque shipping symlink" >/dev/null
+expect_fail opaque_symlink "Opaque non-regular shipping entry detected" \
+  "${CHECKER}" "${OPAQUE_LINK_IOS}" "${OPAQUE_LINK_THEYOS}"
+
+GITLINK_IOS="${TMP_DIR}/opaque-gitlink-ios"
+GITLINK_THEYOS="${TMP_DIR}/opaque-gitlink-theyos"
+git clone -q "${INERT_IOS}" "${GITLINK_IOS}"
+git clone -q "${INERT_THEYOS}" "${GITLINK_THEYOS}"
+git -C "${GITLINK_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${GITLINK_IOS}" config user.email "pre-effect-gate@example.test"
+GITLINK_TARGET="$(git -C "${GITLINK_IOS}" rev-parse HEAD)"
+git -C "${GITLINK_IOS}" update-index --add \
+  --cacheinfo "160000,${GITLINK_TARGET},Native/TransportBridge"
+git -C "${GITLINK_IOS}" commit -qm "opaque shipping gitlink"
+expect_fail opaque_gitlink "requires the ODB-verified activation marker" \
+  "${CHECKER}" "${GITLINK_IOS}" "${GITLINK_THEYOS}"
 
 MARKER_IOS="${TMP_DIR}/marker-ios"
 MARKER_THEYOS="${TMP_DIR}/marker-theyos"

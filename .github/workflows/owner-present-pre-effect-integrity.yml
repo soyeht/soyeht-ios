@@ -14,6 +14,12 @@ on:
       - "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
       - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
       - "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
+      - ".github/workflows/contract-fixture-sync.yml"
+      - "scripts/check-cross-repo-fixtures.sh"
+      - "scripts/test-cross-repo-fixture-guard.sh"
+      - "scripts/cross-repo-contract.sha"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
+      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json"
 
 permissions:
   contents: read
@@ -31,6 +37,15 @@ jobs:
           fetch-depth: 1
           path: soyeht-ios
 
+      - name: Checkout theyos main as read-only authority
+        uses: actions/checkout@v5
+        with:
+          repository: soyeht/theyos
+          ref: main
+          fetch-depth: 0
+          path: theyos
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Compare protected objects without executing PR code
         shell: bash
         env:
@@ -44,7 +59,10 @@ jobs:
           git -C soyeht-ios fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
           head_sha="$(git -C soyeht-ios rev-parse FETCH_HEAD)"
           [[ "${head_sha}" == "${EXPECTED_HEAD_SHA}" ]]
+          authority_head="$(git -C theyos rev-parse HEAD)"
+          authority_main="$(git -C theyos rev-parse refs/remotes/origin/main)"
+          [[ "${authority_head}" == "${authority_main}" ]]
           bash -n \
             soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh
           bash soyeht-ios/scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh \
-            soyeht-ios "${BASE_SHA}" "${head_sha}"
+            soyeht-ios "${BASE_SHA}" "${head_sha}" theyos
