@@ -78,7 +78,10 @@ public struct OwnerApprovalV2Client: Sendable {
     /// on any `2xx`; any reject throws a generic `BootstrapError` (the opaque
     /// `401` becomes `.serverError(code: "unauthenticated", message: nil)`).
     public func approveV2(cursor: UInt64, finish: OwnerApprovalV2Finish) async throws {
-        _ = try await post(path: Self.approvePath(cursor: cursor), body: finish.canonicalBytes())
+        _ = try await post(
+            path: Self.approvePath(cursor: cursor),
+            body: try finish.canonicalBytes()
+        )
     }
 
     private func post(path: String, body: Data) async throws -> Data {

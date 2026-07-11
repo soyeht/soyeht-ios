@@ -88,7 +88,7 @@ import Testing
         let body = HouseholdCBOR.encode(.map([
             "v": .unsigned(1),
             "challenge_id": .text("challenge-id-abc"),
-            "context": context.cborValue(),
+            "context": try context.cborValue(),
             "options": .map(["publicKey": .map(publicKey)]),
         ]))
         let start = try OwnerApprovalV2StartResponse(cbor: BootstrapWire.decodeCanonical(body))

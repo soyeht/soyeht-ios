@@ -164,7 +164,10 @@ import Testing
         #expect(response.approval.allowedCredentialIDs == expectedApprovalIDs)
 
         #expect(response.context == Self.context(expected.context))
-        #expect(response.approval.context.canonicalBytes() == response.context.canonicalBytes())
+        #expect(
+            try response.approval.context.canonicalBytes()
+                == response.context.canonicalBytes()
+        )
         #expect(response.context.op == .addCredential)
         #expect(response.context.newCredentialBindingHash == Self.hexDecode(expected.context.newCredentialBindingHashHex))
         #expect(response.context.authorityHeadSequence == expected.context.authorityHeadSequence)
@@ -176,7 +179,7 @@ import Testing
         let vectors = try Self.loadVectors()
         let vector = try #require(vectors.addCredentialFinishRequests.first)
         let request = Self.finishRequest(vector.input)
-        let encoded = request.canonicalBytes()
+        let encoded = try request.canonicalBytes()
         #expect(
             encoded.soyehtHexEncodedString() == vector.canonicalCborHex,
             "\(vector.id): Swift AddCredential finish wrapper canonical CBOR drifted from Rust"
