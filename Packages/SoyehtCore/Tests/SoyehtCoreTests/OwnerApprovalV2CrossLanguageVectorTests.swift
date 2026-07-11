@@ -11,6 +11,9 @@ import Testing
 /// These drive the production ``OwnerApprovalContextV2`` encoder (not a test-local
 /// copy) so the type that ships is the one proven byte-for-byte against Rust.
 @Suite struct OwnerApprovalV2CrossLanguageVectorTests {
+    private static let immutableMobileFixtureSHA256 =
+        "c47ebb5d9f9a1309e45647dedcdcb20fd7abd47a46e6f31f5541d8f2711c316c"
+
     struct Vectors: Decodable {
         let ownerApprovalContextV2: [OwnerApprovalCase]
     }
@@ -91,7 +94,7 @@ import Testing
         return try decoder.decode(Vectors.self, from: data)
     }
 
-    static func loadMobileVectors() throws -> MobileVectors {
+    static func loadMobileFixtureData() throws -> Data {
         guard let url = Bundle.module.url(
             forResource: "owner_approval_v2_execution_vectors",
             withExtension: "json",
@@ -99,10 +102,20 @@ import Testing
         ) else {
             throw VectorError.fixtureMissing
         }
-        let data = try Data(contentsOf: url)
+        return try Data(contentsOf: url)
+    }
+
+    static func loadMobileVectors() throws -> MobileVectors {
+        let data = try loadMobileFixtureData()
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(MobileVectors.self, from: data)
+    }
+
+    @Test func mobileFixtureV1HasImmutableFileDigest() throws {
+        let digest = Data(SHA256.hash(data: try Self.loadMobileFixtureData()))
+            .soyehtHexEncodedString()
+        #expect(digest == Self.immutableMobileFixtureSHA256)
     }
 
     @Test func canonicalBytesAndChallengeDigestMatchRustFixture() throws {
@@ -116,9 +129,11 @@ import Testing
         ] {
             for vector in fixture.0 {
                 let context = try Self.context(vector.input, executions: fixture.1)
+                let canonicalBytes = try context.canonicalBytes()
+                let canonicalHex = canonicalBytes.soyehtHexEncodedString()
                 #expect(
-                    context.canonicalBytes().soyehtHexEncodedString() == vector.canonicalCborHex,
-                    "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(context.canonicalBytes().soyehtHexEncodedString())"
+                    canonicalHex == vector.canonicalCborHex,
+                    "\(vector.id): DRIFT - Swift canonical CBOR != Rust. expected \(vector.canonicalCborHex) got \(canonicalHex)"
                 )
                 #expect(
                     try context.challengeDigest().soyehtHexEncodedString() == vector.challengeSha256Hex,
@@ -328,7 +343,7 @@ import Testing
             #expect(try mutation.challengeDigest() != baselineChallenge, "\(field): challenge unchanged")
         }
 
-        guard case .map(let validMap) = context.cborValue() else {
+        guard case .map(let validMap) = try context.cborValue() else {
             Issue.record("context must encode as map")
             return
         }
@@ -415,6 +430,36 @@ import Testing
         #expect(throws: OwnerApprovalV2DTOError.self) {
             _ = try OwnerApprovalContextV2(cbor: .map(map))
         }
+    }
+
+    @Test func invalidMobileShapeCannotEncodeAtAnyEnvelopeLayer() throws {
+        let vectors = try Self.loadMobileVectors()
+        let vector = try #require(vectors.mobileClawVpnDevE2EExecutionTupleV1.first)
+        let execution = try Self.execution(vector.input)
+        var context = try OwnerApprovalContextV2.mobileClawVPNDevE2EExecute(
+            ownerPersonID: "p_owner-alpha",
+            execution: execution,
+            replayNonce: Data(repeating: 0xf0, count: 32)
+        )
+        context.mobileClawVPNExecutionHash = nil
+        let approval = OwnerApprovalV2(
+            context: context,
+            credentialID: Data([0x01]),
+            authenticatorData: Data([0x02]),
+            clientDataJSON: Data([0x03]),
+            signature: Data([0x04])
+        )
+        let finish = OwnerApprovalV2Finish(
+            challengeID: "0123456789abcdef0123456789abcdef",
+            approval: approval
+        )
+
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try context.cborValue() }
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try context.canonicalBytes() }
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try approval.cborValue() }
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try approval.canonicalBytes() }
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try finish.cborValue() }
+        #expect(throws: OwnerApprovalV2DTOError.self) { _ = try finish.canonicalBytes() }
     }
 
     @Test func optionalFieldsAreOmittedNotNull() throws {

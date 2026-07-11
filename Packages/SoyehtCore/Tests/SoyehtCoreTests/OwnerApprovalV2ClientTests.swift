@@ -98,6 +98,29 @@ import Testing
         )
     }
 
+    private static func invalidMobileFinish() -> OwnerApprovalV2Finish {
+        let context = OwnerApprovalContextV2(
+            op: .mobileClawVPNDevE2EExecute,
+            householdID: "hh_" + String(repeating: "a", count: 52),
+            ownerPersonID: "p_owner",
+            mobileClawVPNExecutionHash: nil,
+            capabilities: [MobileClawVPNDevE2EExecutionTupleV1.capability],
+            issuedAt: 1,
+            expiresAt: 2,
+            replayNonce: Data(repeating: 0x09, count: 32)
+        )
+        return OwnerApprovalV2Finish(
+            challengeID: "0123456789abcdef0123456789abcdef",
+            approval: OwnerApprovalV2(
+                context: context,
+                credentialID: Data([0x01]),
+                authenticatorData: Data([0x02]),
+                clientDataJSON: Data([0x03]),
+                signature: Data([0x04])
+            )
+        )
+    }
+
     // MARK: start
 
     @Test func startBuildsCanonicalRequestAndDecodesResponse() async throws {
@@ -139,7 +162,25 @@ import Testing
         #expect(req.value(forHTTPHeaderField: "Content-Type") == Self.cborContentType)
         #expect(req.value(forHTTPHeaderField: "Accept") == Self.cborContentType)
         #expect(req.value(forHTTPHeaderField: "Authorization")?.hasPrefix("Soyeht-PoP v1:p_owner:") == true)
-        #expect(req.httpBody == finish.canonicalBytes())
+        #expect(req.httpBody == (try finish.canonicalBytes()))
+    }
+
+    @Test func approveV2RejectsInvalidMobileShapeBeforeTransport() async {
+        let log = RequestLog()
+        let client = Self.makeClient(
+            status: 200,
+            responseBody: HouseholdCBOR.encode(.map(["v": .unsigned(1)])),
+            log: log
+        )
+
+        do {
+            try await client.approveV2(cursor: 7, finish: Self.invalidMobileFinish())
+            Issue.record("expected invalid mobile owner approval shape to fail")
+        } catch is OwnerApprovalV2DTOError {
+            #expect(log.all.isEmpty)
+        } catch {
+            Issue.record("expected OwnerApprovalV2DTOError, got \(error)")
+        }
     }
 
     // MARK: opaque-401 anti-oracle

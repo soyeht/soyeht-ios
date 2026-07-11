@@ -98,7 +98,10 @@ import Testing
         #expect(request.httpBody?.soyehtHexEncodedString() == "a1617601")
 
         #expect(response.context.op == .addCredential)
-        #expect(response.context.canonicalBytes() == response.approval.context.canonicalBytes())
+        #expect(
+            try response.context.canonicalBytes()
+                == response.approval.context.canonicalBytes()
+        )
 
         let registration = try OwnerWebauthnAddCredentialClient.registrationRequest(from: response)
         #expect(registration.relyingPartyIdentifier == response.registration.options.publicKey.rp.id)
@@ -132,7 +135,7 @@ import Testing
         #expect(request.value(forHTTPHeaderField: "Content-Type") == BootstrapWire.contentType)
         #expect(request.value(forHTTPHeaderField: "Accept") == BootstrapWire.contentType)
         #expect(request.value(forHTTPHeaderField: "Authorization")?.hasPrefix("Soyeht-PoP v1:p_owner:") == true)
-        #expect(request.httpBody == finish.canonicalBytes())
+        #expect(request.httpBody == (try finish.canonicalBytes()))
         #expect(result.credentialID == resultCredentialID)
         #expect(result.activeCredentialCount == 2)
     }
@@ -172,7 +175,7 @@ import Testing
         let auth = try #require(request.value(forHTTPHeaderField: "Authorization"))
         #expect(auth.hasPrefix("Soyeht-PoP v1:p_owner:"))
         #expect(request.url?.path == OwnerWebauthnAddCredentialClient.finishPath)
-        #expect(request.httpBody == finish.canonicalBytes())
+        #expect(request.httpBody == (try finish.canonicalBytes()))
     }
 
     private static func expectUnauthenticated(_ op: () async throws -> Void) async {

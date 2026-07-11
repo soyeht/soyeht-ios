@@ -94,7 +94,7 @@ public struct OwnerWebauthnAddCredentialStartResponse: Equatable, Sendable {
         context = try OwnerApprovalContextV2(
             cbor: addCredentialCBORRequire(map, "context", "addCredentialStartResponse")
         )
-        guard approval.context.canonicalBytes() == context.canonicalBytes() else {
+        guard try approval.context.canonicalBytes() == context.canonicalBytes() else {
             throw OwnerWebauthnAddCredentialDTOError.malformedCBOR(
                 "addCredentialStartResponse.approval.context: mirrored context does not match top-level context"
             )
@@ -125,17 +125,17 @@ public struct OwnerWebauthnAddCredentialFinishRequest: Equatable, Sendable {
         self.approval = approval
     }
 
-    public func cborValue() -> HouseholdCBORValue {
+    public func cborValue() throws -> HouseholdCBORValue {
         .map([
             "v": .unsigned(UInt64(version)),
-            "context": context.cborValue(),
+            "context": try context.cborValue(),
             "registration": registration.cborValue(),
-            "approval": approval.cborValue(),
+            "approval": try approval.cborValue(),
         ])
     }
 
-    public func canonicalBytes() -> Data {
-        HouseholdCBOR.encode(cborValue())
+    public func canonicalBytes() throws -> Data {
+        HouseholdCBOR.encode(try cborValue())
     }
 }
 

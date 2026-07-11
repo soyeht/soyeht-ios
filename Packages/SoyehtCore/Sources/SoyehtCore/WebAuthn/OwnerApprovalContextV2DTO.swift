@@ -113,7 +113,8 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
 
     /// The CBOR value tree for this context. Optional fields are OMITTED (never
     /// encoded as null) to match the Rust `skip_serializing_if`.
-    public func cborValue() -> HouseholdCBORValue {
+    public func cborValue() throws -> HouseholdCBORValue {
+        try validateMobileClawVPNOperationShape()
         var map: [String: HouseholdCBORValue] = [
             "v": .unsigned(UInt64(version)),
             "purpose": .text(purpose),
@@ -215,17 +216,16 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
     }
 
     /// Canonical (key-sorted, deterministic) CBOR encoding of the context.
-    public func canonicalBytes() -> Data {
-        HouseholdCBOR.encode(cborValue())
+    public func canonicalBytes() throws -> Data {
+        HouseholdCBOR.encode(try cborValue())
     }
 
     /// The WebAuthn challenge bound to this context:
     /// `SHA256(challengeDomain || canonicalBytes())`. This is the value the
     /// platform authenticator signs during the approval assertion ceremony.
     public func challengeDigest() throws -> Data {
-        try validateMobileClawVPNOperationShape()
         var material = Self.challengeDomain
-        material.append(canonicalBytes())
+        material.append(try canonicalBytes())
         return Data(SHA256.hash(data: material))
     }
 }

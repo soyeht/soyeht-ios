@@ -250,10 +250,10 @@ import Testing
             "approval": .map([
                 "v": .unsigned(1),
                 "challenge_id": .text("approval-challenge"),
-                "context": context.cborValue(),
+                "context": try context.cborValue(),
                 "options": .map(["publicKey": .map(approvalPublicKey)]),
             ]),
-            "context": context.cborValue(),
+            "context": try context.cborValue(),
         ]))
         return PreparedOwnerWebauthnAddCredential(
             startResponse: try OwnerWebauthnAddCredentialStartResponse(cbor: BootstrapWire.decodeCanonical(body))
