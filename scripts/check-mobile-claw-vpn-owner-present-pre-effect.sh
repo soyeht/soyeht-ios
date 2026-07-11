@@ -56,12 +56,13 @@ is_shipping_surface() {
   local path="$1"
   # Exclude only explicit test/automation roots. A file named *Tests.swift or
   # placed in TestSupport inside a Sources/app target is still shipping code.
-  case "${path}" in
-    Tests/*|Packages/*/Tests/*|Native/*/SwiftTests/*|TerminalApp/SoyehtTests/*|\
-    TerminalApp/SoyehtMacTests/*|scripts/*|Benchmarks/*|QA/*)
-      return 1
-      ;;
-  esac
+  if [[ "${path}" =~ ^Tests/ \
+    || "${path}" =~ ^Packages/[^/]+/Tests/ \
+    || "${path}" =~ ^Native/[^/]+/SwiftTests/ \
+    || "${path}" =~ ^TerminalApp/(SoyehtTests|SoyehtMacTests)/ \
+    || "${path}" =~ ^(scripts|Benchmarks|QA)/ ]]; then
+    return 1
+  fi
   case "${path}" in
     *.swift|*.m|*.mm|*.h|*.hh|*.hpp|*.c|*.cc|*.cpp|*.cxx|*.rs|*.modulemap|*.toml|\
     Cargo.toml|Cargo.lock|*/Cargo.lock|*.udl|*.pbxproj|*.plist|*.entitlements|*.xcconfig)
