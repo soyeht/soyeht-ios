@@ -19,6 +19,44 @@ SEALED_PRE_EFFECT_BLOBS=(
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/OwnerApprovalV2DTO.swift:c26db58cdc5c9e8dddfb98f21eda4c024ba5ac79"
 )
 
+# Test-root names do not prove target membership. These are the only reviewed
+# test-only entries that need an exception from the uniform signal/opaque
+# classifier. Their full Git identity is frozen with this base-owned checker.
+REVIEWED_TEST_ONLY_ENTRIES=(
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json|100644|blob|2d3cb810dae5ec875d7a8c2ea190fedf0cb5828b"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json|100644|blob|537542c2ac1b736cc6704aa55b53d75d6f6a9232"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerCert/owner_cert_auth.cbor|100644|blob|06e08609741792aa7ea872b50648c7dab3326f26"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNAPIClientTests.swift|100644|blob|8b8c0200ebae682dbf21a9a2bb0f6b386409c0a0"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryGuardTests.swift|100644|blob|497ecbf3188c1f7b035edcbe344e9f5477d0d06e"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryTestSupport.swift|100644|blob|51bf8ac9704e5c2827bc12574eb22987e76dbf6d"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryTests.swift|100644|blob|b3952b989afadfd76b824f1abdf078e769e31a73"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentCancellationTests.swift|100644|blob|095a3d4441cdd445e1128c144d5cfdf71c3d49b5"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentSuccessWireTests.swift|100644|blob|08318becfb6bc0cdff488441ae99a103124ff029"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerApprovalV2ClientTests.swift|100644|blob|3795ef774c3e9ac96af79545f301f782b210d6e3"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerApprovalV2CrossLanguageVectorTests.swift|100644|blob|1d82fdabce8331e61781e4e4fa8e8c388ca9b99a"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/AppCommandRegistry.swift|120000|blob|74891072e3f21ac738f91d2a6a7d8044da459600"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/AppSupportDirectory.swift|120000|blob|718c4f778a29244ab8d5cd966801c746a4126129"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ClawDrawerViewModel.swift|120000|blob|22af1c8c6bae19e38bf99afbfd45edfee5429cf2"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ConversationStore.swift|120000|blob|890907cdf92fb5d2cd09487a9702b38a9c6c40f7"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/DaemonPairMachineStageClient.swift|120000|blob|92485cce8e4dd063c25e8944c992d7b75c82dbba"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/InstalledClawsProvider.swift|120000|blob|d308f91e86290c06b6321bf245d78d09ff271854"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/JoinExistingCapability.swift|120000|blob|3b3eda1d40cf7a46af86fe18db5c96964b3b996a"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacClawInstallDecision.swift|120000|blob|a68747aace4a2515a103551eb47d51c69cdd4dd1"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacGuestImageReadinessGate.swift|120000|blob|28e77dff671fde3b562789e08f2eea5ed7412ca1"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacGuestImageRecovery.swift|120000|blob|8427b34cfb8662827ea211878803d814d21a5530"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacQRCodeImageFactory.swift|120000|blob|dcc1f3658dc72c7c3a97792a71d1e4c8edeb4078"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MainMenu|120000|blob|2602343e3e74ecc15cd55eb59fc720bc6921240f"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/Model|120000|blob|11b4dd104c4afee8006f4aeee8156ac6351fb8b1"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ObservationTracker.swift|120000|blob|eb46b585ad938445607a740b596b1a545c888a60"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/PairingStore.swift|120000|blob|fad02454fc69a1367259bed01a9832844294030e"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/PaneAttachRegistry.swift|120000|blob|28f110234cbb1fab0443a443c21adc46bb174c8f"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSEnvironment.swift|120000|blob|bc553316cc7481f5fe7e209899b919794c17fb95"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSHealthProber.swift|120000|blob|0bb3139420d4ac3de23a75fbbb95ce6d38865b07"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSInstaller.swift|120000|blob|fc73df3b36f449b10da630a0ac241fba0fbb1996"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSUninstallPlan.swift|120000|blob|b9199cc1478045566e2f539f32ae8e24d6f7bfe4"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/WorkspaceStore.swift|120000|blob|5185536a5b361ccccd40d90e083897540850c129"
+)
+
 # Exact dev/test/CI artifacts that are not consumed by a shipping build. Every
 # other path is classified from its ODB type and content.
 NON_SHIPPING_AUTOMATION_PATHS=(
@@ -104,8 +142,8 @@ sha256_file() {
   fi
 }
 
-is_explicit_non_shipping_path() {
-  local path="$1" automation_path workflow_path
+is_test_root_path() {
+  local path="$1"
   if [[ "${path}" =~ ^Tests/ \
     || "${path}" =~ ^Packages/[^/]+/Tests/ \
     || "${path}" =~ ^Native/[^/]+/SwiftTests/ \
@@ -113,6 +151,11 @@ is_explicit_non_shipping_path() {
     || "${path}" =~ ^(Benchmarks|QA)/ ]]; then
     return 0
   fi
+  return 1
+}
+
+is_exact_non_shipping_automation_path() {
+  local path="$1" automation_path workflow_path
   for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
     if [[ "${path}" == "${automation_path}" ]]; then
       return 0
@@ -120,6 +163,16 @@ is_explicit_non_shipping_path() {
   done
   for workflow_path in "${NON_SHIPPING_CI_WORKFLOW_PATHS[@]}"; do
     if [[ "${path}" == "${workflow_path}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_reviewed_test_only_entry() {
+  local path="$1" mode="$2" type="$3" object="$4" entry
+  for entry in "${REVIEWED_TEST_ONLY_ENTRIES[@]}"; do
+    if [[ "${path}|${mode}|${type}|${object}" == "${entry}" ]]; then
       return 0
     fi
   done
@@ -179,7 +232,20 @@ is_utf8_text_blob() {
   local file="$1"
   [[ ! -s "${file}" ]] && return 0
   LC_ALL=C grep -Iq '' "${file}" || return 1
-  iconv -f UTF-8 -t UTF-8 "${file}" 2>/dev/null | cat >/dev/null
+  (
+    set -o pipefail
+    iconv -f UTF-8 -t UTF-8 "${file}" 2>/dev/null | cat >/dev/null
+  )
+}
+
+is_external_content_pointer() {
+  local file="$1"
+  LC_ALL=C head -c 256 "${file}" \
+    | LC_ALL=C grep -aEq \
+      '^version https://git-lfs\.github\.com/spec/v1\r?$' \
+    || return 1
+  LC_ALL=C grep -aEq '^oid sha256:[0-9a-f]{64}\r?$' "${file}" \
+    && LC_ALL=C grep -aEq '^size [0-9]+\r?$' "${file}"
 }
 
 is_proven_passive_resource() {
@@ -237,6 +303,27 @@ for pair in "${SEALED_PRE_EFFECT_BLOBS[@]}"; do
   sealed_index=$((sealed_index + 1))
 done
 
+if [[ "${#REVIEWED_TEST_ONLY_ENTRIES[@]}" != "32" ]]; then
+  echo "Reviewed test-only PRE-EFFECT baseline must contain exactly 32 entries"
+  runtime_detected=1
+fi
+for entry in "${REVIEWED_TEST_ONLY_ENTRIES[@]}"; do
+  IFS='|' read -r reviewed_path reviewed_mode reviewed_type reviewed_object \
+    <<< "${entry}"
+  if ! is_test_root_path "${reviewed_path}"; then
+    echo "Reviewed PRE-EFFECT baseline path is not test-only: ${reviewed_path}"
+    runtime_detected=1
+  fi
+  actual_entry="$(git -C "${IOS_DIR}" ls-tree \
+    --format='%(objectmode) %(objecttype) %(objectname)' \
+    "${IOS_HEAD_SHA}" -- ":(literal)${reviewed_path}")"
+  if [[ "${actual_entry}" \
+    != "${reviewed_mode} ${reviewed_type} ${reviewed_object}" ]]; then
+    echo "Reviewed test-only PRE-EFFECT baseline changed: ${reviewed_path}"
+    runtime_detected=1
+  fi
+done
+
 candidate_index=0
 while IFS= read -r -d '' record; do
   mode="${record%%$'\t'*}"
@@ -246,23 +333,43 @@ while IFS= read -r -d '' record; do
   object="${remainder%%$'\t'*}"
   path="${remainder#*$'\t'}"
   [[ -z "${path}" ]] && continue
-  is_explicit_non_shipping_path "${path}" && continue
   is_sealed_path "${path}" && continue
   [[ "${path}" == "${PIN_REL}" ]] && continue
+  test_root=0
+  exact_automation=0
+  reviewed_test_entry=0
+  is_test_root_path "${path}" && test_root=1
+  is_exact_non_shipping_automation_path "${path}" && exact_automation=1
+  is_reviewed_test_only_entry "${path}" "${mode}" "${type}" "${object}" \
+    && reviewed_test_entry=1
   if [[ "${type}" == "commit" || "${mode}" == "160000" ]]; then
-    echo "Opaque shipping Gitlink detected: ${path}"
-    runtime_detected=1
+    if [[ "${test_root}" == "1" && "${reviewed_test_entry}" == "1" ]]; then
+      :
+    else
+      echo "Opaque shipping Gitlink detected: ${path}"
+      runtime_detected=1
+    fi
     continue
   fi
   if [[ "${type}" != "blob" || ( "${mode}" != "100644" && "${mode}" != "100755" ) ]]; then
-    echo "Opaque non-regular shipping entry detected: ${path} (${mode} ${type})"
-    runtime_detected=1
+    if [[ "${test_root}" == "1" && "${reviewed_test_entry}" == "1" ]]; then
+      :
+    else
+      echo "Opaque non-regular shipping entry detected: ${path} (${mode} ${type})"
+      runtime_detected=1
+    fi
     continue
   fi
   candidate="${TMP_DIR}/candidate-${candidate_index}"
   materialize_enumerated_blob \
     "${IOS_DIR}" "${object}" "${mode}" "${type}" "${path}" "${candidate}" \
     "shipping ODB entry" "100644 100755"
+  if is_external_content_pointer "${candidate}"; then
+    echo "External Git LFS payload pointer detected: ${path}"
+    runtime_detected=1
+    candidate_index=$((candidate_index + 1))
+    continue
+  fi
   if is_named_opaque_binary_surface "${path}"; then
     echo "Shipping precompiled binary detected: ${path}"
     runtime_detected=1
@@ -274,11 +381,16 @@ while IFS= read -r -d '' record; do
     echo "Opaque ${magic_name} shipping blob detected: ${path}"
     runtime_detected=1
   elif is_utf8_text_blob "${candidate}"; then
-    if contains_runtime_signal "${candidate}"; then
+    if [[ "${exact_automation}" == "1" ]]; then
+      :
+    elif contains_runtime_signal "${candidate}" \
+      && [[ "${test_root}" != "1" || "${reviewed_test_entry}" != "1" ]]; then
       echo "Shipping owner-present runtime signal detected: ${path}"
       runtime_detected=1
     fi
   elif is_proven_passive_resource "${path}" "${prefix}"; then
+    :
+  elif [[ "${test_root}" == "1" && "${reviewed_test_entry}" == "1" ]]; then
     :
   else
     echo "Opaque unclassified shipping blob detected: ${path}"

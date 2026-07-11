@@ -26,6 +26,7 @@ HEAD_OWNED_CONTRACT_GUARD_PATHS=(
   "scripts/test-cross-repo-fixture-guard.sh"
 )
 PIN_REL="scripts/cross-repo-contract.sha"
+INTEGRITY_WORKFLOW_REL=".github/workflows/owner-present-pre-effect-integrity.yml"
 
 configure_repo() {
   git -C "$1" config user.name "PRE-EFFECT Integrity Test"
@@ -64,6 +65,15 @@ expect_fail() {
   fi
   echo "PASS ${label}_refused"
 }
+
+# A path filter on an integrity authority can be skipped when GitHub truncates
+# changed-path evaluation. This workflow must be created for every PR to main.
+if grep -Eq '^[[:space:]]+paths(-ignore)?:' \
+  "${ROOT}/${INTEGRITY_WORKFLOW_REL}"; then
+  echo "integrity pull_request_target must not use path filters" >&2
+  exit 1
+fi
+echo "PASS integrity_workflow_has_no_path_filter"
 
 AUTH_REPO="${TMP_DIR}/theyos"
 git init -q -b main "${AUTH_REPO}"
@@ -110,6 +120,25 @@ printf '%s\n' 'struct UnrelatedChange {}' > "${UNRELATED_REPO}/Sources/Unrelated
 UNRELATED_HEAD="$(commit_all "${UNRELATED_REPO}" "unrelated change")"
 expect_pass unrelated \
   "${CHECKER}" "${UNRELATED_REPO}" "${BASE_COMMIT}" "${UNRELATED_HEAD}" "${AUTH_REPO}"
+
+LARGE_DIFF_REPO="${TMP_DIR}/large-diff-protected-tamper"
+git clone -q "${BASE_REPO}" "${LARGE_DIFF_REPO}"
+configure_repo "${LARGE_DIFF_REPO}"
+mkdir -p "${LARGE_DIFF_REPO}/A-volume"
+for index in $(seq -w 0 300); do
+  printf '%s\n' "neutral file ${index}" \
+    > "${LARGE_DIFF_REPO}/A-volume/${index}.txt"
+done
+printf '%s\n' '#!/bin/bash' 'runtime_detected=0' 'exit 0' \
+  > "${LARGE_DIFF_REPO}/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+chmod +x \
+  "${LARGE_DIFF_REPO}/scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
+LARGE_DIFF_HEAD="$(commit_all \
+  "${LARGE_DIFF_REPO}" "protected tamper behind more than 300 paths")"
+expect_fail large_diff_protected_tamper \
+  "protected PRE-EFFECT gate changed" \
+  "${CHECKER}" "${LARGE_DIFF_REPO}" "${BASE_COMMIT}" \
+  "${LARGE_DIFF_HEAD}" "${AUTH_REPO}"
 
 for path in "${PROTECTED_PATHS[@]}"; do
   label="$(printf '%s' "${path}" | tr '/.' '__')"

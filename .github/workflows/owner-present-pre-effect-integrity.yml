@@ -7,19 +7,6 @@ name: Owner-Present PRE-EFFECT Integrity
 on:
   pull_request_target:
     branches: [main]
-    paths:
-      - ".github/workflows/owner-present-pre-effect-gate.yml"
-      - ".github/workflows/owner-present-pre-effect-integrity.yml"
-      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect.sh"
-      - "scripts/check-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
-      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect.sh"
-      - "scripts/test-mobile-claw-vpn-owner-present-pre-effect-integrity.sh"
-      - ".github/workflows/contract-fixture-sync.yml"
-      - "scripts/check-cross-repo-fixtures.sh"
-      - "scripts/test-cross-repo-fixture-guard.sh"
-      - "scripts/cross-repo-contract.sha"
-      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
-      - "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json"
 
 permissions:
   contents: read

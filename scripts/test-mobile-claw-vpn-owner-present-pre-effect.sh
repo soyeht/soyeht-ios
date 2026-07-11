@@ -18,6 +18,40 @@ SEALED_PATHS=(
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/OwnerApprovalContextV2DTO.swift"
   "Packages/SoyehtCore/Sources/SoyehtCore/WebAuthn/OwnerApprovalV2DTO.swift"
 )
+REVIEWED_TEST_ONLY_PATHS=(
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNAPIClientTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryGuardTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryTestSupport.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentBoundaryTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentCancellationTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/MobileClawVPNOwnerPresentSuccessWireTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerApprovalV2ClientTests.swift"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerApprovalV2CrossLanguageVectorTests.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/AppCommandRegistry.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/AppSupportDirectory.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ClawDrawerViewModel.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ConversationStore.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/DaemonPairMachineStageClient.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/InstalledClawsProvider.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/JoinExistingCapability.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacClawInstallDecision.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacGuestImageReadinessGate.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacGuestImageRecovery.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MacQRCodeImageFactory.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/MainMenu"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/Model"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/ObservationTracker.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/PairingStore.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/PaneAttachRegistry.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSEnvironment.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSHealthProber.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSInstaller.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/TheyOSUninstallPlan.swift"
+  "TerminalApp/SoyehtMacTests/Sources/SoyehtMacDomain/WorkspaceStore.swift"
+)
 SURFACES=(
   "core:Packages/SoyehtCore/Sources/SoyehtCore/API/CrossingProbe.swift"
   "top_bootstrap_shell:scripts/bootstrap-relay-stream-guest-ffi.sh"
@@ -212,6 +246,10 @@ write_inert_ios() {
     mkdir -p "${repo}/$(dirname "${path}")"
     cp "${ROOT}/${path}" "${repo}/${path}"
   done
+  for path in "${REVIEWED_TEST_ONLY_PATHS[@]}"; do
+    mkdir -p "${repo}/$(dirname "${path}")"
+    cp -P "${ROOT}/${path}" "${repo}/${path}"
+  done
 }
 
 write_probe() {
@@ -273,6 +311,15 @@ write_passive_resource() {
     ttf) printf '\000\001\000\000\000\001\000\000' > "${output}" ;;
     caf) printf 'caff\000\001\000\000' > "${output}" ;;
   esac
+}
+
+write_lfs_pointer() {
+  local output="$1"
+  mkdir -p "$(dirname "${output}")"
+  printf '%s\n' \
+    'version https://git-lfs.github.com/spec/v1' \
+    'oid sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+    'size 8' > "${output}"
 }
 
 write_marker() {
@@ -358,23 +405,16 @@ git clone -q "${INERT_IOS}" "${TEST_ROOT_IOS}"
 git clone -q "${INERT_THEYOS}" "${TEST_ROOT_THEYOS}"
 git -C "${TEST_ROOT_IOS}" config user.name "PRE-EFFECT Gate Test"
 git -C "${TEST_ROOT_IOS}" config user.email "pre-effect-gate@example.test"
-write_probe \
-  "${TEST_ROOT_IOS}/Tests/OwnerPresentRootTests.swift" \
-  direct
-write_probe \
-  "${TEST_ROOT_IOS}/Packages/SoyehtCore/Tests/SoyehtCoreTests/OwnerPresentContractTests.swift" \
-  direct
-write_probe \
-  "${TEST_ROOT_IOS}/TerminalApp/SoyehtTests/OwnerPresentPresentationTests.swift" \
-  direct
-write_probe \
-  "${TEST_ROOT_IOS}/TerminalApp/SoyehtMacTests/OwnerPresentPresentationTests.swift" \
-  direct
-write_probe \
-  "${TEST_ROOT_IOS}/Native/RelayStreamGuestFFI/SwiftTests/OwnerPresentNativeTests.swift" \
-  direct
-write_neutral_blob \
-  "${TEST_ROOT_IOS}/Tests/Fixtures/Neutral.framework/Neutral"
+for neutral_test_path in \
+  "Tests/NeutralRootTests.swift" \
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/NeutralContractTests.swift" \
+  "TerminalApp/SoyehtTests/NeutralPresentationTests.swift" \
+  "TerminalApp/SoyehtMacTests/NeutralPresentationTests.swift" \
+  "Native/RelayStreamGuestFFI/SwiftTests/NeutralNativeTests.swift"; do
+  mkdir -p "${TEST_ROOT_IOS}/$(dirname "${neutral_test_path}")"
+  printf '%s\n' 'struct NeutralTestOnlyProbe {}' \
+    > "${TEST_ROOT_IOS}/${neutral_test_path}"
+done
 for automation_path in "${NON_SHIPPING_AUTOMATION_PATHS[@]}"; do
   write_probe "${TEST_ROOT_IOS}/${automation_path}" direct
   if [[ "${automation_path}" == *.sh || "${automation_path}" == *.py ]]; then
@@ -388,6 +428,125 @@ commit_all "${TEST_ROOT_IOS}" \
   "owner-present test roots, automation, and CI remain non-shipping" >/dev/null
 expect_pass explicit_test_and_automation_roots \
   "${CHECKER}" "${TEST_ROOT_IOS}" "${TEST_ROOT_THEYOS}"
+
+BASELINE_MUTATION_IOS="${TMP_DIR}/baseline-mutation-ios"
+BASELINE_MUTATION_THEYOS="${TMP_DIR}/baseline-mutation-theyos"
+git clone -q "${INERT_IOS}" "${BASELINE_MUTATION_IOS}"
+git clone -q "${INERT_THEYOS}" "${BASELINE_MUTATION_THEYOS}"
+git -C "${BASELINE_MUTATION_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${BASELINE_MUTATION_IOS}" config user.email "pre-effect-gate@example.test"
+printf '\n' >> "${BASELINE_MUTATION_IOS}/${REVIEWED_TEST_ONLY_PATHS[1]}"
+commit_all "${BASELINE_MUTATION_IOS}" "mutate reviewed test fixture" >/dev/null
+expect_fail reviewed_test_fixture_mutation \
+  "Reviewed test-only PRE-EFFECT baseline changed" \
+  "${CHECKER}" "${BASELINE_MUTATION_IOS}" "${BASELINE_MUTATION_THEYOS}"
+
+CBOR_MUTATION_IOS="${TMP_DIR}/cbor-mutation-ios"
+CBOR_MUTATION_THEYOS="${TMP_DIR}/cbor-mutation-theyos"
+git clone -q "${INERT_IOS}" "${CBOR_MUTATION_IOS}"
+git clone -q "${INERT_THEYOS}" "${CBOR_MUTATION_THEYOS}"
+git -C "${CBOR_MUTATION_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${CBOR_MUTATION_IOS}" config user.email "pre-effect-gate@example.test"
+printf '\000' >> "${CBOR_MUTATION_IOS}/${REVIEWED_TEST_ONLY_PATHS[2]}"
+commit_all "${CBOR_MUTATION_IOS}" "mutate reviewed test CBOR" >/dev/null
+expect_fail reviewed_test_cbor_mutation \
+  "Reviewed test-only PRE-EFFECT baseline changed" \
+  "${CHECKER}" "${CBOR_MUTATION_IOS}" "${CBOR_MUTATION_THEYOS}"
+
+SYMLINK_BASELINE_IOS="${TMP_DIR}/symlink-baseline-ios"
+SYMLINK_BASELINE_THEYOS="${TMP_DIR}/symlink-baseline-theyos"
+git clone -q "${INERT_IOS}" "${SYMLINK_BASELINE_IOS}"
+git clone -q "${INERT_THEYOS}" "${SYMLINK_BASELINE_THEYOS}"
+git -C "${SYMLINK_BASELINE_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${SYMLINK_BASELINE_IOS}" config user.email "pre-effect-gate@example.test"
+rm "${SYMLINK_BASELINE_IOS}/${REVIEWED_TEST_ONLY_PATHS[11]}"
+ln -s neutral-target "${SYMLINK_BASELINE_IOS}/${REVIEWED_TEST_ONLY_PATHS[11]}"
+commit_all "${SYMLINK_BASELINE_IOS}" "mutate reviewed test symlink" >/dev/null
+expect_fail reviewed_test_symlink_mutation \
+  "Reviewed test-only PRE-EFFECT baseline changed" \
+  "${CHECKER}" "${SYMLINK_BASELINE_IOS}" "${SYMLINK_BASELINE_THEYOS}"
+
+PBX_TEXT_IOS="${TMP_DIR}/pbx-test-text-ios"
+PBX_TEXT_THEYOS="${TMP_DIR}/pbx-test-text-theyos"
+git clone -q "${INERT_IOS}" "${PBX_TEXT_IOS}"
+git clone -q "${INERT_THEYOS}" "${PBX_TEXT_THEYOS}"
+git -C "${PBX_TEXT_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${PBX_TEXT_IOS}" config user.email "pre-effect-gate@example.test"
+write_probe "${PBX_TEXT_IOS}/TerminalApp/SoyehtTests/Transport.swift" direct
+mkdir -p "${PBX_TEXT_IOS}/TerminalApp/Soyeht.xcodeproj"
+printf '%s\n' 'PBXSourcesBuildPhase = (Transport.swift);' \
+  > "${PBX_TEXT_IOS}/TerminalApp/Soyeht.xcodeproj/project.pbxproj"
+commit_all "${PBX_TEXT_IOS}" "attach test-root source to app target" >/dev/null
+expect_fail test_root_text_with_neutral_pbx_membership \
+  "Shipping owner-present runtime signal detected" \
+  "${CHECKER}" "${PBX_TEXT_IOS}" "${PBX_TEXT_THEYOS}"
+
+PACKAGE_TEXT_IOS="${TMP_DIR}/package-test-text-ios"
+PACKAGE_TEXT_THEYOS="${TMP_DIR}/package-test-text-theyos"
+git clone -q "${INERT_IOS}" "${PACKAGE_TEXT_IOS}"
+git clone -q "${INERT_THEYOS}" "${PACKAGE_TEXT_THEYOS}"
+git -C "${PACKAGE_TEXT_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${PACKAGE_TEXT_IOS}" config user.email "pre-effect-gate@example.test"
+write_probe "${PACKAGE_TEXT_IOS}/Packages/Escape/Tests/Hidden/Transport.swift" direct
+mkdir -p "${PACKAGE_TEXT_IOS}/Packages/Escape"
+printf '%s\n' \
+  '// swift-tools-version: 5.10' \
+  'import PackageDescription' \
+  'let package = Package(name: "Escape", products: [.library(name: "Escape", targets: ["Escape"])], targets: [.target(name: "Escape", path: "Tests/Hidden")])' \
+  > "${PACKAGE_TEXT_IOS}/Packages/Escape/Package.swift"
+commit_all "${PACKAGE_TEXT_IOS}" "attach test-root source to production package" >/dev/null
+expect_fail test_root_text_with_neutral_package_membership \
+  "Shipping owner-present runtime signal detected" \
+  "${CHECKER}" "${PACKAGE_TEXT_IOS}" "${PACKAGE_TEXT_THEYOS}"
+
+PBX_FRAMEWORK_IOS="${TMP_DIR}/pbx-test-framework-ios"
+PBX_FRAMEWORK_THEYOS="${TMP_DIR}/pbx-test-framework-theyos"
+git clone -q "${INERT_IOS}" "${PBX_FRAMEWORK_IOS}"
+git clone -q "${INERT_THEYOS}" "${PBX_FRAMEWORK_THEYOS}"
+git -C "${PBX_FRAMEWORK_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${PBX_FRAMEWORK_IOS}" config user.email "pre-effect-gate@example.test"
+write_neutral_blob \
+  "${PBX_FRAMEWORK_IOS}/TerminalApp/SoyehtTests/Fixtures/Neutral.framework/Neutral"
+mkdir -p "${PBX_FRAMEWORK_IOS}/TerminalApp/Soyeht.xcodeproj"
+printf '%s\n' 'PBXCopyFilesBuildPhase = (Neutral.framework);' \
+  > "${PBX_FRAMEWORK_IOS}/TerminalApp/Soyeht.xcodeproj/project.pbxproj"
+commit_all "${PBX_FRAMEWORK_IOS}" "embed test-root framework in app" >/dev/null
+expect_fail test_root_framework_with_neutral_pbx_membership \
+  "Shipping precompiled binary detected" \
+  "${CHECKER}" "${PBX_FRAMEWORK_IOS}" "${PBX_FRAMEWORK_THEYOS}"
+
+PACKAGE_BINARY_IOS="${TMP_DIR}/package-test-binary-ios"
+PACKAGE_BINARY_THEYOS="${TMP_DIR}/package-test-binary-theyos"
+git clone -q "${INERT_IOS}" "${PACKAGE_BINARY_IOS}"
+git clone -q "${INERT_THEYOS}" "${PACKAGE_BINARY_THEYOS}"
+git -C "${PACKAGE_BINARY_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${PACKAGE_BINARY_IOS}" config user.email "pre-effect-gate@example.test"
+write_magic_blob "${PACKAGE_BINARY_IOS}/Packages/Foo/Tests/Hidden/Transport" macho
+mkdir -p "${PACKAGE_BINARY_IOS}/Packages/Foo"
+printf '%s\n' \
+  '// swift-tools-version: 5.10' \
+  'import PackageDescription' \
+  'let package = Package(name: "Foo", products: [.library(name: "Foo", targets: ["Foo"])], targets: [.target(name: "Foo", path: "Tests/Hidden")])' \
+  > "${PACKAGE_BINARY_IOS}/Packages/Foo/Package.swift"
+commit_all "${PACKAGE_BINARY_IOS}" "attach test-root binary to production package" >/dev/null
+expect_fail test_root_binary_with_neutral_package_membership \
+  "Opaque Mach-O shipping blob detected" \
+  "${CHECKER}" "${PACKAGE_BINARY_IOS}" "${PACKAGE_BINARY_THEYOS}"
+
+LFS_IOS="${TMP_DIR}/lfs-pointer-ios"
+LFS_THEYOS="${TMP_DIR}/lfs-pointer-theyos"
+git clone -q "${INERT_IOS}" "${LFS_IOS}"
+git clone -q "${INERT_THEYOS}" "${LFS_THEYOS}"
+git -C "${LFS_IOS}" config user.name "PRE-EFFECT Gate Test"
+git -C "${LFS_IOS}" config user.email "pre-effect-gate@example.test"
+printf '%s\n' '*.lfsbin filter=lfs diff=lfs merge=lfs -text' \
+  > "${LFS_IOS}/.gitattributes"
+write_lfs_pointer \
+  "${LFS_IOS}/Native/RelayStreamGuestFFI/Resources/runtime.lfsbin"
+commit_all "${LFS_IOS}" "external Git LFS payload pointer" >/dev/null
+expect_fail external_lfs_payload_pointer \
+  "External Git LFS payload pointer detected" \
+  "${CHECKER}" "${LFS_IOS}" "${LFS_THEYOS}"
 
 SEALED_IOS="${TMP_DIR}/sealed-mutation-ios"
 SEALED_THEYOS="${TMP_DIR}/sealed-mutation-theyos"
