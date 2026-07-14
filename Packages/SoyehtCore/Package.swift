@@ -57,6 +57,8 @@ let package = Package(
                 .copy("HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_vectors.json"),
                 // S3 P2 - owner approval-v2 envelope + start-response WIRE vectors (theyos -> Swift)
                 .copy("HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json"),
+                // Mobile C1 - assertion wire fields only (theyos -> Swift)
+                .copy("HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json"),
                 // S3b - owner passkey registration WebAuthn wire vectors (theyos -> Swift)
                 .copy("HouseholdFixtures/OwnerWebauthn/owner_webauthn_registration_vectors.json"),
                 // S3b - AddCredential dual-ceremony composite wire vectors (theyos -> Swift)

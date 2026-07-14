@@ -16,6 +16,8 @@ PAIRS=(
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/claw-store/v1/contract.json:admin/contracts/claw-store/v1/contract.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/api_shapes.json:admin/contracts/mobile-claw-vpn/v1/api_shapes.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json:admin/contracts/mobile-claw-vpn/v1/owner_approval_v2_execution_vectors.json"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json:admin/contracts/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
+  "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json:admin/contracts/owner-approval/v2/owner_approval_v2_assertion_fields_v1.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json:admin/rust/server-rs/tests/data/owner_approval_v2_wire_vectors.json"
   "docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
@@ -71,6 +73,46 @@ expect_guard_failure() {
 
 run_guard >/dev/null
 echo "PASS exact_fixture_and_pin"
+
+C1_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
+C1_SOURCE_REL="admin/contracts/mobile-claw-vpn/v1/owner_present_success_wire_v1.json"
+ASSERTION_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json"
+ASSERTION_SOURCE_REL="admin/contracts/owner-approval/v2/owner_approval_v2_assertion_fields_v1.json"
+
+printf '\n' >> "${IOS_ROOT}/${C1_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${C1_VENDOR_REL}"
+expect_guard_failure owner_present_success_vendor \
+  "contract drift: ${C1_VENDOR_REL} differs"
+cp "${THEYOS_ROOT}/${C1_SOURCE_REL}" "${IOS_ROOT}/${C1_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${C1_VENDOR_REL}"
+run_guard >/dev/null
+
+printf '\n' >> "${THEYOS_ROOT}/${C1_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" add "${C1_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" commit --quiet -m owner-present-success-source-drift
+C1_DRIFT_PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
+printf '%s\n' "${C1_DRIFT_PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
+expect_guard_failure owner_present_success_source \
+  "contract drift: ${C1_VENDOR_REL} differs"
+cp "${IOS_ROOT}/${C1_VENDOR_REL}" "${THEYOS_ROOT}/${C1_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" add "${C1_SOURCE_REL}"
+git -C "${THEYOS_ROOT}" commit --quiet -m restore-owner-present-success-source
+PIN="$(git -C "${THEYOS_ROOT}" rev-parse HEAD)"
+printf '%s\n' "${PIN}" > "${IOS_ROOT}/scripts/cross-repo-contract.sha"
+git -C "${IOS_ROOT}" add scripts/cross-repo-contract.sha
+run_guard >/dev/null
+
+cp "${IOS_ROOT}/${ASSERTION_VENDOR_REL}" "${TMP_ROOT}/assertion-vendor-target.json"
+rm "${IOS_ROOT}/${ASSERTION_VENDOR_REL}"
+ln -s "${TMP_ROOT}/assertion-vendor-target.json" "${IOS_ROOT}/${ASSERTION_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${ASSERTION_VENDOR_REL}"
+expect_guard_failure owner_present_assertion_symlink \
+  "must be an ordinary 100644 Git blob: ${ASSERTION_VENDOR_REL}"
+rm "${IOS_ROOT}/${ASSERTION_VENDOR_REL}"
+cp "${THEYOS_ROOT}/${ASSERTION_SOURCE_REL}" "${IOS_ROOT}/${ASSERTION_VENDOR_REL}"
+git -C "${IOS_ROOT}" add "${ASSERTION_VENDOR_REL}"
+run_guard >/dev/null
 
 OWNER_VENDOR_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json"
 OWNER_SOURCE_REL="admin/rust/server-rs/tests/data/owner_approval_v2_wire_vectors.json"

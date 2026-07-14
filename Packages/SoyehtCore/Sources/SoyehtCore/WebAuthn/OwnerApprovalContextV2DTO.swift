@@ -19,14 +19,14 @@ public enum OwnerApprovalOperation: String, Sendable, Equatable, CaseIterable {
 
 // MARK: - Owner approval context (Protocol v2)
 
-/// Canonical CBOR context an owner signs (via a passkey assertion) to approve a
-/// privileged household operation under approval Protocol v2.
+/// Canonical CBOR context an owner approves via a passkey assertion under
+/// approval Protocol v2.
 ///
-/// This is the security-critical half of the v2 envelope: the WebAuthn challenge
-/// the platform authenticator signs is `SHA256(domain || canonicalBytes())`, so
-/// the Swift canonical CBOR MUST match the Rust producer byte-for-byte — a single
-/// byte of drift silently rejects an otherwise-valid approval. Parity is pinned
-/// by the cross-language golden vectors (`owner_approval_v2_vectors.json`).
+/// The WebAuthn challenge is an independent random RP nonce. The server binds
+/// that challenge to its stored canonical context and requires the submitted
+/// context to match exactly at finish. Swift canonical CBOR therefore MUST match
+/// the Rust producer byte-for-byte. Parity is pinned by the cross-language
+/// golden vectors (`owner_approval_v2_vectors.json`).
 ///
 /// Field set + ordering + optional-skip rules mirror the Rust
 /// `OwnerApprovalContextV2` struct (`#[serde(deny_unknown_fields)]`, optional
@@ -220,9 +220,11 @@ public struct OwnerApprovalContextV2: Sendable, Equatable {
         HouseholdCBOR.encode(try cborValue())
     }
 
-    /// The WebAuthn challenge bound to this context:
-    /// `SHA256(challengeDomain || canonicalBytes())`. This is the value the
-    /// platform authenticator signs during the approval assertion ceremony.
+    /// Deterministic context-binding digest:
+    /// `SHA256(challengeDomain || canonicalBytes())`.
+    ///
+    /// This is not the WebAuthn challenge. The RP issues a separate random
+    /// challenge and binds it server-side to the stored canonical context.
     public func challengeDigest() throws -> Data {
         var material = Self.challengeDomain
         material.append(try canonicalBytes())

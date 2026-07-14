@@ -70,7 +70,10 @@ sync_mobile_claw_vpn_contracts() {
     local fixture
 
     mkdir -p "${dest_dir}"
-    for fixture in api_shapes.json owner_approval_v2_execution_vectors.json; do
+    for fixture in \
+        api_shapes.json \
+        owner_approval_v2_execution_vectors.json \
+        owner_present_success_wire_v1.json; do
         if [[ ! -f "${src_dir}/${fixture}" ]]; then
             echo "error: mobile Claw VPN contract not found at ${src_dir}/${fixture}" >&2
             exit 1
@@ -92,16 +95,25 @@ fi
 
 # -- OwnerApprovalV2 generic success-wire vectors -----------------------------
 sync_owner_approval_v2_contract() {
-    local source="${THEYOS_DIR}/admin/rust/server-rs/tests/data/owner_approval_v2_wire_vectors.json"
-    local destination="${TESTS}/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json"
+    local source_dir="${THEYOS_DIR}/admin/rust/server-rs/tests/data"
+    local contract_dir="${THEYOS_DIR}/admin/contracts/owner-approval/v2"
+    local destination_dir="${TESTS}/HouseholdFixtures/OwnerApprovalV2"
 
-    if [[ ! -f "${source}" ]]; then
-        echo "error: OwnerApprovalV2 wire fixture not found at ${source}" >&2
+    if [[ ! -f "${source_dir}/owner_approval_v2_wire_vectors.json" ]]; then
+        echo "error: OwnerApprovalV2 wire fixture not found at ${source_dir}" >&2
         exit 1
     fi
-    mkdir -p "$(dirname "${destination}")"
-    cp "${source}" "${destination}"
+    if [[ ! -f "${contract_dir}/owner_approval_v2_assertion_fields_v1.json" ]]; then
+        echo "error: owner-present assertion fixture not found at ${contract_dir}" >&2
+        exit 1
+    fi
+    mkdir -p "${destination_dir}"
+    cp "${source_dir}/owner_approval_v2_wire_vectors.json" \
+        "${destination_dir}/owner_approval_v2_wire_vectors.json"
+    cp "${contract_dir}/owner_approval_v2_assertion_fields_v1.json" \
+        "${destination_dir}/owner_approval_v2_assertion_fields_v1.json"
     echo "✓ owner_approval_v2_wire_vectors.json"
+    echo "✓ owner_approval_v2_assertion_fields_v1.json"
 }
 
 sync_owner_approval_v2_contract
