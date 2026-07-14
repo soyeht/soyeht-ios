@@ -43,6 +43,87 @@ struct APNSOpaqueTickle {
     }
 }
 
+enum APNSTickleDelivery {
+    private static let lock = NSLock()
+    private static var pendingTickleCount = 0
+
+    static func deliverTickle(notificationCenter: NotificationCenter = .default) {
+        lock.lock()
+        pendingTickleCount += 1
+        lock.unlock()
+
+        notificationCenter.post(name: .soyehtHouseholdAPNSTickle, object: nil)
+    }
+
+    static func consumePendingTickle() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard pendingTickleCount > 0 else { return false }
+        pendingTickleCount -= 1
+        return true
+    }
+
+    #if DEBUG
+    static func resetForTests() {
+        lock.lock()
+        pendingTickleCount = 0
+        lock.unlock()
+    }
+    #endif
+}
+
+#if DEBUG
+enum APNSWakeProbe {
+    private static let devBundleIdentifier = "com.soyeht.app.dev"
+    private static let directoryName = "SoyehtDevDiagnostics"
+    private static let fileName = "apns-wake-probe.json"
+
+    static func record(_ event: String) {
+        guard Bundle.main.bundleIdentifier == devBundleIdentifier else { return }
+        guard let diagnosticsRootURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return
+        }
+
+        let directoryURL = diagnosticsRootURL.appendingPathComponent(directoryName, isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent(fileName)
+
+        do {
+            try FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true
+            )
+
+            var counts: [String: Int] = [:]
+            if let data = try? Data(contentsOf: fileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let existingCounts = json["counts"] as? [String: Any] {
+                counts = existingCounts.reduce(into: [String: Int]()) { partial, item in
+                    if let value = item.value as? NSNumber {
+                        partial[item.key] = value.intValue
+                    }
+                }
+            }
+
+            counts[event, default: 0] += 1
+            let payload: [String: Any] = [
+                "v": 1,
+                "last_event": event,
+                "last_updated_unix": Date().timeIntervalSince1970,
+                "counts": counts,
+            ]
+            let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            try data.write(to: fileURL, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: fileURL.path
+            )
+        } catch {
+            // Best-effort Dev-only diagnostic; APNs delivery must never depend on this probe.
+        }
+    }
+}
+#endif
+
 extension Notification.Name {
     static let soyehtHouseholdAPNSTickle = Notification.Name("soyeht.household.apns.tickle")
     static let soyehtHouseholdAPNSIntegrityError = Notification.Name("soyeht.household.apns.integrityError")
@@ -62,9 +143,15 @@ extension AppDelegate {
 
         do {
             try APNSOpaqueTickle.validateUserInfo(userInfo)
-            NotificationCenter.default.post(name: .soyehtHouseholdAPNSTickle, object: nil)
+            #if DEBUG
+            APNSWakeProbe.record("tickle_received")
+            #endif
+            APNSTickleDelivery.deliverTickle()
             completionHandler(.newData)
         } catch {
+            #if DEBUG
+            APNSWakeProbe.record("tickle_rejected")
+            #endif
             NotificationCenter.default.post(
                 name: .soyehtHouseholdAPNSIntegrityError,
                 object: error

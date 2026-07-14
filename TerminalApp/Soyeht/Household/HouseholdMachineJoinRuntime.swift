@@ -124,6 +124,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
 
     func activate(_ household: ActiveHouseholdState) {
         Self.logger.info("soyeht_diag runtime_activate requested delegated=\(household.isDelegatedDevice, privacy: .public)")
+        #if DEBUG
+        APNSWakeProbe.record("runtime_activate_requested")
+        Self.recordEndpointClassificationForProbe(household.endpoint)
+        #endif
         if activeHouseholdId == household.householdId,
            lifecycleError == nil,
            activationTask != nil {
@@ -152,6 +156,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             }
             do {
                 Self.logger.info("soyeht_diag runtime_snapshot_start")
+                #if DEBUG
+                APNSWakeProbe.record("runtime_snapshot_start")
+                #endif
                 let crlStore = try self.requireCRLStore()
                 let ownerIdentity = try self.loadOwnerIdentity(for: household)
                 let popSigner = HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: self.nowProvider)
@@ -187,6 +194,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 }
                 self.phaseObserver?(.snapshotCompleted)
                 Self.logger.info("soyeht_diag runtime_snapshot_completed cursor=\(bootstrap.cursor, privacy: .public)")
+                #if DEBUG
+                APNSWakeProbe.record("runtime_snapshot_completed")
+                #endif
                 self.gossipCursorStore.saveCursor(bootstrap.cursor, for: household.householdId)
 
                 self.startGossip(
@@ -207,6 +217,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     popSigner: popSigner,
                     initialCursor: 0
                 )
+                #if DEBUG
+                APNSWakeProbe.record("runtime_owner_events_started")
+                #endif
                 self.phaseObserver?(.ownerEventsStarted)
             } catch is CancellationError {
                 // Swift Concurrency cancellation token. Most cancel paths
@@ -226,18 +239,86 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             } catch let error as MachineJoinError {
                 guard self.activationToken == token else { return }
                 Self.logger.error("soyeht_diag runtime_activation_failed error=\(String(describing: error), privacy: .public)")
+                #if DEBUG
+                APNSWakeProbe.record("runtime_activation_failed")
+                Self.recordActivationFailureForProbe(error)
+                #endif
                 self.activeHouseholdId = nil
                 self.lifecycleError = error
                 self.phaseObserver?(.activationFailed)
             } catch {
                 guard self.activationToken == token else { return }
                 Self.logger.error("soyeht_diag runtime_activation_failed_unknown error=\(String(describing: error), privacy: .public)")
+                #if DEBUG
+                APNSWakeProbe.record("runtime_activation_failed_unknown")
+                #endif
                 self.activeHouseholdId = nil
                 self.lifecycleError = .networkDrop
                 self.phaseObserver?(.activationFailed)
             }
         }
     }
+
+    #if DEBUG
+    private static func recordEndpointClassificationForProbe(_ endpoint: URL) {
+        if endpoint.scheme == "https" {
+            APNSWakeProbe.record("runtime_endpoint_scheme_https")
+        } else if endpoint.scheme == "http" {
+            APNSWakeProbe.record("runtime_endpoint_scheme_http")
+        } else {
+            APNSWakeProbe.record("runtime_endpoint_scheme_other")
+        }
+
+        let host = endpoint.host(percentEncoded: false)?.lowercased() ?? ""
+        if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+            APNSWakeProbe.record("runtime_endpoint_host_loopback")
+        } else if host.hasSuffix(".local") {
+            APNSWakeProbe.record("runtime_endpoint_host_mdns")
+        } else if host.hasPrefix("192.168.") || host.hasPrefix("10.") || host.hasPrefix("172.16.") ||
+                    host.hasPrefix("172.17.") || host.hasPrefix("172.18.") || host.hasPrefix("172.19.") ||
+                    host.hasPrefix("172.20.") || host.hasPrefix("172.21.") || host.hasPrefix("172.22.") ||
+                    host.hasPrefix("172.23.") || host.hasPrefix("172.24.") || host.hasPrefix("172.25.") ||
+                    host.hasPrefix("172.26.") || host.hasPrefix("172.27.") || host.hasPrefix("172.28.") ||
+                    host.hasPrefix("172.29.") || host.hasPrefix("172.30.") || host.hasPrefix("172.31.") {
+            APNSWakeProbe.record("runtime_endpoint_host_private_lan")
+        } else if host.isEmpty {
+            APNSWakeProbe.record("runtime_endpoint_host_missing")
+        } else {
+            APNSWakeProbe.record("runtime_endpoint_host_public_or_relay")
+        }
+    }
+
+    private static func recordActivationFailureForProbe(_ error: MachineJoinError) {
+        switch error {
+        case .networkDrop:
+            APNSWakeProbe.record("runtime_activation_failed_network_drop")
+        case .macUnreachable:
+            APNSWakeProbe.record("runtime_activation_failed_mac_unreachable")
+        case .hhMismatch:
+            APNSWakeProbe.record("runtime_activation_failed_household_mismatch")
+        case .certValidationFailed:
+            APNSWakeProbe.record("runtime_activation_failed_cert_validation")
+        case .gossipDisconnect:
+            APNSWakeProbe.record("runtime_activation_failed_gossip_disconnect")
+        case .protocolViolation:
+            APNSWakeProbe.record("runtime_activation_failed_protocol")
+        case .serverError:
+            APNSWakeProbe.record("runtime_activation_failed_server")
+        case .signingFailed:
+            APNSWakeProbe.record("runtime_activation_failed_signing")
+        case .qrInvalid:
+            APNSWakeProbe.record("runtime_activation_failed_qr_invalid")
+        case .qrExpired:
+            APNSWakeProbe.record("runtime_activation_failed_qr_expired")
+        case .biometricCancel:
+            APNSWakeProbe.record("runtime_activation_failed_biometric_cancel")
+        case .biometricLockout:
+            APNSWakeProbe.record("runtime_activation_failed_biometric_lockout")
+        case .derivationDrift:
+            APNSWakeProbe.record("runtime_activation_failed_derivation_drift")
+        }
+    }
+    #endif
 
     func stop() {
         phaseObserver?(.stopRequested)
