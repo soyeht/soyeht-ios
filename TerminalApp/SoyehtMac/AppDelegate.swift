@@ -3097,7 +3097,13 @@ private enum DevLocalAppleAttestationCaptureRunner {
     ) async {
         do {
             try EnginePackager.install()
-            try SMAppServiceInstaller.register()
+            do {
+                try SMAppServiceInstaller.register()
+            } catch SMAppServiceInstaller.InstallerError.registrationDidNotEnable {
+                // The capture runner immediately probes the dev engine below.
+                // A still-starting LaunchAgent should not hide the more useful
+                // local-registration/ASAuthorization result.
+            }
 
             let healthy = await TheyOSHealthProber().waitForHealthy(timeout: 30)
             guard healthy else { throw CaptureError.healthTimeout }
@@ -3213,27 +3219,131 @@ private enum DevLocalAppleAttestationCaptureRunner {
 
     private static func publicReason(for error: Error) -> String {
         switch error {
+        case EnginePackagerError.supportBinaryNotFound(_):
+            return "support_binary_missing"
+        case SMAppServiceInstaller.InstallerError.requiresApproval:
+            return "launchagent_requires_approval"
+        case SMAppServiceInstaller.InstallerError.notFound:
+            return "launchagent_not_found"
+        case SMAppServiceInstaller.InstallerError.registrationDidNotEnable:
+            return "launchagent_registration_did_not_enable"
+        case SMAppServiceInstaller.InstallerError.registrationFailed(_):
+            return "launchagent_registration_failed"
         case CaptureError.healthTimeout:
             return "health_timeout"
-        case OwnerPasskeyRegistrationError.canceled:
-            return "ceremony_canceled"
-        case OwnerPasskeyRegistrationError.notHandled:
-            return "ceremony_not_handled"
-        case OwnerPasskeyRegistrationError.invalidResponse:
-            return "ceremony_invalid_response"
-        case OwnerPasskeyRegistrationError.unexpectedCredentialType:
-            return "ceremony_unexpected_credential"
-        case OwnerPasskeyRegistrationError.alreadyInProgress:
-            return "ceremony_already_in_progress"
+        case let error as OwnerPasskeyRegistrationError:
+            return publicReason(for: error)
+        case let error as ASAuthorizationError:
+            switch error.code {
+            case .canceled:
+                return "authorization_canceled"
+            case .failed:
+                return "authorization_failed"
+            case .invalidResponse:
+                return "authorization_invalid_response"
+            case .notHandled:
+                return "authorization_not_handled"
+            case .unknown:
+                return "authorization_unknown"
+            case .notInteractive:
+                return "authorization_not_interactive"
+            case .matchedExcludedCredential:
+                return "authorization_matched_excluded_credential"
+            case .credentialImport:
+                return "authorization_credential_import"
+            case .credentialExport:
+                return "authorization_credential_export"
+            @unknown default:
+                return "authorization_other"
+            }
         case is OwnerWebauthnRegistrationDTOError:
             return "local_start_decode_failed"
         case is OwnerWebauthnLocalAttestationFixtureError:
             return "fixture_build_failed"
-        case is BootstrapError:
+        case BootstrapError.serverError(let code, _):
+            return "engine_request_\(code)"
+        case BootstrapError.networkDrop:
+            return "engine_request_network_drop"
+        case BootstrapError.protocolViolation:
+            return "engine_request_protocol_violation"
+        case BootstrapError.engineTooOld:
             return "engine_request_failed"
+        case let error as NSError:
+            return sanitizedNSErrorReason(error)
         default:
             return "capture_failed"
         }
+    }
+
+    private static func publicReason(for error: OwnerPasskeyRegistrationError) -> String {
+        switch error {
+        case .canceled:
+            return "ceremony_canceled"
+        case .notHandled:
+            return "ceremony_not_handled"
+        case .invalidResponse:
+            return "ceremony_invalid_response"
+        case .unexpectedCredentialType:
+            return "ceremony_unexpected_credential"
+        case .alreadyInProgress:
+            return "ceremony_already_in_progress"
+        case .failed(let detail):
+            return "ceremony_failed_\(sanitizedErrorToken(detail))"
+        case .unknown(let detail):
+            return "ceremony_unknown_\(sanitizedErrorToken(detail))"
+        }
+    }
+
+    private static func sanitizedErrorToken(_ detail: String) -> String {
+        let token = detail
+            .lowercased()
+            .map { character -> Character in
+                if character.isLetter || character.isNumber {
+                    return character
+                }
+                return "_"
+            }
+        let compact = String(token)
+            .split(separator: "_")
+            .joined(separator: "_")
+            .prefix(80)
+        return compact.isEmpty ? "empty" : String(compact)
+    }
+
+    private static func sanitizedNSErrorReason(_ error: NSError) -> String {
+        if error.domain == "SoyehtCore.OwnerPasskeyRegistrationError" {
+            switch error.code {
+            case 0:
+                return "ceremony_canceled"
+            case 1:
+                return "ceremony_not_handled"
+            case 2:
+                return "ceremony_invalid_response"
+            case 3:
+                return "ceremony_unexpected_credential"
+            case 4:
+                return "ceremony_already_in_progress"
+            case 5:
+                return "ceremony_failed"
+            case 6:
+                return "ceremony_unknown"
+            default:
+                break
+            }
+        }
+        let domain = error.domain
+            .lowercased()
+            .map { character -> Character in
+                if character.isLetter || character.isNumber {
+                    return character
+                }
+                return "_"
+            }
+        let compactDomain = String(domain)
+            .split(separator: "_")
+            .joined(separator: "_")
+            .prefix(48)
+        return "ns_error_\(compactDomain)_\(error.code)"
     }
 
     private struct CaptureResult: Encodable {

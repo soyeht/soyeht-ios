@@ -204,11 +204,15 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID"], "W7677A5BK2")
         XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID"], "com.soyeht.app")
         XCTAssertEqual(releaseExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT"], "production")
+        XCTAssertEqual(releaseExports["THEYOS_APNS_TOPIC"], "com.soyeht.app")
+        XCTAssertEqual(releaseExports["THEYOS_APNS_ENVIRONMENT"], "production")
 
         XCTAssertEqual(devExports["THEYOS_OWNER_AUTH_V2_ROLLOUT"], "reviewed-core-v2-secure-upgrade")
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID"], "W7677A5BK2")
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID"], "com.soyeht.app.dev")
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT"], "development")
+        XCTAssertEqual(devExports["THEYOS_APNS_TOPIC"], "com.soyeht.app.dev")
+        XCTAssertEqual(devExports["THEYOS_APNS_ENVIRONMENT"], "development")
     }
 
     func test_releaseLaunchAgent_doesNotExportDevOnlyRuntimeOverrides() throws {
