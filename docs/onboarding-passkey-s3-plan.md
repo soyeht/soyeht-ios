@@ -1,6 +1,6 @@
 # Onboarding Passkey (Owner-Auth) — S3 iOS/macOS Plan & Status
 
-_Status as of 2026-06-28. Owner of the Swift/SoyehtCore slice: @gianna.
+_Status as of 2026-06-29. Owner of the Swift/SoyehtCore slice: @gianna.
 Sequence coordination: @code-reviewer. iOS review: @julia. Backend: theyos._
 
 This is the durable record of the S3 (iOS/macOS passkey **enrollment + approval**)
@@ -35,10 +35,26 @@ gesture (UI-layer WYSIWYS).
 
 ## 2. Status snapshot
 
+**2026-06-29 decision update:** the A-now native macOS Touch ID/passkey
+attestation path is no longer the active path to the flip. Hardware smoke
+reached the Apple ceremony and the native platform-passkey surface refused
+attestation ("Passkeys do not support attestation"). The merged macOS-local
+request-shaping, peer-auth, fixture harness, and capture tooling remain
+default-off/inert evidence infrastructure, but `/registration/local/finish`
+stays excluded from the flip. The approved product direction is now:
+
+- **Local Workspace:** Mac-only, local-only, no fan-out, no attestation claim.
+- **Secure/Upgrade with iPhone:** required before multi-device, mesh, relay/VPN,
+  or remote attach.
+- **US-13 STOP:** encode a signed/verifiable strong-owner tier/provenance and
+  Secure/Upgrade transcript before any Local Workspace can promote to
+  multi-device. See
+  `docs/local-workspace-trust-model.md`.
+
 | Layer | Done | Notes |
 |---|---|---|
-| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, macOS-local attested-start wire vector, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged; active M1b local finish commit/activation remains pending A3 positive hardware evidence and the flip gate remains. |
-| **Client (soyeht-ios)** | ~89% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged. The macOS-local attested-start decoder-tolerance vector is merged, and the Dev.app minimal-capture front-half is added for hardware evidence. AddCredential UI and active macOS enrollment work remain future work. |
+| **Backend (theyos)** | ~99% | S0/S1/S2/S3a merged, default-off. Status/E1 is merged. Revoke R1/R2/R3 are merged. Recovery R0 provision/readiness, R1-A consume model, R1-B0 cross-log consumed helpers + combined consumable-head helper + consume-readiness classifier + fail-closed rate-limit adapter, recovery consume context/vectors, R1-B start-only/challenge-only runtime, R1-B finish/two-anchor repair runtime, backup/AddCredential contract/context vectors, backup/AddCredential composite wire vectors, backup/AddCredential start+finish runtime, macOS local engine M1 fail-closed foundation, M1b peer-auth/mount foundation, M1b platform-hint prep, A-now local Apple Anonymous proof/model inert foundation, A3 dangerous-conversion allowlist guard, A3 manual evidence harness, macOS-local attested-start wire vector, default-off owner-auth v2 rollout/rollback control plus env/Nix operational wiring, and reviewed-rollout evidence tests for recovery, core operations, and trust-state boundaries are merged. Native macOS platform-passkey attestation is blocked by Apple surface behavior, so active macOS-local finish is deferred and excluded from the flip. |
+| **Client (soyeht-ios)** | ~89% | **Headless chain 100% merged**. iOS enrollment screen and approval review screen are merged. macOS UDS/no-PoP client foundation is merged. AddCredential composite wire DTO/vector consumer and headless client/orchestrator/ViewModel get-ahead are merged. The macOS-local attested-start decoder-tolerance vector and Dev.app minimal-capture front-half remain inert diagnostic/capture infrastructure. Local Workspace onboarding copy now offers Add iPhone or local Mac use, without an initial Linux fan-out CTA. AddCredential UI, explicit Mac approved/denied signaling, Secure/Upgrade with iPhone, and broader US-13 owner-tier client surfaces remain future work. |
 | **Rollout / active-for-user** | **0%** | Inert by design; gated on pre-flip gates + the flip readiness checklist in `docs/onboarding-passkey-flip-readiness.md`. |
 
 ---
@@ -68,8 +84,10 @@ gesture (UI-layer WYSIWYS).
   env/Nix rollout wiring + required-check path-filter coverage ✅, recovery
   provision reviewed-rollout evidence ✅, reviewed-rollout core operation
   evidence ✅, and reviewed-rollout trust-state boundary evidence ✅.
-  **Remaining:** positive A3 hardware verdict, active M1b local finish
-  commit/activation (A3), plus the flip.
+  **Remaining:** explicit flip decision/operation for the reviewed non-local
+  owner-auth paths; US-13 owner-tier/provenance design before Local Workspace
+  can promote to fan-out; active macOS-local finish is deferred because native
+  Apple platform passkeys do not provide the A-now attestation proof.
 - **Golden vectors** (Rust↔Swift): #166 registration, #167 adapter contract,
   #170 approval-v2 wire, #174 revoke-credential context, #178 recovery
   provision context, #179 AddCredential context, #184 RecoverCredential
@@ -138,10 +156,15 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
   anchor, no rollout, and no active enrollment. If the optional sanitized
   capture-result file is requested, it must use a different path from the raw
   fixture. The captured passkey is a throwaway/orphan credential and must be
-  deleted after the dump; the real owner credential will be enrolled fresh in the
-  later A3 active-commit slice. Operator steps live in
+  deleted after the dump; it must not be reused as an owner credential. Any
+  future owner credential for a reviewed proof surface would require a fresh
+  enrollment ceremony defined by that future STOP. Operator steps live in
   `docs/macos-local-attestation-capture-runbook.md`. The live capture requires
   the #206 Dev peer-auth selector and a normally signed `Soyeht Dev.app`.
+  A later hardware smoke reached the native `ASAuthorization` ceremony and
+  established that platform passkeys do not support the attestation required by
+  A-now. This keeps the slice inert/diagnostic; it is not an active enrollment
+  path and is no longer on the flip critical path.
 
 **Fase-2 config (parallel track, orthogonal)**
 - #221 — `OnboardingConfig` timeout SSOT (inert)
@@ -183,19 +206,12 @@ All in `Packages/SoyehtCore` (SPM, unit-tested, inert).
 - iOS: **merged**. `enrollOwnerPasskey(snapshot)` now sits between
   `pairingSuccess(snapshot)` and the recovery/household continuation in the
   post-owner setup flow.
-- macOS: still gated, but the identity/caller-auth architecture is decided and
-  the SoyehtCore UDS client foundation is merged. It is not a direct iOS port:
-  the app target must not receive owner identity / PoP signer material. The
-  engine keeps owner identity engine-side, exposes a local Unix domain socket to
-  the signed Soyeht app, verifies the peer code signature (audit token ->
-  SecCode -> designated requirement: apple-generic + team-id + bundle-id, not a
-  raw cdhash pin), and treats WebAuthn attestation as the material grant only
-  when it is constrained to user verification + platform authenticator +
-  owner-exists / NeverEnrolled / default-off gates. TCP loopback or localhost +
-  attestation alone is not authorization. The client foundation uses
-  HTTP-over-UDS so existing CBOR DTOs/vectors can be reused; the security-critical
-  engine foundation is merged fail-closed as #191, while the active M1b route
-  with peer code-signing + constrained attestation is still pending.
+- macOS: native platform-passkey attestation is deferred for product use. The
+  UDS/caller-auth/capture foundation remains merged and fail-closed, but it is
+  diagnostic infrastructure, not an active owner enrollment path. The product
+  direction is Local Workspace first, then Secure/Upgrade with iPhone before
+  multi-device fan-out. TCP loopback or localhost + attestation alone is not
+  authorization.
 - The view is thin: switch only on `OwnerPasskeyEnrollmentViewModel.phase`.
   `.completed(.fresh)` and `.completed(.alreadyCommitted)` are success;
   `.failed(canRetry:)` shows one generic retry surface; `setUpLater()` is
@@ -248,7 +264,7 @@ because of the xcframework caveat; no local live ceremony is required.
 
 ## 7. Gated / pre-flip (NOT in scope yet)
 
-- **recovery-code** — Caio: 1 passkey + 1 recovery at setup; pre-flip **blocker**.
+- **recovery-code** — the project owner: 1 passkey + 1 recovery at setup; pre-flip **blocker**.
   R0 provision/readiness is merged as default-off infrastructure, with
   shown-once recovery code semantics protected by the anchored/delivered/ready
   invariant. R1-A consume model, R1-B0 cross-log consumed helpers + combined
@@ -370,8 +386,8 @@ because of the xcframework caveat; no local live ceremony is required.
   profile and is not accepted by the production verifier. Missing peer metadata,
   missing verifier, and denied callers still fail closed before decode or
   challenge staging. This makes start/status peer-auth capable, but **does not**
-  make active local enrollment complete: local finish remains inert until a
-  later M1b-attestation slice proves platform+UV server-side before commit.
+  make active local enrollment complete: local finish remains inert unless a
+  future STOP defines a reviewed proof model and commit path.
   #193 adds the M1b attestation-prep/options slice for local start only: the
   local registration options now explicitly request
   `authenticatorAttachment=platform` and resident-key/discoverable credential
@@ -379,9 +395,11 @@ because of the xcframework caveat; no local live ceremony is required.
   finish remains `local_attestation_constraints_unavailable`. This is
   request-shaping for the macOS ceremony, not a security proof: the platform
   attachment is only a client-side hint in the current WebAuthn wrapper. The
-  active finish remains blocked until the A3 active-commit slice stores and
-  commits a verified proof. Caio selected **A-now** for the Apple-grade local
-  path, but that selection is not itself readiness. #201 adds the attested
+  active finish remains blocked until a reviewed proof model exists. Historical
+  note: the project owner originally selected **A-now** for the Apple-grade local path, but
+  the later hardware smoke showed the native platform-passkey surface does not
+  provide the required attestation proof, so A-now is now deferred rather than a
+  pending commit slice. #201 adds the attested
   local-start foundation: local start requests Direct Apple Anonymous
   attestation with platform attachment, UV required, resident/discoverable
   behavior, and no-sync request shaping, and stages a separate
@@ -404,22 +422,24 @@ because of the xcframework caveat; no local live ceremony is required.
   (format/UV/BE/BS/root policy/fingerprint). It also records that public
   `webauthn-rs-core 0.5.5` has no safe public `verify_at` seam, so the expired
   Apple fixture remains negative-only evidence. #204 is the mechanism for the
-  A3 evidence gate, not the verdict: active finish still needs a positive fresh
-  hardware run reviewed before commit, `NeverEnrolled`/authority-empty
-  revalidated under lock, evidence storage, and the verify -> convert ->
-  genesis/save -> memory -> anchor sequence with replay and anchor-failure
-  coverage. #205/#270 add the hardware-free `/local/start` request-shaping and
+  A3 evidence gate, not the verdict. The native hardware run did not produce a
+  positive attested fixture because Apple platform passkeys refused attestation;
+  therefore active macOS-local finish remains excluded from the flip unless a
+  future STOP defines a new proof surface. #205/#270 add the hardware-free
+  `/local/start` request-shaping and
   Swift decoder-tolerance vector: it pins the Direct Apple
   Anonymous/platform/UV/resident option wrapper and proves the current Swift
   lean decoder does not break on those extras. This is not a positive hardware
   verdict, not client honoring of the attestation options, and not active finish
-  readiness. Hardware evidence must still come from a live server-issued
-  `/registration/local/start` captured by the Dev.app minimal-capture path and
-  then verified by the #204 harness; that smoke proves Apple chain + the five
-  checks + internal consistency only. Server-issued challenge binding,
-  single-use, and anti-replay remain A3 active-commit properties. The capture
-  runbook is `docs/macos-local-attestation-capture-runbook.md`; it depends on
-  the #206 Dev peer-auth selector and a normally signed `Soyeht Dev.app`.
+  readiness. Any future hardware evidence for a new proof surface would need a
+  live server-issued challenge, a fixture produced by that reviewed surface, and
+  #204-style verification; that smoke would prove Apple chain + the five checks
+  + internal consistency only if a valid attested fixture exists. The current
+  native platform-passkey surface could not produce one. Server-issued challenge
+  binding, single-use, and anti-replay remain properties of any future
+  active-commit design. The historical capture runbook is
+  `docs/macos-local-attestation-capture-runbook.md`; it depends on the #206 Dev
+  peer-auth selector and a normally signed `Soyeht Dev.app`.
 - **owner-auth v2 rollout control** — #195 adds the default-off production
   control for the eventual flip, and #196 wires it into `.env.example`, the Nix
   module/template, and install rendering with `legacy` as the operational
@@ -437,7 +457,7 @@ because of the xcframework caveat; no local live ceremony is required.
   Recovery uses a dedicated `RecoveryCodeEnforcement::BreakGlassEnabled`
   switch, not active-credential v2 semantics: recovery consume remains
   break-glass, and `active_count=0` stays valid when the recovery-code gates
-  pass. This is still not the flip; production remains default-off until Caio's
+  pass. This is still not the flip; production remains default-off until the project owner's
   flip decision and the required sign-offs.
 - **reviewed-rollout evidence** — #197 adds a test-only guard under the real
   future `OwnerApprovalEnforcementPolicy::reviewed_core_v2_rollout()` package for
@@ -457,24 +477,38 @@ because of the xcframework caveat; no local live ceremony is required.
   coverage. It remains default-off infrastructure, not the enforcement flip.
 - **enforcement flip** — only after the pre-flip gates land. The current
   readiness checklist lives in `docs/onboarding-passkey-flip-readiness.md` and
-  keeps macOS-local active finish excluded unless A3 is separately built and
-  accepted.
+  keeps macOS-local active finish excluded. The approved macOS product direction
+  is Local Workspace plus Secure/Upgrade with iPhone before fan-out; US-13 owns
+  the owner-tier/provenance design for that transition.
 
 ---
 
-## 8. Open decisions (were @tiana's; now via @code-reviewer / Caio)
+## 8. Open decisions (were the prior reviewer's; now via @code-reviewer / the project owner)
 
 - (Decided) Enrollment is a dedicated step, not a modal; skip is first-class.
 - (Decided) 2-phase approval orchestrator split is merged and is the UI contract.
-- (Decided) iOS "Protect your home" screen is merged. macOS enrollment uses
-  engine-side owner identity over UDS with peer code-signing caller-auth plus
-  constrained platform WebAuthn attestation; the UDS/no-PoP client foundation
-  is merged, while the security-critical active engine finish and app
-  integration remain pending.
-- (Decided) macOS local active finish sequencing: Caio chose A-now. #201 and
-  #202 merged the start/staging and A2 proof/model inert foundations, but local
-  finish remains inactive until A3 implements the active commit path described in
-  §7.
+- (Decided) iOS "Protect your home" screen is merged. Historical macOS-local
+  enrollment work uses engine-side owner identity over UDS with peer
+  code-signing caller-auth, but the constrained platform WebAuthn-attestation
+  path is now superseded/deferred by the native platform-passkey finding. The
+  UDS/no-PoP client foundation remains inert diagnostic infrastructure; current
+  product direction is Local Workspace plus Secure/Upgrade with iPhone before
+  fan-out.
+- (Superseded) macOS local active finish sequencing: the project owner originally chose
+  A-now, and #201/#202 merged inert start/staging and A2 proof/model foundations.
+  Hardware smoke later showed native Apple platform passkeys do not provide the
+  required attestation proof, so A-now is deferred and `/registration/local/finish`
+  remains hard-inert/excluded from the flip.
+- (Decided) Product direction after A-now defer: Mac Local Workspace is allowed
+  as local-only, and any promotion to multi-device/mesh/relay/VPN/remote attach
+  requires Secure/Upgrade with iPhone. US-13 has staged signed/verifiable
+  owner-tier/provenance schema, App-Attest-specific provenance names,
+  Secure/Upgrade transcript vectors, and the pair-machine reviewed-v2 gate.
+  Device-pairing approve, household remote attach, and Product A / relay-stream
+  are STOP-source-guarded against accidental `reviewed-core-v2` /
+  `owner_can_fan_out()` coupling; backend proof verification, runtime strong-tier
+  minting, and default-safe fan-out gates must still land before that fan-out can
+  become active.
 - (Decided) iOS approval review screen is merged, default-off, with v1 fallback
   preserved. The app-wrapper preserves the B7 local-anchor pin before
   `confirm(prepared)`.

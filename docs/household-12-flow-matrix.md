@@ -43,11 +43,24 @@ The current protocol requires every pair-machine candidate to be approved by a r
 
 Caio confirmed (2026-05-20) that iPhone-as-only-owner is the desired security posture: "iPhone tem esse poder, faz sentido." Mac/Linux owner promotion is explicitly out of scope — owners stay biometric-iPhone-only.
 
+2026-06-29 clarification: a Mac founder can be a **Local Workspace** without an
+iPhone, but it must remain local-only until it is secured by an iPhone owner.
+The backend already rejects pair-machine fan-out when `owner_auth` is absent.
+US-13 has staged signed strong-tier schema, App-Attest-specific provenance names,
+Secure/Upgrade transcript vectors, and the pair-machine reviewed-v2 gate.
+Device-pairing approve, household remote attach, and Product A / relay-stream
+are also STOP-source-guarded so they cannot join `reviewed-core-v2` or
+`owner_can_fan_out()` accidentally. The remaining trust-model STOP is backend
+proof verification, runtime strong-tier minting, and default-safe fan-out gates
+before Local Workspace can promote to multi-device, mesh, relay, VPN, or remote
+attach. See
+[local-workspace-trust-model.md](local-workspace-trust-model.md).
+
 ## Bugs surfaced during validation (open follow-ups)
 
 - **iPhone `HouseholdPairingError.certInvalid`** during pair-device confirm: server (Mac/Linux) accepts the request and signs the PersonCert (state goes to `ready`, `device_count=1`), but iPhone's `cert.validate(...)` in `HouseholdPairingService.pair(...)` rejects the response. Suspected canonical-CBOR re-encoding drift between Rust ciborium output and Swift `HouseholdCBOR.append` round-trip. Diagnostic NSLogs added inline in `Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdPairingService.swift:162-205` to surface which guard fires on the next reproduction.
 - **Mac engine SE keychain access** outside LaunchAgent context: when relaunched from a plain shell without `THEYOS_FORCE_SOFTWARE_KEYS=1` or LaunchAgent inherited entitlements, `keystore.read.machine` panics with `errSecItemNotFound (-25300)`. Workaround applied at runtime; long-term fix is to gate the policy on bootstrap state rather than environment.
-- **Linux `mdns-sd 0.10.5` on NixOS** emits zero UDP 5353 packets despite logging `bonjour.candidate_published`. Rebuilt against `mdns-sd 0.13` locally and the candidate is still not visible to Mac `dns_sd` browsers. Architectural workaround: pair-device URI carries `host=<tailnet-ip>:<port>` so iPhone bypasses Bonjour discovery for QR-driven flows. Cross-repo follow-up tracked in [reference_caio_devices](../README — see `project_theyos_mdns_sd_macos_followup.md`).
+- **Linux `mdns-sd 0.10.5` on NixOS** emits zero UDP 5353 packets despite logging `bonjour.candidate_published`. Rebuilt against `mdns-sd 0.13` locally and the candidate is still not visible to Mac `dns_sd` browsers. Architectural workaround: pair-device URI carries `host=<tailnet-ip>:<port>` so iPhone bypasses Bonjour discovery for QR-driven flows. Cross-repo follow-up was tracked in the `archived-engineering-notes` notes as `project_theyos_mdns_sd_macos_followup.md`.
 
 ## Out of scope — multi-platform owners
 
