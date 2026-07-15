@@ -29,6 +29,15 @@ jobs:
           SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
         run: swift test --package-path Packages/SoyehtCore -v
 
+      # The pinned engine is arm64 and may advertise Bonjour services. GitHub's
+      # fresh macOS runner is the deliberately isolated execution environment;
+      # CI=true supplies EngineHarnessTests' second safety interlock.
+      - name: Run EngineHarnessTests in isolated CI
+        env:
+          THEYOS_HARNESS: "1"
+          SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
+        run: swift test --package-path Packages/SoyehtCore --filter EngineHarness
+
   # ── UI resource lint: localization + theme-driven colors ───────────────────
   ui-resource-lint:
     name: UI Resource Lint
