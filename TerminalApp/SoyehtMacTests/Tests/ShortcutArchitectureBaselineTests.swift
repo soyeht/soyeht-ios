@@ -159,12 +159,9 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
         XCTAssertTrue(mutableActions.contains("windowCommandPerformer.performMoveActiveWorkspaceRightCommand"))
         XCTAssertFalse(mutableActions.contains("switch commandID"))
 
-        let windowActionPerformer = try slice(
-            appDelegate,
-            from: "private final class UICommandWindowActionPerformer",
-            to: "// MARK: - WorkspaceSwitchBenchmark"
-        )
+        let windowActionPerformer = try macSource("MainMenu/WindowCommandActionPerformer.swift")
         assertNoArbitraryWindowFallbacks(windowActionPerformer, label: "UICommandWindowActionPerformer")
+        XCTAssertTrue(windowActionPerformer.contains("@MainActor\nfinal class UICommandWindowActionPerformer"))
         XCTAssertTrue(windowActionPerformer.contains("private let targetProvider"))
         XCTAssertTrue(windowActionPerformer.contains("guard let grid = targetProvider()?.activeGridController"))
 
@@ -184,6 +181,65 @@ final class ShortcutArchitectureBaselineTests: XCTestCase {
         )
         assertNoArbitraryWindowFallbacks(workspaceState, label: "MainMenuController workspace dynamic state")
         XCTAssertTrue(workspaceState.contains("let controller = uiMainWindowController"))
+    }
+
+    func testWindowCommandPerformerKeepsUIOnlyLazyTargetAndDirectSelectorDelegation() throws {
+        let appDelegate = try macSource("AppDelegate.swift")
+        let lazyPerformer = try slice(
+            appDelegate,
+            from: "private lazy var windowCommandPerformer",
+            to: "private lazy var appCommandActionRouter"
+        )
+        XCTAssertEqual(
+            lazyPerformer.trimmingCharacters(in: .whitespacesAndNewlines),
+            [
+                "private lazy var windowCommandPerformer = UICommandWindowActionPerformer(",
+                "        targetProvider: { [weak self] in self?.uiMainWindowController }",
+                "    )",
+            ].joined(separator: "\n")
+        )
+
+        let newGroup = try slice(
+            appDelegate,
+            from: "@IBAction func newGroupForActiveWorkspace",
+            to: "@IBAction func assignActiveWorkspaceToGroup"
+        )
+        XCTAssertEqual(
+            newGroup.trimmingCharacters(in: .whitespacesAndNewlines),
+            [
+                "@IBAction func newGroupForActiveWorkspace(_ sender: Any?) {",
+                "        windowCommandPerformer.performNewGroupForActiveWorkspaceCommand(sender)",
+                "    }",
+            ].joined(separator: "\n")
+        )
+
+        let assignGroup = try slice(
+            appDelegate,
+            from: "@IBAction func assignActiveWorkspaceToGroup",
+            to: "@IBAction func newWindow"
+        )
+        XCTAssertEqual(
+            assignGroup.trimmingCharacters(in: .whitespacesAndNewlines),
+            [
+                "@IBAction func assignActiveWorkspaceToGroup(_ sender: NSMenuItem) {",
+                "        windowCommandPerformer.performAssignActiveWorkspaceToGroupCommand(sender)",
+                "    }",
+            ].joined(separator: "\n")
+        )
+
+        let closeWorkspace = try slice(
+            appDelegate,
+            from: "@IBAction func closeActiveWorkspace",
+            to: "@IBAction func defaultFontSize"
+        )
+        XCTAssertEqual(
+            closeWorkspace.trimmingCharacters(in: .whitespacesAndNewlines),
+            [
+                "@IBAction func closeActiveWorkspace(_ sender: Any?) {",
+                "        windowCommandPerformer.performCloseActiveWorkspaceCommand(sender)",
+                "    }",
+            ].joined(separator: "\n")
+        )
     }
 
     func testAutomationWindowFallbackIsExplicitlySeparatedFromUIScope() throws {
