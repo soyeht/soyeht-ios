@@ -125,7 +125,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let command = try slice(
             source,
             from: "func performShowClawStoreCommand(_ sender: Any?)",
-            to: "@MainActor\nprivate final class UICommandWindowActionPerformer"
+            to: "// MARK: - WorkspaceSwitchBenchmark"
         )
 
         XCTAssertTrue(command.contains("showStandaloneClawStore(sender)"))
@@ -373,11 +373,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "fileprivate static func mainWindowCommandTargetResolver",
             to: "fileprivate static func mainWindowController"
         )
-        let windowActionPerformer = try slice(
-            source,
-            from: "private final class UICommandWindowActionPerformer",
-            to: "// MARK: - WorkspaceSwitchBenchmark"
-        )
+        let windowActionPerformer = try macSource("MainMenu/WindowCommandActionPerformer.swift")
 
         XCTAssertTrue(commandActions.contains("windowCommandPerformer.performMoveFocusedPaneToWorkspaceCommand"))
         XCTAssertTrue(commandActions.contains("windowCommandPerformer.performMoveActiveWorkspaceLeftCommand"))
@@ -392,6 +388,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(targetResolver.contains("NSApp.orderedWindows"))
         XCTAssertFalse(targetResolver.contains("mainWindowControllers.first"))
         XCTAssertTrue(windowActionPerformer.contains("private let targetProvider"))
+        XCTAssertTrue(windowActionPerformer.contains("@MainActor\nfinal class UICommandWindowActionPerformer"))
         XCTAssertTrue(windowActionPerformer.contains("targetProvider()?.activeGridController"))
         XCTAssertFalse(windowActionPerformer.contains("activeMainWindowController"))
         XCTAssertFalse(windowActionPerformer.contains("NSApp.orderedWindows"))
