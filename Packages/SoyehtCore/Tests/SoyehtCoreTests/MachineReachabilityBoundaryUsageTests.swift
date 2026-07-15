@@ -2,22 +2,23 @@ import Foundation
 import XCTest
 
 /// Source-slice ratchet for the endpoint escape hatch that predates
-/// `MachineReachability`. `ActiveHouseholdState.endpoint` is currently a
-/// serialized legacy seed, but production code still reads it through a small
-/// set of local aliases. New readers must not enlarge that set before the
-/// reachability seam is introduced.
+/// `MachineReachability`. `ActiveHouseholdState.endpoint` is a serialized
+/// legacy seed. The 15 pre-existing consumer reads must migrate away; the
+/// only sanctioned additional read is `LegacyStoredEndpointStrategy` inside
+/// the seam. As consumers migrate, their allowlist entries disappear until
+/// only that strategy remains, and it disappears with the legacy seed.
 ///
 /// This is deliberately an allowlist of *sites*, not files: an additional
 /// `household.endpoint` in `HouseholdMachineJoinRuntime.swift` still fails.
-/// Every baseline entry must resolve positively. A migration that removes a
+/// Every allowlist entry must resolve positively. A migration that removes a
 /// reader updates this list in the same PR, so a broken cross-workspace path
 /// can never make the test pass by scanning zero files.
 final class MachineReachabilityBoundaryUsageTests: XCTestCase {
     func test_activeHouseholdStateEndpointReads_doNotGrowBeyondKnownSites() throws {
         XCTAssertEqual(
             Self.allowedRawEndpointReads.count,
-            Self.initialKnownRawEndpointReadCount,
-            "The Phase 2 baseline must keep one explicit entry for each of its 15 initially known sites."
+            Self.allowedRawEndpointReadCount,
+            "The Phase 2 ratchet must keep its 15 unmigrated consumer sites and one sanctioned legacy seam reader explicit."
         )
 
         let files = try productionSwiftFiles()
@@ -72,11 +73,11 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
 
         XCTAssertEqual(
             allowedReads.count,
-            Self.initialKnownRawEndpointReadCount,
+            Self.allowedRawEndpointReadCount,
             """
-            The Phase 2 baseline must resolve all \(Self.initialKnownRawEndpointReadCount) known raw endpoint sites. This is a positive guard against a broken cross-workspace path or an ambiguous anchor.
+            The Phase 2 ratchet must resolve all \(Self.allowedRawEndpointReadCount) allowed raw endpoint sites. This is a positive guard against a broken cross-workspace path or an ambiguous anchor.
 
-            Unresolved baseline entries:
+            Unresolved allowlist entries:
             \(unresolved.joined(separator: "\n"))
             """
         )
@@ -84,22 +85,22 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
         XCTAssertTrue(
             unresolved.isEmpty && unexpected.isEmpty,
             """
-            ActiveHouseholdState.endpoint may not gain a new production reader outside the Phase 2 baseline.
+            ActiveHouseholdState.endpoint may not gain a new production reader outside the Phase 2 ratchet.
 
             Unexpected raw endpoint reads:
             \(unexpected.map(\.description).joined(separator: "\n"))
 
-            Unresolved baseline entries:
+            Unresolved allowlist entries:
             \(unresolved.joined(separator: "\n"))
 
-            Migrate consumers to MachineReachability rather than adding a new allowlist entry.
+            Migrate consumers to MachineReachability rather than adding an allowlist entry. The sole legacy exception is LegacyStoredEndpointStrategy, which is removed with the serialized seed.
             """
         )
     }
 
-    // MARK: - Phase 2 baseline (15 sites on origin/main at creation)
+    // MARK: - Phase 2 ratchet (15 consumers + 1 sanctioned seam reader)
 
-    private static let initialKnownRawEndpointReadCount = 15
+    private static let allowedRawEndpointReadCount = 16
 
     private static let allowedRawEndpointReads: [AllowedRawEndpointRead] = [
         .init(
@@ -199,6 +200,12 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
             purpose: "machine certificate signing",
             maximumLineDistance: 1
         ),
+        .init(
+            relativePath: "Packages/SoyehtCore/Sources/SoyehtCore/Reachability/MachineReachability.swift",
+            expression: "state.endpoint",
+            anchor: "baseURL: state.endpoint,",
+            purpose: "LegacyStoredEndpointStrategy — sole sanctioned legacy seam reader"
+        ),
     ]
 
     // MARK: - Source scanning
@@ -210,7 +217,7 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
         let purpose: String
         /// Most sites place the raw read on the anchor line. Constructor-style
         /// calls use a one-line window so formatting indentation cannot turn
-        /// the positive baseline into a false failure.
+        /// the positive allowlist guard into a false failure.
         let maximumLineDistance: Int
 
         init(
