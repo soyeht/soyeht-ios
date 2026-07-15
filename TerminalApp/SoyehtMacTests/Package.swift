@@ -21,7 +21,13 @@ let package = Package(
             dependencies: [
                 .product(name: "SoyehtCore", package: "SoyehtCore"),
             ],
-            exclude: ["MainMenu/MainMenuController.swift"]
+            exclude: [
+                "MainMenu/MainMenuController.swift",
+                // This AppKit-bound executor is source-slice tested from the
+                // app tree; the isolated domain target intentionally lacks
+                // its window-controller and pane-grid dependencies.
+                "MainMenu/WindowCommandActionPerformer.swift",
+            ]
         ),
         .testTarget(
             name: "SoyehtMacDomainTests",
