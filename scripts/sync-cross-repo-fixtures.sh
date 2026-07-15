@@ -73,7 +73,8 @@ sync_mobile_claw_vpn_contracts() {
     for fixture in \
         api_shapes.json \
         owner_approval_v2_execution_vectors.json \
-        owner_present_success_wire_v1.json; do
+        owner_present_success_wire_v1.json \
+        owner_present_wire_authority_status_v1.json; do
         if [[ ! -f "${src_dir}/${fixture}" ]]; then
             echo "error: mobile Claw VPN contract not found at ${src_dir}/${fixture}" >&2
             exit 1
@@ -124,21 +125,6 @@ if [[ "${SOYEHT_SYNC_ONLY:-}" == "owner-approval-v2" ]]; then
     exit 0
 fi
 
-# ── T039e: avatar derivation (specs/005-soyeht-onboarding/contracts/) ─────────
-SRC_CONTRACTS="${THEYOS_DIR}/specs/005-soyeht-onboarding/contracts"
-mkdir -p "${TESTS}/HouseholdFixtures/Avatar"
-cp "${SRC_CONTRACTS}/avatar-derivation-fixtures.csv" \
-   "${TESTS}/HouseholdFixtures/Avatar/avatar-derivation-fixtures.csv"
-echo "✓ avatar-derivation-fixtures.csv"
-
-# ── FR-045: emoji security code ───────────────────────────────────────────────
-mkdir -p "${TESTS}/HouseholdFixtures/EmojiSecurityCode"
-cp "${SRC_CONTRACTS}/emoji-security-code-fixtures.csv" \
-   "${TESTS}/HouseholdFixtures/EmojiSecurityCode/emoji-security-code-fixtures.csv"
-cp "${SRC_CONTRACTS}/emoji-security-code-wordlist.csv" \
-   "${TESTS}/HouseholdFixtures/EmojiSecurityCode/emoji-security-code-wordlist.csv"
-echo "✓ emoji-security-code-fixtures.csv + emoji-security-code-wordlist.csv"
-
 # ── T039d: owner-cert CBOR (admin/rust/server-rs/tests/fixtures/) ─────────────
 SRC_FIXTURES="${THEYOS_DIR}/admin/rust/server-rs/tests/fixtures"
 mkdir -p "${TESTS}/HouseholdFixtures/OwnerCert"
@@ -166,11 +152,11 @@ cp "${SECURE_UPGRADE_TRANSCRIPT_FIXTURE}" \
    "${TESTS}/HouseholdFixtures/SecureUpgrade/secure_upgrade_transcript_vectors.json"
 echo "✓ secure_upgrade_transcript_vectors.json"
 
-# ── T067b: casa_nasceu push payload ───────────────────────────────────────────
+# ── T067b: house-created push payload ─────────────────────────────────────────
 mkdir -p "${TESTS}/Fixtures/push"
-cp "${SRC_FIXTURES}/casa_nasceu_push.json" \
-   "${TESTS}/Fixtures/push/casa-nasceu.json"
-echo "✓ casa-nasceu.json (push payload)"
+cp "${SRC_FIXTURES}/house_created_push.json" \
+   "${TESTS}/Fixtures/push/house-created.json"
+echo "✓ house-created.json (push payload)"
 
 # ── PR-B: guest-image failure-code contract (admin/rust/core-rs/tests/fixtures/) ──
 GUEST_IMAGE_FIXTURE="${THEYOS_DIR}/admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
