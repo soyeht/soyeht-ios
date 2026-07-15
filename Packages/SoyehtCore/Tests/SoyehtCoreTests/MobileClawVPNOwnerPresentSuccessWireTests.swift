@@ -8,7 +8,7 @@ import Testing
 @Suite("Historical PRE-EFFECT owner-present success wire C1")
 struct MobileClawVPNOwnerPresentSuccessWireTests {
     private static let successFixtureSHA256 =
-        "ff9ad533567e29261ecbd8e11e84e9490f1829bd4d2e5b50fe8783dc82b000d1"
+        "55fe55c6f1985103f21e679c5e6227646035e4d03da3e75193cfc9d1eeb45f8f"
     private static let expectedRPID = "owner.dev.example.test"
     private static let expectedOrigin = "https://owner.dev.example.test/"
     private static let ownerPresentMode = "mesh_c_owner_present_offer_control"
@@ -545,7 +545,7 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
             contentsOf: repositoryRoot.appendingPathComponent("scripts/cross-repo-contract.sha"),
             encoding: .utf8
         ).trimmingCharacters(in: .whitespacesAndNewlines)
-        #expect(pin == "95659bd1cb10581dde7bd94660fd99f2e4bf4eb7")
+        #expect(pin == "87d524bb521352ecde03e098fe452fb902472e61")
     }
 }
 
