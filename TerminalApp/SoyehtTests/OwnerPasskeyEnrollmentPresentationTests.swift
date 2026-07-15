@@ -39,9 +39,10 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
 
     func test_enrollmentInsertedBetweenPairingSuccessAndRecovery() throws {
         let source = try iosSource("SSHLoginView.swift")
+        let routeSource = try iosSource("App/AppRoute.swift")
 
         // The enum carries the new step.
-        XCTAssertTrue(source.contains("case enrollOwnerPasskey(SoyehtIdentitySnapshot)"))
+        XCTAssertTrue(routeSource.contains("case enrollOwnerPasskey(SoyehtIdentitySnapshot)"))
 
         // Pairing success now advances into enrollment (not straight to recovery).
         let pairingBranch = try slice(
@@ -59,6 +60,44 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         )
         XCTAssertTrue(enrollBranch.contains("OwnerPasskeyEnrollmentView("))
         XCTAssertTrue(enrollBranch.contains("appState = .recoveryMessage(snapshot)"))
+    }
+
+    func test_routeVocabularyKeepsAllTwelveCasesWithoutMovingRootHandlers() throws {
+        let rootSource = try iosSource("SSHLoginView.swift")
+        let routeSource = try iosSource("App/AppRoute.swift")
+
+        XCTAssertTrue(routeSource.contains("enum SoyehtAppRoute {"))
+        let declaredCases = routeSource
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("case ") }
+        XCTAssertEqual(declaredCases.count, 12)
+
+        for signature in [
+            "case splash",
+            "case qrScanner",
+            "case householdHome(SoyehtIdentitySnapshot)",
+            "case pairingSuccess(SoyehtIdentitySnapshot)",
+            "case enrollOwnerPasskey(SoyehtIdentitySnapshot)",
+            "case recoveryMessage(SoyehtIdentitySnapshot)",
+            "case instanceList",
+            "case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)",
+            "case householdTerminal(",
+            "request: URLRequest,",
+            "case localTerminal(wsUrl: String, title: String, macID: UUID?, paneID: String?)",
+            "case relayStreamOpening(ClawShareInvite)",
+            "case relayStreamTerminal(RelayStreamTerminalConfiguration)",
+        ] {
+            XCTAssertTrue(routeSource.contains(signature), "Missing route signature: \(signature)")
+        }
+
+        XCTAssertTrue(rootSource.contains("@State private var appState: SoyehtAppRoute = .splash"))
+        XCTAssertFalse(rootSource.contains("enum AppState"))
+        XCTAssertFalse(routeSource.contains("func "))
+        XCTAssertFalse(routeSource.contains("@State"))
+        XCTAssertFalse(routeSource.contains("handlePostSplash"))
+        XCTAssertFalse(routeSource.contains("handleIncomingDeepLink"))
+        XCTAssertFalse(routeSource.contains("attemptTerminalRestore"))
     }
 
     func test_composerWiresOrchestratorStatusAndDegradesGracefully() throws {
