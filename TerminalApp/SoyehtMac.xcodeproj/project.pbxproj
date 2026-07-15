@@ -65,6 +65,7 @@
 		AA500003000000000000001 /* ObservationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500003000000000000002 /* ObservationTracker.swift */; };
 		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
 		AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500005000000000000002 /* SoyehtAutomationService.swift */; };
+		F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */; };
 		AA510001000000000000001 /* MenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510001000000000000002 /* MenuModel.swift */; };
 		AA510002000000000000001 /* MainMenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510002000000000000002 /* MainMenuBuilder.swift */; };
 		AA510003000000000000001 /* AppCommandDispatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510003000000000000002 /* AppCommandDispatch.swift */; };
@@ -226,6 +227,7 @@
 		AA500003000000000000002 /* ObservationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationTracker.swift; sourceTree = "<group>"; };
 		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
 		AA500005000000000000002 /* SoyehtAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationService.swift; sourceTree = "<group>"; };
+		F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationRequestRouter.swift; sourceTree = "<group>"; };
 		AA510001000000000000002 /* MenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModel.swift; sourceTree = "<group>"; };
 		AA510002000000000000002 /* MainMenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuBuilder.swift; sourceTree = "<group>"; };
 		AA510003000000000000002 /* AppCommandDispatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandDispatch.swift; sourceTree = "<group>"; };
@@ -584,6 +586,7 @@
 				AA500001000000000000002 /* AppEnvironment.swift */,
 				AA500004000000000000002 /* AppCommandRegistry.swift */,
 				AA500005000000000000002 /* SoyehtAutomationService.swift */,
+				F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
 				AA500003000000000000002 /* ObservationTracker.swift */,
@@ -993,6 +996,7 @@
 				AA510005000000000000001 /* DynamicMenuSections.swift in Sources */,
 				AA510004000000000000001 /* MainMenuController.swift in Sources */,
 				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
+				F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
 				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,
