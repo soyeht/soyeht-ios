@@ -1,5 +1,20 @@
 // swift-tools-version: 5.9
+import Foundation
 import PackageDescription
+
+// The real-engine harness is intentionally absent from ordinary `swift test`
+// invocations. It downloads and launches the pinned engine only when callers
+// opt in explicitly, so unit-test runs retain their existing scope.
+let isEngineHarnessEnabled = ProcessInfo.processInfo.environment["THEYOS_HARNESS"] == "1"
+
+let engineHarnessTargets: [Target] = isEngineHarnessEnabled ? [
+    .testTarget(
+        name: "EngineHarnessTests",
+        dependencies: ["SoyehtCore"],
+        path: "Tests/EngineHarnessTests",
+        exclude: ["README.md"]
+    ),
+] : []
 
 let package = Package(
     name: "SoyehtCore",
@@ -87,5 +102,5 @@ let package = Package(
                 .copy("Fixtures"),
             ]
         ),
-    ]
+    ] + engineHarnessTargets
 )

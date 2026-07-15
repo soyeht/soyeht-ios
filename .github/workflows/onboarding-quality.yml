@@ -10,6 +10,9 @@ on:
       - "TerminalApp/SoyehtMac/Welcome/**"
       - "TerminalApp/SoyehtMac/Continuity/**"
       - "Packages/SoyehtCore/**"
+      - "scripts/fetch-engine.sh"
+      - "scripts/theyos-engine.version"
+      - "scripts/theyos-engine.sha256"
       - "scripts/ci/lint-ui-resources.py"
       - ".github/workflows/onboarding-quality.yml"
 
@@ -28,6 +31,15 @@ jobs:
         env:
           SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
         run: swift test --package-path Packages/SoyehtCore -v
+
+      # The pinned engine is arm64 and may advertise Bonjour services. GitHub's
+      # fresh macOS runner is the deliberately isolated execution environment;
+      # CI=true supplies EngineHarnessTests' second safety interlock.
+      - name: Run EngineHarnessTests in isolated CI
+        env:
+          THEYOS_HARNESS: "1"
+          SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
+        run: swift test --package-path Packages/SoyehtCore --filter EngineHarness
 
   # ── UI resource lint: localization + theme-driven colors ───────────────────
   ui-resource-lint:
