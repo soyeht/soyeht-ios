@@ -52,6 +52,7 @@
 		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
 		49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */; };
+		F3A300010000000000000001 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A300010000000000000002 /* AppRoute.swift */; };
 		49F5B0B72F2E8E1A00ABCD12 /* TerminalHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */; };
 		49FA000000000000000FA002 /* PairedMacsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA001 /* PairedMacsStore.swift */; };
 		49FA000000000000000FA004 /* PairingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA003 /* PairingCoordinator.swift */; };
@@ -322,6 +323,7 @@
 		49ENT001000000000000E001 /* Soyeht.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Soyeht.entitlements; sourceTree = "<group>"; };
 		49ENT002000000000000E002 /* SoyehtDev.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtDev.entitlements; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
+		F3A300010000000000000002 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA001 /* PairedMacsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStore.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA003 /* PairingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCoordinator.swift; sourceTree = "<group>"; };
@@ -670,6 +672,7 @@
 			children = (
 				49BD1A5D224207B5005A2252 /* AppDelegate.swift */,
 				49BD1A5F224207B5005A2252 /* ViewController.swift */,
+				F3A300010000000000000003 /* App */,
 				49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */,
 				49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */,
 				49BD1A61224207B5005A2252 /* Main.storyboard */,
@@ -714,6 +717,14 @@
 				4671A823A685336C83F0132A /* SharedAppsView.swift */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		F3A300010000000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F3A300010000000000000002 /* AppRoute.swift */,
+			);
+			path = App;
 			sourceTree = "<group>";
 		};
 		8E1100000000000000000100 /* RelayStream */ = {
@@ -1412,6 +1423,7 @@
 			files = (
 				49F5B0B72F2E8E1A00ABCD12 /* TerminalHostViewController.swift in Sources */,
 				49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */,
+				F3A300010000000000000001 /* AppRoute.swift in Sources */,
 				4936D22124512AF2005CEE27 /* UIKitSshTerminalView.swift in Sources */,
 				49BD1A60224207B5005A2252 /* ViewController.swift in Sources */,
 				49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */,
