@@ -1,7 +1,14 @@
 # macOS Local Apple Attestation Capture Runbook
 
-Status: operator runbook for the A3 evidence gate. This is not active local
-enrollment and not flip approval.
+Status: historical/deferred operator runbook. This is not active local
+enrollment, not flip approval, and no longer the current A3 path.
+
+2026-06-29 update: the hardware smoke reached the native
+`ASAuthorizationPlatformPublicKeyCredentialProvider` ceremony and the platform
+reported that passkeys do not support attestation. The native macOS
+platform-passkey surface cannot produce the Apple Anonymous/device-bound proof
+required by the previous A-now design. Do not run this as a step toward active
+macOS-local finish unless a future STOP defines a new applicable proof surface.
 
 This runbook produces the untracked fixture consumed by the theyOS #204 manual
 hardware harness. It uses `Soyeht Dev.app` only. Never run this against the
@@ -13,7 +20,7 @@ instead of the production bundle id.
 
 ## What This Proves
 
-A green run of this capture plus the theyOS #204 harness proves:
+A green run of this capture plus the theyOS #204 harness would prove:
 
 - the Dev app can request a live server-issued `/registration/local/start`;
 - the client can ask the platform for the API-applicable Direct attestation and
@@ -22,8 +29,12 @@ A green run of this capture plus the theyOS #204 harness proves:
   verifier plus the five local checks in the #204 harness;
 - the capture and verifier agree internally on the captured challenge.
 
-It does **not** prove server-issued challenge binding, single-use, anti-replay,
-or active local enrollment. Those remain A3 active-commit properties.
+The native platform-passkey surface did not produce such a green run: no raw
+fixture was written and no #204 positive verdict exists for the A-now path.
+
+Even if a future proof surface produces a fixture, this runbook does **not**
+prove server-issued challenge binding, single-use, anti-replay, or active local
+enrollment. Those would remain active-commit properties of that future design.
 
 ## Safety Rules
 
@@ -37,9 +48,10 @@ or active local enrollment. Those remain A3 active-commit properties.
 - Do not commit, paste, attach, or log the raw fixture, `attestationObject`,
   `clientDataJSON`, credential IDs, certificates, device names, account names,
   socket paths, or local infrastructure values.
-- The captured passkey is throwaway/orphan evidence. Delete it after the dump.
-- The real owner credential must be enrolled fresh in the later A3 active-commit
-  slice.
+- If a future authorized proof-surface run captures a passkey, treat it as
+  throwaway/orphan evidence and delete it after the dump.
+- Do not treat a native synced platform passkey with `attestation=none` as an
+  A3 substitute.
 
 ## 1. Choose Local-Only Output Paths
 
@@ -144,20 +156,26 @@ origin, local socket path, or device/account names.
 
 ## 5. Cleanup
 
-After the fixture has been captured and the harness verdict recorded:
+For any future authorized proof-surface run that actually captures a raw
+fixture:
 
 1. Delete the throwaway passkey created by the capture from macOS Passwords /
    Passkeys.
-2. Keep the raw fixture local until the A3 evidence review is complete.
-3. Delete the raw fixture after it is no longer needed for the reviewed smoke.
+2. Keep the raw fixture local only until the reviewed smoke/evidence audit for
+   that future surface is complete.
+3. Delete the raw fixture after it is no longer needed for that reviewed smoke.
 
-Do not reuse the throwaway passkey as the real owner credential. A3 active
-commit must perform a fresh enrollment ceremony.
+Do not reuse the throwaway passkey as a real owner credential. Any future active
+commit design must define its own fresh enrollment ceremony and proof surface in
+a new STOP/review.
 
 ## Failure Handling
 
-- Capture failure: do not proceed to A3. Fix the Dev app/start endpoint setup and
-  rerun the capture.
+- Capture failure with `Passkeys do not support attestation`: this is the
+  expected Apple platform constraint for native synced passkeys. Do not proceed
+  to A3 on this surface.
+- Other capture failure: do not proceed to A3. Fix only setup issues if a future
+  STOP authorizes a different proof surface.
 - Harness failure: treat the positive Apple-chain evidence as missing. Do not
   open an active-commit PR based on a failed or missing verdict.
 - Any accidental raw-material disclosure: stop, revoke/clean up the throwaway

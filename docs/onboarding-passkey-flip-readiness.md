@@ -1,6 +1,6 @@
 # Onboarding Passkey Flip Readiness
 
-_Status as of 2026-06-28. This is a readiness checklist, not a flip approval._
+_Status as of 2026-06-29. This is a readiness checklist, not a flip approval._
 
 The S3 owner-auth passkey work is code-complete for the backend mutation paths
 that matter before enforcement: first enrollment, pair-machine approval-v2,
@@ -10,9 +10,14 @@ env/Nix operational wiring are also merged, along with test-only evidence for
 the reviewed core operations and trust-state boundaries under the real future
 reviewed-core rollout package. The A3 manual evidence harness and the
 macOS-local attested-start request-shaping/decoder-tolerance vectors are also
-merged, but the positive hardware verdict and active-commit slice remain
-pending. The remaining work is the explicit enforcement flip decision/operation
-and the A3 active-commit slice for macOS-local active finish.
+merged, but hardware smoke showed that native Apple platform passkeys do not
+provide the Apple Anonymous/device-bound attestation proof required by the
+previous A-now design. The remaining work is the explicit enforcement flip
+decision/operation for the reviewed non-local owner-auth paths; macOS-local
+active finish is deferred/excluded unless a future STOP defines a new proof
+surface. This removes macOS-local A3 as a dependency of the current flip; it
+does not make the flip approved or shipped. The flip still requires its own
+review/sign-off gates and the project owner's explicit decision.
 
 ## Current Default
 
@@ -30,8 +35,10 @@ The current product state is still inert:
 - The only reviewed-core activation value is `reviewed-core-v2`; setting that
   value is still a future flip operation and requires the sign-offs below.
 - macOS local start/status are peer-auth capable through the UDS listener. The
-  A-now attested-start and A2 proof/model foundations are merged, but local
-  finish still rejects with `local_attestation_constraints_unavailable`.
+  A-now attested-start and A2 proof/model foundations are merged, but hardware
+  smoke falsified the native platform-passkey attestation premise. Local finish
+  still rejects with `local_attestation_constraints_unavailable` and is not on
+  the flip critical path.
 - The network/TCP router remains PoP-required and does not mount
   `/registration/local/*`.
 
@@ -40,8 +47,12 @@ owner-auth enforcement by default.
 
 ## Decision Gate: macOS-Local
 
-Caio selected **A-now** for the macOS-local path. That is a strategy decision,
-not active local enrollment:
+the project owner originally selected **A-now** for the macOS-local path. That direction is
+now superseded/deferred for the current flip: the native
+`ASAuthorizationPlatformPublicKeyCredentialProvider` passkey ceremony reached in
+hardware smoke refused the required attestation ("Passkeys do not support
+attestation"). Synced platform passkeys cannot satisfy the previous
+AppleAnonymous + device-bound A3 proof requirement.
 
 - #201 stages a separate local attested registration challenge and requests
   Direct Apple Anonymous/platform/UV/resident/no-sync ceremony options.
@@ -69,20 +80,22 @@ not active local enrollment:
   finish. Any optional sanitized capture-result file must use a different path
   from the raw fixture. It does not produce a proof verdict, commit a credential,
   or activate enrollment. The captured passkey is throwaway evidence and must be
-  deleted after the dump; the real owner credential is enrolled fresh in A3. The
-  operator runbook is `docs/macos-local-attestation-capture-runbook.md`. It
-  requires the #206 Dev peer-auth selector and a normally signed `Soyeht Dev.app`
-  so the isolated `SoyehtDev` engine verifies `com.soyeht.mac.dev`.
+  deleted after the dump; it must not be reused as an owner credential. Any
+  future owner credential for a reviewed proof surface would require a fresh
+  enrollment ceremony defined by that future STOP. The operator runbook is
+  `docs/macos-local-attestation-capture-runbook.md`. It requires the #206 Dev
+  peer-auth selector and a normally signed `Soyeht Dev.app` so the isolated
+  `SoyehtDev` engine verifies `com.soyeht.mac.dev`.
 - The HTTP `/registration/local/finish` handler still remains hard-inert. It
   does not consume the proof helper, save owner auth, write memory, advance
   anchors, or activate local enrollment.
 
-A3 is still required before macOS-local finish can become active. It must add
-positive end-to-end Apple-chain evidence by running the #204 harness against a
-fresh hardware capture, keep the #203 conversion guard enforced, revalidate
-`NeverEnrolled`/authority-empty under lock, store evidence, preserve commit
-ordering, and cover replay plus anchor-failure behavior. Until A3 lands and is
-signed off, no credential is committed through the local macOS path.
+These artifacts remain useful as inert diagnostics and source guards, but they
+are not active-readiness evidence. There is no honest A3 active commit on the
+native platform-passkey surface without a positive Apple Anonymous/device-bound
+proof. Product direction is now Local Workspace plus Secure/Upgrade with iPhone
+before fan-out; the owner-tier/provenance STOP is tracked in
+`docs/local-workspace-trust-model.md`.
 
 ## Flip Implementation Checklist
 
@@ -109,9 +122,24 @@ an accidental constructor change or an implicit default change.
   recovery anchor, and recovery-consume limiter before policy-on paths can be
   treated as ready. Missing infrastructure must reject opaquely or prevent the
   flip from being considered healthy.
-- Keep macOS-local finish excluded from the flip unless A3 is separately built
-  and accepted. The `/registration/local/finish` handler must remain inert until
-  the verified proof object is committed through the reviewed active path.
+- US-13 prerequisite: strong-tier minting must precede the enforcement flip.
+  Before setting `THEYOS_OWNER_AUTH_V2_ROLLOUT=reviewed-core-v2`, the
+  Secure/Upgrade with iPhone ceremony must mint a real strong owner tier for
+  production owner auth. App-Attest-specific provenance names and
+  Secure/Upgrade transcript vectors are staged, but backend proof verification
+  and the runtime proof ceremony are not. The pair-machine fan-out gate now
+  checks `owner_can_fan_out()` only behind the reviewed-v2 policy path, so the
+  `LegacyOnly` default remains activation-safe. But no runtime path currently
+  mints strong owner tier for real owners; flipping reviewed-v2 before that
+  ceremony exists would make tierless owners fail pair-machine approval. The
+  required order is schema, then transcript vectors, then gate-behind-policy,
+  then strong-tier minting, then flip. This boundary is pinned by the compatibility test for
+  `LegacyOnly` tierless approval and the reviewed-v2 test that rejects
+  tierless fan-out.
+- Keep macOS-local finish excluded from the flip. The
+  `/registration/local/finish` handler must remain inert unless a future STOP
+  defines and reviews a new proof surface. Native platform passkey
+  `attestation=none` plus UV is not a substitute for A3.
 - Keep the iOS/macOS client feature gates explicit. Default-off UI paths should
   become active only under the same rollout decision, with v1 fallback preserved
   where the backend policy says `LegacyV1`.
@@ -135,16 +163,16 @@ Evidence for a flip PR should include:
   legacy, Active is covered by #198, and RecoveryRequired or AnchorInvalid fail
   closed with opaque rejects and no mutation. The flip PR still needs the final
   policy-on review/sign-offs and any release-specific evidence.
-- Source guards proving no local macOS finish activation before A3,
+- Source guards proving no local macOS finish activation,
   no `/registration/local/*` on the TCP router, no TCP PoP bypass, and no
   fallback from active macOS-local work to the normal `Passkey` path.
   #202 already pins the A2 proof/model inert foundation: Apple-only root policy,
   typed `VerifiedLocalAppleAttestedCredential`, and no HTTP local-finish call to
   the proof helper. #203 adds a workspace-aware allowlist guard so the dangerous
   `Credential -> Passkey` conversion remains confined to that proof-object
-  helper. #204 adds the manual evidence harness, but the flip/A3 gate still
-  needs a reviewed positive Apple-chain verdict from a fresh hardware capture
-  before active commit.
+  helper. #204 adds the manual evidence harness, but the hardware smoke could
+  not produce a positive Apple-chain fixture from native platform passkeys.
+  Local active finish remains excluded from the flip.
 - Cross-language vector checks for all owner-approval v2 contexts and wire
   shapes touched by the flip. #200/#264 already pin the AddCredential
   composite start/finish wrappers byte-for-byte across Rust and Swift; that is
@@ -153,13 +181,10 @@ Evidence for a flip PR should include:
   dual-ceremony orchestrator, and ViewModel on top of those vectors; it still
   does not add UI, flip the rollout, or activate macOS-local finish.
   #205/#270 pin the macOS-local attested-start option wrapper byte-for-byte
-  across Rust and Swift, and prove decoder tolerance only. Hardware evidence
-  still must use a live server-issued `/registration/local/start` capture, not
-  the synthetic vector. The #204 harness smoke proves Apple chain + the five
-  checks + internal consistency; server challenge binding, single-use, and
-  anti-replay remain A3 active-commit evidence. The capture runbook is
-  `docs/macos-local-attestation-capture-runbook.md`; it depends on the #206 Dev
-  peer-auth selector and a normally signed `Soyeht Dev.app`.
+  across Rust and Swift, and prove decoder tolerance only. Those vectors are not
+  evidence. The native capture attempt reached the Apple ceremony and failed at
+  the platform surface; no raw fixture or positive #204 verdict exists for this
+  path. Any future proof model needs a new STOP before it can affect the flip.
 - Swift tests for the enrollment and approval-review ViewModels and app gating,
   plus CI coverage for the SwiftUI/app-target source guards.
 - `git diff --check` and a privacy scan over any docs, fixtures, PR body, and
@@ -168,7 +193,7 @@ Evidence for a flip PR should include:
   `.env.example`, `nix/**`, and `tests/nixos-install/**`; rollout/deploy PRs
   are code/process changes, not docs-only bypass candidates.
 - Explicit sign-off from backend/security, architecture, client, and governance
-  reviewers. The flip itself remains a Caio decision.
+  reviewers. The flip itself remains a the project owner decision.
 
 ## Non-Goals
 

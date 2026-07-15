@@ -12,13 +12,30 @@
 > Do not import the experimental mesh / Product A track. Do not validate by
 > touching the installed shipping app; Dev builds and explicit gates only.
 
-Last updated: 2026-06-25. Status: PLAN CODE COMPLETE - all tracks (E, D, F, S1, C4)
-implemented and merged to local main, reviewed slice-by-slice by @code-reviewer.
+Last updated: 2026-06-29. Status: CLOSED / PLAN CODE COMPLETE - all tracks
+(E, D, F, S1, C4) implemented and merged to local main, reviewed
+slice-by-slice by @code-reviewer.
 The experimental version-two server inventory path was retired after the P1.7
 decision; shipped storage authority is V1. See section 0 for the execution record.
 (v4 history: risk/release-readiness addendum consolidated §4b; Track S1 added.)
 
-## 0. Execution progress (live, 2026-06-24)
+## 0. Closeout (2026-06-29)
+
+This score-raising plan is no longer awaiting GO. It is complete/closed as a
+historical execution record.
+
+The active Claw Store execution tracker is
+`docs/claw-store-execution-plan.md`; that tracker now has no active package.
+Its P1-P8 queue is closed, or the remaining items are backlog / human stop
+points. Do not reopen E/D/F/S1/C4 work for score optics.
+
+Follow-up work requires a fresh objective and a new read-only score review.
+Known human stop points remain outside this plan: release/deploy/tag/notarization,
+shipping-app validation, Product A / nvpn / mesh integration, destructive
+storage migration, receive-side hardening that rejects previously accepted wire,
+and live VM/VZ smoke on real machines.
+
+## 0a. Execution progress (live, 2026-06-24)
 
 User (Caio) gave GO to implement the full plan; @julia commands the agents, each
 slice = STOP-POINT -> review -> small PR -> @code-reviewer review -> local merge
@@ -412,6 +429,10 @@ radius, no wire change, no cross-dependency).
 
 ## 8. Reviewer ratification status
 
+Closeout note (2026-06-29): this section is the pre-execution ratification
+history. It is preserved for audit context, but the plan is now closed and no
+longer awaiting user GO.
+
 - @fresh-arch: plan APPROVED (global baseline 7.6; final 8.6-8.8 central, 8.9
   stretch, 9.0 not central).
 - @julia: macOS baseline RATIFIED on origin/main (she lands ~6.5, within the
@@ -439,6 +460,10 @@ radius, no wire change, no cross-dependency).
 
 ## 9. Change log
 
+- 2026-06-29 closeout: marked the plan CLOSED / PLAN CODE COMPLETE and clarified
+  that the old pre-GO ratification section is historical. The active execution
+  tracker now has no active Claw Store package; fresh Claw Store work requires a
+  new read-only score review and explicit objective.
 - 2026-06-23 v4 (DRAFT): consolidated the Risk / release-readiness addendum (§4b)
   from @julia's client audit (7-dimension adversarially-verified workflow) +
   @fresh-arch's backend audit; added Track S1 (household transport posture).
@@ -447,7 +472,8 @@ radius, no wire change, no cross-dependency).
   CONFIRMED HIGH. @code-reviewer + @fresh-arch both signed off that E1 is unblocked
   and ready for the user's GO (E1 via a STOP-POINT-gated read-only inventory, not
   direct implementation). @julia took over the consolidation after @bianca's pane
-  closed. No code, no execution - still awaiting the user's GO.
+  closed. Historical note: at v4 time the user's GO had not yet been issued;
+  the 2026-06-29 closeout above supersedes that status.
 - 2026-06-23 v3 (DRAFT): @julia ratified macOS baseline on origin/main (~6.5,
   within the 6.0-6.5 consensus; no new HIGH). bug #1 reframed (HIGH product bug,
   backend 409 backstop, not unsafe); bug #3 downgraded MED->LOW with updated
