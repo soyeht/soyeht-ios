@@ -820,11 +820,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
     }
 
     func testMCPAgentDirectoryResolvesSourceAndPrefillsMessageTargets() throws {
-        let source = try macSource("AppDelegate.swift")
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let appDelegate = try macSource("AppDelegate.swift")
         let switchBody = try slice(
             source,
             from: "private func handleAutomationRequest",
-            to: "private var mainWindowControllers"
+            to: "private func requestedWindowID"
         )
         let listAgents = try slice(
             source,
@@ -859,10 +860,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(agentEntry.contains("replyInstructions"))
         XCTAssertTrue(messageArguments.contains("fromHandle: source?.handle"))
         XCTAssertTrue(messageArguments.contains("fromConversationID: source?.conversationID"))
+        XCTAssertTrue(source.contains("@MainActor\nfinal class SoyehtAutomationRequestRouter"))
+        XCTAssertTrue(appDelegate.contains("return try await automationRequestRouter.handle(request)"))
     }
 
     func testMCPAutomationResolvesPaneAndSourceWindowBeforeActiveFallback() throws {
-        let source = try macSource("AppDelegate.swift")
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
         let targetResolver = try slice(
             source,
             from: "private func automationTargetWindow",
@@ -893,17 +896,14 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private func handleCreateWorktreePanes",
             to: "private func handleCreateWorkspacePanes"
         )
-        let capture = try slice(
-            source,
-            from: "private func handleCapturePane",
-            to: "private func normalizeInheritedWorkingDirectory"
-        )
+        let captureStart = try XCTUnwrap(source.range(of: "private func handleCapturePane"))
+        let capture = String(source[captureStart.lowerBound...])
 
         let requestedWindow = try XCTUnwrap(targetResolver.range(of: "requestedWindowID(payload)"))
         let workspaceTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForWorkspace(payload)"))
         let paneTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForPaneTargets(payload)"))
         let sourceTarget = try XCTUnwrap(targetResolver.range(of: "automationWindowForSource(payload)"))
-        let activeFallback = try XCTUnwrap(targetResolver.range(of: "activeMainWindowController"))
+        let activeFallback = try XCTUnwrap(targetResolver.range(of: "activeMainWindowController()"))
         XCTAssertLessThan(requestedWindow.lowerBound, workspaceTarget.lowerBound)
         XCTAssertLessThan(workspaceTarget.lowerBound, paneTarget.lowerBound)
         XCTAssertLessThan(requestedWindow.lowerBound, paneTarget.lowerBound)
