@@ -10,6 +10,9 @@ on:
       - "TerminalApp/SoyehtMac/Welcome/**"
       - "TerminalApp/SoyehtMac/Continuity/**"
       - "Packages/SoyehtCore/**"
+      - "scripts/fetch-engine.sh"
+      - "scripts/theyos-engine.version"
+      - "scripts/theyos-engine.sha256"
       - "scripts/ci/lint-ui-resources.py"
       - ".github/workflows/onboarding-quality.yml"
 

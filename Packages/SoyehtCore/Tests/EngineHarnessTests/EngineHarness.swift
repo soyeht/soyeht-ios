@@ -62,6 +62,7 @@ final class EngineHarness {
     let stateDirectory: URL
 
     private let process: Process
+    private let processGroupID: pid_t
     private let logHandle: FileHandle
     private let lifecycleLock = NSLock()
     private var didTearDown = false
@@ -116,6 +117,7 @@ final class EngineHarness {
         engine.standardError = logHandle
         try engine.run()
         process = engine
+        processGroupID = engine.processIdentifier
     }
 
     deinit {
@@ -159,23 +161,50 @@ final class EngineHarness {
         didTearDown = true
         lifecycleLock.unlock()
 
-        let processGroup = -process.processIdentifier
-        if process.processIdentifier > 0 {
-            _ = Darwin.kill(processGroup, SIGTERM)
-        }
-        let deadline = Date().addingTimeInterval(2)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        if process.isRunning && process.processIdentifier > 0 {
-            _ = Darwin.kill(processGroup, SIGKILL)
-        }
-        if process.isRunning {
-            process.waitUntilExit()
-        }
+        Self.terminateProcessGroup(process, processGroupID: processGroupID)
 
         try? logHandle.close()
         try? FileManager.default.removeItem(at: stateDirectory)
+    }
+
+    /// Terminates the private process group created by the setsid wrapper.
+    ///
+    /// The leader can exit after SIGTERM while an owned IPC helper remains in
+    /// the group. Escalation must therefore query and signal the group itself,
+    /// never rely on the leader's isRunning state.
+    static func terminateProcessGroup(
+        _ process: Process,
+        processGroupID: pid_t,
+        gracePeriod: TimeInterval = 2
+    ) {
+        guard processGroupID > 0 else {
+            return
+        }
+
+        let processGroup = -processGroupID
+        _ = Darwin.kill(processGroup, SIGTERM)
+
+        let deadline = Date().addingTimeInterval(gracePeriod)
+        while Date() < deadline, Self.processGroupExists(processGroup) {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+
+        // This deliberately does not depend on process.isRunning: the leader
+        // may already be gone while descendants still occupy the group.
+        if Self.processGroupExists(processGroup) {
+            _ = Darwin.kill(processGroup, SIGKILL)
+        }
+
+        if process.isRunning {
+            process.waitUntilExit()
+        }
+    }
+
+    private static func processGroupExists(_ processGroup: pid_t) -> Bool {
+        if Darwin.kill(processGroup, 0) == 0 {
+            return true
+        }
+        return errno == EPERM
     }
 
     private func waitUntilReady() async throws {

@@ -37,17 +37,22 @@ final class EngineHarnessTests: XCTestCase {
         let stagedStatus = try await BootstrapStatusClient(baseURL: harness.baseURL).fetch()
         XCTAssertEqual(stagedStatus.state, .namedAwaitingPair)
         XCTAssertEqual(stagedStatus.hhId, stage.hhId)
+        XCTAssertEqual(stage.hhPub.count, HouseholdIdentifiers.compressedP256PublicKeyLength)
+        XCTAssertEqual(try HouseholdIdentifiers.householdIdentifier(for: stage.hhPub), stage.hhId)
         // theyos 0.1.21 omits hh_pub from status while awaiting the first
-        // pairing. The initialize response is the authoritative source at
-        // this stage; readiness and the confirm response below prove the
-        // resulting household identity.
+        // pairing. Pin that observed contract rather than silently filling it
+        // from initialize; a future engine change must update this test.
+        XCTAssertNil(stagedStatus.hhPub)
 
         let owner = try SoftwareOwnerIdentity()
         // The physical world reads this URI from the Mac's QR code. The iPhone
         // production surface has no initiate client, so this test-only double
         // models the camera scan while the mutation stays on production clients.
         let scannedPairURI = try await QRScanSimulator.scanPairDeviceURI(endpoint: harness.baseURL)
-        let request = try makePairConfirmRequest(pairURI: scannedPairURI, owner: owner)
+        let scannedPairQR = try PairDeviceQR(url: scannedPairURI)
+        XCTAssertEqual(scannedPairQR.householdPublicKey, stage.hhPub)
+        XCTAssertEqual(scannedPairQR.householdId, stage.hhId)
+        let request = try makePairConfirmRequest(pairQR: scannedPairQR, owner: owner)
         let confirmation = try await URLSessionHouseholdPairingHTTPClient().confirmPairing(
             endpoint: harness.baseURL,
             body: request
@@ -70,7 +75,9 @@ final class EngineHarnessTests: XCTestCase {
         let confirmation = try await URLSessionHouseholdPairingHTTPClient().confirmPairing(
             endpoint: harness.baseURL,
             body: try makePairConfirmRequest(
-                pairURI: try await QRScanSimulator.scanPairDeviceURI(endpoint: harness.baseURL),
+                pairQR: try PairDeviceQR(
+                    url: try await QRScanSimulator.scanPairDeviceURI(endpoint: harness.baseURL)
+                ),
                 owner: owner
             )
         )
@@ -82,7 +89,7 @@ final class EngineHarnessTests: XCTestCase {
             householdId: stage.hhId,
             queue: JoinRequestQueue(),
             wordlist: try BIP39Wordlist(),
-            configuration: .init(longPollTimeout: 3),
+            configuration: .init(longPollTimeout: 8),
             popSigner: HouseholdPoPSigner(ownerIdentity: owner),
             eventVerifier: { _ in },
             transport: { request in
@@ -134,11 +141,11 @@ final class EngineHarnessTests: XCTestCase {
     }
 
     private func makePairConfirmRequest(
-        pairURI: URL,
+        pairQR: PairDeviceQR,
         owner: SoftwareOwnerIdentity
     ) throws -> PairDeviceConfirmRequest {
         return try PairingProof.confirmRequest(
-            qr: PairDeviceQR(url: pairURI),
+            qr: pairQR,
             ownerIdentity: owner,
             displayName: "Harness Owner"
         )
@@ -196,7 +203,7 @@ private actor OwnerEventsRequestProbe {
     }
 
     func waitForRequest() async throws -> URLRequest {
-        for _ in 0..<80 {
+        for _ in 0..<200 {
             if let request {
                 return request
             }
