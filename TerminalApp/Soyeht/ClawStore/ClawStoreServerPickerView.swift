@@ -5,8 +5,10 @@ import SoyehtCore
 /// paired servers. Asks the user to pick the server *before* opening the
 /// catalog, so the install/deploy actions downstream are unambiguous.
 ///
-/// Lists every server `ServerRegistry.shared.servers` knows about, but
-/// rows whose `ClawInstallTargetResolver.resolve` returns `.unavailable`
+/// Lists every operational server `ServerRegistry.shared` knows about. The
+/// identity-only base machine remains visible on the home list, but is not an
+/// operational Claw target until a later reachability slice supplies a route.
+/// Rows whose `ClawInstallTargetResolver.resolve` returns `.unavailable`
 /// render disabled with the same product copy as `MacClawUnavailableView`.
 /// Macs paired via the
 /// household flow are still selectable when the resolver can derive a
@@ -73,7 +75,7 @@ struct ClawStoreServerPickerView: View {
         }
         .navigationBarHidden(true)
         .task {
-            readinessObserver.start(servers: registry.servers, registry: registry)
+            readinessObserver.start(servers: registry.operationalServers, registry: registry)
         }
         .onDisappear {
             readinessObserver.stop()
@@ -108,11 +110,11 @@ struct ClawStoreServerPickerView: View {
     }
 
     private var macServers: [Server] {
-        registry.servers.filter { $0.kind == .mac }
+        registry.operationalServers.filter { $0.kind == .mac }
     }
 
     private var linuxServers: [Server] {
-        registry.servers.filter { $0.kind == .linux }
+        registry.operationalServers.filter { $0.kind == .linux }
     }
 
     private func section(title: LocalizedStringResource, servers: [Server]) -> some View {

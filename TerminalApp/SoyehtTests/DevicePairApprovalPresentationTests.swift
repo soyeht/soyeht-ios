@@ -248,24 +248,35 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(devicePairingFlow.contains("devicePairingClaim(claim, matches: link)"))
     }
 
-    func test_recoveryDismissRoutesToInstanceListWhenLocalMacOrServerExists() throws {
+    func test_recoveryDismissRoutesOnlyOnOperationalInventory() throws {
         let source = try iosSource("SSHLoginView.swift")
         let recoveryBranch = try slice(
             source,
             from: "case .recoveryMessage(let snapshot):",
-            to: "case .instanceList:"
+            to: "            case .instanceList:\n                ZStack"
         )
 
-        // PR-2 collapsed the `store.pairedServers.isEmpty && PairedMacsStore.shared.macs.isEmpty`
-        // pair into the unified `ServerRegistry.shared.servers.isEmpty`
-        // check — the routing semantics are unchanged (route to
-        // `.householdHome` only when there are zero paired servers),
-        // but the source-of-truth is now the registry.
-        XCTAssertTrue(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
+        XCTAssertTrue(recoveryBranch.contains("HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared)"))
+        let recoveryPolicy = try slice(
+            source,
+            from: "enum HouseholdRecoveryDestination: Equatable {",
+            to: "// MARK: - App Root View"
+        )
+        XCTAssertTrue(recoveryPolicy.contains("registry.operationalServers.isEmpty"))
+        XCTAssertFalse(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
         XCTAssertTrue(recoveryBranch.contains("let household = snapshot.underlying"))
         XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(snapshot)"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
+
+        let householdHomeCase = try slice(
+            recoveryBranch,
+            from: "case .householdHome:",
+            to: "case .instanceList:"
+        )
+        XCTAssertFalse(householdHomeCase.contains("reconcileClients()"))
+        XCTAssertFalse(householdHomeCase.contains("restoreNavigationIfNeeded()"))
+        XCTAssertFalse(householdHomeCase.contains("appState = .instanceList"))
     }
 
     func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {
@@ -277,10 +288,37 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(postSplash.contains("ServerRegistry.shared.refreshFromLegacyStores()"))
-        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.servers.compactMap"))
+        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalServers.compactMap"))
+        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalMacs.isEmpty"))
+        XCTAssertFalse(postSplash.contains("ServerRegistry.shared.servers.compactMap"))
+        XCTAssertFalse(postSplash.contains("ServerRegistry.shared.macs.isEmpty"))
         XCTAssertTrue(postSplash.contains("if serverContexts.isEmpty"))
         XCTAssertTrue(postSplash.contains("store.setActiveServer(id: ctx.server.id)"))
         XCTAssertTrue(postSplash.contains("appState = .instanceList"))
+    }
+
+    func test_householdHomeRendersBaseMachineWithoutMakingItInteractive() throws {
+        let source = try iosSource("Household/HouseholdHomeView.swift")
+
+        XCTAssertTrue(source.contains("@ObservedObject private var serverRegistry = ServerRegistry.shared"))
+        XCTAssertTrue(source.contains("serverRegistry.baseMachines"))
+        XCTAssertTrue(source.contains("BaseMachineHomeRow(server: server)"))
+        XCTAssertTrue(source.contains("non-interactive"))
+    }
+
+    func test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let fallbackPolicy = try slice(
+            source,
+            from: "enum HomeFallbackDestination: Equatable {",
+            to: "// MARK: - App Root View"
+        )
+
+        XCTAssertTrue(fallbackPolicy.contains("registry.operationalServers.isEmpty"))
+        XCTAssertTrue(fallbackPolicy.contains("hasActiveHousehold ? .householdHome : .noHome"))
+        XCTAssertTrue(source.contains("if let destination = homeFallbackRoute"))
+        XCTAssertTrue(source.contains("appState = homeFallbackRoute ?? .qrScanner"))
+        XCTAssertFalse(source.contains("hasHomeContent ? .instanceList : .qrScanner"))
     }
 
     func test_machineJoinRuntimeSnapshotsQueuesAfterSubscribingToStreams() throws {

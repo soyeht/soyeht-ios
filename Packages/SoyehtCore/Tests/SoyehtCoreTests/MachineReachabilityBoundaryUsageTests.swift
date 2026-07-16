@@ -203,8 +203,8 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
         .init(
             relativePath: "Packages/SoyehtCore/Sources/SoyehtCore/Reachability/MachineReachability.swift",
             expression: "state.endpoint",
-            anchor: "baseURL: state.endpoint,",
-            purpose: "LegacyStoredEndpointStrategy — sole sanctioned legacy seam reader"
+            anchor: "baseURL: state.endpoint",
+            purpose: "LegacyStoredEndpointStrategy — sole sanctioned legacy reader, including bootstrap-only R101 authority context"
         ),
     ]
 
