@@ -33,7 +33,7 @@ struct ServerListView: View {
     /// Servers sorted with Macs first (matches `// apps` ordering on
     /// the home screen), then Linux, both stable by `pairedAt`.
     private var sortedServers: [Server] {
-        serverRegistry.servers.sorted { a, b in
+        serverRegistry.operationalServers.sorted { a, b in
             if a.kind != b.kind { return a.kind == .mac }
             return a.pairedAt < b.pairedAt
         }
@@ -81,7 +81,7 @@ struct ServerListView: View {
                 guard let server = confirmDelete else { return }
                 removeServer(server)
                 confirmDelete = nil
-                if serverRegistry.servers.isEmpty {
+                if serverRegistry.operationalServers.isEmpty {
                     dismiss()
                     onAddServer()
                 }
@@ -124,7 +124,7 @@ struct ServerListView: View {
 
             Spacer()
 
-            Text(verbatim: "\(serverRegistry.servers.count)")
+            Text(verbatim: "\(serverRegistry.operationalServers.count)")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
         }

@@ -318,11 +318,11 @@ struct InstanceListView: View {
 
     /// Footer "X servers connected" count. Reads from the unified
     /// `ServerRegistry`, which mirrors both legacy stores after every
-    /// mutation (see `ServerRegistry.installLegacyMirror`). Counts
-    /// every paired entry — Macs AND Linux admin hosts — without
-    /// double-counting when the same Mac appears in both legacy stores.
+    /// mutation (see `ServerRegistry.installLegacyMirror`). The base-machine
+    /// identity projection is deliberately excluded until a later slice gives
+    /// it a verified route and operation adapter.
     private var serverCount: Int {
-        serverRegistry.count
+        serverRegistry.operationalServers.count
     }
 
     /// The mandatory alias sheet can only render for Macs that still
@@ -330,7 +330,7 @@ struct InstanceListView: View {
     /// a transient Mac row without that bridge, opening the cover would
     /// present an empty full-screen view.
     private var pendingMacAlias: PairedMac? {
-        serverRegistry.macs.lazy.compactMap { server -> PairedMac? in
+        serverRegistry.operationalMacs.lazy.compactMap { server -> PairedMac? in
             guard server.needsAlias else { return nil }
             return serverRegistry.pairedMac(for: server.id)
         }.first
@@ -344,7 +344,7 @@ struct InstanceListView: View {
     /// stable order, so the section list reflects every paired host.
     private var instanceSections: [InstanceSection] {
         let grouped = Dictionary(grouping: entries, by: { $0.server.id })
-        return serverRegistry.servers.compactMap { server in
+        return serverRegistry.operationalServers.compactMap { server in
             let sectionEntries = grouped[server.id] ?? []
             guard !sectionEntries.isEmpty else { return nil }
             return InstanceSection(
@@ -440,26 +440,18 @@ struct InstanceListView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
-                                // Apps section: paired Macs that the iPhone
-                                // mirrors. Source-of-truth: `ServerRegistry`.
-                                // Each entry comes from there as a `Server`
-                                // with kind `.mac`; the row still needs a
-                                // `PairedMac` (for `MacPresenceClient` keyed
-                                // by UUID `macID`), so we look it up via
-                                // `registry.pairedMac(for:)` which performs
-                                // the legacy-store lookup behind the facade.
-                                // Macs in the registry but missing from
-                                // `PairedMacsStore` (rare — only when a
-                                // QR-server flow surfaced a Mac before the
-                                // household-machine path mirrored it) are
-                                // skipped to keep presence + secret
-                                // semantics consistent. Header + typography
-                                // match `// claws` below.
+                                // Apps section: two explicitly distinct Mac
+                                // projections. The authenticated base-machine
+                                // record is visible but non-interactive until
+                                // the presence slice supplies a route; legacy
+                                // paired Macs keep their existing HMAC client
+                                // and attach behavior.
+                                let baseMachineRows = serverRegistry.baseMachines
                                 let macRows: [(server: Server, paired: PairedMac)] = serverRegistry.macs.compactMap { server in
                                     guard let paired = serverRegistry.pairedMac(for: server.id) else { return nil }
                                     return (server, paired)
                                 }
-                                if !macRows.isEmpty {
+                                if !baseMachineRows.isEmpty || !macRows.isEmpty {
                                     Text("instancelist.section.apps")
                                         .font(Typography.monoLabel)
                                         .foregroundColor(SoyehtTheme.textComment)
@@ -467,6 +459,10 @@ struct InstanceListView: View {
                                         .padding(.bottom, 12)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
+                                }
+                                ForEach(baseMachineRows, id: \.id) { server in
+                                    BaseMachineHomeRow(server: server)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.baseMachineCard(server.id))
                                 }
                                 ForEach(macRows, id: \.server.id) { entry in
                                     Button {
@@ -527,7 +523,7 @@ struct InstanceListView: View {
                                         openClawStoreComingSoon()
                                         return
                                     }
-                                    let servers = serverRegistry.servers
+                                    let servers = serverRegistry.operationalServers
                                     if servers.count == 1 {
                                         openClawStore(serverId: servers[0].id)
                                     } else {
@@ -1062,7 +1058,7 @@ struct InstanceListView: View {
         // `store.pairedServers`. Per-server credential lookup
         // (`store.context(for:)`) still uses `SessionStore` — that
         // is the credential adapter and is intentionally untouched.
-        let servers = serverRegistry.servers
+        let servers = serverRegistry.operationalServers
         guard !servers.isEmpty else {
             entries = []
             isLoading = false

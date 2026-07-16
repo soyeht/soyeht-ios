@@ -15,7 +15,9 @@ struct PairedMacsListView: View {
     @State private var macToConfirmRemove: Server?
     @State private var macToRename: PairedMac?
 
-    private var macs: [Server] { serverRegistry.macs }
+    private var macs: [Server] {
+        serverRegistry.operationalServers.filter { $0.kind == .mac }
+    }
 
     var body: some View {
         ZStack {

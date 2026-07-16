@@ -4,6 +4,7 @@ import SoyehtCore
 struct HouseholdHomeView: View {
     let household: ActiveHouseholdState
     @ObservedObject var machineJoinRuntime: HouseholdMachineJoinRuntime
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
     let onAdd: () -> Void
     let onSettings: () -> Void
     @State private var selectedRequestId: String?
@@ -57,6 +58,10 @@ struct HouseholdHomeView: View {
                         .truncationMode(.middle)
                 }
 
+                if !serverRegistry.baseMachines.isEmpty {
+                    baseMachineSection
+                }
+
                 Spacer(minLength: 24)
 
                 emptyStateHint
@@ -81,6 +86,21 @@ struct HouseholdHomeView: View {
 
     private var canAddMachine: Bool {
         household.personCert.allows("household.add_machine")
+    }
+
+    /// The owner-authenticated base machine is useful identity context for an
+    /// otherwise empty household, but it has no verified route yet. Keep the
+    /// row here, non-interactive, so it does not force the operational instance
+    /// list or a legacy reconcile/restore path.
+    private var baseMachineSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(verbatim: "apps")
+                .font(Typography.monoSectionLabel)
+                .foregroundColor(SoyehtTheme.textComment)
+            ForEach(serverRegistry.baseMachines, id: \.id) { server in
+                BaseMachineHomeRow(server: server)
+            }
+        }
     }
 
     /// No-limbo guarantee: when this is the FIRST owner and no other

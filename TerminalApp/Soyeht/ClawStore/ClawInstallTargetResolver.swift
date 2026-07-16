@@ -86,6 +86,13 @@ enum ClawInstallTargetResolver {
             clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=unknown_server")
             return .unavailable(.unknownServer)
         }
+        // The owner-authenticated base machine is intentionally display-only
+        // until a later presence/reachability slice provides an operational
+        // route. Its host_label is identity metadata, never a Claw target.
+        guard !registry.isBaseMachineProjection(server) else {
+            clawInstallTargetLogger.info("claw_target_resolve result=unavailable reason=identity_only_base_machine")
+            return .unavailable(.missingContext)
+        }
         if let context = sessionStore.context(for: target.serverID) {
             clawInstallTargetLogger.info("claw_target_resolve result=server kind=\(server.kind.rawValue, privacy: .public) host_class=\(EndpointPolicy.hostClassName(for: context.host), privacy: .public)")
             return .server(context)
@@ -192,7 +199,7 @@ enum ClawInstallTargetResolver {
             }
         }
 
-        return registry.servers.compactMap { server in
+        return registry.operationalServers.compactMap { server in
             guard let context = sessionStore.context(for: server.id) else { return nil }
             return ClawDeployOption(server: context.server, target: .server(context))
         }

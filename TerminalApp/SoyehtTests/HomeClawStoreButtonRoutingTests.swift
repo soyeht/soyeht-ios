@@ -3,7 +3,7 @@ import XCTest
 @testable import Soyeht
 
 /// PR-3 source-slice. The home Claw Store button must branch by
-/// `ServerRegistry.count`:
+/// `ServerRegistry.operationalServers.count`:
 ///
 ///   • exactly 1 server  → push `.store(serverId:)` directly.
 ///   • ≥ 2 servers       → push `.serverPicker`.
@@ -25,8 +25,8 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
             to: "Image(systemName: \"storefront\")"
         )
 
-        XCTAssertTrue(buttonBody.contains("let servers = serverRegistry.servers"),
-            "Home Claw Store button must read the server list from `serverRegistry.servers`, not from `SessionStore.pairedServers`."
+        XCTAssertTrue(buttonBody.contains("let servers = serverRegistry.operationalServers"),
+            "Home Claw Store button must read the operational server list from `ServerRegistry`, not from `SessionStore.pairedServers` or an identity-only base-machine projection."
         )
         XCTAssertTrue(buttonBody.contains("openClawStoreComingSoon()"),
             "When the release feature flag disables Claw Store, the home button must route to the visible coming-soon placeholder instead of doing nothing."
@@ -88,6 +88,9 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
 
         XCTAssertTrue(aliasCover.contains("serverRegistry.pairedMac(for: server.id)"),
             "The mandatory Mac alias cover needs a bridge back to `PairedMac`; registry-only rows cannot render `MacAliasView`."
+        )
+        XCTAssertTrue(aliasCover.contains("serverRegistry.operationalMacs"),
+            "Alias routing is operational-only; an identity-only base projection must never participate."
         )
         XCTAssertTrue(aliasCover.contains("get: { pendingMacAlias != nil }"),
             "The full-screen cover must only present when the content can render. `macs.contains(where: { $0.needsAlias })` presents an empty black cover for transient registry-only rows."
@@ -315,6 +318,12 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
         XCTAssertTrue(source.contains("AccessibilityID.InstanceList.macCard(entry.server.id)"),
             "The Mac home row button must expose the stable macCard identifier."
+        )
+        XCTAssertTrue(accessibilityIDs.contains("static func baseMachineCard"),
+            "Display-only base rows need a distinct identifier from interactive Mac cards."
+        )
+        XCTAssertTrue(source.contains("AccessibilityID.InstanceList.baseMachineCard(server.id)"),
+            "The display-only base row must not impersonate an interactive Mac card in E2E automation."
         )
     }
 

@@ -101,3 +101,48 @@ struct MacHomeRow: View {
         )
     }
 }
+
+/// Identity-only home row for the household engine's self/base machine.
+///
+/// Unlike `MacHomeRow`, this record has not completed the legacy HMAC pairing
+/// flow and has no verified presence route yet. Keep it intentionally
+/// non-interactive: a later presence slice owns availability and attach.
+struct BaseMachineHomeRow: View {
+    let server: Server
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "desktopcomputer")
+                .font(Typography.iconMedium)
+                .foregroundColor(SoyehtTheme.historyGray)
+                .frame(minWidth: 22)
+
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(SoyehtTheme.historyGray)
+                    .frame(width: 8, height: 8)
+                Text(server.displayName)
+                    .font(Typography.monoCardTitle)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            Spacer()
+
+            Text(verbatim: "[owned]")
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.textTertiary)
+
+            Text(verbatim: "—")
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.historyGray)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(SoyehtTheme.bgCard)
+        .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(server.displayName), owned Mac, availability not checked")
+    }
+}

@@ -113,7 +113,7 @@ struct SettingsRootView: View {
                                     SettingsRow(
                                         icon: "desktopcomputer",
                                         label: "settings.row.pairedMacs",
-                                        value: "\(serverRegistry.macs.count)"
+                                        value: "\(serverRegistry.operationalServers.filter { $0.kind == .mac }.count)"
                                     )
                                 }
                                 .buttonStyle(.plain)

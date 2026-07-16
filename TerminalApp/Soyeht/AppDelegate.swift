@@ -273,8 +273,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     @MainActor
     private static func hasAnySetupState() -> Bool {
-        // Single read for "is there any paired host?" — the registry
-        // is the authoritative count after PR-2; the previous
+        // Single read for "is there any operational paired host?" — the
+        // registry is the authoritative operational subset after PR-2; the previous
         // `pairedServers || macs` OR-pair could (and did) disagree
         // with itself when the two stores diverged. Don't silently
         // re-onboard on decode failure: log loudly so a corrupted
@@ -285,14 +285,27 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // not logged — pre-first-unlock cold launch is normal and the
         // `protectedDataDidBecomeAvailable` observer in `SoyehtIdentity`
         // resolves it without operator intervention.
-        let hasPairedServers = ServerRegistry.shared.count > 0
         let identity = SoyehtIdentity.shared
         if case .unavailable(.decodingFailed) = identity.state {
             appDelegateLogger.error(
                 "soyeht_diag household_decode_failed_in_hasAnySetupState"
             )
         }
-        return hasPairedServers || identity.isActive
+        return hasAnySetupState(
+            operationalServerCount: ServerRegistry.shared.operationalServers.count,
+            identityIsActive: identity.isActive
+        )
+    }
+
+    /// Cold-launch routing must not mistake a display-only base-machine
+    /// projection for a credential-backed setup. Kept separately so the
+    /// base-only invariant has a direct characterization test.
+    @MainActor
+    static func hasAnySetupState(
+        operationalServerCount: Int,
+        identityIsActive: Bool
+    ) -> Bool {
+        operationalServerCount > 0 || identityIsActive
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
