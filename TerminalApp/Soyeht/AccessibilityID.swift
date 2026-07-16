@@ -22,6 +22,7 @@ enum AccessibilityID {
         static func deployBannerRow(_ id: String) -> String { "soyeht.instanceList.deployBanner.\(id)" }
         static func serverSection(_ id: String) -> String { "soyeht.instanceList.serverSection.\(id)" }
         static func macCard(_ id: String) -> String { "soyeht.instanceList.macCard.\(id)" }
+        static func baseMachineCard(_ id: String) -> String { "soyeht.instanceList.baseMachineCard.\(id)" }
         static let appsSectionHeader = "soyeht.instanceList.appsSectionHeader"
     }
 

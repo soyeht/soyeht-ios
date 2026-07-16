@@ -89,6 +89,40 @@ private enum SelfContainedPairingURL {
     }
 }
 
+/// The recovery flow may display an authenticated base machine, but that
+/// identity-only projection must never make the app enter an operational
+/// instance flow. Only entries backed by an existing credential/route adapter
+/// count when choosing between the household home and the instance list.
+@MainActor
+enum HouseholdRecoveryDestination: Equatable {
+    case householdHome
+    case instanceList
+
+    static func resolve(registry: ServerRegistry) -> Self {
+        registry.operationalServers.isEmpty ? .householdHome : .instanceList
+    }
+}
+
+/// A return path must never treat a visible base-machine projection as an
+/// operational instance. The household home owns display-only identity context;
+/// the instance list remains reserved for credential-backed server adapters.
+@MainActor
+enum HomeFallbackDestination: Equatable {
+    case noHome
+    case householdHome
+    case instanceList
+
+    static func resolve(
+        registry: ServerRegistry,
+        hasActiveHousehold: Bool
+    ) -> Self {
+        if !registry.operationalServers.isEmpty {
+            return .instanceList
+        }
+        return hasActiveHousehold ? .householdHome : .noHome
+    }
+}
+
 // MARK: - App Root View
 
 struct SoyehtAppView: View {
@@ -136,12 +170,24 @@ struct SoyehtAppView: View {
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
+    private var homeFallbackRoute: SoyehtAppRoute? {
+        let snapshot = identity.active
+        switch HomeFallbackDestination.resolve(
+            registry: ServerRegistry.shared,
+            hasActiveHousehold: snapshot != nil
+        ) {
+        case .noHome:
+            return nil
+        case .householdHome:
+            guard let snapshot else { return nil }
+            return .householdHome(snapshot)
+        case .instanceList:
+            return .instanceList
+        }
+    }
+
     private var hasHomeContent: Bool {
-        // PR-2: single read against `ServerRegistry`. The previous
-        // `pairedServers || macs` OR-pair could disagree with itself
-        // when the two legacy stores diverged.
-        ServerRegistry.shared.count > 0
-            || identity.isActive
+        homeFallbackRoute != nil
     }
     // The QR dispatcher only needs the persisted identity id. Read it
     // through `SoyehtIdentity` so this view does not hit
@@ -202,8 +248,8 @@ struct SoyehtAppView: View {
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
-                        if hasHomeContent {
-                            withAnimation { appState = .instanceList }
+                        if let destination = homeFallbackRoute {
+                            withAnimation { appState = destination }
                         } else {
                             // First-time user reached the scanner via the
                             // Linux pairing path (or a cold-launch fallback);
@@ -292,17 +338,26 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .recoveryMessage(let snapshot):
-                    RecoveryMessageView(
-                        onDismiss: {
-                            let household = snapshot.underlying
-                            machineJoinRuntime.activate(household)
+                RecoveryMessageView(
+                    onDismiss: {
+                        let household = snapshot.underlying
+                        machineJoinRuntime.activate(household)
+                        Task { @MainActor in
+                            // The self/base engine did not arrive through the
+                            // legacy HMAC Mac pairing flow. Resolve its
+                            // owner-authenticated identity before choosing the
+                            // empty-household route so it can render as the
+                            // initial owned instance when available.
+                            await BaseMachineProjector.shared.refresh()
                             withAnimation(.easeInOut(duration: 0.3)) {
-                            if ServerRegistry.shared.servers.isEmpty {
-                                appState = .householdHome(snapshot)
-                            } else {
-                                PairedMacRegistry.shared.reconcileClients()
-                                restoreNavigationIfNeeded()
-                                appState = .instanceList
+                                switch HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared) {
+                                case .householdHome:
+                                    appState = .householdHome(snapshot)
+                                case .instanceList:
+                                    PairedMacRegistry.shared.reconcileClients()
+                                    restoreNavigationIfNeeded()
+                                    appState = .instanceList
+                                }
                             }
                         }
                     }
@@ -435,12 +490,12 @@ struct SoyehtAppView: View {
                     title: title,
                     onDisconnect: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = hasHomeContent ? .instanceList : .qrScanner
+                            appState = homeFallbackRoute ?? .qrScanner
                         }
                     },
                     onConnectionLost: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = hasHomeContent ? .instanceList : .qrScanner
+                            appState = homeFallbackRoute ?? .qrScanner
                         }
                     },
                     attachURLRefresher: Self.makeAttachRefresher(macID: macID, paneID: paneID)
@@ -457,7 +512,7 @@ struct SoyehtAppView: View {
                     },
                     onCancel: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = hasHomeContent ? .instanceList : .qrScanner
+                            appState = homeFallbackRoute ?? .qrScanner
                         }
                     }
                 )
@@ -468,12 +523,12 @@ struct SoyehtAppView: View {
                     configuration: configuration,
                     onDisconnect: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = hasHomeContent ? .instanceList : .qrScanner
+                            appState = homeFallbackRoute ?? .qrScanner
                         }
                     },
                     onConnectionLost: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = hasHomeContent ? .instanceList : .qrScanner
+                            appState = homeFallbackRoute ?? .qrScanner
                         }
                     }
                 )
@@ -723,7 +778,7 @@ struct SoyehtAppView: View {
 
     @MainActor
     private func startHouseholdMacRecoveryInvitation(for snapshot: SoyehtIdentitySnapshot) {
-        guard ServerRegistry.shared.macs.isEmpty else { return }
+        guard ServerRegistry.shared.operationalMacs.isEmpty else { return }
         startMacLocalPairingPublisher { claim in
             Self.existingHouseClaim(claim, matchesHouseholdId: snapshot.id)
         }
@@ -1065,7 +1120,7 @@ struct SoyehtAppView: View {
         #else
         let serverContexts = await MainActor.run {
             ServerRegistry.shared.refreshFromLegacyStores()
-            return ServerRegistry.shared.servers.compactMap { server in
+            return ServerRegistry.shared.operationalServers.compactMap { server in
                 store.context(for: server.id)
             }
         }
@@ -1074,9 +1129,13 @@ struct SoyehtAppView: View {
             await MainActor.run {
                 machineJoinRuntime.activate(identity.underlying)
             }
+            // This best-effort authority bootstrap has no raw endpoint
+            // reader in the UI. It may add an identity-only base-machine row,
+            // but never a route or HMAC pairing adapter.
+            await BaseMachineProjector.shared.refresh()
             if serverContexts.isEmpty {
                 await MainActor.run {
-                    if ServerRegistry.shared.macs.isEmpty {
+                    if ServerRegistry.shared.operationalMacs.isEmpty {
                         withAnimation { appState = .householdHome(identity) }
                     } else {
                         PairedMacRegistry.shared.reconcileClients()
@@ -1092,7 +1151,7 @@ struct SoyehtAppView: View {
             await MainActor.run {
                 PairedMacRegistry.shared.reconcileClients()
                 withAnimation {
-                    appState = ServerRegistry.shared.macs.isEmpty ? .qrScanner : .instanceList
+                    appState = ServerRegistry.shared.operationalMacs.isEmpty ? .qrScanner : .instanceList
                 }
             }
             return

@@ -33,9 +33,20 @@ final class ServerRegistry: ObservableObject {
     @Published private(set) var servers: [Server]
 
     private let writer: ServerInventoryWriter
+    /// Ephemeral, identity-only projection of the household engine's own
+    /// machine. It deliberately never enters `ServerStore` or the legacy
+    /// `PairedMacsStore`: it has no HMAC pairing secret and no verified route
+    /// yet. The R101 `/machines` refresh recreates it after process launch.
+    private var baseMachineProjections: [String: BaseMachineProjection]
+
+    private struct BaseMachineProjection {
+        let householdID: String
+        let server: Server
+    }
 
     init(writer: ServerInventoryWriter? = nil) {
         self.writer = writer ?? ServerInventoryWriter()
+        self.baseMachineProjections = [:]
         self.servers = self.writer.load()
     }
 
@@ -44,8 +55,17 @@ final class ServerRegistry: ObservableObject {
     @discardableResult
     private func publishCanonical() -> Bool {
         let next = writer.load()
-        guard next != servers else { return false }
-        servers = next
+        let canonicalMachineIDs = Set(next.compactMap(\.engineMachineId))
+        let projected = baseMachineProjections.values
+            .map(\.server)
+            .filter { projection in
+                !next.contains(where: { $0.id == projection.id })
+                    && !canonicalMachineIDs.contains(projection.engineMachineId ?? "")
+            }
+            .sorted { lhs, rhs in lhs.id < rhs.id }
+        let composed = next + projected
+        guard composed != servers else { return false }
+        servers = composed
         return true
     }
 
@@ -58,6 +78,31 @@ final class ServerRegistry: ObservableObject {
     /// Macs only — what the home screen's `// apps` section renders.
     var macs: [Server] {
         servers.filter { $0.kind == .mac }
+    }
+
+    /// The authenticated engine self-machine shown on the home screen before
+    /// the presence slice exists. It is a visible owned instance, not a
+    /// paired-HMAC Mac and never supplies a route or a credential adapter.
+    var baseMachines: [Server] {
+        servers.filter { isBaseMachineProjection($0) }
+    }
+
+    /// Entries backed by the existing pairing/session credential adapters.
+    /// Product surfaces that initiate an operation keep using this subset until
+    /// a later slice supplies a verified route and transport for base machines.
+    var operationalServers: [Server] {
+        servers.filter { !isBaseMachineProjection($0) }
+    }
+
+    /// Legacy-paired Macs that still own a credential and operation adapter.
+    /// This excludes the visible identity-only base-machine projection.
+    var operationalMacs: [Server] {
+        operationalServers.filter { $0.kind == .mac }
+    }
+
+    func isBaseMachineProjection(_ server: Server) -> Bool {
+        guard let machineID = server.engineMachineId else { return false }
+        return baseMachineProjections[machineID]?.server.id == server.id
     }
 
     /// Linux admin hosts only. Used by views that surface a
@@ -94,6 +139,7 @@ final class ServerRegistry: ObservableObject {
     /// legacy store (a transient state during pairing).
     func pairedMac(for serverID: String) -> PairedMac? {
         guard let server = server(id: serverID), server.kind == .mac else { return nil }
+        guard !isBaseMachineProjection(server) else { return nil }
         guard let macUUID = UUID(uuidString: server.id) else { return nil }
         return PairedMacsStore.shared.macs.first(where: { $0.macID == macUUID })
     }
@@ -106,6 +152,70 @@ final class ServerRegistry: ObservableObject {
     /// `rename` / `remove`, not `upsert`.
     func upsert(_ server: Server) {
         _ = writer.upsertCanonical(server)
+        publishCanonical()
+    }
+
+    /// Adds or replaces the process-local projection of the engine's own
+    /// authenticated machine record. The only caller is
+    /// `BaseMachineProjector` after strict owner-PoP `/machines` validation.
+    ///
+    /// No host, port, secret, pairing metadata, or persistent `ServerStore`
+    /// row is created here. That prevents the visual milestone from being
+    /// mistaken for a legacy HMAC pairing or a reachability claim before the
+    /// later presence and mesh slices land.
+    func projectBaseMachine(
+        householdID: String,
+        serverID: UUID,
+        machineID: MachineID,
+        hostLabel: String,
+        joinedAt: UInt64
+    ) {
+        let joinedAtDate = Date(timeIntervalSince1970: TimeInterval(joinedAt))
+        let projection = Server(
+            id: serverID.uuidString,
+            kind: .mac,
+            pairedAt: joinedAtDate,
+            lastSeenAt: .distantPast,
+            hostname: hostLabel,
+            engineMachineId: machineID.rawValue,
+            theyOS: TheyOSSnapshot(),
+            apiEndpoint: nil,
+            bootstrapEndpoint: nil,
+            presencePort: nil,
+            attachPort: nil,
+            role: nil,
+            sessionExpiresAt: nil
+        )
+        // There is one active household per install. Replacing rather than
+        // accumulating avoids leaving a prior household's engine visible
+        // after the active identity changes.
+        baseMachineProjections = [
+            machineID.rawValue: BaseMachineProjection(
+                householdID: householdID,
+                server: projection
+            )
+        ]
+        publishCanonical()
+    }
+
+    /// Removes the transient visual projection when no active household
+    /// remains. It intentionally does not mutate either legacy adapter.
+    func clearBaseMachineProjections() {
+        guard !baseMachineProjections.isEmpty else { return }
+        baseMachineProjections.removeAll()
+        publishCanonical()
+    }
+
+    /// Removes any display-only projection not verified for the currently
+    /// active household. This is deliberately independent of `/machines`
+    /// availability so an identity switch can never leave a prior household's
+    /// Mac visible while the next bootstrap is pending or fails.
+    func clearBaseMachineProjections(notMatching householdID: String) {
+        let retained = baseMachineProjections.filter { _, projection in
+            projection.householdID == householdID
+        }
+        guard retained.count != baseMachineProjections.count else { return }
+        baseMachineProjections = retained
         publishCanonical()
     }
 
@@ -222,6 +332,7 @@ final class ServerRegistry: ObservableObject {
             return .duplicate(conflictingMacID: UUID(uuidString: conflict.id) ?? UUID())
         }
         guard let target = server(id: serverID) else { return .unknownMac }
+        guard !isBaseMachineProjection(target) else { return .unknownMac }
         guard target.alias != trimmed else { return .success }
 
         switch target.kind {
@@ -268,6 +379,10 @@ final class ServerRegistry: ObservableObject {
     /// observe `servers` and check the post-call membership.
     func remove(serverID: String) {
         guard let target = server(id: serverID) else { return }
+        if isBaseMachineProjection(target) {
+            clearBaseMachineProjections()
+            return
+        }
         switch target.kind {
         case .mac:
             if let macUUID = UUID(uuidString: target.id) {
@@ -289,7 +404,8 @@ final class ServerRegistry: ObservableObject {
         version: String?,
         checkedAt: Date = Date()
     ) {
-        guard var target = server(id: serverID) else { return }
+        guard var target = server(id: serverID),
+              !isBaseMachineProjection(target) else { return }
         target.theyOS = TheyOSSnapshot(
             status: status,
             version: version,

@@ -229,6 +229,8 @@
 		F17E0001000000000000F002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */; };
+		F2E200000000000000000001 /* BaseMachineProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E200000000000000000002 /* BaseMachineProjector.swift */; };
+		F2E200000000000000000003 /* BaseMachineProjectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E200000000000000000004 /* BaseMachineProjectorTests.swift */; };
 		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
 		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
 		F3C929299737B9861D720721 /* ReshowTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E727C9D02A59FD486849BDF /* ReshowTourView.swift */; };
@@ -497,6 +499,8 @@
 		F17E0001000000000000F001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
+		F2E200000000000000000002 /* BaseMachineProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseMachineProjector.swift; sourceTree = "<group>"; };
+		F2E200000000000000000004 /* BaseMachineProjectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseMachineProjectorTests.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 		F5EC00000000000000000001 /* CardSecurityByDesign.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardSecurityByDesign.swift; sourceTree = "<group>"; };
@@ -847,6 +851,7 @@
 				8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */,
 				8DDA00000000000000000119 /* DevicePairConfirmationViewModel.swift */,
 				8DDA0000000000000000011B /* HouseholdSessionController.swift */,
+				F2E200000000000000000002 /* BaseMachineProjector.swift */,
 			);
 			path = Household;
 			sourceTree = "<group>";
@@ -936,6 +941,7 @@
 				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
 				8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */,
 				8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */,
+				F2E200000000000000000004 /* BaseMachineProjectorTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -1459,6 +1465,7 @@
 				8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */,
 				8DDA00000000000000000019 /* DevicePairConfirmationViewModel.swift in Sources */,
 				8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */,
+				F2E200000000000000000001 /* BaseMachineProjector.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
@@ -1629,6 +1636,7 @@
 				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,
 				8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */,
 				8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */,
+				F2E200000000000000000003 /* BaseMachineProjectorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

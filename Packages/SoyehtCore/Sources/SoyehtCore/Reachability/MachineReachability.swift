@@ -191,27 +191,84 @@ struct LegacyStoredEndpointStrategy {
             return .unresolved(.requestedMachineIsNotAuthenticatedAuthority)
         }
 
-        let state: ActiveHouseholdState
+        let seed: LegacyStoredEndpointSeed
         do {
-            guard let loadedState = try sessionStore.load() else {
-                return .unresolved(.noActiveHouseholdState)
-            }
-            state = loadedState
+            seed = try legacySeed()
+        } catch LegacySeedBootstrapError.noActiveHouseholdState {
+            return .unresolved(.noActiveHouseholdState)
+        } catch LegacySeedBootstrapError.legacyStateReadFailed {
+            return .unavailable(.legacyStateReadFailed)
         } catch {
             return .unavailable(.legacyStateReadFailed)
         }
 
-        guard state.householdId == authority.householdID else {
+        guard seed.householdID == authority.householdID else {
             return .unresolved(.authorityHouseholdMismatch)
         }
 
         return .candidates(
             primary: MachineReachabilityCandidate(
                 machineID: requestedMachineID,
-                baseURL: state.endpoint,
+                baseURL: seed.baseURL,
                 source: .legacyStoredEndpoint
             ),
             fallbacks: []
         )
     }
+
+    /// Bootstrap-only access to the serialized compatibility seed.
+    ///
+    /// `GET /api/v1/household/machines` is the one request that must happen
+    /// before a machine-scoped authority exists: its owner-PoP response
+    /// provides the `self_m_id + machine_pub` binding that creates that
+    /// authority. This method is deliberately not a candidate or a reachability
+    /// result. It is consumed only by `MachineReachabilityAuthorityBootstrapper`
+    /// and must disappear alongside the seed after the authority binding has a
+    /// durable verified source.
+    func authorityBootstrapContext() throws -> LegacySeedBootstrapContext {
+        let seed = try legacySeed()
+        return LegacySeedBootstrapContext(
+            householdID: seed.householdID,
+            baseURL: seed.baseURL
+        )
+    }
+
+    /// Keeps the serialized endpoint read physically unique. Both ordinary
+    /// post-authority resolution and the one-time R101 authority bootstrap
+    /// consume this result, so the Phase 2 source-slice ratchet remains at its
+    /// single sanctioned legacy reader.
+    private func legacySeed() throws -> LegacyStoredEndpointSeed {
+        let state: ActiveHouseholdState
+        do {
+            guard let loadedState = try sessionStore.load() else {
+                throw LegacySeedBootstrapError.noActiveHouseholdState
+            }
+            state = loadedState
+        } catch let error as LegacySeedBootstrapError {
+            throw error
+        } catch {
+            throw LegacySeedBootstrapError.legacyStateReadFailed
+        }
+        return LegacyStoredEndpointSeed(
+            householdID: state.householdId,
+            baseURL: state.endpoint
+        )
+    }
+}
+
+/// A legacy household control-plane seed used only before `/machines` has
+/// produced a machine authority binding. It is not a route candidate.
+struct LegacySeedBootstrapContext: Equatable, Sendable {
+    let householdID: String
+    let baseURL: URL
+}
+
+private struct LegacyStoredEndpointSeed {
+    let householdID: String
+    let baseURL: URL
+}
+
+enum LegacySeedBootstrapError: Error, Equatable, Sendable {
+    case noActiveHouseholdState
+    case legacyStateReadFailed
 }
