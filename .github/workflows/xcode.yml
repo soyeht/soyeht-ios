@@ -17,6 +17,14 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
+    - name: Verify frozen owner-site A2-R1 corpus integrity
+      run: |
+        bash -n \
+          scripts/check-owner-site-a2-r1-corpus-fixture.sh \
+          scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
+        scripts/check-owner-site-a2-r1-corpus-fixture.sh
+        scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
+
 #    - name: Checkout esctest for testing
 #      uses: actions/checkout@v5
 #      with:
