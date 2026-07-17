@@ -171,7 +171,17 @@ enum AgentPaneInputPlanner {
     ) -> (payload: String, shouldSendEnterKey: Bool) {
         let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
         if case .enterKey = terminator {
-            return (text, true)
+            // The message is delivered as keystrokes into the destination
+            // pane's stdin, and the Enter arrives as a separate key event a
+            // moment later. If the text ends in an `@handle` or a path, the
+            // destination agent CLI's mention-autocomplete / attachment popup
+            // is still open when that Enter lands — and the CLI captures the
+            // Enter to accept a fuzzy-matched file (corrupting the message) or
+            // to open an attachment (message never submits). A trailing space
+            // closes that popup so the Enter submits the message intact.
+            // Verified against Claude Code, Codex, and opencode.
+            // See docs/bug-interagent-message-input-hijack.md.
+            return (submitSafeText(text), true)
         }
         let needsTerminator = !text.hasSuffix("\n") && !text.hasSuffix("\r")
         guard needsTerminator else {
@@ -185,6 +195,14 @@ enum AgentPaneInputPlanner {
         case .enterKey:
             return (text, true)
         }
+    }
+
+    /// Appends a single space unless the text already ends in whitespace, so
+    /// the destination CLI's last input token is never an "open" `@`/path
+    /// completion when the separate Enter key arrives.
+    static func submitSafeText(_ text: String) -> String {
+        guard let last = text.last, !last.isWhitespace else { return text }
+        return text + " "
     }
 
     private enum TerminalInputTerminator {
