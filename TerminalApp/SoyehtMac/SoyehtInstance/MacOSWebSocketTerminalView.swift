@@ -16,6 +16,43 @@ import SwiftTerm
 import SoyehtCore
 import os
 
+/// Process-wide App Nap holdout while any terminal session is live.
+///
+/// The app declares `NSSupportsAutomaticTermination`/`SuddenTermination`, so
+/// once every window is occluded (covered, other Space, display asleep) the
+/// system may throttle the main runloop and dispatch sources — which stalled
+/// PTY draining during overnight agent sessions until the child blocked in
+/// `write()`. Refcounted: the first live session begins the activity, the
+/// last one ends it. `.userInitiatedAllowingIdleSystemSleep` disables App Nap
+/// without keeping the machine awake.
+final class TerminalActivityGuard {
+    static let shared = TerminalActivityGuard()
+
+    private let lock = NSLock()
+    private var liveSessions = 0
+    private var token: NSObjectProtocol?
+
+    func sessionDidStart() {
+        lock.lock()
+        defer { lock.unlock() }
+        liveSessions += 1
+        guard token == nil else { return }
+        token = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Live terminal session"
+        )
+    }
+
+    func sessionDidEnd() {
+        lock.lock()
+        defer { lock.unlock() }
+        liveSessions = max(0, liveSessions - 1)
+        guard liveSessions == 0, let activity = token else { return }
+        ProcessInfo.processInfo.endActivity(activity)
+        token = nil
+    }
+}
+
 class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessionWebSocketDelegate {
     static let logger = Logger(subsystem: "com.soyeht.mac", category: "ws")
     private static let maxLocalReplayBytes = 512 * 1024
@@ -89,6 +126,55 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     /// True while feeding server data into the terminal parser.
     private var isFeedingServerData = false
+
+    /// Tracks this view's contribution to `TerminalActivityGuard` so
+    /// acquire/release stays balanced across reconnect cycles and deinit.
+    private var holdsActivityGuard = false
+
+    private func setSessionActive(_ active: Bool) {
+        guard active != holdsActivityGuard else { return }
+        holdsActivityGuard = active
+        if active {
+            TerminalActivityGuard.shared.sessionDidStart()
+        } else {
+            TerminalActivityGuard.shared.sessionDidEnd()
+        }
+    }
+
+    // MARK: - Feed Flow Control
+
+    private enum FeedItem {
+        case bytes(Data)
+        case replayStart
+        case replayDone
+    }
+
+    /// Transport→parser bridge. Chunks are appended from the transport thread
+    /// (PTY ioQueue or the URLSession delegate queue) and drained on main in
+    /// bounded slices so keyboard/AppKit events interleave with heavy TUI
+    /// streams instead of starving behind them. Above `feedHighWatermark` the
+    /// transport is paused (PTY read source suspended, WS receive not
+    /// re-armed): the child then blocks against the ~64 KiB kernel PTY buffer,
+    /// which is genuine flow control — the previous unbounded main-queue
+    /// backlog grew by gigabytes across an overnight agent session and froze
+    /// the pane.
+    private let feedLock = NSLock()
+    private var feedQueue: [FeedItem] = []
+    private var feedHeadOffset = 0
+    private var feedBacklogBytes = 0
+    private var feedDrainScheduled = false
+    private var feedTransportPaused = false
+    private var wsReceiveDeferred = false
+
+    /// True between engine `replay_start`/`replay_done` markers, toggled in
+    /// stream order by the drain. Parser-generated query replies are
+    /// suppressed during replay so stale CPR/DA reports do not flood the
+    /// child; live replies always go through (see `send(source:data:)`).
+    private var isReplayingHistory = false
+
+    private static let feedHighWatermark = 2 * 1024 * 1024
+    private static let feedLowWatermark = 256 * 1024
+    private static let feedSliceBytes = 128 * 1024
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
@@ -187,21 +273,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         configuredCookieHeader = nil
         localPTY = pty
         localReplayBuffer.removeAll(keepingCapacity: true)
+        setSessionActive(true)
 
         // Seed geometry so vim/less/htop see the correct size on first draw.
         let term = getTerminal()
         propagateResize(cols: term.cols, rows: term.rows, force: true)
 
-        pty.onData = { [weak self] data in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.lastOutputAt = Date()
-                self.appendLocalReplayData(data)
-                self.publishLocalOutput(data)
-                self.isFeedingServerData = true
-                self.feed(byteArray: Array(data)[...])
-                self.isFeedingServerData = false
-            }
+        pty.onData = { [weak self, weak pty] data in
+            self?.enqueueFeed(data, pausing: pty)
         }
         pty.onExit = { [weak self] status in
             DispatchQueue.main.async {
@@ -210,6 +289,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 self.exitStatus = code
                 self.feed(text: "\r\n[shell exited: \(code)]\r\n")
                 self.localPTY = nil
+                self.setSessionActive(false)
             }
         }
         onConnectionEstablished?()
@@ -250,6 +330,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
 
         state = .connecting
+        setSessionActive(true)
+        resetFeedBridge()
         Self.logger.info("[WS] Connecting to \(url.host ?? "unknown", privacy: .public)...\(url.path, privacy: .public)")
 
         let config = URLSessionConfiguration.default
@@ -281,6 +363,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         localPTY?.close()
         localPTY = nil
         localReplayBuffer.removeAll(keepingCapacity: true)
+        resetFeedBridge()
+        setSessionActive(false)
 
         reconnectTask?.cancel()
         reconnectTask = nil
@@ -318,7 +402,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
-        if case .open = state { state = .closed }
+        if case .open = state {
+            state = .closed
+            setSessionActive(false)
+        }
     }
 
     // MARK: - Reconnect
@@ -455,7 +542,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             @unknown default:
                 break
             }
-            self.receiveLoop()
+            if !self.deferWSReceiveIfBacklogged() {
+                self.receiveLoop()
+            }
 
         case .failure(let error):
             let nsError = error as NSError
@@ -470,6 +559,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 attemptReconnect()
             } else {
                 state = .closed
+                setSessionActive(false)
                 DispatchQueue.main.async { [weak self] in
                     self?.feed(text: "\r\n[WS] Connection closed: \(error.localizedDescription)\r\n")
                 }
@@ -487,11 +577,16 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private func handleControlMarker(_ content: String) {
         let name = TerminalProtocolCodec.controlMarkerName(from: content)
         switch name {
-        case "replay_start", "replay_done":
-            break
+        case "replay_start":
+            // Toggled by the drain, in order with the queued output bytes —
+            // handling it here would race ahead of the not-yet-parsed replay.
+            enqueueFeedMarker(.replayStart)
+        case "replay_done":
+            enqueueFeedMarker(.replayDone)
         case "session_ended":
             Self.logger.info("[WS] session_ended — PTY closed by backend")
             state = .closed
+            setSessionActive(false)
             reconnectTask?.cancel()
             reconnectTask = nil
             webSocketTask?.cancel(with: .normalClosure, reason: nil)
@@ -564,34 +659,149 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // Raw PTY bytes. Backend v2 delivers CTL markers as separate binary
         // frames (`\x00\x01CTL:`) intercepted upstream — sanitizing here would
         // drop legitimate shell output that happens to match a marker name.
-        //
-        // One main.async per frame, not one per 4KB chunk: a 1MB frame
-        // previously enqueued ~250 main-queue work items, saturating the
-        // runloop. The chunk loop runs inside a single dispatch so frame
-        // ordering between successive feedChunked calls is preserved by
-        // main runloop FIFO. isFeedingServerData wraps the whole batch
-        // (set true → feed all chunks → set false) to keep the echo-loop
-        // suppression contract intact.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.lastOutputAt = Date()
-            self.isFeedingServerData = true
-            let chunkSize = 4096
-            var offset = 0
-            while offset < bytes.count {
-                let end = min(offset + chunkSize, bytes.count)
-                self.feed(byteArray: bytes[offset..<end])
-                offset = end
-            }
-            self.isFeedingServerData = false
+        enqueueFeed(Data(bytes))
+    }
+
+    /// Accept transport bytes from any thread. `pausing` is the PTY whose read
+    /// source should be suspended above the high watermark (passed explicitly
+    /// because `localPTY` is main-confined and this runs on the ioQueue).
+    private func enqueueFeed(_ data: Data, pausing pty: NativePTY? = nil) {
+        guard !data.isEmpty else { return }
+        feedLock.lock()
+        feedQueue.append(.bytes(data))
+        feedBacklogBytes += data.count
+        let shouldSchedule = !feedDrainScheduled
+        feedDrainScheduled = true
+        var shouldPause = false
+        if feedBacklogBytes > Self.feedHighWatermark && !feedTransportPaused {
+            feedTransportPaused = true
+            shouldPause = true
+        }
+        feedLock.unlock()
+        if shouldPause {
+            pty?.pauseReading()
+            Self.logger.notice("feed backlog above high watermark; pausing transport")
+        }
+        if shouldSchedule {
+            DispatchQueue.main.async { [weak self] in self?.drainFeedBacklog() }
         }
     }
 
+    private func enqueueFeedMarker(_ item: FeedItem) {
+        feedLock.lock()
+        feedQueue.append(item)
+        let shouldSchedule = !feedDrainScheduled
+        feedDrainScheduled = true
+        feedLock.unlock()
+        if shouldSchedule {
+            DispatchQueue.main.async { [weak self] in self?.drainFeedBacklog() }
+        }
+    }
 
-    // MARK: - Terminal Response Suppression
+    /// Called from `handleReceiveResult` before re-arming the WS receive.
+    /// Marks the receive as deferred when the backlog is above the high
+    /// watermark; `drainFeedBacklog()` re-arms once it falls below the low
+    /// watermark, closing the TCP window toward the engine in the meantime.
+    private func deferWSReceiveIfBacklogged() -> Bool {
+        feedLock.lock()
+        defer { feedLock.unlock() }
+        guard feedBacklogBytes > Self.feedHighWatermark else { return false }
+        wsReceiveDeferred = true
+        return true
+    }
+
+    private func drainFeedBacklog() {
+        var budget = Self.feedSliceBytes
+        var batch: [FeedItem] = []
+        feedLock.lock()
+        while budget > 0, !feedQueue.isEmpty {
+            switch feedQueue[0] {
+            case .bytes(let data):
+                let available = data.count - feedHeadOffset
+                if available <= budget {
+                    batch.append(.bytes(feedHeadOffset == 0 ? data : data.subdata(in: feedHeadOffset..<data.count)))
+                    feedQueue.removeFirst()
+                    feedHeadOffset = 0
+                    feedBacklogBytes -= available
+                    budget -= available
+                } else {
+                    let end = feedHeadOffset + budget
+                    batch.append(.bytes(data.subdata(in: feedHeadOffset..<end)))
+                    feedHeadOffset = end
+                    feedBacklogBytes -= budget
+                    budget = 0
+                }
+            case .replayStart, .replayDone:
+                batch.append(feedQueue.removeFirst())
+            }
+        }
+        let hasMore = !feedQueue.isEmpty
+        feedDrainScheduled = hasMore
+        var shouldResumePTY = false
+        var shouldRearmWS = false
+        if feedBacklogBytes < Self.feedLowWatermark {
+            if feedTransportPaused {
+                feedTransportPaused = false
+                shouldResumePTY = true
+            }
+            if wsReceiveDeferred {
+                wsReceiveDeferred = false
+                shouldRearmWS = true
+            }
+        }
+        feedLock.unlock()
+
+        for item in batch {
+            switch item {
+            case .bytes(let data):
+                lastOutputAt = Date()
+                if localPTY != nil {
+                    appendLocalReplayData(data)
+                    publishLocalOutput(data)
+                }
+                isFeedingServerData = true
+                feed(byteArray: [UInt8](data)[...])
+                isFeedingServerData = false
+            case .replayStart:
+                isReplayingHistory = true
+            case .replayDone:
+                isReplayingHistory = false
+            }
+        }
+
+        if shouldResumePTY { localPTY?.resumeReading() }
+        if shouldRearmWS { receiveLoop() }
+        if hasMore {
+            DispatchQueue.main.async { [weak self] in self?.drainFeedBacklog() }
+        }
+    }
+
+    private func resetFeedBridge() {
+        feedLock.lock()
+        feedQueue.removeAll()
+        feedHeadOffset = 0
+        feedBacklogBytes = 0
+        feedTransportPaused = false
+        wsReceiveDeferred = false
+        feedLock.unlock()
+        isReplayingHistory = false
+    }
+
+    // MARK: - Terminal Response Routing
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
-        guard !isFeedingServerData else { return }
+        if isFeedingServerData {
+            // Parser-generated replies to host queries (CPR/DSR, DA1/DA2,
+            // DECRQM, OSC color reports). They must reach the program on the
+            // other end of the transport — dropping them leaves TUIs waiting
+            // on ESC[6n forever. Bypass onUserInputData so pairing observers
+            // do not mistake them for keystrokes, and stay silent during
+            // history replay: re-answering old queries would flood the child
+            // with stale reports.
+            guard !isReplayingHistory else { return }
+            sendInputData(Data(data))
+            return
+        }
         super.send(source: source, data: data)
     }
 

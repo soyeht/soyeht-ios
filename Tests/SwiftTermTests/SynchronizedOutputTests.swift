@@ -33,7 +33,14 @@ final class SynchronizedOutputTests {
         ).replacingOccurrences(of: "\u{0}", with: " ")
     }
 
-    @Test func testSynchronizedOutputBlocksDisplayUntilReset() {
+    // Synchronized output no longer snapshots the buffer (the old
+    // implementation deep-copied every line, scrollback included, on each BSU
+    // — prohibitive under Ink-style TUIs that wrap every frame in BSU/ESU).
+    // The "don't present partial frames" guarantee now lives in the view:
+    // `queuePendingDisplay` schedules nothing while
+    // `isSynchronizedOutputActive`, and ESU triggers a full refresh. This test
+    // pins that contract at the model level.
+    @Test func testSynchronizedOutputTogglesActiveFlagAndKeepsLiveBuffer() {
         let terminal = Terminal(
             delegate: TestDelegate(),
             options: TerminalOptions(cols: 20, rows: 5, scrollback: 0)
@@ -41,15 +48,53 @@ final class SynchronizedOutputTests {
         let esc = "\u{1b}"
 
         terminal.feed(text: "\(esc)[2J\(esc)[HOLD")
+        #expect(!terminal.isSynchronizedOutputActive)
         #expect(topLineText(from: terminal.displayBuffer).hasPrefix("OLD"))
 
         terminal.feed(text: "\(esc)[?2026h")
         terminal.feed(text: "\(esc)[2J\(esc)[HNEW")
 
-        #expect(topLineText(from: terminal.displayBuffer).hasPrefix("OLD"))
+        // The view must not repaint while active; the model itself stays live
+        // so the parser keeps writing into the real buffer with no copies.
+        #expect(terminal.isSynchronizedOutputActive)
         #expect(topLineText(from: terminal.buffer).hasPrefix("NEW"))
+        #expect(topLineText(from: terminal.displayBuffer).hasPrefix("NEW"))
 
         terminal.feed(text: "\(esc)[?2026l")
+        #expect(!terminal.isSynchronizedOutputActive)
         #expect(topLineText(from: terminal.displayBuffer).hasPrefix("NEW"))
+    }
+
+    @Test func testDecRqmReports2026State() {
+        let delegate = RecordingDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 20, rows: 5, scrollback: 0)
+        )
+        let esc = "\u{1b}"
+
+        terminal.feed(text: "\(esc)[?2026$p")
+        #expect(delegate.sentString().contains("\(esc)[?2026;2$y"))
+
+        delegate.reset()
+        terminal.feed(text: "\(esc)[?2026h")
+        terminal.feed(text: "\(esc)[?2026$p")
+        #expect(delegate.sentString().contains("\(esc)[?2026;1$y"))
+    }
+
+    private class RecordingDelegate: TestDelegate {
+        private var sent: [UInt8] = []
+
+        override func send(source: Terminal, data: ArraySlice<UInt8>) {
+            sent.append(contentsOf: data)
+        }
+
+        func sentString() -> String {
+            String(decoding: sent, as: UTF8.self)
+        }
+
+        func reset() {
+            sent.removeAll()
+        }
     }
 }
