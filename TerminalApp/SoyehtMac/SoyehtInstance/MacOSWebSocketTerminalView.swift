@@ -678,14 +678,20 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         feedBacklogBytes += data.count
         let shouldSchedule = !feedDrainScheduled
         feedDrainScheduled = true
-        var shouldPause = false
+        var didPause = false
         if feedBacklogBytes > Self.feedHighWatermark && !feedTransportPaused {
             feedTransportPaused = true
-            shouldPause = true
+            // Suspend under feedLock so the flag flip and the DispatchSource
+            // suspend()/resume() counter stay atomic and totally ordered with
+            // the resume in drainFeedBacklog — otherwise a resume racing ahead
+            // of this suspend leaves the read source suspended forever (pane
+            // never drains again). feedLock -> stateLock is a consistent lock
+            // order; NativePTY never acquires feedLock, so no deadlock.
+            pty?.pauseReading()
+            didPause = true
         }
         feedLock.unlock()
-        if shouldPause {
-            pty?.pauseReading()
+        if didPause {
             Self.logger.notice("feed backlog above high watermark; pausing transport")
         }
         if shouldSchedule {
@@ -743,12 +749,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
         let hasMore = !feedQueue.isEmpty
         feedDrainScheduled = hasMore
-        var shouldResumePTY = false
         var shouldRearmWS = false
         if feedBacklogBytes < Self.feedLowWatermark {
             if feedTransportPaused {
                 feedTransportPaused = false
-                shouldResumePTY = true
+                // Resume under feedLock, paired atomically with the suspend in
+                // enqueueFeed (see the note there) so the source's suspend
+                // counter can never be left unbalanced. localPTY is main-
+                // confined and this runs on main.
+                localPTY?.resumeReading()
             }
             if wsReceiveDeferred {
                 wsReceiveDeferred = false
@@ -775,7 +784,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             }
         }
 
-        if shouldResumePTY { localPTY?.resumeReading() }
         if shouldRearmWS { receiveLoop() }
         if hasMore {
             DispatchQueue.main.async { [weak self] in self?.drainFeedBacklog() }
