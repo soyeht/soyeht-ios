@@ -13,11 +13,19 @@ final class SoyehtInstallProfileTests: XCTestCase {
 
     func test_resolve_devBundleID_isDev() {
         XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: "com.soyeht.mac.dev"), .dev)
+        XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: "com.soyeht.app.dev"), .dev)
+        XCTAssertEqual(
+            SoyehtInstallProfile.resolve(
+                bundleIdentifier: "com.soyeht.app.dev.SoyehtClawShareTunnelProvider"
+            ),
+            .dev
+        )
     }
 
     func test_resolve_unknownOrNil_defaultsToRelease() {
         XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: nil), .release)
         XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: "com.soyeht.app"), .release)
+        XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: "com.example.dev.helper"), .release)
         XCTAssertEqual(SoyehtInstallProfile.resolve(bundleIdentifier: "org.tirania.SwiftTerm.iOSTerminalTests"), .release)
     }
 

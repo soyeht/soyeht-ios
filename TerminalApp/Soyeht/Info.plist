@@ -24,6 +24,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MeshTunnelKeychainAccessGroup</key>
+	<string>$(MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to scan QR codes and capture photos for terminal attachments</string>
 	<key>NSFaceIDUsageDescription</key>
