@@ -1937,6 +1937,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = Soyeht;
@@ -1960,6 +1961,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = Soyeht;
@@ -2045,6 +2047,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = "Soyeht Dev";
@@ -2206,6 +2209,7 @@
 					"@loader_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2232,6 +2236,7 @@
 					"@loader_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2259,6 +2264,7 @@
 					"@loader_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
