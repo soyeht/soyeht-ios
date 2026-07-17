@@ -121,12 +121,18 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
 
     // MARK: - Resolution
 
-    /// Resolve a profile from a bundle identifier. The developer build is the
-    /// one whose bundle id ends in `.dev` (`com.soyeht.mac.dev`); everything
-    /// else — including the shipping app and test hosts — is `release`.
+    /// Resolve a profile from a bundle identifier. A Dev app extension carries
+    /// its host's `.dev` component followed by the extension name (for example
+    /// `com.soyeht.app.dev.SoyehtClawShareTunnelProvider`), so a suffix-only
+    /// check would incorrectly select Release inside that process.
     public static func resolve(bundleIdentifier: String?) -> SoyehtInstallProfile {
-        if let bundleIdentifier, bundleIdentifier.hasSuffix(".dev") {
-            return .dev
+        if let bundleIdentifier {
+            let developmentBundleRoots = ["com.soyeht.app.dev", "com.soyeht.mac.dev"]
+            if developmentBundleRoots.contains(where: {
+                bundleIdentifier == $0 || bundleIdentifier.hasPrefix("\($0).")
+            }) {
+                return .dev
+            }
         }
         return .release
     }

@@ -166,6 +166,9 @@
 		B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */; };
 		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
 		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */; };
+		A2E100000000000000000002 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000015 /* NetworkExtension.framework */; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
 		BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000300000000000C0003 /* FileBrowserCell.swift */; };
@@ -229,6 +232,8 @@
 		F17E0001000000000000F002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */; };
+		F2E200000000000000000001 /* BaseMachineProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E200000000000000000002 /* BaseMachineProjector.swift */; };
+		F2E200000000000000000003 /* BaseMachineProjectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E200000000000000000004 /* BaseMachineProjectorTests.swift */; };
 		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
 		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
 		F3C929299737B9861D720721 /* ReshowTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E727C9D02A59FD486849BDF /* ReshowTourView.swift */; };
@@ -245,6 +250,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7DF6AD3AD35D869C7576F2DE;
 			remoteInfo = SoyehtLiveActivity;
+		};
+		A2E100000000000000000051 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49BD1A52224207B4005A2252 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A2E100000000000000000031;
+			remoteInfo = SoyehtClawShareTunnelProvider;
 		};
 		91CCCA6630D476EC42DC958F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -274,6 +286,7 @@
 			files = (
 				F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */,
 				BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */,
+				A2E100000000000000000002 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -341,6 +354,12 @@
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
 		5AA700000000000000000101 /* SecureUpgradeAppAttestCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureUpgradeAppAttestCaptureTests.swift; sourceTree = "<group>"; };
 		5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = HouseCreatedNotificationService; path = HouseCreatedNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtClawShareTunnelProvider.swift; sourceTree = "<group>"; };
+		A2E100000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2E100000000000000000013 /* SoyehtClawShareTunnelProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProvider.entitlements; sourceTree = "<group>"; };
+		A2E100000000000000000016 /* SoyehtClawShareTunnelProviderDev.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProviderDev.entitlements; sourceTree = "<group>"; };
+		A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtClawShareTunnelProvider.appex; path = SoyehtClawShareTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2E100000000000000000015 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
 		55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaterParkingLotView.swift; sourceTree = "<group>"; };
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
@@ -497,6 +516,8 @@
 		F17E0001000000000000F001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
+		F2E200000000000000000002 /* BaseMachineProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseMachineProjector.swift; sourceTree = "<group>"; };
+		F2E200000000000000000004 /* BaseMachineProjectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseMachineProjectorTests.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 		F5EC00000000000000000001 /* CardSecurityByDesign.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardSecurityByDesign.swift; sourceTree = "<group>"; };
@@ -531,6 +552,14 @@
 			files = (
 				0A1100000000000000000003 /* AppIntents.framework in Frameworks */,
 				13024C53DFDDAC783F44A56D /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A2E100000000000000000042 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -651,6 +680,7 @@
 				A60ADA9683518F0D13DA66B4 /* SoyehtTests */,
 				5DFCD064F52F221B96A8A3D9 /* SoyehtLiveActivity */,
 				B9149234AD891A9CD04DE9C6 /* HouseCreatedNotificationService */,
+				A2E100000000000000000021 /* SoyehtClawShareTunnelProvider */,
 			);
 			indentWidth = 4;
 			sourceTree = "<group>";
@@ -663,6 +693,7 @@
 				186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */,
 				1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */,
 				5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */,
+				A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -847,6 +878,7 @@
 				8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */,
 				8DDA00000000000000000119 /* DevicePairConfirmationViewModel.swift */,
 				8DDA0000000000000000011B /* HouseholdSessionController.swift */,
+				F2E200000000000000000002 /* BaseMachineProjector.swift */,
 			);
 			path = Household;
 			sourceTree = "<group>";
@@ -936,6 +968,7 @@
 				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
 				8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */,
 				8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */,
+				F2E200000000000000000004 /* BaseMachineProjectorTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -985,6 +1018,18 @@
 			);
 			name = HouseCreatedNotificationService;
 			path = HouseCreatedNotificationService;
+			sourceTree = "<group>";
+		};
+		A2E100000000000000000021 /* SoyehtClawShareTunnelProvider */ = {
+			isa = PBXGroup;
+			children = (
+				A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */,
+				A2E100000000000000000012 /* Info.plist */,
+				A2E100000000000000000013 /* SoyehtClawShareTunnelProvider.entitlements */,
+				A2E100000000000000000016 /* SoyehtClawShareTunnelProviderDev.entitlements */,
+			);
+			name = SoyehtClawShareTunnelProvider;
+			path = SoyehtClawShareTunnelProvider;
 			sourceTree = "<group>";
 		};
 		BC03000000000000000C0000 /* FileBrowser */ = {
@@ -1174,6 +1219,7 @@
 			dependencies = (
 				96CD6DA200E779D1C4EB7700 /* PBXTargetDependency */,
 				A5132A121885C1909941A3DA /* PBXTargetDependency */,
+				A2E100000000000000000052 /* PBXTargetDependency */,
 			);
 			name = Soyeht;
 			packageProductDependencies = (
@@ -1222,6 +1268,24 @@
 			name = HouseCreatedNotificationService;
 			productName = HouseCreatedNotificationService;
 			productReference = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A2E100000000000000000031 /* SoyehtClawShareTunnelProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A2E100000000000000000071 /* Build configuration list for PBXNativeTarget "SoyehtClawShareTunnelProvider" */;
+			buildPhases = (
+				A2E100000000000000000041 /* Sources */,
+				A2E100000000000000000042 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoyehtClawShareTunnelProvider;
+			packageProductDependencies = (
+			);
+			productName = SoyehtClawShareTunnelProvider;
+			productReference = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		F984D79050583015147216E0 /* SoyehtTests */ = {
@@ -1302,6 +1366,7 @@
 				F984D79050583015147216E0 /* SoyehtTests */,
 				7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */,
 				D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */,
+				A2E100000000000000000031 /* SoyehtClawShareTunnelProvider */,
 			);
 		};
 /* End PBXProject section */
@@ -1459,6 +1524,7 @@
 				8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */,
 				8DDA00000000000000000019 /* DevicePairConfirmationViewModel.swift in Sources */,
 				8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */,
+				F2E200000000000000000001 /* BaseMachineProjector.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
@@ -1629,6 +1695,7 @@
 				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,
 				8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */,
 				8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */,
+				F2E200000000000000000003 /* BaseMachineProjectorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1637,6 +1704,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				19D81B093B98F41B12D4082C /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A2E100000000000000000041 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1658,6 +1733,12 @@
 		A5132A121885C1909941A3DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */;
+		};
+		A2E100000000000000000052 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SoyehtClawShareTunnelProvider;
+			target = A2E100000000000000000031 /* SoyehtClawShareTunnelProvider */;
+			targetProxy = A2E100000000000000000051 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1856,6 +1937,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = Soyeht;
@@ -1879,6 +1961,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = Soyeht;
@@ -1964,6 +2047,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SOYEHT_DISPLAY_NAME = "Soyeht Dev";
@@ -2108,6 +2192,89 @@
 			};
 			name = Dev;
 		};
+		A2E100000000000000000061 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A2E100000000000000000062 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProviderDev.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.SoyehtClawShareTunnelProvider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Dev;
+		};
+		A2E100000000000000000063 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.19;
+				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2157,6 +2324,16 @@
 				4AECBA26F26EB46CD414DB03 /* Release */,
 				5487CDFD23358A41F1F22DF2 /* Debug */,
 				5487CDFE23358A41F1F22DF2 /* Dev */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A2E100000000000000000071 /* Build configuration list for PBXNativeTarget "SoyehtClawShareTunnelProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2E100000000000000000061 /* Debug */,
+				A2E100000000000000000062 /* Dev */,
+				A2E100000000000000000063 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
