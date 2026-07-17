@@ -436,9 +436,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private func appendLocalReplayData(_ data: Data) {
         guard !data.isEmpty else { return }
         localReplayBuffer.append(data)
-        let overflow = localReplayBuffer.count - Self.maxLocalReplayBytes
-        if overflow > 0 {
-            localReplayBuffer.removeFirst(overflow)
+        if localReplayBuffer.count > Self.maxLocalReplayBytes {
+            // Rebuild into fresh storage instead of removeFirst: trimming a
+            // Data in place caps the logical count but the grown backing
+            // store is kept forever, so a "512 KB" buffer physically grew
+            // 1:1 with total pane output (hundreds of MB per agent pane —
+            // measured live via malloc_history). Trimming to half the cap
+            // amortizes the copy to ~1 byte per byte appended.
+            let tail = localReplayBuffer.suffix(Self.maxLocalReplayBytes / 2)
+            localReplayBuffer = tail.withUnsafeBytes { Data($0) }
         }
     }
 
