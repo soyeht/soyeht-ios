@@ -53,6 +53,10 @@ import Testing
 
     @Test func localRecordStateHasNoRealEffectSurface() throws {
         let householdSources = try a2HouseholdSources()
+        let handoffCallers = try validatedHandoffCallers()
+        let syntheticAuthorityCallers = try sourceCallers(
+            of: "OwnerSiteA2ValidatedAuthority.syntheticTestOnly("
+        )
         let source = householdSources.joined(separator: "\n")
 
         for forbiddenSurface in [
@@ -67,6 +71,12 @@ import Testing
             "SoyehtAPIClient",
             "MachineReachability",
             "ServerRegistry",
+            "ActiveHouseholdState",
+            "GuestCredential",
+            "SoyehtFerry",
+            "ClawShareBridge",
+            "SessionToken",
+            "AttachToken",
             "UserDefaults",
             "SecItem",
             "FileManager",
@@ -83,8 +93,24 @@ import Testing
         #expect(!source.contains("StatelessTransportState"))
         #expect(!source.contains("public struct OwnerSiteA2ValidatedPreFinished"))
         #expect(!source.contains("public actor OwnerSiteA2DeviceFinishedTransport"))
+        #expect(!source.contains("public actor OwnerSiteA2DevicePreFinishedHandshake"))
+        #expect(!source.contains("public struct OwnerSiteA2ValidatedAuthority"))
+        #expect(!source.contains("public static func fromValidatedHandshake"))
+        #expect(source.contains("private struct OwnerSiteA2NoiseXXInitiatorState"))
+        #expect(source.contains("#if DEBUG"))
+        #expect(source.contains("enum OwnerSiteA2PreFinishedNoiseKAT"))
+        #expect(source.contains("static func fromValidatedHandshake"))
+        #expect(handoffCallers.count == 1)
+        #expect(handoffCallers.first?.file == "OwnerSiteA2DevicePreFinishedHandshake.swift")
+        #expect(handoffCallers.first?.occurrences == 1)
+        #expect(
+            syntheticAuthorityCallers.isEmpty,
+            "the DEBUG-only synthetic authority must never become a production source"
+        )
         #expect(source.contains("deviceToEngine = nil"))
         #expect(source.contains("engineToDevice = nil"))
+        #expect(source.contains("channelAuthSigner = nil"))
+        #expect(source.contains("actionPopSigner = nil"))
         #expect(source.contains("close()"))
     }
 
@@ -105,11 +131,36 @@ import Testing
         #expect(
             sourceURLs.map(\.lastPathComponent) == [
                 "OwnerSiteA2DeviceFinishedTransport.swift",
+                "OwnerSiteA2DevicePreFinishedHandshake.swift",
                 "OwnerSiteA2Transport.swift",
             ],
             "every OwnerSiteA2 source must be included in this no-effect source slice"
         )
         return try sourceURLs.map { try String(contentsOf: $0, encoding: .utf8) }
+    }
+
+    private func validatedHandoffCallers() throws -> [(file: String, occurrences: Int)] {
+        try sourceCallers(of: "OwnerSiteA2DeviceFinishedTransport.fromValidatedHandshake(")
+    }
+
+    private func sourceCallers(of marker: String) throws -> [(file: String, occurrences: Int)] {
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("../../Sources/SoyehtCore")
+            .standardizedFileURL
+        let enumerator = FileManager.default.enumerator(
+            at: sourceRoot,
+            includingPropertiesForKeys: [.isRegularFileKey]
+        )
+        var callers: [(file: String, occurrences: Int)] = []
+        while let url = enumerator?.nextObject() as? URL {
+            guard url.pathExtension == "swift" else { continue }
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let occurrences = source.components(separatedBy: marker).count - 1
+            guard occurrences > 0 else { continue }
+            callers.append((file: url.lastPathComponent, occurrences: occurrences))
+        }
+        return callers.sorted { $0.file < $1.file }
     }
 
     private func fixtureBytes() throws -> Data {

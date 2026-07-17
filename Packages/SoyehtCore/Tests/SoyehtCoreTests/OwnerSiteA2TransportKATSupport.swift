@@ -198,6 +198,108 @@ enum OwnerSiteA2TransportKATSupport {
         return (deviceToEngine, engineToDevice)
     }
 
+    /// Test-only responder for exercising the production device initiator
+    /// against freshly generated, synthetic authority fixtures. It lives in
+    /// the test target so no responder or carrier surface enters SoyehtCore.
+    struct SyntheticResponder {
+        private var symmetric: NoiseSymmetricState
+        private let engineStatic: Curve25519.KeyAgreement.PrivateKey
+        private let engineEphemeral: Curve25519.KeyAgreement.PrivateKey
+        private let deviceEphemeral: Data
+
+        init(
+            m1Noise: Data,
+            engineStatic: Curve25519.KeyAgreement.PrivateKey,
+            engineEphemeral: Curve25519.KeyAgreement.PrivateKey
+        ) throws {
+            guard m1Noise.count >= 32 else {
+                throw Failure.message("short synthetic M1")
+            }
+            let prologue = canonicalArray([
+                .text(OwnerSiteA2TransportProfile.domain),
+                .text("noise-prologue"),
+                .unsigned(OwnerSiteA2TransportProfile.version),
+                .text(OwnerSiteA2TransportProfile.recordVersion),
+                .text(OwnerSiteA2TransportProfile.protocolName),
+            ])
+            var state = NoiseSymmetricState(
+                protocolName: Data(OwnerSiteA2TransportProfile.protocolName.utf8),
+                prologue: prologue
+            )
+            let deviceEphemeral = Data(m1Noise.prefix(32))
+            _ = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: deviceEphemeral)
+            state.mixHash(deviceEphemeral)
+            _ = try state.decryptAndHash(Data(m1Noise.dropFirst(32)))
+
+            symmetric = state
+            self.engineStatic = engineStatic
+            self.engineEphemeral = engineEphemeral
+            self.deviceEphemeral = deviceEphemeral
+        }
+
+        var engineEphemeralPublic: Data {
+            engineEphemeral.publicKey.rawRepresentation
+        }
+
+        var engineStaticPublic: Data {
+            engineStatic.publicKey.rawRepresentation
+        }
+
+        mutating func makeM2(payload: Data) throws -> Data {
+            let engineEphemeralPublic = engineEphemeral.publicKey.rawRepresentation
+            symmetric.mixHash(engineEphemeralPublic)
+            symmetric.mixKey(try OwnerSiteA2TransportKATSupport.sharedSecret(engineEphemeral, deviceEphemeral))
+            let encryptedStatic = try symmetric.encryptAndHash(engineStatic.publicKey.rawRepresentation)
+            symmetric.mixKey(try OwnerSiteA2TransportKATSupport.sharedSecret(engineStatic, deviceEphemeral))
+            let encryptedPayload = try symmetric.encryptAndHash(payload)
+            return engineEphemeralPublic + encryptedStatic + encryptedPayload
+        }
+
+        mutating func openM3(
+            _ wire: Data
+        ) throws -> (payload: Data, deviceStatic: Data, chainingKey: Data, handshakeHash: Data) {
+            guard wire.count >= 64 else {
+                throw Failure.message("short synthetic M3")
+            }
+            let deviceStatic = try symmetric.decryptAndHash(Data(wire.prefix(48)))
+            _ = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: deviceStatic)
+            symmetric.mixKey(try OwnerSiteA2TransportKATSupport.sharedSecret(engineEphemeral, deviceStatic))
+            let payload = try symmetric.decryptAndHash(Data(wire.dropFirst(48)))
+            return (payload, deviceStatic, symmetric.chainingKey, symmetric.handshakeHash)
+        }
+    }
+
+    static func makeServerFinishedWire(
+        chainingKey: Data,
+        handshakeHash: Data,
+        context: OwnerSiteA2FinishedContext
+    ) throws -> Data {
+        let channelBinding = try OwnerSiteA2PreFinishedTranscript.channelBinding(
+            handshakeHash: handshakeHash,
+            channelID: context.channelID,
+            channelEpoch: context.channelEpoch
+        )
+        let plaintext = canonicalArray([
+            .text(OwnerSiteA2TransportProfile.domain),
+            .unsigned(OwnerSiteA2TransportProfile.version),
+            .unsigned(OwnerSiteA2RecordKind.serverFinished.rawValue),
+            .unsigned(OwnerSiteA2RecordDirection.engineToDevice.rawValue),
+            .unsigned(0),
+            .bytes(context.channelID),
+            .unsigned(context.channelEpoch),
+            .bytes(handshakeHash),
+            .bytes(channelBinding),
+            .bytes(context.bindingID),
+            .bytes(context.bindingDigest),
+            .unsigned(context.authzEpoch),
+            .bytes(context.rosterDigest),
+            .unsigned(context.freshUntilUnixSeconds),
+        ])
+        var cipher = RecordCipher(key: split(chainingKey: chainingKey).engineToDevice)
+        let ciphertext = try cipher.seal(plaintext)
+        return canonicalArray([.unsigned(1), .bytes(ciphertext)])
+    }
+
     static func makeServerFinishedWire(
         kat: TransportKAT,
         chainingKey: Data,

@@ -70,7 +70,7 @@ struct OwnerSiteA2ValidatedPreFinished {
     let handshakeHash: Data
     let context: OwnerSiteA2FinishedContext
 
-    private init(
+    fileprivate init(
         chainingKey: Data,
         handshakeHash: Data,
         context: OwnerSiteA2FinishedContext
@@ -125,7 +125,10 @@ struct OwnerSiteA2ValidatedPreFinished {
 /// A trusted UTC reading supplied by a future authority-bound clock source.
 /// No arbitrary Unix timestamp is accepted by the Finished transport.
 struct OwnerSiteA2TrustedUTC: Sendable {
-    fileprivate let unixSeconds: UInt64
+    /// The value is intentionally readable only inside SoyehtCore.  A future
+    /// authority-bound M1/M2/M3 producer needs it to reject an expired M2
+    /// before asking either device signer to produce a proof.
+    let unixSeconds: UInt64
 
     private init(unixSeconds: UInt64) {
         self.unixSeconds = unixSeconds
@@ -168,6 +171,27 @@ actor OwnerSiteA2DeviceFinishedTransport {
         let states = validatedPreFinished.makeDirectionalCipherStates()
         deviceToEngine = states.deviceToEngine
         engineToDevice = states.engineToDevice
+    }
+
+    /// Performs the one-way internal handoff from a validated M1/M2/M3
+    /// producer.  It deliberately returns only the Finished actor: callers
+    /// never receive the pre-Finished value, a Split key, or an exporter.
+    ///
+    /// The only production caller is the local A2 producer.  Its authority
+    /// capability remains sealed until a separately reviewed signed
+    /// roster/binding source exists; this factory neither creates authority
+    /// nor performs a network, peer, or dial effect.
+    static func fromValidatedHandshake(
+        chainingKey: Data,
+        handshakeHash: Data,
+        context: OwnerSiteA2FinishedContext
+    ) throws -> OwnerSiteA2DeviceFinishedTransport {
+        let preFinished = try OwnerSiteA2ValidatedPreFinished(
+            chainingKey: chainingKey,
+            handshakeHash: handshakeHash,
+            context: context
+        )
+        return OwnerSiteA2DeviceFinishedTransport(validatedPreFinished: preFinished)
     }
 
     /// Authenticates and validates exactly one S2, then returns canonical C3.
