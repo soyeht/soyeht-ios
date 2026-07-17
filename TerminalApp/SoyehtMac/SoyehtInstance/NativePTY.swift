@@ -71,6 +71,17 @@ final class NativePTY {
     private var exitSource: DispatchSourceProcess?
     private var closed = false
 
+    /// Input bytes accepted but not yet written to the master (ioQueue-only).
+    /// The master is O_NONBLOCK and writes never loop: when the kernel input
+    /// queue is full (a TUI blocked on its own stdout stops reading stdin),
+    /// the remainder waits here for a write source instead of wedging the
+    /// ioQueue — a blocking input write on the same serial queue as the read
+    /// source deadlocked the whole pane (child stuck in write(2), reader
+    /// starved, each waiting on the other).
+    private var pendingInput = Data()
+    private var writeSource: DispatchSourceWrite?
+    private static let maxPendingInputBytes = 4 * 1024 * 1024
+
     /// Guards `readSuspended`/`closed` transitions. `pauseReading()` and
     /// `resumeReading()` may be called from any thread (the feed bridge calls
     /// them from main and from `ioQueue`); a suspended source must be resumed
@@ -202,6 +213,13 @@ final class NativePTY {
         self.pid = childPid
         self.masterFD = master
         self.slaveTTYPath = Self.resolveSlaveTTYPath(masterFD: master)
+
+        // Non-blocking master: reads already tolerate EAGAIN, and writes must
+        // never block the ioQueue (see `pendingInput`).
+        let fdFlags = fcntl(master, F_GETFL)
+        if fdFlags >= 0 {
+            _ = fcntl(master, F_SETFL, fdFlags | O_NONBLOCK)
+        }
         Self.logger.info("spawned shell \(shell, privacy: .public) argv=\(argvStrings.joined(separator: " "), privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
 
         // Read loop: DispatchSource calls us every time the master FD has
@@ -233,25 +251,53 @@ final class NativePTY {
     func write(_ data: Data) {
         guard !data.isEmpty else { return }
         ioQueue.async { [weak self] in
-            self?.writeSynchronously(data)
+            guard let self, !self.closed else { return }
+            if self.pendingInput.count + data.count > Self.maxPendingInputBytes {
+                Self.logger.error("pending input over \(Self.maxPendingInputBytes) bytes; dropping \(data.count)-byte write (child not reading stdin)")
+                return
+            }
+            self.pendingInput.append(data)
+            self.flushPendingInput()
         }
     }
 
-    private func writeSynchronously(_ data: Data) {
+    /// ioQueue-only. Writes as much pending input as the kernel accepts; on a
+    /// full input queue (EAGAIN) arms a write source and returns immediately
+    /// so the read source keeps draining output on this same queue.
+    private func flushPendingInput() {
         guard !closed else { return }
-        data.withUnsafeBytes { buf in
-            guard let base = buf.baseAddress else { return }
-            var total = 0
-            while total < buf.count {
-                let n = Darwin.write(masterFD, base.advanced(by: total), buf.count - total)
-                if n < 0 {
-                    if errno == EINTR { continue }
-                    Self.logger.error("write failed errno=\(errno)")
-                    return
-                }
-                total += n
+        while !pendingInput.isEmpty {
+            let n = pendingInput.withUnsafeBytes { buf -> Int in
+                guard let base = buf.baseAddress else { return 0 }
+                return Darwin.write(masterFD, base, buf.count)
+            }
+            if n > 0 {
+                pendingInput.removeFirst(n)
+            } else if n < 0 && errno == EINTR {
+                continue
+            } else if n < 0 && errno == EAGAIN {
+                armWriteSource()
+                return
+            } else {
+                Self.logger.error("write failed errno=\(errno)")
+                pendingInput.removeAll()
+                break
             }
         }
+        stateLock.lock()
+        writeSource?.cancel()
+        writeSource = nil
+        stateLock.unlock()
+    }
+
+    private func armWriteSource() {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !closed, writeSource == nil else { return }
+        let src = DispatchSource.makeWriteSource(fileDescriptor: masterFD, queue: ioQueue)
+        src.setEventHandler { [weak self] in self?.flushPendingInput() }
+        writeSource = src
+        src.resume()
     }
 
     /// Propagate SwiftTerm's geometry change to the kernel so the shell
@@ -334,6 +380,8 @@ final class NativePTY {
             readSuspended = false
             src.resume()
         }
+        writeSource?.cancel()
+        writeSource = nil
         stateLock.unlock()
         readSource?.cancel()
         readSource = nil

@@ -41,9 +41,12 @@ def now():
 
 
 class Sim:
-    def __init__(self, log_path, kbps):
+    def __init__(self, log_path, kbps, read_stdin=True):
         self.log = open(log_path, "a", buffering=1)
         self.kbps = kbps
+        # noread: emula uma TUI que parou de ler stdin (ex.: bloqueada no
+        # próprio stdout) — dispara o deadlock de input no terminal antigo.
+        self.read_stdin = read_stdin
         self.bytes_total = 0
         self.win_bytes = 0
         self.max_write_ms = 0.0
@@ -133,7 +136,7 @@ class Sim:
                     self.w("\r\n" * (block - 1) + CSI + "2K")
                 if self.iter % 50 == 0:
                     self.w(ESC + f"]0;claude-sim · iter {self.iter}\x07")
-                if self.iter % 500 == 0:
+                if self.read_stdin and self.iter % 500 == 0:
                     self.dsr_probe()
                 # pacing pro alvo de kbps: só dorme quando ACIMA da meta
                 elapsed = now() - win_start
@@ -161,6 +164,10 @@ class Sim:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("uso: uv run claude-sim.py /caminho/log [kbps]", file=sys.stderr)
+        print("uso: uv run claude-sim.py /caminho/log [kbps] [noread]", file=sys.stderr)
         sys.exit(2)
-    Sim(sys.argv[1], float(sys.argv[2]) if len(sys.argv) > 2 else 80.0).run()
+    Sim(
+        sys.argv[1],
+        float(sys.argv[2]) if len(sys.argv) > 2 else 80.0,
+        read_stdin=not (len(sys.argv) > 3 and sys.argv[3] == "noread"),
+    ).run()
