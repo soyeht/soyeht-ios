@@ -343,6 +343,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             case .native(let pid):
                 // Any positive pid means NativePTY spawned successfully.
                 hasLiveInstance = (pid > 0)
+            case .engineLocal:
+                // Only constructed after a successful engine attach.
+                hasLiveInstance = true
             }
         } else {
             hasLiveInstance = false
@@ -533,6 +536,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         configureContent(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
+        restoreEnginePaneIfNeeded(for: conv)
         updateEmptyStateVisibility()
     }
 
@@ -653,6 +657,175 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 Self.logger.error("restoreLocalShell failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    /// Backoff schedule for transient (network hiccup / 5xx) attach
+    /// failures during restore only — the engine is a persistent daemon,
+    /// so at cold start the session almost certainly still exists and a
+    /// blip shouldn't permanently downgrade the pane. First-attach (A1)
+    /// doesn't retry: a brand-new pane was never expected to already have
+    /// a live session, so there's nothing worth waiting to confirm.
+    private static let restoreRetryDelaysNanoseconds: [UInt64] = [500_000_000, 1_000_000_000, 2_000_000_000]
+
+    /// `.engineLocal` survives undo/relaunch in the model exactly like
+    /// `.native` does, but the WebSocket attachment does not. Mirrors
+    /// `restoreLocalShellIfNeeded`: re-issues the engine attach (the
+    /// engine's own `create` contract is idempotent per `conversation_id`,
+    /// so it transparently either reconnects to a still-alive session or
+    /// spawns a fresh one if it died) and logs honestly which one happened,
+    /// via the E5 `reconnected` field — never claims "restored" for a
+    /// silent fresh respawn.
+    ///
+    /// Two failure modes matter here, both found in independent review:
+    /// - A transient failure must NOT immediately downgrade to `.native` —
+    ///   that would orphan a live engine session forever (the next
+    ///   relaunch only looks for `.engineLocal`). Retries with backoff
+    ///   first; only downgrades once retries are exhausted or the failure
+    ///   is definitive (no engine context, or a non-5xx HTTP error).
+    /// - This function awaits network I/O for potentially several seconds
+    ///   (login-PATH resolution, the attach call, retries) — the pane or
+    ///   its workspace can close in that window (`endEngineSessionIfNeeded`
+    ///   already DELETEd the session), so every re-entry after an `await`
+    ///   re-validates via `stillRestorableEngineConversation` before
+    ///   acting, and aborts cleanly (cleaning up a session it may have
+    ///   just (re)created) rather than operating on stale state.
+    ///
+    /// Falls back to a fresh `NativePTY` so the pane never comes up dead —
+    /// same fail-open contract as the first attach (A1). A pane downgraded
+    /// this way stays `.native` until the user recreates it (this
+    /// relaunch only looks for `.engineLocal`) — graceful degradation to
+    /// pre-flag behavior, never a crash.
+    private func restoreEnginePaneIfNeeded(for conv: Conversation) {
+        guard conv.content.isTerminal else { return }
+        guard case .engineLocal(let initialEngineConversationID) = conv.commander else { return }
+        guard !terminalView.isRemoteSessionConfigured else { return }
+        guard !isRestoringLocalShell else { return }
+
+        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? resolvedWorkspaceFolder()
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        let term = terminalView.getTerminal()
+        let cols = Int(term.cols)
+        let rows = Int(term.rows)
+        let conversationID = self.conversationID
+
+        isRestoringLocalShell = true
+
+        Task { @MainActor [weak self] in
+            defer { self?.isRestoringLocalShell = false }
+            let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
+
+            guard let self,
+                  let convStore = AppEnvironment.conversationStore,
+                  var liveConversation = self.stillRestorableEngineConversation(conversationID, convStore: convStore) else {
+                Self.logger.notice("engine pane restore aborted before attach (pane no longer live) pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            }
+
+            var outcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
+            for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
+                outcome = await EnginePaneAttacher.attach(
+                    conversation: liveConversation,
+                    cwd: url,
+                    loginPath: loginPath,
+                    cols: cols,
+                    rows: rows,
+                    terminalView: self.terminalView,
+                    convStore: convStore
+                )
+                guard case .failed(transient: true) = outcome,
+                      attempt < Self.restoreRetryDelaysNanoseconds.count else {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: Self.restoreRetryDelaysNanoseconds[attempt])
+                guard let revalidated = self.stillRestorableEngineConversation(conversationID, convStore: convStore) else {
+                    Self.logger.notice("engine pane restore aborted during retry backoff (pane no longer live) pane=\(conversationID.uuidString, privacy: .public)")
+                    return
+                }
+                liveConversation = revalidated
+            }
+
+            guard self.stillRestorableEngineConversation(conversationID, convStore: convStore) != nil else {
+                // The pane is gone for good (not just this attempt) — no
+                // outcome leaves a session worth keeping: `.attached` just
+                // (re)created one nobody owns anymore, and `.failed` might
+                // be hiding a lost-response success server-side. Always
+                // clean up; deleting an already-gone session is a no-op.
+                await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
+                Self.logger.notice("engine pane restore aborted after attach (pane no longer live) pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            }
+
+            switch outcome {
+            case .attached(reconnected: true):
+                Self.logger.info("engine pane session restored pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            case .attached(reconnected: false):
+                // The engine process died while the app was closed; create
+                // spawned a brand-new, empty shell under the same
+                // conversation_id. Discreet (Console-only, no UI per A6) but
+                // honest — must not say "restored" when there's no history.
+                Self.logger.notice("engine pane session was gone; started a fresh shell pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            case .failed:
+                break
+            }
+
+            Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
+            // Best-effort: a request WE saw as failed (timeout, dropped
+            // response) may have actually succeeded engine-side — don't
+            // leave that orphaned once we fall back to NativePTY.
+            await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
+            do {
+                let pty = try NativePTY(
+                    shellPath: nil,
+                    cwd: url,
+                    cols: cols,
+                    rows: rows,
+                    loginPath: loginPath,
+                    extraEnvironment: AgentPaneEnvironment.values(for: conv)
+                )
+                convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
+                self.terminalView.configureLocal(pty: pty)
+                Self.logger.info(
+                    "local shell restored (engine fallback) pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
+                )
+            } catch {
+                Self.logger.error("restoreEnginePane NativePTY fallback failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// Re-validates, after an `await` gap, that THIS pane instance is still
+    /// the live registered owner of `conversationID` and its conversation
+    /// is still engine-backed. Guards every restore decision point against
+    /// the pane/workspace closing mid-flight (`endEngineSessionIfNeeded`
+    /// already DELETEd the engine session by then) — a stale continuation
+    /// must abort rather than act on state that moved on without it.
+    private func stillRestorableEngineConversation(
+        _ conversationID: Conversation.ID,
+        convStore: ConversationStore
+    ) -> Conversation? {
+        guard LivePaneRegistry.shared.pane(for: conversationID) === self,
+              let conversation = convStore.conversation(conversationID),
+              case .engineLocal = conversation.commander else {
+            return nil
+        }
+        return conversation
+    }
+
+    /// Best-effort cleanup for a possibly-orphaned engine session — never
+    /// throws, never blocks the caller on failure. Used when restore
+    /// aborts after a race, or falls back to `NativePTY` after a request
+    /// that may have actually succeeded engine-side despite looking failed
+    /// to us. `engineConversationID` must be the value stored on
+    /// `.engineLocal(conversationID:)`, not re-derived from
+    /// `Conversation.id.uuidString` (see `EngineSessionTTYRegistry`'s
+    /// keying note).
+    private static func bestEffortDeleteEngineSession(engineConversationID: String) async {
+        EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
+        guard let context = await LocalEngineContext.resolve() else { return }
+        try? await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
     }
 
     // MARK: - Header wiring
@@ -930,14 +1103,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             return
         }
         // QR hand-off only makes sense for `.mirror` (remote tmux) — the
-        // server is what generates the QR. `.native` (local PTY) and the
-        // `pending` placeholder both surface a friendly alert instead of
-        // calling the API with bogus args.
+        // server is what generates the QR. `.native`/`.engineLocal` (local
+        // panes) and the `pending` placeholder all surface a friendly alert
+        // instead of calling the API with bogus args.
         let instanceID: String
         switch conv.commander {
         case .mirror(let id) where id != "pending":
             instanceID = id
-        case .native:
+        case .native, .engineLocal:
             Task { @MainActor in
                 do {
                     let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
@@ -1047,9 +1220,42 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     func prepareForClose() {
         if contentController == nil {
+            endEngineSessionIfNeeded()
             terminalView.disconnect()
         } else {
             removeSpecialContent()
+        }
+    }
+
+    /// Closing THIS pane is the user's explicit "end this session" action —
+    /// the one place persistent panes must actually die. `terminalView
+    /// .disconnect()` (called right after this) only cancels the WebSocket
+    /// for `.engineLocal`, exactly like it does for `.mirror`; the engine
+    /// keeps the child process running (surviving app quit/restart is the
+    /// entire point — see `AppDelegate`, which never calls `prepareForClose`
+    /// on quit). So an explicit pane close must ALSO delete the broker-owned
+    /// session, or persistent panes would never actually stop.
+    ///
+    /// Fire-and-forget: pane teardown (`removeFromSuperview`,
+    /// `LivePaneRegistry.unregister`) proceeds synchronously right after
+    /// this returns, so the DELETE is captured by value and outlives `self`.
+    /// Reused by workspace-close too (`performWorkspaceTeardown` calls the
+    /// same `prepareForClose()` per leaf), which is the correct scope —
+    /// closing a workspace is also an explicit user action, not a restart.
+    private func endEngineSessionIfNeeded() {
+        guard let conversation = AppEnvironment.conversationStore?.conversation(conversationID),
+              case .engineLocal(let engineConversationID) = conversation.commander else { return }
+        EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
+        Task { @MainActor in
+            guard let context = await LocalEngineContext.resolve() else {
+                Self.logger.warning("endEngineSessionIfNeeded: no local engine context; leaving engine session orphaned pane=\(engineConversationID, privacy: .public)")
+                return
+            }
+            do {
+                try await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
+            } catch {
+                Self.logger.error("deleteLocalTerminal failed pane=\(engineConversationID, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }
