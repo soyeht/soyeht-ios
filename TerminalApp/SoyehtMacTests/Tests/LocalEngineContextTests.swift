@@ -85,4 +85,36 @@ final class LocalEngineContextTests: XCTestCase {
         }
         XCTAssertNil(context)
     }
+
+    /// The REAL self-pair records this Mac's engine row under its externally
+    /// reachable hostname (tailnet DNS name), not `adminHost` — so resolution
+    /// falls through to `autoPair()` and gets that row back. `resolve()` must
+    /// pin the returned context's transport to the loopback admin host
+    /// (keeping the row's token), or every local-terminal call targets the
+    /// machine's public surface, which a different engine instance answers
+    /// (live symptom: HTTP 405 from its SPA fallback → permanent `NativePTY`
+    /// downgrade — the exact failure the E2E king test caught).
+    func testAutoPairedTailnetHostIsPinnedToLoopbackAdminHost() async {
+        let store = makeIsolatedSessionStore()
+        let localHost = SoyehtInstallProfile.current.adminHost
+        let tailnetRow = PairedServer(
+            id: "self-tailnet",
+            host: "https://mac-alpha.example.ts.net",
+            name: "this-mac",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            kind: .engine
+        )
+
+        let context = await LocalEngineContext.resolve(store: store) {
+            _ = store.addServer(tailnetRow, token: "self-token")
+            return tailnetRow
+        }
+
+        XCTAssertEqual(context?.host, localHost, "transport must be pinned to the loopback admin host")
+        XCTAssertEqual(context?.token, "self-token", "the row's own credential must be kept")
+        XCTAssertEqual(context?.server.kind, .engine)
+        XCTAssertEqual(context?.server.id, "self-tailnet")
+    }
 }
