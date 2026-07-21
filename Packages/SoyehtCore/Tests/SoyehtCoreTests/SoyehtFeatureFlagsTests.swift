@@ -78,9 +78,11 @@ struct SoyehtFeatureFlagsTests {
         ))
     }
 
-    @Test func persistentLocalPanesIsDisabledByDefault() {
+    @Test func persistentLocalPanesIsEnabledByDefault() {
+        // Shipped default since mac-v0.1.30 (engine >= 0.1.22 bundles the
+        // local broker).
         SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
-        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == true)
     }
 
     @Test func persistentLocalPanesOverrideEnablesAndClears() {
@@ -88,18 +90,20 @@ struct SoyehtFeatureFlagsTests {
         defer { SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil) }
 
         SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(true)
-        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == _isDebugAssertConfiguration())
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == true)
 
         SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
-        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == true)
     }
 
-    @Test func falseOverrideKeepsPersistentLocalPanesDisabled() {
+    @Test func falseOverrideDisablesPersistentLocalPanesInDebugOnly() {
         SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
         defer { SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil) }
 
+        // Debug builds honor the false override; release builds ignore
+        // overrides entirely and pin to the shipped default (true).
         SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(false)
-        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == !_isDebugAssertConfiguration())
     }
 
     @Test func persistentLocalPanesE2ELaunchArgumentOnlyEnablesAllowedDevBundles() {

@@ -9,7 +9,7 @@ public enum SoyehtFeatureFlags {
     private static let clawStoreE2ELaunchArgument = "-SoyehtClawStoreE2E"
     private static let mobileClawVPNControlPlaneDefault = false
     private static let mobileClawVPNControlPlaneE2ELaunchArgument = "-SoyehtMobileClawVPNControlPlaneE2E"
-    private static let persistentLocalPanesDefault = false
+    private static let persistentLocalPanesDefault = true
     private static let persistentLocalPanesE2ELaunchArgument = "-SoyehtPersistentLocalPanesE2E"
     private static let clawStoreOverrideLock = NSLock()
     private static let mobileClawVPNControlPlaneOverrideLock = NSLock()
@@ -51,8 +51,9 @@ public enum SoyehtFeatureFlags {
     /// Routes a local agent pane (bash/claude/codex/opencode spawned by this
     /// app) through the engine's broker-owned PTY (`POST
     /// /api/v1/terminals/local`) instead of a direct `NativePTY` forkpty, so
-    /// the pane survives an app restart/update. `NativePTY` remains the
-    /// fallback when this is off (default) or when engine attach fails.
+    /// the pane survives an app restart/update. Enabled by default since
+    /// mac-v0.1.30 (engine >= 0.1.22 bundles the local broker); `NativePTY`
+    /// remains the fallback when this is off or when engine attach fails.
     public static var persistentLocalPanesEnabled: Bool {
         if isPersistentLocalPanesE2ELaunchArgumentEnabled(
             bundleIdentifier: Bundle.main.bundleIdentifier,
