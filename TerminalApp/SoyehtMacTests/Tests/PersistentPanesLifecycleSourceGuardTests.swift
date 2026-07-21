@@ -36,6 +36,25 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         XCTAssertTrue(endEngineSession.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
     }
 
+    /// The regression surface a future refactor would actually hit: unlike
+    /// `AppDelegate`'s quit hooks, `windowWillClose` runs on every ordinary
+    /// window close (red traffic-light, `Cmd+W`) — a MUCH more common event
+    /// than quitting or an explicit workspace close. Its own doc comment
+    /// ("Keep workspace data intact") already establishes it must not tear
+    /// down panes; this pins that so nobody wires `prepareForClose`/
+    /// `performWorkspaceTeardown` into it by mistake later. (@jovian,
+    /// PR #321 review.)
+    func testWindowWillCloseNeverTearsDownPanes() throws {
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let windowWillClose = try slice(
+            source,
+            from: "func windowWillClose(_ notification: Notification) {",
+            to: "// MARK: - Seed workspace"
+        )
+        XCTAssertFalse(windowWillClose.contains("prepareForClose"), "window close must not tear down panes")
+        XCTAssertFalse(windowWillClose.contains("performWorkspaceTeardown"), "window close must not tear down workspaces")
+    }
+
     func testAppQuitTeardownNeverEndsEngineSessions() throws {
         let source = try macSource("AppDelegate.swift")
         let shouldTerminate = try slice(
