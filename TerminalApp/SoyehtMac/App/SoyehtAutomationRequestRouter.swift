@@ -990,9 +990,18 @@ final class SoyehtAutomationRequestRouter {
             return nil
         }
         for conversation in convStore.all where conversation.content.isTerminal {
-            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController,
-                  let paneTTY = normalizedTTYName(pane.terminalView.localPTYSlaveTTYPathForAutomation),
-                  paneTTY == tty else {
+            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController else {
+                continue
+            }
+            // `.native` panes answer directly (NativePTY.slaveTTYPath).
+            // `.engineLocal` has no local PTY object to ask — its TTY path
+            // comes from the engine's create response, cached in
+            // EngineSessionTTYRegistry when the pane attached (A5; avoids a
+            // live GET /terminals/local per automation request). `.mirror`
+            // matches neither, same pre-existing limitation as today.
+            let candidateTTY = pane.terminalView.localPTYSlaveTTYPathForAutomation
+                ?? EngineSessionTTYRegistry.slaveTTYPath(forConversationID: conversation.id.uuidString)
+            guard let paneTTY = normalizedTTYName(candidateTTY), paneTTY == tty else {
                 continue
             }
             return AutomationSourceResolution(conversation: conversation, resolution: "tty")

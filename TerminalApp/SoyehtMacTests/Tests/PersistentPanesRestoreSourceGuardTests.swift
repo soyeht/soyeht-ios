@@ -35,6 +35,10 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(restore.contains("!isRestoringLocalShell"))
         // Reuses the shared attacher rather than reimplementing create+attach.
         XCTAssertTrue(restore.contains("EnginePaneAttacher.attach("))
+        // E5 honesty: must distinguish an actual reconnect from a silent
+        // fresh respawn, never claim "restored" for the latter.
+        XCTAssertTrue(restore.contains("case .attached(reconnected: true):"))
+        XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))
         // Never leaves the pane dead if the engine can't be reached.
         XCTAssertTrue(restore.contains("NativePTY("))
         XCTAssertTrue(restore.contains(".native(pid: pty.pid)"))
@@ -65,7 +69,18 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.createLocalTerminal("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment("))
         XCTAssertTrue(attach.contains("convStore.updateCommander(conversation.id, commander: .engineLocal(conversationID: response.conversationId))"))
-        XCTAssertTrue(attach.contains("terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)"))
+        XCTAssertTrue(attach.contains("terminalView.configure("))
+        XCTAssertTrue(attach.contains("wsUrl: attachment.url"))
+        XCTAssertTrue(attach.contains("cookieHeader: attachment.cookieHeader"))
+        // .mirror is never handoff-eligible — only this call site (used by
+        // both A1 first-attach and A3 restore) may claim the pane as one.
+        XCTAssertTrue(attach.contains("isLocalHandoffSource: true"))
+        // E5: the response's `reconnected` flag must actually reach the
+        // caller (via `.attached(reconnected:)`), not get silently dropped.
+        XCTAssertTrue(attach.contains("return .attached(reconnected: response.reconnected)"))
+        // A5: caches the TTY path so automation TTY-mapping can resolve
+        // this pane without a live GET /terminals/local round-trip.
+        XCTAssertTrue(attach.contains("EngineSessionTTYRegistry.record("))
     }
 
     func testIsRemoteSessionConfiguredTracksConfiguredURL() throws {

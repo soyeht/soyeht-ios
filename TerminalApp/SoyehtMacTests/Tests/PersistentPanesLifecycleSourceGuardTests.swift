@@ -34,6 +34,8 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         XCTAssertTrue(endEngineSession.contains("case .engineLocal(let engineConversationID) = conversation.commander"))
         XCTAssertTrue(endEngineSession.contains("LocalEngineContext.resolve()"))
         XCTAssertTrue(endEngineSession.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+        // A5: must not leak a stale TTY-mapping entry after the session ends.
+        XCTAssertTrue(endEngineSession.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
     }
 
     /// The regression surface a future refactor would actually hit: unlike

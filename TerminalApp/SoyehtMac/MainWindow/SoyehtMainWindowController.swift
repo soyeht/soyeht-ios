@@ -3552,7 +3552,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         pane: PaneViewController,
         convStore: ConversationStore
     ) async -> Bool {
-        let attached = await EnginePaneAttacher.attach(
+        switch await EnginePaneAttacher.attach(
             conversation: conversation,
             cwd: cwd,
             loginPath: loginPath,
@@ -3560,11 +3560,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             rows: rows,
             terminalView: pane.terminalView,
             convStore: convStore
-        )
-        if !attached {
+        ) {
+        case .attached:
+            // Always a fresh spawn in practice (a brand-new pane's
+            // conversation_id has never been seen by the engine before),
+            // so `reconnected` isn't interesting to log here — restore
+            // (`PaneViewController.restoreEnginePaneIfNeeded`) is where it
+            // actually distinguishes an outcome worth telling apart.
+            return true
+        case .failed:
             Self.logger.warning("persistent local pane: engine attach failed; falling back to NativePTY")
+            return false
         }
-        return attached
     }
 
     private func initialPromptPayload(
@@ -3747,7 +3754,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Refresh commander so PaneViewController hides its placeholder.
         convStore.updateCommander(conversationID, commander: .mirror(instanceID: container))
         if let pane = LivePaneRegistry.shared.pane(for: conversationID) as? PaneViewController {
-            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)
+            // .mirror is never handoff-eligible (see EnginePaneAttacher's
+            // isLocalHandoffSource: true counterpart) — its QR/Continue-on-
+            // iPhone flow is the separate, server-driven generateContinueQR
+            // mechanism, so this pane's replay buffer would just go unused.
+            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader, isLocalHandoffSource: false)
             Self.logger.info("terminal configured for conv=\(conversationID.uuidString, privacy: .public) session=\(sessionId, privacy: .public) kind=\(activeKind.rawValue, privacy: .public)")
         } else {
             Self.logger.warning("no live pane for conv=\(conversationID.uuidString, privacy: .public)")

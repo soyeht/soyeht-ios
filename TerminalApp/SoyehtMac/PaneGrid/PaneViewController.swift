@@ -664,13 +664,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// `restoreLocalShellIfNeeded`: re-issues the engine attach (the
     /// engine's own `create` contract is idempotent per `conversation_id`,
     /// so it transparently either reconnects to a still-alive session or
-    /// spawns a fresh one if it died — the client has no signal to tell
-    /// which happened, hence the generic "restored" log). If the engine
-    /// itself is unreachable, falls back to a fresh `NativePTY` so the pane
-    /// never comes up dead — same fail-open contract as the first attach
-    /// (A1). A later relaunch, once the engine is back, would then find
-    /// `.native` here and use the other restore path instead — a graceful
-    /// degradation to today's default behavior, not a crash.
+    /// spawns a fresh one if it died) and logs honestly which one happened,
+    /// via the E5 `reconnected` field — never claims "restored" for a
+    /// silent fresh respawn. If the engine itself is unreachable, falls
+    /// back to a fresh `NativePTY` so the pane never comes up dead — same
+    /// fail-open contract as the first attach (A1). A later relaunch, once
+    /// the engine is back, would then find `.native` here and use the
+    /// other restore path instead — a graceful degradation to today's
+    /// default behavior, not a crash.
     private func restoreEnginePaneIfNeeded(for conv: Conversation) {
         guard conv.content.isTerminal else { return }
         guard case .engineLocal = conv.commander else { return }
@@ -692,7 +693,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
             guard let self, let convStore = AppEnvironment.conversationStore else { return }
 
-            let attached = await EnginePaneAttacher.attach(
+            switch await EnginePaneAttacher.attach(
                 conversation: conv,
                 cwd: url,
                 loginPath: loginPath,
@@ -700,10 +701,19 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 rows: rows,
                 terminalView: self.terminalView,
                 convStore: convStore
-            )
-            if attached {
-                Self.logger.info("engine pane restored pane=\(conversationID.uuidString, privacy: .public)")
+            ) {
+            case .attached(reconnected: true):
+                Self.logger.info("engine pane session restored pane=\(conversationID.uuidString, privacy: .public)")
                 return
+            case .attached(reconnected: false):
+                // The engine process died while the app was closed; create
+                // spawned a brand-new, empty shell under the same
+                // conversation_id. Discreet (Console-only, no UI per A6) but
+                // honest — must not say "restored" when there's no history.
+                Self.logger.notice("engine pane session was gone; started a fresh shell pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            case .failed:
+                break
             }
 
             Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
@@ -1144,6 +1154,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func endEngineSessionIfNeeded() {
         guard let conversation = AppEnvironment.conversationStore?.conversation(conversationID),
               case .engineLocal(let engineConversationID) = conversation.commander else { return }
+        EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
         Task { @MainActor in
             guard let context = await LocalEngineContext.resolve() else {
                 Self.logger.warning("endEngineSessionIfNeeded: no local engine context; leaving engine session orphaned pane=\(engineConversationID, privacy: .public)")

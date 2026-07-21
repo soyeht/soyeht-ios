@@ -65,6 +65,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    /// True for a WS-attached session this Mac owns and can hand off to a
+    /// paired phone (`.engineLocal`) — false for a `.mirror` session, whose
+    /// QR/Continue-on-iPhone flow is a completely separate, server-driven
+    /// mechanism (`generateContinueQR`) that never reads
+    /// `localReplaySnapshot()`/`addLocalOutputObserver`. Gates the replay
+    /// buffer / output-observer fill in `drainFeedBacklog` alongside
+    /// `localPTY != nil` so a `.mirror` pane (the common case for remote
+    /// viewing) doesn't pay for a buffer nothing will ever consume. Sticky
+    /// across the internal `disconnect()`+`connect()` reconnect cycle,
+    /// same as `configuredURL`/`configuredCookieHeader`.
+    private var isLocalHandoffSource = false
+
     /// Optional `Cookie` header value (e.g. `soyeht_session=…`) sent on the
     /// upgrade request. Used for `.adminHost` servers where the session
     /// lives in a cookie instead of being a token-in-URL. Stored so the
@@ -248,13 +260,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     // MARK: - Connection
 
-    func configure(wsUrl: String, cookieHeader: String? = nil) {
+    func configure(wsUrl: String, cookieHeader: String? = nil, isLocalHandoffSource: Bool = false) {
         // Re-attach only when something actually changed. Comparing the
         // URL alone (the original behaviour) would miss a server-kind
         // swap that flipped the cookie header on the same WS endpoint.
         guard configuredURL != wsUrl || configuredCookieHeader != cookieHeader else { return }
         configuredURL = wsUrl
         configuredCookieHeader = cookieHeader
+        self.isLocalHandoffSource = isLocalHandoffSource
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
         Self.logger.info("[WS] Configure new URL (cookieHeader=\(cookieHeader == nil ? "no" : "yes", privacy: .public))")
@@ -790,15 +803,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             switch item {
             case .bytes(let data):
                 lastOutputAt = Date()
-                // Buffer/publish regardless of transport (local PTY or WS):
-                // the phone-handoff replay/live-stream consumers
-                // (`LocalTerminalHandoffManager`, `PaneStreamSession`) are
-                // reached for `.engineLocal` panes too (see
-                // `writeToLocalSession`'s doc comment), and those are
-                // WS-attached, not PTY-backed — gating this on `localPTY
-                // != nil` left them permanently empty for that transport.
-                appendLocalReplayData(data)
-                publishLocalOutput(data)
+                // Local PTY (.native) or a WS session this Mac owns and can
+                // hand off (.engineLocal, via `isLocalHandoffSource`). NOT
+                // gated on `localPTY` alone: that left the buffer/observers
+                // permanently empty for any WS-attached pane, which broke
+                // `.engineLocal`'s phone handoff (it's WS-attached, never
+                // sets `localPTY`). NOT unconditional either: a `.mirror`
+                // pane never reaches `LocalTerminalHandoffManager` (it uses
+                // a separate, server-driven QR mechanism), so it would just
+                // pay for an unused buffer.
+                if localPTY != nil || isLocalHandoffSource {
+                    appendLocalReplayData(data)
+                    publishLocalOutput(data)
+                }
                 isFeedingServerData = true
                 feed(byteArray: [UInt8](data)[...])
                 isFeedingServerData = false

@@ -57,6 +57,7 @@
 		AA300009000000000000001 /* LocalEngineContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300009000000000000002 /* LocalEngineContext.swift */; };
 		AA300010000000000000001 /* EnginePaneSpawnRequestBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */; };
 		AA300011000000000000001 /* EnginePaneAttacher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300011000000000000002 /* EnginePaneAttacher.swift */; };
+		AA300012000000000000001 /* EngineSessionTTYRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300012000000000000002 /* EngineSessionTTYRegistry.swift */; };
 		AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300001000000000000002 /* SoyehtMainWindowController.swift */; };
 		AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300002000000000000002 /* WorkspaceContainerViewController.swift */; };
 		AA300004000000000000001 /* WorkspaceTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300004000000000000002 /* WorkspaceTabView.swift */; };
@@ -223,6 +224,7 @@
 		AA300009000000000000002 /* LocalEngineContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEngineContext.swift; sourceTree = "<group>"; };
 		AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnginePaneSpawnRequestBuilder.swift; sourceTree = "<group>"; };
 		AA300011000000000000002 /* EnginePaneAttacher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnginePaneAttacher.swift; sourceTree = "<group>"; };
+		AA300012000000000000002 /* EngineSessionTTYRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineSessionTTYRegistry.swift; sourceTree = "<group>"; };
 		AA300001000000000000002 /* SoyehtMainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtMainWindowController.swift; sourceTree = "<group>"; };
 		AA300002000000000000002 /* WorkspaceContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContainerViewController.swift; sourceTree = "<group>"; };
 		AA300004000000000000002 /* WorkspaceTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabView.swift; sourceTree = "<group>"; };
@@ -507,6 +509,7 @@
 				AA300009000000000000002 /* LocalEngineContext.swift */,
 				AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */,
 				AA300011000000000000002 /* EnginePaneAttacher.swift */,
+				AA300012000000000000002 /* EngineSessionTTYRegistry.swift */,
 			);
 			path = SoyehtInstance;
 			sourceTree = "<group>";
@@ -997,6 +1000,7 @@
 				AA300009000000000000001 /* LocalEngineContext.swift in Sources */,
 				AA300010000000000000001 /* EnginePaneSpawnRequestBuilder.swift in Sources */,
 				AA300011000000000000001 /* EnginePaneAttacher.swift in Sources */,
+				AA300012000000000000001 /* EngineSessionTTYRegistry.swift in Sources */,
 				AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */,
 				AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */,
 				AA300007000000000000001 /* WorkspaceTabsView.swift in Sources */,

@@ -50,14 +50,43 @@ extension SoyehtAPIClient {
 
     /// Response from `POST /api/v1/terminals/local`. Idempotent per
     /// `conversation_id`: an existing live session is returned as-is.
+    /// `reconnected` (E5) is the ONLY honest way to tell "returned an
+    /// existing live session" from "spawned a new process" — the two cases
+    /// are otherwise indistinguishable from this response alone.
     public struct LocalTerminalCreateResponse: Decodable, Sendable {
         public let conversationId: String
         public let wsPath: String
+        public let slaveTTYPath: String
+        public let reconnected: Bool
 
         private enum CodingKeys: String, CodingKey {
             case conversationId = "conversation_id"
             case wsPath = "ws_path"
+            case slaveTTYPath = "slave_tty_path"
+            case reconnected
         }
+    }
+
+    /// One entry from `GET /api/v1/terminals/local` — every broker-owned
+    /// local session (live or not-yet-reaped), with the metadata needed to
+    /// map a TTY back to the pane that owns it (`soyeht-mcp` automation).
+    public struct LocalTerminalSessionMetadata: Decodable, Sendable {
+        public let conversationId: String
+        public let slaveTTYPath: String
+        public let pgid: Int32
+        public let cwd: String
+        public let isConnected: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case conversationId = "conversation_id"
+            case slaveTTYPath = "slave_tty_path"
+            case pgid, cwd
+            case isConnected = "is_connected"
+        }
+    }
+
+    private struct LocalTerminalListResponse: Decodable {
+        let data: [LocalTerminalSessionMetadata]
     }
 
     /// Creates (or idempotently reattaches to) a broker-owned local PTY
@@ -77,6 +106,22 @@ extension SoyehtAPIClient {
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try JSONDecoder().decode(LocalTerminalCreateResponse.self, from: data)
+    }
+
+    /// Lists every broker-owned local session on the engine named by
+    /// `context`, live or not-yet-reaped — the metadata `soyeht-mcp`
+    /// automation needs to map a TTY back to the pane that owns it, for
+    /// sessions with no local `NativePTY` object to ask directly.
+    public func listLocalTerminals(context: ServerContext) async throws -> [LocalTerminalSessionMetadata] {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/local")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        context.server.kind.applyAuth(to: &request, token: context.token)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+        return try JSONDecoder().decode(LocalTerminalListResponse.self, from: data).data
     }
 
     /// Closes a broker-owned local session (kills the child, removes the

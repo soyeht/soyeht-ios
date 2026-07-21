@@ -52,10 +52,10 @@ import Testing
         #expect((json["env"] as? [[String]])?.isEmpty == true)
     }
 
-    @Test("Create response decodes the engine's {conversation_id, ws_path} shape")
+    @Test("Create response decodes the engine's E5 shape, including reconnected and slave_tty_path")
     func createResponseDecoding() throws {
         let json = """
-        {"conversation_id":"conv-123","ws_path":"/api/v1/terminals/local/conv-123/pty"}
+        {"conversation_id":"conv-123","ws_path":"/api/v1/terminals/local/conv-123/pty","slave_tty_path":"/dev/ttys010","reconnected":true}
         """
         let response = try JSONDecoder().decode(
             SoyehtAPIClient.LocalTerminalCreateResponse.self,
@@ -63,6 +63,29 @@ import Testing
         )
         #expect(response.conversationId == "conv-123")
         #expect(response.wsPath == "/api/v1/terminals/local/conv-123/pty")
+        #expect(response.slaveTTYPath == "/dev/ttys010")
+        #expect(response.reconnected == true)
+    }
+
+    @Test("List response decodes GET /terminals/local's {data: [...]} shape")
+    func listResponseDecoding() throws {
+        let json = """
+        {"data":[
+            {"conversation_id":"conv-123","slave_tty_path":"/dev/ttys010","pgid":4242,"cwd":"/Users/mac-alpha/project","is_connected":true},
+            {"conversation_id":"conv-456","slave_tty_path":"/dev/ttys011","pgid":4343,"cwd":"/Users/mac-alpha","is_connected":false}
+        ],"has_more":false,"next_cursor":null}
+        """
+        struct ListResponse: Decodable {
+            let data: [SoyehtAPIClient.LocalTerminalSessionMetadata]
+        }
+        let decoded = try JSONDecoder().decode(ListResponse.self, from: Data(json.utf8))
+        #expect(decoded.data.count == 2)
+        #expect(decoded.data[0].conversationId == "conv-123")
+        #expect(decoded.data[0].slaveTTYPath == "/dev/ttys010")
+        #expect(decoded.data[0].pgid == 4242)
+        #expect(decoded.data[0].cwd == "/Users/mac-alpha/project")
+        #expect(decoded.data[0].isConnected == true)
+        #expect(decoded.data[1].isConnected == false)
     }
 
     @Test("WebSocket attachment carries the token as a query param for .engine, cookie for .adminHost")

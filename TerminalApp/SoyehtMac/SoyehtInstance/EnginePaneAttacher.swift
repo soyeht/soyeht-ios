@@ -13,15 +13,24 @@ import os
 /// (see `handlers_terminal.rs`): a live session is returned as-is, a dead or
 /// never-created one is spawned fresh. That means restore doesn't need to
 /// distinguish "reattach" from "spawn new" itself — the same call handles
-/// both — but it also means the client has no signal to tell which one
-/// happened (the response shape is identical either way).
+/// both — and (E5) the response's `reconnected` field tells the caller
+/// which one actually happened, for honest logging.
 @MainActor
 enum EnginePaneAttacher {
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "engine-pane-attacher")
 
-    /// Returns `false` on ANY failure (no local engine context, network
-    /// error) — callers must fall back to `NativePTY` unconditionally, since
-    /// the persistent-panes flag must never leave a pane dead.
+    enum AttachOutcome: Equatable {
+        /// No local engine context, or the create/attach call failed.
+        /// Callers must fall back to `NativePTY` unconditionally — the
+        /// persistent-panes flag must never leave a pane dead.
+        case failed
+        /// Attached successfully. `reconnected` (E5) is `true` only when an
+        /// existing live session was returned as-is, `false` when a new
+        /// process had to be spawned — say "session restored" only in the
+        /// former case.
+        case attached(reconnected: Bool)
+    }
+
     static func attach(
         conversation: Conversation,
         cwd: URL,
@@ -30,10 +39,10 @@ enum EnginePaneAttacher {
         rows: Int,
         terminalView: MacOSWebSocketTerminalView,
         convStore: ConversationStore
-    ) async -> Bool {
+    ) async -> AttachOutcome {
         guard let context = await LocalEngineContext.resolve() else {
             logger.warning("no local engine context resolvable")
-            return false
+            return .failed
         }
         let request = EnginePaneSpawnRequestBuilder.makeCreateRequest(
             conversation: conversation,
@@ -51,11 +60,23 @@ enum EnginePaneAttacher {
             // Flip commander BEFORE configuring the terminal so
             // `updateEmptyStateVisibility` sees a live instance immediately.
             convStore.updateCommander(conversation.id, commander: .engineLocal(conversationID: response.conversationId))
-            terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)
-            return true
+            terminalView.configure(
+                wsUrl: attachment.url,
+                cookieHeader: attachment.cookieHeader,
+                isLocalHandoffSource: true
+            )
+            // Lets automation TTY-mapping resolve this pane the same way it
+            // already does for `.native` (NativePTY.slaveTTYPath) — see
+            // `EngineSessionTTYRegistry`'s doc comment for why this beats a
+            // live GET /terminals/local per automation request.
+            EngineSessionTTYRegistry.record(
+                conversationID: response.conversationId,
+                slaveTTYPath: response.slaveTTYPath
+            )
+            return .attached(reconnected: response.reconnected)
         } catch {
             logger.error("createLocalTerminal failed: \(error.localizedDescription, privacy: .public)")
-            return false
+            return .failed
         }
     }
 }
