@@ -1119,9 +1119,41 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     func prepareForClose() {
         if contentController == nil {
+            endEngineSessionIfNeeded()
             terminalView.disconnect()
         } else {
             removeSpecialContent()
+        }
+    }
+
+    /// Closing THIS pane is the user's explicit "end this session" action —
+    /// the one place persistent panes must actually die. `terminalView
+    /// .disconnect()` (called right after this) only cancels the WebSocket
+    /// for `.engineLocal`, exactly like it does for `.mirror`; the engine
+    /// keeps the child process running (surviving app quit/restart is the
+    /// entire point — see `AppDelegate`, which never calls `prepareForClose`
+    /// on quit). So an explicit pane close must ALSO delete the broker-owned
+    /// session, or persistent panes would never actually stop.
+    ///
+    /// Fire-and-forget: pane teardown (`removeFromSuperview`,
+    /// `LivePaneRegistry.unregister`) proceeds synchronously right after
+    /// this returns, so the DELETE is captured by value and outlives `self`.
+    /// Reused by workspace-close too (`performWorkspaceTeardown` calls the
+    /// same `prepareForClose()` per leaf), which is the correct scope —
+    /// closing a workspace is also an explicit user action, not a restart.
+    private func endEngineSessionIfNeeded() {
+        guard let conversation = AppEnvironment.conversationStore?.conversation(conversationID),
+              case .engineLocal(let engineConversationID) = conversation.commander else { return }
+        Task { @MainActor in
+            guard let context = await LocalEngineContext.resolve() else {
+                Self.logger.warning("endEngineSessionIfNeeded: no local engine context; leaving engine session orphaned pane=\(engineConversationID, privacy: .public)")
+                return
+            }
+            do {
+                try await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
+            } catch {
+                Self.logger.error("deleteLocalTerminal failed pane=\(engineConversationID, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }
