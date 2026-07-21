@@ -121,13 +121,13 @@ final class NativePTY {
         loginPath: String? = nil,
         extraEnvironment: [String: String] = [:]
     ) throws {
-        let inheritedEnvironment = ProcessInfo.processInfo.environment
-        let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
-        let shell = shellPath
-            ?? debugShellOverride
-            ?? "/bin/bash"
-        let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
-        let shellName = (shell as NSString).lastPathComponent
+        let plan = Self.resolveSpawnPlan(
+            shellPath: shellPath,
+            cwd: cwd,
+            loginPath: loginPath,
+            extraEnvironment: extraEnvironment
+        )
+        let shell = plan.shell
 
         // Open a real controlling PTY with the right initial size so the first
         // screen-filling program sees a sane geometry (vim, less, htop).
@@ -139,39 +139,13 @@ final class NativePTY {
             ws_ypixel: 0
         )
 
-        // Build argv: argv[0] conventionally matches the shell basename so
-        // `ps` / `$0` show `bash` not `/bin/bash`. The default is an
-        // interactive non-login shell: bash reads ~/.bashrc but skips heavier
-        // login hooks such as conda/rvm in ~/.bash_profile. Set
-        // SOYEHT_LOCAL_SHELL_LOGIN=1 when comparing against Terminal.app.
-        let wantsLoginShell = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_SHELL_LOGIN"] == "1"
-        let argvStrings = Self.argv(forShellName: shellName, login: wantsLoginShell)
+        // argv[0] conventionally matches the shell basename so `ps` / `$0`
+        // show `bash` not `/bin/bash` (see `resolveSpawnPlan`).
+        let argvStrings = plan.argv
         let argv: [UnsafeMutablePointer<CChar>?] = argvStrings.map { strdup($0) } + [nil]
         defer { argv.forEach { if let p = $0 { free(p) } } }
 
-        // Inherit the Soyeht environment, then advertise the color support
-        // this terminal actually implements. Drop inherited color policy
-        // overrides so interactive CLIs choose their natural ANSI/truecolor
-        // styling from TERM/COLORTERM and TTY detection.
-        var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
-            inherited: inheritedEnvironment,
-            cwdPath: cwd.path
-        )
-        if !usesDebugShellOverride {
-            envDict["SHELL"] = shell
-        }
-        if shellName == "bash" {
-            envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
-            envDict["PS1"] = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_PS1"]
-                ?? Self.defaultBashPrompt
-        }
-        if !wantsLoginShell, let loginPath {
-            envDict["PATH"] = loginPath
-        }
-        for (key, value) in extraEnvironment {
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            envDict[key] = value
-        }
+        let envDict = plan.env
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }
@@ -502,4 +476,67 @@ final class NativePTY {
     }
 
     private static let defaultBashPrompt = "\\[\\e[32m\\]soyeht\\[\\e[0m\\] \\[\\e[36m\\]\\W\\[\\e[0m\\] \\$ "
+
+    // MARK: - Spawn plan (shared with the engine-broker path)
+
+    /// Fully-resolved shell/argv/env for spawning a local pane's interactive
+    /// shell. `shell` is the full path actually executed (`execve`'s target);
+    /// `argv` is what the child sees as its argument vector (`argv[0]` is
+    /// just the basename, for `ps`/`$0` cosmetics — POSIX doesn't require it
+    /// to match the exec path).
+    struct SpawnPlan: Equatable {
+        let shell: String
+        let argv: [String]
+        let env: [String: String]
+    }
+
+    /// Pure computation of `SpawnPlan`, factored out of `init` so the
+    /// engine-broker path (persistent panes) can build byte-for-byte
+    /// identical `{argv, cwd, env}` for `POST /terminals/local` without
+    /// duplicating this logic and risking drift.
+    static func resolveSpawnPlan(
+        shellPath: String? = nil,
+        cwd: URL,
+        loginPath: String? = nil,
+        extraEnvironment: [String: String] = [:],
+        inheritedEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> SpawnPlan {
+        let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
+        let shell = shellPath
+            ?? debugShellOverride
+            ?? "/bin/bash"
+        let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
+        let shellName = (shell as NSString).lastPathComponent
+
+        // The default is an interactive non-login shell: bash reads
+        // ~/.bashrc but skips heavier login hooks such as conda/rvm in
+        // ~/.bash_profile. Set SOYEHT_LOCAL_SHELL_LOGIN=1 when comparing
+        // against Terminal.app.
+        let wantsLoginShell = inheritedEnvironment["SOYEHT_LOCAL_SHELL_LOGIN"] == "1"
+        let argvStrings = argv(forShellName: shellName, login: wantsLoginShell)
+
+        // Inherit the Soyeht environment, then advertise the color support
+        // this terminal actually implements. Drop inherited color policy
+        // overrides so interactive CLIs choose their natural ANSI/truecolor
+        // styling from TERM/COLORTERM and TTY detection.
+        var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
+            inherited: inheritedEnvironment,
+            cwdPath: cwd.path
+        )
+        if !usesDebugShellOverride {
+            envDict["SHELL"] = shell
+        }
+        if shellName == "bash" {
+            envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
+            envDict["PS1"] = inheritedEnvironment["SOYEHT_LOCAL_PS1"] ?? defaultBashPrompt
+        }
+        if !wantsLoginShell, let loginPath {
+            envDict["PATH"] = loginPath
+        }
+        for (key, value) in extraEnvironment {
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            envDict[key] = value
+        }
+        return SpawnPlan(shell: shell, argv: argvStrings, env: envDict)
+    }
 }
