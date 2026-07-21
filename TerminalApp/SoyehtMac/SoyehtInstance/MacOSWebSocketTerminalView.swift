@@ -322,12 +322,24 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         localOutputObservers.removeValue(forKey: id)
     }
 
+    /// Writes phone-originated keystrokes back into whatever backs this
+    /// pane right now — a direct `NativePTY` write or a WS `input` frame
+    /// (`sendInputData` already branches on `localPTY`). Named "local" for
+    /// history (originally PTY-only), but this must work for any
+    /// same-Mac-owned session, including an engine-broker `.engineLocal`
+    /// pane attached over WebSocket — the QR/pairing handoff routes those
+    /// through this same call (`PaneViewController`'s handoff switch), and
+    /// silently dropping the bytes there would make the phone session
+    /// non-interactive.
     func writeToLocalSession(_ data: Data) {
-        localPTY?.write(data)
+        sendInputData(data)
     }
 
+    /// Mirrors `writeToLocalSession`'s transport-agnostic dispatch —
+    /// `propagateResize` already branches on `localPTY` vs the WS `resize`
+    /// frame.
     func resizeLocalSession(cols: Int, rows: Int) {
-        localPTY?.resize(cols: cols, rows: rows)
+        propagateResize(cols: cols, rows: rows, force: true)
     }
 
     private func connect(wsUrl: String) {
@@ -778,10 +790,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             switch item {
             case .bytes(let data):
                 lastOutputAt = Date()
-                if localPTY != nil {
-                    appendLocalReplayData(data)
-                    publishLocalOutput(data)
-                }
+                // Buffer/publish regardless of transport (local PTY or WS):
+                // the phone-handoff replay/live-stream consumers
+                // (`LocalTerminalHandoffManager`, `PaneStreamSession`) are
+                // reached for `.engineLocal` panes too (see
+                // `writeToLocalSession`'s doc comment), and those are
+                // WS-attached, not PTY-backed — gating this on `localPTY
+                // != nil` left them permanently empty for that transport.
+                appendLocalReplayData(data)
+                publishLocalOutput(data)
                 isFeedingServerData = true
                 feed(byteArray: [UInt8](data)[...])
                 isFeedingServerData = false
