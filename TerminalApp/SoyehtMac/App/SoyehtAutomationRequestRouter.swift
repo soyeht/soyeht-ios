@@ -999,8 +999,22 @@ final class SoyehtAutomationRequestRouter {
             // EngineSessionTTYRegistry when the pane attached (A5; avoids a
             // live GET /terminals/local per automation request). `.mirror`
             // matches neither, same pre-existing limitation as today.
+            //
+            // Registry lookups MUST key off the engine's own echoed
+            // conversation_id, stored on `.engineLocal(conversationID:)` —
+            // never re-derive it from `conversation.id.uuidString`. The
+            // engine happens to echo that value byte-for-byte today
+            // (verified in handlers_terminal.rs), so the two currently
+            // agree, but that's an implementation detail of the engine,
+            // not a guarantee; record/remove are keyed by the response
+            // value everywhere else (EnginePaneAttacher), so the lookup
+            // must match.
+            let engineConversationID: String? = {
+                if case .engineLocal(let id) = conversation.commander { return id }
+                return nil
+            }()
             let candidateTTY = pane.terminalView.localPTYSlaveTTYPathForAutomation
-                ?? EngineSessionTTYRegistry.slaveTTYPath(forConversationID: conversation.id.uuidString)
+                ?? engineConversationID.flatMap { EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0) }
             guard let paneTTY = normalizedTTYName(candidateTTY), paneTTY == tty else {
                 continue
             }

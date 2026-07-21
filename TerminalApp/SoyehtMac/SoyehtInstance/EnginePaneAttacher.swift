@@ -23,12 +23,37 @@ enum EnginePaneAttacher {
         /// No local engine context, or the create/attach call failed.
         /// Callers must fall back to `NativePTY` unconditionally — the
         /// persistent-panes flag must never leave a pane dead.
-        case failed
+        ///
+        /// `transient` distinguishes "worth retrying" (a network hiccup or
+        /// 5xx — the engine is a persistent daemon, so on restore the
+        /// session almost certainly still exists) from "not" (no engine
+        /// context at all, or a definitive 4xx) — restore uses this to
+        /// decide whether a blip should downgrade the pane to `.native`
+        /// immediately or retry first. First-attach (a brand-new pane,
+        /// never expected to already have a live session) ignores it.
+        case failed(transient: Bool)
         /// Attached successfully. `reconnected` (E5) is `true` only when an
         /// existing live session was returned as-is, `false` when a new
         /// process had to be spawned — say "session restored" only in the
         /// former case.
         case attached(reconnected: Bool)
+    }
+
+    /// HTTP status codes worth retrying (server-side hiccup) — a 4xx means
+    /// the request itself was rejected and retrying it verbatim won't help.
+    private static let transientHTTPStatusCodes = 500...599
+
+    /// Mirrors `MacOSWebSocketTerminalView.transientCodes` — the same
+    /// transport-level error codes already treated as retry-worthy
+    /// elsewhere in this app (timeout, cannotConnectToHost,
+    /// networkConnectionLost, notConnectedToInternet).
+    private static let transientURLErrorCodes: Set<Int> = [-1001, -1004, -1005, -1009]
+
+    private static func isTransient(_ error: Error) -> Bool {
+        if case SoyehtAPIClient.APIError.httpError(let status, _) = error {
+            return transientHTTPStatusCodes.contains(status)
+        }
+        return transientURLErrorCodes.contains((error as NSError).code)
     }
 
     static func attach(
@@ -42,7 +67,8 @@ enum EnginePaneAttacher {
     ) async -> AttachOutcome {
         guard let context = await LocalEngineContext.resolve() else {
             logger.warning("no local engine context resolvable")
-            return .failed
+            // Not transient: we don't even have credentials to retry with.
+            return .failed(transient: false)
         }
         let request = EnginePaneSpawnRequestBuilder.makeCreateRequest(
             conversation: conversation,
@@ -68,7 +94,10 @@ enum EnginePaneAttacher {
             // Lets automation TTY-mapping resolve this pane the same way it
             // already does for `.native` (NativePTY.slaveTTYPath) — see
             // `EngineSessionTTYRegistry`'s doc comment for why this beats a
-            // live GET /terminals/local per automation request.
+            // live GET /terminals/local per automation request. Keyed by
+            // the engine's own echoed conversation_id (not re-derived from
+            // `conversation.id.uuidString`), matching what
+            // `record`/`remove` are keyed by everywhere else.
             EngineSessionTTYRegistry.record(
                 conversationID: response.conversationId,
                 slaveTTYPath: response.slaveTTYPath
@@ -76,7 +105,7 @@ enum EnginePaneAttacher {
             return .attached(reconnected: response.reconnected)
         } catch {
             logger.error("createLocalTerminal failed: \(error.localizedDescription, privacy: .public)")
-            return .failed
+            return .failed(transient: isTransient(error))
         }
     }
 }

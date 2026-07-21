@@ -27,10 +27,10 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         let restore = try slice(
             source,
             from: "private func restoreEnginePaneIfNeeded(for conv: Conversation)",
-            to: "// MARK: - Header wiring"
+            to: "private func stillRestorableEngineConversation("
         )
         // Only engineLocal panes with no live WS session, not re-entrant.
-        XCTAssertTrue(restore.contains("case .engineLocal = conv.commander"))
+        XCTAssertTrue(restore.contains("case .engineLocal(let initialEngineConversationID) = conv.commander"))
         XCTAssertTrue(restore.contains("!terminalView.isRemoteSessionConfigured"))
         XCTAssertTrue(restore.contains("!isRestoringLocalShell"))
         // Reuses the shared attacher rather than reimplementing create+attach.
@@ -42,6 +42,80 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // Never leaves the pane dead if the engine can't be reached.
         XCTAssertTrue(restore.contains("NativePTY("))
         XCTAssertTrue(restore.contains(".native(pid: pty.pid)"))
+
+        // FIX-1 (independent review): a transient failure must retry with
+        // backoff before downgrading to .native, or a blip permanently
+        // orphans the live engine session (next relaunch only looks for
+        // .engineLocal).
+        XCTAssertTrue(restore.contains("restoreRetryDelaysNanoseconds"))
+        XCTAssertTrue(restore.contains("case .failed(transient: true) = outcome"))
+        XCTAssertTrue(restore.contains("Task.sleep(nanoseconds:"))
+        // Best-effort delete before falling back, in case a request that
+        // looked failed to us actually succeeded engine-side (lost
+        // response) — must not leave that orphaned.
+        XCTAssertTrue(restore.contains("bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)"))
+
+        // FIX-2 (independent review, TOCTOU): every await gap must
+        // re-validate before acting — the pane/workspace can close mid-
+        // flight (endEngineSessionIfNeeded already deleted the session).
+        let awaitCount = restore.components(separatedBy: "await ").count - 1
+        let revalidateCount = restore.components(separatedBy: "stillRestorableEngineConversation(").count - 1
+        XCTAssertGreaterThanOrEqual(
+            revalidateCount, 3,
+            "expected re-validation after the login-PATH await, after each retry backoff, and after the attach loop"
+        )
+        XCTAssertGreaterThan(awaitCount, 0)
+    }
+
+    func testStillRestorableEngineConversationChecksIdentityStoreAndCommander() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let helper = try slice(
+            source,
+            from: "private func stillRestorableEngineConversation(",
+            to: "private static func bestEffortDeleteEngineSession("
+        )
+        XCTAssertTrue(helper.contains("LivePaneRegistry.shared.pane(for: conversationID) === self"))
+        XCTAssertTrue(helper.contains("convStore.conversation(conversationID)"))
+        XCTAssertTrue(helper.contains("case .engineLocal = conversation.commander"))
+    }
+
+    func testBestEffortDeleteEngineSessionClearsRegistryAndNeverThrows() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let helper = try slice(
+            source,
+            from: "private static func bestEffortDeleteEngineSession(",
+            to: "// MARK: - Header wiring"
+        )
+        // FIX-3 (independent review): the registry is keyed by the
+        // engine's own echoed conversation_id, stored on
+        // .engineLocal(conversationID:) — not conversation.id.uuidString.
+        // Cleaning it up here uses the same caller-supplied value.
+        XCTAssertTrue(helper.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
+        XCTAssertTrue(helper.contains("try? await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+    }
+
+    /// FIX-1 (independent review): retry-worthiness must be a real
+    /// classification, not a blanket "everything is transient" — a
+    /// definitive 4xx (bad request, auth failure) should fail fast to the
+    /// `NativePTY` fallback rather than waste ~3.5s of retries.
+    func testAttachOutcomeClassifiesTransientFailuresBeforeRetrying() throws {
+        let source = try macSource("SoyehtInstance/EnginePaneAttacher.swift")
+        let attacher = try slice(
+            source,
+            from: "enum EnginePaneAttacher",
+            to: "static func attach("
+        )
+        XCTAssertTrue(attacher.contains("case failed(transient: Bool)"))
+        XCTAssertTrue(attacher.contains("500...599"))
+        XCTAssertTrue(attacher.contains("case SoyehtAPIClient.APIError.httpError(let status, _) = error"))
+        // No local engine context at all is definitive, not transient —
+        // retrying without credentials can't help.
+        let attach = try slice(
+            source,
+            from: "static func attach(",
+            to: "}\n}"
+        )
+        XCTAssertTrue(attach.contains("return .failed(transient: false)"))
     }
 
     func testFirstAttachAndRestoreShareTheSameEngineAttachMechanics() throws {
