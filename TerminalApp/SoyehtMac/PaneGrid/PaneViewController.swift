@@ -536,6 +536,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         configureContent(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
+        restoreEnginePaneIfNeeded(for: conv)
         updateEmptyStateVisibility()
     }
 
@@ -654,6 +655,74 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 )
             } catch {
                 Self.logger.error("restoreLocalShell failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// `.engineLocal` survives undo/relaunch in the model exactly like
+    /// `.native` does, but the WebSocket attachment does not. Mirrors
+    /// `restoreLocalShellIfNeeded`: re-issues the engine attach (the
+    /// engine's own `create` contract is idempotent per `conversation_id`,
+    /// so it transparently either reconnects to a still-alive session or
+    /// spawns a fresh one if it died — the client has no signal to tell
+    /// which happened, hence the generic "restored" log). If the engine
+    /// itself is unreachable, falls back to a fresh `NativePTY` so the pane
+    /// never comes up dead — same fail-open contract as the first attach
+    /// (A1). A later relaunch, once the engine is back, would then find
+    /// `.native` here and use the other restore path instead — a graceful
+    /// degradation to today's default behavior, not a crash.
+    private func restoreEnginePaneIfNeeded(for conv: Conversation) {
+        guard conv.content.isTerminal else { return }
+        guard case .engineLocal = conv.commander else { return }
+        guard !terminalView.isRemoteSessionConfigured else { return }
+        guard !isRestoringLocalShell else { return }
+
+        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? resolvedWorkspaceFolder()
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        let term = terminalView.getTerminal()
+        let cols = Int(term.cols)
+        let rows = Int(term.rows)
+        let conversationID = self.conversationID
+
+        isRestoringLocalShell = true
+
+        Task { @MainActor [weak self] in
+            defer { self?.isRestoringLocalShell = false }
+            let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
+            guard let self, let convStore = AppEnvironment.conversationStore else { return }
+
+            let attached = await EnginePaneAttacher.attach(
+                conversation: conv,
+                cwd: url,
+                loginPath: loginPath,
+                cols: cols,
+                rows: rows,
+                terminalView: self.terminalView,
+                convStore: convStore
+            )
+            if attached {
+                Self.logger.info("engine pane restored pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            }
+
+            Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
+            do {
+                let pty = try NativePTY(
+                    shellPath: nil,
+                    cwd: url,
+                    cols: cols,
+                    rows: rows,
+                    loginPath: loginPath,
+                    extraEnvironment: AgentPaneEnvironment.values(for: conv)
+                )
+                convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
+                self.terminalView.configureLocal(pty: pty)
+                Self.logger.info(
+                    "local shell restored (engine fallback) pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
+                )
+            } catch {
+                Self.logger.error("restoreEnginePane NativePTY fallback failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

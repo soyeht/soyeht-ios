@@ -299,6 +299,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         localPTY != nil
     }
 
+    /// True once `configure(wsUrl:)` has attached (or attempted to attach) a
+    /// remote/engine WebSocket session. Mirrors `isLocalSessionActive` for
+    /// the WS transport, so restore-on-relaunch logic can skip re-issuing an
+    /// engine attach for a pane that's already wired.
+    var isRemoteSessionConfigured: Bool {
+        configuredURL != nil
+    }
+
     func localReplaySnapshot() -> Data {
         localReplayBuffer
     }

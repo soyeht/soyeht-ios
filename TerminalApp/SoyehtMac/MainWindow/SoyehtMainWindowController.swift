@@ -3552,32 +3552,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         pane: PaneViewController,
         convStore: ConversationStore
     ) async -> Bool {
-        guard let context = await LocalEngineContext.resolve() else {
-            Self.logger.warning("persistent local pane: no local engine context; falling back to NativePTY")
-            return false
-        }
-        let request = EnginePaneSpawnRequestBuilder.makeCreateRequest(
+        let attached = await EnginePaneAttacher.attach(
             conversation: conversation,
             cwd: cwd,
             loginPath: loginPath,
             cols: cols,
-            rows: rows
+            rows: rows,
+            terminalView: pane.terminalView,
+            convStore: convStore
         )
-        do {
-            let response = try await SoyehtAPIClient.shared.createLocalTerminal(request, context: context)
-            let attachment = SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment(
-                conversationId: response.conversationId,
-                context: context
-            )
-            // Flip commander BEFORE configuring the terminal so
-            // `updateEmptyStateVisibility` sees a live instance immediately.
-            convStore.updateCommander(paneID, commander: .engineLocal(conversationID: response.conversationId))
-            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)
-            return true
-        } catch {
-            Self.logger.error("persistent local pane: engine create failed, falling back to NativePTY: \(error.localizedDescription, privacy: .public)")
-            return false
+        if !attached {
+            Self.logger.warning("persistent local pane: engine attach failed; falling back to NativePTY")
         }
+        return attached
     }
 
     private func initialPromptPayload(
