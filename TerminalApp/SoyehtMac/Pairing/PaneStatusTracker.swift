@@ -159,7 +159,7 @@ final class PaneStatusTracker {
             switch conversation.commander {
             case .mirror:
                 status = PaneWireStatus.mirror
-            case .native:
+            case .native, .engineLocal:
                 status = PaneWireStatus.idle
             }
         }
@@ -224,7 +224,7 @@ final class PaneStatusTracker {
         switch entry.conversation.commander {
         case .mirror:
             return PaneWireStatus.mirror
-        case .native:
+        case .native, .engineLocal:
             if let lastOutput = view?.lastOutputAt,
                Date().timeIntervalSince(lastOutput) > Self.idleThreshold {
                 return PaneWireStatus.idle

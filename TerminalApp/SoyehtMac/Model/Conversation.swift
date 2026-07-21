@@ -2,11 +2,19 @@ import Foundation
 
 /// Commander state for a conversation. `.mirror` means we attach to an
 /// existing tmux session via WebSocket (read + reconnect behaviour lives in
-/// `MacOSWebSocketTerminalView`). `.native(pid)` is designed-in but not wired
-/// this milestone — creating one triggers a `fatalError`, per plan.
+/// `MacOSWebSocketTerminalView`). `.native(pid)` is a direct `NativePTY`
+/// forkpty owned by this app process — it dies with the app.
+/// `.engineLocal(conversationID)` is also a local agent pane (bash/claude/
+/// codex/opencode), but the PTY is owned by this Mac's own embedded engine
+/// (`persistentLocalPanes` flag) and attached via WebSocket like `.mirror`,
+/// so the process survives an app restart/update. Unlike `.mirror`,
+/// `conversationID` is never a tmux container — it is only ever resolved
+/// against `POST/GET/DELETE /api/v1/terminals/local/{conversationID}` on
+/// this Mac's own engine, never a remote server.
 enum CommanderState: Codable, Hashable {
     case mirror(instanceID: String)
     case native(pid: Int32)
+    case engineLocal(conversationID: String)
 }
 
 /// Mutable stats displayed in the sidebar detail's 4 stat cards.

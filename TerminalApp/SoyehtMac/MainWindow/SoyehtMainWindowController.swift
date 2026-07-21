@@ -3460,20 +3460,45 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Terminal.app would. Subsequent launches return instantly via the
         // disk cache.
         let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
-        let pty = try NativePTY(
-            shellPath: nil,
-            cwd: cwd,
-            cols: cols,
-            rows: rows,
-            loginPath: loginPath,
-            extraEnvironment: convStore.conversation(paneID).map { AgentPaneEnvironment.values(for: $0) } ?? [:]
-        )
 
-        // Flip commander BEFORE configuring the terminal so
-        // `updateEmptyStateVisibility` sees `.native` and hides the picker
-        // immediately.
-        convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
-        pane.terminalView.configureLocal(pty: pty)
+        // `persistentLocalPanesEnabled` routes the pane through this Mac's own
+        // embedded engine (broker-owned PTY, survives app restart/update)
+        // instead of a direct `NativePTY` forkpty. Any failure along that path
+        // (no local engine session, network error) falls back to `NativePTY`
+        // unconditionally — the flag must never regress a pane that would
+        // have worked with it off.
+        let attachedViaEngine: Bool
+        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation = convStore.conversation(paneID) {
+            attachedViaEngine = await attachEnginePane(
+                paneID: paneID,
+                conversation: conversation,
+                cwd: cwd,
+                loginPath: loginPath,
+                cols: cols,
+                rows: rows,
+                pane: pane,
+                convStore: convStore
+            )
+        } else {
+            attachedViaEngine = false
+        }
+
+        if !attachedViaEngine {
+            let pty = try NativePTY(
+                shellPath: nil,
+                cwd: cwd,
+                cols: cols,
+                rows: rows,
+                loginPath: loginPath,
+                extraEnvironment: convStore.conversation(paneID).map { AgentPaneEnvironment.values(for: $0) } ?? [:]
+            )
+
+            // Flip commander BEFORE configuring the terminal so
+            // `updateEmptyStateVisibility` sees `.native` and hides the picker
+            // immediately.
+            convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
+            pane.terminalView.configureLocal(pty: pty)
+        }
         PaneStatusTracker.shared.nudgeRecompute()
         let plannedPrompt = try initialPromptPayload(
             for: paneID,
@@ -3508,8 +3533,45 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         Self.logger.info(
-            "local pty started pane=\(paneID.uuidString, privacy: .public) pid=\(pty.pid)"
+            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine)"
         )
+    }
+
+    /// Attempts to spawn/reattach the pane's shell via this Mac's own
+    /// embedded engine (`POST /api/v1/terminals/local`) and wire the
+    /// terminal view to it over WebSocket, exactly like a remote `.mirror`
+    /// pane. Returns `false` on ANY failure (no local engine session
+    /// resolvable, network error) so the caller falls back to `NativePTY`.
+    private func attachEnginePane(
+        paneID: Conversation.ID,
+        conversation: Conversation,
+        cwd: URL,
+        loginPath: String?,
+        cols: Int,
+        rows: Int,
+        pane: PaneViewController,
+        convStore: ConversationStore
+    ) async -> Bool {
+        switch await EnginePaneAttacher.attach(
+            conversation: conversation,
+            cwd: cwd,
+            loginPath: loginPath,
+            cols: cols,
+            rows: rows,
+            terminalView: pane.terminalView,
+            convStore: convStore
+        ) {
+        case .attached:
+            // Always a fresh spawn in practice (a brand-new pane's
+            // conversation_id has never been seen by the engine before),
+            // so `reconnected` isn't interesting to log here — restore
+            // (`PaneViewController.restoreEnginePaneIfNeeded`) is where it
+            // actually distinguishes an outcome worth telling apart.
+            return true
+        case .failed:
+            Self.logger.warning("persistent local pane: engine attach failed; falling back to NativePTY")
+            return false
+        }
     }
 
     private func initialPromptPayload(
@@ -3692,7 +3754,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Refresh commander so PaneViewController hides its placeholder.
         convStore.updateCommander(conversationID, commander: .mirror(instanceID: container))
         if let pane = LivePaneRegistry.shared.pane(for: conversationID) as? PaneViewController {
-            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)
+            // .mirror is never handoff-eligible (see EnginePaneAttacher's
+            // isLocalHandoffSource: true counterpart) — its QR/Continue-on-
+            // iPhone flow is the separate, server-driven generateContinueQR
+            // mechanism, so this pane's replay buffer would just go unused.
+            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader, isLocalHandoffSource: false)
             Self.logger.info("terminal configured for conv=\(conversationID.uuidString, privacy: .public) session=\(sessionId, privacy: .public) kind=\(activeKind.rawValue, privacy: .public)")
         } else {
             Self.logger.warning("no live pane for conv=\(conversationID.uuidString, privacy: .public)")
