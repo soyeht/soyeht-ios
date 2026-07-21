@@ -78,6 +78,57 @@ struct SoyehtFeatureFlagsTests {
         ))
     }
 
+    @Test func persistentLocalPanesIsDisabledByDefault() {
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+    }
+
+    @Test func persistentLocalPanesOverrideEnablesAndClears() {
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
+        defer { SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil) }
+
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(true)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == _isDebugAssertConfiguration())
+
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+    }
+
+    @Test func falseOverrideKeepsPersistentLocalPanesDisabled() {
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil)
+        defer { SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(nil) }
+
+        SoyehtFeatureFlags.setPersistentLocalPanesEnabledOverride(false)
+        #expect(SoyehtFeatureFlags.persistentLocalPanesEnabled == false)
+    }
+
+    @Test func persistentLocalPanesE2ELaunchArgumentOnlyEnablesAllowedDevBundles() {
+        #expect(SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht", "-SoyehtPersistentLocalPanesE2E"]
+        ))
+        #expect(SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac.dev",
+            arguments: ["Soyeht", "-SoyehtPersistentLocalPanesE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app",
+            arguments: ["Soyeht", "-SoyehtPersistentLocalPanesE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac",
+            arguments: ["Soyeht", "-SoyehtPersistentLocalPanesE2E"]
+        ))
+        #expect(!SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht"]
+        ))
+        #expect(!SoyehtFeatureFlags.isPersistentLocalPanesE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.mac.dev",
+            arguments: ["Soyeht"]
+        ))
+    }
+
     @Test func mobileClawVPNControlPlaneE2ELaunchArgumentOnlyEnablesAllowedDevBundles() {
         #expect(SoyehtFeatureFlags.isMobileClawVPNControlPlaneE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.app.dev",

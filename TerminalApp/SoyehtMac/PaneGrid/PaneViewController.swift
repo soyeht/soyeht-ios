@@ -343,6 +343,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             case .native(let pid):
                 // Any positive pid means NativePTY spawned successfully.
                 hasLiveInstance = (pid > 0)
+            case .engineLocal:
+                // Only constructed after a successful engine attach.
+                hasLiveInstance = true
             }
         } else {
             hasLiveInstance = false
@@ -930,14 +933,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             return
         }
         // QR hand-off only makes sense for `.mirror` (remote tmux) — the
-        // server is what generates the QR. `.native` (local PTY) and the
-        // `pending` placeholder both surface a friendly alert instead of
-        // calling the API with bogus args.
+        // server is what generates the QR. `.native`/`.engineLocal` (local
+        // panes) and the `pending` placeholder all surface a friendly alert
+        // instead of calling the API with bogus args.
         let instanceID: String
         switch conv.commander {
         case .mirror(let id) where id != "pending":
             instanceID = id
-        case .native:
+        case .native, .engineLocal:
             Task { @MainActor in
                 do {
                     let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
