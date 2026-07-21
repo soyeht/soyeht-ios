@@ -1699,6 +1699,13 @@ extension TerminalView {
     // It is also cheap, so should be called when new data has been posted or received.
     func queuePendingDisplay ()
     {
+        // Synchronized output (DEC 2026): the application asked us not to
+        // present partial frames. Skip scheduling entirely — endSynchronizedOutput
+        // refreshes the full screen and re-queues, and its 1s timeout bounds
+        // how long updates can be withheld.
+        if terminal.isSynchronizedOutputActive {
+            return
+        }
         // throttle
         if !pendingDisplay {
             let fps60 = 16670000

@@ -327,16 +327,22 @@ open class Terminal {
 
     private let synchronizedOutputTimeoutSeconds: TimeInterval = 1.0
     private var synchronizedOutputActive: Bool = false
-    private var synchronizedOutputBuffer: Buffer?
-    private var synchronizedOutputBufferIsAlternate: Bool = false
     private var synchronizedOutputTimeoutItem: DispatchWorkItem?
 
+    /// True while a BSU (`CSI ? 2026 h`) frame is open. The view suspends
+    /// repaint scheduling for the duration (see `queuePendingDisplay`) instead
+    /// of the old approach of deep-copying the entire buffer per frame —
+    /// scrollback included, ~5000 `BufferLine` allocations per BSU under an
+    /// Ink-style TUI, enough to saturate the main thread in long agent
+    /// sessions.
+    public var isSynchronizedOutputActive: Bool { synchronizedOutputActive }
+
     var displayBuffer: Buffer {
-        synchronizedOutputBuffer ?? buffer
+        buffer
     }
 
     var isDisplayBufferAlternate: Bool {
-        synchronizedOutputBuffer != nil ? synchronizedOutputBufferIsAlternate : isCurrentBufferAlternate
+        isCurrentBufferAlternate
     }
     
     public var isCurrentBufferAlternate: Bool {
@@ -5452,14 +5458,7 @@ open class Terminal {
     private func beginSynchronizedOutput ()
     {
         let wasActive = synchronizedOutputActive
-        if !synchronizedOutputActive {
-            synchronizedOutputActive = true
-            synchronizedOutputBuffer = snapshotBuffer(buffer)
-            synchronizedOutputBufferIsAlternate = isCurrentBufferAlternate
-        } else if synchronizedOutputBuffer == nil {
-            synchronizedOutputBuffer = snapshotBuffer(buffer)
-            synchronizedOutputBufferIsAlternate = isCurrentBufferAlternate
-        }
+        synchronizedOutputActive = true
         scheduleSynchronizedOutputTimeout()
         if !wasActive {
             tdel?.synchronizedOutputChanged(source: self, active: true)
@@ -5472,8 +5471,6 @@ open class Terminal {
             return
         }
         synchronizedOutputActive = false
-        synchronizedOutputBuffer = nil
-        synchronizedOutputBufferIsAlternate = false
         synchronizedOutputTimeoutItem?.cancel()
         synchronizedOutputTimeoutItem = nil
         refresh (startRow: 0, endRow: rows - 1)
@@ -5493,41 +5490,9 @@ open class Terminal {
         DispatchQueue.main.asyncAfter(deadline: .now() + synchronizedOutputTimeoutSeconds, execute: workItem)
     }
 
-    private func snapshotBuffer (_ source: Buffer) -> Buffer
-    {
-        let copy = Buffer(cols: source.cols, rows: source.rows, tabStopWidth: tabStopWidth, scrollback: source.scrollback)
-        copy.xDisp = source.xDisp
-        copy.yDisp = source.yDisp
-        copy.xBase = source.xBase
-        copy.linesTop = source.linesTop
-        copy.yBase = source.yBase
-        copy.x = source.x
-        copy.y = source.y
-        copy.scrollTop = source.scrollTop
-        copy.scrollBottom = source.scrollBottom
-        copy.tabStops = source.tabStops
-        copy.savedX = source.savedX
-        copy.savedY = source.savedY
-        copy.savedOriginMode = source.savedOriginMode
-        copy.savedMarginMode = source.savedMarginMode
-        copy.savedWraparound = source.savedWraparound
-        copy.savedReverseWraparound = source.savedReverseWraparound
-        copy.marginLeft = source.marginLeft
-        copy.marginRight = source.marginRight
-        copy.savedAttr = source.savedAttr
-        copy.savedCharset = source.savedCharset
-        copy.scrollback = source.scrollback
-
-        for idx in 0..<source.lines.count {
-            copy.lines.push(BufferLine(from: source.lines[idx]))
-        }
-        return copy
-    }
-
     func setViewYDisp (_ newValue: Int)
     {
         buffer.yDisp = newValue
-        synchronizedOutputBuffer?.yDisp = newValue
         let maxScrollback = max(0, buffer.lines.count - buffer.rows)
         if !isDisplayBufferAlternate && newValue < maxScrollback {
             userScrolling = true
