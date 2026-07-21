@@ -36,10 +36,40 @@ enum LocalEngineContext {
         }
         do {
             let paired = try await autoPair()
-            return store.context(for: paired.id)
+            guard let context = store.context(for: paired.id) else { return nil }
+            return pinnedToLocalHost(context, localHost: localHost)
         } catch {
             logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
+    }
+
+    /// The real self-pair (`TheyOSAutoPairService`) records this Mac's engine
+    /// row under its externally reachable hostname (e.g. its tailnet DNS
+    /// name) so the same row also serves remote flows — which means the
+    /// `host == adminHost` match above almost never fires on a real install
+    /// and resolution falls through to `autoPair()`. Following that row's
+    /// host verbatim sends every local-terminal call to the machine's public
+    /// surface, where a DIFFERENT engine instance (e.g. the shipping one,
+    /// which may not even have these routes — the live symptom was HTTP 405
+    /// from its SPA fallback, then a permanent `NativePTY` downgrade)
+    /// answers instead of this profile's own loopback engine. The row's
+    /// token is minted by this same engine and is host-independent, so pin
+    /// the transport to the loopback admin host and keep the credential.
+    private static func pinnedToLocalHost(_ context: ServerContext, localHost: String) -> ServerContext {
+        guard context.host != localHost else { return context }
+        let s = context.server
+        let pinned = PairedServer(
+            id: s.id,
+            host: localHost,
+            name: s.name,
+            role: s.role,
+            pairedAt: s.pairedAt,
+            expiresAt: s.expiresAt,
+            platform: s.platform,
+            kind: s.kind,
+            engineMachineId: s.engineMachineId
+        )
+        return ServerContext(server: pinned, token: context.token)
     }
 }
