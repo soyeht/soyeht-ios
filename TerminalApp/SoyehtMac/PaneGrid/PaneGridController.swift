@@ -73,12 +73,12 @@ private final class PaneDockOverlayView: NSView {
         }
 
         let outline = NSBezierPath(rect: rect)
-        outline.lineWidth = 2
+        outline.lineWidth = MacSurface.Border.focusRing
         active.withAlphaComponent(0.86).setStroke()
         outline.stroke()
 
         let activePath = NSBezierPath(rect: zoneRect(target.zone, in: rect).insetBy(dx: 1, dy: 1))
-        activePath.lineWidth = 2
+        activePath.lineWidth = MacSurface.Border.focusRing
         active.setStroke()
         activePath.stroke()
     }

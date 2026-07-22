@@ -838,7 +838,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         selectedBadgeLabel.alignment = .center
         selectedBadgeLabel.wantsLayer = true
         selectedBadgeLabel.layer?.backgroundColor = GitPaneDesign.badgeBackground.cgColor
-        selectedBadgeLabel.layer?.cornerRadius = 3
+        selectedBadgeLabel.layer?.cornerRadius = MacSurface.Radius.indicator
         selectedBadgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 20).isActive = true
         selectedBadgeLabel.heightAnchor.constraint(equalToConstant: 18).isActive = true
     }
@@ -848,7 +848,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         badge.alignment = .center
         badge.wantsLayer = true
         badge.layer?.backgroundColor = GitPaneDesign.badgeBackground.cgColor
-        badge.layer?.cornerRadius = 8
+        badge.layer?.cornerRadius = MacSurface.Radius.card
         badge.widthAnchor.constraint(greaterThanOrEqualToConstant: 20).isActive = true
         badge.heightAnchor.constraint(equalToConstant: 16).isActive = true
         return badge

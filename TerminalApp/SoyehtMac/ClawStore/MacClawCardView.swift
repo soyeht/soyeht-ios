@@ -78,9 +78,9 @@ struct MacClawCardView: View {
         .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
         .background(hovering ? MacClawStoreTheme.bgRowHover : MacClawStoreTheme.bgCard)
         .overlay(
-            RoundedRectangle(cornerRadius: 8).stroke(borderColor, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.card).stroke(borderColor, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
         .onHover { hovering = $0 }
     }
 
