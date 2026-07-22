@@ -4,7 +4,23 @@ import os
 // NOTE: Do not subclass/replace NSSplitViewController's splitView here — a
 // custom splitView (even installed before super.loadView()) breaks
 // addSplitViewItem routing and the pane area renders empty. The neo pane gap
-// comes from per-pane card insets in `PaneViewController` instead.
+// comes from per-pane card insets in `PaneViewController` instead, and the
+// stock 1px divider line is hidden by `DividerCoverView` below.
+
+/// Neo-only cosmetic overlay that paints the canvas color over the stock
+/// 1px divider line — the gap between pane cards must be unbroken for the
+/// soft neumorphic read. Ignores hits so divider dragging still works.
+@MainActor
+private final class DividerCoverView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
 
 /// Vanilla NSSplitViewController. We used to customize its splitView but that
 /// broke `addSplitViewItem` routing — customizations now live in the delegate
@@ -47,9 +63,56 @@ final class GapSplitViewController: NSSplitViewController {
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
+    private let dividerCover = DividerCoverView()
+
     override func viewDidLayout() {
         super.viewDidLayout()
         applyTargetRatioIfNeeded(force: !hasAppliedInitialRatio)
+        updateDividerCover()
+    }
+
+    /// Keeps the canvas-colored cover glued to the divider rect (neo only —
+    /// classic shows the stock divider exactly as before).
+    private func updateDividerCover() {
+        guard MacSurface.style == .neomorphic,
+              splitView.arrangedSubviews.count == 2 else {
+            dividerCover.isHidden = true
+            return
+        }
+        dividerCover.isHidden = false
+        dividerCover.layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
+
+        // NSSplitViewController manages an internal divider subview that it
+        // keeps ABOVE every other subview (it draws the 1px line and handles
+        // drag vibrancy), so a sibling overlay can never cover it. Instead,
+        // nest the cover INSIDE that divider view: it fills it, hides its
+        // line, and tracks divider drags for free. Identified structurally —
+        // the one non-arranged, divider-thin subview we didn't add.
+        // The internal view spans the WIDENED drag hit area (see the
+        // effectiveRect delegate below), not just the 1px drawn line, so it
+        // is identified purely as "the subview we didn't add and the split
+        // doesn't arrange".
+        let internalDivider = splitView.subviews.first { candidate in
+            candidate !== dividerCover
+                && !splitView.arrangedSubviews.contains(candidate)
+        }
+        if let internalDivider {
+            if dividerCover.superview !== internalDivider {
+                internalDivider.addSubview(dividerCover)
+            }
+            dividerCover.frame = internalDivider.bounds
+            dividerCover.autoresizingMask = [.width, .height]
+        } else {
+            // Fallback: sibling overlay glued to the divider rect.
+            if dividerCover.superview !== splitView {
+                splitView.addSubview(dividerCover, positioned: .above, relativeTo: nil)
+            }
+            let first = splitView.arrangedSubviews[0].frame
+            let bounds = splitView.bounds
+            dividerCover.frame = splitView.isVertical
+                ? NSRect(x: first.maxX, y: 0, width: splitView.dividerThickness, height: bounds.height)
+                : NSRect(x: 0, y: first.maxY, width: bounds.width, height: splitView.dividerThickness)
+        }
     }
 
     private func applyTargetRatioIfNeeded(force: Bool = false) {

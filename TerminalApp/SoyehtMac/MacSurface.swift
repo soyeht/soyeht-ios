@@ -118,36 +118,83 @@ enum MacSurface {
     enum Shadows {
         private static var neo: Bool { style == .neomorphic }
 
-        /// Neumorphic down-right soft shadow (pairs with `neoLight`).
+        // Canonical neumorphism (Malewicz recipe): light source top-left, no
+        // exceptions; dark shadow = background-tinted solid cast down-right,
+        // light shadow = white-ish solid cast up-left; blur ≈ 2× offset;
+        // FULL opacity — softness comes from the shadow color sitting close
+        // to the background, never from low alpha. Offsets are in unflipped
+        // AppKit layer coordinates (negative height casts downward).
+
+        /// Dual pair for floating panels (sidebar, drawer). 9pt offset /
+        /// 18pt blur — the classic "9px 9px 18px" raised-card recipe, right
+        /// for isolated surfaces with lots of canvas around them.
         static var neoDark: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: 4, height: -4), radius: 8)
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 9, height: -9), radius: 18)
         }
-        /// Neumorphic up-left soft highlight (pairs with `neoDark`).
         static var neoLight: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: -4, height: 4), radius: 8)
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -9, height: 9), radius: 18)
         }
 
-        /// Generic raised surface. Empty in classic (flat chrome); the
-        /// neumorphic dual pair when neo is active. Render via
+        /// Dual pair for pane cards in the grid. Tighter 5pt/10pt (the Pencil
+        /// reference's own pane values): in a ~20pt inter-card gap the larger
+        /// recipe shows only the flat middle of the shadow — this one shows
+        /// the falloff, which is what reads as "soft".
+        static var neoDarkPane: Shadow {
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 5, height: -5), radius: 10)
+        }
+        static var neoLightPane: Shadow {
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -5, height: 5), radius: 10)
+        }
+
+        /// Dual pair for compact controls (chips, pills, small buttons):
+        /// 4pt offset / 8pt blur, same 2× ratio.
+        static var neoDarkSmall: Shadow {
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 8)
+        }
+        static var neoLightSmall: Shadow {
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 8)
+        }
+
+        /// Generic raised surface (pane cards). Empty in classic (flat
+        /// chrome); the neumorphic dual pair when neo is active. Render via
         /// `MacStyledSurfaceView` — plain CALayers hold one shadow only.
         static var raisedSet: [Shadow] {
-            neo ? [neoDark, neoLight] : []
+            neo ? [neoDarkPane, neoLightPane] : []
+        }
+
+        /// Compact raised controls (chips, pills).
+        static var raisedSmallSet: [Shadow] {
+            neo ? [neoDarkSmall, neoLightSmall] : []
+        }
+
+        /// Slightly tighter pair for the active (pressed-looking) tab pill.
+        static var raisedTabSet: [Shadow] {
+            neo ? [
+                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 6),
+            ] : []
+        }
+
+        /// Colored glow behind accent-filled pills (the Claws button).
+        static var accentGlowSet: [Shadow] {
+            neo ? [
+                Shadow(color: MacTheme.neoAccentShadow.withAlphaComponent(0.35), opacity: 1, offset: CGSize(width: 5, height: -5), radius: 12),
+            ] : []
         }
 
         /// Floating sidebar panel. Classic casts right onto the workspace;
-        /// neo lifts with the dual pair.
+        /// neo lifts with the standard dual pair.
         static var sidebarPanelSet: [Shadow] {
-            neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: 6, height: -4), radius: 10),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: -4, height: 4), radius: 10),
-            ] : [floatingPanel]
+            neo ? [neoDark, neoLight] : [floatingPanel]
         }
 
-        /// Claw drawer panel (mirrors the sidebar, casting left).
+        /// Claw drawer panel (mirrors the sidebar horizontally — it hangs on
+        /// the right edge, so its dark cast leans left but light still comes
+        /// from the top-left).
         static var drawerPanelSet: [Shadow] {
             neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: -6, height: -4), radius: 10),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: 4, height: 4), radius: 10),
+                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: -9, height: -9), radius: 18),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -2, height: 9), radius: 18),
             ] : [drawerPanel]
         }
 

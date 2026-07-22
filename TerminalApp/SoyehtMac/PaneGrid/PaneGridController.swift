@@ -356,7 +356,7 @@ final class PaneGridController: NSViewController {
     /// card inset, so the effective outer margin is 14 and the inter-pane
     /// gap is ~15 (7 + divider + 7).
     private static var outerInset: CGFloat {
-        MacSurface.style == .neomorphic ? 7 : 0
+        MacSurface.style == .neomorphic ? 10 : 0
     }
 
     /// Frames the mounted root inside the canvas margin. Idempotent, and

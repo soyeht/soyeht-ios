@@ -7,8 +7,16 @@ import AppKit
 /// paired light/dark shadows possible in AppKit. Owners call `applyStyle` from
 /// their `applyTheme()` so theme and design-style changes restyle live.
 final class MacStyledSurfaceView: NSView {
+    /// When true the view is a cosmetic backdrop (shadow/fill only) and never
+    /// intercepts clicks — the control it decorates handles them.
+    var passesThroughHits = false
+
     private var shadowLayers: [CALayer] = []
     private let surfaceLayer = CALayer()
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        passesThroughHits ? nil : super.hitTest(point)
+    }
 
     private var fillColor: NSColor = .clear
     private var radius: CGFloat = 0

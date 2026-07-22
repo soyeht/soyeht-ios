@@ -26,6 +26,7 @@ final class WorkspaceTabView: NSView {
     private let countBadge = NSView()
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
+    private let pillBackdrop = MacStyledSurfaceView()
     private var isActive: Bool = false
     /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
     /// short-circuit when the value hasn't changed. NSTextField's
@@ -82,6 +83,20 @@ final class WorkspaceTabView: NSView {
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
+
+        // Neo pill shadows live on a pass-through backdrop behind the tab's
+        // own opaque layer (dual shadows need their own layers, and the tab
+        // must stay opaque for titlebar-drag hit routing).
+        pillBackdrop.passesThroughHits = true
+        pillBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pillBackdrop)
+        NSLayoutConstraint.activate([
+            pillBackdrop.topAnchor.constraint(equalTo: topAnchor),
+            pillBackdrop.leadingAnchor.constraint(equalTo: leadingAnchor),
+            pillBackdrop.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pillBackdrop.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(
             localized: "tabs.tab.a11y.label",
@@ -248,7 +263,29 @@ final class WorkspaceTabView: NSView {
     }
 
     private func applyStyle() {
-        if isActive {
+        let neo = MacSurface.style == .neomorphic
+        pillBackdrop.isHidden = !neo
+        if neo {
+            // Neo tab pill (Pencil `tjIxf`): idle = raised surface pill,
+            // active = pressed-looking well pill with accent text. The
+            // classic underline is replaced by depth.
+            let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
+            let radius = min(bounds.height / 2, 18)
+            pillBackdrop.applyStyle(
+                fill: fill,
+                cornerRadius: radius,
+                shadows: isActive ? MacSurface.Shadows.raisedTabSet : MacSurface.Shadows.raisedSmallSet
+            )
+            layer?.backgroundColor = fill.cgColor
+            layer?.cornerRadius = radius
+            label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
+            label.font = isActive
+                ? MacTypography.NSFonts.workspaceTabTitleActive
+                : MacTypography.NSFonts.workspaceTabTitle
+            countLabel.textColor = Self.countText
+            bottomStroke.isHidden = true
+        } else if isActive {
+            layer?.cornerRadius = 0
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
             label.font = MacTypography.NSFonts.workspaceTabTitleActive
@@ -260,6 +297,7 @@ final class WorkspaceTabView: NSView {
             // `mouseDownCanMoveWindow = false` when the hit view is opaque.
             // Visually identical to transparent because the parent paints
             // the same colour, but event routing now works.
+            layer?.cornerRadius = 0
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
             label.font = MacTypography.NSFonts.workspaceTabTitle
@@ -268,6 +306,15 @@ final class WorkspaceTabView: NSView {
         }
         updateCloseButtonVisibility()
         styleCloseButton()
+    }
+
+    override func layout() {
+        super.layout()
+        // Pill radius depends on the laid-out height; re-apply once bounds
+        // are real (idempotent).
+        if MacSurface.style == .neomorphic {
+            applyStyle()
+        }
     }
 
     private func styleCloseButton() {

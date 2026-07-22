@@ -35,6 +35,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private let cardClipView = NSView()
     private var cardInsetConstraints: [NSLayoutConstraint] = []
 
+    /// Screen-in-frame: the dark terminal screen floats inside the light
+    /// card with a margin and its own rounding (neo). Classic pins it
+    /// edge-to-edge, square — pixel-identical to the old hierarchy.
+    private let screenClipView = NSView()
+    private var screenInsetConstraints: [NSLayoutConstraint] = []
+
     private let contentContainer = NSView()
     private var contentController: (NSViewController & PaneContentViewControlling)?
 
@@ -179,13 +185,24 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         ])
 
         header.translatesAutoresizingMaskIntoConstraints = false
+        screenClipView.wantsLayer = true
+        screenClipView.translatesAutoresizingMaskIntoConstraints = false
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.isHidden = true
 
         cardClipView.addSubview(header)
-        cardClipView.addSubview(terminalView)
-        cardClipView.addSubview(contentContainer)
+        cardClipView.addSubview(screenClipView)
+        screenClipView.addSubview(terminalView)
+        screenClipView.addSubview(contentContainer)
+
+        screenInsetConstraints = [
+            screenClipView.topAnchor.constraint(equalTo: header.bottomAnchor),
+            screenClipView.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            screenClipView.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            screenClipView.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
+        ]
+        NSLayoutConstraint.activate(screenInsetConstraints)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: cardClipView.topAnchor),
@@ -193,15 +210,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             header.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
-            terminalView.topAnchor.constraint(equalTo: header.bottomAnchor),
-            terminalView.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
-            terminalView.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
-            terminalView.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
+            terminalView.topAnchor.constraint(equalTo: screenClipView.topAnchor),
+            terminalView.leadingAnchor.constraint(equalTo: screenClipView.leadingAnchor),
+            terminalView.trailingAnchor.constraint(equalTo: screenClipView.trailingAnchor),
+            terminalView.bottomAnchor.constraint(equalTo: screenClipView.bottomAnchor),
 
-            contentContainer.topAnchor.constraint(equalTo: header.bottomAnchor),
-            contentContainer.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
-            contentContainer.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
-            contentContainer.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
+            contentContainer.topAnchor.constraint(equalTo: screenClipView.topAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: screenClipView.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: screenClipView.trailingAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: screenClipView.bottomAnchor),
         ])
 
         // The empty-state views own the whole pane vertically — each carries
@@ -301,25 +318,41 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         terminalView.synchronizeTerminalSizeWithBackend(force: force)
     }
 
-    /// Neo panes read as raised cards: the card insets off the canvas, rounds,
-    /// clips its content, and casts the dual soft shadow pair. Classic keeps
-    /// the card edge-to-edge, square and shadowless — pixel-identical.
+    /// Neo panes float as dark rounded cards directly on the single milk
+    /// canvas (one background for the whole grid — per-pane light frames
+    /// muddy the shadows and fragment the canvas). The card = light header
+    /// strip + dark screen flush below it, clipped together and casting the
+    /// dual soft shadow pair. Classic keeps everything edge-to-edge, square
+    /// and shadowless — pixel-identical.
     private func applyPaneChrome() {
         let neo = MacSurface.style == .neomorphic
-        let inset: CGFloat = neo ? 7 : 0
+        let cardInset: CGFloat = neo ? 10 : 0
         for constraint in cardInsetConstraints {
             let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
-            constraint.constant = leadingEdge ? inset : -inset
+            constraint.constant = leadingEdge ? cardInset : -cardInset
         }
+
+        // Screen stays flush to the card (inset 0): the pane contributes no
+        // light frame of its own — the only light parts are the header strip
+        // and the shared canvas around the card.
+        for constraint in screenInsetConstraints {
+            constraint.constant = 0
+        }
+
         let radius = neo ? MacSurface.Radius.card : 0
         cardView.applyStyle(
-            fill: MacTheme.paneBody,
+            fill: neo ? MacTheme.terminalScreen : MacTheme.paneBody,
             cornerRadius: radius,
             shadows: MacSurface.Shadows.raisedSet
         )
         cardClipView.layer?.cornerRadius = radius
         cardClipView.layer?.masksToBounds = neo
-        cardClipView.layer?.backgroundColor = MacTheme.paneBody.cgColor
+        cardClipView.layer?.backgroundColor = (neo ? MacTheme.terminalScreen : MacTheme.paneBody).cgColor
+
+        screenClipView.layer?.cornerRadius = 0
+        screenClipView.layer?.masksToBounds = false
+        screenClipView.layer?.backgroundColor = MacTheme.terminalScreen.cgColor
+
         view.layer?.backgroundColor = neo ? NSColor.clear.cgColor : MacTheme.paneBody.cgColor
     }
 

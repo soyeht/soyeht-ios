@@ -364,8 +364,14 @@ final class WindowTopBarView: NSView {
     let tabsView: WorkspaceTabsView
     private let sidebarButton = NSButton()
     private let clawStoreButton = NSButton()
+    /// Neo backdrops: raised chip behind the sidebar toggle, accent pill with
+    /// colored glow behind the Claw Store button (Pencil `tjIxf`). Hidden in
+    /// classic; pass-through so the buttons keep receiving clicks.
+    private let sidebarBackdrop = MacStyledSurfaceView()
+    private let clawBackdrop = MacStyledSurfaceView()
     private let leftInsetGuide = NSView()
     private var leftInsetConstraint: NSLayoutConstraint?
+    private static let neoChipSize: CGFloat = 34
     private static let chromeIconButtonSize: CGFloat = 28
     private static let chromeIconImageSize: CGFloat = 20
     private static let clawStoreIconImageSize: CGFloat = 24
@@ -377,6 +383,11 @@ final class WindowTopBarView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         build()
+        // The chrome controller's initial applyTheme() pass runs before this
+        // view is installed (topBarView is still nil there), so style the
+        // initial state ourselves — otherwise the neo backdrops stay hidden
+        // until the first preferences change.
+        applyTheme()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -402,14 +413,39 @@ final class WindowTopBarView: NSView {
 
     func applyTheme() {
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
-        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        let neo = MacSurface.style == .neomorphic
+        sidebarBackdrop.isHidden = !neo
+        clawBackdrop.isHidden = !neo
+        if neo {
+            sidebarBackdrop.applyStyle(
+                fill: MacTheme.neoSurface,
+                cornerRadius: MacSurface.Radius.control,
+                shadows: MacSurface.Shadows.raisedSmallSet
+            )
+            clawBackdrop.applyStyle(
+                fill: MacTheme.interactionAccent,
+                cornerRadius: Self.neoChipSize / 2,
+                shadows: MacSurface.Shadows.accentGlowSet
+            )
+            sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.textMuted)
+            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.buttonTextOnAccent)
+        } else {
+            sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
+            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        }
         tabsView.applyTheme()
     }
 
     private func build() {
         leftInsetGuide.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leftInsetGuide)
+
+        for backdrop in [sidebarBackdrop, clawBackdrop] {
+            backdrop.passesThroughHits = true
+            backdrop.isHidden = true
+            backdrop.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(backdrop)
+        }
 
         sidebarButton.translatesAutoresizingMaskIntoConstraints = false
         sidebarButton.isBordered = false
@@ -469,6 +505,16 @@ final class WindowTopBarView: NSView {
             clawStoreButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            sidebarBackdrop.centerXAnchor.constraint(equalTo: sidebarButton.centerXAnchor),
+            sidebarBackdrop.centerYAnchor.constraint(equalTo: sidebarButton.centerYAnchor),
+            sidebarBackdrop.widthAnchor.constraint(equalToConstant: Self.neoChipSize),
+            sidebarBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
+
+            clawBackdrop.centerXAnchor.constraint(equalTo: clawStoreButton.centerXAnchor),
+            clawBackdrop.centerYAnchor.constraint(equalTo: clawStoreButton.centerYAnchor),
+            clawBackdrop.widthAnchor.constraint(equalToConstant: Self.neoChipSize),
+            clawBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
         ])
 
         if isRTL {

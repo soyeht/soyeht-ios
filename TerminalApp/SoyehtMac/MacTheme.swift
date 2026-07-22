@@ -85,6 +85,11 @@ enum MacTheme {
         TerminalColorTheme.active.neoStyleColors
     }
 
+    /// Raw terminal screen background — always the terminal theme's own
+    /// background, never the chrome override (a neo preset's chrome is milk
+    /// while its terminal screen stays dark).
+    static var terminalScreen: NSColor { nsColor(TerminalColorTheme.active.backgroundHex) }
+
     /// Raised neumorphic surface (pills, chips, cards lifted off the canvas).
     static var neoSurface: NSColor { nsColor(neoColors.raisedSurfaceHex) }
     /// Recessed well (drawer track, grouped backgrounds).
