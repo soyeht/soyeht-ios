@@ -3883,8 +3883,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
            appDelegate.isTerminatingForWindowRestoration {
             return
         }
-        // Keep workspace data intact; remove this closed window's live membership.
-        store.clearActiveWindow(windowID: windowID)
+        // Persistent panes: the agent sessions stay alive in the engine, so
+        // stash this window's membership for the Dock / "Reopen Closed Window"
+        // to bring it back intact (W1). Only meaningful when persistent panes
+        // is on — with NativePTY panes the processes die on window close, so a
+        // reopened window would show dead panes; there we keep the historical
+        // behavior of discarding the closed window's membership.
+        if SoyehtFeatureFlags.persistentLocalPanesEnabled {
+            store.stashClosedWindow(windowID: windowID)
+        } else {
+            store.clearActiveWindow(windowID: windowID)
+        }
     }
 
     // MARK: - Seed workspace
