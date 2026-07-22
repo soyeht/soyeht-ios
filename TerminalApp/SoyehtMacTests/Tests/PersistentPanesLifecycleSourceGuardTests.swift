@@ -57,6 +57,26 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         XCTAssertTrue(performReap.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
         XCTAssertTrue(performReap.contains("LocalEngineContext.resolve()"))
         XCTAssertTrue(performReap.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+
+        // Cancellation re-check (PR #325 review, Finding 1): a ⌘Z that lands
+        // after the 15s sleep but before the DELETE is sent must still abort the
+        // reap, or the reaper would delete a session the reattach just
+        // reconnected to. Pin the guard AND its position — it must sit AFTER
+        // resolving the context (the long suspension) and BEFORE the delete, so
+        // a re-adopted session is never torn down.
+        let resolveIdx = try XCTUnwrap(performReap.range(of: "LocalEngineContext.resolve()"))
+        let cancelIdx = try XCTUnwrap(
+            performReap.range(of: "if Task.isCancelled { return }"),
+            "performReap must re-check cancellation before the destructive delete"
+        )
+        let deleteIdx = try XCTUnwrap(performReap.range(of: "deleteLocalTerminal"))
+        XCTAssertTrue(resolveIdx.upperBound < cancelIdx.lowerBound, "cancel re-check must come after resolve")
+        XCTAssertTrue(cancelIdx.upperBound < deleteIdx.lowerBound, "cancel re-check must come before delete")
+        // TTY removal is part of the committed teardown — after the re-check, so
+        // a reattach in the undo window can still resolve the mapping.
+        let ttyIdx = try XCTUnwrap(performReap.range(of: "EngineSessionTTYRegistry.remove"))
+        XCTAssertTrue(cancelIdx.upperBound < ttyIdx.lowerBound, "TTY removal must come after the cancel re-check")
+
         // The reap only runs after sleeping the undo window.
         let scheduleReap = try slice(
             source,
