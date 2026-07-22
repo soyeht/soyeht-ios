@@ -45,10 +45,7 @@ final class FloatingSidebarViewController: NSViewController {
         // here. (chromeVC's own clip is at the window edge, which is far
         // enough from this overlay that the shadow isn't cut.)
         root.layer?.masksToBounds = false
-        root.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
-        root.layer?.shadowOpacity = SidebarTokens.shadowOpacity
-        root.layer?.shadowOffset = SidebarTokens.shadowOffset
-        root.layer?.shadowRadius = SidebarTokens.shadowRadius
+        MacSurface.Shadows.floatingPanel.apply(to: root.layer)
         self.view = root
 
         let list = WorkspaceSidebarListView(
@@ -84,7 +81,7 @@ final class FloatingSidebarViewController: NSViewController {
 
     func applyTheme() {
         view.layer?.backgroundColor = MacTheme.sidebarBg.cgColor
-        view.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
+        MacSurface.Shadows.floatingPanel.apply(to: view.layer)
         listView?.reload()
     }
 }

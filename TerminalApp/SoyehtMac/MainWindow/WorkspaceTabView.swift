@@ -101,7 +101,7 @@ final class WorkspaceTabView: NSView {
         countBadge.translatesAutoresizingMaskIntoConstraints = false
         countBadge.wantsLayer = true
         countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
-        countBadge.layer?.cornerRadius = 4
+        countBadge.layer?.cornerRadius = MacSurface.Radius.badge
         countBadge.isHidden = count <= 0
         addSubview(countBadge)
 
@@ -215,16 +215,10 @@ final class WorkspaceTabView: NSView {
         if lifted {
             // Drag lift uses the active theme surface directly. CALayer does
             // not expose Pencil-style spread, so radius carries the softness.
-            layer.shadowColor = MacTheme.surfaceDeep.cgColor
-            layer.shadowOpacity = 1
-            layer.shadowOffset = CGSize(width: 0, height: -8)
-            layer.shadowRadius = 24
+            MacSurface.Shadows.tabLift.apply(to: layer)
             layer.masksToBounds = false
         } else {
-            layer.shadowOpacity = 0
-            layer.shadowColor = nil
-            layer.shadowOffset = .zero
-            layer.shadowRadius = 0
+            MacSurface.Shadow.clear(layer)
         }
     }
 

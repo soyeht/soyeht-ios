@@ -255,8 +255,8 @@ struct MacClawDetailView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(MacClawStoreTheme.bgCard)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(MacClawStoreTheme.accentAmber, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.control).stroke(MacClawStoreTheme.accentAmber, lineWidth: MacSurface.Border.hairline))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 
     /// Localized, reason-coded copy. Unknown / future codes fall back to a
@@ -311,8 +311,8 @@ struct MacClawDetailView: View {
         }
         .padding(12)
         .background(MacClawStoreTheme.bgCard)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(MacClawStoreTheme.bgCardBorder, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.control).stroke(MacClawStoreTheme.bgCardBorder, lineWidth: MacSurface.Border.hairline))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 
     private func detailRow(label: LocalizedStringKey, value: String) -> some View {
@@ -343,7 +343,7 @@ private struct StateBanner: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(MacClawStoreTheme.bgCard)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.control).stroke(color, lineWidth: MacSurface.Border.hairline))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 }

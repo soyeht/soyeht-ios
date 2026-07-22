@@ -90,7 +90,7 @@ struct InstallProgressView: View {
                         .padding(.vertical, 10)
                         .padding(.horizontal, 22)
                         .background(BrandColors.accentGreen)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                     }
                     .buttonStyle(.plain)
                 }
@@ -227,7 +227,7 @@ private struct StepRow: View {
         switch state {
         case .pending:
             Circle()
-                .strokeBorder(BrandColors.border, lineWidth: 1.5)
+                .strokeBorder(BrandColors.border, lineWidth: MacSurface.Border.emphasis)
                 .frame(width: 16, height: 16)
                 .accessibilityHidden(true)
         case .active:

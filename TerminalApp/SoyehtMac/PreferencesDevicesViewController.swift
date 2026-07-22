@@ -149,8 +149,8 @@ final class DevicesPreferencesViewController: NSViewController {
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         container.layer?.borderColor = NSColor.separatorColor.cgColor
-        container.layer?.borderWidth = 1
-        container.layer?.cornerRadius = 8
+        container.layer?.borderWidth = MacSurface.Border.hairline
+        container.layer?.cornerRadius = MacSurface.Radius.card
 
         let icon = NSImageView()
         icon.translatesAutoresizingMaskIntoConstraints = false
@@ -645,8 +645,8 @@ private final class MacIPhonePairingViewController: NSViewController {
 
         securityCodeBox.translatesAutoresizingMaskIntoConstraints = false
         securityCodeBox.wantsLayer = true
-        securityCodeBox.layer?.cornerRadius = 10
-        securityCodeBox.layer?.borderWidth = 1
+        securityCodeBox.layer?.cornerRadius = MacSurface.Radius.panel
+        securityCodeBox.layer?.borderWidth = MacSurface.Border.hairline
         securityCodeBox.layer?.borderColor = NSColor.separatorColor.cgColor
         securityCodeBox.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.45).cgColor
         securityCodeBox.isHidden = true
@@ -701,7 +701,7 @@ private final class MacIPhonePairingViewController: NSViewController {
         qrImageView.imageScaling = .scaleProportionallyUpOrDown
         qrImageView.wantsLayer = true
         qrImageView.layer?.backgroundColor = NSColor.white.cgColor
-        qrImageView.layer?.cornerRadius = 8
+        qrImageView.layer?.cornerRadius = MacSurface.Radius.card
         qrImageView.isHidden = true
 
         pairLinkField.isEditable = false
