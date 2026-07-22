@@ -15,9 +15,9 @@ final class StatCardView: NSView {
         self.titleText = title
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 8
+        layer?.cornerRadius = MacSurface.Radius.card
         layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        layer?.borderWidth = 1
+        layer?.borderWidth = MacSurface.Border.hairline
         layer?.borderColor = NSColor.separatorColor.cgColor
         setAccessibilityRole(.staticText)
         setAccessibilityLabel(String(

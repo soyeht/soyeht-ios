@@ -89,7 +89,7 @@ struct ConnectAgentsView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 22)
                     .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                     .opacity(canConfirm ? 1 : 0.5)
                 }
                 .buttonStyle(.plain)
@@ -209,7 +209,7 @@ private struct AgentRow: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: MacSurface.Radius.card)
                     .fill(isSelected ? BrandColors.selection.opacity(0.5) : BrandColors.surfaceDeep)
             )
         }

@@ -46,7 +46,7 @@ struct BootstrapWelcomeView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 28)
                     .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(LocalizedStringResource(

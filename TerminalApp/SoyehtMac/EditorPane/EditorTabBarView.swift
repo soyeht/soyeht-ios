@@ -211,10 +211,7 @@ final class EditorTabBarView: NSView {
         ghostView.isGhost = true
         ghostView.frame = sourceView.frame
         ghostView.alphaValue = 0.78
-        ghostView.layer?.shadowColor = NSColor.black.cgColor
-        ghostView.layer?.shadowOpacity = 0.24
-        ghostView.layer?.shadowRadius = 10
-        ghostView.layer?.shadowOffset = NSSize(width: 0, height: 4)
+        MacSurface.Shadows.dragGhost.apply(to: ghostView.layer)
         documentView.addSubview(ghostView, positioned: .above, relativeTo: nil)
 
         sourceView.alphaValue = 0
@@ -604,7 +601,7 @@ private final class EditorTabItemView: NSView {
         addSubview(titleLabel)
 
         dirtyDot.wantsLayer = true
-        dirtyDot.layer?.cornerRadius = 3
+        dirtyDot.layer?.cornerRadius = MacSurface.Radius.indicator
         addSubview(dirtyDot)
 
         closeButton.target = self
@@ -771,7 +768,7 @@ private final class EditorTabItemView: NSView {
         }
 
         layer?.backgroundColor = baseColor.cgColor
-        layer?.borderWidth = item.isActive ? 0 : 0.5
+        layer?.borderWidth = item.isActive ? 0 : MacSurface.Border.divider
         layer?.borderColor = EditorPaneDesign.border.cgColor
         titleLabel.textColor = item.isActive ? EditorPaneDesign.text : EditorPaneDesign.muted
         iconView.contentTintColor = item.symbolColor

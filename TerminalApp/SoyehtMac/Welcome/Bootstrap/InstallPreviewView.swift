@@ -39,7 +39,7 @@ struct InstallPreviewView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 36)
                     .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)

@@ -255,9 +255,9 @@ struct LocalInstallView: View {
         .frame(maxHeight: 160)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6).stroke(BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control).stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 
     // MARK: - Actions
@@ -328,10 +328,10 @@ private struct ModeCard: View {
             .padding(compact ? 12 : 16)
             .background(isSelected ? BrandColors.selection : BrandColors.card)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? BrandColors.accentGreen : BrandColors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                    .stroke(isSelected ? BrandColors.accentGreen : BrandColors.border, lineWidth: MacSurface.Border.hairline)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
         }
         .buttonStyle(.plain)
     }

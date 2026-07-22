@@ -137,7 +137,7 @@ final class SessionConfigDialogView: NSView {
         let dot = NSView()
         dot.wantsLayer = true
         dot.layer?.backgroundColor = Self.accentGreen.cgColor
-        dot.layer?.cornerRadius = 3
+        dot.layer?.cornerRadius = MacSurface.Radius.indicator
         dot.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(dot)
 
@@ -224,8 +224,8 @@ final class SessionConfigDialogView: NSView {
         let row = NSView()
         row.wantsLayer = true
         row.layer?.backgroundColor = Self.fieldBg.cgColor
-        row.layer?.cornerRadius = 6
-        row.layer?.borderWidth = 1
+        row.layer?.cornerRadius = MacSurface.Radius.control
+        row.layer?.borderWidth = MacSurface.Border.hairline
         row.layer?.borderColor = Self.fieldStroke.cgColor
         row.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(row)
@@ -309,8 +309,8 @@ final class SessionConfigDialogView: NSView {
         let row = NSView()
         row.wantsLayer = true
         row.layer?.backgroundColor = Self.rowBg.cgColor
-        row.layer?.cornerRadius = 6
-        row.layer?.borderWidth = 1
+        row.layer?.cornerRadius = MacSurface.Radius.control
+        row.layer?.borderWidth = MacSurface.Border.hairline
         row.layer?.borderColor = Self.rowStroke.cgColor
         row.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(row)
@@ -393,8 +393,8 @@ final class SessionConfigDialogView: NSView {
         cancel.wantsLayer = true
         cancel.layer?.backgroundColor = Self.fieldBg.cgColor
         cancel.layer?.borderColor = Self.fieldStroke.cgColor
-        cancel.layer?.borderWidth = 1
-        cancel.layer?.cornerRadius = 6
+        cancel.layer?.borderWidth = MacSurface.Border.hairline
+        cancel.layer?.cornerRadius = MacSurface.Radius.control
         cancel.attributedTitle = NSAttributedString(
             string: String(localized: "sessionConfig.button.cancel", comment: "Cancel button in the session-config dialog."),
             attributes: [
@@ -412,7 +412,7 @@ final class SessionConfigDialogView: NSView {
         startButton.isBordered = false
         startButton.wantsLayer = true
         startButton.layer?.backgroundColor = Self.accentGreen.cgColor
-        startButton.layer?.cornerRadius = 6
+        startButton.layer?.cornerRadius = MacSurface.Radius.control
         startButton.attributedTitle = NSAttributedString(
             string: String(localized: "sessionConfig.button.startSession", comment: "Primary CTA label — 'start session' lowercase in en."),
             attributes: [

@@ -84,10 +84,10 @@ struct MacGuestImageRecoveryBanner: View {
             .padding(10)
             .background(MacClawStoreTheme.bgCard)
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(MacClawStoreTheme.accentAmber, lineWidth: 1)
+                RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                    .stroke(MacClawStoreTheme.accentAmber, lineWidth: MacSurface.Border.hairline)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
             .accessibilityIdentifier("soyeht.macClawStore.readinessBanner")
         }
     }

@@ -273,8 +273,8 @@ private final class ClawStoreRowButton: MacCursor.ChromeView {
     init() {
         super.init(cursor: .pointingHand)
         wantsLayer = true
-        layer?.cornerRadius = 6
-        layer?.borderWidth = 1
+        layer?.cornerRadius = MacSurface.Radius.control
+        layer?.borderWidth = MacSurface.Border.hairline
         layer?.borderColor = Self.strokeIdle.cgColor
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -355,8 +355,8 @@ private final class AgentRowButton: MacCursor.ChromeView {
         self.agent = agent
         super.init(cursor: .pointingHand)
         wantsLayer = true
-        layer?.cornerRadius = 6
-        layer?.borderWidth = 1
+        layer?.cornerRadius = MacSurface.Radius.control
+        layer?.borderWidth = MacSurface.Border.hairline
         layer?.borderColor = Self.strokeIdle.cgColor
 
         iconView.translatesAutoresizingMaskIntoConstraints = false

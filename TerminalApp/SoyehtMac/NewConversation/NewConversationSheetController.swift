@@ -278,7 +278,7 @@ final class NewConversationSheetController: NSViewController {
     }
 
     private func flashInvalid(_ field: NSTextField) {
-        field.layer?.borderWidth = 1.5
+        field.layer?.borderWidth = MacSurface.Border.emphasis
         field.layer?.borderColor = NSColor.systemRed.cgColor
         field.becomeFirstResponder()
     }

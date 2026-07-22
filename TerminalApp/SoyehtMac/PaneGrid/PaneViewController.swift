@@ -57,7 +57,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let label = NSTextField(labelWithString: "")
         label.wantsLayer = true
         label.layer?.backgroundColor = MacTheme.accentAmber.cgColor
-        label.layer?.cornerRadius = 4
+        label.layer?.cornerRadius = MacSurface.Radius.badge
         label.drawsBackground = false
         label.alignment = .center
         label.font = MacTypography.NSFonts.paneDisconnectBanner
@@ -82,8 +82,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         button.wantsLayer = true
         button.layer?.backgroundColor = MacTheme.paneFloatingControlFill.cgColor
         button.layer?.borderColor = MacTheme.paneFloatingControlStroke.cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.cornerRadius = 5
+        button.layer?.borderWidth = MacSurface.Border.hairline
+        button.layer?.cornerRadius = MacSurface.Radius.chip
         button.contentTintColor = MacTheme.paneFloatingControlText
         button.font = MacTypography.NSFonts.paneFloatingControl
         button.image = NSImage(systemSymbolName: "arrow.down", accessibilityDescription: nil)

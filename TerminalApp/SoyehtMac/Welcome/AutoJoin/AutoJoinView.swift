@@ -59,7 +59,7 @@ struct AutoJoinView: View {
                 .padding(.vertical, 10)
                 .padding(.horizontal, 24)
                 .background(BrandColors.accentGreen)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
             }
             .buttonStyle(.plain)
         }

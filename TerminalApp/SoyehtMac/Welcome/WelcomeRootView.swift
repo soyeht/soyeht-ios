@@ -576,10 +576,10 @@ private struct ExistingSoyehtView: View {
                     .padding(.horizontal, 22)
                     .background(BrandColors.card)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(BrandColors.border, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                            .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
                 .disabled(isWorking)
@@ -597,7 +597,7 @@ private struct ExistingSoyehtView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 24)
                     .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)

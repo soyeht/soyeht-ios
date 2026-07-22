@@ -129,7 +129,7 @@ struct JoinExistingSoyehtView: View {
                     .frame(width: 240, height: 240)
                     .padding(12)
                     .background(BrandColors.qrCodeBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                     .accessibilityLabel(Text(LocalizedStringResource(
                         "welcome.joinExisting.qr.a11y",
                         defaultValue: "QR code to add this Mac to an existing Soyeht.",

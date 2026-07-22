@@ -51,13 +51,6 @@ enum SidebarTokens {
 
     /// Muted dot for non-focused rows (Pencil `tAcx2` / `85tgp`).
     static var dotIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
-
-    // MARK: - Shadow (applied to FloatingSidebarViewController.view.layer)
-
-    static var shadowColor: NSColor { MacTheme.surfaceDeep }
-    static let shadowOpacity: Float = 1
-    static let shadowOffset = CGSize(width: 4, height: 0)
-    static let shadowRadius: CGFloat = 20
 }
 
 /// UserDefaults-backed collapse state for sidebar workspace groups.

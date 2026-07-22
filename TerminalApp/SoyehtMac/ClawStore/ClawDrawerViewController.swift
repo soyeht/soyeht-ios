@@ -14,10 +14,7 @@ final class ClawDrawerViewController: NSViewController {
         root.wantsLayer = true
         root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         root.layer?.masksToBounds = false
-        root.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
-        root.layer?.shadowOpacity = SidebarTokens.shadowOpacity
-        root.layer?.shadowOffset = NSSize(width: -4, height: 0)
-        root.layer?.shadowRadius = SidebarTokens.shadowRadius
+        MacSurface.Shadows.drawerPanel.apply(to: root.layer)
         self.view = root
 
         let host = NSHostingController(rootView: ClawDrawerRootView(
@@ -68,7 +65,7 @@ final class ClawDrawerViewController: NSViewController {
 
     func applyTheme() {
         view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        view.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
+        MacSurface.Shadows.drawerPanel.apply(to: view.layer)
     }
 
     @objc private func preferencesDidChange() {
@@ -222,7 +219,7 @@ private struct ClawDrawerRootView: View {
                     .foregroundColor(ClawDrawerTokens.accent)
                     .frame(width: 52, height: 52)
                     .background(ClawDrawerTokens.panel)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
 
                 VStack(spacing: 8) {
                     Text("drawer.missing.title")
@@ -247,10 +244,10 @@ private struct ClawDrawerRootView: View {
             .padding(18)
             .background(ClawDrawerTokens.panel)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+                RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                    .stroke(ClawDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
             .padding(.horizontal, 14)
             Spacer(minLength: 18)
             // Hide the uninstall affordance when theyOS isn't actually
@@ -393,10 +390,10 @@ private struct ClawDrawerRootView: View {
         .frame(height: 30)
         .background(ClawDrawerTokens.panel)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
     }
@@ -418,7 +415,7 @@ private struct ClawDrawerRootView: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 34)
             .background(ClawDrawerTokens.accent)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
         }
         .buttonStyle(.plain)
     }
@@ -475,10 +472,10 @@ private struct ClawDrawerRowView: View {
         .frame(height: 42)
         .background(ClawDrawerTokens.panel)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 }
 
@@ -586,10 +583,10 @@ private struct DrawerStoreContent: View {
         .frame(height: 30)
         .background(ClawDrawerTokens.panel)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
     }
@@ -660,7 +657,7 @@ private struct CompactClawStoreRow: View {
                             .padding(.horizontal, 10)
                             .frame(height: 24)
                             .background(ClawDrawerTokens.accent)
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.chip))
                     }
                     .buttonStyle(.plain)
                     .disabled(isInstalling)
@@ -670,10 +667,10 @@ private struct CompactClawStoreRow: View {
         .padding(10)
         .background(ClawDrawerTokens.panel)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 
     private var canInstall: Bool {

@@ -127,10 +127,10 @@ struct UninstallTheyOSView: View {
         .padding(12)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(BrandColors.accentAmberStrong, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(BrandColors.accentAmberStrong, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -214,10 +214,10 @@ struct UninstallTheyOSView: View {
         .padding(12)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control)
+                .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -300,7 +300,7 @@ struct UninstallTheyOSView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
                     .background(BrandColors.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
             }
 
             if case .done = uninstaller.phase {
@@ -360,9 +360,9 @@ struct UninstallTheyOSView: View {
         .frame(maxHeight: 160)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6).stroke(BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.control).stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.control))
     }
 
     // MARK: - Actions

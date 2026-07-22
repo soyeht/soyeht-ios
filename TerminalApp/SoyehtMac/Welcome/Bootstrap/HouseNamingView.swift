@@ -56,7 +56,7 @@ struct HouseNamingView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 28)
                     .background(isValid ? BrandColors.accentGreen : BrandColors.border)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
                 .disabled(!isValid)
@@ -109,10 +109,10 @@ struct HouseNamingView: View {
             .padding(.horizontal, 14)
             .background(BrandColors.card)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isTextFieldFocused ? BrandColors.accentGreen : BrandColors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                    .stroke(isTextFieldFocused ? BrandColors.accentGreen : BrandColors.border, lineWidth: MacSurface.Border.hairline)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
             .accessibilityLabel(Text(LocalizedStringResource(
                 "bootstrap.houseNaming.field.a11y",
                 defaultValue: "Home name, \(houseName.count) of \(Self.maxLength) characters",

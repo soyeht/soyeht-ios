@@ -111,7 +111,7 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
 
     func macVoiceInputDidUpdateAudioLevel(_ level: Float) {
         let clamped = max(0, min(1, CGFloat(level)))
-        button.layer?.shadowOpacity = Float(0.18 + clamped * 0.34)
+        button.layer?.shadowOpacity = MacSurface.Shadows.voiceButton.opacity + Float(clamped * 0.34)
     }
 
     func macVoiceInputDidFail(_ message: String) {
@@ -145,11 +145,8 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
         button.wantsLayer = true
-        button.layer?.cornerRadius = 8
-        button.layer?.shadowColor = NSColor.black.cgColor
-        button.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        button.layer?.shadowRadius = 8
-        button.layer?.shadowOpacity = 0.18
+        button.layer?.cornerRadius = MacSurface.Radius.card
+        MacSurface.Shadows.voiceButton.apply(to: button.layer)
         button.target = self
         button.action = #selector(toggleRecording)
         button.isHidden = true
@@ -315,12 +312,12 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
         button.toolTip = toolTip
         button.layer?.backgroundColor = fill.cgColor
         button.layer?.borderColor = border.withAlphaComponent(0.7).cgColor
-        button.layer?.borderWidth = 1
+        button.layer?.borderWidth = MacSurface.Border.hairline
 
         previewLabel.textColor = MacTheme.textPrimary
         previewLabel.layer?.backgroundColor = MacTheme.surfaceBase.withAlphaComponent(0.94).cgColor
         previewLabel.layer?.borderColor = MacTheme.borderIdle.withAlphaComponent(0.9).cgColor
-        previewLabel.layer?.borderWidth = 1
+        previewLabel.layer?.borderWidth = MacSurface.Border.hairline
     }
 
     private static func preview(_ text: String) -> String {
@@ -345,7 +342,7 @@ private final class VoicePreviewLabel: NSTextField {
         isBordered = false
         drawsBackground = false
         wantsLayer = true
-        layer?.cornerRadius = 7
+        layer?.cornerRadius = MacSurface.Radius.inputCapsule
         layer?.masksToBounds = true
     }
 }

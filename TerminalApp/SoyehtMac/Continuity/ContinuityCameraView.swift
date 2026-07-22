@@ -40,7 +40,7 @@ struct ContinuityCameraView: View {
                     }
                 }
                 .frame(width: 280, height: 280)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.hero))
 
                 Spacer()
 

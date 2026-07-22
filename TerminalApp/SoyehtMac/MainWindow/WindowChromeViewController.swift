@@ -55,7 +55,7 @@ final class WindowChromeViewController: NSViewController {
         // SXnc2 V2: 12pt rounded corners. Clips overlay + pane content to
         // the rounded rect silhouette. Intentionally ROOT-level clip so the
         // floating sidebar (Fase 5) inherits it automatically.
-        root.layer?.cornerRadius = 12
+        root.layer?.cornerRadius = MacSurface.Radius.window
         root.layer?.masksToBounds = true
         root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         // The contentView must resize with the window — AppKit doesn't

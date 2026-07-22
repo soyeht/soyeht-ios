@@ -125,9 +125,9 @@ private struct JoinChoiceRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isPrimary ? BrandColors.accentGreen : BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isPrimary ? Color.clear : BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                .stroke(isPrimary ? Color.clear : BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
     }
 }

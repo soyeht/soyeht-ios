@@ -56,7 +56,7 @@ struct RequiresLoginItemsApprovalView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 28)
                     .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
 
@@ -71,7 +71,7 @@ struct RequiresLoginItemsApprovalView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 20)
                     .background(BrandColors.selection)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                 }
                 .buttonStyle(.plain)
             }

@@ -19,14 +19,14 @@ struct SafetyCodeDisplay: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.panel)
                 .fill(BrandColors.card)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.panel)
                 .stroke(
                     glowActive ? BrandColors.accentGreen : BrandColors.border,
-                    lineWidth: glowActive ? 2 : 1
+                    lineWidth: glowActive ? MacSurface.Border.focusRing : MacSurface.Border.hairline
                 )
                 .shadow(
                     color: glowActive ? BrandColors.accentGreen.opacity(0.45) : .clear,

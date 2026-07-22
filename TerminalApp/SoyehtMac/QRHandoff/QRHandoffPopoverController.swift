@@ -66,8 +66,8 @@ final class QRHandoffPopoverController: NSViewController {
             blue: 0x10 / 255,
             alpha: 1
         ).cgColor
-        cardView.layer?.cornerRadius = 14
-        cardView.layer?.borderWidth = 1
+        cardView.layer?.cornerRadius = MacSurface.Radius.popover
+        cardView.layer?.borderWidth = MacSurface.Border.hairline
         cardView.layer?.borderColor = NSColor.separatorColor.cgColor
 
         statusHeader.font = MacTypography.NSFonts.qrTitle
@@ -99,9 +99,9 @@ final class QRHandoffPopoverController: NSViewController {
 
         qrImageView.imageScaling = .scaleProportionallyUpOrDown
         qrImageView.wantsLayer = true
-        qrImageView.layer?.cornerRadius = 8
+        qrImageView.layer?.cornerRadius = MacSurface.Radius.card
         qrImageView.layer?.backgroundColor = NSColor.white.cgColor
-        qrImageView.layer?.borderWidth = 1
+        qrImageView.layer?.borderWidth = MacSurface.Border.hairline
         qrImageView.layer?.borderColor = NSColor.separatorColor.cgColor
 
         connectedCheckmark.image = NSImage(

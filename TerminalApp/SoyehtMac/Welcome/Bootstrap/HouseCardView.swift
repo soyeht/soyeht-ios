@@ -145,7 +145,7 @@ struct HouseCardView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(BrandColors.accentGreen)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
@@ -161,8 +161,8 @@ struct HouseCardView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(BrandColors.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                        .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
                 )
             }
             .buttonStyle(.plain)
@@ -184,8 +184,8 @@ struct HouseCardView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(BrandColors.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                        .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
                 )
             }
             .buttonStyle(.plain)
@@ -211,7 +211,7 @@ struct HouseCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
                 .background(BrandColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
 
             Button(action: copyPairLink) {
                 Text(copiedPairLink ? LocalizedStringResource(
@@ -248,7 +248,7 @@ struct HouseCardView: View {
                     .frame(width: 220, height: 220)
                     .padding(12)
                     .background(BrandColors.qrCodeBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                     .accessibilityLabel(Text(LocalizedStringResource(
                         "bootstrap.houseCard.iphone.qr.a11y",
                         defaultValue: "QR code to add this iPhone to the home.",
@@ -313,10 +313,10 @@ struct HouseCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
     }
 
     private var deviceList: some View {
@@ -335,7 +335,7 @@ struct HouseCardView: View {
         }
         .padding(20)
         .background(BrandColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.mediaLarge))
     }
 
     private var iPhoneSlot: some View {
@@ -618,10 +618,10 @@ struct IPhonePairingSheetContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(BrandColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.card)
+                .stroke(BrandColors.border, lineWidth: MacSurface.Border.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
     }
 
     private var fallbackPairingSection: some View {
@@ -643,7 +643,7 @@ struct IPhonePairingSheetContent: View {
                     .frame(width: 220, height: 220)
                     .padding(12)
                     .background(BrandColors.qrCodeBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
                     .accessibilityLabel(Text(LocalizedStringResource(
                         "bootstrap.houseCard.iphone.qr.a11y",
                         defaultValue: "QR code to add this iPhone to the home.",
@@ -682,7 +682,7 @@ struct IPhonePairingSheetContent: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
                 .background(BrandColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
 
             Button(action: onCopyPairLink) {
                 Text(copiedPairLink ? LocalizedStringResource(
