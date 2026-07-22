@@ -339,15 +339,20 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             constraint.constant = 0
         }
 
+        // The card base is LIGHT (header tone) even though most of it is
+        // covered by the dark screen: at the rounded corners the base's
+        // antialiased rim peeks out 1px, and a light rim vanishes into the
+        // canvas while a dark one reads as an ugly ring around the header.
         let radius = neo ? MacSurface.Radius.card : 0
+        let cardBase = neo ? MacTheme.paneHeaderNew : MacTheme.paneBody
         cardView.applyStyle(
-            fill: neo ? MacTheme.terminalScreen : MacTheme.paneBody,
+            fill: cardBase,
             cornerRadius: radius,
             shadows: MacSurface.Shadows.raisedSet
         )
         cardClipView.layer?.cornerRadius = radius
         cardClipView.layer?.masksToBounds = neo
-        cardClipView.layer?.backgroundColor = (neo ? MacTheme.terminalScreen : MacTheme.paneBody).cgColor
+        cardClipView.layer?.backgroundColor = cardBase.cgColor
 
         screenClipView.layer?.cornerRadius = 0
         screenClipView.layer?.masksToBounds = false

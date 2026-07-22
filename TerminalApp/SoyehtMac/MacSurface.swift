@@ -135,15 +135,12 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -9, height: 9), radius: 18)
         }
 
-        /// Dual pair for pane cards in the grid — tighter 5pt/10-12pt so the
-        /// falloff (not the flat middle) shows in the ~20pt gaps. The dark
-        /// half is the SOFT blend: pane screens are dark surfaces, and the
-        /// full-strength dark tint reads as a dirty edge around them.
-        static var neoDarkPane: Shadow {
-            Shadow(color: MacTheme.neoShadowDarkSoft, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 12)
-        }
-        static var neoLightPane: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -5, height: 5), radius: 10)
+        /// Single ambient lift for DARK cards on the light canvas (terminal
+        /// screens). Neumorphic tinted pairs belong to light surfaces only —
+        /// around a dark card any tinted halo reads as a ring artifact, so
+        /// dark cards float on contrast plus this ring-proof downward haze.
+        static var darkCardAmbient: Shadow {
+            Shadow(color: .black, opacity: 0.10, offset: CGSize(width: 0, height: -2), radius: 8)
         }
 
         /// Dual pair for compact controls (chips, pills, small buttons):
@@ -155,11 +152,11 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 8)
         }
 
-        /// Generic raised surface (pane cards). Empty in classic (flat
-        /// chrome); the neumorphic dual pair when neo is active. Render via
-        /// `MacStyledSurfaceView` — plain CALayers hold one shadow only.
+        /// Pane cards. Empty in classic (flat chrome); in neo the dark
+        /// screens float on contrast with only the ring-proof ambient lift —
+        /// the dual neumorphic pairs stay on light chrome elements.
         static var raisedSet: [Shadow] {
-            neo ? [neoDarkPane, neoLightPane] : []
+            neo ? [darkCardAmbient] : []
         }
 
         /// Compact raised controls (chips, pills).
