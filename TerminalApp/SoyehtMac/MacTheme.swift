@@ -50,6 +50,11 @@ enum MacTheme {
     static var paneHeaderNew: NSColor { nsColor(appPalette.surfaceHex) }
     /// Pane grid gutter (the strip that shows between split panes).
     static var gutter: NSColor { nsColor(appPalette.borderHex) }
+    /// Canvas behind/between panes: classic keeps the historical gutter
+    /// color, neo uses the chrome background so pane cards float on it.
+    static var paneGridCanvas: NSColor {
+        MacSurface.style == .neomorphic ? surfaceBase : gutter
+    }
     /// Active-tab bottom stroke + sidebar-toggle tint when overlay open.
     static var accentBlue: NSColor { nsColor(appPalette.linkHex) }
     /// Success/accent token used for dots, team workspace groups, and
@@ -73,6 +78,23 @@ enum MacTheme {
     /// Alias for the floating sidebar overlay base color (same as surfaceBase
     /// so the sidebar reads as a panel lifted from the same surface).
     static var sidebarBg: NSColor { surfaceBase }
+
+    // MARK: - Neumorphic style colors
+
+    private static var neoColors: NeoStyleColors {
+        TerminalColorTheme.active.neoStyleColors
+    }
+
+    /// Raised neumorphic surface (pills, chips, cards lifted off the canvas).
+    static var neoSurface: NSColor { nsColor(neoColors.raisedSurfaceHex) }
+    /// Recessed well (drawer track, grouped backgrounds).
+    static var neoWell: NSColor { nsColor(neoColors.wellHex) }
+    /// Down-right soft shadow cast by a raised surface.
+    static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
+    /// Up-left soft highlight cast by a raised surface.
+    static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
+    /// Colored glow behind accent-filled controls (apply alpha at call site).
+    static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
 }
 
 private extension NSColor {

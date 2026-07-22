@@ -5,37 +5,73 @@ import SoyehtCore
 /// macOS shape & elevation tokens.
 ///
 /// Semantic corner-radius, border-width and shadow roles for app chrome,
-/// sibling to `MacTheme` (color) and `MacTypography` (type). The design-style
-/// system reads shape from here so swapping a style restyles every surface at
-/// once. Terminal glyph content is unaffected — these tokens stop at pane
-/// chrome.
+/// sibling to `MacTheme` (color) and `MacTypography` (type). Every token
+/// resolves through the active `DesignStyle`, so switching styles restyles
+/// every surface at once. Terminal glyph content is unaffected — these
+/// tokens stop at pane chrome.
 enum MacSurface {
+
+    static var style: DesignStyle { DesignStyle.active }
 
     // MARK: - Corner radius
 
+    /// Per-style radius values. Classic carries the app's historical
+    /// metrics; neomorphic follows the Pencil neo reference (larger, softer).
+    private struct RadiusSpec {
+        var indicator: CGFloat
+        var badge: CGFloat
+        var chip: CGFloat
+        var control: CGFloat
+        var inputCapsule: CGFloat
+        var card: CGFloat
+        var panel: CGFloat
+        var window: CGFloat
+        var mediaLarge: CGFloat
+        var popover: CGFloat
+        var hero: CGFloat
+
+        static let classic = RadiusSpec(
+            indicator: 3, badge: 4, chip: 5, control: 6, inputCapsule: 7,
+            card: 8, panel: 10, window: 12, mediaLarge: 12, popover: 14, hero: 20
+        )
+        static let neomorphic = RadiusSpec(
+            indicator: 3, badge: 6, chip: 8, control: 12, inputCapsule: 12,
+            card: 16, panel: 18, window: 20, mediaLarge: 16, popover: 18, hero: 24
+        )
+    }
+
+    private static var radii: RadiusSpec {
+        switch style {
+        case .classic, .neubrutalist: return .classic
+        case .neomorphic: return .neomorphic
+        }
+    }
+
     enum Radius {
         /// Tiny status dots and mini badges (editor dirty dot, git selection badge).
-        static let indicator: CGFloat = 3
+        static var indicator: CGFloat { radii.indicator }
         /// Count badges and transient overlay labels.
-        static let badge: CGFloat = 4
+        static var badge: CGFloat { radii.badge }
         /// Small chips and floating pane controls.
-        static let chip: CGFloat = 5
+        static var chip: CGFloat { radii.chip }
         /// Buttons, inputs, list rows, small tiles — the compact workhorse.
-        static let control: CGFloat = 6
+        static var control: CGFloat { radii.control }
         /// Voice input capsule.
-        static let inputCapsule: CGFloat = 7
+        static var inputCapsule: CGFloat { radii.inputCapsule }
         /// Cards, thumbnails, QR images — the large workhorse.
-        static let card: CGFloat = 8
+        static var card: CGFloat { radii.card }
         /// Boxed feature panels (safety-code display, security-code box).
-        static let panel: CGFloat = 10
+        static var panel: CGFloat { radii.panel }
         /// Window chrome root corner.
-        static let window: CGFloat = 12
+        static var window: CGFloat { radii.window }
         /// Hero/media clips inside cards.
-        static let mediaLarge: CGFloat = 12
+        static var mediaLarge: CGFloat { radii.mediaLarge }
         /// Detached popover cards (QR handoff).
-        static let popover: CGFloat = 14
+        static var popover: CGFloat { radii.popover }
         /// Full-bleed hero media (continuity camera).
-        static let hero: CGFloat = 20
+        static var hero: CGFloat { radii.hero }
+        /// Fully-rounded pills (neo chrome chips, tab pills).
+        static var pill: CGFloat { 999 }
     }
 
     // MARK: - Border width
@@ -54,7 +90,8 @@ enum MacSurface {
     // MARK: - Shadows
 
     /// A complete layer shadow spec. `apply(to:)`/`clear(_:)` keep call sites
-    /// one-liners so a style can later swap specs wholesale.
+    /// one-liners so a style can swap specs wholesale. Offsets are in
+    /// unflipped AppKit layer coordinates (negative height casts downward).
     struct Shadow {
         var color: NSColor
         var opacity: Float
@@ -79,15 +116,52 @@ enum MacSurface {
     }
 
     enum Shadows {
+        private static var neo: Bool { style == .neomorphic }
+
+        /// Neumorphic down-right soft shadow (pairs with `neoLight`).
+        static var neoDark: Shadow {
+            Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: 4, height: -4), radius: 8)
+        }
+        /// Neumorphic up-left soft highlight (pairs with `neoDark`).
+        static var neoLight: Shadow {
+            Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: -4, height: 4), radius: 8)
+        }
+
+        /// Generic raised surface. Empty in classic (flat chrome); the
+        /// neumorphic dual pair when neo is active. Render via
+        /// `MacStyledSurfaceView` — plain CALayers hold one shadow only.
+        static var raisedSet: [Shadow] {
+            neo ? [neoDark, neoLight] : []
+        }
+
+        /// Floating sidebar panel. Classic casts right onto the workspace;
+        /// neo lifts with the dual pair.
+        static var sidebarPanelSet: [Shadow] {
+            neo ? [
+                Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: 6, height: -4), radius: 10),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: -4, height: 4), radius: 10),
+            ] : [floatingPanel]
+        }
+
+        /// Claw drawer panel (mirrors the sidebar, casting left).
+        static var drawerPanelSet: [Shadow] {
+            neo ? [
+                Shadow(color: MacTheme.neoShadowDark, opacity: 0.9, offset: CGSize(width: -6, height: -4), radius: 10),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 0.95, offset: CGSize(width: 4, height: 4), radius: 10),
+            ] : [drawerPanel]
+        }
+
         /// Workspace tab lifted out of the strip while dragging.
         static var tabLift: Shadow {
-            Shadow(color: MacTheme.surfaceDeep, opacity: 1, offset: CGSize(width: 0, height: -8), radius: 24)
+            neo
+                ? Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 0, height: -8), radius: 16)
+                : Shadow(color: MacTheme.surfaceDeep, opacity: 1, offset: CGSize(width: 0, height: -8), radius: 24)
         }
-        /// Floating sidebar panel casting right onto the workspace.
+        /// Floating sidebar panel casting right onto the workspace (classic).
         static var floatingPanel: Shadow {
             Shadow(color: MacTheme.surfaceDeep, opacity: 1, offset: CGSize(width: 4, height: 0), radius: 20)
         }
-        /// Claw drawer casting left onto the workspace.
+        /// Claw drawer casting left onto the workspace (classic).
         static var drawerPanel: Shadow {
             Shadow(color: MacTheme.surfaceDeep, opacity: 1, offset: CGSize(width: -4, height: 0), radius: 20)
         }

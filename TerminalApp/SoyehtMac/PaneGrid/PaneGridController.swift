@@ -228,8 +228,9 @@ final class PaneGridController: NSViewController {
     override func loadView() {
         let root = PaneGridDropView()
         root.wantsLayer = true
-        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design).
-        root.layer?.backgroundColor = MacTheme.gutter.cgColor
+        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design). Neo paints
+        // the grid in the canvas color so panes float as separated cards.
+        root.layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         root.registerForDraggedTypes([PaneHeaderView.panePasteboardType])
         root.onPaneDragUpdated = { [weak self] info in
@@ -350,9 +351,33 @@ final class PaneGridController: NSViewController {
         return tree.rotatingSplit(containing: focused) != tree
     }
 
+    /// Canvas margin around the pane tree: zero in classic (panes touch the
+    /// container edge as always), a card gap in neo. Panes add their own 7pt
+    /// card inset, so the effective outer margin is 14 and the inter-pane
+    /// gap is ~15 (7 + divider + 7).
+    private static var outerInset: CGFloat {
+        MacSurface.style == .neomorphic ? 7 : 0
+    }
+
+    /// Frames the mounted root inside the canvas margin. Idempotent, and
+    /// guarded against the zero-bounds mount that happens before the first
+    /// layout pass — insetting an empty rect makes it negative-sized and
+    /// autoresizing never recovers from an invalid frame.
+    private func layoutCurrentRoot() {
+        guard let rootView = currentRoot?.view else { return }
+        let target = view.bounds.insetBy(dx: Self.outerInset, dy: Self.outerInset)
+        rootView.frame = target.isEmpty ? view.bounds : target
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        layoutCurrentRoot()
+    }
+
     func applyTheme() {
         PerfTrace.interval("grid.applyTheme") {
-            view.layer?.backgroundColor = MacTheme.gutter.cgColor
+            view.layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
+            layoutCurrentRoot()
             for pane in factory.cache.values {
                 pane.applyTheme()
             }
@@ -576,9 +601,9 @@ final class PaneGridController: NSViewController {
         // with the grid's view.
         newRoot.view.translatesAutoresizingMaskIntoConstraints = true
         newRoot.view.autoresizingMask = [.width, .height]
-        newRoot.view.frame = view.bounds
         view.addSubview(newRoot.view)
         currentRoot = newRoot
+        layoutCurrentRoot()
         if dockOverlay.superview === view {
             view.addSubview(dockOverlay, positioned: .above, relativeTo: newRoot.view)
         }

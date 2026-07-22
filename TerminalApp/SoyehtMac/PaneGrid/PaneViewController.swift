@@ -28,6 +28,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// border/focus styling in later phases.
     let header = PaneHeaderView()
 
+    /// Card + clip pair between the pane root and its content. Classic pins
+    /// the card edge-to-edge (pixel-identical to the pre-card hierarchy);
+    /// neo insets it so the canvas shows around a rounded, shadowed card.
+    private let cardView = MacStyledSurfaceView()
+    private let cardClipView = NSView()
+    private var cardInsetConstraints: [NSLayoutConstraint] = []
+
     private let contentContainer = NSView()
     private var contentController: (NSViewController & PaneContentViewControlling)?
 
@@ -147,30 +154,54 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         root.layer?.backgroundColor = MacTheme.paneBody.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
 
+        // Card + clip pair: MacStyledSurfaceView renders fill/radius/shadows
+        // (it must not clip — shadows escape its bounds), the clip view
+        // rounds the content. Classic = zero inset/radius/shadows, so the
+        // hierarchy change is invisible there.
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(cardView)
+        cardInsetConstraints = [
+            cardView.topAnchor.constraint(equalTo: root.topAnchor),
+            cardView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            cardView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            cardView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ]
+        NSLayoutConstraint.activate(cardInsetConstraints)
+
+        cardClipView.wantsLayer = true
+        cardClipView.translatesAutoresizingMaskIntoConstraints = false
+        cardView.addSubview(cardClipView)
+        NSLayoutConstraint.activate([
+            cardClipView.topAnchor.constraint(equalTo: cardView.topAnchor),
+            cardClipView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
+            cardClipView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
+            cardClipView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor),
+        ])
+
         header.translatesAutoresizingMaskIntoConstraints = false
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.isHidden = true
 
-        root.addSubview(header)
-        root.addSubview(terminalView)
-        root.addSubview(contentContainer)
+        cardClipView.addSubview(header)
+        cardClipView.addSubview(terminalView)
+        cardClipView.addSubview(contentContainer)
 
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: root.topAnchor),
-            header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            header.topAnchor.constraint(equalTo: cardClipView.topAnchor),
+            header.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
             terminalView.topAnchor.constraint(equalTo: header.bottomAnchor),
-            terminalView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            terminalView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            terminalView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            terminalView.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            terminalView.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            terminalView.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
 
             contentContainer.topAnchor.constraint(equalTo: header.bottomAnchor),
-            contentContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            contentContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            contentContainer.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
         ])
 
         // The empty-state views own the whole pane vertically — each carries
@@ -179,55 +210,56 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // isn't double-stacked. Anchor from `root.topAnchor` (not header's
         // bottom) so hiding the header doesn't leave a dead zone.
         emptyPicker.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(emptyPicker)
+        cardClipView.addSubview(emptyPicker)
         NSLayoutConstraint.activate([
-            emptyPicker.topAnchor.constraint(equalTo: root.topAnchor),
-            emptyPicker.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            emptyPicker.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            emptyPicker.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            emptyPicker.topAnchor.constraint(equalTo: cardClipView.topAnchor),
+            emptyPicker.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            emptyPicker.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            emptyPicker.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
         ])
 
         sessionDialog.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(sessionDialog)
+        cardClipView.addSubview(sessionDialog)
         NSLayoutConstraint.activate([
-            sessionDialog.topAnchor.constraint(equalTo: root.topAnchor),
-            sessionDialog.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            sessionDialog.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            sessionDialog.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            sessionDialog.topAnchor.constraint(equalTo: cardClipView.topAnchor),
+            sessionDialog.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            sessionDialog.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            sessionDialog.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
         ])
 
         // Border overlay is added LAST so its green focus stroke sits on top
         // of whichever pane content is currently visible (terminal, picker,
         // or dialog).
         borderOverlay.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(borderOverlay)
+        cardClipView.addSubview(borderOverlay)
         NSLayoutConstraint.activate([
-            borderOverlay.topAnchor.constraint(equalTo: root.topAnchor),
-            borderOverlay.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            borderOverlay.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            borderOverlay.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            borderOverlay.topAnchor.constraint(equalTo: cardClipView.topAnchor),
+            borderOverlay.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
+            borderOverlay.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+            borderOverlay.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor),
         ])
 
         wireEmptyStateCallbacks()
 
-        root.addSubview(disconnectBanner)
+        cardClipView.addSubview(disconnectBanner)
         NSLayoutConstraint.activate([
             disconnectBanner.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
-            disconnectBanner.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            disconnectBanner.centerXAnchor.constraint(equalTo: cardClipView.centerXAnchor),
             disconnectBanner.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
         ])
 
         scrollToBottomButton.target = self
         scrollToBottomButton.action = #selector(scrollToBottomTapped)
-        root.addSubview(scrollToBottomButton)
+        cardClipView.addSubview(scrollToBottomButton)
         NSLayoutConstraint.activate([
-            scrollToBottomButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -PaneChromeMetrics.floatingControlInset),
-            scrollToBottomButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -PaneChromeMetrics.floatingControlInset),
+            scrollToBottomButton.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor, constant: -PaneChromeMetrics.floatingControlInset),
+            scrollToBottomButton.bottomAnchor.constraint(equalTo: cardClipView.bottomAnchor, constant: -PaneChromeMetrics.floatingControlInset),
             scrollToBottomButton.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.floatingControlHeight),
             scrollToBottomButton.widthAnchor.constraint(greaterThanOrEqualToConstant: PaneChromeMetrics.floatingControlMinWidth),
         ])
 
         self.view = root
+        applyPaneChrome()
         root.setAccessibilityRole(.group)
         terminalView.onUserInputData = { [weak self] data in
             guard let self else { return }
@@ -269,8 +301,30 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         terminalView.synchronizeTerminalSizeWithBackend(force: force)
     }
 
+    /// Neo panes read as raised cards: the card insets off the canvas, rounds,
+    /// clips its content, and casts the dual soft shadow pair. Classic keeps
+    /// the card edge-to-edge, square and shadowless — pixel-identical.
+    private func applyPaneChrome() {
+        let neo = MacSurface.style == .neomorphic
+        let inset: CGFloat = neo ? 7 : 0
+        for constraint in cardInsetConstraints {
+            let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
+            constraint.constant = leadingEdge ? inset : -inset
+        }
+        let radius = neo ? MacSurface.Radius.card : 0
+        cardView.applyStyle(
+            fill: MacTheme.paneBody,
+            cornerRadius: radius,
+            shadows: MacSurface.Shadows.raisedSet
+        )
+        cardClipView.layer?.cornerRadius = radius
+        cardClipView.layer?.masksToBounds = neo
+        cardClipView.layer?.backgroundColor = MacTheme.paneBody.cgColor
+        view.layer?.backgroundColor = neo ? NSColor.clear.cgColor : MacTheme.paneBody.cgColor
+    }
+
     func applyTheme() {
-        view.layer?.backgroundColor = MacTheme.paneBody.cgColor
+        applyPaneChrome()
         header.applyTheme()
         disconnectBanner.layer?.backgroundColor = MacTheme.accentAmber.cgColor
         disconnectBanner.textColor = MacTheme.surfaceDeep

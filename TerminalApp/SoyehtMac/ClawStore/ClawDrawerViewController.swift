@@ -10,11 +10,8 @@ final class ClawDrawerViewController: NSViewController {
     private var hostingController: NSHostingController<ClawDrawerRootView>?
 
     override func loadView() {
-        let root = NSView()
-        root.wantsLayer = true
-        root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        root.layer?.masksToBounds = false
-        MacSurface.Shadows.drawerPanel.apply(to: root.layer)
+        let root = MacStyledSurfaceView()
+        applyPanelStyle(to: root)
         self.view = root
 
         let host = NSHostingController(rootView: ClawDrawerRootView(
@@ -64,8 +61,17 @@ final class ClawDrawerViewController: NSViewController {
     }
 
     func applyTheme() {
-        view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        MacSurface.Shadows.drawerPanel.apply(to: view.layer)
+        if let root = view as? MacStyledSurfaceView {
+            applyPanelStyle(to: root)
+        }
+    }
+
+    private func applyPanelStyle(to root: MacStyledSurfaceView) {
+        root.applyStyle(
+            fill: MacSurface.style == .neomorphic ? MacTheme.neoWell : MacTheme.surfaceBase,
+            cornerRadius: MacSurface.style == .neomorphic ? MacSurface.Radius.panel : 0,
+            shadows: MacSurface.Shadows.drawerPanelSet
+        )
     }
 
     @objc private func preferencesDidChange() {

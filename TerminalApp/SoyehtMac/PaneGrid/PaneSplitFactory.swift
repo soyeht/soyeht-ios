@@ -1,16 +1,10 @@
 import AppKit
 import os
 
-/// NSSplitView subclass that draws the theme-derived 8pt pane-grid divider.
-@MainActor
-final class GapSplitView: NSSplitView {
-    override var dividerThickness: CGFloat { 8 }
-    override var dividerColor: NSColor { MacTheme.gutter }
-    override func drawDivider(in rect: NSRect) {
-        MacTheme.gutter.setFill()
-        rect.fill()
-    }
-}
+// NOTE: Do not subclass/replace NSSplitViewController's splitView here — a
+// custom splitView (even installed before super.loadView()) breaks
+// addSplitViewItem routing and the pane area renders empty. The neo pane gap
+// comes from per-pane card insets in `PaneViewController` instead.
 
 /// Vanilla NSSplitViewController. We used to customize its splitView but that
 /// broke `addSplitViewItem` routing — customizations now live in the delegate
