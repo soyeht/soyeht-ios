@@ -701,6 +701,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard !terminalView.isRemoteSessionConfigured else { return }
         guard !isRestoringLocalShell else { return }
 
+        // W3 — this pane is (re)adopting the engine session. If it was closed
+        // moments ago and is coming back via undo, cancel the pending reap so
+        // the still-alive session is reconnected instead of deleted. No-op on
+        // the normal relaunch path (nothing scheduled).
+        DeferredEngineSessionReaper.cancelReap(engineConversationID: initialEngineConversationID)
+
         let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? resolvedWorkspaceFolder()
             ?? FileManager.default.homeDirectoryForCurrentUser
@@ -1245,18 +1251,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func endEngineSessionIfNeeded() {
         guard let conversation = AppEnvironment.conversationStore?.conversation(conversationID),
               case .engineLocal(let engineConversationID) = conversation.commander else { return }
-        EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
-        Task { @MainActor in
-            guard let context = await LocalEngineContext.resolve() else {
-                Self.logger.warning("endEngineSessionIfNeeded: no local engine context; leaving engine session orphaned pane=\(engineConversationID, privacy: .public)")
-                return
-            }
-            do {
-                try await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
-            } catch {
-                Self.logger.error("deleteLocalTerminal failed pane=\(engineConversationID, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        // W3 — undo window: don't delete immediately. Schedule the destructive
+        // teardown (TTY-map removal + engine DELETE) after `undoWindow`. If the
+        // store's undo re-creates this pane, its reattach cancels the reap and
+        // the still-alive session is reconnected — nothing died, so nothing was
+        // lost. The TTY mapping is intentionally kept until the reap fires so a
+        // reattach in the window can still resolve it.
+        DeferredEngineSessionReaper.scheduleReap(engineConversationID: engineConversationID)
     }
 }
 

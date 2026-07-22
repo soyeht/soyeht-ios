@@ -22,6 +22,20 @@ final class WorkspaceStore {
         let activeWorkspaceID: Workspace.ID?
     }
 
+    /// A main window the user closed while the app kept running. Persistent
+    /// panes keeps the underlying agent sessions alive; this bucket preserves
+    /// the closed window's *membership* (which workspaces, which was active)
+    /// so it can be reopened intact via the Dock / "Reopen Closed Window"
+    /// (W1/W2). Distinct from `RestorableWindowSession` (that reflects windows
+    /// that were *open* at last quit, restored automatically at launch); a
+    /// closed window stays in this bucket and only comes back on user action.
+    struct ClosedWindowSession: Codable, Sendable, Equatable {
+        var windowID: String
+        var workspaceIDs: [Workspace.ID]
+        var activeWorkspaceID: Workspace.ID?
+        var closedAt: Date
+    }
+
     enum RenameError: LocalizedError, Equatable {
         case duplicateName(String)
 
@@ -80,11 +94,21 @@ final class WorkspaceStore {
     @ObservationIgnored
     private var windowOrder: [String] = []
 
+    /// Windows the user closed while the app kept running, most-recent last.
+    /// Fed by `stashClosedWindow`, drained by `popClosedWindow` (W1/W2).
+    /// Capped at `maxClosedWindowSessions`, oldest pruned first.
+    private(set) var closedWindowSessions: [ClosedWindowSession] = []
+
+    @ObservationIgnored
+    static let maxClosedWindowSessions = 20
+
     /// Current on-disk schema version. Bumps require both a new decode path
     /// and an explicit migration story. Unknown (future) versions fall back
     /// to `backupCorruptedFile` + reseed.
+    /// - v5: adds `closedWindowSessions` (W1). Additive — v4 snapshots decode
+    ///   with the field absent (`nil` → empty bucket), no migration needed.
     @ObservationIgnored
-    static let currentVersion = 4
+    static let currentVersion = 5
 
     @ObservationIgnored
     private let storageURL: URL
@@ -860,6 +884,77 @@ final class WorkspaceStore {
         postChange()
     }
 
+    // MARK: - Closed-window bucket (W1/W2 — persistent panes)
+
+    /// Called from `windowWillClose` (outside app termination) instead of
+    /// `clearActiveWindow`. Preserves the closed window's membership in
+    /// `closedWindowSessions` so the Dock / "Reopen Closed Window" can bring
+    /// it back intact, then removes its live membership exactly like
+    /// `clearActiveWindow` (the window is no longer visible). The underlying
+    /// agent sessions stay alive in the engine — this only moves *layout*.
+    ///
+    /// A window with no restorable workspaces (empty seed window) is simply
+    /// cleared, not stashed — reopening an empty window has no value.
+    func stashClosedWindow(windowID: String) {
+        let members = (workspaceOrderByWindow[windowID] ?? []).filter { workspaces[$0] != nil }
+        guard !members.isEmpty else {
+            clearActiveWindow(windowID: windowID)
+            return
+        }
+        let active = activeByWindow[windowID].flatMap { members.contains($0) ? $0 : nil }
+
+        // Replace any prior entry for the same windowID (reopened → reclosed).
+        closedWindowSessions.removeAll { $0.windowID == windowID }
+        closedWindowSessions.append(
+            ClosedWindowSession(
+                windowID: windowID,
+                workspaceIDs: members,
+                activeWorkspaceID: active,
+                closedAt: Date()
+            )
+        )
+        if closedWindowSessions.count > Self.maxClosedWindowSessions {
+            closedWindowSessions.removeFirst(closedWindowSessions.count - Self.maxClosedWindowSessions)
+        }
+
+        // Drop live membership (same effect as clearActiveWindow) — but keep
+        // the workspaces themselves; they live on in the stashed session.
+        activeByWindow.removeValue(forKey: windowID)
+        workspaceOrderByWindow.removeValue(forKey: windowID)
+        _ = removeWindowOrder(windowID)
+        postChange()
+    }
+
+    /// Drain the most-recently closed window and re-attach its membership to
+    /// the live maps so a freshly created window with that `windowID` renders
+    /// all its tabs (via `registerWindow`, which reuses an existing mapping).
+    /// Returns `nil` if the bucket is empty. Stale workspaces (deleted while
+    /// stashed) are filtered; a session left with nothing is dropped and the
+    /// next one tried.
+    @discardableResult
+    func popClosedWindow() -> RestorableWindowSession? {
+        while let session = closedWindowSessions.popLast() {
+            let members = uniqueExistingWorkspaceIDs(session.workspaceIDs)
+            guard !members.isEmpty else { continue }
+
+            rememberWindowOrder(session.windowID)
+            workspaceOrderByWindow[session.windowID] = members
+            let active = session.activeWorkspaceID.flatMap { members.contains($0) ? $0 : nil } ?? members.first
+            if let active {
+                activeByWindow[session.windowID] = active
+            }
+            postChange()
+            return RestorableWindowSession(windowID: session.windowID, activeWorkspaceID: active)
+        }
+        return nil
+    }
+
+    /// Read-only view of the closed-window bucket, most-recent last (for the
+    /// Window menu and tests). Does not mutate.
+    func restorableClosedWindows() -> [ClosedWindowSession] {
+        closedWindowSessions
+    }
+
     private func attachWorkspace(_ workspaceID: Workspace.ID, toWindow windowID: String, at index: Int? = nil) {
         guard workspaces[workspaceID] != nil else { return }
         rememberWindowOrder(windowID)
@@ -984,6 +1079,7 @@ final class WorkspaceStore {
         var workspaceOrderByWindow: [String: [Workspace.ID]]? // v4+
         var activeWorkspaceByWindow: [String: Workspace.ID]?  // v4+
         var windowOrder: [String]?           // v4+
+        var closedWindowSessions: [ClosedWindowSession]?      // v5+
     }
 
     func load() {
@@ -1070,6 +1166,23 @@ final class WorkspaceStore {
                self.workspaces[workspaceID] != nil {
                 result[windowID] = workspaceID
             }
+        }
+
+        // v5: closed-window bucket. `nil` in pre-v5 snapshots → empty. Prune
+        // members deleted while stashed; drop sessions left with none, and
+        // any whose windowID is currently live (should not overlap, but a
+        // stashed window must never shadow an open one).
+        self.closedWindowSessions = (snap.closedWindowSessions ?? []).compactMap { session in
+            guard self.workspaceOrderByWindow[session.windowID] == nil else { return nil }
+            let members = uniqueExistingWorkspaceIDs(session.workspaceIDs)
+            guard !members.isEmpty else { return nil }
+            let active = session.activeWorkspaceID.flatMap { members.contains($0) ? $0 : nil }
+            return ClosedWindowSession(
+                windowID: session.windowID,
+                workspaceIDs: members,
+                activeWorkspaceID: active,
+                closedAt: session.closedAt
+            )
         }
 
         // v2: deliver conversations to the ConversationStore if the bridge is
@@ -1161,8 +1274,25 @@ final class WorkspaceStore {
             groups: orderedGroups,
             workspaceOrderByWindow: workspaceIDsByWindowSnapshot(),
             activeWorkspaceByWindow: activeWorkspaceIDsByWindowSnapshot(),
-            windowOrder: orderedWindowIDsForSnapshot()
+            windowOrder: orderedWindowIDsForSnapshot(),
+            closedWindowSessions: closedWindowSessionsSnapshot()
         )
+    }
+
+    /// Prune stale workspaces from each stashed session at persist time so we
+    /// never write dangling IDs; drop sessions left empty.
+    private func closedWindowSessionsSnapshot() -> [ClosedWindowSession] {
+        closedWindowSessions.compactMap { session in
+            let members = uniqueExistingWorkspaceIDs(session.workspaceIDs)
+            guard !members.isEmpty else { return nil }
+            let active = session.activeWorkspaceID.flatMap { members.contains($0) ? $0 : nil }
+            return ClosedWindowSession(
+                windowID: session.windowID,
+                workspaceIDs: members,
+                activeWorkspaceID: active,
+                closedAt: session.closedAt
+            )
+        }
     }
 
     nonisolated private static func persistSnapshot(_ snap: Snapshot, to url: URL) {

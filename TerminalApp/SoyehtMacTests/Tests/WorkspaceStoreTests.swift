@@ -1340,4 +1340,132 @@ final class WorkspaceStoreTests: XCTestCase {
         store.rename(ws.id, to: "B")
         wait(for: [noMoreFires], timeout: 0.5)
     }
+
+    // MARK: - W1/W2 — closed-window bucket (persistent panes)
+
+    func testStashClosedWindowPreservesMembershipAndClearsLiveMaps() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+        let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+
+        store.stashClosedWindow(windowID: "window-a")
+
+        // Live membership is gone (window is closed)... (checked via the
+        // window-scoped map, not orderedWorkspaces(in:) which falls back to
+        // the global order when a window has no mapping).
+        XCTAssertEqual(store.windowIDs(containing: a1.id), [])
+        XCTAssertEqual(store.windowIDs(containing: a2.id), [])
+        XCTAssertNil(store.activeWorkspaceID(in: "window-a"))
+        // ...but the workspaces themselves survive, preserved in the bucket
+        // with their order and the active tab.
+        XCTAssertNotNil(store.workspace(a1.id))
+        XCTAssertNotNil(store.workspace(a2.id))
+        let bucket = store.restorableClosedWindows()
+        XCTAssertEqual(bucket.count, 1)
+        XCTAssertEqual(bucket.first?.windowID, "window-a")
+        XCTAssertEqual(bucket.first?.workspaceIDs, [a1.id, a2.id])
+        XCTAssertEqual(bucket.first?.activeWorkspaceID, a2.id)
+    }
+
+    func testPopClosedWindowReattachesMembershipForReopen() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+        let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+        store.stashClosedWindow(windowID: "window-a")
+
+        let session = store.popClosedWindow()
+
+        XCTAssertEqual(session, WorkspaceStore.RestorableWindowSession(windowID: "window-a", activeWorkspaceID: a2.id))
+        // Membership re-attached so a re-created window renders all its tabs.
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [a1.id, a2.id])
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), a2.id)
+        // Bucket is drained.
+        XCTAssertTrue(store.restorableClosedWindows().isEmpty)
+        // registerWindow on the reopened window keeps the full membership.
+        store.registerWindow(windowID: "window-a", preferredWorkspaceID: a2.id)
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [a1.id, a2.id])
+    }
+
+    func testStashEmptyWindowIsNotBucketed() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        store.registerWindow(windowID: "window-a", preferredWorkspaceID: nil)
+
+        store.stashClosedWindow(windowID: "window-a")
+
+        XCTAssertTrue(store.restorableClosedWindows().isEmpty)
+    }
+
+    func testPopClosedWindowReturnsMostRecentFirst() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+        let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+        store.stashClosedWindow(windowID: "window-a")
+        store.stashClosedWindow(windowID: "window-b")
+
+        XCTAssertEqual(store.popClosedWindow()?.windowID, "window-b")
+        XCTAssertEqual(store.popClosedWindow()?.windowID, "window-a")
+        XCTAssertNil(store.popClosedWindow())
+        _ = (a, b)
+    }
+
+    func testClosedWindowBucketRoundTripsAcrossReload() {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let a1ID: Workspace.ID
+        let a2ID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+            let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+            a1ID = a1.id
+            a2ID = a2.id
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+            store.stashClosedWindow(windowID: "window-a")
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        // A closed window stays closed across relaunch — reachable only via
+        // reopen, not auto-restored.
+        XCTAssertTrue(reloaded.restorableWindowSessions().isEmpty)
+        let bucket = reloaded.restorableClosedWindows()
+        XCTAssertEqual(bucket.count, 1)
+        XCTAssertEqual(bucket.first?.workspaceIDs, [a1ID, a2ID])
+        XCTAssertEqual(bucket.first?.activeWorkspaceID, a2ID)
+        // And it still reopens intact.
+        let session = reloaded.popClosedWindow()
+        XCTAssertEqual(session?.activeWorkspaceID, a2ID)
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [a1ID, a2ID])
+    }
+
+    /// A v4 snapshot has no `closedWindowSessions` key. Loading it must not
+    /// crash and must yield an empty bucket (additive migration).
+    func testV4SnapshotWithoutClosedBucketLoadsCleanly() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let wsID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let ws = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+            wsID = ws.id
+            store.flushPendingSave()
+        }
+
+        // Rewrite the on-disk snapshot as a v4 file: drop the v5 key, set
+        // version = 4 — exactly what an older build wrote.
+        let data = try Data(contentsOf: url)
+        var json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        json["version"] = 4
+        json.removeValue(forKey: "closedWindowSessions")
+        let v4Data = try JSONSerialization.data(withJSONObject: json)
+        try v4Data.write(to: url)
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertNotNil(reloaded.workspace(wsID))
+        XCTAssertTrue(reloaded.restorableClosedWindows().isEmpty)
+    }
 }

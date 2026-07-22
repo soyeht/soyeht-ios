@@ -168,6 +168,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // otherwise the last ~300ms of mutations (renames, focus changes,
         // new conversations) are lost on normal quit.
         workspaceStore.flushPendingSave()
+        // W3 note: panes closed within the last undo window may have a reap
+        // still pending. We deliberately do NOT force those deletes here —
+        // quitting must never tear down engine sessions (persistent-panes A4
+        // contract), and an async delete on quit is unreliable anyway. The
+        // pending reap simply doesn't fire; the session lingers as an engine
+        // orphan the session cap reclaims. Honoring "quit keeps things alive"
+        // beats an unreliable best-effort delete.
         WorkspaceBookmarkStore.shared.releaseAll()
         automationService?.stop()
         MacAutomaticIPhoneDiscoveryService.shared.stop()
@@ -176,6 +183,41 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false  // Terminal apps stay running after last window closes
+    }
+
+    /// Clicking the Dock icon (or `File → Open`) with no visible window.
+    /// Without this, a closed-window app does nothing on Dock click — the
+    /// user's stashed workspaces are unreachable (W2). We reopen the
+    /// most-recently closed window intact; if the bucket is empty we fall
+    /// back to restoring persisted windows or a fresh one.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // A window is already visible — let AppKit bring it forward.
+        if flag { return true }
+        // A window exists but is miniaturized — let AppKit deminiaturize it
+        // rather than spawning a second copy.
+        if !mainWindowControllers.isEmpty { return true }
+        reopenClosedWindowOrOpenDefault()
+        return false  // handled here
+    }
+
+    /// Reopen the last closed window with its exact membership, or restore
+    /// persisted windows / open a fresh one when nothing was stashed. Shared
+    /// by the Dock reopen path and the "Reopen Closed Window" menu command.
+    /// Idempotent against duplicates: a window whose `windowID` is already
+    /// live is brought forward instead of re-created.
+    func reopenClosedWindowOrOpenDefault() {
+        if let session = workspaceStore.popClosedWindow() {
+            if let existing = mainWindowControllers.first(where: { $0.windowID == session.windowID }) {
+                existing.showWindow(nil)
+                return
+            }
+            openNewMainWindow(
+                initialWindowID: session.windowID,
+                initialWorkspaceID: session.activeWorkspaceID
+            )
+        } else {
+            restoreMainWindowsOrOpenDefault()
+        }
     }
 
     /// Disable AppKit's app-level state restoration. Without this, quitting
