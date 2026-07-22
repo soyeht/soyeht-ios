@@ -96,6 +96,13 @@ enum MacTheme {
     static var neoWell: NSColor { nsColor(neoColors.wellHex) }
     /// Down-right soft shadow cast by a raised surface.
     static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
+    /// Softened dark shadow for DARK surfaces on the light canvas (terminal
+    /// screens): the full-strength tint hugs a dark edge like a smudge, so
+    /// it is blended halfway toward the canvas — the card's own contrast
+    /// plus the white rim do the separating.
+    static var neoShadowDarkSoft: NSColor {
+        nsColor(HexColorMath.mix(neoColors.shadowDarkHex, appPalette.backgroundHex, t: 0.55))
+    }
     /// Up-left soft highlight cast by a raised surface.
     static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
     /// Colored glow behind accent-filled controls (apply alpha at call site).

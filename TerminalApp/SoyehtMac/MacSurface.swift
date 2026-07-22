@@ -135,12 +135,12 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -9, height: 9), radius: 18)
         }
 
-        /// Dual pair for pane cards in the grid. Tighter 5pt/10pt (the Pencil
-        /// reference's own pane values): in a ~20pt inter-card gap the larger
-        /// recipe shows only the flat middle of the shadow — this one shows
-        /// the falloff, which is what reads as "soft".
+        /// Dual pair for pane cards in the grid — tighter 5pt/10-12pt so the
+        /// falloff (not the flat middle) shows in the ~20pt gaps. The dark
+        /// half is the SOFT blend: pane screens are dark surfaces, and the
+        /// full-strength dark tint reads as a dirty edge around them.
         static var neoDarkPane: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 5, height: -5), radius: 10)
+            Shadow(color: MacTheme.neoShadowDarkSoft, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 12)
         }
         static var neoLightPane: Shadow {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -5, height: 5), radius: 10)
