@@ -334,7 +334,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// edge-to-edge, square and shadowless — pixel-identical.
     private func applyPaneChrome() {
         let neo = MacSurface.style == .neomorphic
-        let cardInset: CGFloat = neo ? 10 : 0
+        let cardInset: CGFloat = neo ? 12 : 0
         for constraint in cardInsetConstraints {
             let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
             constraint.constant = leadingEdge ? cardInset : -cardInset

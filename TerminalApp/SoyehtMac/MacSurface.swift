@@ -164,14 +164,14 @@ enum MacSurface {
         }
 
         /// Pane cards. Empty in classic (flat chrome). In neo: the reference
-        /// pair softened to match the design's RENDER, not just its numbers —
-        /// at full opacity the tint reads as a hard band hugging each card
-        /// edge ("lines" between panes). Reach (10pt) fits the 10pt canvas
-        /// margin so nothing slices at the pane-slot boundary.
+        /// pair at design intensity (4/9, full opacity) — correct now that
+        /// pane faces are light: the corridor valley blends light-on-light
+        /// instead of banding against dark screens. Reach (13pt) fits the
+        /// 12pt margin (the last blur tail pt is imperceptible).
         static var raisedSet: [Shadow] {
             neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 0.55, offset: CGSize(width: 3, height: -3), radius: 7),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 0.85, offset: CGSize(width: -3, height: 3), radius: 7),
+                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 9),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 9),
             ] : []
         }
 

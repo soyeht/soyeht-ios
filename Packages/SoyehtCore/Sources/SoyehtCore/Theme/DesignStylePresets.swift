@@ -20,14 +20,26 @@ public extension TerminalColorTheme {
         "#0700FE", "#E500E5", "#00E5E5", "#FFFFFF",
     ]
 
+    /// Milk is a LIGHT terminal (dark ink on milk, like the reference's
+    /// `➜ ~/theyos` card): the neumorphic junction lighting only reads when
+    /// the surfaces that meet are light. Midnight stays the dark-terminal
+    /// home.
+    private static let milkANSI: [String] = [
+        "#1F2633", "#D9556A", "#2E9A73", "#B98A2E",
+        "#3D7DD9", "#9A6BD0", "#2E93A6", "#8E9AB3",
+        "#6E7A96", "#ED6F86", "#3FB68B", "#E9B04E",
+        "#5B9DF5", "#B08CFF", "#3FB6C8", "#263043",
+    ]
+
     static var neoMilk: TerminalColorTheme {
         TerminalColorTheme(
             id: "neoMilk",
             displayName: "Neo · Milk",
-            backgroundHex: "#262B36",
-            foregroundHex: "#E9ECF2",
+            backgroundHex: "#E8EDF4",
+            foregroundHex: "#3E4A66",
             cursorHex: "#5B7CFA",
-            ansiHex: neoANSI,
+            selectionBackgroundHex: "#C9D6EE",
+            ansiHex: milkANSI,
             source: .builtIn,
             extraHexColors: [
                 "app.background": "#E0E5EC",
