@@ -357,7 +357,11 @@ private final class PassthroughControlsView: NSView {
 @MainActor
 final class WindowTopBarView: NSView {
 
-    static let height: CGFloat = 40
+    /// Reference chrome bar is 60pt with generous air around the pills;
+    /// classic keeps the historical 40pt strip. Read at install time.
+    static var height: CGFloat {
+        MacSurface.style == .neomorphic ? 60 : 40
+    }
 
     var onSidebarToggle: (() -> Void)?
     var onClawStoreToggle: (() -> Void)?
@@ -553,7 +557,7 @@ final class WindowTopBarView: NSView {
             // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
             NSLayoutConstraint.activate([
                 sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 12),
-                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -14),
+                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -16),
                 tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 12),
                 tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -12),
             ])

@@ -115,7 +115,7 @@ public struct SoyehtAppPalette: Equatable, Sendable {
         self.alternateStrongHex = ansi[13]
         self.infoStrongHex = ansi[14]
 
-        self.buttonTextOnAccentHex = Self.readableColor(
+        self.buttonTextOnAccentHex = chrome("buttonTextOnAccent") ?? Self.readableColor(
             on: cursor,
             preferred: [cursorText, background, foreground, selectionForeground, ansi[15], ansi[0]],
             sourceColors: sourceColors,
