@@ -45,7 +45,7 @@ sombras 2D de rounded-rect (`layer.shadowPath`, sem body), cada uma **mascarada 
 próprio caster** (CAShapeLayer evenOdd: bounds gigante + path do card) mas livre
 para cair em vizinhos e canvas. Junções em T = sobreposição natural de sombras;
 degrau medido caiu para 5 un (imperceptível). Specs atuais: dark `#A6B4C8` 0.55
-(4,-4)/9, bloom branco 0.65 (-4,4)/9, card radius 20, margem do card 12.
+(4,-4)/9, bloom branco 0.65 (-4,4)/9, card radius 20, margem do card 10 (corredor ~21pt; o overlay do grid nao clipa nos slots, entao o reach da sombra nao depende da margem).
 Atualiza em layout E em `NSSplitView.didResizeSubviewsNotification`.
 
 ## Técnicas AppKit essenciais

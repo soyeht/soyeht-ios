@@ -461,7 +461,7 @@ final class PaneGridController: NSViewController {
             view.addSubview(gridLighting, positioned: .above, relativeTo: rootView)
         }
         gridLighting.frame = view.bounds
-        let cardMargin: CGFloat = 12
+        let cardMargin: CGFloat = 10
         var rects: [NSRect] = []
         for id in tree.leafIDs {
             guard let pane = factory.cache[id],
