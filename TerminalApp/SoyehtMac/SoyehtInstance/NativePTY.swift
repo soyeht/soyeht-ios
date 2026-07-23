@@ -15,8 +15,26 @@ private func soyeht_proc_listpids(
     _ buffersize: Int32
 ) -> Int32
 
+@_silgen_name("proc_pidinfo")
+private func soyeht_proc_pidinfo(
+    _ pid: pid_t,
+    _ flavor: Int32,
+    _ arg: UInt64,
+    _ buffer: UnsafeMutableRawPointer?,
+    _ buffersize: Int32
+) -> Int32
+
 /// `PROC_TTY_ONLY` from <sys/proc_info.h>.
 private let procTTYOnly: UInt32 = 3
+
+/// `PROC_PIDLISTFDS` and `PROX_FDTYPE_VNODE` from <sys/proc_info.h>.
+private let procPIDListFDs: Int32 = 1
+private let procFDTypeVnode: UInt32 = 1
+
+private struct SoyehtProcFDInfo {
+    var procFD: Int32
+    var procFDType: UInt32
+}
 
 /// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
 /// a PTY pair. The picker labels this path as "bash", so the default must not
@@ -53,8 +71,7 @@ final class NativePTY {
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "native-pty")
 
     /// Child shell's PID. `forkpty` creates a new session for the child, making
-    /// this PID the process-group ID as well, so `kill(-pid, SIGHUP)` closes the
-    /// whole job tree — backgrounded processes included.
+    /// this PID the initial process-group ID as well.
     let pid: pid_t
 
     /// Slave-side TTY path, e.g. `/dev/ttys010`. Used by automation to map an
@@ -328,15 +345,18 @@ final class NativePTY {
         src.resume()
     }
 
-    /// SIGHUP the process group so the shell and its jobs (background ones
-    /// included) terminate as if the user closed a Terminal tab. The actual
-    /// FD close happens from the read source's cancel handler.
+    /// SIGHUP the terminal-facing processes so the shell and its jobs
+    /// terminate as if the user closed a Terminal tab. The actual FD close
+    /// happens from the read source's cancel handler.
     ///
     /// Agent CLIs in raw mode (claude, some node TUIs) ignore SIGHUP, which
     /// used to leak them as detached orphans after the pane closed — so after
-    /// a grace period the surviving process group is escalated to
-    /// SIGTERM and finally SIGKILL. The escalation captures only the pgid (no
-    /// `self`) so it is safe to schedule from `deinit`.
+    /// a grace period surviving terminal jobs are escalated to SIGTERM and
+    /// finally SIGKILL. Pipe/socket-backed helpers are deliberately excluded:
+    /// MCP servers inherit the controlling TTY but communicate with their
+    /// owning client over private stdio. Killing them independently drops the
+    /// client's tool transport; killing the client closes those pipes and lets
+    /// helpers exit naturally.
     func close() {
         stateLock.lock()
         if closed {
@@ -344,12 +364,13 @@ final class NativePTY {
             return
         }
         closed = true
-        // Snapshot every process still attached to this pane's TTY before the
-        // master closes — afterwards the TTY association is revoked and the
-        // survivors become unfindable (they show up as `??` in ps).
-        let survivors = Self.pidsOnTTY(slaveTTYPath)
-        // Negative pid == process-group kill.
-        _ = Darwin.kill(-pid, SIGHUP)
+        // Snapshot terminal-facing jobs before the master closes — afterwards
+        // the TTY association is revoked and survivors become unfindable.
+        var terminalPIDs = Self.terminalProcessPIDs(on: slaveTTYPath)
+        if !terminalPIDs.contains(pid) {
+            terminalPIDs.append(pid)
+        }
+        Self.signalProcesses(terminalPIDs, signal: SIGHUP)
         if readSuspended, let src = readSource {
             readSuspended = false
             src.resume()
@@ -361,14 +382,15 @@ final class NativePTY {
         readSource = nil
         exitSource?.cancel()
         exitSource = nil
-        Self.scheduleTerminationEscalation(pgid: pid, ttyPids: survivors)
+        Self.scheduleTerminationEscalation(leaderPID: pid, terminalPIDs: terminalPIDs)
     }
 
-    /// Every pid whose controlling terminal is `ttyPath`. Interactive-shell job
-    /// control gives each job its own process group, so this — not the shell's
-    /// pgid — is the set that must die with the pane. Fully daemonized
-    /// processes (setsid, no TTY) intentionally escape.
-    private static func pidsOnTTY(_ ttyPath: String?) -> [pid_t] {
+    /// Every terminal-facing pid whose controlling terminal is `ttyPath`.
+    /// `PROC_TTY_ONLY` alone is too broad: MCP servers inherit the controlling
+    /// TTY even though stdin/stdout are pipes or sockets to the agent client.
+    /// Requiring fd 0 or 1 to be a vnode keeps real terminal jobs in the reap
+    /// set while leaving those helpers to their normal parent/EOF lifecycle.
+    private static func terminalProcessPIDs(on ttyPath: String?) -> [pid_t] {
         guard let ttyPath else { return [] }
         var st = stat()
         guard stat(ttyPath, &st) == 0 else { return [] }
@@ -381,43 +403,76 @@ final class NativePTY {
             soyeht_proc_listpids(procTTYOnly, ttyDev, buf.baseAddress, Int32(buf.count))
         }
         guard written > 0 else { return [] }
-        return Array(pids.prefix(Int(written) / MemoryLayout<pid_t>.size)).filter { $0 > 0 }
+        return Array(pids.prefix(Int(written) / MemoryLayout<pid_t>.size))
+            .filter { $0 > 0 && hasTerminalStandardIO($0) }
+    }
+
+    static func hasTerminalStandardIO(_ processID: pid_t) -> Bool {
+        let byteCount = soyeht_proc_pidinfo(processID, procPIDListFDs, 0, nil, 0)
+        // Preserve the historical reap behavior if libproc cannot classify a
+        // process; exclusion is reserved for a positive pipe/socket finding.
+        guard byteCount > 0 else { return true }
+
+        let capacity = Int(byteCount) / MemoryLayout<SoyehtProcFDInfo>.stride + 8
+        var descriptors = [SoyehtProcFDInfo](
+            repeating: SoyehtProcFDInfo(procFD: -1, procFDType: 0),
+            count: capacity
+        )
+        let written = descriptors.withUnsafeMutableBytes { buffer in
+            soyeht_proc_pidinfo(
+                processID,
+                procPIDListFDs,
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written > 0 else { return true }
+
+        let count = Int(written) / MemoryLayout<SoyehtProcFDInfo>.stride
+        return descriptors.prefix(count).contains { descriptor in
+            (descriptor.procFD == STDIN_FILENO || descriptor.procFD == STDOUT_FILENO)
+                && descriptor.procFDType == procFDTypeVnode
+        }
+    }
+
+    private static func signalProcesses(_ processIDs: [pid_t], signal: Int32) {
+        for processID in Set(processIDs) where Darwin.kill(processID, 0) == 0 {
+            _ = Darwin.kill(processID, signal)
+        }
     }
 
     /// SIGHUP → (2s) SIGTERM → (2s) SIGKILL for whatever survives of the
-    /// pane's processes: the shell's process group plus every pid that was on
-    /// the pane's TTY (agent CLIs in raw mode ignore SIGHUP and live in their
-    /// own job pgids). Reaps the leader along the way. Captures only values —
-    /// safe to schedule from `deinit`.
-    private static func scheduleTerminationEscalation(pgid: pid_t, ttyPids: [pid_t]) {
+    /// pane's terminal-facing processes. Reaps the leader along the way.
+    /// Captures only values, so it is safe to schedule from `deinit`.
+    private static func scheduleTerminationEscalation(
+        leaderPID: pid_t,
+        terminalPIDs: [pid_t]
+    ) {
         let queue = DispatchQueue.global(qos: .utility)
 
         func signalSurvivors(_ sig: Int32) -> Bool {
-            var anyAlive = false
-            if Darwin.kill(-pgid, 0) == 0 {
-                anyAlive = true
-                _ = Darwin.kill(-pgid, sig)
+            var survivors: [pid_t] = []
+            for processID in Set(terminalPIDs) where Darwin.kill(processID, 0) == 0 {
+                survivors.append(processID)
             }
-            for p in ttyPids where p != pgid && Darwin.kill(p, 0) == 0 {
-                anyAlive = true
-                _ = Darwin.kill(p, sig)
-            }
-            return anyAlive
+            signalProcesses(survivors, signal: sig)
+            return !survivors.isEmpty
         }
 
         queue.asyncAfter(deadline: .now() + 2) {
             var status: Int32 = 0
-            _ = waitpid(pgid, &status, WNOHANG)
+            _ = waitpid(leaderPID, &status, WNOHANG)
             guard signalSurvivors(SIGTERM) else { return }
             logger.notice("pane processes survived SIGHUP; sent SIGTERM")
             queue.asyncAfter(deadline: .now() + 2) {
                 var status2: Int32 = 0
-                _ = waitpid(pgid, &status2, WNOHANG)
+                _ = waitpid(leaderPID, &status2, WNOHANG)
                 guard signalSurvivors(SIGKILL) else { return }
                 logger.warning("pane processes survived SIGTERM; sent SIGKILL")
                 queue.asyncAfter(deadline: .now() + 1) {
                     var status3: Int32 = 0
-                    _ = waitpid(pgid, &status3, WNOHANG)
+                    _ = waitpid(leaderPID, &status3, WNOHANG)
                 }
             }
         }
