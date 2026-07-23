@@ -54,9 +54,14 @@ private final class GridLightingView: NSView {
         cardLayers.forEach { $0.removeFromSuperlayer() }
         cardLayers.removeAll()
 
+        // Bloom must be sRGB (the token) — grayscale NSColor.white failed
+        // to render as a CALayer shadow color here — and strong enough to
+        // read BRIGHTER than the card face at the lit edges (reference:
+        // bloom #F5F6F9 against face #E8EDF4), which is what makes the
+        // top-left corner look elevated.
         let specs: [(NSColor, Float, CGSize, CGFloat)] = [
             (MacTheme.neoShadowDark, 0.55, CGSize(width: 4, height: -4), 9),
-            (.white, 0.65, CGSize(width: -4, height: 4), 9),
+            (MacTheme.neoShadowLight, 1.0, CGSize(width: -4, height: 4), 9),
         ]
         for rect in cardRects {
             let cardPath = CGPath(

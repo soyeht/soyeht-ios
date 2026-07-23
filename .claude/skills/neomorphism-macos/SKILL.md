@@ -50,6 +50,12 @@ Atualiza em layout E em `NSSplitView.didResizeSubviewsNotification`.
 
 ## Técnicas AppKit essenciais
 
+- **`NSColor.white`/grayscale NÃO renderiza como `shadowColor` de CALayer**
+  neste pipeline — use sempre cores sRGB (tokens `MacTheme.*`, hex via
+  `brandHex`). Sintoma: sombra escura aparece, bloom some sem erro.
+- **Borda "elevada"**: o bloom deve PICAR mais claro que a face na borda
+  iluminada (referência: bloom `#F5F6F9` vs face `#E8EDF4`, degrau ~13 un) —
+  bloom em opacidade cheia; é esse overshoot que separa objeto de luz.
 - **Múltiplas sombras**: CALayer tem 1 sombra. `MacStyledSurfaceView` empilha N
   sublayers de sombra + surface (CAGradientLayer p/ gradiente) + `passesThroughHits`
   para backdrops cosméticos atrás de botões.
