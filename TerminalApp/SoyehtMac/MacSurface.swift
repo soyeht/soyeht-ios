@@ -164,14 +164,16 @@ enum MacSurface {
         }
 
         /// Pane cards. Empty in classic (flat chrome). In neo: the raised
-        /// reading the reference shows — a white bloom spreading from the
-        /// top-left (the light source) and a neutral dark drop to the
-        /// bottom-right. Neutral colors, not the tinted pair: the card face
-        /// is dark, and tint against a dark edge reads as smudge.
+        /// light-source pair SCALED TO THE GAP, not to the card — total
+        /// reach (offset + blur) stays under the 12pt canvas margin so the
+        /// shadow is never sliced at the pane-slot boundary, and the canvas
+        /// stays visible between cards (hero-scale shadows in a tiled grid
+        /// saturate the gaps and read as background texture). Neutral
+        /// colors: the card face is dark, tint smears against dark edges.
         static var raisedSet: [Shadow] {
             neo ? [
-                Shadow(color: .black, opacity: 0.30, offset: CGSize(width: 10, height: -10), radius: 18),
-                Shadow(color: .white, opacity: 0.90, offset: CGSize(width: -10, height: 10), radius: 18),
+                Shadow(color: .black, opacity: 0.22, offset: CGSize(width: 3, height: -3), radius: 8),
+                Shadow(color: .white, opacity: 0.55, offset: CGSize(width: -3, height: 3), radius: 8),
             ] : []
         }
 
