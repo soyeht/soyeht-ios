@@ -419,6 +419,7 @@ final class WindowTopBarView: NSView {
         if neo {
             sidebarBackdrop.applyStyle(
                 fill: MacTheme.neoSurface,
+                gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
                 cornerRadius: MacSurface.Radius.control,
                 shadows: MacSurface.Shadows.raisedSmallSet
             )

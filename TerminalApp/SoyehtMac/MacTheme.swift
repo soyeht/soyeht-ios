@@ -107,6 +107,15 @@ enum MacTheme {
     static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
     /// Colored glow behind accent-filled controls (apply alpha at call site).
     static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
+
+    /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
+    /// Light source top-left, so a raised surface is lighter at the start
+    /// and settles slightly darker at the bottom-right.
+    static var neoConvexStart: NSColor { nsColor(HexColorMath.lighten(neoColors.raisedSurfaceHex, by: 0.35)) }
+    static var neoConvexEnd: NSColor { nsColor(HexColorMath.darken(neoColors.raisedSurfaceHex, by: 0.08)) }
+    /// Concave (pressed) variant — same pair, reversed.
+    static var neoConcaveStart: NSColor { neoConvexEnd }
+    static var neoConcaveEnd: NSColor { neoConvexStart }
 }
 
 private extension NSColor {

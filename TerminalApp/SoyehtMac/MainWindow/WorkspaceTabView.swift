@@ -27,6 +27,9 @@ final class WorkspaceTabView: NSView {
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
     private let pillBackdrop = MacStyledSurfaceView()
+    /// Neo surface curvature: sits above the tab's opaque fill (kept for
+    /// titlebar-drag hit routing) and below the label/badge subview layers.
+    private let pillGradient = CAGradientLayer()
     private var isActive: Bool = false
     /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
     /// short-circuit when the value hasn't changed. NSTextField's
@@ -83,6 +86,8 @@ final class WorkspaceTabView: NSView {
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
+        pillGradient.isHidden = true
+        layer?.insertSublayer(pillGradient, at: 0)
 
         // Neo pill shadows live on a pass-through backdrop behind the tab's
         // own opaque layer (dual shadows need their own layers, and the tab
@@ -278,6 +283,14 @@ final class WorkspaceTabView: NSView {
             )
             layer?.backgroundColor = fill.cgColor
             layer?.cornerRadius = radius
+            pillGradient.isHidden = false
+            let start = isActive ? MacTheme.neoConcaveStart : MacTheme.neoConvexStart
+            let end = isActive ? MacTheme.neoConcaveEnd : MacTheme.neoConvexEnd
+            pillGradient.colors = [start.cgColor, end.cgColor]
+            pillGradient.startPoint = CGPoint(x: 0.09, y: 0.91)
+            pillGradient.endPoint = CGPoint(x: 0.91, y: 0.09)
+            pillGradient.cornerRadius = radius
+            pillGradient.frame = bounds
             label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
             label.font = isActive
                 ? MacTypography.NSFonts.workspaceTabTitleActive
@@ -285,6 +298,7 @@ final class WorkspaceTabView: NSView {
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = true
         } else if isActive {
+            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
@@ -297,6 +311,7 @@ final class WorkspaceTabView: NSView {
             // `mouseDownCanMoveWindow = false` when the hit view is opaque.
             // Visually identical to transparent because the parent paints
             // the same colour, but event routing now works.
+            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel

@@ -67,9 +67,11 @@ final class ClawDrawerViewController: NSViewController {
     }
 
     private func applyPanelStyle(to root: MacStyledSurfaceView) {
+        let neo = MacSurface.style == .neomorphic
         root.applyStyle(
-            fill: MacSurface.style == .neomorphic ? MacTheme.neoWell : MacTheme.surfaceBase,
-            cornerRadius: MacSurface.style == .neomorphic ? MacSurface.Radius.panel : 0,
+            fill: neo ? MacTheme.neoWell : MacTheme.surfaceBase,
+            gradient: neo ? (MacTheme.neoConvexStart, MacTheme.neoConvexEnd) : nil,
+            cornerRadius: neo ? MacSurface.Radius.panel : 0,
             shadows: MacSurface.Shadows.drawerPanelSet
         )
     }

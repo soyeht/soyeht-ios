@@ -36,7 +36,7 @@ enum MacSurface {
         )
         static let neomorphic = RadiusSpec(
             indicator: 3, badge: 6, chip: 8, control: 12, inputCapsule: 12,
-            card: 16, panel: 18, window: 20, mediaLarge: 16, popover: 18, hero: 24
+            card: 16, panel: 22, window: 20, mediaLarge: 16, popover: 18, hero: 24
         )
     }
 
@@ -143,13 +143,14 @@ enum MacSurface {
             Shadow(color: .black, opacity: 0.10, offset: CGSize(width: 0, height: -2), radius: 8)
         }
 
-        /// Dual pair for compact controls (chips, pills, small buttons):
-        /// 4pt offset / 8pt blur, same 2× ratio.
+        /// Dual pair for compact controls (chips, pills, small buttons).
+        /// Generator ratios scaled to ~34pt elements: offset ≈ 0.17 × size,
+        /// blur ≈ 1.67 × offset.
         static var neoDarkSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 8)
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 6, height: -6), radius: 10)
         }
         static var neoLightSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 8)
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -6, height: 6), radius: 10)
         }
 
         /// Pane cards. Empty in classic (flat chrome); in neo the dark
@@ -179,19 +180,20 @@ enum MacSurface {
             ] : []
         }
 
-        /// Floating sidebar panel. Classic casts right onto the workspace;
-        /// neo lifts with the standard dual pair.
+        /// Floating sidebar / drawer panels. These OVERLAY dark pane content,
+        /// where the tinted neumorphic pair smears into murk — overlays get a
+        /// neutral ambient elevation instead (reads correctly over anything).
+        /// The generator-style pair stays on elements that sit on the canvas.
         static var sidebarPanelSet: [Shadow] {
-            neo ? [neoDark, neoLight] : [floatingPanel]
+            neo ? [
+                Shadow(color: .black, opacity: 0.30, offset: CGSize(width: 10, height: -10), radius: 36),
+            ] : [floatingPanel]
         }
 
-        /// Claw drawer panel (mirrors the sidebar horizontally — it hangs on
-        /// the right edge, so its dark cast leans left but light still comes
-        /// from the top-left).
+        /// Claw drawer panel (hangs on the right edge — ambient leans left).
         static var drawerPanelSet: [Shadow] {
             neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: -9, height: -9), radius: 18),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -2, height: 9), radius: 18),
+                Shadow(color: .black, opacity: 0.30, offset: CGSize(width: -10, height: -10), radius: 36),
             ] : [drawerPanel]
         }
 
