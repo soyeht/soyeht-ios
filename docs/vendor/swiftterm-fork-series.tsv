@@ -1,0 +1,32 @@
+ordinal	fork_commit	full_patch_id	touches_vendored_tree	vendored_patch_id	mirror_commit	subject
+01	5ca6462248cc2d6b8a30b22d8de9e5dc0ae91791	4d7f3414577af84f295eea78b1a2f1d7d16de396	yes	4d7f3414577af84f295eea78b1a2f1d7d16de396	9ed923261d4cb9cd0002e57d3fe5a2af9b3fa662	Fix iOS dictation: real-time marked text rendering, correct cursor rects, and hypothesis updates
+02	95846b8283ffe98bdef316609f67fd78f1774bc4	f44af83f1c3bd27258ec36333ff89f1fdeea8c5b	yes	c02df3e7cb899cefd1c21978998ef96df49c03f6	d29191fe7d23b10d66d7892cd7215e19b15c5909	Add session capture, terminal output API, and content observer
+03	949af18178ead2dd779dddf13ce73f2e021f42e7	acccb9022bd33b460a9ed4c7136adc520756efb3	yes	5ac95ccac211a587bd1d118966a4a8bbdc39cf4d	0583150e62010f2acb039335b0737cfa87896dfe	Add structured events v2 ndjson format and deprecate legacy jsonEvents
+04	ca6c11ce213a5031c3cb321a582464fd599356b7	0b229c4d146b9023600db671f8d6e54c247303cd	no	-	-	Update SwiftPM package resolution
+05	d0ed6fc8fe427637134534b8714dd5b3208aa7ac	171e0c5b036b1b0d8c20889fe120edad36febcf9	no	-	-	Add app UI design with terminal screens, components, and splash
+06	ec70082ad36e3caac5e93814ae2458df00a60c56	247b2f2b7afcc888c6c4aabb03e7ced780f9033e	no	-	-	Add .claude/ to gitignore
+07	98c65f8f41b1aa2be1e731cb4c20d8e80926cd09	3049b0a03253776ed686bb33a3dbb56f92a4a3ed	no	-	-	Redesign iOS app UI: splash, instance list, terminal with custom key bar
+08	b4f0953b353320f17c8e6a03c591dac48bbc2178	0592b5aacf105581d54483c6ac2444152b979f8d	no	-	-	Replace mock data with real API integration and workspace management
+09	c2dc12f3135f156b9770bff5b8a4cc570ab39b0b	345489acd530e3844a4857d544c694643b52b28a	no	-	-	Add watchOS companion app design doc with user stories
+10	f759c2ce567c94347c8638659e4f74bd38af736b	24de7c0a9890b0c5fc601b44de48736659c75c45	no	-	-	Add tmux history viewer via capture-pane and fix workspace CodingKeys
+11	cc4e5c9038abab0d473b77bf8f946d270124ebeb	e5c4821c48bd5ce3f2432168c92d1168fb38a751	no	-	-	Add 3 history view modes (wrap/scroll/terminal) with ANSI color support
+12	7fc49fed07fa9760376224d59610981a3dbb595b	c63c0e6f9dd5f1eb55ba3fc82a971b65702d3f25	no	-	-	Remove wrap view mode, keep scroll and terminal only
+13	12857ad9a100e1c8c7bb42ee2355b4e82ce2d9aa	dad763a7f90dfa40fa7cfdb938527184db9d22f1	no	-	-	Fix live terminal: WebSocket JSON input, session attach, read-only history
+14	39d33662ffb0f1ebe6311194e61d76de9312ffc6	c2fc41b7a6f4d1c6c9151de2a809ef77bde8afd5	yes	a2025a6499c3801e90f27c7c1927871a52a630b7	b4f47a8bd6b930b8de38248d0e48875ba6564d01	Redesign terminal key bar with new button layout, haptic feedback, and modifiers
+15	84d1840463853010cb61514841fe8d43f55511b1	edd70ed249f6a85762d3c219de3d4ebf908ecaa6	no	-	-	Update app design file and add build dirs to gitignore
+16	c1beb4a8c76086e57e18f487e312a220356eb2db	eb0c0f176fd64e092f2fa02a19816bf59b746d8d	no	-	-	Improve session CRUD: fix creation, add rename and delete
+17	ea06780da25a53bd6121f68d244bacc41696816b	15a2116af680eff96d83a595346ace1ec18fde0a	no	-	-	Hide keyboard in tmux scroll mode, restore on return to live
+18	34c01ff34c8127a0eb8f4eacaf0353159c373609	7e4252715895763e794697b1dd0b701289ff3cd2	no	-	-	Redesign scroll mode: rename to history, bottom controls with pan/pager toggle
+19	9e85bdbe32e4bfd0d40dde8bb12eb759ca6c920a	dadf623f386ec20d281336012e7f331816fc91d7	no	-	-	Adopt UIScene lifecycle on iOS
+20	69cc21b8a64aaedfedb752fcde76641acdf4f8af	be444c55f9321bd8f395768c8af3b3000850221c	no	-	-	Add network resilience: structured logging, retry, WS reconnect, error UX
+21	55887c56830028cf2dc94a49ecf89769b0422b32	574805625de88d3793cf0cbd3137bb38bfb6445c	no	-	-	Add connecting animation to attach button with indeterminate progress bar
+22	8cd259a05cb4942b637e3d7179619a7d3c4d0b4d	a398d51e976cd2c677fcbe2c3cce9d771aca46b5	no	-	-	Fix stray terminal control text on iOS
+23	1528b9eecd767e201e5bf3caf1c780cddaea504e	13fce18f1dccc39439408c8e602bdfff2699ec6a	no	-	-	Refine session list layout: straight borders, swipe-to-delete, outlined attach button
+24	d6efc6a92f685fddd5b235c9401bdee1ac9a7c99	e811ca2ef249b3e3c1310bca9d6ceb3458a9ca7e	no	-	-	Add PgUp/PgDn keys to terminal bar and apply Soyeht theme consistently
+25	95ce5a1d9dafc71646701ad7ca11a24c56eb7dbb	41765d58336ad043109b6c5b4a24cee6383c30cc	no	-	-	Rename app to Soyeht and update app icon
+26	c0a7030c3039fc01e14727dc8e39b31e4f9cd830	c0933136d2298e674217fa3a85a5f5ef992d9532	yes	ebe093cb301c17a5afd2c1413bdc286a6a7e9530	8f271933769a04f7a28ee176285b1d3f7e2750a5	Fix all Xcode build warnings across SwiftTerm and iOSTerminal
+27	709d908bf14c825538615b64418e3ce8d3c4bd11	11ad209767fee622d432eb8a12a132227114a6d2	no	-	-	Fix websocket terminal reconnect redraw
+28	9a327c7ea644fa9782f58a51bf405b04bb84f0fa	f35f12f4315400defec72bbb218838a315498fb8	no	-	-	Handle terminal connection loss in app UI
+29	555105261752120cbef0b07ce25a92a17c646469	2c10a0cd27f21fe8842da3516255f0eabeccb7b6	no	-	-	Add tmux window/pane management UI with full CRUD operations
+30	ae7fa75ceb2a0438014d2a17eca242eaf231bfe8	4af73e468b0e4f98cbd15e908ababf565e3aca1c	no	-	-	Add pane-based tab bar with selectPane API and zoom support
+31	a6351d8aee88a87f7e87ed276a6369c0d2211064	0dfd19caea6cf51a9fa542315c660d22713b1e01	yes	67436617bc98015a6105d5261b38494f2a76cfb1	4c3a1028921576fad7893a67778a02a0368fedf9	Add horizontal swipe gesture to switch tmux panes

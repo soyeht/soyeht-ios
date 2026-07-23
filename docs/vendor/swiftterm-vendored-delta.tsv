@@ -1,0 +1,14 @@
+ordinal	soyeht_ios_commit	vendored_patch_id	subject
+01	5e5e1dda889af1928737539721f5809db49d285a	c13387d41799f17d847fc8bb603bfae978917554	Add haptic feedback system with per-zone configuration
+02	33cc603f285790952628dd77d73783727a231a82	c4f390b8f35ba7ed7b85c37312e120e1cccbf416	Fix remote OSC 52 clipboard on iOS: relax parser and route to pasteboard
+03	1252072c01d10f687bd3b44f30a56c771d216ff5	dbfe76a1b9ea7dc18303d47a03b70994639c3e37	Add floating scrollback history panel over the terminal
+04	849fe7fdbbf390a0c8e3c651b1fcb1684a0e9ed3	51bc4c7703085022b7020619dafbe007f3fe4b96	Clean up scrollback panel: single source of truth, lifecycle, tests
+05	04ebc30ca5377a821ab7cd203424270b0fbb2a8a	7c4a912c5b371399436a89841d2ce28f72609d5c	Add full macOS native terminal app (Soyeht.app)
+06	e809d407edfe0fbef608b44aad074a75423d9248	d7f7baab72b63ce09a7bdc2af1a516284eb927bd	Adopt JetBrains Mono as the brand monospaced font (iOS + macOS + widget)
+07	e7f04c52378f57f858bac94f6fb6988f65ef50dd	ad06113323d1c9727816db2878bd58ad0b371224	chore: publish-prep — relicense (Apache 2.0 + MIT split) + scrub private paths
+08	fab763b04409c4070521a08ab928ac62f1d7dba3	408cf82bad9070bc238d8b088ce14985da378d52	fix(ui): centralize typography and raise macOS font sizes
+09	6d1ea288ad413cd52627f19e623487b969491295	5c8b31de7a4f4cfa90a8802664e036ea01f1cc14	Adjust macOS layout chrome and scroll indicators (#15)
+10	fd72264e7cc872008f3fa841c5d47c8e704aff2a	788d210804676487b87cdc2dbcd34cece0796e18	Fix macOS and iOS build warnings
+11	5b7e314410d8cc3d982cd13ec430311c6e44efb8	5f252151ea919974961bfd0d166ebfeafd0c7b13	Fix macOS chat and terminal interactivity during runs
+12	e8f3d65ac87756a91b66e770e3ad291ec937b254	bc24cf3b0d1de810d922d89e7065f2e504e86e05	mac: editor + git panes, MCP onboarding, chrome polish, stable Debug signing (#98)
+13	1cceceb57e038f275fbdee728318cfedb03447d0	45167d67f0f4b93872135da0ab941ec2455a1e79	fix(mac): terminal flow control, query replies, App Nap guard, orphan reaping (#317)
