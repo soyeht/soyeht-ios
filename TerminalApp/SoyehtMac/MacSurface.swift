@@ -36,7 +36,7 @@ enum MacSurface {
         )
         static let neomorphic = RadiusSpec(
             indicator: 3, badge: 6, chip: 8, control: 12, inputCapsule: 12,
-            card: 16, panel: 22, window: 20, mediaLarge: 16, popover: 18, hero: 24
+            card: 20, panel: 22, window: 20, mediaLarge: 16, popover: 18, hero: 24
         )
     }
 
@@ -163,17 +163,16 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -6, height: 6), radius: 10)
         }
 
-        /// Pane cards. Empty in classic (flat chrome). In neo: the raised
-        /// light-source pair SCALED TO THE GAP, not to the card — total
-        /// reach (offset + blur) stays under the 12pt canvas margin so the
-        /// shadow is never sliced at the pane-slot boundary, and the canvas
-        /// stays visible between cards (hero-scale shadows in a tiled grid
-        /// saturate the gaps and read as background texture). Neutral
-        /// colors: the card face is dark, tint smears against dark edges.
+        /// Pane cards. Empty in classic (flat chrome). In neo: the reference
+        /// (YzYHW) pair — tinted 4/9, full opacity — which only works
+        /// because the card FACE is light (≈ canvas): light-on-light seams
+        /// between neighboring cards blend invisibly, and the reach (13pt)
+        /// effectively fits the 12pt canvas margin (the last blur tail pt is
+        /// imperceptible).
         static var raisedSet: [Shadow] {
             neo ? [
-                Shadow(color: .black, opacity: 0.22, offset: CGSize(width: 3, height: -3), radius: 8),
-                Shadow(color: .white, opacity: 0.55, offset: CGSize(width: -3, height: 3), radius: 8),
+                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 9),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 9),
             ] : []
         }
 

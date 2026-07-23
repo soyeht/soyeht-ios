@@ -320,12 +320,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         terminalView.synchronizeTerminalSizeWithBackend(force: force)
     }
 
-    /// Neo panes float as dark rounded cards directly on the single milk
-    /// canvas (one background for the whole grid — per-pane light frames
-    /// muddy the shadows and fragment the canvas). The card = light header
-    /// strip + dark screen flush below it, clipped together and casting the
-    /// dual soft shadow pair. Classic keeps everything edge-to-edge, square
-    /// and shadowless — pixel-identical.
+    /// Neo panes follow the reference (YzYHW) anatomy: a LIGHT frame card
+    /// (≈ canvas color — neumorphism rule #1, and what makes seams between
+    /// neighboring cards invisible) carrying the reference's tinted dual
+    /// pair, with the dark terminal screen floating inside it on a 10pt
+    /// margin with its own 12pt rounding. Classic keeps everything
+    /// edge-to-edge, square and shadowless — pixel-identical.
     private func applyPaneChrome() {
         let neo = MacSurface.style == .neomorphic
         let cardInset: CGFloat = neo ? 12 : 0
@@ -334,19 +334,16 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             constraint.constant = leadingEdge ? cardInset : -cardInset
         }
 
-        // Screen stays flush to the card (inset 0): the pane contributes no
-        // light frame of its own — the only light parts are the header strip
-        // and the shared canvas around the card.
+        let screenInset: CGFloat = neo ? 10 : 0
         for constraint in screenInsetConstraints {
-            constraint.constant = 0
+            switch constraint.firstAttribute {
+            case .top, .leading: constraint.constant = screenInset
+            default: constraint.constant = -screenInset
+            }
         }
 
-        // The card base is LIGHT (header tone) even though most of it is
-        // covered by the dark screen: at the rounded corners the base's
-        // antialiased rim peeks out 1px, and a light rim vanishes into the
-        // canvas while a dark one reads as an ugly ring around the header.
         let radius = neo ? MacSurface.Radius.card : 0
-        let cardBase = neo ? MacTheme.paneHeaderNew : MacTheme.paneBody
+        let cardBase = neo ? MacTheme.neoSurface : MacTheme.paneBody
         cardView.applyStyle(
             fill: cardBase,
             cornerRadius: radius,
@@ -356,8 +353,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         cardClipView.layer?.masksToBounds = neo
         cardClipView.layer?.backgroundColor = cardBase.cgColor
 
-        screenClipView.layer?.cornerRadius = 0
-        screenClipView.layer?.masksToBounds = false
+        screenClipView.layer?.cornerRadius = neo ? 12 : 0
+        screenClipView.layer?.masksToBounds = neo
         screenClipView.layer?.backgroundColor = MacTheme.terminalScreen.cgColor
 
         view.layer?.backgroundColor = neo ? NSColor.clear.cgColor : MacTheme.paneBody.cgColor
