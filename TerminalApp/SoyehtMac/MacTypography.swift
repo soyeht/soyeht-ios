@@ -15,6 +15,18 @@ enum MacTypography {
         Typography.monoNSFont(size: appUISize(size), weight: weight, italic: italic)
     }
 
+    /// Chrome labels that the neomorphic style renders in its rounded sans
+    /// (Nunito, per the reference design). Classic — and any build where
+    /// Nunito failed to register — keeps the mono token. Terminal glyph
+    /// content never goes through this.
+    private static func nsChromeFont(_ size: CGFloat, weight: Typography.Weight = .regular) -> NSFont {
+        if MacSurface.style == .neomorphic,
+           let neoSans = Typography.neoSansNSFont(size: appUISize(size), weight: weight) {
+            return neoSans
+        }
+        return nsMonoFont(size, weight: weight)
+    }
+
     private static func nsSansFont(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
         Typography.sansNSFont(size: appUISize(size), weight: weight)
     }
@@ -36,15 +48,15 @@ enum MacTypography {
         }
 
         enum Navigation {
-            static var tabTitle: NSFont { MacTypography.nsMonoFont(15, weight: .regular) }
-            static var tabTitleActive: NSFont { MacTypography.nsMonoFont(15, weight: .medium) }
+            static var tabTitle: NSFont { MacTypography.nsChromeFont(15, weight: .regular) }
+            static var tabTitleActive: NSFont { MacTypography.nsChromeFont(15, weight: .semibold) }
             static var tabBadge: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabClose: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabAdd: NSFont { MacTypography.nsMonoFont(17, weight: .regular) }
-            static var paneHeader: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
-            static var sidebarHeader: NSFont { MacTypography.nsMonoFont(13, weight: .medium) }
-            static var sidebarPrimary: NSFont { MacTypography.nsMonoFont(14, weight: .semibold) }
-            static var sidebarSecondary: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
+            static var paneHeader: NSFont { MacTypography.nsChromeFont(13, weight: .semibold) }
+            static var sidebarHeader: NSFont { MacTypography.nsChromeFont(13, weight: .medium) }
+            static var sidebarPrimary: NSFont { MacTypography.nsChromeFont(14, weight: .semibold) }
+            static var sidebarSecondary: NSFont { MacTypography.nsChromeFont(13, weight: .regular) }
         }
 
         enum Text {

@@ -114,6 +114,18 @@ enum MacTheme {
         nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
     }
 
+    /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
+    /// pills across the grid). Derived from the theme's semantic colors so
+    /// every palette produces coherent pastels.
+    static var neoHeaderPastels: [NSColor] {
+        [
+            appPalette.accentHex,
+            appPalette.successHex,
+            appPalette.dangerHex,
+            appPalette.warningHex,
+        ].map { nsColor(HexColorMath.mix($0, "#FFFFFF", t: 0.76)) }
+    }
+
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
     /// Light source top-left, so a raised surface is lighter at the start
     /// and settles slightly darker at the bottom-right.

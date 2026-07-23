@@ -31,7 +31,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// Primary label — the conversation handle. Rendered with centralized
     /// muted typography; agent subtitle was dropped to match SXnc2 `header1..6`.
     var handle: String = "—" {
-        didSet { handleLabel.stringValue = Self.displayHandle(handle) }
+        didSet {
+            handleLabel.stringValue = Self.displayHandle(handle)
+            // The neo pill pastel is keyed off the handle.
+            applyHeaderSurface()
+        }
     }
 
     /// Retained for API compatibility with existing bind paths — no-op
@@ -315,10 +319,16 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func applyHeaderSurface() {
         let neo = MacSurface.style == .neomorphic
         if neo {
+            // Stable per-pane pastel (reference rotates blue/green/pink/
+            // yellow across the grid). String.hashValue is seeded per
+            // launch, so key off the scalar sum instead.
+            let pastels = MacTheme.neoHeaderPastels
+            let key = handle.unicodeScalars.reduce(0) { ($0 &+ Int($1.value)) }
+            let pastel = pastels[key % pastels.count]
             layer?.cornerRadius = bounds.height / 2
-            layer?.backgroundColor = MacTheme.neoHeaderPill.cgColor
+            layer?.backgroundColor = pastel.cgColor
             MacSurface.Shadow(
-                color: MacTheme.neoHeaderPill.withAlphaComponent(0.6),
+                color: pastel.withAlphaComponent(0.6),
                 opacity: 1,
                 offset: CGSize(width: 3, height: -3),
                 radius: 8
@@ -330,6 +340,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             layer?.backgroundColor = Self.headerFill.cgColor
             dividerView.isHidden = false
         }
+        handleLabel.font = MacTypography.NSFonts.paneHeaderHandle
     }
 
     override func layout() {
