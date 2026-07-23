@@ -165,6 +165,14 @@ enum MacSurface {
             neo ? [neoDarkSmall, neoLightSmall] : []
         }
 
+        /// Miniature pair for ~22pt header chips (generator ratios scaled).
+        static var raisedMicroSet: [Shadow] {
+            neo ? [
+                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 5),
+                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 5),
+            ] : []
+        }
+
         /// Slightly tighter pair for the active (pressed-looking) tab pill.
         static var raisedTabSet: [Shadow] {
             neo ? [

@@ -136,8 +136,37 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         tint: PaneHeaderView.iconTint,
         accessibility: "Close pane"
     )
+    /// Neo chips: each header button rides inside a MacStyledSurfaceView so
+    /// it can float with the generator surface (gradient + dual shadows).
+    /// In classic the chip is styled invisible, so the hierarchy change has
+    /// no visual effect. Visibility toggles target the CHIP (hiding just the
+    /// button would leave an empty floating chip in the stack).
+    private lazy var openOnIPhoneChip = Self.makeChip(around: openOnIPhoneButton)
+    private lazy var qrChip = Self.makeChip(around: qrButton)
+    private lazy var splitVChip = Self.makeChip(around: splitVButton)
+    private lazy var splitHChip = Self.makeChip(around: splitHButton)
+    private lazy var closeChip = Self.makeChip(around: closeButton)
+    private var allChips: [MacStyledSurfaceView] {
+        [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip]
+    }
+
+    private static let chipSize: CGFloat = 22
+
+    private static func makeChip(around button: NSButton) -> MacStyledSurfaceView {
+        let chip = MacStyledSurfaceView()
+        chip.translatesAutoresizingMaskIntoConstraints = false
+        chip.addSubview(button)
+        NSLayoutConstraint.activate([
+            chip.widthAnchor.constraint(equalToConstant: chipSize),
+            chip.heightAnchor.constraint(equalToConstant: chipSize),
+            button.centerXAnchor.constraint(equalTo: chip.centerXAnchor),
+            button.centerYAnchor.constraint(equalTo: chip.centerYAnchor),
+        ])
+        return chip
+    }
+
     private lazy var buttonsStack: NSStackView = {
-        let stack = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
+        let stack = NSStackView(views: [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 4
@@ -154,6 +183,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         layer?.backgroundColor = Self.headerFill.cgColor
         buildLayout()
         wireActions()
+        applyChipStyle()
         applyFocusStyle()
     }
 
@@ -245,7 +275,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     private func applyHeaderAccessoryState() {
         let qrCanShow = headerAccessories.contains(.qr)
-        qrButton.isHidden = !qrCanShow
+        qrChip.isHidden = !qrCanShow
         qrButton.isEnabled = qrCanShow && isQRHandoffEnabled
         qrButton.toolTip = isQRHandoffEnabled
             ? String(localized: "pane.header.button.qr.tooltip.enabled", defaultValue: "Continue this pane on a paired iPhone", comment: "Tooltip on the QR-handoff button when the active server can issue continue-QR tokens.")
@@ -256,7 +286,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func applyOpenOnIPhoneState() {
         let canShow = headerAccessories.contains(.openOnIPhone)
         openOnIPhoneButton.isEnabled = canShow && isOpenOnIPhoneEnabled
-        openOnIPhoneButton.isHidden = !canShow || !isOpenOnIPhoneEnabled
+        openOnIPhoneChip.isHidden = !canShow || !isOpenOnIPhoneEnabled
         openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
             ? String(localized: "pane.header.button.iphone.tooltip.enabled", comment: "Tooltip on the iPhone button when at least one paired iPhone is online.")
             : String(localized: "pane.header.button.iphone.tooltip.disabled", comment: "Tooltip on the iPhone button when no paired iPhone is online.")
@@ -273,8 +303,26 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         dividerView.layer?.backgroundColor = Self.divider.cgColor
         copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
         copiedIndicatorLabel.textColor = Self.copiedIndicatorText
+        applyChipStyle()
         refreshButtonImages()
         applyFocusStyle()
+    }
+
+    /// Generator-style raised chips in neo; invisible wrappers in classic.
+    private func applyChipStyle() {
+        let neo = MacSurface.style == .neomorphic
+        for chip in allChips {
+            if neo {
+                chip.applyStyle(
+                    fill: MacTheme.neoSurface,
+                    gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
+                    cornerRadius: MacSurface.Radius.chip,
+                    shadows: MacSurface.Shadows.raisedMicroSet
+                )
+            } else {
+                chip.applyStyle(fill: .clear, cornerRadius: 0)
+            }
+        }
     }
 
     func showCopiedIndicator() {
