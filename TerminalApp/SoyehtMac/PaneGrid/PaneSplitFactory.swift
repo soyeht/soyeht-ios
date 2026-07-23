@@ -1,14 +1,31 @@
 import AppKit
 import os
 
-/// NSSplitView subclass that draws the theme-derived 8pt pane-grid divider.
+// NOTE: Do not subclass/replace NSSplitViewController's splitView here — a
+// custom splitView (even installed before super.loadView()) breaks
+// addSplitViewItem routing and the pane area renders empty. The neo pane gap
+// comes from per-pane card insets in `PaneViewController` instead, and the
+// stock 1px divider line is hidden by `DividerCoverView` below.
+
+/// Neo-only strip that hides the stock 1px divider line with the canvas
+/// color. All grid LIGHTING (card shadows/blooms and their junction
+/// blending) is painted by `GridLightingView` at the grid level — real
+/// per-card 2D shadows that overlap freely, which rectangle-corridor
+/// gradients can never reproduce at junctions. Ignores hits so divider
+/// dragging still works.
 @MainActor
-final class GapSplitView: NSSplitView {
-    override var dividerThickness: CGFloat { 8 }
-    override var dividerColor: NSColor { MacTheme.gutter }
-    override func drawDivider(in rect: NSRect) {
-        MacTheme.gutter.setFill()
-        rect.fill()
+private final class DividerCoverView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func applyCanvas() {
+        layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
     }
 }
 
@@ -53,9 +70,49 @@ final class GapSplitViewController: NSSplitViewController {
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
+    private let dividerCover = DividerCoverView()
+
     override func viewDidLayout() {
         super.viewDidLayout()
         applyTargetRatioIfNeeded(force: !hasAppliedInitialRatio)
+        updateDividerCover()
+    }
+
+    /// Keeps the canvas-colored line hider glued to the divider rect (neo
+    /// only — classic shows the stock divider exactly as before).
+    private func updateDividerCover() {
+        guard MacSurface.style == .neomorphic,
+              splitView.arrangedSubviews.count == 2 else {
+            dividerCover.isHidden = true
+            return
+        }
+        dividerCover.isHidden = false
+        dividerCover.applyCanvas()
+
+        let first = splitView.arrangedSubviews[0].frame
+        let lineRect = splitView.isVertical
+            ? NSRect(x: first.maxX, y: 0, width: splitView.dividerThickness, height: splitView.bounds.height)
+            : NSRect(x: 0, y: first.maxY, width: splitView.bounds.width, height: splitView.dividerThickness)
+
+        // NSSplitViewController keeps an internal divider subview above every
+        // other subview; nesting the hider inside it wins the z-battle and
+        // tracks divider drags for free.
+        let internalDivider = splitView.subviews.first { candidate in
+            candidate !== dividerCover
+                && !splitView.arrangedSubviews.contains(candidate)
+        }
+        if let internalDivider {
+            if dividerCover.superview !== internalDivider {
+                internalDivider.addSubview(dividerCover)
+            }
+            dividerCover.autoresizingMask = []
+            dividerCover.frame = internalDivider.convert(lineRect, from: splitView)
+        } else {
+            if dividerCover.superview !== splitView {
+                splitView.addSubview(dividerCover, positioned: .above, relativeTo: nil)
+            }
+            dividerCover.frame = lineRect
+        }
     }
 
     private func applyTargetRatioIfNeeded(force: Bool = false) {

@@ -38,14 +38,11 @@ final class FloatingSidebarViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let root = NSView()
-        root.wantsLayer = true
-        root.layer?.backgroundColor = MacTheme.sidebarBg.cgColor
-        // Shadow escapes the view bounds — masksToBounds must stay false
-        // here. (chromeVC's own clip is at the window edge, which is far
-        // enough from this overlay that the shadow isn't cut.)
-        root.layer?.masksToBounds = false
-        MacSurface.Shadows.floatingPanel.apply(to: root.layer)
+        // Shadow escapes the view bounds — masksToBounds stays false inside
+        // MacStyledSurfaceView. (chromeVC's own clip is at the window edge,
+        // which is far enough from this overlay that the shadow isn't cut.)
+        let root = MacStyledSurfaceView()
+        applyPanelStyle(to: root)
         self.view = root
 
         let list = WorkspaceSidebarListView(
@@ -80,8 +77,19 @@ final class FloatingSidebarViewController: NSViewController {
     }
 
     func applyTheme() {
-        view.layer?.backgroundColor = MacTheme.sidebarBg.cgColor
-        MacSurface.Shadows.floatingPanel.apply(to: view.layer)
+        if let root = view as? MacStyledSurfaceView {
+            applyPanelStyle(to: root)
+        }
         listView?.reload()
+    }
+
+    private func applyPanelStyle(to root: MacStyledSurfaceView) {
+        let neo = MacSurface.style == .neomorphic
+        root.applyStyle(
+            fill: MacTheme.sidebarBg,
+            gradient: neo ? (MacTheme.neoConvexStart, MacTheme.neoConvexEnd) : nil,
+            cornerRadius: neo ? MacSurface.Radius.panel : 0,
+            shadows: MacSurface.Shadows.sidebarPanelSet
+        )
     }
 }

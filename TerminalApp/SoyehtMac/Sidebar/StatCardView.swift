@@ -8,6 +8,7 @@ final class StatCardView: NSView {
 
     private let titleLabel = NSTextField(labelWithString: "")
     private let valueLabel = NSTextField(labelWithString: "—")
+    private let backdrop = MacStyledSurfaceView()
 
     private let titleText: String
 
@@ -15,10 +16,30 @@ final class StatCardView: NSView {
         self.titleText = title
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = MacSurface.Radius.card
-        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        layer?.borderWidth = MacSurface.Border.hairline
-        layer?.borderColor = NSColor.separatorColor.cgColor
+        // The sidebar recreates its detail views on reload (which the theme
+        // cascade triggers), so styling at init keeps the card current.
+        if MacSurface.style == .neomorphic {
+            backdrop.passesThroughHits = true
+            backdrop.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(backdrop)
+            NSLayoutConstraint.activate([
+                backdrop.topAnchor.constraint(equalTo: topAnchor),
+                backdrop.leadingAnchor.constraint(equalTo: leadingAnchor),
+                backdrop.trailingAnchor.constraint(equalTo: trailingAnchor),
+                backdrop.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+            backdrop.applyStyle(
+                fill: MacTheme.neoSurface,
+                gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
+                cornerRadius: MacSurface.Radius.card,
+                shadows: MacSurface.Shadows.raisedSmallSet
+            )
+        } else {
+            layer?.cornerRadius = MacSurface.Radius.card
+            layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            layer?.borderWidth = MacSurface.Border.hairline
+            layer?.borderColor = NSColor.separatorColor.cgColor
+        }
         setAccessibilityRole(.staticText)
         setAccessibilityLabel(String(
             localized: "sidebar.statCard.a11y.empty",

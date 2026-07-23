@@ -42,6 +42,26 @@ public enum Typography {
         monoBoldPS, monoItalicPS, monoBoldItalicPS
     ]
 
+    // MARK: - Neo chrome sans (Nunito, OFL — bundled like JetBrains Mono)
+    //
+    // Used only by the neomorphic design style for chrome labels; the
+    // terminal grid and the classic style keep JetBrains Mono. Registration
+    // is best-effort (no fatalError): a missing Nunito degrades to mono, it
+    // does not break the brand contract the way a missing JBM would.
+
+    public static let neoSansFamily = "Nunito"
+    public static let neoSansRegularPS = "Nunito-Regular"
+    public static let neoSansSemiBoldPS = "Nunito-SemiBold"
+    public static let neoSansBoldPS = "Nunito-Bold"
+
+    static func neoSansPostScriptName(weight: Weight) -> String {
+        switch weight {
+        case .regular: return neoSansRegularPS
+        case .medium, .semibold: return neoSansSemiBoldPS
+        case .bold: return neoSansBoldPS
+        }
+    }
+
     // MARK: - Weight
 
     public enum Weight: Sendable {
@@ -357,6 +377,12 @@ public enum Typography {
         NSFont.systemFont(ofSize: size, weight: weight)
     }
 
+    /// Neo chrome sans, nil when Nunito isn't registered (callers fall back
+    /// to their mono token).
+    public static func neoSansNSFont(size: CGFloat, weight: Weight = .regular) -> NSFont? {
+        NSFont(name: neoSansPostScriptName(weight: weight), size: size)
+    }
+
     #endif
 
     // MARK: - Bootstrap
@@ -405,6 +431,17 @@ public enum Typography {
         }
 
         CTFontManagerRegisterFontURLs(urls as CFArray, .process, true, nil)
+
+        // Best-effort registration of the neo chrome sans. Missing files or
+        // registration failures degrade gracefully (chrome falls back to
+        // mono) — only JetBrains Mono is allowed to crash the app.
+        let neoSansURLs = ["Nunito-Regular", "Nunito-SemiBold", "Nunito-Bold"].compactMap { name in
+            Bundle.module.url(forResource: name, withExtension: "ttf", subdirectory: "Fonts")
+                ?? Bundle.module.url(forResource: name, withExtension: "ttf")
+        }
+        if !neoSansURLs.isEmpty {
+            CTFontManagerRegisterFontURLs(neoSansURLs as CFArray, .process, true, nil)
+        }
 
         // Verify every PostScript name resolves immediately after registration.
         // If any does not, we refuse to continue — rendering with SF Mono as

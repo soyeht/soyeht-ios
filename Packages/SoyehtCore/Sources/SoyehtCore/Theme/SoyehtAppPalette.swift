@@ -41,9 +41,15 @@ public struct SoyehtAppPalette: Equatable, Sendable {
     public let buttonTextOnAccentHex: String
 
     public init(theme: TerminalColorTheme) {
-        let background = theme.backgroundHex
-        let foreground = theme.foregroundHex
-        let cursor = theme.cursorHex
+        // Curated design-style presets may pin chrome colors that diverge from
+        // the terminal screen colors (e.g. a light neumorphic chrome around a
+        // dark terminal) via reserved `extraHexColors` keys. Themes without
+        // `app.*` keys derive exactly as before.
+        func chrome(_ key: String) -> String? { theme.extraHexColors["app.\(key)"] }
+
+        let background = chrome("background") ?? theme.backgroundHex
+        let foreground = chrome("textPrimary") ?? theme.foregroundHex
+        let cursor = chrome("accent") ?? theme.cursorHex
         let cursorText = theme.cursorTextHex ?? background
         let selectionBackground = theme.selectionBackgroundHex ?? cursor
         let selectionForeground = theme.selectionForegroundHex ?? cursorText
@@ -63,15 +69,15 @@ public struct SoyehtAppPalette: Equatable, Sendable {
         )
 
         self.backgroundHex = background
-        self.surfaceHex = background
-        self.surfaceRaisedHex = background
-        self.cardHex = background
-        self.borderHex = ansi[8]
-        self.hoverHex = background
+        self.surfaceHex = chrome("surface") ?? background
+        self.surfaceRaisedHex = chrome("surfaceRaised") ?? chrome("surface") ?? background
+        self.cardHex = chrome("card") ?? chrome("surface") ?? background
+        self.borderHex = chrome("border") ?? ansi[8]
+        self.hoverHex = chrome("hover") ?? background
 
         self.textPrimaryHex = foreground
-        self.textSecondaryHex = ansi[7]
-        self.textMutedHex = ansi[8]
+        self.textSecondaryHex = chrome("textSecondary") ?? ansi[7]
+        self.textMutedHex = chrome("textMuted") ?? ansi[8]
         self.readableTextOnBackgroundHex = Self.readableColor(
             on: background,
             preferred: [foreground, theme.boldHex, ansi[7], ansi[15], ansi[0]],
@@ -109,7 +115,7 @@ public struct SoyehtAppPalette: Equatable, Sendable {
         self.alternateStrongHex = ansi[13]
         self.infoStrongHex = ansi[14]
 
-        self.buttonTextOnAccentHex = Self.readableColor(
+        self.buttonTextOnAccentHex = chrome("buttonTextOnAccent") ?? Self.readableColor(
             on: cursor,
             preferred: [cursorText, background, foreground, selectionForeground, ansi[15], ansi[0]],
             sourceColors: sourceColors,

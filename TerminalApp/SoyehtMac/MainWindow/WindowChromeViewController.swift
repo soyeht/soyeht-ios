@@ -1,4 +1,5 @@
 import AppKit
+import SoyehtCore
 
 /// File-scope helper shared by `WindowChromeViewController` and `WorkspaceTabsView` to
 /// decide when to swap into RTL constraint/direction paths. Kept here (not a dedicated
@@ -356,7 +357,11 @@ private final class PassthroughControlsView: NSView {
 @MainActor
 final class WindowTopBarView: NSView {
 
-    static let height: CGFloat = 40
+    /// Reference chrome bar is 60pt with generous air around the pills;
+    /// classic keeps the historical 40pt strip. Read at install time.
+    static var height: CGFloat {
+        MacSurface.style == .neomorphic ? 60 : 40
+    }
 
     var onSidebarToggle: (() -> Void)?
     var onClawStoreToggle: (() -> Void)?
@@ -364,8 +369,15 @@ final class WindowTopBarView: NSView {
     let tabsView: WorkspaceTabsView
     private let sidebarButton = NSButton()
     private let clawStoreButton = NSButton()
+    /// Neo backdrops: raised chip behind the sidebar toggle, accent pill with
+    /// colored glow behind the Claw Store button (Pencil `tjIxf`). Hidden in
+    /// classic; pass-through so the buttons keep receiving clicks.
+    private let sidebarBackdrop = MacStyledSurfaceView()
+    private let clawBackdrop = MacStyledSurfaceView()
     private let leftInsetGuide = NSView()
     private var leftInsetConstraint: NSLayoutConstraint?
+    private var clawWidthConstraint: NSLayoutConstraint?
+    private static let neoChipSize: CGFloat = 34
     private static let chromeIconButtonSize: CGFloat = 28
     private static let chromeIconImageSize: CGFloat = 20
     private static let clawStoreIconImageSize: CGFloat = 24
@@ -377,6 +389,11 @@ final class WindowTopBarView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         build()
+        // The chrome controller's initial applyTheme() pass runs before this
+        // view is installed (topBarView is still nil there), so style the
+        // initial state ourselves — otherwise the neo backdrops stay hidden
+        // until the first preferences change.
+        applyTheme()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -402,14 +419,55 @@ final class WindowTopBarView: NSView {
 
     func applyTheme() {
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
-        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        let neo = MacSurface.style == .neomorphic
+        sidebarBackdrop.isHidden = !neo
+        clawBackdrop.isHidden = !neo
+        if neo {
+            // Reference `ePA3h`: flat face + dual pair, no surface gradient.
+            sidebarBackdrop.applyStyle(
+                fill: MacTheme.neoSurface,
+                cornerRadius: MacSurface.Radius.control,
+                shadows: MacSurface.Shadows.raisedSmallSet
+            )
+            clawBackdrop.applyStyle(
+                fill: MacTheme.interactionAccent,
+                cornerRadius: Self.neoChipSize / 2,
+                shadows: MacSurface.Shadows.accentGlowSet
+            )
+            sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.textMuted)
+            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.buttonTextOnAccent)
+            // Reference: the Claws control is a labeled accent pill.
+            clawWidthConstraint?.isActive = false
+            clawStoreButton.imagePosition = .imageLeading
+            let title = NSMutableAttributedString(
+                string: "Claws",
+                attributes: [
+                    .font: Typography.neoSansNSFont(size: 14, weight: .bold)
+                        ?? NSFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: MacTheme.buttonTextOnAccent,
+                ]
+            )
+            clawStoreButton.attributedTitle = title
+        } else {
+            clawWidthConstraint?.isActive = true
+            clawStoreButton.imagePosition = .imageOnly
+            clawStoreButton.title = ""
+            sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
+            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        }
         tabsView.applyTheme()
     }
 
     private func build() {
         leftInsetGuide.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leftInsetGuide)
+
+        for backdrop in [sidebarBackdrop, clawBackdrop] {
+            backdrop.passesThroughHits = true
+            backdrop.isHidden = true
+            backdrop.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(backdrop)
+        }
 
         sidebarButton.translatesAutoresizingMaskIntoConstraints = false
         sidebarButton.isBordered = false
@@ -443,6 +501,12 @@ final class WindowTopBarView: NSView {
         leftInsetConstraint = leftInsetGuide.widthAnchor.constraint(equalToConstant: 86)
         leftInsetConstraint?.isActive = true
 
+        // Icon-only width in classic; released in neo so the "Claws" label
+        // can size the pill (reference anatomy).
+        let clawWidth = clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize)
+        clawWidthConstraint = clawWidth
+        clawWidth.isActive = true
+
         // Traffic lights stay top-LEFT in absolute terms even under RTL (macOS convention —
         // window controls are direction-independent, mirroring the minimize/close stays on the
         // same side of the chrome regardless of language). So `leftInsetGuide` reserves
@@ -465,10 +529,19 @@ final class WindowTopBarView: NSView {
             sidebarButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             clawStoreButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
             clawStoreButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            sidebarBackdrop.centerXAnchor.constraint(equalTo: sidebarButton.centerXAnchor),
+            sidebarBackdrop.centerYAnchor.constraint(equalTo: sidebarButton.centerYAnchor),
+            sidebarBackdrop.widthAnchor.constraint(equalToConstant: Self.neoChipSize),
+            sidebarBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
+
+            clawBackdrop.centerYAnchor.constraint(equalTo: clawStoreButton.centerYAnchor),
+            clawBackdrop.leadingAnchor.constraint(equalTo: clawStoreButton.leadingAnchor, constant: -12),
+            clawBackdrop.trailingAnchor.constraint(equalTo: clawStoreButton.trailingAnchor, constant: 12),
+            clawBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
         ])
 
         if isRTL {
@@ -484,7 +557,7 @@ final class WindowTopBarView: NSView {
             // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
             NSLayoutConstraint.activate([
                 sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 12),
-                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -14),
+                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -16),
                 tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 12),
                 tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -12),
             ])

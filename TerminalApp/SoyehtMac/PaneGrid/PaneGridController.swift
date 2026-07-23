@@ -27,6 +27,78 @@ private final class PaneGridDropView: NSView {
     }
 }
 
+/// Neo grid lighting: ONE overlay above the whole pane tree that draws
+/// every card's dark shadow and white bloom as real 2D rounded-rect
+/// shadows (canonical pair, corners included), free to overlap — exactly
+/// how the reference composes light. Each card is masked out of its OWN
+/// shadows (a drop shadow never paints over its caster), but shadows DO
+/// fall on neighboring cards and the canvas, so corridors, junctions and
+/// outer margins are all the same physical gradient with no seams.
+@MainActor
+private final class GridLightingView: NSView {
+    private var cardLayers: [CALayer] = []
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.masksToBounds = false
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func update(cardRects: [NSRect], cornerRadius: CGFloat) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        cardLayers.forEach { $0.removeFromSuperlayer() }
+        cardLayers.removeAll()
+
+        // Bloom must be sRGB (the token) — grayscale NSColor.white failed
+        // to render as a CALayer shadow color here — and strong enough to
+        // read BRIGHTER than the card face at the lit edges (reference:
+        // bloom #F5F6F9 against face #E8EDF4), which is what makes the
+        // top-left corner look elevated.
+        let specs: [(NSColor, Float, CGSize, CGFloat)] = [
+            (MacTheme.neoShadowDark, 0.55, CGSize(width: 4, height: -4), 9),
+            (MacTheme.neoShadowLight, 1.0, CGSize(width: -4, height: 4), 9),
+        ]
+        for rect in cardRects {
+            let cardPath = CGPath(
+                roundedRect: rect,
+                cornerWidth: cornerRadius,
+                cornerHeight: cornerRadius,
+                transform: nil
+            )
+            for (color, opacity, offset, blur) in specs {
+                let shadowLayer = CALayer()
+                shadowLayer.frame = bounds
+                shadowLayer.masksToBounds = false
+                shadowLayer.shadowPath = cardPath
+                shadowLayer.shadowColor = color.cgColor
+                shadowLayer.shadowOpacity = opacity
+                shadowLayer.shadowOffset = offset
+                shadowLayer.shadowRadius = blur
+
+                // Mask the caster's own rect out of its shadow: the shadow
+                // may fall on neighbors and canvas, never on its own card.
+                let mask = CAShapeLayer()
+                mask.frame = bounds
+                let maskPath = CGMutablePath()
+                maskPath.addRect(bounds.insetBy(dx: -200, dy: -200))
+                maskPath.addPath(cardPath)
+                mask.path = maskPath
+                mask.fillRule = .evenOdd
+                shadowLayer.mask = mask
+
+                layer?.addSublayer(shadowLayer)
+                cardLayers.append(shadowLayer)
+            }
+        }
+        CATransaction.commit()
+    }
+}
+
 private final class PaneDockOverlayView: NSView {
     private var target: WorkspaceLayout.DockTarget?
 
@@ -161,6 +233,7 @@ final class PaneGridController: NSViewController {
     private var mouseEventMonitor: Any?
     private var pendingGroupSelectionClick: (paneID: Conversation.ID, location: NSPoint)?
     private let dockOverlay = PaneDockOverlayView()
+    private let gridLighting = GridLightingView()
     private let shortcutRouter = AppCommandShortcutRouter()
 
     // Called when the tree is mutated by a pane action (split/close). The
@@ -228,8 +301,9 @@ final class PaneGridController: NSViewController {
     override func loadView() {
         let root = PaneGridDropView()
         root.wantsLayer = true
-        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design).
-        root.layer?.backgroundColor = MacTheme.gutter.cgColor
+        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design). Neo paints
+        // the grid in the canvas color so panes float as separated cards.
+        root.layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         root.registerForDraggedTypes([PaneHeaderView.panePasteboardType])
         root.onPaneDragUpdated = { [weak self] info in
@@ -238,6 +312,12 @@ final class PaneGridController: NSViewController {
         root.onPaneDragExited = { [weak self] in
             self?.clearPaneDockDrag()
         }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(anySplitResized(_:)),
+            name: NSSplitView.didResizeSubviewsNotification,
+            object: nil
+        )
         root.onPaneDragPerformed = { [weak self] info in
             self?.performPaneDockDrop(info) ?? false
         }
@@ -350,9 +430,66 @@ final class PaneGridController: NSViewController {
         return tree.rotatingSplit(containing: focused) != tree
     }
 
+    /// Canvas margin around the pane tree: zero in classic (panes touch the
+    /// container edge as always), a card gap in neo. Panes add their own 7pt
+    /// card inset, so the effective outer margin is 14 and the inter-pane
+    /// gap is ~15 (7 + divider + 7).
+    private static var outerInset: CGFloat {
+        MacSurface.style == .neomorphic ? 12 : 0
+    }
+
+    /// Frames the mounted root inside the canvas margin. Idempotent, and
+    /// guarded against the zero-bounds mount that happens before the first
+    /// layout pass — insetting an empty rect makes it negative-sized and
+    /// autoresizing never recovers from an invalid frame.
+    private func layoutCurrentRoot() {
+        guard let rootView = currentRoot?.view else { return }
+        let target = view.bounds.insetBy(dx: Self.outerInset, dy: Self.outerInset)
+        rootView.frame = target.isEmpty ? view.bounds : target
+        updateGridLighting()
+    }
+
+    /// Recomputes the per-card shadow/bloom geometry (neo only). Card rects
+    /// are each visible pane's slot inset by the card margin, in grid
+    /// coordinates. Also fires on split-divider drags via the
+    /// `didResizeSubviewsNotification` observer installed in `viewDidLoad`.
+    private func updateGridLighting() {
+        let neo = MacSurface.style == .neomorphic
+        gridLighting.isHidden = !neo
+        guard neo, let rootView = currentRoot?.view else { return }
+        if gridLighting.superview !== view {
+            view.addSubview(gridLighting, positioned: .above, relativeTo: rootView)
+        }
+        gridLighting.frame = view.bounds
+        let cardMargin: CGFloat = 10
+        var rects: [NSRect] = []
+        for id in tree.leafIDs {
+            guard let pane = factory.cache[id],
+                  pane.view.superview != nil,
+                  !pane.view.isHiddenOrHasHiddenAncestor,
+                  pane.view.window != nil else { continue }
+            let slot = view.convert(pane.view.bounds, from: pane.view)
+            let card = slot.insetBy(dx: cardMargin, dy: cardMargin)
+            if !card.isEmpty { rects.append(card) }
+        }
+        gridLighting.update(cardRects: rects, cornerRadius: MacSurface.Radius.card)
+    }
+
+    @objc private func anySplitResized(_ note: Notification) {
+        guard let splitView = note.object as? NSSplitView,
+              splitView.isDescendant(of: view) else { return }
+        updateGridLighting()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        layoutCurrentRoot()
+    }
+
     func applyTheme() {
         PerfTrace.interval("grid.applyTheme") {
-            view.layer?.backgroundColor = MacTheme.gutter.cgColor
+            view.layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
+            layoutCurrentRoot()
             for pane in factory.cache.values {
                 pane.applyTheme()
             }
@@ -576,9 +713,9 @@ final class PaneGridController: NSViewController {
         // with the grid's view.
         newRoot.view.translatesAutoresizingMaskIntoConstraints = true
         newRoot.view.autoresizingMask = [.width, .height]
-        newRoot.view.frame = view.bounds
         view.addSubview(newRoot.view)
         currentRoot = newRoot
+        layoutCurrentRoot()
         if dockOverlay.superview === view {
             view.addSubview(dockOverlay, positioned: .above, relativeTo: newRoot.view)
         }
