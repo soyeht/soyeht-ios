@@ -569,6 +569,18 @@ open class Terminal {
             tdel?.send(source: self, data: data[0...])
         }
     }
+
+    /// Disarms DECSET 1004 focus reporting without notifying the host.
+    ///
+    /// Replayed scrollback re-parses a dead program's `ESC[?1004h` (a killed
+    /// TUI never restored the mode), leaving the terminal armed to inject
+    /// `CSI I`/`CSI O` into a foreground program — typically a plain shell —
+    /// that never asked for focus events and beeps on the unknown input.
+    /// Hosts call this after a history replay; a live program that really
+    /// wants focus events re-enables the mode itself.
+    public func disableFocusReporting() {
+        sendFocus = false
+    }
     
     ///
     /// Represents the mouse operation mode that the terminal is currently using and higher level

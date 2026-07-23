@@ -823,6 +823,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 isReplayingHistory = true
             case .replayDone:
                 isReplayingHistory = false
+                // The replay just re-parsed a dead program's `ESC[?1004h`
+                // (killed TUIs never restore it). Left armed, every workspace
+                // switch injects CSI I into the live shell, which beeps on
+                // the unknown input. A live TUI re-enables the mode itself.
+                terminal.disableFocusReporting()
             }
         }
 
@@ -862,6 +867,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     // MARK: - TerminalViewDelegate
+
+    func bell(source: TerminalView) {
+        // The engine resends the whole scrollback on attach (bracketed by
+        // replay_start/replay_done). A BEL an agent rang once lives in that
+        // buffer forever — without this guard it re-beeps on every workspace
+        // switch / reattach. Only live bells ring.
+        guard !isReplayingHistory else { return }
+        NSSound.beep()
+    }
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
         let bytes = Data(data)
