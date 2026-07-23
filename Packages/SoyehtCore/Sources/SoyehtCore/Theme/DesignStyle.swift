@@ -15,7 +15,7 @@ public enum DesignStyle: String, CaseIterable, Codable, Sendable {
 
     /// Styles selectable in Settings. Only styles fully shipped in this
     /// build are listed; the picker stays hidden while there is just one.
-    public static var available: [DesignStyle] { [.classic] }
+    public static var available: [DesignStyle] { [.classic, .neomorphic] }
 
     /// The persisted style, validated against `available` so a build that
     /// no longer ships a style falls back to classic instead of rendering

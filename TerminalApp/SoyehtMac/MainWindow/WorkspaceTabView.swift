@@ -26,6 +26,18 @@ final class WorkspaceTabView: NSView {
     private let countBadge = NSView()
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
+    private let pillBackdrop = MacStyledSurfaceView()
+    /// Reference tab anatomy: little folder glyph before the title (neo
+    /// only — zero width in classic so layout is pixel-identical there).
+    private let folderIcon = NSImageView()
+    private var folderWidthConstraint: NSLayoutConstraint?
+    private var labelSpacingConstraint: NSLayoutConstraint?
+    /// Reference pill height is ~33 with air around it in the 40pt bar;
+    /// classic keeps the full-height 40pt tab.
+    private var tabHeightConstraint: NSLayoutConstraint?
+    /// Neo surface curvature: sits above the tab's opaque fill (kept for
+    /// titlebar-drag hit routing) and below the label/badge subview layers.
+    private let pillGradient = CAGradientLayer()
     private var isActive: Bool = false
     /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
     /// short-circuit when the value hasn't changed. NSTextField's
@@ -82,6 +94,22 @@ final class WorkspaceTabView: NSView {
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
+        pillGradient.isHidden = true
+        layer?.insertSublayer(pillGradient, at: 0)
+
+        // Neo pill shadows live on a pass-through backdrop behind the tab's
+        // own opaque layer (dual shadows need their own layers, and the tab
+        // must stay opaque for titlebar-drag hit routing).
+        pillBackdrop.passesThroughHits = true
+        pillBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pillBackdrop)
+        NSLayoutConstraint.activate([
+            pillBackdrop.topAnchor.constraint(equalTo: topAnchor),
+            pillBackdrop.leadingAnchor.constraint(equalTo: leadingAnchor),
+            pillBackdrop.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pillBackdrop.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(
             localized: "tabs.tab.a11y.label",
@@ -127,8 +155,21 @@ final class WorkspaceTabView: NSView {
         bottomStroke.layer?.backgroundColor = Self.activeStroke.cgColor
         addSubview(bottomStroke)
 
+        folderIcon.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        folderIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        folderIcon.isHidden = true
+        folderIcon.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(folderIcon)
+        let folderWidth = folderIcon.widthAnchor.constraint(equalToConstant: 0)
+        let labelSpacing = label.leadingAnchor.constraint(equalTo: folderIcon.trailingAnchor, constant: 0)
+        folderWidthConstraint = folderWidth
+        labelSpacingConstraint = labelSpacing
+
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            folderIcon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            folderIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            folderWidth,
+            labelSpacing,
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             countBadge.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
@@ -151,8 +192,10 @@ final class WorkspaceTabView: NSView {
             bottomStroke.bottomAnchor.constraint(equalTo: bottomAnchor),
             bottomStroke.heightAnchor.constraint(equalToConstant: 2),
 
-            heightAnchor.constraint(equalToConstant: 40),
         ])
+        let tabHeight = heightAnchor.constraint(equalToConstant: 40)
+        tabHeight.isActive = true
+        tabHeightConstraint = tabHeight
 
         applyStyle()
 
@@ -248,7 +291,53 @@ final class WorkspaceTabView: NSView {
     }
 
     private func applyStyle() {
-        if isActive {
+        let neo = MacSurface.style == .neomorphic
+        pillBackdrop.isHidden = !neo
+        if neo {
+            // Neo tab pill (Pencil `tjIxf`): idle = raised surface pill,
+            // active = pressed-looking well pill with accent text. The
+            // classic underline is replaced by depth.
+            folderIcon.isHidden = false
+            folderWidthConstraint?.constant = 13
+            labelSpacingConstraint?.constant = 6
+            folderIcon.contentTintColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
+            tabHeightConstraint?.constant = 33
+            countBadge.layer?.backgroundColor = MacTheme.interactionAccent.cgColor
+            countBadge.layer?.cornerRadius = 9
+            let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
+            let radius = min(bounds.height / 2, 18)
+            pillBackdrop.applyStyle(
+                fill: fill,
+                cornerRadius: radius,
+                shadows: isActive ? MacSurface.Shadows.raisedTabSet : MacSurface.Shadows.raisedSmallSet
+            )
+            layer?.backgroundColor = fill.cgColor
+            layer?.cornerRadius = radius
+            // Setting cornerRadius on the backing layer makes AppKit flip
+            // clipsToBounds to true (macOS 14+), which clips pillBackdrop's
+            // shadow layers at the tab edge — the pill renders shadowless.
+            clipsToBounds = false
+            // Reference pills are FLAT fills (`tjIxf`): depth comes from the
+            // shadow pair alone, no surface gradient.
+            pillGradient.isHidden = true
+            label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
+            label.font = isActive
+                ? MacTypography.NSFonts.workspaceTabTitleActive
+                : MacTypography.NSFonts.workspaceTabTitle
+            countLabel.textColor = MacTheme.buttonTextOnAccent
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
+            bottomStroke.isHidden = true
+        } else if isActive {
+            folderIcon.isHidden = true
+            folderWidthConstraint?.constant = 0
+            labelSpacingConstraint?.constant = 0
+            tabHeightConstraint?.constant = 40
+            countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+            countBadge.layer?.cornerRadius = MacSurface.Radius.badge
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
+            pillGradient.isHidden = true
+            layer?.cornerRadius = 0
+            clipsToBounds = true
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
             label.font = MacTypography.NSFonts.workspaceTabTitleActive
@@ -260,6 +349,16 @@ final class WorkspaceTabView: NSView {
             // `mouseDownCanMoveWindow = false` when the hit view is opaque.
             // Visually identical to transparent because the parent paints
             // the same colour, but event routing now works.
+            folderIcon.isHidden = true
+            folderWidthConstraint?.constant = 0
+            labelSpacingConstraint?.constant = 0
+            tabHeightConstraint?.constant = 40
+            countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+            countBadge.layer?.cornerRadius = MacSurface.Radius.badge
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
+            pillGradient.isHidden = true
+            layer?.cornerRadius = 0
+            clipsToBounds = true
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
             label.font = MacTypography.NSFonts.workspaceTabTitle
@@ -268,6 +367,15 @@ final class WorkspaceTabView: NSView {
         }
         updateCloseButtonVisibility()
         styleCloseButton()
+    }
+
+    override func layout() {
+        super.layout()
+        // Pill radius depends on the laid-out height; re-apply once bounds
+        // are real (idempotent).
+        if MacSurface.style == .neomorphic {
+            applyStyle()
+        }
     }
 
     private func styleCloseButton() {

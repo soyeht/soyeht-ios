@@ -50,6 +50,11 @@ enum MacTheme {
     static var paneHeaderNew: NSColor { nsColor(appPalette.surfaceHex) }
     /// Pane grid gutter (the strip that shows between split panes).
     static var gutter: NSColor { nsColor(appPalette.borderHex) }
+    /// Canvas behind/between panes: classic keeps the historical gutter
+    /// color, neo uses the chrome background so pane cards float on it.
+    static var paneGridCanvas: NSColor {
+        MacSurface.style == .neomorphic ? surfaceBase : gutter
+    }
     /// Active-tab bottom stroke + sidebar-toggle tint when overlay open.
     static var accentBlue: NSColor { nsColor(appPalette.linkHex) }
     /// Success/accent token used for dots, team workspace groups, and
@@ -73,6 +78,62 @@ enum MacTheme {
     /// Alias for the floating sidebar overlay base color (same as surfaceBase
     /// so the sidebar reads as a panel lifted from the same surface).
     static var sidebarBg: NSColor { surfaceBase }
+
+    // MARK: - Neumorphic style colors
+
+    private static var neoColors: NeoStyleColors {
+        TerminalColorTheme.active.neoStyleColors
+    }
+
+    /// Raw terminal screen background — always the terminal theme's own
+    /// background, never the chrome override (a neo preset's chrome is milk
+    /// while its terminal screen stays dark).
+    static var terminalScreen: NSColor { nsColor(TerminalColorTheme.active.backgroundHex) }
+
+    /// Raised neumorphic surface (pills, chips, cards lifted off the canvas).
+    static var neoSurface: NSColor { nsColor(neoColors.raisedSurfaceHex) }
+    /// Recessed well (drawer track, grouped backgrounds).
+    static var neoWell: NSColor { nsColor(neoColors.wellHex) }
+    /// Down-right soft shadow cast by a raised surface.
+    static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
+    /// Softened dark shadow for DARK surfaces on the light canvas (terminal
+    /// screens): the full-strength tint hugs a dark edge like a smudge, so
+    /// it is blended halfway toward the canvas — the card's own contrast
+    /// plus the white rim do the separating.
+    static var neoShadowDarkSoft: NSColor {
+        nsColor(HexColorMath.mix(neoColors.shadowDarkHex, appPalette.backgroundHex, t: 0.55))
+    }
+    /// Up-left soft highlight cast by a raised surface.
+    static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
+    /// Colored glow behind accent-filled controls (apply alpha at call site).
+    static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
+
+    /// Pane header pill (reference: pastel accent tint floating inside the
+    /// light frame, e.g. `#D9E4FA` on the blue variant).
+    static var neoHeaderPill: NSColor {
+        nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
+    }
+
+    /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
+    /// pills across the grid). Derived from the theme's semantic colors so
+    /// every palette produces coherent pastels.
+    static var neoHeaderPastels: [NSColor] {
+        [
+            appPalette.accentHex,
+            appPalette.successHex,
+            appPalette.dangerHex,
+            appPalette.warningHex,
+        ].map { nsColor(HexColorMath.mix($0, "#FFFFFF", t: 0.76)) }
+    }
+
+    /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
+    /// Light source top-left, so a raised surface is lighter at the start
+    /// and settles slightly darker at the bottom-right.
+    static var neoConvexStart: NSColor { nsColor(HexColorMath.lighten(neoColors.raisedSurfaceHex, by: 0.35)) }
+    static var neoConvexEnd: NSColor { nsColor(HexColorMath.darken(neoColors.raisedSurfaceHex, by: 0.08)) }
+    /// Concave (pressed) variant — same pair, reversed.
+    static var neoConcaveStart: NSColor { neoConvexEnd }
+    static var neoConcaveEnd: NSColor { neoConvexStart }
 }
 
 private extension NSColor {

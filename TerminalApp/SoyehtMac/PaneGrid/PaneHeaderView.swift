@@ -31,7 +31,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// Primary label — the conversation handle. Rendered with centralized
     /// muted typography; agent subtitle was dropped to match SXnc2 `header1..6`.
     var handle: String = "—" {
-        didSet { handleLabel.stringValue = Self.displayHandle(handle) }
+        didSet {
+            handleLabel.stringValue = Self.displayHandle(handle)
+            // The neo pill pastel is keyed off the handle.
+            applyHeaderSurface()
+        }
     }
 
     /// Retained for API compatibility with existing bind paths — no-op
@@ -95,7 +99,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private static var accentBlue: NSColor { MacTheme.accentBlue }
     private static var handleActive: NSColor { MacTheme.textPrimary }
     private static var handleIdle: NSColor { MacTheme.textMuted }
-    private static var iconTint: NSColor { MacTheme.textMutedSidebar }
+    private static var iconTint: NSColor {
+        MacSurface.style == .neomorphic
+            ? MacTheme.textPrimary.withAlphaComponent(0.62)
+            : MacTheme.textMutedSidebar
+    }
     private static var copiedIndicatorText: NSColor { MacTheme.paneTransientStatusText }
     private static let iconGlyphBaseSize: CGFloat = 12
     private static let iconGlyphSize: CGFloat = 15
@@ -111,6 +119,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     ))
     private let accentLine = NSView()
     private let dividerView = NSView()
+    /// Reference anatomy: little ink dot before the handle in the neo pill.
+    private let agentDot = NSView()
     private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
         glyph: .iphone,
         tint: PaneHeaderView.iconTint,
@@ -136,8 +146,37 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         tint: PaneHeaderView.iconTint,
         accessibility: "Close pane"
     )
+    /// Neo chips: each header button rides inside a MacStyledSurfaceView so
+    /// it can float with the generator surface (gradient + dual shadows).
+    /// In classic the chip is styled invisible, so the hierarchy change has
+    /// no visual effect. Visibility toggles target the CHIP (hiding just the
+    /// button would leave an empty floating chip in the stack).
+    private lazy var openOnIPhoneChip = Self.makeChip(around: openOnIPhoneButton)
+    private lazy var qrChip = Self.makeChip(around: qrButton)
+    private lazy var splitVChip = Self.makeChip(around: splitVButton)
+    private lazy var splitHChip = Self.makeChip(around: splitHButton)
+    private lazy var closeChip = Self.makeChip(around: closeButton)
+    private var allChips: [MacStyledSurfaceView] {
+        [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip]
+    }
+
+    private static let chipSize: CGFloat = 22
+
+    private static func makeChip(around button: NSButton) -> MacStyledSurfaceView {
+        let chip = MacStyledSurfaceView()
+        chip.translatesAutoresizingMaskIntoConstraints = false
+        chip.addSubview(button)
+        NSLayoutConstraint.activate([
+            chip.widthAnchor.constraint(equalToConstant: chipSize),
+            chip.heightAnchor.constraint(equalToConstant: chipSize),
+            button.centerXAnchor.constraint(equalTo: chip.centerXAnchor),
+            button.centerYAnchor.constraint(equalTo: chip.centerYAnchor),
+        ])
+        return chip
+    }
+
     private lazy var buttonsStack: NSStackView = {
-        let stack = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
+        let stack = NSStackView(views: [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 4
@@ -154,6 +193,9 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         layer?.backgroundColor = Self.headerFill.cgColor
         buildLayout()
         wireActions()
+        applyHeaderSurface()
+        applyChipStyle()
+        refreshButtonImages()
         applyFocusStyle()
     }
 
@@ -177,10 +219,19 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         handleLabel.lineBreakMode = .byTruncatingMiddle
         handleLabel.maximumNumberOfLines = 1
 
-        let leftStack = NSStackView(views: [handleLabel])
+        agentDot.wantsLayer = true
+        agentDot.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            agentDot.widthAnchor.constraint(equalToConstant: 8),
+            agentDot.heightAnchor.constraint(equalToConstant: 8),
+        ])
+        agentDot.layer?.cornerRadius = 4
+        agentDot.isHidden = true
+
+        let leftStack = NSStackView(views: [agentDot, handleLabel])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
-        leftStack.spacing = 0
+        leftStack.spacing = 6
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
         copiedIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -245,7 +296,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     private func applyHeaderAccessoryState() {
         let qrCanShow = headerAccessories.contains(.qr)
-        qrButton.isHidden = !qrCanShow
+        qrChip.isHidden = !qrCanShow
         qrButton.isEnabled = qrCanShow && isQRHandoffEnabled
         qrButton.toolTip = isQRHandoffEnabled
             ? String(localized: "pane.header.button.qr.tooltip.enabled", defaultValue: "Continue this pane on a paired iPhone", comment: "Tooltip on the QR-handoff button when the active server can issue continue-QR tokens.")
@@ -256,25 +307,82 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func applyOpenOnIPhoneState() {
         let canShow = headerAccessories.contains(.openOnIPhone)
         openOnIPhoneButton.isEnabled = canShow && isOpenOnIPhoneEnabled
-        openOnIPhoneButton.isHidden = !canShow || !isOpenOnIPhoneEnabled
+        openOnIPhoneChip.isHidden = !canShow || !isOpenOnIPhoneEnabled
         openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
             ? String(localized: "pane.header.button.iphone.tooltip.enabled", comment: "Tooltip on the iPhone button when at least one paired iPhone is online.")
             : String(localized: "pane.header.button.iphone.tooltip.disabled", comment: "Tooltip on the iPhone button when no paired iPhone is online.")
     }
 
     private func applyFocusStyle() {
-        handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
-        accentLine.isHidden = !(isFocused || isGroupSelected)
+        let neo = MacSurface.style == .neomorphic
+        handleLabel.textColor = neo
+            ? MacTheme.textPrimary
+            : (isFocused ? Self.handleActive : Self.handleIdle)
+        // The reference pill has no focus underline; neo signals focus via
+        // the terminal cursor + pill contrast.
+        accentLine.isHidden = neo || !(isFocused || isGroupSelected)
     }
 
     func applyTheme() {
-        layer?.backgroundColor = Self.headerFill.cgColor
+        applyHeaderSurface()
         accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
         dividerView.layer?.backgroundColor = Self.divider.cgColor
         copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
         copiedIndicatorLabel.textColor = Self.copiedIndicatorText
+        applyChipStyle()
         refreshButtonImages()
         applyFocusStyle()
+    }
+
+    /// Reference anatomy: in neo the header is a pastel accent PILL floating
+    /// inside the light frame, casting its own tinted soft shadow; classic
+    /// keeps the flat full-width strip.
+    private func applyHeaderSurface() {
+        let neo = MacSurface.style == .neomorphic
+        if neo {
+            // Stable per-pane pastel (reference rotates blue/green/pink/
+            // yellow across the grid). String.hashValue is seeded per
+            // launch, so key off the scalar sum instead.
+            let pastels = MacTheme.neoHeaderPastels
+            let key = handle.unicodeScalars.reduce(0) { ($0 &+ Int($1.value)) }
+            let pastel = pastels[key % pastels.count]
+            layer?.cornerRadius = bounds.height / 2
+            layer?.backgroundColor = pastel.cgColor
+            MacSurface.Shadow(
+                color: pastel.withAlphaComponent(0.6),
+                opacity: 1,
+                offset: CGSize(width: 3, height: -3),
+                radius: 8
+            ).apply(to: layer)
+            dividerView.isHidden = true
+            agentDot.isHidden = false
+            agentDot.layer?.backgroundColor = MacTheme.textPrimary.withAlphaComponent(0.8).cgColor
+        } else {
+            layer?.cornerRadius = 0
+            MacSurface.Shadow.clear(layer)
+            layer?.backgroundColor = Self.headerFill.cgColor
+            dividerView.isHidden = false
+            agentDot.isHidden = true
+        }
+        handleLabel.font = MacTypography.NSFonts.paneHeaderHandle
+    }
+
+    override func layout() {
+        super.layout()
+        // Pill radius depends on the laid-out height (idempotent).
+        if MacSurface.style == .neomorphic {
+            layer?.cornerRadius = bounds.height / 2
+        }
+    }
+
+    /// The chips are pure layout wrappers now: the reference renders header
+    /// buttons as FLAT ink-tinted glyphs inside the colored pill (raised
+    /// white chips fight the pastel). Kept as wrappers so visibility
+    /// toggling and sizing stay in one place.
+    private func applyChipStyle() {
+        for chip in allChips {
+            chip.applyStyle(fill: .clear, cornerRadius: 0)
+        }
     }
 
     func showCopiedIndicator() {

@@ -141,7 +141,7 @@ public struct TerminalColorTheme: Codable, Identifiable, Equatable, Sendable {
     }
 
     public static var builtInThemes: [TerminalColorTheme] {
-        ColorTheme.allCases.map(\.terminalTheme)
+        ColorTheme.allCases.map(\.terminalTheme) + designStylePresets
     }
 
     public var defaultCursorHex: String {
