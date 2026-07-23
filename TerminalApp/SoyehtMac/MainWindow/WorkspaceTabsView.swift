@@ -74,6 +74,14 @@ final class WorkspaceTabsView: NSView {
             userInterfaceLayoutDirection = .rightToLeft
         }
         addSubview(stack)
+        // Neo "+" chip shadows live on a backdrop BELOW the stack: NSButton
+        // gets auto-clipped by AppKit once its layer has a cornerRadius
+        // (macOS 14+ clipsToBounds sync), which kills own-layer shadows, and
+        // a single layer can't carry the reference's dual pair anyway.
+        addBackdrop.passesThroughHits = true
+        addBackdrop.isHidden = true
+        addBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(addBackdrop, positioned: .below, relativeTo: stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
@@ -89,6 +97,14 @@ final class WorkspaceTabsView: NSView {
         addButton.setAccessibilityLabel(String(localized: "workspaceTabs.button.add.a11y", comment: "VoiceOver label for the '+ new workspace' button in the tab strip."))
 
         rebuild()
+        // Only now does `rebuild()` put addButton in the stack — constraints
+        // to it need the shared ancestor to exist.
+        NSLayoutConstraint.activate([
+            addBackdrop.centerXAnchor.constraint(equalTo: addButton.centerXAnchor),
+            addBackdrop.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
+            addBackdrop.widthAnchor.constraint(equalTo: addButton.widthAnchor),
+            addBackdrop.heightAnchor.constraint(equalTo: addButton.heightAnchor),
+        ])
         // Fase 3.1 — ObservationTracker replaces the two NotificationCenter
         // observers. ConversationStore is NOT observed because `rebuild()`
         // does not read any conversation (handles are only rendered in the
@@ -157,6 +173,8 @@ final class WorkspaceTabsView: NSView {
     /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
     /// with no border and no fill.
     private var addButtonSizeConstraints: [NSLayoutConstraint] = []
+    /// Neo raised-circle chrome behind the "+" button (Pencil `wmiAq`).
+    private let addBackdrop = MacStyledSurfaceView()
 
     private func styleAddButton() {
         addButton.isBordered = false
@@ -179,17 +197,20 @@ final class WorkspaceTabsView: NSView {
         for constraint in addButtonSizeConstraints {
             constraint.constant = size
         }
+        addBackdrop.isHidden = !neo
         if neo {
-            // Reference: 32pt raised circle. Single-layer (one dark cast) —
-            // the dual pair needs a backdrop, overkill for this control.
-            addButton.layer?.backgroundColor = MacTheme.neoSurface.cgColor
-            addButton.layer?.cornerRadius = size / 2
-            MacSurface.Shadow(
-                color: MacTheme.neoShadowDark,
-                opacity: 0.8,
-                offset: CGSize(width: 3, height: -3),
-                radius: 6
-            ).apply(to: addButton.layer)
+            // Reference `wmiAq`: 32pt raised circle, flat face + the full
+            // dual pair. The pair lives on `addBackdrop` (a button layer
+            // with cornerRadius is auto-clipped by AppKit and can only
+            // carry one shadow anyway); the button itself stays clear.
+            addBackdrop.applyStyle(
+                fill: MacTheme.neoSurface,
+                cornerRadius: size / 2,
+                shadows: MacSurface.Shadows.raisedSmallSet
+            )
+            addButton.layer?.backgroundColor = NSColor.clear.cgColor
+            addButton.layer?.cornerRadius = 0
+            MacSurface.Shadow.clear(addButton.layer)
         } else {
             addButton.layer?.backgroundColor = NSColor.clear.cgColor
             addButton.layer?.cornerRadius = 0

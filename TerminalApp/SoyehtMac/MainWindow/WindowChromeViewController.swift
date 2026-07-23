@@ -423,9 +423,9 @@ final class WindowTopBarView: NSView {
         sidebarBackdrop.isHidden = !neo
         clawBackdrop.isHidden = !neo
         if neo {
+            // Reference `ePA3h`: flat face + dual pair, no surface gradient.
             sidebarBackdrop.applyStyle(
                 fill: MacTheme.neoSurface,
-                gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
                 cornerRadius: MacSurface.Radius.control,
                 shadows: MacSurface.Shadows.raisedSmallSet
             )

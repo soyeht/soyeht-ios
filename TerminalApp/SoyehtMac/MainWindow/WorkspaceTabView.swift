@@ -313,14 +313,13 @@ final class WorkspaceTabView: NSView {
             )
             layer?.backgroundColor = fill.cgColor
             layer?.cornerRadius = radius
-            pillGradient.isHidden = false
-            let start = isActive ? MacTheme.neoConcaveStart : MacTheme.neoConvexStart
-            let end = isActive ? MacTheme.neoConcaveEnd : MacTheme.neoConvexEnd
-            pillGradient.colors = [start.cgColor, end.cgColor]
-            pillGradient.startPoint = CGPoint(x: 0.09, y: 0.91)
-            pillGradient.endPoint = CGPoint(x: 0.91, y: 0.09)
-            pillGradient.cornerRadius = radius
-            pillGradient.frame = bounds
+            // Setting cornerRadius on the backing layer makes AppKit flip
+            // clipsToBounds to true (macOS 14+), which clips pillBackdrop's
+            // shadow layers at the tab edge — the pill renders shadowless.
+            clipsToBounds = false
+            // Reference pills are FLAT fills (`tjIxf`): depth comes from the
+            // shadow pair alone, no surface gradient.
+            pillGradient.isHidden = true
             label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
             label.font = isActive
                 ? MacTypography.NSFonts.workspaceTabTitleActive
@@ -338,6 +337,7 @@ final class WorkspaceTabView: NSView {
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
+            clipsToBounds = true
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
             label.font = MacTypography.NSFonts.workspaceTabTitleActive
@@ -358,6 +358,7 @@ final class WorkspaceTabView: NSView {
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
+            clipsToBounds = true
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
             label.font = MacTypography.NSFonts.workspaceTabTitle

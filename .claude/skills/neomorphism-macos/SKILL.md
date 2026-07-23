@@ -53,6 +53,16 @@ Atualiza em layout E em `NSSplitView.didResizeSubviewsNotification`.
 - **`NSColor.white`/grayscale NÃO renderiza como `shadowColor` de CALayer**
   neste pipeline — use sempre cores sRGB (tokens `MacTheme.*`, hex via
   `brandHex`). Sintoma: sombra escura aparece, bloom some sem erro.
+- **`layer?.cornerRadius` no backing layer de uma NSView liga
+  `clipsToBounds = true` sozinho (macOS 14+)** — e isso (a) clipa as sombras de
+  qualquer backdrop FILHO na borda da view (transição seca de 1px, zero rampa)
+  e (b) `masksToBounds` mata a sombra do próprio layer. Sintoma: par declarado
+  e correto, pixel scan mostra face→fundo em 1px. Fix: `clipsToBounds = false`
+  explícito após setar o radius — ou pôr o radius num SUBLAYER
+  (`MacStyledSurfaceView` faz isso; por isso chips/backdrops diretos funcionam
+  enquanto views-com-radius não). Diagnóstico rápido: `MiniLab` standalone
+  (swiftc, ~30s/ciclo) imprimindo `clipsToBounds/masksToBounds` resolvidos de
+  cada nível — não gaste builds de 3min do app pra bisectar clipping.
 - **Borda "elevada"**: o bloom deve PICAR mais claro que a face na borda
   iluminada (referência: bloom `#F5F6F9` vs face `#E8EDF4`, degrau ~13 un) —
   bloom em opacidade cheia; é esse overshoot que separa objeto de luz.
