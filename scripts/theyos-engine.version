@@ -9,4 +9,4 @@
 #
 # Format: a single semver string (no "v" prefix). Comments allowed on lines
 # starting with `#`. Whitespace ignored. One version per file.
-0.1.22
+0.1.24
