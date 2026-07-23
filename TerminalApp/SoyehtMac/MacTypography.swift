@@ -53,7 +53,13 @@ enum MacTypography {
             static var tabBadge: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabClose: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabAdd: NSFont { MacTypography.nsMonoFont(17, weight: .regular) }
-            static var paneHeader: NSFont { MacTypography.nsChromeFont(13, weight: .semibold) }
+            /// Reference keeps the pane handle in MONO (small, bold, inked)
+            /// inside the Nunito chrome — the "technical name" contrast.
+            static var paneHeader: NSFont {
+                MacSurface.style == .neomorphic
+                    ? MacTypography.nsMonoFont(11, weight: .bold)
+                    : MacTypography.nsMonoFont(13, weight: .regular)
+            }
             static var sidebarHeader: NSFont { MacTypography.nsChromeFont(13, weight: .medium) }
             static var sidebarPrimary: NSFont { MacTypography.nsChromeFont(14, weight: .semibold) }
             static var sidebarSecondary: NSFont { MacTypography.nsChromeFont(13, weight: .regular) }

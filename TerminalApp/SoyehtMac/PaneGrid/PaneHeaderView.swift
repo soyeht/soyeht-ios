@@ -99,7 +99,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private static var accentBlue: NSColor { MacTheme.accentBlue }
     private static var handleActive: NSColor { MacTheme.textPrimary }
     private static var handleIdle: NSColor { MacTheme.textMuted }
-    private static var iconTint: NSColor { MacTheme.textMutedSidebar }
+    private static var iconTint: NSColor {
+        MacSurface.style == .neomorphic
+            ? MacTheme.textPrimary.withAlphaComponent(0.62)
+            : MacTheme.textMutedSidebar
+    }
     private static var copiedIndicatorText: NSColor { MacTheme.paneTransientStatusText }
     private static let iconGlyphBaseSize: CGFloat = 12
     private static let iconGlyphSize: CGFloat = 15
@@ -115,6 +119,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     ))
     private let accentLine = NSView()
     private let dividerView = NSView()
+    /// Reference anatomy: little ink dot before the handle in the neo pill.
+    private let agentDot = NSView()
     private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
         glyph: .iphone,
         tint: PaneHeaderView.iconTint,
@@ -189,6 +195,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         wireActions()
         applyHeaderSurface()
         applyChipStyle()
+        refreshButtonImages()
         applyFocusStyle()
     }
 
@@ -212,10 +219,19 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         handleLabel.lineBreakMode = .byTruncatingMiddle
         handleLabel.maximumNumberOfLines = 1
 
-        let leftStack = NSStackView(views: [handleLabel])
+        agentDot.wantsLayer = true
+        agentDot.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            agentDot.widthAnchor.constraint(equalToConstant: 8),
+            agentDot.heightAnchor.constraint(equalToConstant: 8),
+        ])
+        agentDot.layer?.cornerRadius = 4
+        agentDot.isHidden = true
+
+        let leftStack = NSStackView(views: [agentDot, handleLabel])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
-        leftStack.spacing = 0
+        leftStack.spacing = 6
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
         copiedIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -298,8 +314,13 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     private func applyFocusStyle() {
-        handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
-        accentLine.isHidden = !(isFocused || isGroupSelected)
+        let neo = MacSurface.style == .neomorphic
+        handleLabel.textColor = neo
+            ? MacTheme.textPrimary
+            : (isFocused ? Self.handleActive : Self.handleIdle)
+        // The reference pill has no focus underline; neo signals focus via
+        // the terminal cursor + pill contrast.
+        accentLine.isHidden = neo || !(isFocused || isGroupSelected)
     }
 
     func applyTheme() {
@@ -334,11 +355,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
                 radius: 8
             ).apply(to: layer)
             dividerView.isHidden = true
+            agentDot.isHidden = false
+            agentDot.layer?.backgroundColor = MacTheme.textPrimary.withAlphaComponent(0.8).cgColor
         } else {
             layer?.cornerRadius = 0
             MacSurface.Shadow.clear(layer)
             layer?.backgroundColor = Self.headerFill.cgColor
             dividerView.isHidden = false
+            agentDot.isHidden = true
         }
         handleLabel.font = MacTypography.NSFonts.paneHeaderHandle
     }
@@ -351,20 +375,13 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         }
     }
 
-    /// Generator-style raised chips in neo; invisible wrappers in classic.
+    /// The chips are pure layout wrappers now: the reference renders header
+    /// buttons as FLAT ink-tinted glyphs inside the colored pill (raised
+    /// white chips fight the pastel). Kept as wrappers so visibility
+    /// toggling and sizing stay in one place.
     private func applyChipStyle() {
-        let neo = MacSurface.style == .neomorphic
         for chip in allChips {
-            if neo {
-                chip.applyStyle(
-                    fill: MacTheme.neoSurface,
-                    gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
-                    cornerRadius: MacSurface.Radius.chip,
-                    shadows: MacSurface.Shadows.raisedMicroSet
-                )
-            } else {
-                chip.applyStyle(fill: .clear, cornerRadius: 0)
-            }
+            chip.applyStyle(fill: .clear, cornerRadius: 0)
         }
     }
 

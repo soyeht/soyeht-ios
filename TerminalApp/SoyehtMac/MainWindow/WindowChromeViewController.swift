@@ -1,4 +1,5 @@
 import AppKit
+import SoyehtCore
 
 /// File-scope helper shared by `WindowChromeViewController` and `WorkspaceTabsView` to
 /// decide when to swap into RTL constraint/direction paths. Kept here (not a dedicated
@@ -371,6 +372,7 @@ final class WindowTopBarView: NSView {
     private let clawBackdrop = MacStyledSurfaceView()
     private let leftInsetGuide = NSView()
     private var leftInsetConstraint: NSLayoutConstraint?
+    private var clawWidthConstraint: NSLayoutConstraint?
     private static let neoChipSize: CGFloat = 34
     private static let chromeIconButtonSize: CGFloat = 28
     private static let chromeIconImageSize: CGFloat = 20
@@ -430,7 +432,22 @@ final class WindowTopBarView: NSView {
             )
             sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.textMuted)
             clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.buttonTextOnAccent)
+            // Reference: the Claws control is a labeled accent pill.
+            clawWidthConstraint?.isActive = false
+            clawStoreButton.imagePosition = .imageLeading
+            let title = NSMutableAttributedString(
+                string: "Claws",
+                attributes: [
+                    .font: Typography.neoSansNSFont(size: 14, weight: .bold)
+                        ?? NSFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: MacTheme.buttonTextOnAccent,
+                ]
+            )
+            clawStoreButton.attributedTitle = title
         } else {
+            clawWidthConstraint?.isActive = true
+            clawStoreButton.imagePosition = .imageOnly
+            clawStoreButton.title = ""
             sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
             clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
         }
@@ -480,6 +497,12 @@ final class WindowTopBarView: NSView {
         leftInsetConstraint = leftInsetGuide.widthAnchor.constraint(equalToConstant: 86)
         leftInsetConstraint?.isActive = true
 
+        // Icon-only width in classic; released in neo so the "Claws" label
+        // can size the pill (reference anatomy).
+        let clawWidth = clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize)
+        clawWidthConstraint = clawWidth
+        clawWidth.isActive = true
+
         // Traffic lights stay top-LEFT in absolute terms even under RTL (macOS convention —
         // window controls are direction-independent, mirroring the minimize/close stays on the
         // same side of the chrome regardless of language). So `leftInsetGuide` reserves
@@ -502,7 +525,6 @@ final class WindowTopBarView: NSView {
             sidebarButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             clawStoreButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
             clawStoreButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -512,9 +534,9 @@ final class WindowTopBarView: NSView {
             sidebarBackdrop.widthAnchor.constraint(equalToConstant: Self.neoChipSize),
             sidebarBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
 
-            clawBackdrop.centerXAnchor.constraint(equalTo: clawStoreButton.centerXAnchor),
             clawBackdrop.centerYAnchor.constraint(equalTo: clawStoreButton.centerYAnchor),
-            clawBackdrop.widthAnchor.constraint(equalToConstant: Self.neoChipSize),
+            clawBackdrop.leadingAnchor.constraint(equalTo: clawStoreButton.leadingAnchor, constant: -12),
+            clawBackdrop.trailingAnchor.constraint(equalTo: clawStoreButton.trailingAnchor, constant: 12),
             clawBackdrop.heightAnchor.constraint(equalToConstant: Self.neoChipSize),
         ])
 

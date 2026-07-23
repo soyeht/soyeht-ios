@@ -27,6 +27,11 @@ final class WorkspaceTabView: NSView {
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
     private let pillBackdrop = MacStyledSurfaceView()
+    /// Reference tab anatomy: little folder glyph before the title (neo
+    /// only — zero width in classic so layout is pixel-identical there).
+    private let folderIcon = NSImageView()
+    private var folderWidthConstraint: NSLayoutConstraint?
+    private var labelSpacingConstraint: NSLayoutConstraint?
     /// Neo surface curvature: sits above the tab's opaque fill (kept for
     /// titlebar-drag hit routing) and below the label/badge subview layers.
     private let pillGradient = CAGradientLayer()
@@ -147,8 +152,21 @@ final class WorkspaceTabView: NSView {
         bottomStroke.layer?.backgroundColor = Self.activeStroke.cgColor
         addSubview(bottomStroke)
 
+        folderIcon.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        folderIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        folderIcon.isHidden = true
+        folderIcon.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(folderIcon)
+        let folderWidth = folderIcon.widthAnchor.constraint(equalToConstant: 0)
+        let labelSpacing = label.leadingAnchor.constraint(equalTo: folderIcon.trailingAnchor, constant: 0)
+        folderWidthConstraint = folderWidth
+        labelSpacingConstraint = labelSpacing
+
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            folderIcon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            folderIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            folderWidth,
+            labelSpacing,
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             countBadge.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
@@ -274,6 +292,10 @@ final class WorkspaceTabView: NSView {
             // Neo tab pill (Pencil `tjIxf`): idle = raised surface pill,
             // active = pressed-looking well pill with accent text. The
             // classic underline is replaced by depth.
+            folderIcon.isHidden = false
+            folderWidthConstraint?.constant = 13
+            labelSpacingConstraint?.constant = 6
+            folderIcon.contentTintColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
             let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
             let radius = min(bounds.height / 2, 18)
             pillBackdrop.applyStyle(
@@ -298,6 +320,9 @@ final class WorkspaceTabView: NSView {
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = true
         } else if isActive {
+            folderIcon.isHidden = true
+            folderWidthConstraint?.constant = 0
+            labelSpacingConstraint?.constant = 0
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = Self.activeFill.cgColor
@@ -311,6 +336,9 @@ final class WorkspaceTabView: NSView {
             // `mouseDownCanMoveWindow = false` when the hit view is opaque.
             // Visually identical to transparent because the parent paints
             // the same colour, but event routing now works.
+            folderIcon.isHidden = true
+            folderWidthConstraint?.constant = 0
+            labelSpacingConstraint?.constant = 0
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
