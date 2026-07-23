@@ -27,6 +27,15 @@ private func soyeht_proc_pidinfo(
 /// `PROC_TTY_ONLY` from <sys/proc_info.h>.
 private let procTTYOnly: UInt32 = 3
 
+/// `PROC_PIDLISTFDS` and `PROX_FDTYPE_VNODE` from <sys/proc_info.h>.
+private let procPIDListFDs: Int32 = 1
+private let procFDTypeVnode: UInt32 = 1
+
+private struct SoyehtProcFDInfo {
+    var procFD: Int32
+    var procFDType: UInt32
+}
+
 /// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
 /// a PTY pair. The picker labels this path as "bash", so the default must not
 /// follow `$SHELL` to a potentially-heavy zsh/fish setup. Callers pass in the
@@ -44,6 +53,11 @@ private let procTTYOnly: UInt32 = 3
 /// delivers `onData` and `onExit` callbacks back on that same queue — callers
 /// should hop to `@MainActor` if they touch UI.
 final class NativePTY {
+    enum FileDescriptorType: Equatable {
+        case vnode
+        case other
+    }
+
     struct FileDescriptorMetadata {
         let mode: mode_t
         let device: UInt32
@@ -400,8 +414,9 @@ final class NativePTY {
     /// Every terminal-facing pid whose controlling terminal is `ttyPath`.
     /// `PROC_TTY_ONLY` alone is too broad: MCP servers inherit the controlling
     /// TTY even though stdin/stdout are pipes or sockets to the agent client.
-    /// Requiring fd 0 or 1 to be a vnode keeps real terminal jobs in the reap
-    /// set while leaving those helpers to their normal parent/EOF lifecycle.
+    /// A matching character-device rdev identifies a terminal job. A known
+    /// vnode whose metadata cannot be read stays in the reap set fail-safe;
+    /// positively classified pipe/socket descriptors remain excluded.
     private static func terminalProcessPIDs(on ttyPath: String?) -> [pid_t] {
         guard let ttyPath else { return [] }
         var st = stat()
@@ -423,6 +438,7 @@ final class NativePTY {
         hasTerminalStandardIO(
             processID,
             ttyDevice: ttyDevice,
+            descriptorTypes: standardIODescriptorTypes,
             descriptorMetadata: fileDescriptorMetadata
         )
     }
@@ -430,15 +446,71 @@ final class NativePTY {
     static func hasTerminalStandardIO(
         _ processID: pid_t,
         ttyDevice: UInt32,
+        descriptorTypes: (pid_t) -> [Int32: FileDescriptorType]?,
         descriptorMetadata: (pid_t, Int32) -> FileDescriptorMetadata?
     ) -> Bool {
-        [STDIN_FILENO, STDOUT_FILENO].contains { descriptor in
-            guard let metadata = descriptorMetadata(processID, descriptor) else {
-                return false
-            }
-            let fileType = metadata.mode & mode_t(S_IFMT)
-            return fileType == mode_t(S_IFCHR) && metadata.device == ttyDevice
+        guard let descriptorTypes = descriptorTypes(processID) else {
+            // Preserve the historical reap behavior when libproc cannot even
+            // classify stdio. Exclusion requires positive inspectable facts.
+            return true
         }
+
+        for descriptor in [STDIN_FILENO, STDOUT_FILENO] {
+            guard let descriptorType = descriptorTypes[descriptor] else {
+                // Successful enumeration without this fd means it is closed.
+                continue
+            }
+            switch descriptorType {
+            case .other:
+                // A positively classified pipe/socket cannot be a TTY vnode.
+                continue
+            case .vnode:
+                // Once libproc reports a vnode, unavailable vnode metadata is
+                // fail-safe INCLUDE so a real terminal job cannot escape reap.
+                guard let metadata = descriptorMetadata(processID, descriptor) else {
+                    return true
+                }
+                let fileType = metadata.mode & mode_t(S_IFMT)
+                if fileType == mode_t(S_IFCHR) && metadata.device == ttyDevice {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    private static func standardIODescriptorTypes(
+        _ processID: pid_t
+    ) -> [Int32: FileDescriptorType]? {
+        let byteCount = soyeht_proc_pidinfo(processID, procPIDListFDs, 0, nil, 0)
+        guard byteCount > 0 else { return nil }
+
+        let capacity = Int(byteCount) / MemoryLayout<SoyehtProcFDInfo>.stride + 8
+        var descriptors = [SoyehtProcFDInfo](
+            repeating: SoyehtProcFDInfo(procFD: -1, procFDType: 0),
+            count: capacity
+        )
+        let written = descriptors.withUnsafeMutableBytes { buffer in
+            soyeht_proc_pidinfo(
+                processID,
+                procPIDListFDs,
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written > 0 else { return nil }
+
+        let count = Int(written) / MemoryLayout<SoyehtProcFDInfo>.stride
+        var types: [Int32: FileDescriptorType] = [:]
+        for descriptor in descriptors.prefix(count)
+        where descriptor.procFD == STDIN_FILENO || descriptor.procFD == STDOUT_FILENO {
+            types[descriptor.procFD] = descriptor.procFDType == procFDTypeVnode
+                ? .vnode
+                : .other
+        }
+        return types
     }
 
     private static func fileDescriptorMetadata(

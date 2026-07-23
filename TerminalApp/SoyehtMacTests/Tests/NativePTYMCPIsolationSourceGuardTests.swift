@@ -111,12 +111,51 @@ final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
         }
     }
 
-    func testUnavailableDescriptorMetadataFailsSafe() {
+    func testVnodeWithUnavailableDescriptorMetadataFailsSafeByIncluding() {
+        XCTAssertTrue(
+            NativePTY.hasTerminalStandardIO(
+                42,
+                ttyDevice: 7,
+                descriptorTypes: { _ in
+                    [
+                        STDIN_FILENO: .vnode,
+                        STDOUT_FILENO: .other,
+                    ]
+                },
+                descriptorMetadata: { _, _ in nil }
+            )
+        )
+    }
+
+    func testUnavailableDescriptorTypeEnumerationFailsSafeByIncluding() {
+        XCTAssertTrue(
+            NativePTY.hasTerminalStandardIO(
+                42,
+                ttyDevice: 7,
+                descriptorTypes: { _ in nil },
+                descriptorMetadata: { _, _ in
+                    XCTFail("vnode metadata must not be queried without descriptor types")
+                    return nil
+                }
+            )
+        )
+    }
+
+    func testInspectableNonVnodeDescriptorsRemainExcluded() {
         XCTAssertFalse(
             NativePTY.hasTerminalStandardIO(
                 42,
                 ttyDevice: 7,
-                descriptorMetadata: { _, _ in nil }
+                descriptorTypes: { _ in
+                    [
+                        STDIN_FILENO: .other,
+                        STDOUT_FILENO: .other,
+                    ]
+                },
+                descriptorMetadata: { _, _ in
+                    XCTFail("non-vnode descriptors must not request vnode metadata")
+                    return nil
+                }
             )
         )
     }
@@ -191,8 +230,11 @@ final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
     func testPTYReaperTargetsTerminalJobsWithoutKillingPipeBackedMCPHelpers() throws {
         let source = try macSource("SoyehtInstance/NativePTY.swift")
 
+        XCTAssertTrue(source.contains("procPIDListFDs"))
         XCTAssertTrue(source.contains("PROC_PIDFDVNODEINFO"))
         XCTAssertTrue(source.contains("hasTerminalStandardIO"))
+        XCTAssertTrue(source.contains("descriptorTypes"))
+        XCTAssertTrue(source.contains("case .vnode"))
         XCTAssertTrue(source.contains("mode_t(S_IFCHR)"))
         XCTAssertTrue(source.contains("metadata.device == ttyDevice"))
         XCTAssertTrue(source.contains("ProcessStartTime"))
