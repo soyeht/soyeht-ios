@@ -41,6 +41,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private let screenClipView = NSView()
     private var screenInsetConstraints: [NSLayoutConstraint] = []
 
+
     private let contentContainer = NSView()
     private var contentController: (NSViewController & PaneContentViewControlling)?
 
@@ -327,7 +328,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// and shadowless — pixel-identical.
     private func applyPaneChrome() {
         let neo = MacSurface.style == .neomorphic
-        let cardInset: CGFloat = neo ? 10 : 0
+        let cardInset: CGFloat = neo ? 12 : 0
         for constraint in cardInsetConstraints {
             let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
             constraint.constant = leadingEdge ? cardInset : -cardInset

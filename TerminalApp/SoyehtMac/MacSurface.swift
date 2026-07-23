@@ -143,6 +143,16 @@ enum MacSurface {
             Shadow(color: .black, opacity: 0.10, offset: CGSize(width: 0, height: -2), radius: 8)
         }
 
+        /// Inner pair for the terminal well (generator `inset`): the cavity's
+        /// top-left inner edge sits in shadow, the bottom-right inner edge
+        /// catches light. Neutral colors — the well content is dark.
+        static var innerWellDark: Shadow {
+            Shadow(color: .black, opacity: 0.45, offset: CGSize(width: 6, height: -6), radius: 12)
+        }
+        static var innerWellLight: Shadow {
+            Shadow(color: .white, opacity: 0.16, offset: CGSize(width: -4, height: 4), radius: 10)
+        }
+
         /// Dual pair for compact controls (chips, pills, small buttons).
         /// Generator ratios scaled to ~34pt elements: offset ≈ 0.17 × size,
         /// blur ≈ 1.67 × offset.
@@ -153,11 +163,16 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -6, height: 6), radius: 10)
         }
 
-        /// Pane cards. Empty in classic (flat chrome); in neo the dark
-        /// screens float on contrast with only the ring-proof ambient lift —
-        /// the dual neumorphic pairs stay on light chrome elements.
+        /// Pane cards. Empty in classic (flat chrome). In neo: the raised
+        /// reading the reference shows — a white bloom spreading from the
+        /// top-left (the light source) and a neutral dark drop to the
+        /// bottom-right. Neutral colors, not the tinted pair: the card face
+        /// is dark, and tint against a dark edge reads as smudge.
         static var raisedSet: [Shadow] {
-            neo ? [darkCardAmbient] : []
+            neo ? [
+                Shadow(color: .black, opacity: 0.30, offset: CGSize(width: 10, height: -10), radius: 18),
+                Shadow(color: .white, opacity: 0.90, offset: CGSize(width: -10, height: 10), radius: 18),
+            ] : []
         }
 
         /// Compact raised controls (chips, pills).
