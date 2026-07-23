@@ -20,6 +20,21 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
+    def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
+        transport = MODULE["StdioTransport"]
+        original_read_messages = transport.read_messages
+        transport.read_messages = lambda _self: ()
+        try:
+            with patch.object(MODULE["signal"], "signal") as install_handler:
+                MODULE["main"]()
+        finally:
+            transport.read_messages = original_read_messages
+
+        install_handler.assert_called_once_with(
+            MODULE["signal"].SIGHUP,
+            MODULE["signal"].SIG_IGN,
+        )
+
     def test_list_panes_describes_declared_agent_as_metadata(self):
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_panes")
 

@@ -6,6 +6,7 @@ import random
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -2631,6 +2632,14 @@ def handle_message(message):
 
 
 def main():
+    # Soyeht owns the pane's controlling PTY, while MCP stdio is a pair of
+    # private pipes/sockets owned by the agent client. Pane teardown may send
+    # SIGHUP to the foreground process group; the client TUI deliberately
+    # survives that signal, so its MCP server must survive with it. A real
+    # client exit still closes stdin and ends read_messages() normally.
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
     transport = StdioTransport()
     for message in transport.read_messages():
         try:
