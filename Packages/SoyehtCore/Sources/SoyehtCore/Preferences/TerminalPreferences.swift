@@ -18,6 +18,7 @@ public final class TerminalPreferences {
         static let recentCustomColors = "soyeht.terminal.recentCustomColors"
         static let colorTheme = "soyeht.terminal.colorTheme"
         static let paneNicknames = "soyeht.terminal.paneNicknames"
+        static let designStyle = "soyeht.design.style"
     }
 
     public init() {}
@@ -62,6 +63,13 @@ public final class TerminalPreferences {
     public var colorTheme: String {
         get { defaults.string(forKey: Keys.colorTheme) ?? "soyehtDark" }
         set { defaults.set(newValue, forKey: Keys.colorTheme) }
+    }
+
+    /// Raw stored design style. Prefer `DesignStyle.active`, which validates
+    /// against the styles actually shipped in this build.
+    public var designStyleRaw: String? {
+        get { defaults.string(forKey: Keys.designStyle) }
+        set { defaults.set(newValue, forKey: Keys.designStyle) }
     }
 
     // MARK: - Pane Nicknames
