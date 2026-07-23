@@ -154,13 +154,13 @@ enum MacSurface {
         }
 
         /// Dual pair for compact controls (chips, pills, small buttons).
-        /// Generator ratios scaled to ~34pt elements: offset ≈ 0.17 × size,
-        /// blur ≈ 1.67 × offset.
+        /// The reference uses 4/8 across all its chrome chips and pills
+        /// (sidebar chip, idle tabs, Spaces pill, plus button).
         static var neoDarkSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 6, height: -6), radius: 10)
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 8)
         }
         static var neoLightSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -6, height: 6), radius: 10)
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 8)
         }
 
         /// Pane cards carry NO layer shadows in either style: per-pane

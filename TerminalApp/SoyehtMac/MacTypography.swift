@@ -48,9 +48,23 @@ enum MacTypography {
         }
 
         enum Navigation {
-            static var tabTitle: NSFont { MacTypography.nsChromeFont(15, weight: .regular) }
-            static var tabTitleActive: NSFont { MacTypography.nsChromeFont(15, weight: .semibold) }
-            static var tabBadge: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
+            /// Reference tabs: Nunito 13 semibold idle / 13 bold active;
+            /// classic keeps the historical mono 15.
+            static var tabTitle: NSFont {
+                MacSurface.style == .neomorphic
+                    ? MacTypography.nsChromeFont(13, weight: .semibold)
+                    : MacTypography.nsMonoFont(15, weight: .regular)
+            }
+            static var tabTitleActive: NSFont {
+                MacSurface.style == .neomorphic
+                    ? MacTypography.nsChromeFont(13, weight: .bold)
+                    : MacTypography.nsMonoFont(15, weight: .medium)
+            }
+            static var tabBadge: NSFont {
+                MacSurface.style == .neomorphic
+                    ? MacTypography.nsChromeFont(11, weight: .bold)
+                    : MacTypography.nsMonoFont(13, weight: .regular)
+            }
             static var tabClose: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabAdd: NSFont { MacTypography.nsMonoFont(17, weight: .regular) }
             /// Reference keeps the pane handle in MONO (small, bold, inked)

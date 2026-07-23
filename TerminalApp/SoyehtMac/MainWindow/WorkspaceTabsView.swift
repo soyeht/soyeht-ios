@@ -143,6 +143,9 @@ final class WorkspaceTabsView: NSView {
 
     func applyTheme() {
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        // Reference tab strip breathes: 10pt gaps between pills in neo;
+        // classic keeps the flush historical strip.
+        stack.spacing = MacSurface.style == .neomorphic ? 10 : 0
         applyAddButtonTheme()
         for tab in tabViews.values {
             tab.applyTheme()
@@ -153,21 +156,45 @@ final class WorkspaceTabsView: NSView {
 
     /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
     /// with no border and no fill.
+    private var addButtonSizeConstraints: [NSLayoutConstraint] = []
+
     private func styleAddButton() {
         addButton.isBordered = false
         addButton.bezelStyle = .inline
         addButton.wantsLayer = true
         addButton.layer?.backgroundColor = NSColor.clear.cgColor
         addButton.layer?.borderWidth = 0
-        applyAddButtonTheme()
         addButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
+        addButtonSizeConstraints = [
             addButton.widthAnchor.constraint(equalToConstant: 18),
             addButton.heightAnchor.constraint(equalToConstant: 18),
-        ])
+        ]
+        NSLayoutConstraint.activate(addButtonSizeConstraints)
+        applyAddButtonTheme()
     }
 
     private func applyAddButtonTheme() {
+        let neo = MacSurface.style == .neomorphic
+        let size: CGFloat = neo ? 32 : 18
+        for constraint in addButtonSizeConstraints {
+            constraint.constant = size
+        }
+        if neo {
+            // Reference: 32pt raised circle. Single-layer (one dark cast) —
+            // the dual pair needs a backdrop, overkill for this control.
+            addButton.layer?.backgroundColor = MacTheme.neoSurface.cgColor
+            addButton.layer?.cornerRadius = size / 2
+            MacSurface.Shadow(
+                color: MacTheme.neoShadowDark,
+                opacity: 0.8,
+                offset: CGSize(width: 3, height: -3),
+                radius: 6
+            ).apply(to: addButton.layer)
+        } else {
+            addButton.layer?.backgroundColor = NSColor.clear.cgColor
+            addButton.layer?.cornerRadius = 0
+            MacSurface.Shadow.clear(addButton.layer)
+        }
         let attr = NSAttributedString(
             string: "+",
             attributes: [

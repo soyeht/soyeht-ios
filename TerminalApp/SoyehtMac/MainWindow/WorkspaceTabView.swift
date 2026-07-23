@@ -32,6 +32,9 @@ final class WorkspaceTabView: NSView {
     private let folderIcon = NSImageView()
     private var folderWidthConstraint: NSLayoutConstraint?
     private var labelSpacingConstraint: NSLayoutConstraint?
+    /// Reference pill height is ~33 with air around it in the 40pt bar;
+    /// classic keeps the full-height 40pt tab.
+    private var tabHeightConstraint: NSLayoutConstraint?
     /// Neo surface curvature: sits above the tab's opaque fill (kept for
     /// titlebar-drag hit routing) and below the label/badge subview layers.
     private let pillGradient = CAGradientLayer()
@@ -189,8 +192,10 @@ final class WorkspaceTabView: NSView {
             bottomStroke.bottomAnchor.constraint(equalTo: bottomAnchor),
             bottomStroke.heightAnchor.constraint(equalToConstant: 2),
 
-            heightAnchor.constraint(equalToConstant: 40),
         ])
+        let tabHeight = heightAnchor.constraint(equalToConstant: 40)
+        tabHeight.isActive = true
+        tabHeightConstraint = tabHeight
 
         applyStyle()
 
@@ -296,6 +301,9 @@ final class WorkspaceTabView: NSView {
             folderWidthConstraint?.constant = 13
             labelSpacingConstraint?.constant = 6
             folderIcon.contentTintColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
+            tabHeightConstraint?.constant = 33
+            countBadge.layer?.backgroundColor = MacTheme.interactionAccent.cgColor
+            countBadge.layer?.cornerRadius = 9
             let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
             let radius = min(bounds.height / 2, 18)
             pillBackdrop.applyStyle(
@@ -317,12 +325,17 @@ final class WorkspaceTabView: NSView {
             label.font = isActive
                 ? MacTypography.NSFonts.workspaceTabTitleActive
                 : MacTypography.NSFonts.workspaceTabTitle
-            countLabel.textColor = Self.countText
+            countLabel.textColor = MacTheme.buttonTextOnAccent
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             bottomStroke.isHidden = true
         } else if isActive {
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0
+            tabHeightConstraint?.constant = 40
+            countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+            countBadge.layer?.cornerRadius = MacSurface.Radius.badge
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = Self.activeFill.cgColor
@@ -339,6 +352,10 @@ final class WorkspaceTabView: NSView {
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0
+            tabHeightConstraint?.constant = 40
+            countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+            countBadge.layer?.cornerRadius = MacSurface.Radius.badge
+            countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             pillGradient.isHidden = true
             layer?.cornerRadius = 0
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
