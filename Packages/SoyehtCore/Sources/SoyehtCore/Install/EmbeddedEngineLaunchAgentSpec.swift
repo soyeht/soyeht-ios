@@ -37,7 +37,6 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
         opaqueExportedEnvironmentKeys = [
             "THEYOS_APNS_KEY_ID",
             "THEYOS_APNS_TEAM_ID",
-            "THEYOS_APNS_TOPIC",
         ]
         launchdEnvironmentKeys = opaqueExportedEnvironmentKeys
 
@@ -79,13 +78,16 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
     private static func commonExportedEnvironment(for profile: SoyehtInstallProfile) -> [String: String] {
         let appAttestBundleID: String
         let appAttestEnvironment: String
+        let apnsTopic: String
         switch profile.kind {
         case .release:
             appAttestBundleID = "com.soyeht.app"
             appAttestEnvironment = "production"
+            apnsTopic = "com.soyeht.app"
         case .dev:
             appAttestBundleID = "com.soyeht.app.dev"
             appAttestEnvironment = "development"
+            apnsTopic = "com.soyeht.app.dev"
         }
 
         return [
@@ -113,6 +115,8 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
             "THEYOS_TERMINAL_RS_BIN": "$ENGINE_DIR/terminal-ipc",
             "THEYOS_SSH_CTL": "$ENGINE_DIR/theyos-ssh",
             "THEYOS_APNS_KEY_PATH": "$SOYEHT_DIR/apns.p8",
+            "THEYOS_APNS_TOPIC": apnsTopic,
+            "THEYOS_APNS_ENVIRONMENT": appAttestEnvironment,
         ]
     }
 }
