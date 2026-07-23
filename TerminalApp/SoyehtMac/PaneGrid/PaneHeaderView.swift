@@ -183,6 +183,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         layer?.backgroundColor = Self.headerFill.cgColor
         buildLayout()
         wireActions()
+        applyHeaderSurface()
         applyChipStyle()
         applyFocusStyle()
     }
@@ -298,7 +299,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     func applyTheme() {
-        layer?.backgroundColor = Self.headerFill.cgColor
+        applyHeaderSurface()
         accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
         dividerView.layer?.backgroundColor = Self.divider.cgColor
         copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
@@ -306,6 +307,37 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         applyChipStyle()
         refreshButtonImages()
         applyFocusStyle()
+    }
+
+    /// Reference anatomy: in neo the header is a pastel accent PILL floating
+    /// inside the light frame, casting its own tinted soft shadow; classic
+    /// keeps the flat full-width strip.
+    private func applyHeaderSurface() {
+        let neo = MacSurface.style == .neomorphic
+        if neo {
+            layer?.cornerRadius = bounds.height / 2
+            layer?.backgroundColor = MacTheme.neoHeaderPill.cgColor
+            MacSurface.Shadow(
+                color: MacTheme.neoHeaderPill.withAlphaComponent(0.6),
+                opacity: 1,
+                offset: CGSize(width: 3, height: -3),
+                radius: 8
+            ).apply(to: layer)
+            dividerView.isHidden = true
+        } else {
+            layer?.cornerRadius = 0
+            MacSurface.Shadow.clear(layer)
+            layer?.backgroundColor = Self.headerFill.cgColor
+            dividerView.isHidden = false
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        // Pill radius depends on the laid-out height (idempotent).
+        if MacSurface.style == .neomorphic {
+            layer?.cornerRadius = bounds.height / 2
+        }
     }
 
     /// Generator-style raised chips in neo; invisible wrappers in classic.

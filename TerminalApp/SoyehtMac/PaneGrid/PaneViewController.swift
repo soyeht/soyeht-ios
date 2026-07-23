@@ -40,6 +40,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// edge-to-edge, square — pixel-identical to the old hierarchy.
     private let screenClipView = NSView()
     private var screenInsetConstraints: [NSLayoutConstraint] = []
+    /// Neo: the header floats as a pill inside the frame (reference anatomy)
+    /// instead of a full-width strip; classic keeps it flush.
+    private var headerInsetConstraints: [NSLayoutConstraint] = []
 
 
     private let contentContainer = NSView()
@@ -205,10 +208,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         ]
         NSLayoutConstraint.activate(screenInsetConstraints)
 
-        NSLayoutConstraint.activate([
+        headerInsetConstraints = [
             header.topAnchor.constraint(equalTo: cardClipView.topAnchor),
             header.leadingAnchor.constraint(equalTo: cardClipView.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: cardClipView.trailingAnchor),
+        ]
+        NSLayoutConstraint.activate(headerInsetConstraints)
+        NSLayoutConstraint.activate([
             header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
             terminalView.topAnchor.constraint(equalTo: screenClipView.topAnchor),
@@ -328,17 +334,25 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// edge-to-edge, square and shadowless — pixel-identical.
     private func applyPaneChrome() {
         let neo = MacSurface.style == .neomorphic
-        let cardInset: CGFloat = neo ? 12 : 0
+        let cardInset: CGFloat = neo ? 10 : 0
         for constraint in cardInsetConstraints {
             let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
             constraint.constant = leadingEdge ? cardInset : -cardInset
         }
 
-        let screenInset: CGFloat = neo ? 10 : 0
+        let headerInset: CGFloat = neo ? 10 : 0
+        for constraint in headerInsetConstraints {
+            let leadingEdge = constraint.firstAttribute == .top || constraint.firstAttribute == .leading
+            constraint.constant = leadingEdge ? headerInset : -headerInset
+        }
+
+        // Reference spacing: 10pt frame margin around the screen sides and
+        // bottom, 8pt between the header pill and the screen.
         for constraint in screenInsetConstraints {
             switch constraint.firstAttribute {
-            case .top, .leading: constraint.constant = screenInset
-            default: constraint.constant = -screenInset
+            case .top: constraint.constant = neo ? 8 : 0
+            case .leading: constraint.constant = neo ? 10 : 0
+            default: constraint.constant = neo ? -10 : 0
             }
         }
 

@@ -108,6 +108,12 @@ enum MacTheme {
     /// Colored glow behind accent-filled controls (apply alpha at call site).
     static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
 
+    /// Pane header pill (reference: pastel accent tint floating inside the
+    /// light frame, e.g. `#D9E4FA` on the blue variant).
+    static var neoHeaderPill: NSColor {
+        nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
+    }
+
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
     /// Light source top-left, so a raised surface is lighter at the start
     /// and settles slightly darker at the bottom-right.
