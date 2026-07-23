@@ -277,6 +277,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
         self.view = root
         applyPaneChrome()
+        styleScrollButton()
         root.setAccessibilityRole(.group)
         terminalView.onUserInputData = { [weak self] data in
             guard let self else { return }
@@ -361,14 +362,31 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         view.layer?.backgroundColor = neo ? NSColor.clear.cgColor : MacTheme.paneBody.cgColor
     }
 
+    /// Floating "go to bottom" pill. It hovers over the dark terminal, so in
+    /// neo it becomes a light raised pill with a neutral ambient shadow
+    /// (tinted pairs smear over dark content).
+    private func styleScrollButton() {
+        let neo = MacSurface.style == .neomorphic
+        let buttonLayer = scrollToBottomButton.layer
+        buttonLayer?.backgroundColor = (neo ? MacTheme.neoSurface : MacTheme.paneFloatingControlFill).cgColor
+        buttonLayer?.borderColor = MacTheme.paneFloatingControlStroke.cgColor
+        buttonLayer?.borderWidth = neo ? 0 : MacSurface.Border.hairline
+        buttonLayer?.cornerRadius = neo ? PaneChromeMetrics.floatingControlHeight / 2 : MacSurface.Radius.chip
+        if neo {
+            MacSurface.Shadow(color: .black, opacity: 0.22, offset: CGSize(width: 0, height: -3), radius: 8)
+                .apply(to: buttonLayer)
+        } else {
+            MacSurface.Shadow.clear(buttonLayer)
+        }
+        scrollToBottomButton.contentTintColor = MacTheme.paneFloatingControlText
+    }
+
     func applyTheme() {
         applyPaneChrome()
+        styleScrollButton()
         header.applyTheme()
         disconnectBanner.layer?.backgroundColor = MacTheme.accentAmber.cgColor
         disconnectBanner.textColor = MacTheme.surfaceDeep
-        scrollToBottomButton.layer?.backgroundColor = MacTheme.paneFloatingControlFill.cgColor
-        scrollToBottomButton.layer?.borderColor = MacTheme.paneFloatingControlStroke.cgColor
-        scrollToBottomButton.contentTintColor = MacTheme.paneFloatingControlText
         scrollToBottomButton.font = MacTypography.NSFonts.paneFloatingControl
         emptyPicker.applyTheme()
         sessionDialog.applyTheme()

@@ -76,12 +76,58 @@ struct MacClawCardView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
-        .background(hovering ? MacClawStoreTheme.bgRowHover : MacClawStoreTheme.bgCard)
+        .background(cardBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: MacSurface.Radius.card).stroke(borderColor, lineWidth: MacSurface.Border.hairline)
+            RoundedRectangle(cornerRadius: MacSurface.Radius.card).stroke(effectiveBorderColor, lineWidth: MacSurface.Border.hairline)
         )
         .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
+        .shadow(color: neoDualShadowDark, radius: 5, x: 5, y: 5)
+        .shadow(color: neoDualShadowLight, radius: 5, x: -5, y: -5)
         .onHover { hovering = $0 }
+    }
+
+    private var neo: Bool { MacSurface.style == .neomorphic }
+
+    /// Generator-style convex surface in neo (SwiftUI does the dual shadows
+    /// natively via the two `.shadow` modifiers above, which resolve to
+    /// `.clear` in classic); flat themed fill otherwise.
+    @ViewBuilder private var cardBackground: some View {
+        if neo {
+            LinearGradient(
+                colors: [
+                    Color(nsColor: MacTheme.neoConvexStart),
+                    Color(nsColor: MacTheme.neoConvexEnd),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .opacity(hovering ? 0.9 : 1)
+        } else {
+            hovering ? MacClawStoreTheme.bgRowHover : MacClawStoreTheme.bgCard
+        }
+    }
+
+    private var neoDualShadowDark: Color {
+        neo ? Color(nsColor: MacTheme.neoShadowDark) : .clear
+    }
+
+    private var neoDualShadowLight: Color {
+        neo ? Color(nsColor: MacTheme.neoShadowLight) : .clear
+    }
+
+    /// Install-state borders stay in neo (they carry meaning); only the
+    /// default hairline is dropped — depth replaces it.
+    private var hasStateBorder: Bool {
+        switch claw.installState {
+        case .installed, .installedButBlocked, .installing, .uninstalling, .installFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private var effectiveBorderColor: Color {
+        (neo && !hasStateBorder) ? .clear : borderColor
     }
 
     private var borderColor: Color {
