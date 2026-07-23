@@ -27,15 +27,6 @@ private func soyeht_proc_pidinfo(
 /// `PROC_TTY_ONLY` from <sys/proc_info.h>.
 private let procTTYOnly: UInt32 = 3
 
-/// `PROC_PIDLISTFDS` and `PROX_FDTYPE_VNODE` from <sys/proc_info.h>.
-private let procPIDListFDs: Int32 = 1
-private let procFDTypeVnode: UInt32 = 1
-
-private struct SoyehtProcFDInfo {
-    var procFD: Int32
-    var procFDType: UInt32
-}
-
 /// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
 /// a PTY pair. The picker labels this path as "bash", so the default must not
 /// follow `$SHELL` to a potentially-heavy zsh/fish setup. Callers pass in the
@@ -53,6 +44,20 @@ private struct SoyehtProcFDInfo {
 /// delivers `onData` and `onExit` callbacks back on that same queue — callers
 /// should hop to `@MainActor` if they touch UI.
 final class NativePTY {
+    struct FileDescriptorMetadata {
+        let mode: mode_t
+        let device: UInt32
+    }
+
+    struct ProcessStartTime: Hashable, Sendable {
+        let seconds: UInt64
+        let microseconds: UInt64
+    }
+
+    struct ProcessIdentity: Hashable, Sendable {
+        let pid: pid_t
+        let startTime: ProcessStartTime
+    }
 
     enum Error: Swift.Error, LocalizedError {
         case openptyFailed(errno: Int32)
@@ -370,6 +375,10 @@ final class NativePTY {
         if !terminalPIDs.contains(pid) {
             terminalPIDs.append(pid)
         }
+        // Bind every escalation target to its current process incarnation
+        // before the initial HUP. Targets without start-time metadata receive
+        // no later TERM/KILL, which is the fail-safe side of a PID reuse race.
+        let terminalProcessIdentities = Self.captureProcessIdentities(terminalPIDs)
         Self.signalProcesses(terminalPIDs, signal: SIGHUP)
         if readSuspended, let src = readSource {
             readSuspended = false
@@ -382,7 +391,10 @@ final class NativePTY {
         readSource = nil
         exitSource?.cancel()
         exitSource = nil
-        Self.scheduleTerminationEscalation(leaderPID: pid, terminalPIDs: terminalPIDs)
+        Self.scheduleTerminationEscalation(
+            leaderPID: pid,
+            terminalProcessIdentities: terminalProcessIdentities
+        )
     }
 
     /// Every terminal-facing pid whose controlling terminal is `ttyPath`.
@@ -404,36 +416,77 @@ final class NativePTY {
         }
         guard written > 0 else { return [] }
         return Array(pids.prefix(Int(written) / MemoryLayout<pid_t>.size))
-            .filter { $0 > 0 && hasTerminalStandardIO($0) }
+            .filter { $0 > 0 && hasTerminalStandardIO($0, ttyDevice: ttyDev) }
     }
 
-    static func hasTerminalStandardIO(_ processID: pid_t) -> Bool {
-        let byteCount = soyeht_proc_pidinfo(processID, procPIDListFDs, 0, nil, 0)
-        // Preserve the historical reap behavior if libproc cannot classify a
-        // process; exclusion is reserved for a positive pipe/socket finding.
-        guard byteCount > 0 else { return true }
-
-        let capacity = Int(byteCount) / MemoryLayout<SoyehtProcFDInfo>.stride + 8
-        var descriptors = [SoyehtProcFDInfo](
-            repeating: SoyehtProcFDInfo(procFD: -1, procFDType: 0),
-            count: capacity
+    static func hasTerminalStandardIO(_ processID: pid_t, ttyDevice: UInt32) -> Bool {
+        hasTerminalStandardIO(
+            processID,
+            ttyDevice: ttyDevice,
+            descriptorMetadata: fileDescriptorMetadata
         )
-        let written = descriptors.withUnsafeMutableBytes { buffer in
+    }
+
+    static func hasTerminalStandardIO(
+        _ processID: pid_t,
+        ttyDevice: UInt32,
+        descriptorMetadata: (pid_t, Int32) -> FileDescriptorMetadata?
+    ) -> Bool {
+        [STDIN_FILENO, STDOUT_FILENO].contains { descriptor in
+            guard let metadata = descriptorMetadata(processID, descriptor) else {
+                return false
+            }
+            let fileType = metadata.mode & mode_t(S_IFMT)
+            return fileType == mode_t(S_IFCHR) && metadata.device == ttyDevice
+        }
+    }
+
+    private static func fileDescriptorMetadata(
+        processID: pid_t,
+        descriptor: Int32
+    ) -> FileDescriptorMetadata? {
+        var info = vnode_fdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
+            proc_pidfdinfo(
+                processID,
+                descriptor,
+                PROC_PIDFDVNODEINFO,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written == MemoryLayout<vnode_fdinfo>.size else { return nil }
+        return FileDescriptorMetadata(
+            mode: info.pvi.vi_stat.vst_mode,
+            device: UInt32(info.pvi.vi_stat.vst_rdev)
+        )
+    }
+
+    private static func captureProcessIdentities(
+        _ processIDs: [pid_t]
+    ) -> [ProcessIdentity] {
+        Set(processIDs).compactMap { processID in
+            guard let startTime = processStartTime(processID) else { return nil }
+            return ProcessIdentity(pid: processID, startTime: startTime)
+        }
+    }
+
+    private static func processStartTime(_ processID: pid_t) -> ProcessStartTime? {
+        var info = proc_bsdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
             soyeht_proc_pidinfo(
                 processID,
-                procPIDListFDs,
+                Int32(PROC_PIDTBSDINFO),
                 0,
                 buffer.baseAddress,
                 Int32(buffer.count)
             )
         }
-        guard written > 0 else { return true }
-
-        let count = Int(written) / MemoryLayout<SoyehtProcFDInfo>.stride
-        return descriptors.prefix(count).contains { descriptor in
-            (descriptor.procFD == STDIN_FILENO || descriptor.procFD == STDOUT_FILENO)
-                && descriptor.procFDType == procFDTypeVnode
-        }
+        guard written == MemoryLayout<proc_bsdinfo>.size else { return nil }
+        return ProcessStartTime(
+            seconds: info.pbi_start_tvsec,
+            microseconds: info.pbi_start_tvusec
+        )
     }
 
     private static func signalProcesses(_ processIDs: [pid_t], signal: Int32) {
@@ -442,33 +495,63 @@ final class NativePTY {
         }
     }
 
+    /// Revalidate both start-time fields immediately before an escalation
+    /// signal. A missing or mismatched identity means the PID is dead,
+    /// inaccessible, or has been recycled, so signaling it is unsafe.
+    @discardableResult
+    static func signalProcessesForEscalation(
+        _ processIdentities: [ProcessIdentity],
+        signal: Int32,
+        startTime: (pid_t) -> ProcessStartTime?,
+        sendSignal: (pid_t, Int32) -> Int32
+    ) -> Bool {
+        var signaled = false
+        for identity in Set(processIdentities) {
+            guard startTime(identity.pid) == identity.startTime else { continue }
+            if sendSignal(identity.pid, signal) == 0 {
+                signaled = true
+            }
+        }
+        return signaled
+    }
+
+    private static func signalLiveProcessesForEscalation(
+        _ processIdentities: [ProcessIdentity],
+        signal: Int32
+    ) -> Bool {
+        signalProcessesForEscalation(
+            processIdentities,
+            signal: signal,
+            startTime: processStartTime,
+            sendSignal: { Darwin.kill($0, $1) }
+        )
+    }
+
     /// SIGHUP → (2s) SIGTERM → (2s) SIGKILL for whatever survives of the
     /// pane's terminal-facing processes. Reaps the leader along the way.
+    /// Every delayed signal revalidates the pre-HUP process identity first.
     /// Captures only values, so it is safe to schedule from `deinit`.
     private static func scheduleTerminationEscalation(
         leaderPID: pid_t,
-        terminalPIDs: [pid_t]
+        terminalProcessIdentities: [ProcessIdentity]
     ) {
         let queue = DispatchQueue.global(qos: .utility)
-
-        func signalSurvivors(_ sig: Int32) -> Bool {
-            var survivors: [pid_t] = []
-            for processID in Set(terminalPIDs) where Darwin.kill(processID, 0) == 0 {
-                survivors.append(processID)
-            }
-            signalProcesses(survivors, signal: sig)
-            return !survivors.isEmpty
-        }
 
         queue.asyncAfter(deadline: .now() + 2) {
             var status: Int32 = 0
             _ = waitpid(leaderPID, &status, WNOHANG)
-            guard signalSurvivors(SIGTERM) else { return }
+            guard signalLiveProcessesForEscalation(
+                terminalProcessIdentities,
+                signal: SIGTERM
+            ) else { return }
             logger.notice("pane processes survived SIGHUP; sent SIGTERM")
             queue.asyncAfter(deadline: .now() + 2) {
                 var status2: Int32 = 0
                 _ = waitpid(leaderPID, &status2, WNOHANG)
-                guard signalSurvivors(SIGKILL) else { return }
+                guard signalLiveProcessesForEscalation(
+                    terminalProcessIdentities,
+                    signal: SIGKILL
+                ) else { return }
                 logger.warning("pane processes survived SIGTERM; sent SIGKILL")
                 queue.asyncAfter(deadline: .now() + 1) {
                     var status3: Int32 = 0
