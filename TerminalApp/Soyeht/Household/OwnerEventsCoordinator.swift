@@ -57,8 +57,14 @@ final class OwnerEventsCoordinator: ObservableObject {
             queue: nil
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.handleAPNSTickle()
+                self?.handleAPNSTickleNotification()
             }
+        }
+        #if DEBUG
+        APNSWakeProbe.record("owner_events_coordinator_initialized")
+        #endif
+        if APNSTickleDelivery.consumePendingTickle() {
+            handleAPNSTickle()
         }
     }
 
@@ -96,8 +102,21 @@ final class OwnerEventsCoordinator: ObservableObject {
     }
 
     func handleAPNSTickle() {
-        guard lifecycle == .background else { return }
+        guard lifecycle == .background else {
+            #if DEBUG
+            APNSWakeProbe.record("tickle_observed_foreground")
+            #endif
+            return
+        }
+        #if DEBUG
+        APNSWakeProbe.record("tickle_observed_background")
+        #endif
         startBackgroundFetchIfNeeded()
+    }
+
+    private func handleAPNSTickleNotification() {
+        guard APNSTickleDelivery.consumePendingTickle() else { return }
+        handleAPNSTickle()
     }
 
     private func startForegroundIfNeeded() {
@@ -122,9 +141,17 @@ final class OwnerEventsCoordinator: ObservableObject {
     }
 
     private func startBackgroundFetchIfNeeded() {
-        guard backgroundTask == nil else { return }
+        guard backgroundTask == nil else {
+            #if DEBUG
+            APNSWakeProbe.record("background_fetch_already_running")
+            #endif
+            return
+        }
         lastError = nil
         state = .backgroundFetching
+        #if DEBUG
+        APNSWakeProbe.record("background_fetch_started")
+        #endif
 
         let taskID = UUID()
         activeBackgroundTaskID = taskID
@@ -184,6 +211,9 @@ final class OwnerEventsCoordinator: ObservableObject {
         guard activeBackgroundTaskID == taskID else { return }
         backgroundTask = nil
         activeBackgroundTaskID = nil
+        #if DEBUG
+        APNSWakeProbe.record("background_fetch_completed")
+        #endif
         state = lifecycle == .background ? .suspended : .foregroundRunning
     }
 
@@ -191,6 +221,9 @@ final class OwnerEventsCoordinator: ObservableObject {
         guard activeBackgroundTaskID == taskID else { return }
         backgroundTask = nil
         activeBackgroundTaskID = nil
+        #if DEBUG
+        APNSWakeProbe.record("background_fetch_cancelled")
+        #endif
         state = .suspended
     }
 
@@ -199,6 +232,9 @@ final class OwnerEventsCoordinator: ObservableObject {
         backgroundTask = nil
         activeBackgroundTaskID = nil
         lastError = error
+        #if DEBUG
+        APNSWakeProbe.record("background_fetch_failed")
+        #endif
         state = .failed(error)
     }
 }

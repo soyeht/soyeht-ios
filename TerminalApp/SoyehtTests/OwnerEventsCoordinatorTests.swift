@@ -4,6 +4,16 @@ import SoyehtCore
 
 @MainActor
 final class OwnerEventsCoordinatorTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        APNSTickleDelivery.resetForTests()
+    }
+
+    override func tearDown() {
+        APNSTickleDelivery.resetForTests()
+        super.tearDown()
+    }
+
     func testForegroundStartsLongPoll() async throws {
         let probe = OwnerEventsRunProbe()
         let coordinator = OwnerEventsCoordinator {
@@ -83,7 +93,7 @@ final class OwnerEventsCoordinatorTests: XCTestCase {
             notificationCenter: center
         )
 
-        center.post(name: .soyehtHouseholdAPNSTickle, object: nil)
+        APNSTickleDelivery.deliverTickle(notificationCenter: center)
         await probe.waitForStarts(1)
         try await waitForState(.suspended, coordinator: coordinator)
 
@@ -107,7 +117,7 @@ final class OwnerEventsCoordinatorTests: XCTestCase {
 
         coordinator.enterForeground()
         await foregroundProbe.waitForStarts(1)
-        center.post(name: .soyehtHouseholdAPNSTickle, object: nil)
+        APNSTickleDelivery.deliverTickle(notificationCenter: center)
         try await Task.sleep(nanoseconds: 20_000_000)
 
         let backgroundStarts = await backgroundProbe.currentStarts()
@@ -116,6 +126,26 @@ final class OwnerEventsCoordinatorTests: XCTestCase {
 
         coordinator.enterBackground()
         await foregroundProbe.waitForCancellations(1)
+    }
+
+    func testPendingAPNSTickleBeforeCoordinatorStartsTriggersOneBackgroundFetch() async throws {
+        let center = NotificationCenter()
+        let probe = OwnerEventsRunProbe()
+
+        APNSTickleDelivery.deliverTickle(notificationCenter: center)
+        let coordinator = OwnerEventsCoordinator(
+            foregroundRun: {},
+            backgroundFetch: {
+                try await probe.runOnce()
+            },
+            notificationCenter: center
+        )
+
+        await probe.waitForStarts(1)
+        try await waitForState(.suspended, coordinator: coordinator)
+
+        let starts = await probe.currentStarts()
+        XCTAssertEqual(starts, 1)
     }
 
     func testAPNSIntegrityErrorDoesNotTriggerBackgroundFetch() async throws {
