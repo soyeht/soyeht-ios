@@ -74,6 +74,15 @@ class PreferencesViewController: NSViewController {
     private let customizeThemeButton = NSButton(title: String(localized: "prefs.theme.button.customize"), target: nil, action: nil)
     private let deleteThemeButton = NSButton(title: String(localized: "prefs.theme.button.delete"), target: nil, action: nil)
 
+    private let styleLabel = NSTextField(labelWithString: String(
+        localized: "prefs.label.designStyle",
+        defaultValue: "Design Style",
+        comment: "Preferences row label for the design style picker."
+    ))
+    private let stylePopUp = NSPopUpButton()
+    /// The picker only appears once more than one style ships.
+    private var showsDesignStylePicker: Bool { DesignStyle.available.count > 1 }
+
     private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
 
@@ -124,6 +133,16 @@ class PreferencesViewController: NSViewController {
         ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
+        }
+
+        if showsDesignStylePicker {
+            [styleLabel, stylePopUp].forEach {
+                $0.translatesAutoresizingMaskIntoConstraints = false
+                view.addSubview($0)
+            }
+            styleLabel.alignment = .right
+            stylePopUp.target = self
+            stylePopUp.action = #selector(designStyleChanged)
         }
 
         displayNameLabel.alignment = .right
@@ -211,7 +230,6 @@ class PreferencesViewController: NSViewController {
             deleteThemeButton.leadingAnchor.constraint(equalTo: customizeThemeButton.trailingAnchor, constant: 8),
             deleteThemeButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
 
-            displayNameLabel.topAnchor.constraint(equalTo: browseCatalogButton.bottomAnchor, constant: 22),
             displayNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             displayNameLabel.widthAnchor.constraint(equalToConstant: labelWidth),
 
@@ -231,6 +249,22 @@ class PreferencesViewController: NSViewController {
             telemetryOptInButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
             telemetryOptInButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ])
+
+        if showsDesignStylePicker {
+            NSLayoutConstraint.activate([
+                styleLabel.topAnchor.constraint(equalTo: browseCatalogButton.bottomAnchor, constant: 22),
+                styleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+                styleLabel.widthAnchor.constraint(equalToConstant: labelWidth),
+
+                stylePopUp.centerYAnchor.constraint(equalTo: styleLabel.centerYAnchor),
+                stylePopUp.leadingAnchor.constraint(equalTo: styleLabel.trailingAnchor, constant: 8),
+                stylePopUp.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+                displayNameLabel.topAnchor.constraint(equalTo: stylePopUp.bottomAnchor, constant: 22),
+            ])
+        } else {
+            displayNameLabel.topAnchor.constraint(equalTo: browseCatalogButton.bottomAnchor, constant: 22).isActive = true
+        }
     }
 
     private func populateThemes() {
@@ -241,6 +275,14 @@ class PreferencesViewController: NSViewController {
             themePopUp.lastItem?.representedObject = theme
         }
         updateDeleteButton()
+
+        if showsDesignStylePicker {
+            stylePopUp.removeAllItems()
+            for style in DesignStyle.available {
+                stylePopUp.addItem(withTitle: style.displayName)
+                stylePopUp.lastItem?.representedObject = style.rawValue
+            }
+        }
     }
 
     private func loadCurrentValues() {
@@ -255,6 +297,15 @@ class PreferencesViewController: NSViewController {
             }
         }
         updateDeleteButton()
+
+        if showsDesignStylePicker {
+            let activeStyle = DesignStyle.active
+            for (idx, item) in stylePopUp.itemArray.enumerated()
+            where (item.representedObject as? String) == activeStyle.rawValue {
+                stylePopUp.selectItem(at: idx)
+                break
+            }
+        }
 
         // Show the override (if any) so the user sees what's currently being
         // advertised to paired iPhones. Placeholder shows the hostname so
@@ -294,6 +345,13 @@ class PreferencesViewController: NSViewController {
         prefs.cursorColorHex = theme.cursorHex
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
         updateDeleteButton()
+    }
+
+    @objc private func designStyleChanged() {
+        guard let raw = stylePopUp.selectedItem?.representedObject as? String,
+              let style = DesignStyle(rawValue: raw) else { return }
+        DesignStyle.setActive(style)
+        NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
     @objc private func importThemeFromFile() {
