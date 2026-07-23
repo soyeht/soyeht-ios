@@ -163,17 +163,12 @@ enum MacSurface {
             Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -6, height: 6), radius: 10)
         }
 
-        /// Pane cards. Empty in classic (flat chrome). In neo: the reference
-        /// pair at design intensity (4/9, full opacity) — correct now that
-        /// pane faces are light: the corridor valley blends light-on-light
-        /// instead of banding against dark screens. Reach (13pt) fits the
-        /// 12pt margin (the last blur tail pt is imperceptible).
-        static var raisedSet: [Shadow] {
-            neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 9),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 9),
-            ] : []
-        }
+        /// Pane cards carry NO layer shadows in either style: per-pane
+        /// shadows clip at the pane-slot boundary and can only band. All
+        /// grid lighting (corridors between cards + outer margins) is
+        /// painted as alpha "deviation from canvas" gradients at the
+        /// split/grid level, which composite smoothly wherever they meet.
+        static var raisedSet: [Shadow] { [] }
 
         /// Compact raised controls (chips, pills).
         static var raisedSmallSet: [Shadow] {

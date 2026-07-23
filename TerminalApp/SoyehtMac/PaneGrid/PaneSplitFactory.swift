@@ -7,54 +7,25 @@ import os
 // comes from per-pane card insets in `PaneViewController` instead, and the
 // stock 1px divider line is hidden by `DividerCoverView` below.
 
-/// Neo-only corridor lighting. Per-pane shadows are clipped at each pane's
-/// slot boundary, so they can only ever produce flat bands with hard steps
-/// in the corridor between two cards — never the reference's continuous
-/// ramp. This view paints the WHOLE corridor (card edge to card edge) as a
-/// single gradient: dark near the light-occluding pane, through canvas,
-/// up to the bloom tone next to the lit edge (measured from the reference:
-/// bloom brighter than the canvas itself). It also hides the stock 1px
-/// divider line underneath. Ignores hits so divider dragging still works.
+/// Neo-only strip that hides the stock 1px divider line with the canvas
+/// color. All grid LIGHTING (card shadows/blooms and their junction
+/// blending) is painted by `GridLightingView` at the grid level — real
+/// per-card 2D shadows that overlap freely, which rectangle-corridor
+/// gradients can never reproduce at junctions. Ignores hits so divider
+/// dragging still works.
 @MainActor
 private final class DividerCoverView: NSView {
-    private let gradient = CAGradientLayer()
-
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.addSublayer(gradient)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    func applyCorridor(vertical: Bool) {
-        let canvas = MacTheme.paneGridCanvas
-        let bloom = canvas.blended(withFraction: 0.7, of: .white) ?? canvas
-        let dark = canvas.blended(withFraction: 0.35, of: MacTheme.neoShadowDark) ?? canvas
-        gradient.colors = [dark.cgColor, canvas.cgColor, bloom.cgColor]
-        gradient.locations = [0, 0.5, 1]
-        if vertical {
-            // Vertical corridor: dark hugs the LEFT card (it occludes the
-            // top-left light), bloom hugs the RIGHT card's lit edge.
-            gradient.startPoint = CGPoint(x: 0, y: 0.5)
-            gradient.endPoint = CGPoint(x: 1, y: 0.5)
-        } else {
-            // Horizontal corridor: dark below the UPPER card, bloom above
-            // the LOWER card's lit top edge. (Unflipped layer space: y=1
-            // is the top.)
-            gradient.startPoint = CGPoint(x: 0.5, y: 1)
-            gradient.endPoint = CGPoint(x: 0.5, y: 0)
-        }
-    }
-
-    override func layout() {
-        super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        gradient.frame = bounds
-        CATransaction.commit()
+    func applyCanvas() {
+        layer?.backgroundColor = MacTheme.paneGridCanvas.cgColor
     }
 }
 
@@ -107,8 +78,8 @@ final class GapSplitViewController: NSSplitViewController {
         updateDividerCover()
     }
 
-    /// Keeps the canvas-colored cover glued to the divider rect (neo only —
-    /// classic shows the stock divider exactly as before).
+    /// Keeps the canvas-colored line hider glued to the divider rect (neo
+    /// only — classic shows the stock divider exactly as before).
     private func updateDividerCover() {
         guard MacSurface.style == .neomorphic,
               splitView.arrangedSubviews.count == 2 else {
@@ -116,31 +87,16 @@ final class GapSplitViewController: NSSplitViewController {
             return
         }
         dividerCover.isHidden = false
-        dividerCover.applyCorridor(vertical: splitView.isVertical)
+        dividerCover.applyCanvas()
 
-        // Corridor span: the divider plus each pane's canvas margin (the
-        // card inset in PaneViewController.applyPaneChrome — kept in sync).
-        let cardMargin: CGFloat = 12
         let first = splitView.arrangedSubviews[0].frame
-        let corridor = splitView.isVertical
-            ? NSRect(
-                x: first.maxX - cardMargin, y: 0,
-                width: splitView.dividerThickness + cardMargin * 2,
-                height: splitView.bounds.height
-            )
-            : NSRect(
-                x: 0, y: first.maxY - cardMargin,
-                width: splitView.bounds.width,
-                height: splitView.dividerThickness + cardMargin * 2
-            )
+        let lineRect = splitView.isVertical
+            ? NSRect(x: first.maxX, y: 0, width: splitView.dividerThickness, height: splitView.bounds.height)
+            : NSRect(x: 0, y: first.maxY, width: splitView.bounds.width, height: splitView.dividerThickness)
 
-        // NSSplitViewController manages an internal divider subview that it
-        // keeps ABOVE every other subview (it draws the 1px line and handles
-        // drag vibrancy), so a sibling overlay can never cover it. Nest the
-        // cover INSIDE that view (drag-tracking for free) but frame it to
-        // the FULL corridor — the parent doesn't clip, so the gradient can
-        // extend past it and replace the panes' boundary-clipped shadows
-        // with one continuous ramp.
+        // NSSplitViewController keeps an internal divider subview above every
+        // other subview; nesting the hider inside it wins the z-battle and
+        // tracks divider drags for free.
         let internalDivider = splitView.subviews.first { candidate in
             candidate !== dividerCover
                 && !splitView.arrangedSubviews.contains(candidate)
@@ -150,12 +106,12 @@ final class GapSplitViewController: NSSplitViewController {
                 internalDivider.addSubview(dividerCover)
             }
             dividerCover.autoresizingMask = []
-            dividerCover.frame = internalDivider.convert(corridor, from: splitView)
+            dividerCover.frame = internalDivider.convert(lineRect, from: splitView)
         } else {
             if dividerCover.superview !== splitView {
                 splitView.addSubview(dividerCover, positioned: .above, relativeTo: nil)
             }
-            dividerCover.frame = corridor
+            dividerCover.frame = lineRect
         }
     }
 
