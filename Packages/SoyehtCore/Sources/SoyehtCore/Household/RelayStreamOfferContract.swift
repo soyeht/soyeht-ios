@@ -4,6 +4,13 @@ import Foundation
 public enum RelayStreamResource: String, Sendable, Equatable {
     case pty
     case clawSite = "clawsite"
+    /// Per-Claw VPN IP-packet stream. Mirrors `RelayStreamResource::IpTunnel` in
+    /// the Rust wire contract (`claw_share_relay_stream_contract.rs`), which
+    /// keeps this as a signed-contract-only resource until a reviewed TUN/utun
+    /// data path exists. No client code on this side implements IP-tunnel
+    /// routing yet; this case exists so the wire type can round-trip, not so
+    /// the resource is usable — callers must keep treating it as unsupported.
+    case ipTunnel = "ip_tunnel"
 }
 
 public enum RelayStreamExpectedPath: String, Sendable, Equatable {
