@@ -33,9 +33,47 @@ final class PreferencesTabViewController: NSTabViewController {
     }
 }
 
+/// Local-only, non-authoritative connection badge for the Devices
+/// preferences pane, fed exclusively by `PairingPresenceServer`'s local
+/// WebSocket/HMAC pairing sessions (`hasConnectedDevices`). Deliberately
+/// structured so it cannot accept a `DeviceCert`, `d_id`, household roster
+/// entry, membership record, route, or `VerifiedMesh` fact: its only input
+/// is the plain `Bool` the presence server already exposes. Never treat
+/// this as a household-identity, remote-presence, membership, authority, or
+/// routing signal — it answers only "is a locally-paired iPhone's WebSocket
+/// open right now," nothing about the household. See `OwnerDevice.swift`'s
+/// `localPairingDeviceId`, already documented there as distinct from
+/// `DeviceCert.d_id`.
+enum LocalPairingConnectionBadge: Equatable {
+    case connected
+    case notConnected
+
+    init(hasConnectedDevices: Bool) {
+        self = hasConnectedDevices ? .connected : .notConnected
+    }
+
+    var text: String {
+        switch self {
+        case .connected:
+            String(
+                localized: "prefs.devices.iphone.localPresence.connected",
+                defaultValue: "Paired iPhone connected to this Mac",
+                comment: "Local Devices pane badge: at least one paired iPhone's local WebSocket is currently open."
+            )
+        case .notConnected:
+            String(
+                localized: "prefs.devices.iphone.localPresence.notConnected",
+                defaultValue: "No paired iPhone currently connected",
+                comment: "Local Devices pane badge: no paired iPhone's local WebSocket is currently open."
+            )
+        }
+    }
+}
+
 @MainActor
 final class DevicesPreferencesViewController: NSViewController {
     private let localConnectionsLabel = NSTextField(labelWithString: "")
+    private let localPresenceBadgeLabel = NSTextField(labelWithString: "")
     private var pairingWindowController: MacIPhonePairingWindowController?
 
     override func loadView() {
@@ -47,11 +85,35 @@ final class DevicesPreferencesViewController: NSViewController {
         super.viewDidLoad()
         buildUI()
         refreshLocalConnectionCount()
+        refreshLocalPresenceBadge()
+        // PairingPresenceServer is not @Observable, so this observer stays
+        // on NotificationCenter (same pattern as WorkspaceSidebarListView).
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(presenceMembershipChanged),
+            name: PairingPresenceServer.membershipDidChangeNotification, object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewWillAppear() {
         super.viewWillAppear()
         refreshLocalConnectionCount()
+        refreshLocalPresenceBadge()
+    }
+
+    @objc private func presenceMembershipChanged() {
+        refreshLocalPresenceBadge()
+    }
+
+    private func refreshLocalPresenceBadge() {
+        let badge = LocalPairingConnectionBadge(
+            hasConnectedDevices: PairingPresenceServer.shared.hasConnectedDevices
+        )
+        localPresenceBadgeLabel.stringValue = badge.text
+        localPresenceBadgeLabel.textColor = badge == .connected ? .systemGreen : .secondaryLabelColor
     }
 
     private func buildUI() {
@@ -135,6 +197,9 @@ final class DevicesPreferencesViewController: NSViewController {
         localConnectionsLabel.textColor = .secondaryLabelColor
         localConnectionsLabel.font = .systemFont(ofSize: 12)
         stack.addArrangedSubview(localConnectionsLabel)
+
+        localPresenceBadgeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        stack.addArrangedSubview(localPresenceBadgeLabel)
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 28),
