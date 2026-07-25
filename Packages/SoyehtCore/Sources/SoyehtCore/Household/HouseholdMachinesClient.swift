@@ -17,6 +17,13 @@ public struct HouseholdMachine: Equatable, Sendable {
     public let capabilities: [String]
     /// Epoch seconds emitted by the engine's machine inventory.
     public let joinedAt: UInt64
+    /// An unsigned diagnostic echo of a cached-address probe, present on the
+    /// wire as `online`. It is NOT covered by the owner-PoP authentication on
+    /// this request (that only authenticates the caller), NOT a presence,
+    /// identity, approval, or VerifiedMesh signal, and for the self record it
+    /// is a meaningless server-side constant. Treat a missing key as unknown;
+    /// never coerce it to `false`.
+    public let reportedReachability: Bool?
 
     public init(
         machineID: MachineID,
@@ -24,7 +31,8 @@ public struct HouseholdMachine: Equatable, Sendable {
         platform: String,
         isSelf: Bool,
         capabilities: [String],
-        joinedAt: UInt64
+        joinedAt: UInt64,
+        reportedReachability: Bool? = nil
     ) {
         self.machineID = machineID
         self.hostLabel = hostLabel
@@ -32,6 +40,7 @@ public struct HouseholdMachine: Equatable, Sendable {
         self.isSelf = isSelf
         self.capabilities = capabilities
         self.joinedAt = joinedAt
+        self.reportedReachability = reportedReachability
     }
 }
 
@@ -193,7 +202,8 @@ public struct HouseholdMachinesClient: Sendable {
                 platform: rawMachine.platform,
                 isSelf: rawMachine.isSelf,
                 capabilities: rawMachine.capabilities,
-                joinedAt: rawMachine.joinedAt
+                joinedAt: rawMachine.joinedAt,
+                reportedReachability: rawMachine.reportedReachability
             )
         }
 
@@ -290,6 +300,11 @@ public struct HouseholdMachinesClient: Sendable {
         let isSelf: Bool
         let capabilities: [String]
         let joinedAt: UInt64
+        /// Named away from the wire's `online` key deliberately: this is an
+        /// unsigned diagnostic echo, not a presence/identity/membership
+        /// signal. A missing key decodes to `nil` via synthesized
+        /// `Decodable`, never coerced to `false`.
+        let reportedReachability: Bool?
 
         enum CodingKeys: String, CodingKey {
             case machineID = "machine_id"
@@ -299,6 +314,7 @@ public struct HouseholdMachinesClient: Sendable {
             case isSelf = "is_self"
             case capabilities
             case joinedAt = "joined_at"
+            case reportedReachability = "online"
         }
     }
 }

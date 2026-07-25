@@ -1,3 +1,4 @@
+import Combine
 import CryptoKit
 import Foundation
 import XCTest
@@ -46,6 +47,208 @@ final class BaseMachineProjectorTests: XCTestCase {
             "Projection is reconstructed from owner-authenticated inventory, never persisted as a paired server")
     }
 
+    func testRefreshProjectsPeersWithTriStateReachabilityAndNeutralizesSelfsEcho() async throws {
+        let householdID = "hh_projector_example"
+        let selfMachineID = try MachineID(
+            authenticatedMachinePublicKey: try machineKey(seed: 0x22)
+                .publicKey.compressedRepresentation
+        )
+        let reachablePeer = try peerMachine(seed: 0x55, hostLabel: "linux-alpha", reportedReachability: true)
+        let unreachablePeer = try peerMachine(seed: 0x66, hostLabel: "linux-beta", reportedReachability: false)
+        let unknownPeer = try peerMachine(seed: 0x77, hostLabel: "linux-gamma", reportedReachability: nil)
+        let snapshot = try machinesSnapshot(
+            householdID: householdID,
+            machineID: selfMachineID,
+            hostLabel: "mac-alpha",
+            // The server always echoes `true` for the self record; this is
+            // exactly the case the projector must neutralize.
+            selfReportedReachability: true,
+            peers: [reachablePeer, unreachablePeer, unknownPeer]
+        )
+        let registryFixture = makeRegistry()
+        defer { registryFixture.clear() }
+        let ownerKey = try machineKey(seed: 0x33)
+        let projector = BaseMachineProjector(
+            authorityBootstrapper: StubAuthorityBootstrapper(snapshot: snapshot),
+            keyProvider: StubOwnerIdentityKeyProvider(privateKey: ownerKey),
+            registry: registryFixture.registry,
+            activeHousehold: { try! self.householdState(id: householdID, ownerKey: ownerKey) },
+            canReadMachineInventory: { _ in true }
+        )
+
+        await projector.refresh()
+
+        let byHost = Dictionary(
+            uniqueKeysWithValues: registryFixture.registry.baseMachines.map { ($0.hostname, $0) }
+        )
+        XCTAssertEqual(registryFixture.registry.baseMachines.count, 4,
+            "The full authenticated roster must project, not only the self machine.")
+
+        let selfServer = try XCTUnwrap(byHost["mac-alpha"])
+        XCTAssertEqual(selfServer.kind, .mac)
+        XCTAssertNil(
+            registryFixture.registry.reportedReachability(for: selfServer),
+            "The self machine's own echoed value is a meaningless server-side constant and must never surface."
+        )
+
+        let reachableServer = try XCTUnwrap(byHost["linux-alpha"])
+        XCTAssertEqual(reachableServer.kind, .linux,
+            "A linux-nix/linux-other peer must present as Linux, never as an owned Mac.")
+        XCTAssertEqual(registryFixture.registry.reportedReachability(for: reachableServer), true)
+
+        let unreachableServer = try XCTUnwrap(byHost["linux-beta"])
+        XCTAssertEqual(unreachableServer.kind, .linux)
+        XCTAssertEqual(registryFixture.registry.reportedReachability(for: unreachableServer), false)
+
+        let unknownServer = try XCTUnwrap(byHost["linux-gamma"])
+        XCTAssertEqual(unknownServer.kind, .linux)
+        XCTAssertNil(registryFixture.registry.reportedReachability(for: unknownServer))
+    }
+
+    func testLinuxNixAndLinuxOtherPlatformValuesBothPresentAsLinux() throws {
+        let registryFixture = makeRegistry()
+        defer { registryFixture.clear() }
+        let nixMachineID = try machineID(seed: 0x88)
+        let otherMachineID = try machineID(seed: 0x99)
+
+        registryFixture.registry.projectBaseMachines(
+            householdID: "hh_platform_variants",
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: nixMachineID),
+                    machineID: nixMachineID,
+                    hostLabel: "linux-nix-host",
+                    platform: "linux-nix",
+                    joinedAt: 1_725_000_000
+                ),
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: otherMachineID),
+                    machineID: otherMachineID,
+                    hostLabel: "linux-other-host",
+                    platform: "linux-other",
+                    joinedAt: 1_725_000_000
+                )
+            ]
+        )
+
+        let byHost = Dictionary(
+            uniqueKeysWithValues: registryFixture.registry.baseMachines.map { ($0.hostname, $0) }
+        )
+        XCTAssertEqual(byHost["linux-nix-host"]?.kind, .linux)
+        XCTAssertEqual(byHost["linux-other-host"]?.kind, .linux)
+    }
+
+    func testReachabilityOnlyChangeStillPublishesToObservers() async throws {
+        let householdID = "hh_reactivity_example"
+        let selfMachineID = try MachineID(
+            authenticatedMachinePublicKey: try machineKey(seed: 0x22)
+                .publicKey.compressedRepresentation
+        )
+        let peerID = try machineID(seed: 0x55)
+        let ownerKey = try machineKey(seed: 0x33)
+        let registryFixture = makeRegistry()
+        defer { registryFixture.clear() }
+
+        func refresh(peerReportedReachability: Bool?) async throws {
+            let peer = try peerMachine(
+                seed: 0x55, hostLabel: "linux-alpha", reportedReachability: peerReportedReachability
+            )
+            let snapshot = try machinesSnapshot(
+                householdID: householdID,
+                machineID: selfMachineID,
+                hostLabel: "mac-alpha",
+                peers: [peer]
+            )
+            let projector = BaseMachineProjector(
+                authorityBootstrapper: StubAuthorityBootstrapper(snapshot: snapshot),
+                keyProvider: StubOwnerIdentityKeyProvider(privateKey: ownerKey),
+                registry: registryFixture.registry,
+                activeHousehold: { try! self.householdState(id: householdID, ownerKey: ownerKey) },
+                canReadMachineInventory: { _ in true }
+            )
+            await projector.refresh()
+        }
+
+        try await refresh(peerReportedReachability: true)
+        // `@Published` sends `objectWillChange` from `willSet`, before the
+        // new value is stored — reading `reportedReachability` inside this
+        // callback could observe the OLD value and give a false pass. The
+        // callback only proves a notification fired; the actual new value is
+        // asserted separately below, after `refresh()` has returned.
+        var notificationCount = 0
+        let cancellable = registryFixture.registry.objectWillChange.sink {
+            notificationCount += 1
+        }
+        defer { cancellable.cancel() }
+
+        // Every `Server` field this refresh produces is byte-identical to the
+        // prior refresh; only the ephemeral reachability flips. If publishing
+        // depended solely on `servers` equality, no notification would fire.
+        try await refresh(peerReportedReachability: false)
+
+        XCTAssertGreaterThan(notificationCount, 0,
+            "A reachability-only change must still notify observers, or the UI can display a stale probe result indefinitely.")
+        XCTAssertEqual(
+            registryFixture.registry.reportedReachability(
+                for: try XCTUnwrap(registryFixture.registry.baseMachines.first { $0.engineMachineId == peerID.rawValue })
+            ),
+            false,
+            "After refresh() has returned, the lookup must reflect the new probe result."
+        )
+    }
+
+    func testReachabilityStillResolvesForAMachineAlreadyLegacyPairedAsAnOperationalServer() throws {
+        let registryFixture = makeRegistry()
+        defer { registryFixture.clear() }
+        let householdID = "hh_collision_example"
+        let pairedMachineID = try machineID(seed: 0x66)
+
+        // The same physical machine is already a legacy-paired operational
+        // Server (its own id, unrelated to `stableServerID`), as would happen
+        // if the user paired it via the old HMAC flow before this household
+        // roster feature existed.
+        let operationalServer = Server(
+            id: "legacy-paired-server-id",
+            kind: .linux,
+            pairedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            lastSeenAt: Date(timeIntervalSince1970: 1_700_000_000),
+            hostname: "linux-alpha",
+            lastHost: "198.51.100.20",
+            engineMachineId: pairedMachineID.rawValue
+        )
+        registryFixture.registry.upsert(operationalServer)
+
+        registryFixture.registry.projectBaseMachines(
+            householdID: householdID,
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: pairedMachineID),
+                    machineID: pairedMachineID,
+                    hostLabel: "linux-alpha",
+                    platform: "linux-nix",
+                    joinedAt: 1_725_000_000,
+                    reportedReachability: true
+                )
+            ]
+        )
+
+        // Existing dedup behavior is untouched: the identity-only projection
+        // for an already-paired machine stays suppressed, and that machine's
+        // operational classification is unchanged.
+        XCTAssertTrue(registryFixture.registry.baseMachines.isEmpty,
+            "A machine with an existing operational row must not also show a duplicate identity-only projection.")
+        XCTAssertEqual(registryFixture.registry.operationalServers.map(\.id), [operationalServer.id])
+
+        // But the diagnostic signal must still resolve for the one row that
+        // IS visible, rather than silently disappearing because it happens
+        // to belong to the operational Server instead of the projection.
+        XCTAssertEqual(
+            registryFixture.registry.reportedReachability(for: operationalServer),
+            true,
+            "A roster machine's reachability signal must be queryable regardless of which Server row currently represents it on screen."
+        )
+    }
+
     func testBaseProjectionAloneChoosesHouseholdHomeWithoutOperationalRecoverySideEffects() throws {
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
@@ -53,12 +256,17 @@ final class BaseMachineProjectorTests: XCTestCase {
         let household = try householdState(id: "hh_recovery", ownerKey: ownerKey)
         let machineID = try machineID(seed: 0x22)
 
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: household.householdId,
-            serverID: BaseMachineProjector.stableServerID(for: machineID),
-            machineID: machineID,
-            hostLabel: "mac-alpha",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: machineID),
+                    machineID: machineID,
+                    hostLabel: "mac-alpha",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
 
         XCTAssertEqual(
@@ -85,12 +293,17 @@ final class BaseMachineProjectorTests: XCTestCase {
         defer { registryFixture.clear() }
         let machineID = try machineID(seed: 0x22)
 
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: "hh_cold_launch",
-            serverID: BaseMachineProjector.stableServerID(for: machineID),
-            machineID: machineID,
-            hostLabel: "mac-alpha",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: machineID),
+                    machineID: machineID,
+                    hostLabel: "mac-alpha",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
 
         XCTAssertFalse(registryFixture.registry.servers.isEmpty)
@@ -145,12 +358,17 @@ final class BaseMachineProjectorTests: XCTestCase {
         )
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: "hh_projector_example",
-            serverID: BaseMachineProjector.stableServerID(for: machineID),
-            machineID: machineID,
-            hostLabel: "mac-alpha",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: machineID),
+                    machineID: machineID,
+                    hostLabel: "mac-alpha",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
 
         let projector = BaseMachineProjector(
@@ -176,12 +394,17 @@ final class BaseMachineProjectorTests: XCTestCase {
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
         let serverID = BaseMachineProjector.stableServerID(for: machineID)
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: householdID,
-            serverID: serverID,
-            machineID: machineID,
-            hostLabel: "mac-alpha",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: serverID,
+                    machineID: machineID,
+                    hostLabel: "mac-alpha",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
         let isolatedSessionStore = SessionStore(
             defaults: registryFixture.defaults,
@@ -221,12 +444,17 @@ final class BaseMachineProjectorTests: XCTestCase {
         )
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: "hh_prior",
-            serverID: BaseMachineProjector.stableServerID(for: priorMachineID),
-            machineID: priorMachineID,
-            hostLabel: "mac-alpha",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: priorMachineID),
+                    machineID: priorMachineID,
+                    hostLabel: "mac-alpha",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
         let ownerKey = try machineKey(seed: 0x33)
         let activeState = try householdState(id: "hh_current", ownerKey: ownerKey)
@@ -453,7 +681,9 @@ private extension BaseMachineProjectorTests {
     func machinesSnapshot(
         householdID: String,
         machineID: MachineID,
-        hostLabel: String
+        hostLabel: String,
+        selfReportedReachability: Bool? = nil,
+        peers: [HouseholdMachine] = []
     ) throws -> HouseholdMachinesSnapshot {
         let machine = HouseholdMachine(
             machineID: machineID,
@@ -461,7 +691,8 @@ private extension BaseMachineProjectorTests {
             platform: "macos",
             isSelf: true,
             capabilities: ["engine", "pty"],
-            joinedAt: 1_725_000_000
+            joinedAt: 1_725_000_000,
+            reportedReachability: selfReportedReachability
         )
         let authority = try MachineReachabilityAuthority(
             householdID: householdID,
@@ -471,8 +702,24 @@ private extension BaseMachineProjectorTests {
         return HouseholdMachinesSnapshot(
             householdID: householdID,
             selfMachine: machine,
-            machines: [machine],
+            machines: [machine] + peers,
             reachabilityAuthority: authority
+        )
+    }
+
+    func peerMachine(
+        seed: UInt8,
+        hostLabel: String,
+        reportedReachability: Bool?
+    ) throws -> HouseholdMachine {
+        HouseholdMachine(
+            machineID: try machineID(seed: seed),
+            hostLabel: hostLabel,
+            platform: "linux",
+            isSelf: false,
+            capabilities: ["engine", "pty"],
+            joinedAt: 1_725_000_000,
+            reportedReachability: reportedReachability
         )
     }
 
@@ -487,12 +734,17 @@ private extension BaseMachineProjectorTests {
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
         let baselineMachineID = try machineID(seed: 0x11)
-        registryFixture.registry.projectBaseMachine(
+        registryFixture.registry.projectBaseMachines(
             householdID: activeHousehold.householdId,
-            serverID: BaseMachineProjector.stableServerID(for: baselineMachineID),
-            machineID: baselineMachineID,
-            hostLabel: "mac-baseline",
-            joinedAt: 1_725_000_000
+            entries: [
+                ServerRegistry.BaseMachineEntry(
+                    serverID: BaseMachineProjector.stableServerID(for: baselineMachineID),
+                    machineID: baselineMachineID,
+                    hostLabel: "mac-baseline",
+                    platform: "macos",
+                    joinedAt: 1_725_000_000
+                )
+            ]
         )
         let persistedServer = Server(
             id: "server-alpha",

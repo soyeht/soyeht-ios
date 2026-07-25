@@ -37,11 +37,24 @@ final class ServerRegistry: ObservableObject {
     /// machine. It deliberately never enters `ServerStore` or the legacy
     /// `PairedMacsStore`: it has no HMAC pairing secret and no verified route
     /// yet. The R101 `/machines` refresh recreates it after process launch.
-    private var baseMachineProjections: [String: BaseMachineProjection]
+    ///
+    /// `@Published` (not just `servers`): a refresh can change only a row's
+    /// `reportedReachability` while every `Server` field stays identical, in
+    /// which case `publishCanonical()`'s `composed != servers` guard would
+    /// never fire and observers would keep rendering a stale probe result.
+    /// Since `@Published` always sends `objectWillChange` on assignment
+    /// regardless of value equality, writing here is what actually notifies
+    /// SwiftUI for a reachability-only change.
+    @Published private var baseMachineProjections: [String: BaseMachineProjection]
 
     private struct BaseMachineProjection {
         let householdID: String
         let server: Server
+        /// Unsigned diagnostic echo carried alongside the projection, never
+        /// persisted (this struct never touches `ServerStore`). `nil` means
+        /// unknown, including for the local self machine, which never reports
+        /// on itself this way. See `HouseholdMachine.reportedReachability`.
+        let reportedReachability: Bool?
     }
 
     init(writer: ServerInventoryWriter? = nil) {
@@ -105,6 +118,22 @@ final class ServerRegistry: ObservableObject {
         return baseMachineProjections[machineID]?.server.id == server.id
     }
 
+    /// Unsigned diagnostic echo for a machine's row. `nil` covers both
+    /// "not a projected machine" and "unknown" (including the local self
+    /// machine) on purpose: this is a display-only signal, never an enable/
+    /// attach/route decision input. See `HouseholdMachine.reportedReachability`.
+    ///
+    /// Matches by `engineMachineId` alone, NOT `isBaseMachineProjection`:
+    /// when a machine is already legacy-paired, `publishCanonical()`
+    /// deliberately shows only the operational `Server` row for it (see its
+    /// dedup filter) and suppresses the base-machine projection row, but the
+    /// diagnostic signal must still reach that one visible row rather than
+    /// silently disappear.
+    func reportedReachability(for server: Server) -> Bool? {
+        guard let machineID = server.engineMachineId else { return nil }
+        return baseMachineProjections[machineID]?.reportedReachability
+    }
+
     /// Linux admin hosts only. Used by views that surface a
     /// Linux-only sub-list (none today; the only consumer that
     /// distinguishes by kind is the home page's `// claws` grouping
@@ -155,46 +184,91 @@ final class ServerRegistry: ObservableObject {
         publishCanonical()
     }
 
-    /// Adds or replaces the process-local projection of the engine's own
-    /// authenticated machine record. The only caller is
+    /// One authenticated roster entry to project. `reportedReachability` is
+    /// the caller's already-decided display signal for this row: pass `nil`
+    /// for the local self machine (its own echoed value is a meaningless
+    /// server-side constant), and the machine's raw
+    /// `HouseholdMachine.reportedReachability` for every other entry.
+    struct BaseMachineEntry {
+        let serverID: UUID
+        let machineID: MachineID
+        let hostLabel: String
+        /// Engine-authenticated platform vocabulary from
+        /// `HouseholdMachine.platform` (e.g. `"macos"`, `"linux"`). Only used
+        /// to pick a presentation `Server.Kind`; it is never a route,
+        /// credential, or authority signal.
+        let platform: String
+        let joinedAt: UInt64
+        let reportedReachability: Bool?
+
+        init(
+            serverID: UUID,
+            machineID: MachineID,
+            hostLabel: String,
+            platform: String,
+            joinedAt: UInt64,
+            reportedReachability: Bool? = nil
+        ) {
+            self.serverID = serverID
+            self.machineID = machineID
+            self.hostLabel = hostLabel
+            self.platform = platform
+            self.joinedAt = joinedAt
+            self.reportedReachability = reportedReachability
+        }
+
+        /// Presentation-only mapping. The engine emits `macos`, `linux-nix`,
+        /// and `linux-other`; anything prefixed `linux` presents as Linux,
+        /// everything else (including future unrecognized values) presents
+        /// as the pre-existing Mac row shape.
+        var presentationKind: Server.Kind {
+            platform.lowercased().hasPrefix("linux") ? .linux : .mac
+        }
+    }
+
+    /// Replaces the process-local projections of the household's
+    /// authenticated machine roster. The only caller is
     /// `BaseMachineProjector` after strict owner-PoP `/machines` validation.
     ///
     /// No host, port, secret, pairing metadata, or persistent `ServerStore`
     /// row is created here. That prevents the visual milestone from being
-    /// mistaken for a legacy HMAC pairing or a reachability claim before the
-    /// later presence and mesh slices land.
-    func projectBaseMachine(
+    /// mistaken for a legacy HMAC pairing or a routable reachability claim
+    /// before the later presence and mesh slices land.
+    func projectBaseMachines(
         householdID: String,
-        serverID: UUID,
-        machineID: MachineID,
-        hostLabel: String,
-        joinedAt: UInt64
+        entries: [BaseMachineEntry]
     ) {
-        let joinedAtDate = Date(timeIntervalSince1970: TimeInterval(joinedAt))
-        let projection = Server(
-            id: serverID.uuidString,
-            kind: .mac,
-            pairedAt: joinedAtDate,
-            lastSeenAt: .distantPast,
-            hostname: hostLabel,
-            engineMachineId: machineID.rawValue,
-            theyOS: TheyOSSnapshot(),
-            apiEndpoint: nil,
-            bootstrapEndpoint: nil,
-            presencePort: nil,
-            attachPort: nil,
-            role: nil,
-            sessionExpiresAt: nil
-        )
         // There is one active household per install. Replacing rather than
         // accumulating avoids leaving a prior household's engine visible
         // after the active identity changes.
-        baseMachineProjections = [
-            machineID.rawValue: BaseMachineProjection(
-                householdID: householdID,
-                server: projection
-            )
-        ]
+        baseMachineProjections = Dictionary(
+            uniqueKeysWithValues: entries.map { entry in
+                let joinedAtDate = Date(timeIntervalSince1970: TimeInterval(entry.joinedAt))
+                let projection = Server(
+                    id: entry.serverID.uuidString,
+                    kind: entry.presentationKind,
+                    pairedAt: joinedAtDate,
+                    lastSeenAt: .distantPast,
+                    hostname: entry.hostLabel,
+                    engineMachineId: entry.machineID.rawValue,
+                    theyOS: TheyOSSnapshot(),
+                    apiEndpoint: nil,
+                    bootstrapEndpoint: nil,
+                    presencePort: nil,
+                    attachPort: nil,
+                    role: nil,
+                    sessionExpiresAt: nil
+                )
+                return (
+                    entry.machineID.rawValue,
+                    BaseMachineProjection(
+                        householdID: householdID,
+                        server: projection,
+                        reportedReachability: entry.reportedReachability
+                    )
+                )
+            }
+        )
         publishCanonical()
     }
 

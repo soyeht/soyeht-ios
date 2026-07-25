@@ -461,8 +461,11 @@ struct InstanceListView: View {
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
                                 }
                                 ForEach(baseMachineRows, id: \.id) { server in
-                                    BaseMachineHomeRow(server: server)
-                                        .accessibilityIdentifier(AccessibilityID.InstanceList.baseMachineCard(server.id))
+                                    BaseMachineHomeRow(
+                                        server: server,
+                                        reportedReachability: serverRegistry.reportedReachability(for: server)
+                                    )
+                                    .accessibilityIdentifier(AccessibilityID.InstanceList.baseMachineCard(server.id))
                                 }
                                 ForEach(macRows, id: \.server.id) { entry in
                                     Button {

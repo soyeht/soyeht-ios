@@ -49,6 +49,37 @@ struct HouseholdMachinesClientTests {
         #expect(signingOwner.lastPayload == expectedSigningContext)
     }
 
+    @Test func decodesReportedReachabilityAsATriStateNeverCoercedToFalse() async throws {
+        let reachable = try MachineFixture(
+            seed: 0x11, isSelf: false, hostLabel: "linux-alpha", reportedReachability: true
+        )
+        let unreachable = try MachineFixture(
+            seed: 0x33, isSelf: false, hostLabel: "linux-beta", reportedReachability: false
+        )
+        let unknown = try MachineFixture(
+            seed: 0x44, isSelf: false, hostLabel: "linux-gamma", reportedReachability: nil
+        )
+        let selfMachine = try MachineFixture(
+            seed: 0x22, isSelf: true, hostLabel: "mac-alpha", reportedReachability: true
+        )
+        let client = makeClient(body: try responseData(
+            householdID: "hh_example",
+            selfMachineID: selfMachine.machineID,
+            machines: [reachable, unreachable, unknown, selfMachine]
+        ))
+
+        let snapshot = try await client.fetch()
+
+        let byLabel = Dictionary(uniqueKeysWithValues: snapshot.machines.map { ($0.hostLabel, $0) })
+        #expect(byLabel["linux-alpha"]?.reportedReachability == true)
+        #expect(byLabel["linux-beta"]?.reportedReachability == false)
+        #expect(byLabel["linux-gamma"]?.reportedReachability == nil)
+        // The self record's echoed value decodes like any other field; it is
+        // the app layer's job (BaseMachineProjector) to treat it as
+        // meaningless, not this client.
+        #expect(byLabel["mac-alpha"]?.reportedReachability == true)
+    }
+
     @Test func rejectsWrongEnvelopeVersionAndHousehold() async throws {
         let machine = try MachineFixture(seed: 0x22, isSelf: true)
 
@@ -244,9 +275,18 @@ private extension HouseholdMachinesClientTests {
         var isSelf: Bool
         let capabilities: [String]
         let joinedAt: UInt64
+        /// `nil` omits the wire key entirely (synthesized `Encodable` uses
+        /// `encodeIfPresent` for `Optional` properties), matching a real
+        /// server response that doesn't send `online` for this record.
+        var reportedReachability: Bool?
         let id: MachineID
 
-        init(seed: UInt8, isSelf: Bool, hostLabel: String = "machine-alpha") throws {
+        init(
+            seed: UInt8,
+            isSelf: Bool,
+            hostLabel: String = "machine-alpha",
+            reportedReachability: Bool? = nil
+        ) throws {
             let key = try P256.Signing.PrivateKey(
                 rawRepresentation: Data(repeating: seed, count: 32)
             )
@@ -259,6 +299,7 @@ private extension HouseholdMachinesClientTests {
             self.isSelf = isSelf
             self.capabilities = ["engine", "pty"]
             self.joinedAt = 1_725_000_000
+            self.reportedReachability = reportedReachability
             self.id = id
         }
 
@@ -270,6 +311,7 @@ private extension HouseholdMachinesClientTests {
             case isSelf = "is_self"
             case capabilities
             case joinedAt = "joined_at"
+            case reportedReachability = "online"
         }
 
         private static func lowerHex(_ data: Data) -> String {

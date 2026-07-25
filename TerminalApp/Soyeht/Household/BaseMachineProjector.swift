@@ -105,12 +105,21 @@ final class BaseMachineProjector {
             return
         }
 
-        registry.projectBaseMachine(
+        registry.projectBaseMachines(
             householdID: currentHousehold.householdId,
-            serverID: Self.stableServerID(for: snapshot.selfMachine.machineID),
-            machineID: snapshot.selfMachine.machineID,
-            hostLabel: snapshot.selfMachine.hostLabel,
-            joinedAt: snapshot.selfMachine.joinedAt
+            entries: snapshot.machines.map { machine in
+                ServerRegistry.BaseMachineEntry(
+                    serverID: Self.stableServerID(for: machine.machineID),
+                    machineID: machine.machineID,
+                    hostLabel: machine.hostLabel,
+                    platform: machine.platform,
+                    joinedAt: machine.joinedAt,
+                    // The self entry's echoed value is a meaningless
+                    // server-side constant (always true); only a peer's
+                    // value is a real diagnostic signal.
+                    reportedReachability: machine.isSelf ? nil : machine.reportedReachability
+                )
+            }
         )
     }
 

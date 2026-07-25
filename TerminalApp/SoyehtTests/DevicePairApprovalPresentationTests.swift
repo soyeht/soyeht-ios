@@ -302,8 +302,20 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
         XCTAssertTrue(source.contains("@ObservedObject private var serverRegistry = ServerRegistry.shared"))
         XCTAssertTrue(source.contains("serverRegistry.baseMachines"))
-        XCTAssertTrue(source.contains("BaseMachineHomeRow(server: server)"))
+        XCTAssertTrue(source.contains("BaseMachineHomeRow("))
+        XCTAssertTrue(source.contains("reportedReachability: serverRegistry.reportedReachability(for: server)"))
         XCTAssertTrue(source.contains("non-interactive"))
+    }
+
+    func test_baseMachineHomeRowPresentationDependsOnServerKindNotJustMac() throws {
+        let source = try iosSource("Pairing/MacHomeRow.swift")
+
+        XCTAssertTrue(source.contains("server.kind == .linux ? \"terminal\" : \"desktopcomputer\""),
+            "The icon must depend on server.kind so a Linux base machine doesn't render with Mac iconography.")
+        XCTAssertTrue(source.contains("server.kind == .linux ? \"[owned linux]\" : \"[owned mac]\""))
+        XCTAssertTrue(source.contains("server.kind == .linux ? \"owned Linux machine\" : \"owned Mac\""))
+        XCTAssertFalse(source.contains("\"\\(server.displayName), owned Mac, \\(statusText)\")"),
+            "The accessibility label must no longer hardcode \"owned Mac\" for every Server.Kind.")
     }
 
     func test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList() throws {

@@ -98,7 +98,10 @@ struct HouseholdHomeView: View {
                 .font(Typography.monoSectionLabel)
                 .foregroundColor(SoyehtTheme.textComment)
             ForEach(serverRegistry.baseMachines, id: \.id) { server in
-                BaseMachineHomeRow(server: server)
+                BaseMachineHomeRow(
+                    server: server,
+                    reportedReachability: serverRegistry.reportedReachability(for: server)
+                )
             }
         }
     }

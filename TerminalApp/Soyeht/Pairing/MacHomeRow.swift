@@ -105,21 +105,65 @@ struct MacHomeRow: View {
 /// Identity-only home row for the household engine's self/base machine.
 ///
 /// Unlike `MacHomeRow`, this record has not completed the legacy HMAC pairing
-/// flow and has no verified presence route yet. Keep it intentionally
-/// non-interactive: a later presence slice owns availability and attach.
+/// flow and has no verified attach route yet. `reportedReachability` is an
+/// unsigned diagnostic probe result from the `/machines` roster: the cached
+/// address it targets is not authenticated, so even `true` never proves the
+/// listed machine itself answered (a stale/poisoned cache entry can point the
+/// probe at a different host running the same echo endpoint). It is a
+/// diagnostic result only — never an enable, attach, route, or identity
+/// signal. `nil` renders the original neutral "not checked" state, matching
+/// both the local self machine (which never reports on itself this way) and
+/// a genuinely unknown peer.
 struct BaseMachineHomeRow: View {
     let server: Server
+    let reportedReachability: Bool?
+
+    init(server: Server, reportedReachability: Bool? = nil) {
+        self.server = server
+        self.reportedReachability = reportedReachability
+    }
+
+    private var statusColor: Color {
+        switch reportedReachability {
+        case .some(true): SoyehtTheme.statusOnline
+        case .some(false): SoyehtTheme.statusOffline
+        case .none: SoyehtTheme.historyGray
+        }
+    }
+
+    private var statusText: String {
+        switch reportedReachability {
+        case .some(true): "last probe: reachable"
+        case .some(false): "last probe: unreachable"
+        case .none: "—"
+        }
+    }
+
+    /// Matches the existing `server.kind == .mac ? "desktopcomputer" :
+    /// "terminal"` convention used elsewhere (e.g. `ClawStoreServerPickerView`)
+    /// so a Linux base machine doesn't render with Mac iconography.
+    private var iconName: String {
+        server.kind == .linux ? "terminal" : "desktopcomputer"
+    }
+
+    private var kindTag: String {
+        server.kind == .linux ? "[owned linux]" : "[owned mac]"
+    }
+
+    private var kindAccessibilityLabel: String {
+        server.kind == .linux ? "owned Linux machine" : "owned Mac"
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "desktopcomputer")
+            Image(systemName: iconName)
                 .font(Typography.iconMedium)
-                .foregroundColor(SoyehtTheme.historyGray)
+                .foregroundColor(statusColor)
                 .frame(minWidth: 22)
 
             HStack(spacing: 8) {
                 Circle()
-                    .fill(SoyehtTheme.historyGray)
+                    .fill(statusColor)
                     .frame(width: 8, height: 8)
                 Text(server.displayName)
                     .font(Typography.monoCardTitle)
@@ -130,19 +174,19 @@ struct BaseMachineHomeRow: View {
 
             Spacer()
 
-            Text(verbatim: "[owned]")
+            Text(verbatim: kindTag)
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textTertiary)
 
-            Text(verbatim: "—")
+            Text(verbatim: statusText)
                 .font(Typography.monoTag)
-                .foregroundColor(SoyehtTheme.historyGray)
+                .foregroundColor(statusColor)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(SoyehtTheme.bgCard)
         .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(server.displayName), owned Mac, availability not checked")
+        .accessibilityLabel("\(server.displayName), \(kindAccessibilityLabel), \(statusText)")
     }
 }
