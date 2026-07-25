@@ -86,6 +86,15 @@ private final class FakeSession: RelayStreamGuestSessionProtocol, @unchecked Sen
         self.frames = frames
     }
 
+    func metadata() async -> RelayStreamGuestSessionMetadata {
+        RelayStreamGuestSessionMetadata(
+            meshIpv4: nil,
+            meshIpv6: "fd00:c1a0::10",
+            mtu: 1_280,
+            sessionId: "session-alpha"
+        )
+    }
+
     func readFrame() async throws -> RelayStreamGuestFrameRecord {
         if frames.isEmpty {
             throw TestFailure(description: "expected queued frame")
@@ -173,12 +182,14 @@ private func testSessionForwardsFrameOperations() async throws {
     try await session.send(data: Data("ping".utf8))
     try await session.resize(cols: 100, rows: 32)
     let received = try await session.nextFrame()
+    let metadata = await session.metadata()
     try await session.close()
 
     try expect(fake.sentData == [Data("ping".utf8)], "data forwarded")
     try expect(fake.resizes.count == 1, "resize forwarded")
     try expect(fake.resizes[0].0 == 100 && fake.resizes[0].1 == 32, "resize dimensions forwarded")
     try expect(received == frame, "frame returned")
+    try expect(metadata.sessionId == "session-alpha", "metadata returned")
     try expect(fake.closeCount == 1, "close forwarded")
 }
 

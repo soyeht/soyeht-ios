@@ -13,6 +13,22 @@ struct SoyehtFeatureFlagsTests {
         #expect(SoyehtFeatureFlags.mobileClawVPNControlPlaneEnabled == false)
     }
 
+    @Test func relayStreamIPTunnelActivationIsDisabledByDefault() {
+        SoyehtFeatureFlags.setRelayStreamIPTunnelActivationEnabledOverride(nil)
+        #expect(SoyehtFeatureFlags.relayStreamIPTunnelActivationEnabled == false)
+    }
+
+    @Test func relayStreamIPTunnelActivationOverrideIsDebugOnly() {
+        SoyehtFeatureFlags.setRelayStreamIPTunnelActivationEnabledOverride(nil)
+        defer { SoyehtFeatureFlags.setRelayStreamIPTunnelActivationEnabledOverride(nil) }
+
+        SoyehtFeatureFlags.setRelayStreamIPTunnelActivationEnabledOverride(true)
+        #expect(
+            SoyehtFeatureFlags.relayStreamIPTunnelActivationEnabled
+                == _isDebugAssertConfiguration()
+        )
+    }
+
     @Test func clawStoreOverrideEnablesAndClears() {
         SoyehtFeatureFlags.setClawStoreEnabledOverride(nil)
         defer { SoyehtFeatureFlags.setClawStoreEnabledOverride(nil) }
@@ -157,6 +173,29 @@ struct SoyehtFeatureFlagsTests {
         #expect(!SoyehtFeatureFlags.isMobileClawVPNControlPlaneE2ELaunchArgumentEnabled(
             bundleIdentifier: "com.soyeht.mac.dev",
             arguments: ["Soyeht"]
+        ))
+    }
+
+    @Test func relayStreamIPTunnelE2ELaunchArgumentOnlyEnablesAllowedDevBundles() {
+        for bundleIdentifier in ["com.soyeht.app.dev", "com.soyeht.mac.dev"] {
+            #expect(SoyehtFeatureFlags.isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+                bundleIdentifier: bundleIdentifier,
+                arguments: ["Soyeht", "-SoyehtRelayStreamIPTunnelE2E"]
+            ))
+        }
+        for bundleIdentifier in ["com.soyeht.app", "com.soyeht.mac"] {
+            #expect(!SoyehtFeatureFlags.isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+                bundleIdentifier: bundleIdentifier,
+                arguments: ["Soyeht", "-SoyehtRelayStreamIPTunnelE2E"]
+            ))
+        }
+        #expect(!SoyehtFeatureFlags.isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+            bundleIdentifier: "com.soyeht.app.dev",
+            arguments: ["Soyeht"]
+        ))
+        #expect(!SoyehtFeatureFlags.isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+            bundleIdentifier: nil,
+            arguments: ["Soyeht", "-SoyehtRelayStreamIPTunnelE2E"]
         ))
     }
 }

@@ -9,13 +9,17 @@ public enum SoyehtFeatureFlags {
     private static let clawStoreE2ELaunchArgument = "-SoyehtClawStoreE2E"
     private static let mobileClawVPNControlPlaneDefault = false
     private static let mobileClawVPNControlPlaneE2ELaunchArgument = "-SoyehtMobileClawVPNControlPlaneE2E"
+    private static let relayStreamIPTunnelActivationDefault = false
+    private static let relayStreamIPTunnelActivationE2ELaunchArgument = "-SoyehtRelayStreamIPTunnelE2E"
     private static let persistentLocalPanesDefault = true
     private static let persistentLocalPanesE2ELaunchArgument = "-SoyehtPersistentLocalPanesE2E"
     private static let clawStoreOverrideLock = NSLock()
     private static let mobileClawVPNControlPlaneOverrideLock = NSLock()
+    private static let relayStreamIPTunnelActivationOverrideLock = NSLock()
     private static let persistentLocalPanesOverrideLock = NSLock()
     private nonisolated(unsafe) static var clawStoreEnabledOverride: Bool?
     private nonisolated(unsafe) static var mobileClawVPNControlPlaneEnabledOverride: Bool?
+    private nonisolated(unsafe) static var relayStreamIPTunnelActivationEnabledOverride: Bool?
     private nonisolated(unsafe) static var persistentLocalPanesEnabledOverride: Bool?
 
     public static var clawStoreEnabled: Bool {
@@ -46,6 +50,28 @@ public enum SoyehtFeatureFlags {
         mobileClawVPNControlPlaneOverrideLock.lock()
         defer { mobileClawVPNControlPlaneOverrideLock.unlock() }
         return mobileClawVPNControlPlaneEnabledOverride ?? mobileClawVPNControlPlaneDefault
+    }
+
+    /// Positive activation gate for the real RelayStream packet data plane.
+    ///
+    /// Shipping bundles cannot enable this with process arguments. Development
+    /// activation requires both an allowlisted Dev bundle and the dedicated
+    /// launch argument, so adding a caller alone cannot create or start a VPN
+    /// profile in production.
+    public static var relayStreamIPTunnelActivationEnabled: Bool {
+        if isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+            bundleIdentifier: Bundle.main.bundleIdentifier,
+            arguments: ProcessInfo.processInfo.arguments
+        ) {
+            return true
+        }
+        guard debugAssertionsEnabled() else {
+            return relayStreamIPTunnelActivationDefault
+        }
+        relayStreamIPTunnelActivationOverrideLock.lock()
+        defer { relayStreamIPTunnelActivationOverrideLock.unlock() }
+        return relayStreamIPTunnelActivationEnabledOverride
+            ?? relayStreamIPTunnelActivationDefault
     }
 
     /// Routes a local agent pane (bash/claude/codex/opencode spawned by this
@@ -113,6 +139,16 @@ public enum SoyehtFeatureFlags {
     }
 
     @_spi(ClawStoreE2E)
+    public static func setRelayStreamIPTunnelActivationEnabledOverride(_ enabled: Bool?) {
+        guard debugAssertionsEnabled() else {
+            return
+        }
+        relayStreamIPTunnelActivationOverrideLock.lock()
+        defer { relayStreamIPTunnelActivationOverrideLock.unlock() }
+        relayStreamIPTunnelActivationEnabledOverride = enabled
+    }
+
+    @_spi(ClawStoreE2E)
     public static func isClawStoreE2ELaunchArgumentEnabled(
         bundleIdentifier: String?,
         arguments: [String]
@@ -136,6 +172,16 @@ public enum SoyehtFeatureFlags {
         guard let bundleIdentifier else { return false }
         return e2eDevBundleIdentifiers.contains(bundleIdentifier)
             && arguments.contains(mobileClawVPNControlPlaneE2ELaunchArgument)
+    }
+
+    @_spi(ClawStoreE2E)
+    public static func isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+        bundleIdentifier: String?,
+        arguments: [String]
+    ) -> Bool {
+        guard let bundleIdentifier else { return false }
+        return e2eDevBundleIdentifiers.contains(bundleIdentifier)
+            && arguments.contains(relayStreamIPTunnelActivationE2ELaunchArgument)
     }
 
     public static let onboardingCarouselEnabled = false

@@ -9,6 +9,9 @@ BUILT_AT="${RELAY_STREAM_GUEST_FFI_BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 FRAMEWORK="$ROOT/RelayStreamGuestFFI.xcframework"
 CRATE="$ROOT"
 LIB_NAME="librelay_stream_guest_ffi.a"
+SOURCE_REV="dd6828f135fa202f6ac8ea0f692d035e59b28494"
+
+"$ROOT/Scripts/prepare-household-rs-source.sh"
 
 profile_dir() {
   if [[ "$PROFILE" == "release" ]]; then
@@ -93,6 +96,8 @@ fi
 
 echo "[relay-stream-guest-ffi] refreshing C header target"
 mkdir -p "$ROOT/Sources/relay_stream_guest_ffiFFI/include"
+perl -pi -e 's/[[:blank:]]+$//' "$ROOT/Generated/relay_stream_guest_ffiFFI.h"
+perl -0pi -e 's/\n+\z/\n/' "$ROOT/Generated/relay_stream_guest_ffiFFI.h"
 cp "$ROOT/Generated/relay_stream_guest_ffiFFI.h" "$ROOT/Sources/relay_stream_guest_ffiFFI/include/"
 cp "$ROOT/Generated/relay_stream_guest_ffiFFI.modulemap" "$ROOT/Sources/relay_stream_guest_ffiFFI/include/module.modulemap"
 
@@ -110,7 +115,7 @@ host_sha="$(shasum -a 256 "$(host_lib)" | awk '{print $1}')"
 cat > "$FRAMEWORK/buildinfo.json" <<JSON
 {
   "source_repo": "https://github.com/soyeht/theyos",
-  "source_rev": "395241648343a49dec0ec1ba5b4d6d08967d1f70",
+  "source_rev": "$SOURCE_REV",
   "built_at": "$BUILT_AT",
   "profile": "$PROFILE",
   "min_ios_version": "$MIN_VERSION",

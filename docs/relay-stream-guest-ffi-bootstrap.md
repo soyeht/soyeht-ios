@@ -14,7 +14,7 @@ Prerequisites:
 
 - macOS with Xcode command line tools selected.
 - Rust installed through `rustup`.
-- Network access for Cargo to resolve the pinned theyos dependency.
+- Network access to fetch the pinned theyos source and Cargo dependencies.
 
 From the repository root:
 
@@ -30,6 +30,12 @@ The bootstrap installs the required Rust iOS targets:
 It then runs `Native/RelayStreamGuestFFI/Scripts/build-relay-stream-guest-ffi-xcframework.sh`,
 refreshes UniFFI Swift/C bindings, assembles the XCFramework, and writes
 `RelayStreamGuestFFI.xcframework/buildinfo.json`.
+
+The build prepares an ignored `.vendor/theyos` checkout at the immutable
+revision recorded by the build script. `buildinfo.json` records that exact
+revision. The pin includes the canonical `IpTunnel` resource and its reviewed
+post-Open `NetworkSettings` frame, so no local source reconstruction or patch
+application is required.
 
 Use a release artifact when matching CI:
 

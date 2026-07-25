@@ -5,11 +5,9 @@ public enum RelayStreamResource: String, Sendable, Equatable {
     case pty
     case clawSite = "clawsite"
     /// Per-Claw VPN IP-packet stream. Mirrors `RelayStreamResource::IpTunnel` in
-    /// the Rust wire contract (`claw_share_relay_stream_contract.rs`), which
-    /// keeps this as a signed-contract-only resource until a reviewed TUN/utun
-    /// data path exists. No client code on this side implements IP-tunnel
-    /// routing yet; this case exists so the wire type can round-trip, not so
-    /// the resource is usable — callers must keep treating it as unsupported.
+    /// the Rust wire contract (`claw_share_relay_stream_contract.rs`). Its
+    /// NetworkExtension data path is gated by the stricter Group-offer
+    /// verification below.
     case ipTunnel = "ip_tunnel"
 }
 
@@ -279,6 +277,34 @@ public struct RelayStreamOfferContract: Sendable, Equatable {
         }
         guard payload.resource == .pty else {
             throw RelayStreamOfferError.resourceMismatch
+        }
+        _ = try relayEndpointURL()
+    }
+
+    /// Verifies the owner-signed, guest-bound Group offer required by the
+    /// packet-tunnel extension.
+    ///
+    /// Device and Public audiences remain ineligible here. The production
+    /// control plane must have granted the member and claw before issuing the
+    /// Group offer; the extension then pins that exact signed offer.
+    public func verifyRelayStreamIPTunnelGuest(
+        expectedSignerPublicKey: Data,
+        expectedGuestDevicePublicKey: Data,
+        nowUnix: UInt64
+    ) throws {
+        try verifyForAudience(
+            expectedSignerPublicKey: expectedSignerPublicKey,
+            expectedGuestDevicePublicKey: expectedGuestDevicePublicKey,
+            nowUnix: nowUnix
+        )
+        guard payload.expectedPath == .relayStream else {
+            throw RelayStreamOfferError.expectedPathMismatch
+        }
+        guard payload.resource == .ipTunnel else {
+            throw RelayStreamOfferError.resourceMismatch
+        }
+        guard case .group = payload.audience else {
+            throw RelayStreamOfferError.audienceMismatch
         }
         _ = try relayEndpointURL()
     }

@@ -10,7 +10,7 @@ path = "src/lib.rs"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-household-rs = { git = "https://github.com/soyeht/theyos.git", rev = "395241648343a49dec0ec1ba5b4d6d08967d1f70" }
+household-rs = { path = ".vendor/theyos/admin/rust/household-rs" }
 thiserror = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 rand = "0.8"

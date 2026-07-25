@@ -4,10 +4,12 @@ import Testing
 
 @testable import SoyehtCore
 
-/// Keeps the pre-runtime data-plane scaffold incapable of starting a tunnel,
-/// resolving a route, or moving bytes. A functional slice must update this
-/// guard in the same SHA-bound security review that introduces its effect.
-@Suite("Mesh data-plane inert boundary")
+/// Security boundary for the mesh transport runtime.
+///
+/// The RelayStream IpTunnel slice deliberately crosses the former inert
+/// ratchet. These assertions pin the reviewed activation/auth/packet surfaces
+/// while keeping the general machine-reachability runtime unavailable.
+@Suite("Mesh data-plane security boundary")
 struct MeshDataPlaneInertBoundaryTests {
     @Test func defaultReadinessIsUnavailableForEveryPurpose() async throws {
         let publicKey = P256.Signing.PrivateKey().publicKey.compressedRepresentation
@@ -78,33 +80,151 @@ struct MeshDataPlaneInertBoundaryTests {
         #expect(!source.contains("func candidates("))
     }
 
-    @Test func packetTunnelProviderRemainsFailClosedBeforeContract() throws {
+    @Test func packetTunnelRuntimeIsBoundToSignedEphemeralGroupOffer() throws {
         let root = try workspaceRoot()
         let providerURL = root.appendingPathComponent(
             "TerminalApp/SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.swift"
         )
         let provider = try sourceCodeOnly(String(contentsOf: providerURL, encoding: .utf8))
+        let networkSettingsURL = root.appendingPathComponent(
+            "TerminalApp/SoyehtClawShareTunnelProvider/RelayStreamIPTunnelNetworkSettings.swift"
+        )
+        let networkSettings = try sourceCodeOnly(
+            String(contentsOf: networkSettingsURL, encoding: .utf8)
+        )
+        let controllerURL = root.appendingPathComponent(
+            "TerminalApp/Soyeht/RelayStream/RelayStreamIPTunnelController.swift"
+        )
+        let controller = try sourceCodeOnly(String(contentsOf: controllerURL, encoding: .utf8))
+        let featureFlagsURL = root.appendingPathComponent(
+            "Packages/SoyehtCore/Sources/SoyehtCore/Features/SoyehtFeatureFlags.swift"
+        )
+        let featureFlags = try sourceCodeOnly(
+            String(contentsOf: featureFlagsURL, encoding: .utf8)
+        )
+        let ffiURL = root.appendingPathComponent(
+            "Native/RelayStreamGuestFFI/src/lib.rs"
+        )
+        let ffi = try sourceCodeOnly(String(contentsOf: ffiURL, encoding: .utf8))
+        let startOptionsURL = root.appendingPathComponent(
+            "Native/RelayStreamGuestFFI/Swift/RelayStreamGuestTunnelStartOptions.swift"
+        )
+        let startOptionsDocument = try String(contentsOf: startOptionsURL, encoding: .utf8)
+        let startOptions = sourceCodeOnly(startOptionsDocument)
 
-        #expect(provider.contains("completionHandler(TunnelProviderError.notConfigured)"))
-        for forbiddenSurface in [
+        for requiredProviderSurface in [
+            "RelayStreamGuestTunnelStartOptions.decode",
+            "RelayStreamOfferContract.fromCanonicalBytes",
+            "offer.canonicalBytes() == startOptions.offerCbor",
+            "verifyRelayStreamIPTunnelGuest",
+            "startOptions.authMode == .offerPayload",
+            "startOptions.authMaterialCbor == offer.payload.canonicalBytes()",
+            "connectPrepared",
+            "session.metadata()",
+            "metadata.meshIpv4",
+            "metadata.meshIpv6 == nil",
+            "RelayStreamIPTunnelNetworkSettings.make",
             "setTunnelNetworkSettings",
+            "RelayStreamIPPacketPump",
             "packetFlow",
-            "readPackets",
-            "writePackets",
-            "URLSession",
-            "NWConnection",
-            "NETunnelProviderManager",
-            "MeshTunnelConfigBuilder",
-            "providerConfiguration",
-            "startVPNTunnel",
-            "NEPacketTunnelNetworkSettings",
-            "Task {",
         ] {
             #expect(
-                !provider.contains(forbiddenSurface),
-                "pre-runtime packet provider must not introduce \(forbiddenSurface)"
+                provider.contains(requiredProviderSurface),
+                "packet provider must retain reviewed surface \(requiredProviderSurface)"
             )
         }
+
+        for requiredNetworkSettingsSurface in [
+            "NEIPv4Settings(",
+            "NEIPv4Route(",
+            "destinationAddress: networkString",
+            "subnetMask: maskString",
+            "tunnelRemoteAddress: peerString",
+            "ipv4.includedRoutes = [",
+        ] {
+            #expect(
+                networkSettings.contains(requiredNetworkSettingsSurface),
+                "packet provider must retain pool-scoped setting \(requiredNetworkSettingsSurface)"
+            )
+        }
+        #expect(!networkSettings.contains("NEIPv4Route.default()"))
+        #expect(!networkSettings.contains("NEIPv6Route.default()"))
+        #expect(!networkSettings.contains("0.0.0.0"))
+
+        for requiredFFISurface in [
+            "TunnelFrame::NetworkSettings(settings)",
+            "tokio::time::timeout(timeout, recv_frame(stream))",
+            "settings.mtu != auth_mtu",
+            "settings.session_id != auth_session_id",
+            "\"post-open network settings timed out\"",
+            "\"expected post-open network settings\"",
+        ] {
+            #expect(
+                ffi.contains(requiredFFISurface),
+                "native client must retain post-Open fail-closed surface \(requiredFFISurface)"
+            )
+        }
+
+        for forbiddenProviderSurface in [
+            "SecureEnclave",
+            "SecKey",
+            "SecItem",
+            "UserDefaults",
+            "FileManager",
+            "providerConfiguration",
+            ".sign(",
+        ] {
+            #expect(
+                !provider.contains(forbiddenProviderSurface),
+                "packet provider must not gain host key or persistence surface \(forbiddenProviderSurface)"
+            )
+        }
+
+        #expect(controller.contains("claimed.guestIdentity.sign(request.signingBytes)"))
+        #expect(controller.contains(
+            """
+            func activate(claimed: ClaimedGroupRelayStreamOffer) async throws {
+                    guard SoyehtFeatureFlags.relayStreamIPTunnelActivationEnabled else
+            """
+        ))
+        #expect(controller.contains("ActivationError.activationDisabled"))
+        #expect(!controller.contains("mobileClawVPNControlPlaneEnabled"))
+        #expect(controller.contains("startVPNTunnel(options:"))
+        #expect(controller.contains("installed.first {"))
+        #expect(controller.contains("$0.providerBundleIdentifier == providerBundleIdentifier"))
+        #expect(controller.contains("\"start_options\": \"ephemeral-only\""))
+        #expect(!controller.contains("managers.first ??"))
+
+        #expect(featureFlags.contains(
+            "private static let relayStreamIPTunnelActivationDefault = false"
+        ))
+        #expect(featureFlags.contains(
+            """
+            if isRelayStreamIPTunnelE2ELaunchArgumentEnabled(
+                        bundleIdentifier: Bundle.main.bundleIdentifier,
+                        arguments: ProcessInfo.processInfo.arguments
+                    )
+            """
+        ))
+        #expect(featureFlags.contains(
+            """
+            guard debugAssertionsEnabled() else {
+                        return relayStreamIPTunnelActivationDefault
+            """
+        ))
+        #expect(featureFlags.contains(
+            """
+            return e2eDevBundleIdentifiers.contains(bundleIdentifier)
+                        && arguments.contains(relayStreamIPTunnelActivationE2ELaunchArgument)
+            """
+        ))
+
+        #expect(startOptionsDocument.contains("startVPNTunnel(options:)"))
+        #expect(startOptionsDocument.contains("must never"))
+        #expect(startOptions.contains("static let optionKey"))
+        #expect(startOptions.contains("issuedAtUnix"))
+        #expect(startOptions.contains("expiresAt"))
+        #expect(startOptions.contains("maximumRemainingLifetimeSeconds"))
     }
 
     private func inertCoreSources() throws -> [String] {

@@ -16,6 +16,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use std::fmt;
+use std::net::Ipv4Addr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -23,9 +24,9 @@ use household_rs::KeystoreError;
 use household_rs::cbor;
 use household_rs::claw_share::GuestCredential;
 use household_rs::claw_share_data_tunnel::{
-    AuthEnvelope, DataTunnelError, HEALTH_PROBE, SessionAuthToken, TargetExit, TunnelAck,
-    TunnelFrame, client_authenticate, client_health, client_open_stream, client_resize, recv_frame,
-    send_frame,
+    AuthEnvelope, DataTunnelError, HEALTH_PROBE, NetworkSettings, SessionAuthToken, TargetExit,
+    TunnelAck, TunnelFrame, client_authenticate, client_health, client_open_stream, client_resize,
+    recv_frame, send_frame,
 };
 use household_rs::claw_share_relay_stream_contract::{
     RelayStreamAudience, RelayStreamExpectedPath, RelayStreamOfferContract, RelayStreamResource,
@@ -45,6 +46,7 @@ uniffi::setup_scaffolding!();
 
 const SESSION_TOKEN_NONCE_LEN: usize = 16;
 const SESSION_TOKEN_MAX_TTL_SECS: u64 = 300;
+const DEFAULT_NETWORK_SETTINGS_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Authentication material mode for the post-Noise data tunnel.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
@@ -154,6 +156,28 @@ pub struct RelayStreamGuestFrameRecord {
     pub data: Vec<u8>,
     pub number: i64,
     pub text: String,
+}
+
+/// IPv4 assignment authenticated inside the post-Open Noise channel.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct RelayStreamGuestIpv4Metadata {
+    pub addr: String,
+    pub prefix_len: u8,
+    pub peer: String,
+}
+
+/// Network settings authenticated by the relay-stream responder.
+///
+/// The packet-tunnel extension only uses `mesh_ipv4` after the post-Open
+/// `NetworkSettings` frame has been validated and cross-bound to the auth
+/// `TunnelAck` session id and MTU. It never accepts these values from
+/// host-provided start options.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct RelayStreamGuestSessionMetadata {
+    pub mesh_ipv4: Option<RelayStreamGuestIpv4Metadata>,
+    pub mesh_ipv6: Option<String>,
+    pub mtu: u16,
+    pub session_id: String,
 }
 
 impl From<RelayStreamGuestFrame> for RelayStreamGuestFrameRecord {
@@ -285,6 +309,7 @@ pub struct RelayStreamGuestSession {
     command_tx: mpsc::Sender<RelayStreamGuestCommand>,
     frame_rx:
         TokioMutex<mpsc::Receiver<Result<RelayStreamGuestFrameRecord, RelayStreamGuestError>>>,
+    metadata: RelayStreamGuestSessionMetadata,
 }
 
 enum RelayStreamGuestCommand {
@@ -325,15 +350,25 @@ pub async fn relay_stream_connect(
     now_unix: u64,
     connect_timeout_ms: u64,
 ) -> Result<Arc<RelayStreamGuestSession>, RelayStreamGuestError> {
+    let offer = decode_canonical_offer(&offer_cbor)?;
+    let requires_network_metadata = offer.payload.resource == RelayStreamResource::IpTunnel;
+    let connect_timeout = Duration::from_millis(connect_timeout_ms);
     let stream = connect_relay_stream_tcp(
         &offer_cbor,
         &expected_owner_pub,
         &expected_guest_pub,
         now_unix,
-        Duration::from_millis(connect_timeout_ms),
+        connect_timeout,
     )
     .await?;
-    let stream = authenticate_health_open(stream, &request, &signature).await?;
+    let (stream, metadata) = authenticate_health_open_with_metadata(
+        stream,
+        &request,
+        &signature,
+        requires_network_metadata,
+        connect_timeout,
+    )
+    .await?;
     let (read_half, write_half) = tokio::io::split(stream);
     let (command_tx, command_rx) = mpsc::channel(32);
     let (frame_tx, frame_rx) = mpsc::channel(32);
@@ -342,11 +377,16 @@ pub async fn relay_stream_connect(
     Ok(Arc::new(RelayStreamGuestSession {
         command_tx,
         frame_rx: TokioMutex::new(frame_rx),
+        metadata,
     }))
 }
 
 #[uniffi::export(async_runtime = "tokio")]
 impl RelayStreamGuestSession {
+    pub async fn metadata(&self) -> RelayStreamGuestSessionMetadata {
+        self.metadata.clone()
+    }
+
     pub async fn send_data(&self, data: Vec<u8>) -> Result<(), RelayStreamGuestError> {
         let (tx, rx) = oneshot::channel();
         self.command_tx
@@ -605,24 +645,183 @@ pub async fn connect_relay_stream_tcp(
 
 /// Authenticate, health-check, and open the relay_stream data tunnel.
 pub async fn authenticate_health_open<S>(
-    mut stream: S,
+    stream: S,
     request: &RelayStreamAuthSigningRequest,
     signature: &[u8],
 ) -> Result<S, RelayStreamGuestError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let (stream, _) = authenticate_health_open_with_metadata(
+        stream,
+        request,
+        signature,
+        false,
+        DEFAULT_NETWORK_SETTINGS_TIMEOUT,
+    )
+    .await?;
+    Ok(stream)
+}
+
+/// Authenticate, health-check, and open the relay stream.
+///
+/// IpTunnel consumes exactly one post-Open `NetworkSettings` frame before
+/// returning the session. Other resources preserve the existing auth
+/// `TunnelAck` → Health → Open sequence unchanged.
+pub async fn authenticate_health_open_with_metadata<S>(
+    mut stream: S,
+    request: &RelayStreamAuthSigningRequest,
+    signature: &[u8],
+    requires_network_metadata: bool,
+    network_settings_timeout: Duration,
+) -> Result<(S, RelayStreamGuestSessionMetadata), RelayStreamGuestError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let token = signed_session_auth_token(request, signature)?;
-    match client_authenticate(&mut stream, &request.auth_material_cbor, token).await? {
-        TunnelAck::Ok { .. } => {}
-        TunnelAck::Rejected { reason } => return Err(RelayStreamGuestError::AuthRejected(reason)),
-    }
+    let (mesh_ipv6, auth_mtu, auth_session_id) =
+        match client_authenticate(&mut stream, &request.auth_material_cbor, token).await? {
+            TunnelAck::Ok {
+                mesh_ipv6,
+                mtu,
+                session_id,
+            } => (mesh_ipv6, mtu, session_id),
+            TunnelAck::Rejected { reason } => {
+                return Err(RelayStreamGuestError::AuthRejected(reason));
+            }
+        };
     let echo = client_health(&mut stream, HEALTH_PROBE).await?;
     if echo != HEALTH_PROBE {
         return Err(RelayStreamGuestError::HealthMismatch);
     }
     client_open_stream(&mut stream).await?;
-    Ok(stream)
+    let metadata = if requires_network_metadata {
+        receive_ip_tunnel_network_settings(
+            &mut stream,
+            auth_mtu,
+            &auth_session_id,
+            network_settings_timeout,
+        )
+        .await?
+    } else {
+        RelayStreamGuestSessionMetadata {
+            mesh_ipv4: None,
+            mesh_ipv6: Some(mesh_ipv6),
+            mtu: auth_mtu,
+            session_id: auth_session_id,
+        }
+    };
+    Ok((stream, metadata))
+}
+
+async fn receive_ip_tunnel_network_settings<S>(
+    stream: &mut S,
+    auth_mtu: u16,
+    auth_session_id: &str,
+    timeout: Duration,
+) -> Result<RelayStreamGuestSessionMetadata, RelayStreamGuestError>
+where
+    S: AsyncRead + Unpin,
+{
+    let frame = tokio::time::timeout(timeout, recv_frame(stream))
+        .await
+        .map_err(|_| {
+            RelayStreamGuestError::DataTunnel("post-open network settings timed out".to_string())
+        })??;
+    let TunnelFrame::NetworkSettings(settings) = frame else {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "expected post-open network settings".to_string(),
+        ));
+    };
+    validate_ip_tunnel_network_settings(settings, auth_mtu, auth_session_id)
+}
+
+fn validate_ip_tunnel_network_settings(
+    settings: NetworkSettings,
+    auth_mtu: u16,
+    auth_session_id: &str,
+) -> Result<RelayStreamGuestSessionMetadata, RelayStreamGuestError> {
+    validate_session_identity(settings.mtu, &settings.session_id)?;
+    if settings.mtu != auth_mtu || settings.session_id != auth_session_id {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "post-open settings do not match authenticated session".to_string(),
+        ));
+    }
+
+    let addr = settings.mesh_ipv4.addr.parse::<Ipv4Addr>().map_err(|_| {
+        RelayStreamGuestError::DataTunnel("network settings address invalid".to_string())
+    })?;
+    let peer = settings.mesh_ipv4.peer.parse::<Ipv4Addr>().map_err(|_| {
+        RelayStreamGuestError::DataTunnel("network settings peer invalid".to_string())
+    })?;
+    let prefix_len = settings.mesh_ipv4.prefix_len;
+    if !(1..=31).contains(&prefix_len) {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "network settings prefix invalid".to_string(),
+        ));
+    }
+
+    let addr_raw = u32::from(addr);
+    let peer_raw = u32::from(peer);
+    let mask = u32::MAX << (32 - u32::from(prefix_len));
+    let network = addr_raw & mask;
+    let broadcast = network | !mask;
+    let reserves_network_and_broadcast = prefix_len <= 30;
+    if addr_raw == peer_raw
+        || !usable_ipv4_unicast(addr_raw)
+        || !usable_ipv4_unicast(peer_raw)
+        || peer_raw & mask != network
+        || (reserves_network_and_broadcast
+            && (addr_raw == network
+                || addr_raw == broadcast
+                || peer_raw == network
+                || peer_raw == broadcast))
+    {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "network settings route scope invalid".to_string(),
+        ));
+    }
+
+    Ok(RelayStreamGuestSessionMetadata {
+        mesh_ipv4: Some(RelayStreamGuestIpv4Metadata {
+            addr: addr.to_string(),
+            prefix_len,
+            peer: peer.to_string(),
+        }),
+        mesh_ipv6: None,
+        mtu: settings.mtu,
+        session_id: settings.session_id,
+    })
+}
+
+fn validate_session_identity(mtu: u16, session_id: &str) -> Result<(), RelayStreamGuestError> {
+    if !(1280..=9000).contains(&mtu) {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "session mtu invalid".to_string(),
+        ));
+    }
+    if session_id.trim().is_empty()
+        || session_id.trim() != session_id
+        || !session_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
+    {
+        return Err(RelayStreamGuestError::DataTunnel(
+            "session id invalid".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn usable_ipv4_unicast(address: u32) -> bool {
+    let first_octet = address >> 24;
+    let first_two_octets = address >> 16;
+    address != 0
+        && address != u32::MAX
+        && first_octet != 0
+        && first_octet != 127
+        && first_two_octets != 0xA9FE
+        && first_octet < 224
 }
 
 pub async fn send_data<S>(stream: &mut S, data: &[u8]) -> Result<(), RelayStreamGuestError>
@@ -673,6 +872,9 @@ where
         TunnelFrame::Exit(TargetExit::Code(code)) => RelayStreamGuestFrame::ExitCode(code),
         TunnelFrame::Exit(TargetExit::Signal(signal)) => RelayStreamGuestFrame::ExitSignal(signal),
         TunnelFrame::Exit(TargetExit::Lost) => RelayStreamGuestFrame::ExitLost,
+        TunnelFrame::NetworkSettings(_) => {
+            RelayStreamGuestFrame::Error("unexpected network settings frame".to_string())
+        }
     })
 }
 
@@ -873,7 +1075,8 @@ mod tests {
 
     use household_rs::claw_share::{ClawShareSlotStore, SlotId, SlotRecord, SlotState};
     use household_rs::claw_share_data_tunnel::{
-        ClawTargetRouter, ReplayGuard, TargetSession, authorize_session, serve_connection_io,
+        ClawTargetRouter, MeshIpv4, ReplayGuard, TargetSession, authorize_session,
+        serve_connection_io,
     };
     use household_rs::claw_share_relay_stream_contract::{
         RelayStreamOfferContract, RelayStreamOfferMintInput, RelayStreamResource,
@@ -1364,6 +1567,12 @@ mod tests {
         let session = Arc::new(RelayStreamGuestSession {
             command_tx,
             frame_rx: TokioMutex::new(frame_rx),
+            metadata: RelayStreamGuestSessionMetadata {
+                mesh_ipv4: None,
+                mesh_ipv6: Some("fd00::10".to_string()),
+                mtu: 1280,
+                session_id: "session-test".to_string(),
+            },
         });
 
         let payload = TunnelFrame::Data(b"ACK:fragment".to_vec()).encode();
@@ -1409,5 +1618,148 @@ mod tests {
             }
         );
         session.send_close().await.expect("close");
+    }
+
+    #[test]
+    fn ip_tunnel_session_metadata_accepts_only_route_scoped_settings() {
+        let settings = NetworkSettings {
+            mesh_ipv4: MeshIpv4 {
+                addr: "192.0.2.2".to_string(),
+                prefix_len: 24,
+                peer: "192.0.2.3".to_string(),
+            },
+            mtu: 1280,
+            session_id: "session-alpha_1".to_string(),
+        };
+        assert_eq!(
+            validate_ip_tunnel_network_settings(settings.clone(), 1280, "session-alpha_1")
+                .expect("valid settings"),
+            RelayStreamGuestSessionMetadata {
+                mesh_ipv4: Some(RelayStreamGuestIpv4Metadata {
+                    addr: "192.0.2.2".to_string(),
+                    prefix_len: 24,
+                    peer: "192.0.2.3".to_string(),
+                }),
+                mesh_ipv6: None,
+                mtu: 1280,
+                session_id: "session-alpha_1".to_string(),
+            }
+        );
+
+        for address in [
+            "",
+            "0.42.0.2",
+            "192.0.2.0",
+            "192.0.2.255",
+            "127.0.0.1",
+            "169.254.1.1",
+            "224.0.0.1",
+            "not-an-ip",
+        ] {
+            let mut candidate = settings.clone();
+            candidate.mesh_ipv4.addr = address.to_string();
+            assert!(
+                validate_ip_tunnel_network_settings(candidate, 1280, "session-alpha_1").is_err(),
+                "{address} must be rejected"
+            );
+        }
+
+        for (prefix_len, peer) in [(0, "192.0.2.3"), (24, "198.51.100.3")] {
+            let mut candidate = settings.clone();
+            candidate.mesh_ipv4.prefix_len = prefix_len;
+            candidate.mesh_ipv4.peer = peer.to_string();
+            assert!(
+                validate_ip_tunnel_network_settings(candidate, 1280, "session-alpha_1").is_err()
+            );
+        }
+
+        for (auth_mtu, auth_session_id) in [
+            (1281, "session-alpha_1"),
+            (1280, "session-other"),
+            (1280, ""),
+        ] {
+            assert!(
+                validate_ip_tunnel_network_settings(settings.clone(), auth_mtu, auth_session_id)
+                    .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn post_open_network_settings_are_consumed_before_session_metadata_returns() {
+        let (mut client, mut server) = duplex(4096);
+        let server_task = tokio::spawn(async move {
+            send_frame(
+                &mut server,
+                &TunnelFrame::NetworkSettings(NetworkSettings {
+                    mesh_ipv4: MeshIpv4 {
+                        addr: "192.0.2.2".to_string(),
+                        prefix_len: 24,
+                        peer: "192.0.2.3".to_string(),
+                    },
+                    mtu: 1280,
+                    session_id: "session-alpha".to_string(),
+                }),
+            )
+            .await
+            .expect("send settings");
+        });
+
+        let metadata = receive_ip_tunnel_network_settings(
+            &mut client,
+            1280,
+            "session-alpha",
+            Duration::from_secs(1),
+        )
+        .await
+        .expect("receive settings");
+        assert_eq!(
+            metadata.mesh_ipv4,
+            Some(RelayStreamGuestIpv4Metadata {
+                addr: "192.0.2.2".to_string(),
+                prefix_len: 24,
+                peer: "192.0.2.3".to_string(),
+            })
+        );
+        server_task.await.expect("server task");
+    }
+
+    #[tokio::test]
+    async fn post_open_network_settings_fail_closed_when_missing_or_out_of_order() {
+        let (mut missing_client, _missing_server) = duplex(4096);
+        let error = receive_ip_tunnel_network_settings(
+            &mut missing_client,
+            1280,
+            "session-alpha",
+            Duration::from_millis(5),
+        )
+        .await
+        .expect_err("missing settings must time out");
+        assert!(matches!(
+            error,
+            RelayStreamGuestError::DataTunnel(message)
+                if message == "post-open network settings timed out"
+        ));
+
+        let (mut client, mut server) = duplex(4096);
+        let server_task = tokio::spawn(async move {
+            send_frame(&mut server, &TunnelFrame::Data(vec![0x45]))
+                .await
+                .expect("send wrong frame");
+        });
+        let error = receive_ip_tunnel_network_settings(
+            &mut client,
+            1280,
+            "session-alpha",
+            Duration::from_secs(1),
+        )
+        .await
+        .expect_err("out-of-order frame must fail");
+        assert!(matches!(
+            error,
+            RelayStreamGuestError::DataTunnel(message)
+                if message == "expected post-open network settings"
+        ));
+        server_task.await.expect("server task");
     }
 }

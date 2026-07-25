@@ -48,6 +48,50 @@ final class RelayStreamOfferContractTests: XCTestCase {
         XCTAssertEqual(try offer.relayEndpointURL().scheme, "relay-stream")
     }
 
+    func testIPTunnelVerificationRequiresOwnerSignedGroupAudienceAndExactResource() throws {
+        let ownerKey = try Self.ownerKey()
+        let groupPayload = try Self.payload(
+            resource: .ipTunnel,
+            authz: .group(groupId: "group_alpha", memberId: "member_alpha")
+        )
+        let offer = try Self.signedOffer(ownerKey: ownerKey, payload: groupPayload)
+
+        try offer.verifyRelayStreamIPTunnelGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now
+        )
+
+        for audience in [RelayStreamAudience.device, .public] {
+            let wrongAudience = try Self.signedOffer(
+                ownerKey: ownerKey,
+                payload: Self.payload(resource: .ipTunnel, authz: audience)
+            )
+            XCTAssertThrowsError(try wrongAudience.verifyRelayStreamIPTunnelGuest(
+                expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+                expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+                nowUnix: Self.now
+            )) { error in
+                XCTAssertEqual(error as? RelayStreamOfferError, .audienceMismatch)
+            }
+        }
+
+        let pty = try Self.signedOffer(
+            ownerKey: ownerKey,
+            payload: Self.payload(
+                resource: .pty,
+                authz: .group(groupId: "group_alpha", memberId: "member_alpha")
+            )
+        )
+        XCTAssertThrowsError(try pty.verifyRelayStreamIPTunnelGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .resourceMismatch)
+        }
+    }
+
     func testOfferRejectsWrongGuestExpiredAndWrongPath() throws {
         let ownerKey = try Self.ownerKey()
         let offer = try Self.signedOffer(ownerKey: ownerKey)

@@ -419,6 +419,22 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
+    typealias FfiType = UInt8
+    typealias SwiftType = UInt8
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: UInt8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
     typealias FfiType = UInt16
     typealias SwiftType = UInt16
@@ -533,6 +549,8 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 public protocol RelayStreamGuestSessionProtocol: AnyObject, Sendable {
 
+    func metadata() async  -> RelayStreamGuestSessionMetadata
+
     func readFrame() async throws  -> RelayStreamGuestFrameRecord
 
     func sendClose() async throws
@@ -594,6 +612,24 @@ open class RelayStreamGuestSession: RelayStreamGuestSessionProtocol, @unchecked 
 
 
 
+
+open func metadata()async  -> RelayStreamGuestSessionMetadata  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_relay_stream_guest_ffi_fn_method_relaystreamguestsession_metadata(
+                    self.uniffiCloneHandle()
+
+                )
+            },
+            pollFunc: ffi_relay_stream_guest_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_relay_stream_guest_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_relay_stream_guest_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeRelayStreamGuestSessionMetadata_lift,
+            errorHandler: nil
+
+        )
+}
 
 open func readFrame()async throws  -> RelayStreamGuestFrameRecord  {
     return
@@ -867,6 +903,137 @@ public func FfiConverterTypeRelayStreamGuestFrameRecord_lift(_ buf: RustBuffer) 
 #endif
 public func FfiConverterTypeRelayStreamGuestFrameRecord_lower(_ value: RelayStreamGuestFrameRecord) -> RustBuffer {
     return FfiConverterTypeRelayStreamGuestFrameRecord.lower(value)
+}
+
+
+/**
+ * IPv4 assignment authenticated inside the post-Open Noise channel.
+ */
+public struct RelayStreamGuestIpv4Metadata: Equatable, Hashable {
+    public var addr: String
+    public var prefixLen: UInt8
+    public var peer: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(addr: String, prefixLen: UInt8, peer: String) {
+        self.addr = addr
+        self.prefixLen = prefixLen
+        self.peer = peer
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension RelayStreamGuestIpv4Metadata: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRelayStreamGuestIpv4Metadata: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RelayStreamGuestIpv4Metadata {
+        return
+            try RelayStreamGuestIpv4Metadata(
+                addr: FfiConverterString.read(from: &buf),
+                prefixLen: FfiConverterUInt8.read(from: &buf),
+                peer: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RelayStreamGuestIpv4Metadata, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.addr, into: &buf)
+        FfiConverterUInt8.write(value.prefixLen, into: &buf)
+        FfiConverterString.write(value.peer, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayStreamGuestIpv4Metadata_lift(_ buf: RustBuffer) throws -> RelayStreamGuestIpv4Metadata {
+    return try FfiConverterTypeRelayStreamGuestIpv4Metadata.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayStreamGuestIpv4Metadata_lower(_ value: RelayStreamGuestIpv4Metadata) -> RustBuffer {
+    return FfiConverterTypeRelayStreamGuestIpv4Metadata.lower(value)
+}
+
+
+/**
+ * Network settings authenticated by the relay-stream responder.
+ *
+ * The packet-tunnel extension only uses `mesh_ipv4` after the post-Open
+ * `NetworkSettings` frame has been validated and cross-bound to the auth
+ * `TunnelAck` session id and MTU. It never accepts these values from
+ * host-provided start options.
+ */
+public struct RelayStreamGuestSessionMetadata: Equatable, Hashable {
+    public var meshIpv4: RelayStreamGuestIpv4Metadata?
+    public var meshIpv6: String?
+    public var mtu: UInt16
+    public var sessionId: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(meshIpv4: RelayStreamGuestIpv4Metadata?, meshIpv6: String?, mtu: UInt16, sessionId: String) {
+        self.meshIpv4 = meshIpv4
+        self.meshIpv6 = meshIpv6
+        self.mtu = mtu
+        self.sessionId = sessionId
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension RelayStreamGuestSessionMetadata: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRelayStreamGuestSessionMetadata: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RelayStreamGuestSessionMetadata {
+        return
+            try RelayStreamGuestSessionMetadata(
+                meshIpv4: FfiConverterOptionTypeRelayStreamGuestIpv4Metadata.read(from: &buf),
+                meshIpv6: FfiConverterOptionString.read(from: &buf),
+                mtu: FfiConverterUInt16.read(from: &buf),
+                sessionId: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RelayStreamGuestSessionMetadata, into buf: inout [UInt8]) {
+        FfiConverterOptionTypeRelayStreamGuestIpv4Metadata.write(value.meshIpv4, into: &buf)
+        FfiConverterOptionString.write(value.meshIpv6, into: &buf)
+        FfiConverterUInt16.write(value.mtu, into: &buf)
+        FfiConverterString.write(value.sessionId, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayStreamGuestSessionMetadata_lift(_ buf: RustBuffer) throws -> RelayStreamGuestSessionMetadata {
+    return try FfiConverterTypeRelayStreamGuestSessionMetadata.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayStreamGuestSessionMetadata_lower(_ value: RelayStreamGuestSessionMetadata) -> RustBuffer {
+    return FfiConverterTypeRelayStreamGuestSessionMetadata.lower(value)
 }
 
 
@@ -1349,6 +1516,30 @@ public func FfiConverterTypeRelayStreamGuestFrameKind_lower(_ value: RelayStream
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+    typealias SwiftType = String?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
     typealias SwiftType = Data?
 
@@ -1365,6 +1556,30 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeRelayStreamGuestIpv4Metadata: FfiConverterRustBuffer {
+    typealias SwiftType = RelayStreamGuestIpv4Metadata?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRelayStreamGuestIpv4Metadata.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRelayStreamGuestIpv4Metadata.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -1479,6 +1694,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_rendezvous_hello_bytes() != 13206) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_metadata() != 15319) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_read_frame() != 48265) {

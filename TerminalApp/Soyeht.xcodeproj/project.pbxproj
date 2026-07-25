@@ -169,6 +169,13 @@
 		A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */; };
 		A2E100000000000000000002 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000015 /* NetworkExtension.framework */; };
+		A2E100000000000000000004 /* NEPacketTunnelFlowAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */; };
+		A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
+		A2E100000000000000000006 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000081 /* SoyehtCore */; };
+		A2E100000000000000000007 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000082 /* RelayStreamGuestFFI */; };
+		A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
+		A2E100000000000000000009 /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
+		A2E10000000000000000000A /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
 		BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000300000000000C0003 /* FileBrowserCell.swift */; };
@@ -191,7 +198,11 @@
 		8E1100000000000000000201 /* RelayStreamTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000101 /* RelayStreamTerminalSession.swift */; };
 		8E1100000000000000000202 /* RelayStreamOpenController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000102 /* RelayStreamOpenController.swift */; };
 		8E1100000000000000000203 /* RelayStreamTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000103 /* RelayStreamTerminalView.swift */; };
+		8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */; };
 		8E1200000000000000000001 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = 8E1200000000000000000002 /* RelayStreamGuestFFI */; };
+		8E1300000000000000000002 /* RelayStreamIPTunnelControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */; };
+		8E1300000000000000000003 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */; };
+		8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
 		CA0100050000000000000005 /* ClawStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200050000000000000005 /* ClawStoreView.swift */; };
@@ -358,6 +369,9 @@
 		A2E100000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2E100000000000000000013 /* SoyehtClawShareTunnelProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProvider.entitlements; sourceTree = "<group>"; };
 		A2E100000000000000000016 /* SoyehtClawShareTunnelProviderDev.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProviderDev.entitlements; sourceTree = "<group>"; };
+		A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NEPacketTunnelFlowAdapter.swift; sourceTree = "<group>"; };
+		A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayStreamGuestIPTunnelSessionAdapter.swift; sourceTree = "<group>"; };
+		A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelNetworkSettings.swift; sourceTree = "<group>"; };
 		A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtClawShareTunnelProvider.appex; path = SoyehtClawShareTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2E100000000000000000015 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
@@ -543,6 +557,10 @@
 		8E1100000000000000000101 /* RelayStreamTerminalSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamTerminalSession.swift; sourceTree = "<group>"; };
 		8E1100000000000000000102 /* RelayStreamOpenController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamOpenController.swift; sourceTree = "<group>"; };
 		8E1100000000000000000103 /* RelayStreamTerminalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamTerminalView.swift; sourceTree = "<group>"; };
+		8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelController.swift; sourceTree = "<group>"; };
+		8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelControllerTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamGuestIPTunnelSessionAdapterTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelNetworkSettingsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -560,6 +578,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */,
+				A2E100000000000000000006 /* SoyehtCore in Frameworks */,
+				A2E100000000000000000007 /* RelayStreamGuestFFI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -764,6 +784,7 @@
 				8E1100000000000000000101 /* RelayStreamTerminalSession.swift */,
 				8E1100000000000000000102 /* RelayStreamOpenController.swift */,
 				8E1100000000000000000103 /* RelayStreamTerminalView.swift */,
+				8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */,
 			);
 			path = RelayStream;
 			sourceTree = "<group>";
@@ -947,6 +968,9 @@
 				8DDA00000000000000000108 /* OwnerEventsCoordinatorTests.swift */,
 				8DDA0000000000000000010B /* QRScannerViewMachineDispatchTests.swift */,
 				8E1300000000000000000101 /* RelayStreamOpenControllerTests.swift */,
+				8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */,
+				8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */,
+				8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */,
 				8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */,
 				8DDA0000000000000000010F /* APNSRegistrationCoordinatorTests.swift */,
 				8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */,
@@ -1024,6 +1048,9 @@
 			isa = PBXGroup;
 			children = (
 				A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */,
+				A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */,
+				A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */,
+				A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */,
 				A2E100000000000000000012 /* Info.plist */,
 				A2E100000000000000000013 /* SoyehtClawShareTunnelProvider.entitlements */,
 				A2E100000000000000000016 /* SoyehtClawShareTunnelProviderDev.entitlements */,
@@ -1283,6 +1310,8 @@
 			);
 			name = SoyehtClawShareTunnelProvider;
 			packageProductDependencies = (
+				A2E100000000000000000081 /* SoyehtCore */,
+				A2E100000000000000000082 /* RelayStreamGuestFFI */,
 			);
 			productName = SoyehtClawShareTunnelProvider;
 			productReference = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */;
@@ -1634,6 +1663,7 @@
 				8E1100000000000000000201 /* RelayStreamTerminalSession.swift in Sources */,
 				8E1100000000000000000202 /* RelayStreamOpenController.swift in Sources */,
 				8E1100000000000000000203 /* RelayStreamTerminalView.swift in Sources */,
+				8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */,
 				6E5B70DE5C989BBFD9B168B8 /* SharedAppsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1673,6 +1703,11 @@
 				8DDA00000000000000000008 /* OwnerEventsCoordinatorTests.swift in Sources */,
 				8DDA0000000000000000000B /* QRScannerViewMachineDispatchTests.swift in Sources */,
 				8E1300000000000000000001 /* RelayStreamOpenControllerTests.swift in Sources */,
+				8E1300000000000000000002 /* RelayStreamIPTunnelControllerTests.swift in Sources */,
+				8E1300000000000000000003 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift in Sources */,
+				A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */,
+				8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */,
+				A2E10000000000000000000A /* RelayStreamIPTunnelNetworkSettings.swift in Sources */,
 				8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */,
 				8DDA0000000000000000000F /* APNSRegistrationCoordinatorTests.swift in Sources */,
 				8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */,
@@ -1712,6 +1747,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */,
+				A2E100000000000000000004 /* NEPacketTunnelFlowAdapter.swift in Sources */,
+				A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */,
+				A2E100000000000000000009 /* RelayStreamIPTunnelNetworkSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2409,6 +2447,16 @@
 			productName = SoyehtCore;
 		};
 		8E1200000000000000000002 /* RelayStreamGuestFFI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */;
+			productName = RelayStreamGuestFFI;
+		};
+		A2E100000000000000000081 /* SoyehtCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */;
+			productName = SoyehtCore;
+		};
+		A2E100000000000000000082 /* RelayStreamGuestFFI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */;
 			productName = RelayStreamGuestFFI;

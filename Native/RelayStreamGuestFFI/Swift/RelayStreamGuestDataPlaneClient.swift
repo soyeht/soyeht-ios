@@ -57,6 +57,51 @@ public struct RelayStreamGuestDataPlaneClient: Sendable {
         self.native = native
     }
 
+    public func prepareAuthSigningRequest(
+        offerCbor: Data,
+        credentialCbor: Data?,
+        expectedOwnerPub: Data,
+        expectedGuestPub: Data,
+        nowUnix: UInt64,
+        ttlSecs: UInt64,
+        sessionId: String,
+        nonce: Data? = nil
+    ) throws -> RelayStreamAuthSigningRequest {
+        try native.prepareAuthSigningRequest(
+            input: RelayStreamPrepareAuthInput(
+                offerCbor: offerCbor,
+                credentialCbor: credentialCbor,
+                expectedOwnerPub: expectedOwnerPub,
+                expectedGuestPub: expectedGuestPub,
+                nowUnix: nowUnix,
+                ttlSecs: ttlSecs,
+                sessionId: sessionId,
+                nonce: nonce
+            )
+        )
+    }
+
+    public func connectPrepared(
+        offerCbor: Data,
+        expectedOwnerPub: Data,
+        expectedGuestPub: Data,
+        request: RelayStreamAuthSigningRequest,
+        signature: Data,
+        nowUnix: UInt64,
+        connectTimeoutMs: UInt64
+    ) async throws -> RelayStreamGuestDataPlaneSession {
+        let session = try await native.connect(
+            offerCbor: offerCbor,
+            expectedOwnerPub: expectedOwnerPub,
+            expectedGuestPub: expectedGuestPub,
+            request: request,
+            signature: signature,
+            nowUnix: nowUnix,
+            connectTimeoutMs: connectTimeoutMs
+        )
+        return RelayStreamGuestDataPlaneSession(native: session)
+    }
+
     public func connect(
         offerCbor: Data,
         credentialCbor: Data?,
@@ -68,20 +113,17 @@ public struct RelayStreamGuestDataPlaneClient: Sendable {
         signer: any RelayStreamGuestSigning,
         connectTimeoutMs: UInt64
     ) async throws -> RelayStreamGuestDataPlaneSession {
-        let request = try native.prepareAuthSigningRequest(
-            input: RelayStreamPrepareAuthInput(
-                offerCbor: offerCbor,
-                credentialCbor: credentialCbor,
-                expectedOwnerPub: expectedOwnerPub,
-                expectedGuestPub: expectedGuestPub,
-                nowUnix: nowUnix,
-                ttlSecs: ttlSecs,
-                sessionId: sessionId,
-                nonce: nil
-            )
+        let request = try prepareAuthSigningRequest(
+            offerCbor: offerCbor,
+            credentialCbor: credentialCbor,
+            expectedOwnerPub: expectedOwnerPub,
+            expectedGuestPub: expectedGuestPub,
+            nowUnix: nowUnix,
+            ttlSecs: ttlSecs,
+            sessionId: sessionId
         )
         let signature = try await signer.signRelayStreamAuth(request.signingBytes)
-        let session = try await native.connect(
+        return try await connectPrepared(
             offerCbor: offerCbor,
             expectedOwnerPub: expectedOwnerPub,
             expectedGuestPub: expectedGuestPub,
@@ -90,7 +132,6 @@ public struct RelayStreamGuestDataPlaneClient: Sendable {
             nowUnix: nowUnix,
             connectTimeoutMs: connectTimeoutMs
         )
-        return RelayStreamGuestDataPlaneSession(native: session)
     }
 }
 
@@ -111,6 +152,10 @@ public struct RelayStreamGuestDataPlaneSession: Sendable {
 
     public func close() async throws {
         try await native.sendClose()
+    }
+
+    public func metadata() async -> RelayStreamGuestSessionMetadata {
+        await native.metadata()
     }
 
     public func nextFrame() async throws -> RelayStreamGuestFrameRecord {

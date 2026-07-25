@@ -44,6 +44,7 @@ let package = Package(
             sources: [
                 "Generated/relay_stream_guest_ffi.swift",
                 "Swift/RelayStreamGuestDataPlaneClient.swift",
+                "Swift/RelayStreamGuestTunnelStartOptions.swift",
             ]
         ),
         .executableTarget(
