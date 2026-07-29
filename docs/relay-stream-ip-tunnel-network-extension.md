@@ -83,12 +83,13 @@ feed it a manually acquired and already authenticated
 is introduced.
 
 The native protocol source is reproducibly pinned to
-`theyos@dd6828f135fa202f6ac8ea0f692d035e59b28494`, the feature commit from
-`theyos#392`. That commit adds the post-Open `NetworkSettings` frame and derives
-its IPv4 assignment from the real VPN pool, with server-side route-scope
-validation. The iOS client independently revalidates the same boundary.
+`theyos@c48386d13e94535d53fba8f55b2dfa0c5f51a69b`, the canonical squash commit
+merged from `theyos#392`. That commit adds the post-Open `NetworkSettings` frame
+and derives its IPv4 assignment from the real VPN pool, with server-side
+route-scope validation. The iOS client independently revalidates the same
+boundary.
 
-This does not claim a deployed end-to-end product. `theyos#392` must be reviewed,
-merged, and deployed; the product flow for choosing a claw and inviting a person
-is a separate slice; and physical-device tunnel validation remains required.
-Those integration gates do not weaken the extension's fail-closed boundary.
+This does not claim a deployed end-to-end product. The merged `theyos#392`
+commit must still be deployed and physically validated; the product flow for
+choosing a claw and inviting a person is a separate slice. Those integration
+gates do not weaken the extension's fail-closed boundary.

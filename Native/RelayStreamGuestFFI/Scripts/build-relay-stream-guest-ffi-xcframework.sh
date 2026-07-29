@@ -9,7 +9,7 @@ BUILT_AT="${RELAY_STREAM_GUEST_FFI_BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 FRAMEWORK="$ROOT/RelayStreamGuestFFI.xcframework"
 CRATE="$ROOT"
 LIB_NAME="librelay_stream_guest_ffi.a"
-SOURCE_REV="dd6828f135fa202f6ac8ea0f692d035e59b28494"
+SOURCE_REV="c48386d13e94535d53fba8f55b2dfa0c5f51a69b"
 
 "$ROOT/Scripts/prepare-household-rs-source.sh"
 
