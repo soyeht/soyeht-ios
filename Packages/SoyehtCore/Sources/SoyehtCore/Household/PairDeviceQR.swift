@@ -10,6 +10,9 @@ public enum PairDeviceQRError: Error, Equatable {
     case invalidExpiry
     case expired
     case unsupportedCriticalField(String)
+    case duplicateField(String)
+    case invalidMachineCertFingerprint
+    case invalidCriticalField
 }
 
 public struct PairDeviceQR: Equatable, Sendable {
@@ -21,13 +24,14 @@ public struct PairDeviceQR: Equatable, Sendable {
     public let householdName: String
     public let criticalFields: [String]
     /// Optional engine endpoint advertised by the founder at QR-render time
-    /// (typically the Tailnet IPv4 + bound port, e.g. `100.82.47.115:8091`).
+    /// (typically the Tailnet IPv4 + bound port, e.g. `192.0.2.10:8101`).
     /// When present the scanning device MAY connect directly without
     /// browsing Bonjour — a fallback for platforms where the founder's
     /// mDNS publisher does not interoperate with macOS/iOS NWBrowser
     /// (Linux engine running `mdns-sd` 0.10/0.13). Bonjour discovery
     /// remains the gold path when both peers' mDNS stacks agree.
     public let hostFallback: String?
+    public let machineCertFingerprint: Data
 
     public init(
         version: Int,
@@ -37,7 +41,8 @@ public struct PairDeviceQR: Equatable, Sendable {
         expiresAt: Date,
         householdName: String = "Home",
         criticalFields: [String] = [],
-        hostFallback: String? = nil
+        hostFallback: String? = nil,
+        machineCertFingerprint: Data
     ) {
         self.version = version
         self.householdPublicKey = householdPublicKey
@@ -47,6 +52,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         self.householdName = householdName
         self.criticalFields = criticalFields
         self.hostFallback = hostFallback
+        self.machineCertFingerprint = machineCertFingerprint
     }
 
     public init(url: URL, now: Date = Date()) throws {
@@ -62,11 +68,14 @@ public struct PairDeviceQR: Equatable, Sendable {
         func value(_ name: String) -> String? {
             items.first(where: { $0.name == name })?.value
         }
+        func count(_ name: String) -> Int {
+            items.filter { $0.name == name }.count
+        }
 
         guard let versionValue = value("v") else { throw PairDeviceQRError.missingField("v") }
         guard versionValue == "1" else { throw PairDeviceQRError.unsupportedVersion(versionValue) }
 
-        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit", "host", "house_name"]
+        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit", "host", "house_name", "m_cert_fp"]
         let criticalFields = items.flatMap { item -> [String] in
             if item.name == "crit" {
                 return item.value?.split(separator: ",").map(String.init) ?? []
@@ -78,6 +87,29 @@ public struct PairDeviceQR: Equatable, Sendable {
         }
         for field in criticalFields where !supportedFields.contains(field) {
             throw PairDeviceQRError.unsupportedCriticalField(field)
+        }
+
+        let machineCertFingerprint: Data
+        if count("m_cert_fp") > 1 {
+            throw PairDeviceQRError.duplicateField("m_cert_fp")
+        }
+        guard let fpValue = value("m_cert_fp") else {
+            throw PairDeviceQRError.missingField("m_cert_fp")
+        }
+        let critItems = items.filter { $0.name == "crit" }
+        guard critItems.count == 1, critItems[0].value == "m_cert_fp" else {
+            throw PairDeviceQRError.invalidCriticalField
+        }
+        do {
+            let fpData = try Data(soyehtBase64URL: fpValue)
+            guard fpData.count == 32 else { throw PairDeviceQRError.invalidMachineCertFingerprint }
+            let reencoded = fpData.soyehtBase64URLEncodedString()
+            guard reencoded == fpValue else { throw PairDeviceQRError.invalidMachineCertFingerprint }
+            machineCertFingerprint = fpData
+        } catch is PairDeviceQRError {
+            throw PairDeviceQRError.invalidMachineCertFingerprint
+        } catch {
+            throw PairDeviceQRError.invalidMachineCertFingerprint
         }
 
         guard let publicKeyValue = value("hh_pub") else {
@@ -127,7 +159,8 @@ public struct PairDeviceQR: Equatable, Sendable {
             expiresAt: expiresAt,
             householdName: householdName,
             criticalFields: criticalFields.sorted(),
-            hostFallback: hostFallback
+            hostFallback: hostFallback,
+            machineCertFingerprint: machineCertFingerprint
         )
     }
 }

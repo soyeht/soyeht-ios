@@ -103,6 +103,10 @@
 		8DDA00000000000000000010 /* HouseholdApplePushServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000110 /* HouseholdApplePushServiceView.swift */; };
 		8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */; };
 		8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */; };
+		8DDA0000000000000000A001 /* RosterActivationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000A101 /* RosterActivationProvider.swift */; };
+		8DDA0000000000000000A002 /* RosterActivationProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000A102 /* RosterActivationProviderTests.swift */; };
+		8DDA0000000000000000A003 /* RosterAlertBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000A103 /* RosterAlertBanner.swift */; };
+		8DDA0000000000000000A004 /* RosterAlertPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000A104 /* RosterAlertPresentationTests.swift */; };
 		8DDA00000000000000000013 /* MachineJoinStory1IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */; };
 		8DDA00000000000000000014 /* JoinRequestConfirmationFluidityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */; };
 		8DDA00000000000000000015 /* MachineJoinStory2IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */; };
@@ -412,6 +416,10 @@
 		8DDA00000000000000000110 /* HouseholdApplePushServiceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdApplePushServiceView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdMachineJoinRuntime.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdMachineJoinRuntimeTests.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000A101 /* RosterActivationProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RosterActivationProvider.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000A102 /* RosterActivationProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RosterActivationProviderTests.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000A103 /* RosterAlertBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RosterAlertBanner.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000A104 /* RosterAlertPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RosterAlertPresentationTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineJoinStory1IntegrationTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JoinRequestConfirmationFluidityTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineJoinStory2IntegrationTests.swift; sourceTree = "<group>"; };
@@ -897,6 +905,8 @@
 				8DDA0000000000000000010C /* ApplicationDelegate+APNS.swift */,
 				8DDA0000000000000000010E /* APNSRegistrationCoordinator.swift */,
 				8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */,
+				8DDA0000000000000000A101 /* RosterActivationProvider.swift */,
+				8DDA0000000000000000A103 /* RosterAlertBanner.swift */,
 				8DDA00000000000000000119 /* DevicePairConfirmationViewModel.swift */,
 				8DDA0000000000000000011B /* HouseholdSessionController.swift */,
 				F2E200000000000000000002 /* BaseMachineProjector.swift */,
@@ -974,6 +984,8 @@
 				8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */,
 				8DDA0000000000000000010F /* APNSRegistrationCoordinatorTests.swift */,
 				8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */,
+				8DDA0000000000000000A102 /* RosterActivationProviderTests.swift */,
+				8DDA0000000000000000A104 /* RosterAlertPresentationTests.swift */,
 				8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */,
 				8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */,
 				8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */,
@@ -1551,6 +1563,8 @@
 				8DDA0000000000000000000C /* ApplicationDelegate+APNS.swift in Sources */,
 				8DDA0000000000000000000E /* APNSRegistrationCoordinator.swift in Sources */,
 				8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */,
+				8DDA0000000000000000A001 /* RosterActivationProvider.swift in Sources */,
+				8DDA0000000000000000A003 /* RosterAlertBanner.swift in Sources */,
 				8DDA00000000000000000019 /* DevicePairConfirmationViewModel.swift in Sources */,
 				8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */,
 				F2E200000000000000000001 /* BaseMachineProjector.swift in Sources */,
@@ -1711,6 +1725,8 @@
 				8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */,
 				8DDA0000000000000000000F /* APNSRegistrationCoordinatorTests.swift in Sources */,
 				8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */,
+				8DDA0000000000000000A002 /* RosterActivationProviderTests.swift in Sources */,
+				8DDA0000000000000000A004 /* RosterAlertPresentationTests.swift in Sources */,
 				8DDA00000000000000000013 /* MachineJoinStory1IntegrationTests.swift in Sources */,
 				8DDA00000000000000000014 /* JoinRequestConfirmationFluidityTests.swift in Sources */,
 				8DDA00000000000000000015 /* MachineJoinStory2IntegrationTests.swift in Sources */,

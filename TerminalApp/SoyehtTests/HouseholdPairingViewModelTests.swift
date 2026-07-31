@@ -12,7 +12,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
             return household
         }
 
-        await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1")!)
+        await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(Self.publicKey().soyehtBase64URLEncodedString())&nonce=\(Data(repeating: 0x07, count: 32).soyehtBase64URLEncodedString())&ttl=9999999999&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp")!)
 
         XCTAssertEqual(viewModel.state, .paired(household))
     }
@@ -22,7 +22,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
             throw HouseholdPairingError.noMatchingHousehold
         }
 
-        await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1")!)
+        await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(Self.publicKey().soyehtBase64URLEncodedString())&nonce=\(Data(repeating: 0x07, count: 32).soyehtBase64URLEncodedString())&ttl=9999999999&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp")!)
 
         XCTAssertEqual(viewModel.state, .failed(.noMatchingHousehold))
     }
@@ -56,6 +56,11 @@ final class HouseholdPairingViewModelTests: XCTestCase {
             pairedAt: Date(timeIntervalSince1970: 2),
             lastSeenAt: nil
         )
+    }
+
+    private static func publicKey(byte: UInt8 = 1) -> Data {
+        let privateKey = try! P256.Signing.PrivateKey(rawRepresentation: Data(repeating: byte, count: 32))
+        return privateKey.publicKey.compressedRepresentation
     }
 }
 
@@ -208,12 +213,15 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
         nonce: Data = Data(repeating: 0x07, count: 32),
         ttl: TimeInterval
     ) throws -> URL {
+        let fp = Data(repeating: 0xAB, count: 32)
         let urlString = """
         soyeht://household/pair-device\
         ?v=1\
         &hh_pub=\(hhPub.soyehtBase64URLEncodedString())\
         &nonce=\(nonce.soyehtBase64URLEncodedString())\
-        &ttl=\(Int(ttl))
+        &ttl=\(Int(ttl))\
+        &m_cert_fp=\(fp.soyehtBase64URLEncodedString())\
+        &crit=m_cert_fp
         """
         return try XCTUnwrap(URL(string: urlString))
     }

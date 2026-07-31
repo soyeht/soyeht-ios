@@ -416,10 +416,31 @@ struct SoyehtAppView: View {
                     )
 
                     if let snapshot = identity.active {
-                        HouseholdDevicePairRequestOverlay(
-                            household: snapshot.underlying,
-                            machineJoinRuntime: machineJoinRuntime
-                        )
+                        VStack(spacing: 12) {
+                            // Gated on an active identity along with the card
+                            // below: with no active household there is no
+                            // roster to speak about. The CTA reuses the
+                            // Settings sheet this view already presents.
+                            //
+                            // The structural `if let` above is what this view
+                            // needs for the card's household; the `identityActive`
+                            // argument routes the banner through the same shared
+                            // decision point the home screen uses, so neither
+                            // surface can drift on when a banner may appear.
+                            if let rosterAlert = RosterAlertPresentation.resolve(
+                                machineJoinRuntime.rosterState,
+                                identityActive: identity.active != nil
+                            ) {
+                                RosterAlertBanner(
+                                    presentation: rosterAlert,
+                                    onSettings: { showSettings = true }
+                                )
+                            }
+                            HouseholdDevicePairRequestOverlay(
+                                household: snapshot.underlying,
+                                machineJoinRuntime: machineJoinRuntime
+                            )
+                        }
                         .frame(maxWidth: .infinity, alignment: .top)
                         .zIndex(3)
                     }

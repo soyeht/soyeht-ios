@@ -250,6 +250,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         let privateKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x43, count: 32))
         let householdPublicKey = privateKey.publicKey.compressedRepresentation
         let nonce = Data(repeating: 0xBC, count: 32)
+        let machineCertFingerprint = Data(repeating: 0xDE, count: 32)
 
         var components = URLComponents()
         components.scheme = "soyeht"
@@ -259,7 +260,12 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             URLQueryItem(name: "v", value: "1"),
             URLQueryItem(name: "hh_pub", value: householdPublicKey.soyehtBase64URLEncodedString()),
             URLQueryItem(name: "nonce", value: nonce.soyehtBase64URLEncodedString()),
-            URLQueryItem(name: "ttl", value: String(UInt64(now.timeIntervalSince1970) + 240))
+            URLQueryItem(name: "ttl", value: String(UInt64(now.timeIntervalSince1970) + 240)),
+            URLQueryItem(
+                name: "m_cert_fp",
+                value: machineCertFingerprint.soyehtBase64URLEncodedString()
+            ),
+            URLQueryItem(name: "crit", value: "m_cert_fp")
         ]
         return try XCTUnwrap(components.url)
     }

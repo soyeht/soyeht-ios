@@ -12,7 +12,8 @@ struct HouseholdBonjourBrowserTests {
             householdPublicKey: hhPub,
             householdId: try HouseholdIdentifiers.householdIdentifier(for: hhPub),
             nonce: nonce,
-            expiresAt: Date(timeIntervalSinceNow: 60)
+            expiresAt: Date(timeIntervalSinceNow: 60),
+            machineCertFingerprint: Data(repeating: 0xAB, count: 32)
         )
         let candidate = HouseholdDiscoveryCandidate(
             endpoint: URL(string: "https://home.local:8443")!,
@@ -33,7 +34,8 @@ struct HouseholdBonjourBrowserTests {
             householdPublicKey: hhPub,
             householdId: try HouseholdIdentifiers.householdIdentifier(for: hhPub),
             nonce: HouseholdTestFixtures.nonce(byte: 0x64),
-            expiresAt: Date(timeIntervalSinceNow: 60)
+            expiresAt: Date(timeIntervalSinceNow: 60),
+            machineCertFingerprint: Data(repeating: 0xAB, count: 32)
         )
         let wrongHousehold = HouseholdDiscoveryCandidate(
             endpoint: URL(string: "https://other.local:8443")!,
@@ -63,47 +65,47 @@ struct HouseholdBonjourBrowserTests {
     /// loosens the exact-string check (e.g. switches to a permissive
     /// "any non-empty pairing state" guard).
     /// theyos publishes `host` in TXT as a fully-qualified mDNS name
-    /// (e.g. `macStudio.local`) because the publisher uses the raw
+    /// (e.g. `example.local`) because the publisher uses the raw
     /// `gethostname()` output. `endpointURL` MUST detect that case and
     /// not append the search-domain a second time, otherwise the URL
-    /// becomes `http://macStudio.local.local:8091` which does not
+    /// becomes `http://example.local.local:8091` which does not
     /// resolve. Pins the iOS-side regression that surfaced as
     /// `household.pairing.error.noMatchingHousehold` during Story 1
     /// hardware testing on 2026-05-08.
     @Test func endpointURLAcceptsFullyQualifiedHostFromTXT() throws {
         let txt = [
             "hh_id": "hh_eeit7s5ak64oy4cr",
-            "host": "macStudio.local",
+            "host": "example.local",
             "pairing": "device",
             "pair_nonce": "n",
             "proto": "1",
         ]
         let url = HouseholdBonjourBrowser.endpointURL(
-            serviceName: "Soyeht-macStudio-local-eeit7s5a",
+            serviceName: "Soyeht-example-local-eeit7s5a",
             domain: "local.",
             txt: txt
         )
-        #expect(url == URL(string: "http://macStudio.local:8091"))
+        #expect(url == URL(string: "http://example.local:8091"))
     }
 
     @Test func engineEndpointURLAcceptsLocalHostPublishedByMac() throws {
         let txt = [
             "bootstrap_state": "named_awaiting_pair",
-            "host": "macStudio.local",
+            "host": "example.local",
             "hh_id": "hh_eeit7s5ak64oy4cr",
-            "hh_name": "Home macStudio",
+            "hh_name": "Example Home",
             "platform": "macos",
             "port": "8101",
             "proto": "1",
         ]
 
         let url = HouseholdBonjourBrowser.engineEndpointURL(
-            serviceName: "Soyeht-macStudio-local-eeit7s5a",
+            serviceName: "Soyeht-example-local-eeit7s5a",
             domain: "local.",
             txt: txt
         )
 
-        #expect(url == URL(string: "http://macStudio.local:8101"))
+        #expect(url == URL(string: "http://example.local:8101"))
     }
 
     @Test func engineEndpointURLRejectsNonLocalHostWithoutExplicitURL() throws {
@@ -188,16 +190,16 @@ struct HouseholdBonjourBrowserTests {
 
         let merged = HouseholdBonjourBrowser.txtByApplyingResolvedEndpointDefaults(
             txt,
-            hostTarget: "macStudio.local.",
+            hostTarget: "example.local.",
             port: 8091
         )
         let url = HouseholdBonjourBrowser.endpointURL(
-            serviceName: "Soyeht-macStudio-eeit7s5a",
+            serviceName: "Soyeht-example-eeit7s5a",
             domain: "local.",
             txt: merged
         )
 
-        #expect(url == URL(string: "http://macStudio.local:8091"))
+        #expect(url == URL(string: "http://example.local:8091"))
     }
 
     /// `txt["host"]` absent: legacy / non-Mac publishers fall through to
@@ -250,7 +252,8 @@ struct HouseholdBonjourBrowserTests {
             householdPublicKey: hhPub,
             householdId: try HouseholdIdentifiers.householdIdentifier(for: hhPub),
             nonce: nonce,
-            expiresAt: Date(timeIntervalSinceNow: 60)
+            expiresAt: Date(timeIntervalSinceNow: 60),
+            machineCertFingerprint: Data(repeating: 0xAB, count: 32)
         )
         let machineCandidate = HouseholdDiscoveryCandidate(
             endpoint: URL(string: "https://home.local:8443")!,

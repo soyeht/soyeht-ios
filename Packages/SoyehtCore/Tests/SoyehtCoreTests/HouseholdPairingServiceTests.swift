@@ -62,7 +62,7 @@ struct HouseholdPairingServiceTests {
         let ownerKey = P256.Signing.PrivateKey()
         let hhPub = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x77)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
             householdPrivateKey: householdKey,
@@ -78,6 +78,7 @@ struct HouseholdPairingServiceTests {
         )
         let http = CapturingPairingHTTPClient(response: response)
         let storage = InMemoryHouseholdStorage()
+        let rosterStorage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
                 endpoint: URL(string: "https://home.local:8443")!,
@@ -90,6 +91,8 @@ struct HouseholdPairingServiceTests {
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
             httpClient: http,
             sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: rosterStorage,
+            rosterAccount: "roster",
             now: { now }
         )
 
@@ -99,6 +102,16 @@ struct HouseholdPairingServiceTests {
         #expect(state.householdId == qr.householdId)
         #expect(state.ownerPersonId == response.personId)
         #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == state)
+        // The pair flow must leave the roster store rooted on the QR's machine
+        // cert fingerprint. Read it back through a *fresh* store over the same
+        // secure storage so this proves persistence, not in-memory bookkeeping.
+        let seeded = await RosterProjectionStore(
+            expectedHouseholdId: qr.householdId,
+            householdPublicKey: qr.householdPublicKey,
+            storage: rosterStorage,
+            account: "roster"
+        ).load()
+        #expect(seeded == .pendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint))
         #expect(await http.capturedEndpoint == URL(string: "https://home.local:8443")!)
         #expect(await http.capturedBody?.nonce == nonce.soyehtBase64URLEncodedString())
         #expect(await http.capturedBody?.displayName == "Owner")
@@ -110,7 +123,7 @@ struct HouseholdPairingServiceTests {
         let ownerKey = P256.Signing.PrivateKey()
         let hhPub = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x77)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
             householdPrivateKey: householdKey,
@@ -141,6 +154,8 @@ struct HouseholdPairingServiceTests {
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
             httpClient: CapturingPairingHTTPClient(response: response),
             sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: InMemoryHouseholdStorage(),
+            rosterAccount: "roster",
             now: { now }
         )
 
@@ -160,7 +175,7 @@ struct HouseholdPairingServiceTests {
         let ownerKey = P256.Signing.PrivateKey()
         let hhPub = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x79)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Retry%20Home&host=100.82.47.115:8091"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Retry%20Home&host=192.0.2.10:8101&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
             householdPrivateKey: householdKey,
@@ -181,13 +196,15 @@ struct HouseholdPairingServiceTests {
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
             httpClient: http,
             sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: InMemoryHouseholdStorage(),
+            rosterAccount: "roster",
             now: { now }
         )
 
         let state = try await service.pair(url: qrURL, displayName: "Owner")
 
         #expect(state.householdName == "Retry Home")
-        #expect(await http.capturedEndpoint == URL(string: "http://100.82.47.115:8091")!)
+        #expect(await http.capturedEndpoint == URL(string: "http://192.0.2.10:8101")!)
     }
 
     @Test func invalidCertificateDoesNotActivateHousehold() async throws {
@@ -196,7 +213,7 @@ struct HouseholdPairingServiceTests {
         let ownerKey = P256.Signing.PrivateKey()
         let hhPub = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x78)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let response = PairDeviceConfirmResponse(
             v: 1,
@@ -206,6 +223,7 @@ struct HouseholdPairingServiceTests {
             capabilities: []
         )
         let storage = InMemoryHouseholdStorage()
+        let rosterStorage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
                 endpoint: URL(string: "https://home.local:8443")!,
@@ -218,6 +236,8 @@ struct HouseholdPairingServiceTests {
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
             httpClient: CapturingPairingHTTPClient(response: response),
             sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: rosterStorage,
+            rosterAccount: "roster",
             now: { now }
         )
 
@@ -229,5 +249,152 @@ struct HouseholdPairingServiceTests {
             Issue.record("Unexpected error \(error)")
         }
         #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == nil)
+        // The anchor is seeded strictly after `cert.validate` accepts the cert,
+        // so a rejected cert must leave the roster store not merely unusable
+        // but unwritten — `.absent` alone would also match a written-then-
+        // rejected blob.
+        #expect(rosterStorage.load(account: "roster") == nil)
+        let rosterState = await RosterProjectionStore(
+            expectedHouseholdId: qr.householdId,
+            householdPublicKey: qr.householdPublicKey,
+            storage: rosterStorage,
+            account: "roster"
+        ).load()
+        #expect(rosterState == .absent)
+    }
+
+    @Test func rosterAnchorStorageFailureIsReportedAsStorageFailedNotCertInvalid() async throws {
+        let now = Date(timeIntervalSince1970: 1_714_972_800)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let hhPub = householdKey.publicKey.compressedRepresentation
+        let nonce = HouseholdTestFixtures.nonce(byte: 0x7A)
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
+        let qr = try PairDeviceQR(url: qrURL, now: now)
+        let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: ownerKey.publicKey.compressedRepresentation,
+            now: now
+        )
+        let response = PairDeviceConfirmResponse(
+            v: 1,
+            householdId: qr.householdId,
+            personId: try HouseholdIdentifiers.personIdentifier(for: ownerKey.publicKey.compressedRepresentation),
+            personCertCBOR: certCBOR.soyehtBase64URLEncodedString(),
+            capabilities: Array(PersonCert.requiredOwnerOperations).sorted()
+        )
+        // Separate storages: only the roster write is refused, so a failure can
+        // be attributed to the roster store rather than to the session store.
+        let storage = InMemoryHouseholdStorage()
+        let rosterStorage = InMemoryHouseholdStorage()
+        rosterStorage.shouldFailSave = true
+        let service = HouseholdPairingService(
+            browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
+                endpoint: URL(string: "https://home.local:8443")!,
+                householdId: qr.householdId,
+                householdName: "Sample Home",
+                machineId: "m_mac",
+                pairingState: "device",
+                shortNonce: qr.shortNonce
+            )),
+            keyProvider: TestOwnerIdentityProvider(key: ownerKey),
+            httpClient: CapturingPairingHTTPClient(response: response),
+            sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: rosterStorage,
+            rosterAccount: "roster",
+            now: { now }
+        )
+
+        do {
+            _ = try await service.pair(url: qrURL, displayName: "Owner")
+            Issue.record("Expected storage failure")
+        } catch HouseholdPairingError.storageFailed {
+        } catch HouseholdPairingError.certInvalid {
+            Issue.record("A refused roster write must not be reported as certInvalid")
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        // Seeding precedes the session save, so a refused anchor write must
+        // leave no active household behind.
+        #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == nil)
+        #expect(rosterStorage.load(account: "roster") == nil)
+    }
+
+    @Test func sessionSaveFailureAfterSeedLeavesPendingAnchorAndRetryIsIdempotent() async throws {
+        let now = Date(timeIntervalSince1970: 1_714_972_800)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let hhPub = householdKey.publicKey.compressedRepresentation
+        let nonce = HouseholdTestFixtures.nonce(byte: 0x7B)
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
+        let qr = try PairDeviceQR(url: qrURL, now: now)
+        let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: ownerKey.publicKey.compressedRepresentation,
+            now: now
+        )
+        let response = PairDeviceConfirmResponse(
+            v: 1,
+            householdId: qr.householdId,
+            personId: try HouseholdIdentifiers.personIdentifier(for: ownerKey.publicKey.compressedRepresentation),
+            personCertCBOR: certCBOR.soyehtBase64URLEncodedString(),
+            capabilities: Array(PersonCert.requiredOwnerOperations).sorted()
+        )
+        // Mirror image of the previous test: only the session write is refused.
+        let storage = InMemoryHouseholdStorage()
+        storage.shouldFailSave = true
+        let rosterStorage = InMemoryHouseholdStorage()
+        let service = HouseholdPairingService(
+            browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
+                endpoint: URL(string: "https://home.local:8443")!,
+                householdId: qr.householdId,
+                householdName: "Sample Home",
+                machineId: "m_mac",
+                pairingState: "device",
+                shortNonce: qr.shortNonce
+            )),
+            keyProvider: TestOwnerIdentityProvider(key: ownerKey),
+            httpClient: CapturingPairingHTTPClient(response: response),
+            sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: rosterStorage,
+            rosterAccount: "roster",
+            now: { now }
+        )
+
+        do {
+            _ = try await service.pair(url: qrURL, displayName: "Owner")
+            Issue.record("Expected storage failure")
+        } catch HouseholdPairingError.storageFailed {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == nil)
+        // The orphaned anchor is inert, not corrupt: no session reads it, and it
+        // stays recoverable for the retry below.
+        let afterFailure = await RosterProjectionStore(
+            expectedHouseholdId: qr.householdId,
+            householdPublicKey: qr.householdPublicKey,
+            storage: rosterStorage,
+            account: "roster"
+        ).load()
+        #expect(afterFailure == .pendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint))
+        let seededBytes = rosterStorage.load(account: "roster")
+
+        storage.shouldFailSave = false
+        let state = try await service.pair(url: qrURL, displayName: "Owner")
+
+        #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == state)
+        let afterRetry = await RosterProjectionStore(
+            expectedHouseholdId: qr.householdId,
+            householdPublicKey: qr.householdPublicKey,
+            storage: rosterStorage,
+            account: "roster"
+        ).load()
+        #expect(afterRetry == .pendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint))
+        // Idempotent at the byte level: re-pairing against the same QR re-reads
+        // the persisted anchor and returns without rewriting it.
+        #expect(rosterStorage.load(account: "roster") == seededBytes)
     }
 }

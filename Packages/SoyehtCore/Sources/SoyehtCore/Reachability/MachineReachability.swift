@@ -80,6 +80,11 @@ public enum MachineReachabilityPurpose: String, CaseIterable, Codable, Sendable,
     case joinStaging
     case clawInstall
     case identitySnapshot
+    /// Verified machine-roster evidence and currency. Both endpoints are served
+    /// by the household engine, so one resolution scoped to this purpose covers
+    /// them; the machine a currency query is *about* travels in the request
+    /// path, never as a route target.
+    case roster
 }
 
 /// A route already scoped to one authenticated machine and one purpose.

@@ -51,7 +51,7 @@ struct HouseholdPairingFailureTests {
         )
 
         let fixture = try makeFixture()
-        let expiredURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(fixture.householdPublicKey.soyehtBase64URLEncodedString())&nonce=\(fixture.nonce.soyehtBase64URLEncodedString())&ttl=1714972700"))
+        let expiredURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(fixture.householdPublicKey.soyehtBase64URLEncodedString())&nonce=\(fixture.nonce.soyehtBase64URLEncodedString())&ttl=1714972700&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         try await expectFailure(url: expiredURL, expected: .expiredQR)
     }
 
@@ -108,6 +108,8 @@ struct HouseholdPairingFailureTests {
             keyProvider: FailureMatrixOwnerIdentityProvider(key: P256.Signing.PrivateKey(), error: nil),
             httpClient: FailureMatrixHTTPClient(response: nil, error: nil),
             sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            rosterStorage: InMemoryHouseholdStorage(),
+            rosterAccount: "roster",
             now: { Date(timeIntervalSince1970: 1_714_972_800) }
         )
         do {
@@ -136,6 +138,8 @@ struct HouseholdPairingFailureTests {
             keyProvider: keyProvider ?? FailureMatrixOwnerIdentityProvider(key: fixture.ownerKey, error: nil),
             httpClient: httpClient ?? FailureMatrixHTTPClient(response: fixture.validResponse, error: nil),
             sessionStore: resolvedStore,
+            rosterStorage: InMemoryHouseholdStorage(),
+            rosterAccount: "roster",
             now: { fixture.now }
         )
         do {
@@ -155,7 +159,7 @@ struct HouseholdPairingFailureTests {
         let ownerKey = P256.Signing.PrivateKey()
         let householdPublicKey = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x90)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(householdPublicKey.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(householdPublicKey.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
             householdPrivateKey: householdKey,

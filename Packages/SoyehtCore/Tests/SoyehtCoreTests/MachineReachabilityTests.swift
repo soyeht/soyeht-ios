@@ -47,6 +47,7 @@ struct MachineReachabilityTests {
             .joinStaging,
             .clawInstall,
             .identitySnapshot,
+            .roster,
         ])
     }
 

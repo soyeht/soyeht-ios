@@ -5,6 +5,10 @@ struct HouseholdHomeView: View {
     let household: ActiveHouseholdState
     @ObservedObject var machineJoinRuntime: HouseholdMachineJoinRuntime
     @ObservedObject private var serverRegistry = ServerRegistry.shared
+    /// Observed, not read once: the roster banner is gated on an active
+    /// identity, so the gate has to re-evaluate the moment the identity goes
+    /// away rather than waiting for the route to change underneath this view.
+    @ObservedObject private var identity = SoyehtIdentity.shared
     let onAdd: () -> Void
     let onSettings: () -> Void
     @State private var selectedRequestId: String?
@@ -73,6 +77,27 @@ struct HouseholdHomeView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             VStack(spacing: 12) {
+                // Above the device-pair card on purpose: the roster alert is a
+                // standing condition about this home, while the card below is a
+                // transient request that comes and goes. `onSettings` is the
+                // action this screen already owns — the banner opens no route
+                // of its own.
+                //
+                // Explicitly gated on `identity.active`, the same decision point
+                // the instance-list surface uses: with no active identity there
+                // is no home to speak about, and a roster state left over from a
+                // previous session must not paint a banner over a screen whose
+                // identity is gone. Relying on `stop()` publishing `.unknown`
+                // would make that correctness a side effect of teardown ordering.
+                if let rosterAlert = RosterAlertPresentation.resolve(
+                    machineJoinRuntime.rosterState,
+                    identityActive: identity.active != nil
+                ) {
+                    RosterAlertBanner(
+                        presentation: rosterAlert,
+                        onSettings: onSettings
+                    )
+                }
                 HouseholdDevicePairRequestOverlay(
                     household: household,
                     machineJoinRuntime: machineJoinRuntime

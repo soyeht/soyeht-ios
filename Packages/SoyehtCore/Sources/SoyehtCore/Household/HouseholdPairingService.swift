@@ -80,6 +80,8 @@ public struct HouseholdPairingService {
     private let keyProvider: any OwnerIdentityKeyCreating
     private let httpClient: any HouseholdPairingHTTPClient
     private let sessionStore: HouseholdSessionStore
+    private let rosterStorage: any HouseholdSecureStoring
+    private let rosterAccount: String
     private let now: @Sendable () -> Date
 
     public init(
@@ -87,12 +89,16 @@ public struct HouseholdPairingService {
         keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(),
         httpClient: any HouseholdPairingHTTPClient = URLSessionHouseholdPairingHTTPClient(),
         sessionStore: HouseholdSessionStore = HouseholdSessionStore(),
+        rosterStorage: any HouseholdSecureStoring = RosterProjectionStore.defaultStorage(),
+        rosterAccount: String = RosterProjectionStore.defaultAccount,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.browser = browser
         self.keyProvider = keyProvider
         self.httpClient = httpClient
         self.sessionStore = sessionStore
+        self.rosterStorage = rosterStorage
+        self.rosterAccount = rosterAccount
         self.now = now
     }
 
@@ -217,9 +223,34 @@ public struct HouseholdPairingService {
                 pairedAt: now(),
                 lastSeenAt: now()
             )
+            // Root the roster store on the QR's machine-cert fingerprint before
+            // the session exists. The anchor comes from `qr`, never from
+            // `candidate`: the candidate is unauthenticated discovery data,
+            // while the QR fields are the same ones `cert.validate` was just
+            // anchored on. Seeding first means a household can never become
+            // active with an unrooted roster store — `refresh` would find
+            // `.absent` and never fetch. The reverse ordering is safe: a seeded
+            // anchor without a session is inert (nothing reads the roster store
+            // until a household is active) and a retry with the same QR is
+            // idempotent, since `seedPendingAnchor` re-reads the persisted
+            // anchor and returns early when it matches.
+            let rosterStore = RosterProjectionStore(
+                expectedHouseholdId: qr.householdId,
+                householdPublicKey: qr.householdPublicKey,
+                storage: rosterStorage,
+                account: rosterAccount
+            )
+            try await rosterStore.seedPendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint)
             try sessionStore.save(state)
             return state
         } catch HouseholdSessionError.storageFailed {
+            throw HouseholdPairingError.storageFailed
+        } catch let error as RosterProjectionStoreError {
+            // Must precede the catch-all: a refused roster write is a storage
+            // fault, not evidence that the person cert is bad. Letting it fall
+            // through to `certInvalid` would tell the user to re-pair with a
+            // different QR for a failure no new QR can fix.
+            NSLog("HouseholdPairingService roster anchor seed failed: %@", String(describing: error))
             throw HouseholdPairingError.storageFailed
         } catch let error as HouseholdPairingError {
             throw error
