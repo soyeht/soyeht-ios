@@ -1,0 +1,74 @@
+# IpTunnel network-settings validator parity table, v1.
+#
+# ONE physical table, read by BOTH validators:
+#   Rust  validate_ip_tunnel_network_settings   (Native/RelayStreamGuestFFI/src/lib.rs)
+#   Swift RelayStreamIPTunnelNetworkSettings.make (TerminalApp/SoyehtClawShareTunnelProvider/)
+#
+# THE TWO ARE NOT SYMMETRIC PEERS. Rust is strictly stricter: every rule Swift
+# holds, Rust also holds, and Rust adds session-id trim/charset rules plus
+# equality against the auth TunnelAck. `swift_only` is therefore EMPTY — and it
+# is kept, declared, and parsed anyway, because an empty set is an executable
+# assertion that Swift has acquired no rule of its own. The day Swift gains one,
+# this category stops being empty and the parity claim must be revisited.
+#
+#   both       rules genuinely implemented twice. `ack_*` equals `settings_*`
+#              and mtu/session are valid on both sides, so only the rule under
+#              test decides.
+#   rust_only  rules Swift does not hold: mtu/session equality against the ack,
+#              and the session-id trim/charset restrictions.
+#   swift_only EMPTY by measurement, not by omission.
+# The unused verdict column is `n/a`; a parser MUST reject a row carrying a
+# verdict for a side the row does not apply to.
+#
+# Addresses are TEST-NET-1/2/3 (RFC 5737) and literal negatives only. No
+# deployment range appears here.
+#
+# SENTINELS — explicit and reversible, so no value depends on accidental TSV
+# trimming. A parser MUST reject any other <...> token as an unknown sentinel.
+#   <empty>  the empty string
+#   <sp>     one space, usable anywhere in the token
+# Hyphen acceptance is proven by `sess-alpha` on accepting rows; underscore is
+# proven by its own row rather than assumed.
+#
+# Directives are DATA. Each side asserts the declared total, the per-category
+# counts and the exact ordered id list for EVERY category — including the empty
+# one — so a consumer that silently skips rows fails.
+@total	33
+@counts	both=23	rust_only=10	swift_only=0
+@order	both	b_valid_slash30,b_valid_slash31,b_valid_slash24,b_addr_equals_peer,b_peer_outside_prefix,b_addr_is_network,b_addr_is_broadcast,b_peer_is_network,b_peer_is_broadcast,b_prefix_zero,b_prefix_32,b_addr_all_zero,b_addr_all_ones,b_addr_zero_first_octet,b_addr_loopback,b_addr_link_local,b_addr_multicast,b_peer_loopback,s_mtu_below_min,s_mtu_min,s_mtu_max,s_mtu_above_max,s_session_empty
+@order	rust_only	r_ack_matches,r_mtu_mismatch,r_session_mismatch,r_mtu_and_session_mismatch,r_session_whitespace_only,r_session_leading_ws,r_session_trailing_ws,r_session_interior_ws,r_session_forbidden_punct,r_session_underscore_ok
+@order	swift_only
+case_id	addr	prefix_len	peer	settings_mtu	settings_session_id	ack_mtu	ack_session_id	applies_to	rust_expect	swift_expect
+b_valid_slash30	192.0.2.1	30	192.0.2.2	1280	sess-alpha	1280	sess-alpha	both	accept	accept
+b_valid_slash31	192.0.2.4	31	192.0.2.5	1280	sess-alpha	1280	sess-alpha	both	accept	accept
+b_valid_slash24	198.51.100.10	24	198.51.100.11	1280	sess-alpha	1280	sess-alpha	both	accept	accept
+b_addr_equals_peer	192.0.2.1	30	192.0.2.1	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_peer_outside_prefix	192.0.2.1	30	192.0.2.9	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_is_network	192.0.2.0	30	192.0.2.1	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_is_broadcast	192.0.2.3	30	192.0.2.1	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_peer_is_network	192.0.2.1	30	192.0.2.0	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_peer_is_broadcast	192.0.2.1	30	192.0.2.3	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_prefix_zero	192.0.2.1	0	192.0.2.2	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_prefix_32	192.0.2.1	32	192.0.2.2	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_all_zero	0.0.0.0	24	0.0.0.1	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_all_ones	255.255.255.255	24	255.255.255.254	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_zero_first_octet	0.1.2.3	24	0.1.2.4	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_loopback	127.0.0.1	30	127.0.0.2	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_link_local	169.254.1.1	30	169.254.1.2	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_addr_multicast	224.0.0.1	30	224.0.0.2	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+b_peer_loopback	192.0.2.1	30	127.0.0.1	1280	sess-alpha	1280	sess-alpha	both	reject	reject
+s_mtu_below_min	192.0.2.1	30	192.0.2.2	1279	sess-alpha	1279	sess-alpha	both	reject	reject
+s_mtu_min	192.0.2.1	30	192.0.2.2	1280	sess-alpha	1280	sess-alpha	both	accept	accept
+s_mtu_max	192.0.2.1	30	192.0.2.2	9000	sess-alpha	9000	sess-alpha	both	accept	accept
+s_mtu_above_max	192.0.2.1	30	192.0.2.2	9001	sess-alpha	9001	sess-alpha	both	reject	reject
+s_session_empty	192.0.2.1	30	192.0.2.2	1280	<empty>	1280	<empty>	both	reject	reject
+r_ack_matches	192.0.2.1	30	192.0.2.2	1280	sess-alpha	1280	sess-alpha	rust_only	accept	n/a
+r_mtu_mismatch	192.0.2.1	30	192.0.2.2	1400	sess-alpha	1280	sess-alpha	rust_only	reject	n/a
+r_session_mismatch	192.0.2.1	30	192.0.2.2	1280	sess-beta	1280	sess-alpha	rust_only	reject	n/a
+r_mtu_and_session_mismatch	192.0.2.1	30	192.0.2.2	1400	sess-beta	1280	sess-alpha	rust_only	reject	n/a
+r_session_whitespace_only	192.0.2.1	30	192.0.2.2	1280	<sp>	1280	<sp>	rust_only	reject	n/a
+r_session_leading_ws	192.0.2.1	30	192.0.2.2	1280	<sp>sess-alpha	1280	<sp>sess-alpha	rust_only	reject	n/a
+r_session_trailing_ws	192.0.2.1	30	192.0.2.2	1280	sess-alpha<sp>	1280	sess-alpha<sp>	rust_only	reject	n/a
+r_session_interior_ws	192.0.2.1	30	192.0.2.2	1280	sess<sp>alpha	1280	sess<sp>alpha	rust_only	reject	n/a
+r_session_forbidden_punct	192.0.2.1	30	192.0.2.2	1280	sess.alpha	1280	sess.alpha	rust_only	reject	n/a
+r_session_underscore_ok	192.0.2.1	30	192.0.2.2	1280	sess_alpha	1280	sess_alpha	rust_only	accept	n/a

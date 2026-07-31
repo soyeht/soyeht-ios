@@ -37,6 +37,30 @@ revision. The pin includes the canonical `IpTunnel` resource and its reviewed
 post-Open `NetworkSettings` frame, so no local source reconstruction or patch
 application is required.
 
+### Two producers, two provenance fields
+
+An artifact is built from **two** sources, and `buildinfo.json` names both. They
+answer different questions and neither substitutes for the other:
+
+| Field | Repository | What it attests |
+|---|---|---|
+| `source_repo` / `source_rev` | `soyeht/theyos` | the **vendored** `household-rs` protocol source, pinned immutably by the build script |
+| `ffi_source_repo` / `ffi_source_rev` | `soyeht/soyeht-ios` | the **owner** of the crate, this script and the generated bindings — resolved from the repository's `HEAD` at build time |
+
+`ffi_source_rev` carries a `-dirty` suffix whenever the repository has any
+tracked or untracked change at the moment the manifest is written, including a
+dirty submodule. It is measured after the bindings are regenerated and the
+framework is assembled, so a generated binding that has drifted from the commit
+also marks the artifact dirty. Nothing about it is environment-overridable, and
+a missing Git or a directory outside a worktree fails the build rather than
+emitting unattested provenance.
+
+**Acceptance rule for a final artifact:** `ffi_source_rev` must NOT end in
+`-dirty`, and it must match the repository `HEAD` the artifact is committed
+against. A `-dirty` artifact is a development build only — it attests a tree
+state that no commit records, so nobody can reproduce or review what it
+contains.
+
 Use a release artifact when matching CI:
 
 ```sh

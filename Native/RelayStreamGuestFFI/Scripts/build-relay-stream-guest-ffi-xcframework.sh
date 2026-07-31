@@ -9,7 +9,7 @@ BUILT_AT="${RELAY_STREAM_GUEST_FFI_BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 FRAMEWORK="$ROOT/RelayStreamGuestFFI.xcframework"
 CRATE="$ROOT"
 LIB_NAME="librelay_stream_guest_ffi.a"
-SOURCE_REV="c48386d13e94535d53fba8f55b2dfa0c5f51a69b"
+SOURCE_REV="c81144ba9ac98c0b19912c51765886b227ba30f5"
 
 "$ROOT/Scripts/prepare-household-rs-source.sh"
 
@@ -112,10 +112,51 @@ xcodebuild -create-xcframework \
 ios_sha="$(shasum -a 256 "$(target_lib aarch64-apple-ios)" | awk '{print $1}')"
 sim_sha="$(shasum -a 256 "$(target_lib aarch64-apple-ios-sim)" | awk '{print $1}')"
 host_sha="$(shasum -a 256 "$(host_lib)" | awk '{print $1}')"
+
+# PROVENANCE OF THE CRATE'S OWN SOURCE.
+#
+# `source_rev` above pins the VENDORED theyos household-rs and says nothing
+# about THIS repository, which owns the crate, the generated bindings and this
+# script. An artifact stamped only with the vendor rev looks clean while its own
+# Rust source is uncommitted, so the two producers are recorded separately.
+#
+# ORDER IS LOAD-BEARING: measured HERE, after the bindings were regenerated and
+# copied and after the framework was assembled, and immediately before the
+# manifest is written. Measuring earlier would let a generated binding that
+# diverges from the commit be stamped clean.
+#
+# Deliberately NOT env-overridable: every value below comes from Git, so no
+# caller can present a dirty tree as clean. Missing Git, or a directory outside
+# a worktree, fails the build rather than emitting unattested provenance.
+#
+# `.vendor/`, `/target/`, `/.build/` and the `.xcframework` output are all
+# covered by this crate's .gitignore, so porcelain does not see the build's own
+# byproducts. `Generated/` and `Sources/` ARE tracked and therefore DO count.
+FFI_SOURCE_REPO="https://github.com/soyeht/soyeht-ios.git"
+command -v git >/dev/null 2>&1 || {
+  echo "error: git is required to stamp ffi_source_rev" >&2
+  exit 1
+}
+FFI_TOPLEVEL="$(git -C "$ROOT" rev-parse --show-toplevel)" || {
+  echo "error: not inside a Git worktree; refusing to stamp provenance" >&2
+  exit 1
+}
+FFI_SOURCE_REV="$(git -C "$FFI_TOPLEVEL" rev-parse HEAD)" || {
+  echo "error: cannot resolve HEAD; refusing to stamp provenance" >&2
+  exit 1
+}
+# `--untracked-files=all` so a new unstaged file counts; `--ignore-submodules=none`
+# so a dirty submodule counts too.
+if [[ -n "$(git -C "$FFI_TOPLEVEL" status --porcelain --untracked-files=all --ignore-submodules=none)" ]]; then
+  FFI_SOURCE_REV="${FFI_SOURCE_REV}-dirty"
+fi
+
 cat > "$FRAMEWORK/buildinfo.json" <<JSON
 {
   "source_repo": "https://github.com/soyeht/theyos",
   "source_rev": "$SOURCE_REV",
+  "ffi_source_repo": "$FFI_SOURCE_REPO",
+  "ffi_source_rev": "$FFI_SOURCE_REV",
   "built_at": "$BUILT_AT",
   "profile": "$PROFILE",
   "min_ios_version": "$MIN_VERSION",

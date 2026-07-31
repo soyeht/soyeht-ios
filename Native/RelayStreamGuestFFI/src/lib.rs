@@ -85,7 +85,9 @@ impl fmt::Debug for RelayStreamPrepareAuthInput {
             .field("expected_guest_pub_len", &self.expected_guest_pub.len())
             .field("now_unix", &self.now_unix)
             .field("ttl_secs", &self.ttl_secs)
-            .field("session_id", &self.session_id)
+            // A session id correlates a log line to a live session, so it is
+            // redacted like the byte fields above rather than printed.
+            .field("session_id", &"<redacted>")
             .field("nonce_len", &self.nonce.as_ref().map(Vec::len))
             .finish()
     }
@@ -112,9 +114,13 @@ impl fmt::Debug for RelayStreamAuthSigningRequest {
         f.debug_struct("RelayStreamAuthSigningRequest")
             .field("auth_mode", &self.auth_mode)
             .field("signing_bytes_len", &self.signing_bytes.len())
-            .field("session_id", &self.session_id)
-            .field("endpoint", &self.endpoint)
-            .field("target_id", &self.target_id)
+            // `endpoint` is a real relay address and `target_id` names the
+            // selected Claw; with `session_id` these are exactly the identifiers
+            // a drained log must not carry. The neighbouring `nonce` was already
+            // redacted "to keep logs boring" — these are strictly more sensitive.
+            .field("session_id", &"<redacted>")
+            .field("endpoint", &"<redacted>")
+            .field("target_id", &"<redacted>")
             .field("expires_at", &self.expires_at)
             .field("nonce_len", &self.nonce.len())
             .field("auth_material_cbor_len", &self.auth_material_cbor.len())
@@ -159,11 +165,25 @@ pub struct RelayStreamGuestFrameRecord {
 }
 
 /// IPv4 assignment authenticated inside the post-Open Noise channel.
-#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+#[derive(Clone, Eq, PartialEq, uniffi::Record)]
 pub struct RelayStreamGuestIpv4Metadata {
     pub addr: String,
     pub prefix_len: u8,
     pub peer: String,
+}
+
+/// Hand-written so the assignment cannot reach a log through a formatter: these
+/// are the guest's real tunnel address and its claw-side peer, i.e. live VPN
+/// topology. `prefix_len` stays visible because a route scope is diagnosable
+/// without identifying anyone. A derived `Debug` would print both addresses.
+impl fmt::Debug for RelayStreamGuestIpv4Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RelayStreamGuestIpv4Metadata")
+            .field("addr", &"<redacted>")
+            .field("prefix_len", &self.prefix_len)
+            .field("peer", &"<redacted>")
+            .finish()
+    }
 }
 
 /// Network settings authenticated by the relay-stream responder.
@@ -172,12 +192,26 @@ pub struct RelayStreamGuestIpv4Metadata {
 /// `NetworkSettings` frame has been validated and cross-bound to the auth
 /// `TunnelAck` session id and MTU. It never accepts these values from
 /// host-provided start options.
-#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+#[derive(Clone, Eq, PartialEq, uniffi::Record)]
 pub struct RelayStreamGuestSessionMetadata {
     pub mesh_ipv4: Option<RelayStreamGuestIpv4Metadata>,
     pub mesh_ipv6: Option<String>,
     pub mtu: u16,
     pub session_id: String,
+}
+
+/// Same rule as [`RelayStreamGuestIpv4Metadata`]. `mesh_ipv6` is an address and
+/// `session_id` correlates a log to a live session, so both are redacted;
+/// presence booleans keep the value diagnosable without identifying it.
+impl fmt::Debug for RelayStreamGuestSessionMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RelayStreamGuestSessionMetadata")
+            .field("mesh_ipv4", &self.mesh_ipv4)
+            .field("mesh_ipv6_present", &self.mesh_ipv6.is_some())
+            .field("mtu", &self.mtu)
+            .field("session_id", &"<redacted>")
+            .finish()
+    }
 }
 
 impl From<RelayStreamGuestFrame> for RelayStreamGuestFrameRecord {
@@ -1075,8 +1109,8 @@ mod tests {
 
     use household_rs::claw_share::{ClawShareSlotStore, SlotId, SlotRecord, SlotState};
     use household_rs::claw_share_data_tunnel::{
-        ClawTargetRouter, MeshIpv4, ReplayGuard, TargetSession, authorize_session,
-        serve_connection_io,
+        ClawTargetRouter, DataTunnelSession, MeshIpv4, ReplayGuard, TargetSession,
+        authorize_session, serve_connection_io, serve_connection_io_with_auth_deadline,
     };
     use household_rs::claw_share_relay_stream_contract::{
         RelayStreamOfferContract, RelayStreamOfferMintInput, RelayStreamResource,
@@ -1761,5 +1795,591 @@ mod tests {
                 if message == "expected post-open network settings"
         ));
         server_task.await.expect("server task");
+    }
+
+    /// A settings frame is consumed EXACTLY once, during the handshake. A second
+    /// one arriving mid-stream must not be mistaken for data and must not be
+    /// allowed to re-point an already-configured interface: the frame decoder
+    /// surfaces it as a typed error instead of a payload.
+    #[tokio::test]
+    async fn late_duplicate_network_settings_frame_is_refused_by_the_decoder() {
+        let (mut client, mut server) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move {
+            send_frame(
+                &mut server,
+                &TunnelFrame::NetworkSettings(NetworkSettings {
+                    mesh_ipv4: MeshIpv4 {
+                        addr: "192.0.2.2".to_string(),
+                        prefix_len: 24,
+                        peer: "192.0.2.3".to_string(),
+                    },
+                    mtu: 1280,
+                    session_id: "session-alpha".to_string(),
+                }),
+            )
+            .await
+            .expect("send late settings");
+        });
+
+        // Real decode path, mid-stream — i.e. after the handshake already
+        // consumed its one legitimate settings frame.
+        let frame = recv_guest_frame(&mut client).await.expect("decode");
+        let record = RelayStreamGuestFrameRecord::from(frame);
+        assert_eq!(record.kind, RelayStreamGuestFrameKind::Error);
+        assert_eq!(record.text, "unexpected network settings frame");
+        // Fail-closed, not fail-quiet: it must not arrive as payload.
+        assert_ne!(record.kind, RelayStreamGuestFrameKind::Data);
+        assert!(record.data.is_empty());
+        // And the refusal must not echo the address or the session id.
+        assert!(!record.text.contains("192.0.2.2"));
+        assert!(!record.text.contains("session-alpha"));
+        server_task.await.expect("server task");
+    }
+
+    // ── Consumer gate: which resource demands post-Open network settings ─────
+    //
+    // `relay_stream_connect` decides with a LOCAL:
+    //     let requires_network_metadata = offer.payload.resource == IpTunnel;
+    // There is no production seam exposing it, so the only honest way to pin it
+    // is to drive the real connect path and assert its OBSERVABLE consequence.
+    // Asserting the comparison itself in the test would be vacuous — it would
+    // still pass with the production gate inverted.
+    //
+    // Reaching the gate needs a server, and the two non-Pty resources cannot use
+    // credential auth (production `verify_credential_binding` requires Pty), so
+    // they arrive with offer-payload material that `authorize_session` cannot
+    // decode. `serve_connection_io` is generic over its verifier, so the test
+    // supplies its own. That is a TEST DOUBLE for server-side authorization,
+    // which is not what this test pins; production authorization is untouched.
+
+    const GATE_PROBE_SESSION_ID: &str = "gate-probe-session";
+    const GATE_PROBE_MESH_IPV6: &str = "fd00::2";
+
+    /// Minimal session for the test verifier. Carries no real identifiers.
+    struct GateProbeSession;
+
+    impl DataTunnelSession for GateProbeSession {
+        fn session_id(&self) -> String {
+            GATE_PROBE_SESSION_ID.to_string()
+        }
+        fn mesh_ipv6(&self) -> String {
+            GATE_PROBE_MESH_IPV6.to_string()
+        }
+    }
+
+    /// Router that attaches a pool allocation only when the case supplies one,
+    /// so the engine emits a real `NetworkSettings` frame exactly on the
+    /// `IpTunnel` case and none at all otherwise.
+    struct GateProbeRouter {
+        vpn: Option<MeshIpv4>,
+        opened: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl ClawTargetRouter for GateProbeRouter {
+        async fn open(&self, _target_id: &str) -> Result<TargetSession, DataTunnelError> {
+            self.opened.store(true, std::sync::atomic::Ordering::SeqCst);
+            let (server_side, mut target_side) = duplex(4096);
+            tokio::spawn(async move {
+                // Silent target: drain only. The outcome must be decided by the
+                // gate, never by target chatter racing the settings frame.
+                let mut buf = [0u8; 256];
+                while let Ok(n) = target_side.read(&mut buf).await {
+                    if n == 0 {
+                        break;
+                    }
+                }
+            });
+            let session = TargetSession::from_stream(server_side);
+            Ok(match self.vpn.clone() {
+                Some(mesh_ipv4) => session.with_vpn_mesh_ipv4(mesh_ipv4),
+                None => session,
+            })
+        }
+    }
+
+    struct GateProbeOutcome {
+        metadata: RelayStreamGuestSessionMetadata,
+        verifier_reached: bool,
+        router_reached: bool,
+    }
+
+    /// Drive the REAL `relay_stream_connect` once, for one resource.
+    ///
+    /// `use_credential` selects the production auth mode: Device + credential
+    /// (the only mode `verify_credential_binding` permits, and only for Pty) or
+    /// credential-less offer-payload on a non-Device audience.
+    async fn gate_probe_connect(
+        resource: RelayStreamResource,
+        use_credential: bool,
+        vpn: Option<MeshIpv4>,
+    ) -> GateProbeOutcome {
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("bind listener");
+        let endpoint = format!(
+            "relay-stream://{}",
+            listener.local_addr().expect("listener addr")
+        );
+        let fixture = Fixture::new_with_endpoint(endpoint);
+        let offer_cbor = fixture.offer_cbor_with(|payload| {
+            payload.resource = resource;
+            if !use_credential {
+                payload.authz = Some(RelayStreamAudience::Public);
+            }
+        });
+
+        let server_offer = decode_canonical_offer(&offer_cbor).expect("decode mutated offer");
+        let server_owner = fixture.owner.public();
+        // Taken before `noise_keypair` moves into the task: after a partial move
+        // `fixture` can no longer be borrowed whole by its `&self` methods.
+        let credential_cbor = use_credential.then(|| fixture.credential_cbor());
+        let owner_pub_bytes = fixture.owner.public().as_bytes().to_vec();
+        let guest_pub_bytes = fixture.guest.public().as_bytes().to_vec();
+        let server_noise_keypair = fixture.noise_keypair;
+        let expected_hello = RendezvousHello::new(
+            RendezvousRole::Guest,
+            fixture.offer.payload.rendezvous_token.clone(),
+        )
+        .encode();
+
+        let verifier_reached = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let router_reached = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server_verifier = Arc::clone(&verifier_reached);
+        let server_router_flag = Arc::clone(&router_reached);
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept client");
+            let mut actual_hello = vec![0u8; expected_hello.len()];
+            socket
+                .read_exact(&mut actual_hello)
+                .await
+                .expect("read hello");
+            let prologue = server_offer
+                .to_noise_prologue_owner_verified(&server_owner, NOW)
+                .expect("prologue");
+            let framed = RelayStreamNoiseFramed::responder_handshake_with_prologue(
+                socket,
+                &prologue,
+                server_noise_keypair.private_key(),
+            )
+            .await
+            .expect("responder handshake");
+            let router = GateProbeRouter {
+                vpn,
+                opened: server_router_flag,
+            };
+            // The generic-session variant: `serve_connection_io` hard-codes
+            // `GuestCredential`, which the offer-payload cases cannot produce.
+            let _ = serve_connection_io_with_auth_deadline(
+                framed.into_async_stream(),
+                NOW,
+                move |_envelope: &AuthEnvelope,
+                      _now: u64|
+                      -> Result<GateProbeSession, DataTunnelError> {
+                    server_verifier.store(true, std::sync::atomic::Ordering::SeqCst);
+                    Ok(GateProbeSession)
+                },
+                &router,
+                |_session: &GateProbeSession| false,
+                Duration::from_secs(10),
+            )
+            .await;
+        });
+
+        let request = relay_stream_prepare_auth_signing_request(RelayStreamPrepareAuthInput {
+            offer_cbor: offer_cbor.clone(),
+            credential_cbor,
+            expected_owner_pub: owner_pub_bytes.clone(),
+            expected_guest_pub: guest_pub_bytes.clone(),
+            now_unix: NOW,
+            ttl_secs: 60,
+            session_id: "gate-probe".to_string(),
+            nonce: Some(vec![0x47; 16]),
+        })
+        .expect("prepare auth must succeed for a valid offer of this resource");
+        let signature = fixture
+            .guest
+            .sign(&request.signing_bytes)
+            .expect("guest sign")
+            .as_bytes()
+            .to_vec();
+
+        // Bounded: a lapsed bound is an INCONCLUSIVE failure, never a pass.
+        let session = tokio::time::timeout(
+            Duration::from_secs(10),
+            relay_stream_connect(
+                offer_cbor,
+                fixture.owner.public().as_bytes().to_vec(),
+                fixture.guest.public().as_bytes().to_vec(),
+                request,
+                signature,
+                NOW,
+                5_000,
+            ),
+        )
+        .await
+        .expect("connect did not settle within bound — inconclusive, not a pass")
+        .expect("connect must succeed for a valid offer of this resource");
+
+        let metadata = session.metadata().await;
+        server.abort();
+        GateProbeOutcome {
+            metadata,
+            verifier_reached: verifier_reached.load(std::sync::atomic::Ordering::SeqCst),
+            router_reached: router_reached.load(std::sync::atomic::Ordering::SeqCst),
+        }
+    }
+
+    /// Post-Open network settings are demanded for the `IpTunnel` resource and
+    /// for no other, proven through the real `relay_stream_connect` path.
+    ///
+    /// Each case asserts it actually reached the server verifier and the router
+    /// and that the connection succeeded, so an earlier validation failure can
+    /// never masquerade as the expected outcome.
+    #[tokio::test]
+    async fn connect_requires_network_settings_only_for_the_ip_tunnel_resource() {
+        // Pty — production mode is Device + credential.
+        let pty = gate_probe_connect(RelayStreamResource::Pty, true, None).await;
+        assert!(pty.verifier_reached, "Pty never reached the verifier");
+        assert!(pty.router_reached, "Pty never reached the router");
+        assert!(
+            pty.metadata.mesh_ipv4.is_none(),
+            "Pty must not demand or carry an IPv4 assignment"
+        );
+
+        // ClawSite — credential auth is refused for non-Pty, so offer-payload.
+        let clawsite = gate_probe_connect(RelayStreamResource::ClawSite, false, None).await;
+        assert!(clawsite.verifier_reached, "ClawSite never reached verifier");
+        assert!(clawsite.router_reached, "ClawSite never reached the router");
+        assert!(
+            clawsite.metadata.mesh_ipv4.is_none(),
+            "ClawSite must not demand or carry an IPv4 assignment"
+        );
+
+        // IpTunnel — positive control: a real NetworkSettings frame traverses
+        // the real decoder and is cross-bound to the ack.
+        let ip_tunnel = gate_probe_connect(
+            RelayStreamResource::IpTunnel,
+            false,
+            Some(MeshIpv4 {
+                addr: "192.0.2.2".to_string(),
+                prefix_len: 30,
+                peer: "192.0.2.1".to_string(),
+            }),
+        )
+        .await;
+        assert!(
+            ip_tunnel.verifier_reached,
+            "IpTunnel never reached verifier"
+        );
+        assert!(
+            ip_tunnel.router_reached,
+            "IpTunnel never reached the router"
+        );
+        let assigned = ip_tunnel
+            .metadata
+            .mesh_ipv4
+            .expect("IpTunnel must complete with a pool-allocated assignment");
+        assert_eq!(assigned.addr, "192.0.2.2");
+        assert_eq!(assigned.prefix_len, 30);
+        assert_eq!(assigned.peer, "192.0.2.1");
+        // Cross-bound to the authenticated session, not free-floating.
+        assert_eq!(ip_tunnel.metadata.session_id, GATE_PROBE_SESSION_ID);
+        assert_eq!(ip_tunnel.metadata.mtu, 1280);
+    }
+
+    /// Redaction is a property of the type, so it survives refactors: the guest
+    /// address, its claw-side peer, the session id, the relay endpoint and the
+    /// selected target must never reach a log through a formatter.
+    #[test]
+    fn debug_redacts_addresses_endpoint_target_and_session_id() {
+        let ipv4 = RelayStreamGuestIpv4Metadata {
+            addr: "192.0.2.2".to_string(),
+            prefix_len: 24,
+            peer: "192.0.2.3".to_string(),
+        };
+        let rendered = format!("{ipv4:?}");
+        assert!(!rendered.contains("192.0.2.2"), "Debug leaked the address");
+        assert!(!rendered.contains("192.0.2.3"), "Debug leaked the peer");
+        assert!(rendered.contains("<redacted>"));
+        // The route scope stays diagnosable.
+        assert!(rendered.contains("24"));
+
+        let metadata = RelayStreamGuestSessionMetadata {
+            mesh_ipv4: Some(ipv4),
+            mesh_ipv6: Some("fd00::1".to_string()),
+            mtu: 1280,
+            session_id: "session-alpha_1".to_string(),
+        };
+        let rendered = format!("{metadata:?}");
+        assert!(!rendered.contains("192.0.2.2"));
+        assert!(!rendered.contains("192.0.2.3"));
+        assert!(!rendered.contains("fd00::1"), "Debug leaked the IPv6");
+        assert!(!rendered.contains("session-alpha_1"), "Debug leaked the id");
+        assert!(rendered.contains("mesh_ipv6_present: true"));
+        assert!(rendered.contains("1280"));
+
+        let request = RelayStreamAuthSigningRequest {
+            auth_mode: RelayStreamAuthMode::OfferPayload,
+            signing_bytes: vec![1, 2, 3],
+            session_id: "session-alpha_1".to_string(),
+            endpoint: "relay.example:4443".to_string(),
+            target_id: "claw_secret_target".to_string(),
+            expires_at: 42,
+            nonce: vec![0u8; 16],
+            auth_material_cbor: vec![9, 9],
+            guest_device_pub: vec![7; 33],
+        };
+        let rendered = format!("{request:?}");
+        assert!(!rendered.contains("session-alpha_1"));
+        assert!(
+            !rendered.contains("relay.example"),
+            "Debug leaked the endpoint"
+        );
+        assert!(
+            !rendered.contains("claw_secret_target"),
+            "Debug leaked target"
+        );
+        assert!(rendered.contains("<redacted>"));
+        // Non-identifying diagnostics survive.
+        assert!(rendered.contains("expires_at: 42"));
+
+        let input = RelayStreamPrepareAuthInput {
+            offer_cbor: vec![1],
+            credential_cbor: None,
+            expected_owner_pub: vec![2; 33],
+            expected_guest_pub: vec![3; 33],
+            now_unix: 7,
+            ttl_secs: 60,
+            session_id: "session-alpha_1".to_string(),
+            nonce: None,
+        };
+        let rendered = format!("{input:?}");
+        assert!(!rendered.contains("session-alpha_1"));
+        assert!(rendered.contains("<redacted>"));
+    }
+
+    // ─── Validator parity table ──────────────────────────────────────────────
+    //
+    // The route-scope rules are implemented TWICE, in two languages: here, and
+    // in Swift's RelayStreamIPTunnelNetworkSettings.make. Nothing in the build
+    // forces them to agree, so one physical table drives both sides. This is
+    // the Rust consumer; the Swift consumer reads the SAME file.
+    //
+    // ASYMMETRIC ENFORCEMENT, by decision and recorded here rather than left
+    // implicit. Swift pins the file's SHA-256; this side pins the exact
+    // `@total`, the exact `@counts` line and the exact ordered id list of EVERY
+    // category instead.
+    //
+    // Why not a symmetric digest: `sha2 0.10.9` is ALREADY in this crate's
+    // `Cargo.lock`, transitively — `household-rs` uses it internally. It is not
+    // re-exported, and this crate does not declare it, so this crate cannot
+    // call it directly. Declaring it under `[dev-dependencies]` would add NO
+    // new crate to the lock graph; it would only edit `Cargo.toml`, a fourth
+    // path, deliberately outside this slice's scope.
+    //
+    // So the blocker is SCOPE AND MANIFEST, not dependency weight. Anyone
+    // revisiting this should weigh it as a one-line manifest change, not as
+    // pulling in a new dependency.
+    //
+    // Consequence, stated so nobody mistakes it for parity: a semantic row
+    // change fails on BOTH sides; a whitespace-or-comment-only edit to the
+    // table fails only on Swift. That residual is accepted and deliberate.
+
+    const PARITY_TABLE: &str = "Tests/Fixtures/ip_tunnel_network_settings_validator_v1.tsv";
+    const PARITY_TOTAL: &str = "33";
+    const PARITY_COUNTS: &str = "both=23\trust_only=10\tswift_only=0";
+    const PARITY_ORDER_BOTH: &str = "b_valid_slash30,b_valid_slash31,b_valid_slash24,b_addr_equals_peer,b_peer_outside_prefix,b_addr_is_network,b_addr_is_broadcast,b_peer_is_network,b_peer_is_broadcast,b_prefix_zero,b_prefix_32,b_addr_all_zero,b_addr_all_ones,b_addr_zero_first_octet,b_addr_loopback,b_addr_link_local,b_addr_multicast,b_peer_loopback,s_mtu_below_min,s_mtu_min,s_mtu_max,s_mtu_above_max,s_session_empty";
+    const PARITY_ORDER_RUST_ONLY: &str = "r_ack_matches,r_mtu_mismatch,r_session_mismatch,r_mtu_and_session_mismatch,r_session_whitespace_only,r_session_leading_ws,r_session_trailing_ws,r_session_interior_ws,r_session_forbidden_punct,r_session_underscore_ok";
+    const PARITY_ORDER_SWIFT_ONLY: &str = "";
+    const PARITY_HEADER: &str = "case_id\taddr\tprefix_len\tpeer\tsettings_mtu\tsettings_session_id\tack_mtu\tack_session_id\tapplies_to\trust_expect\tswift_expect";
+
+    /// Decode the table's explicit sentinels. Nothing here may depend on
+    /// accidental trimming: `<empty>` is the empty string, `<sp>` is one space
+    /// anywhere in the token, and any other `<...>` is a hard error rather than
+    /// a value that quietly survives as literal text.
+    fn parity_decode_session(raw: &str) -> String {
+        if raw == "<empty>" {
+            return String::new();
+        }
+        let mut out = String::new();
+        let mut rest = raw;
+        while let Some(start) = rest.find('<') {
+            let offset = rest[start..]
+                .find('>')
+                .unwrap_or_else(|| panic!("unterminated sentinel in {raw:?}"));
+            let end = start + offset;
+            let token = &rest[start..=end];
+            assert_eq!(token, "<sp>", "unknown sentinel {token} in {raw:?}");
+            out.push_str(&rest[..start]);
+            out.push(' ');
+            rest = &rest[end + 1..];
+        }
+        out.push_str(rest);
+        out
+    }
+
+    struct ParityRow {
+        case_id: String,
+        addr: String,
+        prefix_len: u8,
+        peer: String,
+        settings_mtu: u16,
+        settings_session_id: String,
+        ack_mtu: u16,
+        ack_session_id: String,
+        applies_to: String,
+        rust_expect: String,
+    }
+
+    /// Strict, fail-closed parse. Every line must be a recognised kind, every
+    /// data row must have exactly 11 columns, every enum-valued column must be
+    /// a known value, and the verdict column for a side the row does not apply
+    /// to must be exactly `n/a`. Nothing is skipped silently.
+    fn parity_rows() -> Vec<ParityRow> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(PARITY_TABLE);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("parity table unreadable at {}: {e}", path.display()));
+
+        let mut saw_total = false;
+        let mut saw_counts = false;
+        let mut saw_header = false;
+        let mut orders: Vec<(String, String)> = Vec::new();
+        let mut rows: Vec<ParityRow> = Vec::new();
+
+        for line in text.lines() {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix("@total\t") {
+                assert_eq!(rest, PARITY_TOTAL, "declared @total changed");
+                saw_total = true;
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix("@counts\t") {
+                assert_eq!(rest, PARITY_COUNTS, "declared @counts line changed");
+                saw_counts = true;
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix("@order\t") {
+                let (category, ids) = rest.split_once('\t').unwrap_or((rest, ""));
+                orders.push((category.to_string(), ids.to_string()));
+                continue;
+            }
+            if line == PARITY_HEADER {
+                saw_header = true;
+                continue;
+            }
+            assert!(saw_header, "data row before the header: {line}");
+
+            let cols: Vec<&str> = line.split('\t').collect();
+            assert_eq!(cols.len(), 11, "row must have 11 columns: {line}");
+            let applies_to = cols[8];
+            assert!(
+                matches!(applies_to, "both" | "rust_only" | "swift_only"),
+                "unknown applies_to {applies_to}"
+            );
+            for verdict in [cols[9], cols[10]] {
+                assert!(
+                    matches!(verdict, "accept" | "reject" | "n/a"),
+                    "unknown verdict {verdict}"
+                );
+            }
+            match applies_to {
+                "both" => {
+                    assert_ne!(cols[9], "n/a", "both row lacks a rust verdict: {line}");
+                    assert_ne!(cols[10], "n/a", "both row lacks a swift verdict: {line}");
+                }
+                "rust_only" => assert_eq!(cols[10], "n/a", "rust_only row must not verdict swift"),
+                _ => assert_eq!(cols[9], "n/a", "swift_only row must not verdict rust"),
+            }
+
+            rows.push(ParityRow {
+                case_id: cols[0].to_string(),
+                addr: cols[1].to_string(),
+                prefix_len: cols[2].parse().expect("prefix_len"),
+                peer: cols[3].to_string(),
+                settings_mtu: cols[4].parse().expect("settings_mtu"),
+                settings_session_id: parity_decode_session(cols[5]),
+                ack_mtu: cols[6].parse().expect("ack_mtu"),
+                ack_session_id: parity_decode_session(cols[7]),
+                applies_to: applies_to.to_string(),
+                rust_expect: cols[9].to_string(),
+            });
+        }
+
+        assert!(saw_total && saw_counts && saw_header, "table lost a directive");
+        // Every category is declared, INCLUDING the empty one: an omitted
+        // `swift_only` would otherwise read as "no Swift-only rules" when it
+        // actually means the category vanished.
+        let expected_orders = [
+            ("both", PARITY_ORDER_BOTH),
+            ("rust_only", PARITY_ORDER_RUST_ONLY),
+            ("swift_only", PARITY_ORDER_SWIFT_ONLY),
+        ];
+        assert_eq!(orders.len(), 3, "expected exactly three @order directives");
+        for (index, (category, ids)) in expected_orders.iter().enumerate() {
+            assert_eq!(&orders[index].0, category, "@order category or order changed");
+            assert_eq!(&orders[index].1, ids, "@order id list for {category} changed");
+        }
+
+        assert_eq!(rows.len(), 33, "table row count changed");
+        let ids: std::collections::BTreeSet<&str> =
+            rows.iter().map(|r| r.case_id.as_str()).collect();
+        assert_eq!(ids.len(), rows.len(), "duplicate case_id in the table");
+        rows
+    }
+
+    /// Execute every row this side owns — `both` and `rust_only` — and assert
+    /// the ordered ids consumed match the declaration exactly, so a row cannot
+    /// be skipped without failing.
+    #[test]
+    fn validator_parity_table_matches_the_rust_validator() {
+        let rows = parity_rows();
+
+        let mut consumed_both: Vec<&str> = Vec::new();
+        let mut consumed_rust: Vec<&str> = Vec::new();
+
+        for row in &rows {
+            match row.applies_to.as_str() {
+                "both" => consumed_both.push(&row.case_id),
+                "rust_only" => consumed_rust.push(&row.case_id),
+                _ => continue,
+            }
+
+            let settings = NetworkSettings {
+                mesh_ipv4: MeshIpv4 {
+                    addr: row.addr.clone(),
+                    prefix_len: row.prefix_len,
+                    peer: row.peer.clone(),
+                },
+                mtu: row.settings_mtu,
+                session_id: row.settings_session_id.clone(),
+            };
+            let outcome = validate_ip_tunnel_network_settings(
+                settings,
+                row.ack_mtu,
+                &row.ack_session_id,
+            );
+            let expected_accept = row.rust_expect == "accept";
+            assert_eq!(
+                outcome.is_ok(),
+                expected_accept,
+                "row {} expected {} from the Rust validator, got {outcome:?}",
+                row.case_id,
+                row.rust_expect
+            );
+        }
+
+        assert_eq!(
+            consumed_both.join(","),
+            PARITY_ORDER_BOTH,
+            "the `both` rows consumed do not match the declaration"
+        );
+        assert_eq!(
+            consumed_rust.join(","),
+            PARITY_ORDER_RUST_ONLY,
+            "the `rust_only` rows consumed do not match the declaration"
+        );
     }
 }

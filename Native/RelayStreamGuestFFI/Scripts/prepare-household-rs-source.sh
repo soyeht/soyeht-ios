@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_REPO="https://github.com/soyeht/theyos.git"
-SOURCE_REV="c48386d13e94535d53fba8f55b2dfa0c5f51a69b"
+SOURCE_REV="c81144ba9ac98c0b19912c51765886b227ba30f5"
 VENDOR_PARENT="$ROOT/.vendor"
 VENDOR_ROOT="$VENDOR_PARENT/theyos"
 STAMP="$VENDOR_ROOT/.relay-stream-guest-source"
