@@ -9,6 +9,16 @@ public enum RelayStreamResource: String, Sendable, Equatable {
     /// NetworkExtension data path is gated by the stricter Group-offer
     /// verification below.
     case ipTunnel = "ip_tunnel"
+
+    /// Resources the ordinary guest path may terminate: a terminal, or a
+    /// shared app rendered in a web view.
+    ///
+    /// Written as an explicit literal, NOT `CaseIterable.allCases`, so adding
+    /// a future case to the enum cannot silently widen what an offer is
+    /// allowed to be. `ipTunnel` is excluded deliberately — it has its own
+    /// entry point (`verifyRelayStreamIPTunnelGuest`) that additionally
+    /// requires a Group audience, and admitting it here would bypass that.
+    public static let guestSupported: Set<RelayStreamResource> = [.pty, .clawSite]
 }
 
 public enum RelayStreamExpectedPath: String, Sendable, Equatable {
@@ -262,10 +272,26 @@ public struct RelayStreamOfferContract: Sendable, Equatable {
         }
     }
 
+    /// Verify an offer is well-formed, owner-signed, addressed to this guest,
+    /// and carries a resource this caller is prepared to terminate.
+    ///
+    /// `allowedResources` is the caller's declaration of intent, not a
+    /// formality. A consumer that binds the byte stream to a specific
+    /// surface — a terminal emulator, a `WKWebView` — must pass the single
+    /// resource it handles, so a PTY consumer can never be handed a ClawSite
+    /// stream (or vice versa) even though both are owner-signed and both ride
+    /// the same framing. Only a layer that genuinely does not yet know the
+    /// consumer (the claim submitter, which just validates whatever the owner
+    /// returned) should take the default.
+    ///
+    /// `ipTunnel` is excluded from the default on purpose: it has its own
+    /// stricter entry point, `verifyRelayStreamIPTunnelGuest`, which also
+    /// demands a Group audience. Reaching it through here would skip that.
     public func verifyRelayStreamGuest(
         expectedSignerPublicKey: Data,
         expectedGuestDevicePublicKey: Data,
-        nowUnix: UInt64
+        nowUnix: UInt64,
+        allowedResources: Set<RelayStreamResource> = RelayStreamResource.guestSupported
     ) throws {
         try verifyForAudience(
             expectedSignerPublicKey: expectedSignerPublicKey,
@@ -275,7 +301,7 @@ public struct RelayStreamOfferContract: Sendable, Equatable {
         guard payload.expectedPath == .relayStream else {
             throw RelayStreamOfferError.expectedPathMismatch
         }
-        guard payload.resource == .pty else {
+        guard allowedResources.contains(payload.resource) else {
             throw RelayStreamOfferError.resourceMismatch
         }
         _ = try relayEndpointURL()
@@ -311,12 +337,14 @@ public struct RelayStreamOfferContract: Sendable, Equatable {
 
     public func verifyRelayStreamGuest(
         credential: GuestCredential,
-        nowUnix: UInt64
+        nowUnix: UInt64,
+        allowedResources: Set<RelayStreamResource> = RelayStreamResource.guestSupported
     ) throws {
         try verifyRelayStreamGuest(
             expectedSignerPublicKey: credential.ownerPublicKey,
             expectedGuestDevicePublicKey: credential.guestDevicePublicKey,
-            nowUnix: nowUnix
+            nowUnix: nowUnix,
+            allowedResources: allowedResources
         )
         guard payload.clawId == credential.clawId else {
             throw RelayStreamOfferError.credentialClawMismatch

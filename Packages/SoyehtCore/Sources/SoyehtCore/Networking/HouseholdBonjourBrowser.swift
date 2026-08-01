@@ -112,6 +112,30 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         )
 
         let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? resolved.port ?? defaultPort
+
+        // Prefer the publisher's bound Tailnet address, same rule as
+        // `endpointURL(serviceName:domain:txt:defaultPort:)` below — and
+        // checked FIRST, because the SRV-hostname A-record resolution a few
+        // lines down would otherwise win unconditionally. `hostTarget`
+        // (e.g. `macStudio.local`) resolves via mDNS to the publisher's LAN
+        // address, and once the household leaves onboarding the engine
+        // binds only loopback + Tailnet (see `household_listener`), so that
+        // LAN address has no listener. Without this check, every dial from
+        // a peer that shares the tailnet still went to the unreachable LAN
+        // IP and this function's fallback to `engineEndpointURL` (which
+        // does carry the `tailnet_addr` preference) was never reached.
+        if let tailnetAddr = txt["tailnet_addr"]?.trimmingCharacters(in: .whitespaces),
+           !tailnetAddr.isEmpty,
+           TailnetAddressResolver.currentTailnetIPv4() != nil,
+           let tailnetURL = EndpointPolicy.bonjourEngineEndpointURL(
+               host: tailnetAddr,
+               port: port,
+               defaultPort: defaultPort
+           ) {
+            bonjourBrowserDiscoveryLogger.info("DNSServiceResolve endpoint via=tailnet_addr url=\(tailnetURL.absoluteString, privacy: .public)")
+            return tailnetURL
+        }
+
         if let hostTarget = resolved.hostTarget,
            let ip = await resolveIPv4Address(hostname: hostTarget, timeout: min(1.0, timeout)),
            let url = EndpointPolicy.bonjourEngineEndpointURL(host: ip, port: port, defaultPort: defaultPort) {
@@ -760,13 +784,40 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         serviceName: String,
         domain: String,
         txt: [String: String],
-        defaultPort: Int = EndpointPolicy.defaultBootstrapPort()
+        defaultPort: Int = EndpointPolicy.defaultBootstrapPort(),
+        isOnTailnet: () -> Bool = { TailnetAddressResolver.currentTailnetIPv4() != nil }
     ) -> URL? {
         if let urlString = txt["url"], let url = URL(string: urlString) {
             return url
         }
         let scheme = txt["scheme"]
         let port = Int(txt["port"] ?? txt["hh_port"] ?? "")
+
+        // Prefer the publisher's bound Tailnet address over the mDNS `host`
+        // name when this device is on the tailnet too.
+        //
+        // `host` resolves to the publisher's LAN address, but the engine stops
+        // binding LAN once the household leaves onboarding — so on a shared LAN
+        // the advertised name resolves to a port nothing is listening on and
+        // the connect fails with "could not connect to the server". The
+        // publisher emits `tailnet_addr` straight from its post-policy bind
+        // set, so it is an address the engine is genuinely serving. Falls
+        // through to `host` when either side is off the tailnet.
+        if let tailnetAddr = txt["tailnet_addr"]?.trimmingCharacters(in: .whitespaces),
+           !tailnetAddr.isEmpty,
+           isOnTailnet(),
+           let tailnetURL = EndpointPolicy.bonjourEngineEndpointURL(
+               host: tailnetAddr,
+               scheme: scheme,
+               port: port,
+               defaultPort: defaultPort
+           ) {
+            bonjourBrowserDiscoveryLogger.info(
+                "endpointURL serviceName=\(serviceName, privacy: .public) via=tailnet_addr url=\(tailnetURL.absoluteString, privacy: .public)"
+            )
+            return tailnetURL
+        }
+
         let domainName = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let hostDomain = domainName.isEmpty ? "local" : domainName
         let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])

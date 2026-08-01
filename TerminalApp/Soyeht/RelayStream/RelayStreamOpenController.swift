@@ -59,6 +59,7 @@ struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
         case groupOfferRequired
         case groupMismatch
         case memberMismatch
+        case unsupportedResource(RelayStreamResource)
 
         var errorDescription: String? {
             switch self {
@@ -70,6 +71,8 @@ struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
                 return String(localized: "The relay stream offer is for a different group.")
             case .memberMismatch:
                 return String(localized: "The relay stream offer is for a different member.")
+            case .unsupportedResource:
+                return String(localized: "This invite shares an app, not a terminal.")
             }
         }
     }
@@ -105,6 +108,15 @@ struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
         guard let offer = claimed.relayStreamOffer else {
             throw OpenError.missingRelayStreamOffer
         }
+        // The claim submitter validates the offer against every resource this
+        // guest supports, because at claim time it does not yet know which
+        // surface will terminate the stream. This method does know: it returns
+        // a terminal configuration, so anything other than PTY is refused here
+        // rather than rendered into a terminal. Routing a ClawSite claim to its
+        // own consumer is `ClawSiteRelayStreamBridge`, not this method.
+        guard offer.payload.resource == .pty else {
+            throw OpenError.unsupportedResource(offer.payload.resource)
+        }
 
         let nowUnix = UInt64(max(0, now().timeIntervalSince1970))
         let sessionId = "ios-relay-stream-\(uuid().uuidString.lowercased())"
@@ -131,10 +143,14 @@ struct RelayStreamOpenController: RelayStreamInviteOpening, Sendable {
         title: String? = nil
     ) async throws -> RelayStreamTerminalConfiguration {
         let nowUnix = UInt64(max(0, now().timeIntervalSince1970))
+        // This method returns a terminal configuration, so it accepts only a
+        // PTY offer — a ClawSite stream reaching a terminal emulator would be
+        // an owner-signed but semantically wrong binding.
         try offer.verifyRelayStreamGuest(
             expectedSignerPublicKey: expectedOwnerPub,
             expectedGuestDevicePublicKey: guestIdentity.publicKeyData,
-            nowUnix: nowUnix
+            nowUnix: nowUnix,
+            allowedResources: [.pty]
         )
         guard case .group(let groupId, let memberId) = offer.payload.audience else {
             throw OpenError.groupOfferRequired

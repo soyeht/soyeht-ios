@@ -980,10 +980,29 @@ fn verify_credential_binding(
             "slot id mismatch".to_string(),
         ));
     }
-    if offer.payload.resource != RelayStreamResource::Pty {
-        return Err(RelayStreamGuestError::Credential(
-            "credential auth requires pty resource".to_string(),
-        ));
+    // Resources a guest may terminate on the DEVICE/credential path: a
+    // terminal, or a shared app rendered in a web view. Both are owner-signed
+    // byte streams over identical framing; which surface consumes them is
+    // decided above this layer.
+    //
+    // ClawSite belongs here because the invite/claim flow provisions a DEVICE
+    // offer (`try_provision_relay_stream_offer_for_claim`), so a claimed app
+    // share is Device+credential. Refusing it would mean an invite can hand a
+    // friend a full terminal but not a read-only page — the more dangerous
+    // capability allowed and the harmless one blocked.
+    //
+    // `IpTunnel` stays refused: its data path is gated separately and demands
+    // a Group audience, which this function does not check.
+    //
+    // Matched exhaustively, no `_` arm, so bumping the vendored household-rs
+    // pin makes a new variant a compile error instead of silently admitting it.
+    match offer.payload.resource {
+        RelayStreamResource::Pty | RelayStreamResource::ClawSite => {}
+        RelayStreamResource::IpTunnel => {
+            return Err(RelayStreamGuestError::Credential(
+                "credential auth does not support ip_tunnel resource".to_string(),
+            ));
+        }
     }
     if offer.payload.not_after > credential.expires_at {
         return Err(RelayStreamGuestError::Credential(
@@ -1297,6 +1316,46 @@ mod tests {
             .expect("token verifies");
     }
 
+    /// A ClawSite offer must survive credential binding exactly like a PTY
+    /// one. This is the whole point of sharing an app by invite: the claim
+    /// flow provisions a DEVICE offer, so if credential auth refused
+    /// ClawSite, a friend could be handed a terminal but never a page.
+    #[test]
+    fn prepare_accepts_clawsite_credential_offer() {
+        let fixture = Fixture::new();
+        let request = prepare_auth_signing_request(RelayStreamPrepareAuthInput {
+            offer_cbor: fixture.offer_cbor_with(|payload| {
+                payload.resource = RelayStreamResource::ClawSite;
+            }),
+            credential_cbor: Some(fixture.credential_cbor()),
+            expected_owner_pub: fixture.owner.public().as_bytes().to_vec(),
+            expected_guest_pub: fixture.guest.public().as_bytes().to_vec(),
+            now_unix: NOW,
+            ttl_secs: 60,
+            session_id: "ios-relay-stream-fixture".to_string(),
+            nonce: Some(vec![0x44; 16]),
+        })
+        .expect("clawsite credential offer must prepare");
+        assert_eq!(request.auth_mode, RelayStreamAuthMode::DeviceCredential);
+
+        // The token still binds to the guest key and the credential, so
+        // admitting the resource did not weaken the authentication itself.
+        let signature = fixture
+            .guest
+            .sign(&request.signing_bytes)
+            .expect("guest sign");
+        let envelope = encode_auth_envelope(&request, signature.as_bytes()).expect("auth envelope");
+        let decoded: AuthEnvelope = cbor::from_canonical_slice(&envelope).expect("decode");
+        decoded
+            .token
+            .verify(
+                &fixture.guest.public(),
+                &household_rs::claw_share_data_tunnel::credential_hash(&request.auth_material_cbor),
+                NOW,
+            )
+            .expect("token verifies");
+    }
+
     #[test]
     fn prepare_rejects_device_offer_without_credential() {
         let fixture = Fixture::new();
@@ -1331,11 +1390,16 @@ mod tests {
                 }),
                 "slot id mismatch",
             ),
+            // ClawSite is no longer a row here: it is a legitimate resource on
+            // the credential path, because the invite/claim flow provisions a
+            // DEVICE offer. `IpTunnel` takes its place as the resource this
+            // function must refuse. The ClawSite positive case is
+            // `prepare_accepts_clawsite_credential_offer`.
             (
                 fixture.offer_cbor_with(|payload| {
-                    payload.resource = RelayStreamResource::ClawSite;
+                    payload.resource = RelayStreamResource::IpTunnel;
                 }),
-                "credential auth requires pty resource",
+                "credential auth does not support ip_tunnel resource",
             ),
             (
                 fixture.offer_cbor_with(|payload| {
@@ -2047,7 +2111,10 @@ mod tests {
             "Pty must not demand or carry an IPv4 assignment"
         );
 
-        // ClawSite — credential auth is refused for non-Pty, so offer-payload.
+        // ClawSite over offer-payload auth (Group/Public share). The Device
+        // credential path is covered separately by
+        // `prepare_accepts_clawsite_credential_offer`; both are valid ways to
+        // reach a shared app.
         let clawsite = gate_probe_connect(RelayStreamResource::ClawSite, false, None).await;
         assert!(clawsite.verifier_reached, "ClawSite never reached verifier");
         assert!(clawsite.router_reached, "ClawSite never reached the router");

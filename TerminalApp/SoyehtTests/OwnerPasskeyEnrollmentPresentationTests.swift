@@ -62,7 +62,7 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         XCTAssertTrue(enrollBranch.contains("appState = .recoveryMessage(snapshot)"))
     }
 
-    func test_routeVocabularyKeepsAllTwelveCasesWithoutMovingRootHandlers() throws {
+    func test_routeVocabularyKeepsAllFourteenCasesWithoutMovingRootHandlers() throws {
         let rootSource = try iosSource("SSHLoginView.swift")
         let routeSource = try iosSource("App/AppRoute.swift")
 
@@ -71,7 +71,13 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             .split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { $0.hasPrefix("case ") }
-        XCTAssertEqual(declaredCases.count, 12)
+        // 14: `clawSite` (a shared claw serving an app rather than a
+        // terminal, chosen by the offer's resource) and `shareApp` (the
+        // owner-side flow that mints the invite, which lives on this device
+        // because the owner key does). Bumping this number is meant to be a
+        // deliberate act — add the signature below too, so the count alone
+        // can never drift.
+        XCTAssertEqual(declaredCases.count, 14)
 
         for signature in [
             "case splash",
@@ -87,6 +93,8 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             "case localTerminal(wsUrl: String, title: String, macID: UUID?, paneID: String?)",
             "case relayStreamOpening(ClawShareInvite)",
             "case relayStreamTerminal(RelayStreamTerminalConfiguration)",
+            "case clawSite(ClawSiteViewModel)",
+            "case shareApp(SoyehtIdentitySnapshot)",
         ] {
             XCTAssertTrue(routeSource.contains(signature), "Missing route signature: \(signature)")
         }

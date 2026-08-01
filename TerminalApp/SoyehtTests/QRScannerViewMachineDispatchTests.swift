@@ -132,6 +132,58 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(routedInvite, invite)
     }
 
+    /// The deep-link path must recognise a claw-share invite *before* it
+    /// reaches the `QRScanResult.from(url:)` fallback, because that fallback
+    /// returns nil for these — asserted directly in
+    /// `testClawShareInviteRoutesOnlyThroughScannerDispatcher` above. Until
+    /// this matcher existed, a tapped invite link launched the app (Info.plist
+    /// claims the `soyeht` scheme), matched no branch, hit that nil, and the
+    /// handler returned silently: the guest saw the app open and do nothing.
+    func testClawShareInviteURLIsClaimedByTheDeepLinkMatcher() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertTrue(PendingClawShareInvite.matches(url))
+        // The property that makes the matcher necessary rather than merely
+        // tidy: nothing else on the deep-link path claims this URL.
+        XCTAssertNil(QRScanResult.from(url: url))
+    }
+
+    /// The matcher must not poach URLs that already have a home, or it would
+    /// divert pairing into the invite sheet.
+    func testDeepLinkMatcherIgnoresEveryOtherRoutedURLShape() throws {
+        let others = [
+            "theyos://instance/inst-123",
+            "theyos://connect?local_handoff=mac_local",
+            "theyos://pair?token=pair-abc&host=linux.local",
+            "soyeht://household/pair-device?v=1&nonce=abc",
+            "soyeht://household/pair-machine?v=1&nonce=abc",
+            "soyeht://debug/reset-local-state"
+        ]
+        for raw in others {
+            let url = try XCTUnwrap(URL(string: raw))
+            XCTAssertFalse(
+                PendingClawShareInvite.matches(url),
+                "\(raw) must keep its own branch"
+            )
+        }
+    }
+
+    /// A URL carrying the invite prefix but an undecodable payload must be
+    /// claimed by the matcher and then *refused* by the dispatcher — never
+    /// waved on to another branch that would misread it.
+    func testMalformedClawShareURLIsClaimedThenRefused() throws {
+        let url = try XCTUnwrap(URL(string: "\(ClawShareURI.prefix)not-valid-base64"))
+
+        XCTAssertTrue(PendingClawShareInvite.matches(url))
+        switch QRScannerDispatcher.result(for: url, activeHouseholdId: nil, now: now) {
+        case .success(let result):
+            XCTFail("malformed invite must not classify as \(result)")
+        case .failure:
+            break
+        }
+    }
+
     func testClawShareInviteInvalidReturnsTypedScanError() throws {
         let url = try XCTUnwrap(URL(string: "\(ClawShareURI.prefix)not-valid-base64"))
 

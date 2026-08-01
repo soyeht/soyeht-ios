@@ -90,6 +90,40 @@ extension SoyehtAPIClient {
     )
   }
 
+  /// List instances from the active household over owner PoP, letting
+  /// `householdRequest` resolve the endpoint itself.
+  ///
+  /// Distinct from `getInstances()` on `SoyehtAPIClient`, which authenticates
+  /// with a session token against the active *server*; this one authenticates
+  /// as the household owner. Distinct from the endpoint-carrying overload
+  /// above, which is for callers that already hold a specific Mac's URL.
+  ///
+  /// Callers that just mean "my household" should use this rather than
+  /// reading `ActiveHouseholdState.endpoint` to pass it back in: that raw
+  /// read is ratcheted (`MachineReachabilityBoundaryUsageTests`) precisely so
+  /// endpoint resolution stays behind one seam. `mintClawShareInvite` already
+  /// works this way, so the share flow's two calls resolve identically.
+  public func getHouseholdInstances() async throws -> [SoyehtInstance] {
+    let (data, response) = try await performWithRetry {
+      try await self.householdRequest(
+        path: "/api/v1/household/instances",
+        requiredOperation: "claws.list"
+      )
+    }
+    try checkResponse(response, data: data)
+
+    if let wrapped = try? decoder.decode(ContextInstancesWrapper.self, from: data) {
+      return wrapped.data
+    } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
+      return array
+    }
+    throw APIError.decodingError(
+      DecodingError.dataCorrupted(
+        .init(
+          codingPath: [], debugDescription: "Cannot decode household instances response"))
+    )
+  }
+
   private struct ContextInstancesWrapper: Decodable {
     let data: [SoyehtInstance]
   }

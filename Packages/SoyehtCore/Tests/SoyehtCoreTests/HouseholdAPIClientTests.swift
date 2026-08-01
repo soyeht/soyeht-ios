@@ -977,4 +977,88 @@ struct HouseholdAPIClientTests {
       lastSeenAt: now
     )
   }
+  @Test func mintClawShareInviteEncodesRequestAndDecodesResponse() async throws {
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = HouseholdCBOR.encode(
+      .map([
+        "uri": .text("soyeht://claw-share/v1?e=abc123"),
+        "slot_id": .bytes(Data([0x01, 0x02, 0x03, 0x04])),
+        "expires_at": .unsigned(1_810_000_000),
+      ]))
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+    let invite = try await client.mintClawShareInvite(clawID: "claw-alpha", ttlSeconds: 900)
+
+    #expect(invite.uri == "soyeht://claw-share/v1?e=abc123")
+    #expect(invite.slotId == Data([0x01, 0x02, 0x03, 0x04]))
+    #expect(invite.expiresAt == 1_810_000_000)
+
+    let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+    #expect(request.httpMethod == "POST")
+    #expect(request.url?.path == "/api/v1/claw-share/invites")
+    let authorization = try #require(request.value(forHTTPHeaderField: "Authorization"))
+    #expect(authorization.hasPrefix("Soyeht-PoP v1:"))
+    #expect(!authorization.contains("Bearer"))
+
+    let body = try #require(request.httpBody)
+    guard case .map(let sentFields) = try HouseholdCBOR.decode(body) else {
+      Issue.record("Expected a CBOR map body")
+      return
+    }
+    #expect(sentFields["v"] == .unsigned(1))
+    #expect(sentFields["claw_id"] == .text("claw-alpha"))
+    #expect(sentFields["ttl_secs"] == .unsigned(900))
+  }
+
+  @Test func mintClawShareInviteOmitsTtlFieldWhenNotProvided() async throws {
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = HouseholdCBOR.encode(
+      .map([
+        "uri": .text("soyeht://claw-share/v1?e=xyz789"),
+        "slot_id": .bytes(Data([0xAA])),
+        "expires_at": .unsigned(1_810_000_500),
+      ]))
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+    _ = try await client.mintClawShareInvite(clawID: "claw-beta")
+
+    let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+    let body = try #require(request.httpBody)
+    guard case .map(let sentFields) = try HouseholdCBOR.decode(body) else {
+      Issue.record("Expected a CBOR map body")
+      return
+    }
+    #expect(sentFields["claw_id"] == .text("claw-beta"))
+    #expect(sentFields["ttl_secs"] == nil)
+  }
+
+  @Test func mintClawShareInviteThrowsOnMalformedResponse() async throws {
+    HouseholdAPIClientTestURLProtocol.reset()
+    HouseholdAPIClientTestURLProtocol.responseData = HouseholdCBOR.encode(
+      .map(["unexpected": .text("shape")]))
+    let householdKey = P256.Signing.PrivateKey()
+    let ownerKey = P256.Signing.PrivateKey()
+    let storage = InMemoryHouseholdStorage()
+    let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+    try householdStore.save(
+      try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+    let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+    await #expect(throws: ClawShareInviteMintError.malformedResponse) {
+      _ = try await client.mintClawShareInvite(clawID: "claw-gamma")
+    }
+  }
+
 }

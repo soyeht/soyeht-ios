@@ -108,6 +108,47 @@ struct HouseholdBonjourBrowserTests {
         #expect(url == URL(string: "http://example.local:8101"))
     }
 
+    /// `endpointURL` prefers `tailnet_addr` over `host` when this device is
+    /// itself on the tailnet. `host` is an mDNS name that resolves to the
+    /// publisher's LAN address, which the engine stops binding once the
+    /// household leaves onboarding — dialing it fails even though the
+    /// publisher is reachable on the tailnet.
+    ///
+    /// `isOnTailnet` is injected rather than read from the machine running
+    /// the test: CI runners have no Tailscale daemon, so the real resolver
+    /// would make this assertion pass or fail depending on who runs it.
+    @Test func endpointURLPrefersTailnetAddrOverLANHostWhenOnTailnet() throws {
+        let txt = [
+            "bootstrap_state": "named_awaiting_pair",
+            "host": "macStudio.local",
+            "port": "8101",
+            "tailnet_addr": "100.103.149.48",
+        ]
+        let url = HouseholdBonjourBrowser.endpointURL(
+            serviceName: "Soyeht-macStudio-local-exh6kwat",
+            domain: "local.",
+            txt: txt,
+            isOnTailnet: { true }
+        )
+        #expect(url == URL(string: "http://100.103.149.48:8101"))
+    }
+
+    @Test func endpointURLFallsBackToLANHostWhenNotOnTailnet() throws {
+        let txt = [
+            "bootstrap_state": "named_awaiting_pair",
+            "host": "macStudio.local",
+            "port": "8101",
+            "tailnet_addr": "100.103.149.48",
+        ]
+        let url = HouseholdBonjourBrowser.endpointURL(
+            serviceName: "Soyeht-macStudio-local-exh6kwat",
+            domain: "local.",
+            txt: txt,
+            isOnTailnet: { false }
+        )
+        #expect(url == URL(string: "http://macStudio.local:8101"))
+    }
+
     @Test func engineEndpointURLRejectsNonLocalHostWithoutExplicitURL() throws {
         let txt = [
             "host": "example.com",

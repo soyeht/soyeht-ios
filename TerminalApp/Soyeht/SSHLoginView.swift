@@ -34,6 +34,33 @@ fileprivate struct PendingPairDeviceConfirmation: Identifiable {
     let fingerprintWords: [String]
 }
 
+/// A `soyeht://claw-share/v1?e=…` invite that arrived as a deep link and is
+/// waiting on the guest to say yes.
+///
+/// Why this is gated at all, when the in-app scanner fires the same invite
+/// immediately: registering `soyeht://` system-wide means any installed app
+/// can `UIApplication.open` this URL. Claiming is single-use and
+/// irreversible — it burns the owner's one slot, so an unwanted claim also
+/// denies the person the link was actually meant for — and what opens
+/// afterwards renders content the sender controls. Pointing your camera at a
+/// QR code is consent by construction; having another app hand you a URL is
+/// not. Same reasoning the `pair-device` path already documents, applied to
+/// the weaker capability.
+struct PendingClawShareInvite: Identifiable {
+    let id = UUID()
+    let url: URL
+    let invite: ClawShareInvite
+
+    /// `true` when `url` is shaped like a claw-share invite. Prefix-only on
+    /// purpose: this decides *which branch handles the URL*, not whether the
+    /// invite is any good. `QRScannerDispatcher` still decodes and validates
+    /// it, and a match that fails to decode is refused rather than falling
+    /// through to another branch that would misread it.
+    static func matches(_ url: URL) -> Bool {
+        url.absoluteString.hasPrefix(ClawShareURI.prefix)
+    }
+}
+
 /// Derive the BLAKE3 -> BIP-39 fingerprint words from a
 /// `soyeht://household/pair-device` or `/device-pairing` URL.
 ///
@@ -145,6 +172,7 @@ struct SoyehtAppView: View {
     /// household yet. Triggers the confirmation sheet — see
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
+    @State private var pendingClawShareInvite: PendingClawShareInvite?
     @State private var macLocalPairingPublisher: SetupInvitationPublisher?
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
@@ -300,11 +328,27 @@ struct SoyehtAppView: View {
                     },
                     onSettings: {
                         showSettings = true
+                    },
+                    onShareApp: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .shareApp(snapshot)
+                        }
                     }
                 )
                 .onAppear {
                     startHouseholdMacRecoveryInvitation(for: snapshot)
                 }
+                .transition(.opacity)
+
+            case .shareApp(let snapshot):
+                ShareAppView(
+                    model: ShareAppViewModel(),
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .householdHome(snapshot)
+                        }
+                    }
+                )
                 .transition(.opacity)
 
             case .pairingSuccess(let snapshot):
@@ -407,6 +451,21 @@ struct SoyehtAppView: View {
                                 withAnimation { appState = .qrScanner }
                             }
                         },
+                        // Offered only to an owner device: the same capability
+                        // the engine enforces when the invite is minted, so a
+                        // device that would be refused server-side never sees
+                        // the button.
+                        onShareApp: identity.active
+                            .flatMap { snapshot -> (() -> Void)? in
+                                guard snapshot.underlying.personCert.allows("household.invite") else {
+                                    return nil
+                                }
+                                return {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        appState = .shareApp(snapshot)
+                                    }
+                                }
+                            },
                         onAttachMacPane: { macID, pane in
                             await attachToMacPane(macID: macID, pane: pane)
                         },
@@ -526,12 +585,28 @@ struct SoyehtAppView: View {
             case .relayStreamOpening(let invite):
                 RelayStreamOpeningView(
                     invite: invite,
-                    onOpened: { configuration in
+                    onOpened: { outcome in
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .relayStreamTerminal(configuration)
+                            switch outcome {
+                            case .terminal(let configuration):
+                                appState = .relayStreamTerminal(configuration)
+                            case .clawSite(let model):
+                                appState = .clawSite(model)
+                            }
                         }
                     },
                     onCancel: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = homeFallbackRoute ?? .qrScanner
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .clawSite(let model):
+                ClawSiteContainerView(
+                    model: model,
+                    onDismiss: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = homeFallbackRoute ?? .qrScanner
                         }
@@ -638,6 +713,31 @@ struct SoyehtAppView: View {
                     pendingPairDeviceConfirmation = nil
                     householdDeepLinkLogger.info(
                         "pair-device user cancelled url=\(url.absoluteString, privacy: .sensitive)"
+                    )
+                }
+            )
+        }
+        .sheet(item: $pendingClawShareInvite) { pending in
+            ClawShareInviteConfirmationSheet(
+                appName: pending.invite.clawId,
+                onConfirm: {
+                    let (url, invite) = (pending.url, pending.invite)
+                    pendingClawShareInvite = nil
+                    householdDeepLinkLogger.info(
+                        "claw-share user confirmed; opening claw=\(invite.clawId, privacy: .public)"
+                    )
+                    Task {
+                        await handleQRScanned(
+                            result: .clawShareInvite(invite),
+                            sourceURL: url
+                        )
+                    }
+                },
+                onCancel: {
+                    let invite = pending.invite
+                    pendingClawShareInvite = nil
+                    householdDeepLinkLogger.info(
+                        "claw-share user cancelled claw=\(invite.clawId, privacy: .public)"
                     )
                 }
             )
@@ -1001,6 +1101,44 @@ struct SoyehtAppView: View {
                 // potentially sensitive query params (nonce, hh_pub).
                 householdDeepLinkLogger.error(
                     "household deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
+                )
+            }
+            return
+        }
+
+        // `soyeht://claw-share/v1?e=…` — the link the owner sends from
+        // "Share an app". Tapping it in Messages already launched this app,
+        // because Info.plist claims the `soyeht` scheme; it just had nowhere
+        // to go. None of the branches above match (the host is `claw-share`,
+        // not `household`), and the `QRScanResult.from(url:)` fallback below
+        // does not know the claw-share prefix, so the URL used to fall out of
+        // this function silently and the guest was left looking at the home
+        // screen. The invite reached the app only by being scanned as a QR.
+        //
+        // Routed through the same dispatcher the scanner uses so both paths
+        // decode and validate identically, but held behind a confirmation —
+        // see `PendingClawShareInvite` for why the deep-link path is not
+        // consent the way the camera path is.
+        if PendingClawShareInvite.matches(url) {
+            store.pendingDeepLink = nil
+            switch QRScannerDispatcher.result(
+                for: url,
+                activeHouseholdId: activeHouseholdId,
+                now: Date()
+            ) {
+            case .success(.clawShareInvite(let invite)):
+                pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
+            case .success(let other):
+                // The prefix matched but the dispatcher classified it as
+                // something else. Refuse rather than dispatch: a URL that
+                // looks like an invite and behaves like another kind is
+                // exactly the shape worth not guessing about.
+                householdDeepLinkLogger.error(
+                    "claw-share deep-link classified as \(String(describing: other), privacy: .public); refusing"
+                )
+            case .failure(let error):
+                householdDeepLinkLogger.error(
+                    "claw-share deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
                 )
             }
             return
@@ -1828,10 +1966,10 @@ private struct HouseholdTerminalContainerView: View {
 
 struct RelayStreamOpeningView: View {
     let invite: ClawShareInvite
-    let onOpened: (RelayStreamTerminalConfiguration) -> Void
+    let onOpened: (ClawShareOpenOutcome) -> Void
     let onCancel: () -> Void
 
-    private let controller: any RelayStreamInviteOpening
+    private let router: ClawShareOpenRouter
     @State private var didStart = false
     @State private var isOpening = false
     @State private var status = String(localized: "Ready to connect.")
@@ -1841,14 +1979,14 @@ struct RelayStreamOpeningView: View {
 
     init(
         invite: ClawShareInvite,
-        onOpened: @escaping (RelayStreamTerminalConfiguration) -> Void,
+        onOpened: @escaping (ClawShareOpenOutcome) -> Void,
         onCancel: @escaping () -> Void,
-        controller: any RelayStreamInviteOpening = RelayStreamOpenController()
+        router: ClawShareOpenRouter = ClawShareOpenRouter()
     ) {
         self.invite = invite
         self.onOpened = onOpened
         self.onCancel = onCancel
-        self.controller = controller
+        self.router = router
     }
 
     var body: some View {
@@ -1980,11 +2118,11 @@ struct RelayStreamOpeningView: View {
     @MainActor
     private func openOnce(generation: Int) async {
         do {
-            let configuration = try await controller.open(invite: invite)
+            let outcome = try await router.open(invite: invite)
             guard !Task.isCancelled, generation == openGeneration else { return }
             isOpening = false
             openTask = nil
-            onOpened(configuration)
+            onOpened(outcome)
         } catch is CancellationError {
             guard generation == openGeneration else { return }
             isOpening = false
@@ -2201,6 +2339,86 @@ struct TerminalHostRepresentable: UIViewControllerRepresentable {
 /// in-app `QRScannerView` does not show this sheet because pointing
 /// the phone at a QR is itself the consent gesture; the deep-link
 /// path has no equivalent gesture, so the gate has to be explicit.
+/// Shown when a claw-share invite arrives as a deep link rather than through
+/// the camera. Deliberately plainer than `PairDeviceConfirmationSheet`: there
+/// is no fingerprint to verify here because accepting does not make you the
+/// owner of anything — it opens one app someone chose to share. The decision
+/// the guest actually needs is "did I expect this, from this person", so the
+/// sheet names the app and gets out of the way.
+fileprivate struct ClawShareInviteConfirmationSheet: View {
+    let appName: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(verbatim: "//")
+                        .font(Typography.monoSection)
+                        .foregroundColor(SoyehtTheme.accentGreen)
+                    Text(LocalizedStringResource(
+                        "clawShare.invite.confirm.title",
+                        defaultValue: "open shared app",
+                        comment: "Title of the sheet shown when a claw-share invite link is opened from outside the app."
+                    ))
+                    .font(Typography.monoSection)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                }
+
+                Text(LocalizedStringResource(
+                    "clawShare.invite.confirm.body",
+                    defaultValue: "Someone shared \(appName) with you. Open it only if you were expecting this link — it can be used once, and opening it uses it up.",
+                    comment: "Body of the claw-share invite confirmation sheet. The interpolated value is the shared app's name."
+                ))
+                .font(Typography.monoBody)
+                .foregroundColor(SoyehtTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 12) {
+                    Button(action: onCancel) {
+                        Text("common.button.cancel.lower")
+                            .font(Typography.monoCardBody)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+                            )
+                    }
+                    .accessibilityIdentifier(AccessibilityID.ClawShare.inviteConfirmCancel)
+
+                    Button(action: onConfirm) {
+                        Text(LocalizedStringResource(
+                            "clawShare.invite.confirm.action",
+                            defaultValue: "open",
+                            comment: "Primary action on the claw-share invite confirmation sheet — claims the invite and opens the shared app."
+                        ))
+                        .font(Typography.monoCardBody)
+                        .foregroundColor(SoyehtTheme.bgPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(SoyehtTheme.accentGreen)
+                        )
+                    }
+                    .accessibilityIdentifier(AccessibilityID.ClawShare.inviteConfirmOpen)
+                }
+            }
+            .padding(20)
+        }
+        // Same contract as the pair-device sheet: force an explicit decision
+        // so the cancel breadcrumb always fires. A swipe-dismiss would leave
+        // the invite unclaimed but unlogged, which reads as "the link did
+        // nothing" during triage — the exact symptom this whole branch exists
+        // to remove.
+        .interactiveDismissDisabled(true)
+    }
+}
+
 fileprivate struct PairDeviceConfirmationSheet: View {
     let fingerprintWords: [String]
     let onConfirm: () -> Void

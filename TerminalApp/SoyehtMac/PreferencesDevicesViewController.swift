@@ -555,12 +555,18 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
             householdName: identity.name,
             pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
         )
+        // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
+        // to `false` while the real count sits right beside it meant a
+        // zero-device household always showed the delegated-pairing copy
+        // ("finish approval on an iPhone that already belongs to this home"),
+        // which is impossible advice when no such iPhone exists yet.
+        let deviceCount = await Self.currentDeviceCount()
         return PairingPayload(
             houseName: identity.name,
             hostLabel: Host.current().localizedName ?? "Mac",
             pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: false,
-            initialDeviceCount: await Self.currentDeviceCount()
+            isFirstOwnerPairing: deviceCount == 0,
+            initialDeviceCount: deviceCount
         )
     }
 
@@ -973,12 +979,18 @@ private final class MacIPhonePairingViewController: NSViewController {
             householdName: identity.name,
             pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
         )
+        // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
+        // to `false` while the real count sits right beside it meant a
+        // zero-device household always showed the delegated-pairing copy
+        // ("finish approval on an iPhone that already belongs to this home"),
+        // which is impossible advice when no such iPhone exists yet.
+        let deviceCount = await Self.currentDeviceCount()
         return PairingPayload(
             houseName: identity.name,
             hostLabel: Host.current().localizedName ?? "Mac",
             pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: false,
-            initialDeviceCount: await Self.currentDeviceCount()
+            isFirstOwnerPairing: deviceCount == 0,
+            initialDeviceCount: deviceCount
         )
     }
 

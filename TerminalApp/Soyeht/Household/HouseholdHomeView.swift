@@ -11,6 +11,13 @@ struct HouseholdHomeView: View {
     @ObservedObject private var identity = SoyehtIdentity.shared
     let onAdd: () -> Void
     let onSettings: () -> Void
+    /// Owner-only: hand one app to someone who is not in this home.
+    ///
+    /// It lives on this device and not on the Mac because minting the invite
+    /// needs a proof-of-possession signed by the owner *person* key, which is
+    /// in this phone's Secure Enclave. The Mac is the household *machine* and
+    /// cannot sign as the owner.
+    let onShareApp: () -> Void
     @State private var selectedRequestId: String?
 
     var body: some View {
@@ -36,6 +43,20 @@ struct HouseholdHomeView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text("settings.title"))
+                    if canShareApp {
+                        Button(action: onShareApp) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(Typography.sansBody)
+                                .foregroundColor(SoyehtTheme.accentGreen)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text(LocalizedStringResource(
+                            "household.button.shareApp.a11y",
+                            defaultValue: "Share an app",
+                            comment: "Accessibility label for the owner-only button that shares one app with someone outside the home."
+                        )))
+                    }
                     if canAddMachine {
                         Button(action: onAdd) {
                             Image(systemName: "qrcode.viewfinder")
@@ -111,6 +132,13 @@ struct HouseholdHomeView: View {
 
     private var canAddMachine: Bool {
         household.personCert.allows("household.add_machine")
+    }
+
+    /// Gated on the same capability the engine enforces when the invite is
+    /// minted (`Operation::HouseholdInvite`), so a device that would be
+    /// rejected server-side never sees the button in the first place.
+    private var canShareApp: Bool {
+        household.personCert.allows("household.invite")
     }
 
     /// The owner-authenticated base machine is useful identity context for an

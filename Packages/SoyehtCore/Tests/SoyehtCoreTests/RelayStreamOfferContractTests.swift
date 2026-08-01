@@ -127,17 +127,52 @@ final class RelayStreamOfferContractTests: XCTestCase {
             XCTAssertEqual(error as? RelayStreamOfferError, .expectedPathMismatch)
         }
 
-        let wrongResource = try Self.signedOffer(
+        // A ClawSite offer is legitimate, so it must NOT be rejected by
+        // default — but a caller that declares it only terminates PTY must
+        // still refuse it. `allowedResources` is what separates the two.
+        let clawSiteOffer = try Self.signedOffer(
             ownerKey: ownerKey,
             payload: Self.payload(resource: .clawSite)
         )
-        XCTAssertThrowsError(try wrongResource.verifyRelayStreamGuest(
+        XCTAssertThrowsError(try clawSiteOffer.verifyRelayStreamGuest(
             expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
             expectedGuestDevicePublicKey: try Self.guestPublicKey(),
-            nowUnix: Self.now
+            nowUnix: Self.now,
+            allowedResources: [.pty]
         )) { error in
             XCTAssertEqual(error as? RelayStreamOfferError, .resourceMismatch)
         }
+    }
+
+    func testClawSiteOfferIsAcceptedByDefaultAndByClawSiteConsumer() throws {
+        let ownerKey = try Self.ownerKey()
+        let clawSiteOffer = try Self.signedOffer(
+            ownerKey: ownerKey,
+            payload: Self.payload(resource: .clawSite)
+        )
+
+        // Default = every resource this guest can terminate. The claim
+        // submitter uses this, because at claim time it does not yet know
+        // which surface will consume the stream.
+        try clawSiteOffer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now
+        )
+        try clawSiteOffer.verifyRelayStreamGuest(
+            credential: try Self.credential(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )
+    }
+
+    func testGuestSupportedResourcesExcludeIPTunnel() {
+        // Pinned deliberately: `guestSupported` is an explicit literal, not
+        // `allCases`, so a future enum case cannot silently widen what the
+        // ordinary guest path accepts. `ipTunnel` must stay out — it has its
+        // own verifier that additionally demands a Group audience.
+        XCTAssertEqual(RelayStreamResource.guestSupported, [.pty, .clawSite])
+        XCTAssertFalse(RelayStreamResource.guestSupported.contains(.ipTunnel))
     }
 
     func testOfferRejectsCredentialBindingMismatches() throws {
@@ -166,13 +201,14 @@ final class RelayStreamOfferContractTests: XCTestCase {
             XCTAssertEqual(error as? RelayStreamOfferError, .credentialSlotMismatch)
         }
 
-        let wrongResource = try Self.signedOffer(
+        let clawSiteOffer = try Self.signedOffer(
             ownerKey: ownerKey,
             payload: Self.payload(resource: .clawSite)
         )
-        XCTAssertThrowsError(try wrongResource.verifyRelayStreamGuest(
+        XCTAssertThrowsError(try clawSiteOffer.verifyRelayStreamGuest(
             credential: credential,
-            nowUnix: Self.now
+            nowUnix: Self.now,
+            allowedResources: [.pty]
         )) { error in
             XCTAssertEqual(error as? RelayStreamOfferError, .resourceMismatch)
         }

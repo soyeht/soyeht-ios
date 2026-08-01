@@ -110,6 +110,15 @@ enum AccessibilityID {
         static let pairDeviceConfirmConfirm = "soyeht.household.pairDevice.confirm.confirm"
     }
 
+    // MARK: - Claw Share
+
+    /// Claw-share invite deep-link confirmation sheet — see
+    /// `ClawShareInviteConfirmationSheet` in `SSHLoginView.swift`.
+    enum ClawShare {
+        static let inviteConfirmCancel = "soyeht.clawShare.invite.confirm.cancel"
+        static let inviteConfirmOpen = "soyeht.clawShare.invite.confirm.open"
+    }
+
     // MARK: - Claw Store
 
     enum ClawStore {

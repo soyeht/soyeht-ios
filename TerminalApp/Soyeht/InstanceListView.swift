@@ -265,6 +265,14 @@ struct InstanceListView: View {
     let onHouseholdConnect: (URLRequest, SoyehtInstance, String, String, URL) -> Void
     let onAddInstance: () -> Void
     let onLogout: () -> Void
+    /// Owner-only entry to "share one of my apps with someone outside the
+    /// home". Optional and nil-by-default: the capability check needs the
+    /// active household, which this view does not carry, so the gate lives at
+    /// the call site and absence here simply means "not offered".
+    ///
+    /// It is surfaced on this screen and not only on the household home
+    /// because once a Mac is paired the owner lands here, not there.
+    var onShareApp: (() -> Void)? = nil
     /// New in Fase 2. Called when user taps a pane inside a paired Mac detail
     /// view. Caller is expected to open the terminal pointing at the Mac's
     /// pane attach endpoint.
@@ -375,6 +383,18 @@ struct InstanceListView: View {
                         Spacer()
 
                         HStack(spacing: 12) {
+                            if let onShareApp {
+                                Button(action: onShareApp) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(Typography.sansSection)
+                                        .foregroundColor(SoyehtTheme.textSecondary)
+                                }
+                                .accessibilityLabel(Text(LocalizedStringResource(
+                                    "household.button.shareApp.a11y",
+                                    defaultValue: "Share an app",
+                                    comment: "Accessibility label for the owner-only button that shares one app with someone outside the home."
+                                )))
+                            }
                             Button(action: onAddInstance) {
                                 Image(systemName: "qrcode")
                                     .font(Typography.sansSection)
