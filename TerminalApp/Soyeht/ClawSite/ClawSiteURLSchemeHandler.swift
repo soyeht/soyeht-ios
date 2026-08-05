@@ -48,10 +48,35 @@ final class ClawSiteURLSchemeHandler: NSObject, WKURLSchemeHandler {
     /// live. This is the reason the class holds a lock at all.
     private let lock = NSLock()
     private var liveTasks: [ObjectIdentifier: any WKURLSchemeTask] = [:]
+    /// Direct typed channel to the same failure handler the WKWebView's
+    /// `WKNavigationDelegate` reports to (see `ClawSiteWebView.makeUIView`).
+    /// Exists because crossing back out through WebKit's own ObjC/NSError
+    /// bridging is not something this code can verify preserves the
+    /// original Swift error — this handler hands it over directly instead,
+    /// before WebKit gets a chance to translate or lose it. The delegate
+    /// path stays as a fallback for failures WebKit originates outside any
+    /// scheme task.
+    ///
+    /// Written on the main thread (`ClawSiteWebView.makeUIView`/
+    /// `updateUIView`), read/invoked from `fail(_:with:)`, which runs inside
+    /// this handler's own `Task { [bridge] in ... }` and can resume on any
+    /// executor — the same class of hazard `liveTasks` already needed a lock
+    /// for. No raw settable `var` in the public surface: only the
+    /// lock-guarded setter below.
+    private var typedFailureHandler: (@Sendable (Error) -> Void)?
 
     init(bridge: ClawSiteHTTPBridge) {
         self.bridge = bridge
         super.init()
+    }
+
+    /// Install the direct failure channel. Must be called before the web
+    /// view this handler is registered on calls `load(...)`, so no early
+    /// request can fail before a listener exists.
+    func setTypedFailureHandler(_ handler: @escaping @Sendable (Error) -> Void) {
+        lock.lock()
+        typedFailureHandler = handler
+        lock.unlock()
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
@@ -124,6 +149,15 @@ final class ClawSiteURLSchemeHandler: NSObject, WKURLSchemeHandler {
 
     private func fail(_ key: ObjectIdentifier, with error: Error) {
         guard let task = claim(key) else { return }
+        lock.lock()
+        let handler = typedFailureHandler
+        lock.unlock()
+        // Invoked OUTSIDE the lock: `NSLock` is not reentrant, and this
+        // callback ultimately reaches `ClawSiteViewModel.reportLoadFailure`
+        // — code this class does not control — so calling it while still
+        // holding the lock is a real deadlock risk if anything downstream
+        // ever re-enters this handler.
+        handler?(error)
         task.didFailWithError(error)
     }
 }

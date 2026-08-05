@@ -23,6 +23,11 @@ private enum DebugBootstrapConfig {
 private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
 private let householdDeepLinkLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-deep-link")
 private let householdLifecycleLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-lifecycle")
+/// Diagnostic-only sink for raw claim/open errors. Plan §5.4: "Raw
+/// localizedDescription is diagnostics-only" — this is what that means in
+/// practice: available in a device log for support/debugging, never
+/// rendered in the UI a guest sees.
+private let clawShareOpenLogger = Logger(subsystem: "com.soyeht.mobile", category: "claw-share-open")
 
 /// Sheet payload for the deep-link `soyeht://household/pair-device`
 /// confirmation gate. The reason this gate exists is captured at the
@@ -346,6 +351,22 @@ struct SoyehtAppView: View {
                     onDismiss: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .householdHome(snapshot)
+                        }
+                    },
+                    onShowActiveShares: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .activeShares(snapshot)
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .activeShares(let snapshot):
+                ActiveSharesView(
+                    model: ActiveSharesViewModel(),
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .shareApp(snapshot)
                         }
                     }
                 )
@@ -1973,7 +1994,7 @@ struct RelayStreamOpeningView: View {
     @State private var didStart = false
     @State private var isOpening = false
     @State private var status = String(localized: "Ready to connect.")
-    @State private var errorMessage: String?
+    @State private var failure: ClawShareOpenFailure?
     @State private var openGeneration = 0
     @State private var openTask: Task<Void, Never>?
 
@@ -1993,7 +2014,7 @@ struct RelayStreamOpeningView: View {
         VStack(spacing: 18) {
             Spacer()
 
-            if !didStart && !isOpening && errorMessage == nil {
+            if !didStart && !isOpening && failure == nil {
                 Image(systemName: "terminal")
                     .font(.system(size: 34, weight: .medium))
                     .foregroundColor(SoyehtTheme.textSecondary)
@@ -2039,26 +2060,37 @@ struct RelayStreamOpeningView: View {
                         .font(Typography.sansNav)
                 }
                 .buttonStyle(.bordered)
-            } else if let errorMessage {
-                Text(status)
+            } else if let failure {
+                Text(failure.title)
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
 
-                Text(errorMessage)
+                Text(failure.message)
                     .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.accentRed)
+                    .foregroundColor(SoyehtTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
 
-                HStack(spacing: 12) {
-                    Button(action: cancelAndExit) {
-                        Text("Cancel")
-                            .font(Typography.sansNav)
-                    }
-                    .buttonStyle(.bordered)
+                switch failure.nextAction {
+                case .retry:
+                    HStack(spacing: 12) {
+                        Button(action: cancelAndExit) {
+                            Text("Cancel")
+                                .font(Typography.sansNav)
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button(action: retry) {
-                        Text("Retry")
+                        Button(action: retry) {
+                            Text("Retry")
+                                .font(Typography.sansNav)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                case .askForNewLink, .close:
+                    Button(action: cancelAndExit) {
+                        Text("Close")
                             .font(Typography.sansNav)
                     }
                     .buttonStyle(.borderedProminent)
@@ -2077,7 +2109,7 @@ struct RelayStreamOpeningView: View {
     @MainActor
     private func retry() {
         didStart = false
-        errorMessage = nil
+        failure = nil
         status = String(localized: "Ready to connect.")
     }
 
@@ -2095,7 +2127,7 @@ struct RelayStreamOpeningView: View {
         didStart = true
         isOpening = true
         status = String(localized: "Opening relay stream...")
-        errorMessage = nil
+        failure = nil
         openTask = Task {
             await openOnce(generation: generation)
         }
@@ -2131,8 +2163,8 @@ struct RelayStreamOpeningView: View {
             guard generation == openGeneration else { return }
             isOpening = false
             openTask = nil
-            status = String(localized: "Could not open relay stream.")
-            errorMessage = error.localizedDescription
+            failure = ClawShareOpenFailure.classify(error)
+            clawShareOpenLogger.error("relay stream open failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

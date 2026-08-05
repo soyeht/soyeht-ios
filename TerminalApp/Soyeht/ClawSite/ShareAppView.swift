@@ -10,10 +10,18 @@ import SoyehtCore
 struct ShareAppView: View {
     @StateObject private var model: ShareAppViewModel
     let onDismiss: () -> Void
+    let onShowActiveShares: () -> Void
+    @State private var didCopyLink = false
+    @State private var showsLinkDetails = false
 
-    init(model: ShareAppViewModel, onDismiss: @escaping () -> Void) {
+    init(
+        model: ShareAppViewModel,
+        onDismiss: @escaping () -> Void,
+        onShowActiveShares: @escaping () -> Void
+    ) {
         _model = StateObject(wrappedValue: model)
         self.onDismiss = onDismiss
+        self.onShowActiveShares = onShowActiveShares
     }
 
     var body: some View {
@@ -66,6 +74,11 @@ struct ShareAppView: View {
                 .font(Typography.monoBodyLargeMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
             Spacer()
+            Button(action: onShowActiveShares) {
+                Text("Active Shares")
+                    .font(Typography.sansNav)
+                    .foregroundColor(SoyehtTheme.accentGreen)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -105,6 +118,10 @@ struct ShareAppView: View {
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textSecondary)
                             .padding(.horizontal, 16)
+
+                        if model.showsStoppedAppWarning, let selectedApp = model.selectedApp {
+                            stoppedAppWarning(selectedApp)
+                        }
                     }
                 }
 
@@ -114,14 +131,13 @@ struct ShareAppView: View {
     }
 
     private func appRow(_ app: ShareableApp) -> some View {
-        Button {
-            model.selectedAppID = app.clawID
+        let isSelected = model.selectedAppID == app.appID
+        return Button {
+            model.selectedAppID = app.appID
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: model.selectedAppID == app.clawID
-                      ? "largecircle.fill.circle" : "circle")
-                    .foregroundColor(model.selectedAppID == app.clawID
-                                     ? SoyehtTheme.accentGreen : SoyehtTheme.textTertiary)
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(isSelected ? SoyehtTheme.accentGreen : SoyehtTheme.textTertiary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(app.displayName)
                         .font(Typography.monoBodyLargeMedium)
@@ -138,6 +154,33 @@ struct ShareAppView: View {
             .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// D1 (warn-and-allow): a stopped app is shareable, but the owner must
+    /// see the condition stated plainly — not just a row's fine print — and
+    /// know what the guest will see until the app comes back up.
+    private func stoppedAppWarning(_ app: ShareableApp) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(SoyehtTheme.textSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(app.displayName) isn't running right now")
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                Text("You can still share it. Whoever opens the link will see a waiting screen until it's back up.")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(SoyehtTheme.bgSecondary)
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .accessibilityElement(children: .combine)
     }
 
     private var shareButton: some View {
@@ -175,36 +218,61 @@ struct ShareAppView: View {
                 .font(Typography.monoBodyLargeMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
-            Text("Expires \(expiresAt.formatted(date: .omitted, time: .shortened))")
+            Text("Expires \(ShareAppViewModel.unambiguousExpiryLabel(for: expiresAt))")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
-            // The link is the credential. Showing it in full lets the owner
-            // check what they are about to send, and copy it if the share
-            // sheet is not where they want it to go.
-            Text(link)
-                .font(Typography.monoTag)
-                .foregroundColor(SoyehtTheme.textSecondary)
-                .lineLimit(3)
-                .truncationMode(.middle)
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SoyehtTheme.bgSecondary)
-                .cornerRadius(8)
-                .padding(.horizontal, 16)
-
-            ShareLink(item: link) {
-                HStack {
-                    Spacer()
-                    Text("Send")
-                        .font(Typography.sansNav)
-                        .foregroundColor(SoyehtTheme.bgPrimary)
-                    Spacer()
+            // The link is the credential, not the primary thing on screen —
+            // Send (the system share sheet) and Copy Link are the primary
+            // actions; the raw link is available on request via Details
+            // rather than always shown (§5.2).
+            HStack(spacing: 12) {
+                ShareLink(item: link) {
+                    HStack {
+                        Spacer()
+                        Text("Send")
+                            .font(Typography.sansNav)
+                            .foregroundColor(SoyehtTheme.bgPrimary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 14)
+                    .background(SoyehtTheme.accentGreen)
+                    .cornerRadius(10)
                 }
-                .padding(.vertical, 14)
-                .background(SoyehtTheme.accentGreen)
-                .cornerRadius(10)
+
+                Button {
+                    copyLink()
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text(didCopyLink ? "Copied" : "Copy Link")
+                            .font(Typography.sansNav)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 14)
+                    .background(SoyehtTheme.bgSecondary)
+                    .cornerRadius(10)
+                }
+                .accessibilityLabel(Text("Copy Link"))
+                .accessibilityHint(Text("Copies the share link to the clipboard."))
             }
+            .padding(.horizontal, 16)
+
+            DisclosureGroup("Details", isExpanded: $showsLinkDetails) {
+                Text(link)
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .lineLimit(3)
+                    .truncationMode(.middle)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(SoyehtTheme.bgSecondary)
+                    .cornerRadius(8)
+                    .textSelection(.enabled)
+            }
+            .font(Typography.monoTag)
+            .foregroundColor(SoyehtTheme.textSecondary)
             .padding(.horizontal, 16)
 
             Button("Share another") { model.shareAnother() }
@@ -212,6 +280,15 @@ struct ShareAppView: View {
                 .foregroundColor(SoyehtTheme.textSecondary)
 
             Spacer()
+        }
+    }
+
+    private func copyLink() {
+        guard model.copyLink() else { return }
+        didCopyLink = true
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            didCopyLink = false
         }
     }
 

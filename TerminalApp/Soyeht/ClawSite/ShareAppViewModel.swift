@@ -1,21 +1,28 @@
 import Foundation
 import SoyehtCore
+import os
+
+/// Diagnostic-only sink for raw load/mint errors. Plan §5.4: "Raw
+/// localizedDescription is diagnostics-only" — logged for support/debugging,
+/// never rendered in the owner-facing UI.
+private let shareAppLogger = Logger(subsystem: "com.soyeht.mobile", category: "share-app")
 
 /// One of the owner's apps, as offered for sharing.
+///
+/// Identified by `appID` — the D6 `shareable_apps` binding's own CSPRNG
+/// identity, never the app's display name or `SoyehtInstance.id`. Two apps
+/// may legitimately share a `displayName`; `appID` is what keeps their rows,
+/// selection, and minted invites independent.
 struct ShareableApp: Identifiable, Equatable, Sendable {
-    /// The identifier the invite carries as `claw_id`.
-    ///
-    /// This is the app's **name**, not its instance id, and that is
-    /// deliberate: the engine treats `claw_id` as an opaque label (it does
-    /// not validate it against anything), and it is literally what the guest
-    /// is shown — `ClawSiteViewModel(clawName: invite.clawId)` and "Connect
-    /// to \(invite.clawId)?". Sending an opaque instance id would put a UUID
-    /// in front of the person you are sharing with.
-    let clawID: String
+    let appID: String
     let displayName: String
-    let isRunning: Bool
+    let readiness: ShareReadiness
 
-    var id: String { clawID }
+    var id: String { appID }
+
+    /// D1 shorthand: everything except `.running` is "not usable right now,"
+    /// shown as a warning, never as a block on sharing.
+    var isRunning: Bool { readiness.isRunning }
 }
 
 /// Reads the owner's apps. Injectable so the screen is testable without a
@@ -24,9 +31,10 @@ protocol ShareableAppsReading: Sendable {
     func shareableApps() async throws -> [ShareableApp]
 }
 
-/// Mints an invite for one app. Injectable for the same reason.
+/// Mints an invite for one app, identified by its D6 `appID` — never a
+/// `claw_id`/instance name. Injectable for the same reason as the reader.
 protocol ShareInviteMinting: Sendable {
-    func mintInvite(clawID: String, ttlSeconds: UInt64) async throws -> ClawShareMintedInvite
+    func mintInvite(appID: String, ttlSeconds: UInt64) async throws -> ClawShareMintedInvite
 }
 
 struct EngineShareableAppsReader: ShareableAppsReading {
@@ -41,16 +49,12 @@ struct EngineShareableAppsReader: ShareableAppsReading {
         // household itself, the same way the mint call does. Passing one in
         // would mean reading `ActiveHouseholdState.endpoint` at the call site,
         // which is ratcheted so endpoint resolution stays behind one seam.
-        let instances = try await client.getHouseholdInstances()
-        return instances.map { instance in
+        let descriptors = try await client.listShareableApps()
+        return descriptors.map { descriptor in
             ShareableApp(
-                clawID: instance.name,
-                displayName: instance.name,
-                // Shown, not enforced: a stopped app can still be shared —
-                // the link outlives this moment and the app may be running
-                // by the time the guest opens it. Blocking the share here
-                // would be guessing about the future on the owner's behalf.
-                isRunning: instance.status == .active
+                appID: descriptor.appId,
+                displayName: descriptor.displayName,
+                readiness: descriptor.readiness
             )
         }
     }
@@ -63,8 +67,8 @@ struct EngineShareInviteMinter: ShareInviteMinting {
         self.client = client
     }
 
-    func mintInvite(clawID: String, ttlSeconds: UInt64) async throws -> ClawShareMintedInvite {
-        try await client.mintClawShareInvite(clawID: clawID, ttlSeconds: ttlSeconds)
+    func mintInvite(appID: String, ttlSeconds: UInt64) async throws -> ClawShareMintedInvite {
+        try await client.mintClawShareInvite(appID: appID, ttlSeconds: ttlSeconds)
     }
 }
 
@@ -117,6 +121,69 @@ final class ShareAppViewModel: ObservableObject {
         }
     }
 
+    /// Which day an expiry falls on, relative to now — pure `Calendar` day
+    /// arithmetic, no formatting or localized text involved. Kept separate
+    /// from `unambiguousExpiryLabel` so tests can assert on this (locale-
+    /// independent) instead of matching substrings of localized output.
+    enum ExpiryDayQualifier: Equatable {
+        case today
+        case tomorrow
+        case other
+    }
+
+    static func expiryDayQualifier(
+        for expiresAt: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> ExpiryDayQualifier {
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfExpiryDay = calendar.startOfDay(for: expiresAt)
+        let dayOffset = calendar.dateComponents([.day], from: startOfToday, to: startOfExpiryDay).day ?? 0
+        switch dayOffset {
+        case 0: return .today
+        case 1: return .tomorrow
+        default: return .other
+        }
+    }
+
+    /// A clock time alone is ambiguous the moment the expiry is not today — "5:00 PM"
+    /// could be in three hours or in twenty-three. Always resolve the day first so a
+    /// 24-hour invitation never renders as a bare, dateless time.
+    static func unambiguousExpiryLabel(
+        for expiresAt: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let time = expiresAt.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar)
+        )
+
+        switch expiryDayQualifier(for: expiresAt, now: now, calendar: calendar) {
+        case .today:
+            let dayWord = String(
+                localized: "shareApp.expiry.today",
+                defaultValue: "Today",
+                comment: "Day qualifier for a link that expires later today."
+            )
+            return "\(dayWord) at \(time)"
+        case .tomorrow:
+            let dayWord = String(
+                localized: "shareApp.expiry.tomorrow",
+                defaultValue: "Tomorrow",
+                comment: "Day qualifier for a link that expires tomorrow."
+            )
+            return "\(dayWord) at \(time)"
+        case .other:
+            // Far enough out (or, for a negative offset, already past) that
+            // "Today"/"Tomorrow" would stop being unambiguous on their own —
+            // spell out the date instead.
+            return expiresAt.formatted(
+                Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale, calendar: calendar)
+            )
+        }
+    }
+
     enum Phase: Equatable {
         case loading
         case picking
@@ -135,23 +202,38 @@ final class ShareAppViewModel: ObservableObject {
 
     private let reader: any ShareableAppsReading
     private let minter: any ShareInviteMinting
+    private let clipboard: any ClipboardWriting
+    private let linkCache: any ActiveShareLinkCaching
 
     init(
         reader: any ShareableAppsReading = EngineShareableAppsReader(),
-        minter: any ShareInviteMinting = EngineShareInviteMinter()
+        minter: any ShareInviteMinting = EngineShareInviteMinter(),
+        clipboard: any ClipboardWriting = UIPasteboardClipboard(),
+        linkCache: any ActiveShareLinkCaching = KeychainActiveShareLinkCache()
     ) {
         self.reader = reader
         self.minter = minter
+        self.clipboard = clipboard
+        self.linkCache = linkCache
     }
 
     var selectedApp: ShareableApp? {
         guard let selectedAppID else { return nil }
-        return apps.first { $0.clawID == selectedAppID }
+        return apps.first { $0.appID == selectedAppID }
     }
 
     var canShare: Bool {
         if case .minting = phase { return false }
         return selectedApp != nil
+    }
+
+    /// D1 (warn-and-allow): whether the stopped-app warning should be shown
+    /// for the currently selected app. Exposed as VM state — not recomputed
+    /// inline in the view — so the condition, and that it never blocks
+    /// `canShare`/minting, can be tested without rendering SwiftUI.
+    var showsStoppedAppWarning: Bool {
+        guard let selectedApp else { return false }
+        return !selectedApp.isRunning
     }
 
     func load() async {
@@ -163,8 +245,8 @@ final class ShareAppViewModel: ObservableObject {
             // there is nothing to choose, and making the person tap it first
             // is friction, not confirmation.
             if loaded.count == 1 {
-                selectedAppID = loaded[0].clawID
-            } else if let selectedAppID, !loaded.contains(where: { $0.clawID == selectedAppID }) {
+                selectedAppID = loaded[0].appID
+            } else if let selectedAppID, !loaded.contains(where: { $0.appID == selectedAppID }) {
                 // The previously chosen app is gone; do not keep a stale
                 // selection that would mint an invite for something the
                 // owner can no longer see.
@@ -172,7 +254,12 @@ final class ShareAppViewModel: ObservableObject {
             }
             phase = .picking
         } catch {
-            phase = .failed(error.localizedDescription)
+            shareAppLogger.error("loading shareable apps failed: \(error.localizedDescription, privacy: .private)")
+            phase = .failed(String(
+                localized: "shareApp.error.loadFailed",
+                defaultValue: "Couldn't load your apps. Check your connection and try again.",
+                comment: "Shown when the owner's app list fails to load."
+            ))
         }
     }
 
@@ -185,15 +272,33 @@ final class ShareAppViewModel: ObservableObject {
         phase = .minting
         do {
             let invite = try await minter.mintInvite(
-                clawID: app.clawID,
+                appID: app.appID,
                 ttlSeconds: duration.seconds
             )
+            // Immediately, before the phase even changes: the bearer link
+            // exists nowhere else once minted (the server wire never carries
+            // it back out, and it must not — see `ActiveShareLinkCaching`),
+            // so failing to cache it here means Copy Link can never work for
+            // this share again from Active Shares. The link on THIS screen,
+            // right now, is unaffected either way — only future Copy Link
+            // from Active Shares depends on the write succeeding.
+            if !linkCache.store(uri: invite.uri, forSlotID: invite.slotId) {
+                // Never log `invite.uri` itself here — only that the write
+                // failed, matching the diagnostics-only discipline (§5.4)
+                // this file already follows for every other raw value.
+                shareAppLogger.error("caching the minted share link failed; Copy Link will be unavailable for this share from Active Shares")
+            }
             phase = .shared(
                 link: invite.uri,
                 expiresAt: Date(timeIntervalSince1970: TimeInterval(invite.expiresAt))
             )
         } catch {
-            phase = .failed(error.localizedDescription)
+            shareAppLogger.error("minting invite failed: \(error.localizedDescription, privacy: .private)")
+            phase = .failed(String(
+                localized: "shareApp.error.mintFailed",
+                defaultValue: "Couldn't create the link. Check your connection and try again.",
+                comment: "Shown when creating a share invite fails."
+            ))
         }
     }
 
@@ -202,5 +307,15 @@ final class ShareAppViewModel: ObservableObject {
     /// separate slot, and revoking is a different action.
     func shareAnother() {
         phase = .picking
+    }
+
+    /// The link is the credential, so it stays reachable even once it is no
+    /// longer the primary thing on screen (§5.2: "Do not show the bearer link
+    /// as the primary content. Provide Copy Link ... as secondary actions.").
+    @discardableResult
+    func copyLink() -> Bool {
+        guard case .shared(let link, _) = phase else { return false }
+        clipboard.writeString(link)
+        return true
     }
 }

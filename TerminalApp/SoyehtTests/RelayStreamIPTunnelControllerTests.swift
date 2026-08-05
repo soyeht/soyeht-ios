@@ -307,6 +307,18 @@ private final class RecordingRelayStreamNativeAPI: RelayStreamGuestNativeAPI, @u
     ) async throws -> any RelayStreamGuestSessionProtocol {
         throw RecordingRelayStreamTunnelError.unexpectedConnect
     }
+
+    func connectPersistent(
+        offerCbor _: Data,
+        expectedOwnerPub _: Data,
+        expectedGuestPub _: Data,
+        request _: RelayStreamAuthSigningRequest,
+        signature _: Data,
+        nowUnix _: UInt64,
+        connectTimeoutMs _: UInt64
+    ) async throws -> any RelayStreamGuestSessionProtocol {
+        throw RecordingRelayStreamTunnelError.unexpectedConnect
+    }
 }
 
 private final class RecordingRelayStreamTunnelManager: RelayStreamTunnelManager, @unchecked Sendable {

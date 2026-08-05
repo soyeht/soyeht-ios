@@ -109,6 +109,10 @@ private final class AdapterFakeRelayStreamSession: RelayStreamGuestSessionProtoc
     }
 
     func sendResize(cols _: UInt16, rows _: UInt16) async throws {}
+
+    func openNextTarget() async throws {
+        throw AdapterFakeRelayStreamError.noFrame
+    }
 }
 
 private enum AdapterFakeRelayStreamError: Error {

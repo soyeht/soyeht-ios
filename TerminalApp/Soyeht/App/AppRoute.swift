@@ -33,4 +33,9 @@ enum SoyehtAppRoute {
     /// device because minting the invite needs the owner person key, which is
     /// in this phone's Secure Enclave.
     case shareApp(SoyehtIdentitySnapshot)
+    /// Owner-only: see and stop the owner's presentation-backed share
+    /// records — a revocable lifecycle history across all four states
+    /// (Waiting/Accepted/Expired/Revoked), not just the currently reachable
+    /// ones. Reached from `shareApp`, the same screen that mints them.
+    case activeShares(SoyehtIdentitySnapshot)
 }

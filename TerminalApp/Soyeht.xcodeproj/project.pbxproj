@@ -209,11 +209,23 @@
 		7A1C55E8D3B44F1A9E220C49 /* ClawSiteOpenController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55E4D3B44F1A9E220C45 /* ClawSiteOpenController.swift */; };
 		7A1C55E9D3B44F1A9E220C4A /* ShareAppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55EAD3B44F1A9E220C4B /* ShareAppViewModel.swift */; };
 		7A1C55EBD3B44F1A9E220C4C /* ShareAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55ECD3B44F1A9E220C4D /* ShareAppView.swift */; };
+		7A1C55F0D3B44F1A9E220C50 /* ClawShareOpenFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55F1D3B44F1A9E220C51 /* ClawShareOpenFailure.swift */; };
+		7A1C55F0D3B44F1A9E220C52 /* ActiveSharesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55F1D3B44F1A9E220C53 /* ActiveSharesView.swift */; };
+		7A1C55F0D3B44F1A9E220C54 /* ActiveSharesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55F1D3B44F1A9E220C55 /* ActiveSharesViewModel.swift */; };
+		7A1C55F0D3B44F1A9E220C56 /* ActiveShareDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55F1D3B44F1A9E220C57 /* ActiveShareDateFormatter.swift */; };
 		8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */; };
 		8E1200000000000000000001 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = 8E1200000000000000000002 /* RelayStreamGuestFFI */; };
 		8E1300000000000000000002 /* RelayStreamIPTunnelControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */; };
 		8E1300000000000000000003 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */; };
 		8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */; };
+		8E1300000000000000000005 /* ClawSiteRelayStreamOpenerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */; };
+		8E1300000000000000000006 /* ClawSiteWebViewCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000106 /* ClawSiteWebViewCoordinatorTests.swift */; };
+		8E1300000000000000000007 /* ClawShareOpenFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000107 /* ClawShareOpenFailureTests.swift */; };
+		8E1300000000000000000008 /* ClawSiteViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000108 /* ClawSiteViewModelTests.swift */; };
+		8E1300000000000000000009 /* ClawSiteURLSchemeHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000109 /* ClawSiteURLSchemeHandlerTests.swift */; };
+		8E1300000000000000000010 /* ClawShareOpenRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000110 /* ClawShareOpenRouterTests.swift */; };
+		8E1300000000000000000011 /* ActiveSharesViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000111 /* ActiveSharesViewModelTests.swift */; };
+		8E1300000000000000000012 /* ActiveShareDateFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000112 /* ActiveShareDateFormatterTests.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
 		CA0100050000000000000005 /* ClawStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200050000000000000005 /* ClawStoreView.swift */; };
@@ -579,10 +591,22 @@
 		7A1C55E4D3B44F1A9E220C45 /* ClawSiteOpenController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteOpenController.swift; sourceTree = "<group>"; };
 		7A1C55EAD3B44F1A9E220C4B /* ShareAppViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareAppViewModel.swift; sourceTree = "<group>"; };
 		7A1C55ECD3B44F1A9E220C4D /* ShareAppView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareAppView.swift; sourceTree = "<group>"; };
+		7A1C55F1D3B44F1A9E220C51 /* ClawShareOpenFailure.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareOpenFailure.swift; sourceTree = "<group>"; };
+		7A1C55F1D3B44F1A9E220C53 /* ActiveSharesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveSharesView.swift; sourceTree = "<group>"; };
+		7A1C55F1D3B44F1A9E220C55 /* ActiveSharesViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveSharesViewModel.swift; sourceTree = "<group>"; };
+		7A1C55F1D3B44F1A9E220C57 /* ActiveShareDateFormatter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveShareDateFormatter.swift; sourceTree = "<group>"; };
 		8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelController.swift; sourceTree = "<group>"; };
 		8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelControllerTests.swift; sourceTree = "<group>"; };
 		8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamGuestIPTunnelSessionAdapterTests.swift; sourceTree = "<group>"; };
 		8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelNetworkSettingsTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteRelayStreamOpenerTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000106 /* ClawSiteWebViewCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteWebViewCoordinatorTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000107 /* ClawShareOpenFailureTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareOpenFailureTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000108 /* ClawSiteViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteViewModelTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000109 /* ClawSiteURLSchemeHandlerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteURLSchemeHandlerTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000110 /* ClawShareOpenRouterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareOpenRouterTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000111 /* ActiveSharesViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveSharesViewModelTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000112 /* ActiveShareDateFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveShareDateFormatterTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -821,6 +845,10 @@
 				7A1C55E4D3B44F1A9E220C45 /* ClawSiteOpenController.swift */,
 				7A1C55EAD3B44F1A9E220C4B /* ShareAppViewModel.swift */,
 				7A1C55ECD3B44F1A9E220C4D /* ShareAppView.swift */,
+				7A1C55F1D3B44F1A9E220C51 /* ClawShareOpenFailure.swift */,
+				7A1C55F1D3B44F1A9E220C53 /* ActiveSharesView.swift */,
+				7A1C55F1D3B44F1A9E220C55 /* ActiveSharesViewModel.swift */,
+				7A1C55F1D3B44F1A9E220C57 /* ActiveShareDateFormatter.swift */,
 			);
 			path = ClawSite;
 			sourceTree = "<group>";
@@ -1010,6 +1038,14 @@
 				8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */,
 				8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */,
 				8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */,
+				8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */,
+				8E1300000000000000000106 /* ClawSiteWebViewCoordinatorTests.swift */,
+				8E1300000000000000000107 /* ClawShareOpenFailureTests.swift */,
+				8E1300000000000000000108 /* ClawSiteViewModelTests.swift */,
+				8E1300000000000000000109 /* ClawSiteURLSchemeHandlerTests.swift */,
+				8E1300000000000000000110 /* ClawShareOpenRouterTests.swift */,
+				8E1300000000000000000111 /* ActiveSharesViewModelTests.swift */,
+				8E1300000000000000000112 /* ActiveShareDateFormatterTests.swift */,
 				8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */,
 				8DDA0000000000000000010F /* APNSRegistrationCoordinatorTests.swift */,
 				8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */,
@@ -1712,6 +1748,10 @@
 				7A1C55E8D3B44F1A9E220C49 /* ClawSiteOpenController.swift in Sources */,
 				7A1C55E9D3B44F1A9E220C4A /* ShareAppViewModel.swift in Sources */,
 				7A1C55EBD3B44F1A9E220C4C /* ShareAppView.swift in Sources */,
+				7A1C55F0D3B44F1A9E220C50 /* ClawShareOpenFailure.swift in Sources */,
+				7A1C55F0D3B44F1A9E220C52 /* ActiveSharesView.swift in Sources */,
+				7A1C55F0D3B44F1A9E220C54 /* ActiveSharesViewModel.swift in Sources */,
+				7A1C55F0D3B44F1A9E220C56 /* ActiveShareDateFormatter.swift in Sources */,
 				8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */,
 				6E5B70DE5C989BBFD9B168B8 /* SharedAppsView.swift in Sources */,
 			);
@@ -1758,6 +1798,14 @@
 				A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */,
 				8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */,
 				A2E10000000000000000000A /* RelayStreamIPTunnelNetworkSettings.swift in Sources */,
+				8E1300000000000000000005 /* ClawSiteRelayStreamOpenerTests.swift in Sources */,
+				8E1300000000000000000006 /* ClawSiteWebViewCoordinatorTests.swift in Sources */,
+				8E1300000000000000000007 /* ClawShareOpenFailureTests.swift in Sources */,
+				8E1300000000000000000008 /* ClawSiteViewModelTests.swift in Sources */,
+				8E1300000000000000000009 /* ClawSiteURLSchemeHandlerTests.swift in Sources */,
+				8E1300000000000000000010 /* ClawShareOpenRouterTests.swift in Sources */,
+				8E1300000000000000000011 /* ActiveSharesViewModelTests.swift in Sources */,
+				8E1300000000000000000012 /* ActiveShareDateFormatterTests.swift in Sources */,
 				8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */,
 				8DDA0000000000000000000F /* APNSRegistrationCoordinatorTests.swift in Sources */,
 				8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */,

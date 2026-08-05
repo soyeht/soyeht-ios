@@ -215,6 +215,77 @@ struct ClawSiteHTTPCodecTests {
         }
     }
 
+    // MARK: - Incremental completion (isResponseComplete)
+    //
+    // These exist because a target stream reused across exchanges
+    // (`OpenPersistent`) may sit on a backend that never closes on its own —
+    // see `ClawSiteHTTPBridge`. `isResponseComplete` is what lets the bridge
+    // stop reading WITHOUT waiting for that close.
+
+    @Test func isResponseCompleteIsFalseUntilHeadersFullyArrive() throws {
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(Data("HTTP/1.1 200 OK\r\n".utf8)) == false)
+    }
+
+    @Test func isResponseCompleteWaitsForTheFullContentLengthBody() throws {
+        let head = Data("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n".utf8)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("he".utf8)) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("hello".utf8)) == true)
+    }
+
+    @Test func isResponseCompleteWaitsForTheTerminalChunk() throws {
+        let head = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".utf8)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("5\r\nhel".utf8)) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("5\r\nhello\r\n".utf8)) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("5\r\nhello\r\n0\r\n\r\n".utf8)) == true)
+    }
+
+    @Test func isResponseCompleteWaitsForTheFullTerminalChunkTerminatorNotJustTheSizeLine() throws {
+        // The bug this pins: reporting completion at `0\r\n` alone, before
+        // the trailer section's blank-line terminator arrives, can leave
+        // that trailing CRLF unread on the wire — where a REUSED Noise
+        // session (`OpenPersistent`) would hand it to the next exchange's
+        // first frame instead. Fragmented exactly on that boundary.
+        let head = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".utf8)
+        let upToTerminalChunk = head + Data("5\r\nhello\r\n0\r\n".utf8)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(upToTerminalChunk) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(upToTerminalChunk + Data("\r\n".utf8)) == true)
+    }
+
+    @Test func isResponseCompleteWaitsForARealTrailerBlockToFinish() throws {
+        let head = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".utf8)
+        let upToTrailerHeader = head + Data("5\r\nhello\r\n0\r\nX-Trailer: value\r\n".utf8)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(upToTrailerHeader) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(upToTrailerHeader + Data("\r\n".utf8)) == true)
+    }
+
+    @Test func isResponseCompleteHonoursChunkedOverContentLengthPriority() throws {
+        // Same RFC 9110 priority as `parseResponse` — a stale Content-Length
+        // alongside real chunked framing must not short-circuit completeness.
+        let head = Data("HTTP/1.1 200 OK\r\nContent-Length: 1\r\nTransfer-Encoding: chunked\r\n\r\n".utf8)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("4\r\nokay".utf8)) == false)
+        #expect(try ClawSiteHTTPCodec.isResponseComplete(head + Data("4\r\nokay\r\n0\r\n\r\n".utf8)) == true)
+    }
+
+    @Test func isResponseCompleteThrowsOnAGenuinelyMalformedChunkSize() throws {
+        // The size line is FULLY present (there is a `\r\n` after it) and is
+        // not valid hex — a real defect, not a short read, so this must throw
+        // immediately rather than report `false` and let the bridge hang.
+        let raw = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nZZ\r\n".utf8)
+        #expect(throws: ClawSiteHTTPCodec.CodecError.responseChunkMalformed) {
+            _ = try ClawSiteHTTPCodec.isResponseComplete(raw)
+        }
+    }
+
+    @Test func isResponseCompleteFailsClosedWithoutContentLengthOrChunkedFraming() throws {
+        // V1's explicit refusal: SSE, a WebSocket upgrade, or any other
+        // response with no length framing has no safe completion signal on a
+        // target that may be reused and whose backend may never close.
+        let raw = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\ndata: hi\n\n".utf8)
+        #expect(throws: ClawSiteHTTPCodec.CodecError.responseFramingUnsupported) {
+            _ = try ClawSiteHTTPCodec.isResponseComplete(raw)
+        }
+    }
+
     @Test func roundTripsAgainstTheFriendCliWireShape() throws {
         // friend-cli's ClawSite smoke writes exactly this request and the
         // engine-side test double replies with exactly this response. Pinning

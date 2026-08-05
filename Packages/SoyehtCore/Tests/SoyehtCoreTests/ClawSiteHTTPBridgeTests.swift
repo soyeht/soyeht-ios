@@ -165,10 +165,55 @@ struct ClawSiteHTTPBridgeTests {
         #expect(await bad.closeCount == 1)
     }
 
-    @Test func opensAFreshStreamPerRequest() async throws {
-        // One session per exchange is what makes read-to-EOF a valid
-        // end-of-body signal; reusing one would need request framing the
-        // transport does not have.
+    @Test func completesWithoutAClosedFrameWhenContentLengthIsSatisfied() async throws {
+        // The scenario `OpenPersistent` exists for: a target reused across
+        // exchanges may sit on a backend with no reason to close after one
+        // response, so the bridge must recognize completion without it.
+        let session = ScriptedClawSiteSession(frames: [.data(Self.okResponse("no eof needed"))])
+        let bridge = ClawSiteHTTPBridge(opener: ScriptedOpener(session: session))
+
+        let response = try await bridge.perform(method: "GET", path: "/")
+        #expect(response.body == Data("no eof needed".utf8))
+        // Proactively closed once the response was recognized as complete —
+        // not because the target itself signaled it was done.
+        #expect(await session.closeCount == 1)
+
+        // A second exchange must still work cleanly — nothing from the first
+        // one (buffered bytes, close state) leaks into it. Each `perform`
+        // gets its own scripted session here because the bridge asks its
+        // opener for one stream per exchange either way (see
+        // `ClawSiteStreamOpening`'s doc): whether that stream is a fresh dial
+        // or, per `ClawSiteRelayStreamOpener`, the next target on one reused
+        // persistent session is the opener's decision, invisible here.
+        let secondSession = ScriptedClawSiteSession(frames: [.data(Self.okResponse("second"))])
+        let secondBridge = ClawSiteHTTPBridge(opener: ScriptedOpener(session: secondSession))
+        let secondResponse = try await secondBridge.perform(method: "GET", path: "/")
+        #expect(secondResponse.body == Data("second".utf8))
+        #expect(await secondSession.closeCount == 1)
+    }
+
+    @Test func closedBeforeCompletionIsNowAFailureNotACompletionSignal() async throws {
+        // Inverse of the test above: `.closed` arriving before Content-Length
+        // says the response is done is a real failure. The old behavior
+        // (any `.closed` ends the response) would have silently returned a
+        // truncated body here instead.
+        let session = ScriptedClawSiteSession(frames: [
+            .data(Data("HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\ntoo short".utf8)),
+            .closed,
+        ])
+        let bridge = ClawSiteHTTPBridge(opener: ScriptedOpener(session: session))
+        await #expect(
+            throws: ClawSiteBridgeError.streamFailed("target closed before the response was fully framed")
+        ) {
+            _ = try await bridge.perform(method: "GET", path: "/")
+        }
+    }
+
+    @Test func opensOneStreamPerRequestFromTheBridgesPerspective() async throws {
+        // The bridge always asks its opener for exactly one stream per
+        // exchange. Whether that stream is a fresh dial or the next target on
+        // one reused persistent session is the opener's decision — see
+        // `ClawSiteRelayStreamOpener`, which does the latter.
         let counter = OpenCounter()
         for _ in 0..<3 {
             let session = ScriptedClawSiteSession(frames: [.data(Self.okResponse("x")), .closed])

@@ -32,6 +32,118 @@ public enum RelayStreamAudience: Sendable, Equatable {
     case `public`
 }
 
+/// Slice B: the signed app presentation embedded in a Device+ClawSite offer.
+/// Mirrors Rust `ShareableAppPresentation` (`claw_share_relay_stream_contract.rs`,
+/// `18e35c0f`) field-for-field. A stable SNAPSHOT for presentation, never an
+/// authority — routing and authorization key on `claw_id`/live checks, and a
+/// later rename does not invalidate an already-issued offer.
+///
+/// Constructed through the throwing initializer at mint call sites
+/// (`RelayStreamOfferContract.sign` does NOT validate) and re-validated by
+/// `RelayStreamOfferContract.validatePayload(nowUnix:)` at verify — mirrors
+/// Rust's real authority split (corrected in `82019f5b`, follow-up to
+/// `18e35c0f`: the struct doc originally said "validated at mint AND
+/// verify" via `payload.validate()` alone, which was imprecise — mint-time
+/// validation happens through `try_new`/this throwing initializer, not by
+/// calling `validate()` twice).
+///
+/// Structural decode (`decode(_:)`) only checks the nested key set is exactly
+/// `{app_id, display_name, owner_display_name}` — matching Rust's nested
+/// `#[serde(deny_unknown_fields)]`, which is load-bearing, not hygiene: an
+/// ignored nested key would vanish on the re-encode signature verification
+/// uses, accepting bytes that were never authenticated. Shape validation
+/// (`validateShape()`) is a SEPARATE step from decode, called from
+/// `RelayStreamOfferContract.validatePayload(nowUnix:)` alongside the two
+/// cross-field fences — matching Rust, where `ShareableAppPresentation`'s
+/// `Deserialize` derive does not run `validate()` either.
+public struct ShareableAppPresentation: Sendable, Equatable {
+    public let appId: String
+    public let displayName: String
+    public let ownerDisplayName: String
+
+    static let idPrefix = "app_"
+    static let idHexLength = 32
+    static let nameMaxChars = 128
+
+    public init(appId: String, displayName: String, ownerDisplayName: String) throws {
+        try Self.validateShape(appId: appId, displayName: displayName, ownerDisplayName: ownerDisplayName)
+        self.appId = appId
+        self.displayName = displayName
+        self.ownerDisplayName = ownerDisplayName
+    }
+
+    /// Unchecked construction for `decode(_:)` only — see the type's doc
+    /// comment on why decode must not validate shape itself.
+    private init(uncheckedAppId appId: String, displayName: String, ownerDisplayName: String) {
+        self.appId = appId
+        self.displayName = displayName
+        self.ownerDisplayName = ownerDisplayName
+    }
+
+    /// Re-validates an already-constructed (or freshly-decoded) value.
+    /// Needed because construction via `decode(_:)` deliberately skips shape
+    /// validation (see the type's doc comment) — the caller that decides
+    /// when shape rules apply (`RelayStreamOfferContract.validatePayload`)
+    /// calls this explicitly.
+    func validateShape() throws {
+        try Self.validateShape(appId: appId, displayName: displayName, ownerDisplayName: ownerDisplayName)
+    }
+
+    private static func validateShape(appId: String, displayName: String, ownerDisplayName: String) throws {
+        guard appId.hasPrefix(idPrefix) else {
+            throw RelayStreamOfferError.invalidPresentation("app_id")
+        }
+        let hex = appId.dropFirst(idPrefix.count)
+        // ASCII-only, matching Rust's `is_ascii_hexdigit()`. Swift's plain
+        // `Character.isHexDigit` is Unicode-aware: it also accepts
+        // non-ASCII digit-shaped characters such as U+FF11 FULLWIDTH DIGIT
+        // ONE ('１'), which `.isUppercase` alone does not filter out
+        // (fullwidth digits report `isUppercase == false`, same as ASCII
+        // digits) -- `.isASCII` is the check that actually excludes them.
+        guard hex.count == idHexLength,
+              hex.allSatisfy({ $0.isASCII && $0.isHexDigit && !$0.isUppercase })
+        else {
+            throw RelayStreamOfferError.invalidPresentation("app_id")
+        }
+        for (name, field) in [(displayName, "display_name"), (ownerDisplayName, "owner_display_name")] {
+            // Unicode SCALAR count, matching Rust's `name.chars().count()`
+            // (a Rust `char` is one scalar value) -- NOT Swift's `String.count`,
+            // which counts extended grapheme CLUSTERS. A base character
+            // followed by many combining marks clusters into very few
+            // Swift "characters" while still being many Rust `char`s; using
+            // `.count` here would let a string far longer than the real
+            // limit (by scalar count, which is what Rust enforces) through.
+            let length = name.unicodeScalars.count
+            if length == 0 || length > nameMaxChars || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw RelayStreamOfferError.invalidPresentation(field)
+            }
+        }
+    }
+
+    fileprivate var cborValue: HouseholdCBORValue {
+        .map([
+            "app_id": .text(appId),
+            "display_name": .text(displayName),
+            "owner_display_name": .text(ownerDisplayName),
+        ])
+    }
+
+    fileprivate static func decode(_ value: HouseholdCBORValue) throws -> ShareableAppPresentation {
+        guard case .map(let map) = value else {
+            throw RelayStreamOfferError.malformed
+        }
+        let requiredKeys: Set<String> = ["app_id", "display_name", "owner_display_name"]
+        guard Set(map.keys) == requiredKeys else {
+            throw RelayStreamOfferError.malformed
+        }
+        return try ShareableAppPresentation(
+            uncheckedAppId: RelayStreamOfferContract.expectText(map["app_id"]),
+            displayName: RelayStreamOfferContract.expectText(map["display_name"]),
+            ownerDisplayName: RelayStreamOfferContract.expectText(map["owner_display_name"])
+        )
+    }
+}
+
 public struct RelayStreamOfferPayload: Sendable, Equatable {
     public static let currentVersion: UInt8 = 2
     public static let kind = "claw-share/relay-stream-offer"
@@ -48,6 +160,11 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
     public let clawStaticPublicKey: Data
     public let notAfter: UInt64
     public let authz: RelayStreamAudience?
+    /// Slice B (ADDITIVE, optional). See `ShareableAppPresentation`'s doc
+    /// comment. `nil` is omitted from the wire, so an offer without this
+    /// field keeps the exact canonical CBOR, signature, and v2 fixtures this
+    /// field did not exist before it — mirrors `authz` exactly.
+    public let appPresentation: ShareableAppPresentation?
 
     public init(
         v: UInt8 = RelayStreamOfferPayload.currentVersion,
@@ -61,7 +178,8 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
         relayEndpoint: String,
         clawStaticPublicKey: Data,
         notAfter: UInt64,
-        authz: RelayStreamAudience? = nil
+        authz: RelayStreamAudience? = nil,
+        appPresentation: ShareableAppPresentation? = nil
     ) {
         self.v = v
         self.kind = kind
@@ -75,6 +193,7 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
         self.clawStaticPublicKey = clawStaticPublicKey
         self.notAfter = notAfter
         self.authz = authz
+        self.appPresentation = appPresentation
     }
 
     public var audience: RelayStreamAudience {
@@ -102,6 +221,9 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
         if let authz {
             fields["authz"] = authz.cborValue
         }
+        if let appPresentation {
+            fields["app_presentation"] = appPresentation.cborValue
+        }
         return .map(fields)
     }
 
@@ -120,7 +242,7 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
             "slot_id",
             "v",
         ]
-        let allowedKeys = requiredKeys.union(["authz"])
+        let allowedKeys = requiredKeys.union(["authz", "app_presentation"])
         guard Set(map.keys).isSubset(of: allowedKeys),
               requiredKeys.isSubset(of: Set(map.keys))
         else {
@@ -140,6 +262,13 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
         case .some(let value):
             authz = try RelayStreamAudience.decode(value)
         }
+        let appPresentation: ShareableAppPresentation?
+        switch map["app_presentation"] {
+        case .none:
+            appPresentation = nil
+        case .some(let value):
+            appPresentation = try ShareableAppPresentation.decode(value)
+        }
         return RelayStreamOfferPayload(
             v: try RelayStreamOfferContract.expectUInt8(map["v"]),
             kind: try RelayStreamOfferContract.expectText(map["kind"]),
@@ -152,7 +281,8 @@ public struct RelayStreamOfferPayload: Sendable, Equatable {
             relayEndpoint: try RelayStreamOfferContract.expectText(map["relay_endpoint"]),
             clawStaticPublicKey: try RelayStreamOfferContract.expectBytes(map["claw_static_pub"]),
             notAfter: try RelayStreamOfferContract.expectUInt64(map["not_after"]),
-            authz: authz
+            authz: authz,
+            appPresentation: appPresentation
         )
     }
 }
@@ -387,6 +517,22 @@ public struct RelayStreamOfferContract: Sendable, Equatable {
         else {
             throw RelayStreamOfferError.malformed
         }
+        if let presentation = payload.appPresentation {
+            // Shape is re-validated here rather than trusted from decode —
+            // `ShareableAppPresentation.decode(_:)` deliberately skips it
+            // (see that type's doc comment).
+            try presentation.validateShape()
+            // Namespace fence: the signed snapshot may exist ONLY on the
+            // Device+ClawSite path it was designed for.
+            guard payload.audience == .device, payload.resource == .clawSite else {
+                throw RelayStreamOfferError.invalidPresentation("audience-resource")
+            }
+            // Coherence fence: a signature over two contradictory identities
+            // is still a contradiction.
+            guard presentation.appId == payload.clawId else {
+                throw RelayStreamOfferError.invalidPresentation("app_id-claw-mismatch")
+            }
+        }
     }
 }
 
@@ -404,6 +550,11 @@ public enum RelayStreamOfferError: Error, Equatable, Sendable {
     case credentialSlotMismatch
     case credentialExpiryExceeded
     case invalidRelayEndpoint
+    /// Mirrors Rust `RelayStreamContractError::InvalidPresentation(&'static str)`
+    /// — the associated string is the same reason tag Rust uses:
+    /// `"app_id"`, `"display_name"`, `"owner_display_name"`,
+    /// `"audience-resource"`, `"app_id-claw-mismatch"`.
+    case invalidPresentation(String)
 }
 
 extension RelayStreamOfferContract {

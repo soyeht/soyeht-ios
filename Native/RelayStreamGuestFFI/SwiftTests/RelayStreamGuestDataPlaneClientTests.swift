@@ -39,6 +39,7 @@ private final class FakeNativeAPI: RelayStreamGuestNativeAPI, @unchecked Sendabl
     let session: FakeSession
     private(set) var preparedInputs: [RelayStreamPrepareAuthInput] = []
     private(set) var connectCalls: [ConnectCall] = []
+    private(set) var connectPersistentCalls: [ConnectCall] = []
 
     init(request: RelayStreamAuthSigningRequest, session: FakeSession) {
         self.request = request
@@ -74,12 +75,36 @@ private final class FakeNativeAPI: RelayStreamGuestNativeAPI, @unchecked Sendabl
         )
         return session
     }
+
+    func connectPersistent(
+        offerCbor: Data,
+        expectedOwnerPub: Data,
+        expectedGuestPub: Data,
+        request: RelayStreamAuthSigningRequest,
+        signature: Data,
+        nowUnix: UInt64,
+        connectTimeoutMs: UInt64
+    ) async throws -> any RelayStreamGuestSessionProtocol {
+        connectPersistentCalls.append(
+            ConnectCall(
+                offerCbor: offerCbor,
+                expectedOwnerPub: expectedOwnerPub,
+                expectedGuestPub: expectedGuestPub,
+                request: request,
+                signature: signature,
+                nowUnix: nowUnix,
+                connectTimeoutMs: connectTimeoutMs
+            )
+        )
+        return session
+    }
 }
 
 private final class FakeSession: RelayStreamGuestSessionProtocol, @unchecked Sendable {
     private(set) var sentData: [Data] = []
     private(set) var resizes: [(UInt16, UInt16)] = []
     private(set) var closeCount = 0
+    private(set) var openNextTargetCount = 0
     var frames: [RelayStreamGuestFrameRecord]
 
     init(frames: [RelayStreamGuestFrameRecord] = []) {
@@ -112,6 +137,10 @@ private final class FakeSession: RelayStreamGuestSessionProtocol, @unchecked Sen
 
     func sendResize(cols: UInt16, rows: UInt16) async throws {
         resizes.append((cols, rows))
+    }
+
+    func openNextTarget() async throws {
+        openNextTargetCount += 1
     }
 }
 
@@ -193,11 +222,52 @@ private func testSessionForwardsFrameOperations() async throws {
     try expect(fake.closeCount == 1, "close forwarded")
 }
 
+private func testConnectPersistentSignsPreparedBytesAndCallsNativeConnectPersistent() async throws {
+    let request = makeRequest(signingBytes: Data([0x20, 0x21]))
+    let session = FakeSession()
+    let native = FakeNativeAPI(request: request, session: session)
+    let signer = CapturingSigner(signature: Data(repeating: 0xB6, count: 64))
+    let client = RelayStreamGuestDataPlaneClient(native: native)
+
+    let result = try await client.connectPersistent(
+        offerCbor: Data([0xA1, 0x64]),
+        credentialCbor: Data([0xA2, 0x65]),
+        expectedOwnerPub: Data(repeating: 0x01, count: 65),
+        expectedGuestPub: Data(repeating: 0x02, count: 65),
+        nowUnix: 1_800_000_000,
+        ttlSecs: 60,
+        sessionId: "session-alpha",
+        signer: signer,
+        connectTimeoutMs: 5_000
+    )
+
+    try expect(native.connectCalls.isEmpty, "legacy connect must not be called")
+    try expect(native.connectPersistentCalls.count == 1, "native connectPersistent called once")
+    try expect(
+        native.connectPersistentCalls[0].signature == Data(repeating: 0xB6, count: 64),
+        "raw signature forwarded to connectPersistent"
+    )
+    try expect(result.native === session, "wrapped returned session")
+}
+
+private func testSessionOpenNextTargetForwardsToNative() async throws {
+    let fake = FakeSession()
+    let session = RelayStreamGuestDataPlaneSession(native: fake)
+
+    try await session.close()
+    try await session.openNextTarget()
+
+    try expect(fake.closeCount == 1, "close forwarded before reopening")
+    try expect(fake.openNextTargetCount == 1, "open-next-target forwarded")
+}
+
 @main
 private enum RelayStreamGuestDataPlaneClientTestRunner {
     static func main() async throws {
         try await testConnectSignsPreparedBytesAndPinsSignatureToNativeConnect()
         try await testSessionForwardsFrameOperations()
-        print("RelayStreamGuestDataPlaneClientTests: 2 passed")
+        try await testConnectPersistentSignsPreparedBytesAndCallsNativeConnectPersistent()
+        try await testSessionOpenNextTargetForwardsToNative()
+        print("RelayStreamGuestDataPlaneClientTests: 4 passed")
     }
 }

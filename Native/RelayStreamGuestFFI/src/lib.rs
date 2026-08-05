@@ -24,9 +24,9 @@ use household_rs::KeystoreError;
 use household_rs::cbor;
 use household_rs::claw_share::GuestCredential;
 use household_rs::claw_share_data_tunnel::{
-    AuthEnvelope, DataTunnelError, HEALTH_PROBE, NetworkSettings, SessionAuthToken, TargetExit,
-    TunnelAck, TunnelFrame, client_authenticate, client_health, client_open_stream, client_resize,
-    recv_frame, send_frame,
+    AuthEnvelope, DataTunnelError, HEALTH_PROBE, MAX_FRAME_LEN, NetworkSettings, SessionAuthToken,
+    TargetExit, TunnelAck, TunnelFrame, client_authenticate, client_health, client_open_stream,
+    client_resize, recv_frame, send_frame,
 };
 use household_rs::claw_share_relay_stream_contract::{
     RelayStreamAudience, RelayStreamExpectedPath, RelayStreamOfferContract, RelayStreamResource,
@@ -344,12 +344,46 @@ pub struct RelayStreamGuestSession {
     frame_rx:
         TokioMutex<mpsc::Receiver<Result<RelayStreamGuestFrameRecord, RelayStreamGuestError>>>,
     metadata: RelayStreamGuestSessionMetadata,
+    // Guards `OpenPersistent` framing (see [`OPEN_PERSISTENT_FRAME`]): exactly
+    // one target may be open at a time, and the server tears down the WHOLE
+    // connection if a new target-open arrives before the current one closed.
+    // `true` right after `relay_stream_connect`/`relay_stream_connect_persistent`
+    // (the initial Open/OpenPersistent already ack'd); flipped to `false` the
+    // moment ANY `read_frame()` observes a `Close` — not only inside
+    // `send_close` itself — because the server can send `Close`
+    // unsolicited (the target ending on its own) just as easily as it can
+    // echo one back. `open_next_target` flips it back to `true` on success.
+    target_open: TokioMutex<bool>,
+    // Serializes the ENTIRE lifecycle operation -- check, command
+    // write/result, and this call's own ack drain -- between `send_close`
+    // and `open_next_target`. Held for the whole duration of either call
+    // (not just around the `target_open` check), so a concurrent second
+    // `send_close` genuinely WAITS for the first to finish draining (then
+    // observes `target_open == false` and returns idempotently, no second
+    // `Close` command ever written), and `open_next_target` cannot write
+    // `OpenNextTarget` while a `send_close` on the same session is still
+    // mid-flight -- the two commands can never interleave on `command_tx`.
+    // `target_open` stays a separate, lighter mutex on purpose: `read_frame`
+    // updates it from contexts that never touch this lock (an unsolicited
+    // server `Close` can arrive while neither of these two calls is
+    // running), and nesting would risk exactly the deadlock this design
+    // avoids by keeping the two concerns on two locks.
+    target_operation: TokioMutex<()>,
+    // Distinguishes `relay_stream_connect` from `relay_stream_connect_persistent`.
+    // ONLY a persistent session's server ever echoes a `Close` ack or treats
+    // a redundant one as an idempotent no-op (theyos
+    // `2ff5599aa76bb1fdbb390905d3d41fbfc6c33f8c` — "make persistent target
+    // close retry idempotent"); a legacy session's server shuts the whole
+    // connection down on a client-initiated `Close` with NO echo at all, so
+    // `send_close` must not go looking for one there — see its doc.
+    persistent: bool,
 }
 
 enum RelayStreamGuestCommand {
     Data(Vec<u8>, oneshot::Sender<Result<(), RelayStreamGuestError>>),
     Resize(u16, u16, oneshot::Sender<Result<(), RelayStreamGuestError>>),
     Close(oneshot::Sender<Result<(), RelayStreamGuestError>>),
+    OpenNextTarget(oneshot::Sender<Result<(), RelayStreamGuestError>>),
 }
 
 #[uniffi::export]
@@ -406,12 +440,82 @@ pub async fn relay_stream_connect(
     let (read_half, write_half) = tokio::io::split(stream);
     let (command_tx, command_rx) = mpsc::channel(32);
     let (frame_tx, frame_rx) = mpsc::channel(32);
-    tokio::spawn(drive_guest_writer(write_half, command_rx));
+    tokio::spawn(drive_guest_writer(write_half, command_rx, false));
     tokio::spawn(drive_guest_reader(read_half, frame_tx));
     Ok(Arc::new(RelayStreamGuestSession {
         command_tx,
         frame_rx: TokioMutex::new(frame_rx),
         metadata,
+        target_open: TokioMutex::new(true),
+        target_operation: TokioMutex::new(()),
+        persistent: false,
+    }))
+}
+
+/// Connect and negotiate `OpenPersistent` (0x18) for the first target instead
+/// of the legacy single-shot `Open` (0x10).
+///
+/// **Provenance / honesty note.** `OpenPersistent` is NOT part of the vendored
+/// `household_rs::claw_share_data_tunnel::TunnelFrame` enum this crate pins
+/// (`.vendor` snapshot at rev `c81144ba9ac98c0b19912c51765886b227ba30f5`, whose
+/// `TunnelFrame::decode` is exhaustive with no `_` arm — it cannot represent
+/// 0x18 without editing that vendored crate, which is out of scope here). The
+/// opcode, its bare/no-payload framing, and the "ack is always the legacy
+/// `TunnelFrame::Open`" contract are reproduced here to match the real server
+/// implementation committed at theyos `07f11942e0bb17814d0283c83b6930da780c30c1`
+/// ("feat(share): reuse authenticated ClawSite tunnel sessions",
+/// `admin/rust/household-rs/src/claw_share_data_tunnel.rs`, branch
+/// `share/relay-e2e`, parent `86018f16`, 2026-08-03T23:11:53-03:00) — verified
+/// directly (`git show`) against that SHA, not taken on trust. That branch is
+/// not yet merged to `main` and this crate's `.vendor` pin is NOT being moved
+/// to it (still `c81144ba9a...`, pre-dating `OpenPersistent` entirely) — this
+/// note exists so the wire contract can be re-diffed against the landed form
+/// before trusting it again. Authorization for `OpenPersistent` is entirely a
+/// property of the ONE initial signed `request`/`signature` (server derives
+/// `allows_persistent_targets` from the offer's resource == `ClawSite`, once,
+/// at connect time) — there is deliberately no per-target request/signature
+/// here; see [`RelayStreamGuestSession::open_next_target`].
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn relay_stream_connect_persistent(
+    offer_cbor: Vec<u8>,
+    expected_owner_pub: Vec<u8>,
+    expected_guest_pub: Vec<u8>,
+    request: RelayStreamAuthSigningRequest,
+    signature: Vec<u8>,
+    now_unix: u64,
+    connect_timeout_ms: u64,
+) -> Result<Arc<RelayStreamGuestSession>, RelayStreamGuestError> {
+    let offer = decode_canonical_offer(&offer_cbor)?;
+    let requires_network_metadata = offer.payload.resource == RelayStreamResource::IpTunnel;
+    let connect_timeout = Duration::from_millis(connect_timeout_ms);
+    let stream = connect_relay_stream_tcp(
+        &offer_cbor,
+        &expected_owner_pub,
+        &expected_guest_pub,
+        now_unix,
+        connect_timeout,
+    )
+    .await?;
+    let (stream, metadata) = authenticate_health_open_persistent_with_metadata(
+        stream,
+        &request,
+        &signature,
+        requires_network_metadata,
+        connect_timeout,
+    )
+    .await?;
+    let (read_half, write_half) = tokio::io::split(stream);
+    let (command_tx, command_rx) = mpsc::channel(32);
+    let (frame_tx, frame_rx) = mpsc::channel(32);
+    tokio::spawn(drive_guest_writer(write_half, command_rx, true));
+    tokio::spawn(drive_guest_reader(read_half, frame_tx));
+    Ok(Arc::new(RelayStreamGuestSession {
+        command_tx,
+        frame_rx: TokioMutex::new(frame_rx),
+        metadata,
+        target_open: TokioMutex::new(true),
+        target_operation: TokioMutex::new(()),
+        persistent: true,
     }))
 }
 
@@ -419,6 +523,72 @@ pub async fn relay_stream_connect(
 impl RelayStreamGuestSession {
     pub async fn metadata(&self) -> RelayStreamGuestSessionMetadata {
         self.metadata.clone()
+    }
+
+    /// Close the current target (see [`RelayStreamGuestSession::send_close`]),
+    /// then open the next one over the SAME authenticated Noise connection via
+    /// `OpenPersistent` (0x18) — no new signing, no new `RelayStreamAuthSigningRequest`.
+    /// Errors closed: calling this while a target is already open is
+    /// rejected locally without writing anything, because the server treats
+    /// an out-of-turn `OpenPersistent` as a framing violation and drops the
+    /// whole connection.
+    ///
+    /// **Atomic.** The write AND its ack are both handled inside this call,
+    /// through the SAME `read_frame` path `read_frame()` itself uses —
+    /// deliberately not a second reader on `frame_rx` (there is exactly one
+    /// consumer slot, guarded by `frame_rx`'s mutex). Callers never observe
+    /// the ack frame this produces: a bare `TunnelFrame::Open` here means
+    /// success and is fully consumed before returning `Ok`; a `.error` kind
+    /// is a rejection (budget exhausted or not authorized), consumed and
+    /// turned into `Err` — the whole session should be treated as dead
+    /// either way, not retried.
+    pub async fn open_next_target(&self) -> Result<(), RelayStreamGuestError> {
+        let _operation_guard = self.target_operation.lock().await;
+        {
+            let mut open = self.target_open.lock().await;
+            if *open {
+                return Err(RelayStreamGuestError::DataTunnel(
+                    "open_next_target called while a target is still open".to_string(),
+                ));
+            }
+            *open = true;
+        }
+        let (tx, rx) = oneshot::channel();
+        if self
+            .command_tx
+            .send(RelayStreamGuestCommand::OpenNextTarget(tx))
+            .await
+            .is_err()
+        {
+            *self.target_open.lock().await = false;
+            return Err(RelayStreamGuestError::Io(
+                "relay stream session closed".to_string(),
+            ));
+        }
+        if let Err(error) = rx
+            .await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
+        {
+            *self.target_open.lock().await = false;
+            return Err(error);
+        }
+        match self.read_frame().await {
+            Ok(record) if record.kind == RelayStreamGuestFrameKind::Open => Ok(()),
+            Ok(record) if record.kind == RelayStreamGuestFrameKind::Error => {
+                *self.target_open.lock().await = false;
+                Err(RelayStreamGuestError::AuthRejected(record.text))
+            }
+            Ok(_) => {
+                *self.target_open.lock().await = false;
+                Err(RelayStreamGuestError::Io(
+                    "expected open-next-target ack".to_string(),
+                ))
+            }
+            Err(error) => {
+                *self.target_open.lock().await = false;
+                Err(error)
+            }
+        }
     }
 
     pub async fn send_data(&self, data: Vec<u8>) -> Result<(), RelayStreamGuestError> {
@@ -441,17 +611,116 @@ impl RelayStreamGuestSession {
             .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
     }
 
+    /// Close the current target. Safe to call once its response has been
+    /// fully consumed even if the target's own backend would otherwise keep
+    /// its connection alive (e.g. HTTP keep-alive): the bridge — not the
+    /// backend — decides when a target stream ends, so a persistent session
+    /// never lets keep-alive smuggle state across `open_next_target` calls.
+    ///
+    /// **Idempotent on a persistent session.** If `target_open` is already
+    /// `false` — some earlier `read_frame()` already observed the server's
+    /// `Close` for this target, e.g. the backend ended on its own before the
+    /// caller got around to closing — this returns `Ok(())` immediately
+    /// without writing anything. That is load-bearing, not an optimization:
+    /// theyos `2ff5599aa76bb1fdbb390905d3d41fbfc6c33f8c` makes a REDUNDANT
+    /// `Close` in that state a server-side no-op with **no second ack**, so
+    /// writing one and then draining for an ack would hang forever.
+    ///
+    /// **Otherwise atomic**, same reasoning as `open_next_target`: drains the
+    /// server's lifecycle ack (a bare `TunnelFrame::Close`, possibly preceded
+    /// by an `Exit` if the target's own process ended around the same time)
+    /// through the SAME `read_frame` path before returning, so it never
+    /// reaches a caller's `read_frame()` — a stray leftover `Close` there
+    /// would otherwise be indistinguishable from the NEXT exchange's target
+    /// ending before its response arrived (this is exactly the bug the
+    /// idempotency above also has to coexist with, not paper over: draining
+    /// here AND flagging in `read_frame` are two sides of the same fix). Any
+    /// OTHER frame here — most of all `Data` — means the caller closed
+    /// before actually consuming everything the target sent for this
+    /// exchange: fails closed rather than silently dropping (or worse,
+    /// leaking into the next exchange's read) unaccounted response bytes.
+    ///
+    /// A LEGACY (non-persistent) session's server never echoes a `Close` at
+    /// all — a client-initiated `Close` just ends the whole connection
+    /// (`writer.shutdown` + `return Ok(())`, no frame back) — so draining
+    /// here would wait for something that is never coming. `persistent`
+    /// gates the whole drain/idempotency mechanism off for that case,
+    /// preserving the exact original write-and-return behavior.
     pub async fn send_close(&self) -> Result<(), RelayStreamGuestError> {
+        let _operation_guard = if self.persistent {
+            Some(self.target_operation.lock().await)
+        } else {
+            None
+        };
+        if self.persistent && !*self.target_open.lock().await {
+            return Ok(());
+        }
         let (tx, rx) = oneshot::channel();
         self.command_tx
             .send(RelayStreamGuestCommand::Close(tx))
             .await
             .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?;
-        rx.await
-            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?
+        let result = rx
+            .await
+            .map_err(|_| RelayStreamGuestError::Io("relay stream session closed".to_string()))?;
+        if !self.persistent {
+            return result;
+        }
+        result?;
+        loop {
+            match self.read_frame().await {
+                Ok(record)
+                    if matches!(
+                        record.kind,
+                        RelayStreamGuestFrameKind::ExitCode
+                            | RelayStreamGuestFrameKind::ExitSignal
+                            | RelayStreamGuestFrameKind::ExitLost
+                    ) =>
+                {
+                    continue;
+                }
+                // `read_frame` already set `target_open = false` for this
+                // Close before returning it here — nothing left to do.
+                Ok(record) if record.kind == RelayStreamGuestFrameKind::Close => return Ok(()),
+                Ok(_) => {
+                    *self.target_open.lock().await = false;
+                    return Err(RelayStreamGuestError::Io(
+                        "unexpected frame while closing target".to_string(),
+                    ));
+                }
+                Err(error) => {
+                    *self.target_open.lock().await = false;
+                    return Err(error);
+                }
+            }
+        }
     }
 
+    /// Every caller of this session reads frames through here — including
+    /// `send_close`'s own ack drain, deliberately, rather than a second
+    /// reader on `frame_rx` (there is exactly one consumer slot). A `Close`
+    /// passing through, from ANY caller, means this target has ended: mark
+    /// `target_open = false` right here so a subsequent `send_close` — from
+    /// the bridge's own error path, when a spontaneous `Close` arrived via
+    /// THIS call rather than `send_close`'s drain — knows there is no ack
+    /// left to wait for.
     pub async fn read_frame(&self) -> Result<RelayStreamGuestFrameRecord, RelayStreamGuestError> {
+        let record = self.read_frame_raw().await?;
+        if record.kind == RelayStreamGuestFrameKind::Close {
+            *self.target_open.lock().await = false;
+        }
+        Ok(record)
+    }
+}
+
+// Deliberately NOT under `#[uniffi::export]`: uniffi's export macro exposes
+// every method in the impl block it annotates regardless of Rust-level
+// `pub`, so a plain (non-`pub`) method placed inside the exported block
+// above still leaked into the generated Swift protocol/class/headers as
+// `readFrameRaw()`. Moving it to its own, unannotated impl block is what
+// actually keeps it internal to this crate -- omitting `pub` alone does not.
+impl RelayStreamGuestSession {
+    async fn read_frame_raw(&self) -> Result<RelayStreamGuestFrameRecord, RelayStreamGuestError> {
         let mut frame_rx = self.frame_rx.lock().await;
         frame_rx
             .recv()
@@ -463,9 +732,19 @@ impl RelayStreamGuestSession {
 async fn drive_guest_writer<W>(
     mut stream: W,
     mut command_rx: mpsc::Receiver<RelayStreamGuestCommand>,
+    persistent: bool,
 ) where
     W: AsyncWrite + Unpin,
 {
+    // Tracks whether the current target is already closed, so the drop-time
+    // safety net below never sends a SECOND `Close` after an explicit one.
+    // Sending `Close` while the server is in its pre-stream (no target open)
+    // state is a framing violation there ("expected health or open before
+    // stream") that tears down the whole connection — harmless once this
+    // session is already being torn down too, but worth avoiding on
+    // principle since it no longer reflects reality once other sessions can
+    // share this same protocol shape.
+    let mut target_closed = false;
     while let Some(command) = command_rx.recv().await {
         let should_stop = match command {
             RelayStreamGuestCommand::Data(data, reply) => {
@@ -481,16 +760,41 @@ async fn drive_guest_writer<W>(
                 should_stop
             }
             RelayStreamGuestCommand::Close(reply) => {
+                // Terminal for a LEGACY session: its server never echoes a
+                // `Close` ack and just ends the whole connection on receipt
+                // (see `RelayStreamGuestSession::send_close`'s doc), so this
+                // writer task has nothing left to do either — returning
+                // immediately restores the pre-persistent-session behavior
+                // instead of lingering, alive, until the `Arc` drops.
+                //
+                // NOT terminal for a PERSISTENT session: it sends `Close` to
+                // end just the current target, then reuses this same writer
+                // task for `open_next_target`.
                 let result = send_close(&mut stream).await;
+                let should_stop = result.is_err() || !persistent;
+                if result.is_ok() {
+                    target_closed = true;
+                }
                 let _ = reply.send(result);
-                return;
+                should_stop
+            }
+            RelayStreamGuestCommand::OpenNextTarget(reply) => {
+                let result = write_open_persistent_frame(&mut stream).await;
+                let should_stop = result.is_err();
+                if result.is_ok() {
+                    target_closed = false;
+                }
+                let _ = reply.send(result);
+                should_stop
             }
         };
         if should_stop {
             return;
         }
     }
-    let _ = send_close(&mut stream).await;
+    if !target_closed {
+        let _ = send_close(&mut stream).await;
+    }
 }
 
 async fn drive_guest_reader<R>(
@@ -712,9 +1016,67 @@ pub async fn authenticate_health_open_with_metadata<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let (mesh_ipv6, auth_mtu, auth_session_id) =
+        authenticate_and_health_check(&mut stream, request, signature).await?;
+    client_open_stream(&mut stream).await?;
+    let metadata = finish_open_metadata(
+        &mut stream,
+        requires_network_metadata,
+        mesh_ipv6,
+        auth_mtu,
+        &auth_session_id,
+        network_settings_timeout,
+    )
+    .await?;
+    Ok((stream, metadata))
+}
+
+/// Authenticate, health-check, and open the FIRST target of a persistent
+/// session via `OpenPersistent` (0x18) instead of legacy `Open` (0x10). See
+/// [`relay_stream_connect_persistent`] for the wire-contract provenance note
+/// — everything up to and including the `TunnelAck`/health exchange is
+/// byte-identical to the legacy path; only the open frame differs.
+pub async fn authenticate_health_open_persistent_with_metadata<S>(
+    mut stream: S,
+    request: &RelayStreamAuthSigningRequest,
+    signature: &[u8],
+    requires_network_metadata: bool,
+    network_settings_timeout: Duration,
+) -> Result<(S, RelayStreamGuestSessionMetadata), RelayStreamGuestError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let (mesh_ipv6, auth_mtu, auth_session_id) =
+        authenticate_and_health_check(&mut stream, request, signature).await?;
+    client_open_persistent_stream(&mut stream).await?;
+    let metadata = finish_open_metadata(
+        &mut stream,
+        requires_network_metadata,
+        mesh_ipv6,
+        auth_mtu,
+        &auth_session_id,
+        network_settings_timeout,
+    )
+    .await?;
+    Ok((stream, metadata))
+}
+
+/// Shared prefix of both open paths: send the signed auth token, read the
+/// `TunnelAck`, then the health round-trip. Pure extraction from the
+/// pre-existing legacy sequence — behavior is unchanged for
+/// [`authenticate_health_open_with_metadata`], which is exactly the same
+/// calls in the exactly same order as before this function existed.
+async fn authenticate_and_health_check<S>(
+    stream: &mut S,
+    request: &RelayStreamAuthSigningRequest,
+    signature: &[u8],
+) -> Result<(String, u16, String), RelayStreamGuestError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let token = signed_session_auth_token(request, signature)?;
     let (mesh_ipv6, auth_mtu, auth_session_id) =
-        match client_authenticate(&mut stream, &request.auth_material_cbor, token).await? {
+        match client_authenticate(stream, &request.auth_material_cbor, token).await? {
             TunnelAck::Ok {
                 mesh_ipv6,
                 mtu,
@@ -724,28 +1086,102 @@ where
                 return Err(RelayStreamGuestError::AuthRejected(reason));
             }
         };
-    let echo = client_health(&mut stream, HEALTH_PROBE).await?;
+    let echo = client_health(stream, HEALTH_PROBE).await?;
     if echo != HEALTH_PROBE {
         return Err(RelayStreamGuestError::HealthMismatch);
     }
-    client_open_stream(&mut stream).await?;
-    let metadata = if requires_network_metadata {
-        receive_ip_tunnel_network_settings(
-            &mut stream,
-            auth_mtu,
-            &auth_session_id,
-            network_settings_timeout,
-        )
-        .await?
+    Ok((mesh_ipv6, auth_mtu, auth_session_id))
+}
+
+/// Shared suffix of both open paths, run immediately after the open frame's
+/// ack has already been consumed by the caller (`client_open_stream` /
+/// `client_open_persistent_stream`). Pure extraction, same as
+/// [`authenticate_and_health_check`].
+async fn finish_open_metadata<S>(
+    stream: &mut S,
+    requires_network_metadata: bool,
+    mesh_ipv6: String,
+    auth_mtu: u16,
+    auth_session_id: &str,
+    network_settings_timeout: Duration,
+) -> Result<RelayStreamGuestSessionMetadata, RelayStreamGuestError>
+where
+    S: AsyncRead + Unpin,
+{
+    if requires_network_metadata {
+        receive_ip_tunnel_network_settings(stream, auth_mtu, auth_session_id, network_settings_timeout)
+            .await
     } else {
-        RelayStreamGuestSessionMetadata {
+        Ok(RelayStreamGuestSessionMetadata {
             mesh_ipv4: None,
             mesh_ipv6: Some(mesh_ipv6),
             mtu: auth_mtu,
-            session_id: auth_session_id,
-        }
-    };
-    Ok((stream, metadata))
+            session_id: auth_session_id.to_string(),
+        })
+    }
+}
+
+/// `OpenPersistent` (0x18): open one target stream inside an already
+/// Noise-authenticated connection, without ending it when that target
+/// closes. NOT part of the vendored `TunnelFrame` enum this crate pins — see
+/// [`relay_stream_connect_persistent`] for why, and for the exact reference
+/// this byte layout was verified against. Framed with a bare opcode byte and
+/// no payload, exactly like the vendored `TunnelFrame::Open`/`Close`.
+const OPEN_PERSISTENT_FRAME: u8 = 0x18;
+
+/// Byte-identical envelope to `household_rs::claw_share_data_tunnel`'s
+/// private `write_frame`: a `u32` big-endian length prefix followed by the
+/// payload, capped at [`MAX_FRAME_LEN`]. Needed locally because that
+/// function is `pub(crate)` to the vendored crate and cannot frame an opcode
+/// its own `TunnelFrame::encode` does not know about.
+async fn write_raw_frame<W>(w: &mut W, payload: &[u8]) -> Result<(), RelayStreamGuestError>
+where
+    W: AsyncWrite + Unpin,
+{
+    if payload.len() > MAX_FRAME_LEN {
+        return Err(RelayStreamGuestError::Io(format!(
+            "frame too large: {} bytes",
+            payload.len()
+        )));
+    }
+    let len = u32::try_from(payload.len())
+        .map_err(|_| RelayStreamGuestError::Io(format!("frame too large: {} bytes", payload.len())))?;
+    w.write_all(&len.to_be_bytes())
+        .await
+        .map_err(|error| RelayStreamGuestError::Io(error.to_string()))?;
+    w.write_all(payload)
+        .await
+        .map_err(|error| RelayStreamGuestError::Io(error.to_string()))?;
+    w.flush()
+        .await
+        .map_err(|error| RelayStreamGuestError::Io(error.to_string()))?;
+    Ok(())
+}
+
+async fn write_open_persistent_frame<W>(w: &mut W) -> Result<(), RelayStreamGuestError>
+where
+    W: AsyncWrite + Unpin,
+{
+    write_raw_frame(w, &[OPEN_PERSISTENT_FRAME]).await
+}
+
+/// Send `OpenPersistent` and await its ack. The ack is decodable through the
+/// VENDORED `recv_frame`/`TunnelFrame::decode` unchanged: the server always
+/// answers with the pre-existing `TunnelFrame::Open` (0x10), or a typed
+/// `TunnelFrame::Error` — both already-known variants. Only the outbound
+/// 0x18 request needed a local raw writer.
+async fn client_open_persistent_stream<S>(stream: &mut S) -> Result<(), RelayStreamGuestError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    write_open_persistent_frame(stream).await?;
+    match recv_frame(stream).await? {
+        TunnelFrame::Open => Ok(()),
+        TunnelFrame::Error(reason) => Err(RelayStreamGuestError::AuthRejected(reason)),
+        _ => Err(RelayStreamGuestError::Io(
+            "expected open-persistent ack".to_string(),
+        )),
+    }
 }
 
 async fn receive_ip_tunnel_network_settings<S>(
@@ -1660,7 +2096,7 @@ mod tests {
         let (mut server_read, mut server_write) = tokio::io::split(server_io);
         let (command_tx, command_rx) = mpsc::channel(32);
         let (frame_tx, frame_rx) = mpsc::channel(32);
-        tokio::spawn(drive_guest_writer(client_write, command_rx));
+        tokio::spawn(drive_guest_writer(client_write, command_rx, false));
         tokio::spawn(drive_guest_reader(client_read, frame_tx));
         let session = Arc::new(RelayStreamGuestSession {
             command_tx,
@@ -1671,6 +2107,9 @@ mod tests {
                 mtu: 1280,
                 session_id: "session-test".to_string(),
             },
+            target_open: TokioMutex::new(true),
+            target_operation: TokioMutex::new(()),
+            persistent: false,
         });
 
         let payload = TunnelFrame::Data(b"ACK:fragment".to_vec()).encode();
@@ -1716,6 +2155,549 @@ mod tests {
             }
         );
         session.send_close().await.expect("close");
+    }
+
+    // ─── OpenPersistent (0x18) ──────────────────────────────────────────────
+    //
+    // 0x18 is NOT in this crate's vendored `TunnelFrame` (pinned at rev
+    // c81144ba9ac98c0b19912c51765886b227ba30f5, whose `decode` is exhaustive
+    // with no `_` arm), so `serve_connection_io` above cannot serve it. These
+    // tests exercise the client against a hand-rolled LOCAL DOUBLE
+    // (`serve_persistent_double`) that reproduces only the wire shape read
+    // directly out of the real server implementation committed at theyos
+    // `07f11942e0bb17814d0283c83b6930da780c30c1` ("feat(share): reuse
+    // authenticated ClawSite tunnel sessions", branch `share/relay-e2e`, not
+    // yet merged to `main`). This is NOT a claim that the real engine (at
+    // that commit or any other) has been exercised — the double is a
+    // local-only stand-in, and this crate's own `.vendor` pin is unchanged.
+
+    /// Read one raw length-prefixed frame (`u32` BE length + payload),
+    /// mirroring the private wire envelope in
+    /// `household_rs::claw_share_data_tunnel`. Test-only: production client
+    /// code never needs to read an opcode the vendored `TunnelFrame::decode`
+    /// cannot represent — every ack it waits for is a pre-existing variant.
+    async fn read_raw_frame<R>(r: &mut R) -> Vec<u8>
+    where
+        R: AsyncReadExt + Unpin,
+    {
+        let mut len_buf = [0u8; 4];
+        r.read_exact(&mut len_buf)
+            .await
+            .expect("read raw frame length");
+        let n = u32::from_be_bytes(len_buf) as usize;
+        let mut buf = vec![0u8; n];
+        r.read_exact(&mut buf).await.expect("read raw frame body");
+        buf
+    }
+
+    /// Serve `targets` sequential `OpenPersistent` cycles on one already
+    /// Noise-authenticated stream: auth always accepts (that logic is
+    /// exercised elsewhere, via the real vendored `serve_connection_io`),
+    /// health is echoed once, then each target's frame must be a bare
+    /// `[OPEN_PERSISTENT_FRAME]`, acked with the legacy `TunnelFrame::Open`
+    /// (matching the real contract: the ack opcode never changes), and its
+    /// `Data` is echoed `ACK:`-prefixed until the client sends `Close`.
+    async fn serve_persistent_double<S>(mut stream: S, targets: usize)
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        let _envelope = read_raw_frame(&mut stream).await;
+        let ack = TunnelAck::Ok {
+            mesh_ipv6: "fd00::10".to_string(),
+            mtu: 1280,
+            session_id: "persistent-test-session".to_string(),
+        };
+        let ack_bytes = cbor::to_canonical_vec(&ack).expect("encode ack");
+        write_raw_frame(&mut stream, &ack_bytes)
+            .await
+            .expect("write ack");
+
+        match recv_frame(&mut stream).await.expect("recv health") {
+            TunnelFrame::Health(probe) => {
+                send_frame(&mut stream, &TunnelFrame::Health(probe))
+                    .await
+                    .expect("echo health");
+            }
+            other => panic!("expected health, got {other:?}"),
+        }
+
+        for target_n in 0..targets {
+            let open = read_raw_frame(&mut stream).await;
+            assert_eq!(
+                open,
+                vec![OPEN_PERSISTENT_FRAME],
+                "target {target_n}: expected a bare OpenPersistent(0x18) frame"
+            );
+            send_frame(&mut stream, &TunnelFrame::Open)
+                .await
+                .expect("open ack");
+
+            loop {
+                match recv_frame(&mut stream).await.expect("recv in target") {
+                    TunnelFrame::Data(bytes) => {
+                        let mut echoed = b"ACK:".to_vec();
+                        echoed.extend_from_slice(&bytes);
+                        send_frame(&mut stream, &TunnelFrame::Data(echoed))
+                            .await
+                            .expect("echo data");
+                    }
+                    TunnelFrame::Close => {
+                        send_frame(&mut stream, &TunnelFrame::Close)
+                            .await
+                            .expect("close echo");
+                        break;
+                    }
+                    other => panic!("target {target_n}: unexpected frame {other:?}"),
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn ffi_connect_persistent_reuses_the_noise_connection_across_two_targets() {
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("bind listener");
+        let endpoint = format!(
+            "relay-stream://{}",
+            listener.local_addr().expect("listener addr")
+        );
+        let fixture = Fixture::new_with_endpoint(endpoint);
+        let offer_cbor = fixture.offer_cbor_with(|payload| {
+            payload.resource = RelayStreamResource::ClawSite;
+        });
+        let credential_cbor = fixture.credential_cbor();
+        let mutated_offer = RelayStreamOfferContract::from_canonical_bytes(&offer_cbor)
+            .expect("decode mutated offer");
+
+        let server_owner = fixture.owner.public();
+        let server_noise_keypair = fixture.noise_keypair;
+        let expected_hello = RendezvousHello::new(
+            RendezvousRole::Guest,
+            mutated_offer.payload.rendezvous_token.clone(),
+        )
+        .encode();
+        let server_offer = mutated_offer.clone();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept client");
+            let mut actual_hello = vec![0u8; expected_hello.len()];
+            socket
+                .read_exact(&mut actual_hello)
+                .await
+                .expect("read hello");
+            assert_eq!(actual_hello, expected_hello);
+
+            let prologue = server_offer
+                .to_noise_prologue_owner_verified(&server_owner, NOW)
+                .expect("prologue");
+            let framed = RelayStreamNoiseFramed::responder_handshake_with_prologue(
+                socket,
+                &prologue,
+                server_noise_keypair.private_key(),
+            )
+            .await
+            .expect("responder handshake");
+            serve_persistent_double(framed.into_async_stream(), 2).await;
+        });
+
+        let request = relay_stream_prepare_auth_signing_request(RelayStreamPrepareAuthInput {
+            offer_cbor: offer_cbor.clone(),
+            credential_cbor: Some(credential_cbor),
+            expected_owner_pub: fixture.owner.public().as_bytes().to_vec(),
+            expected_guest_pub: fixture.guest.public().as_bytes().to_vec(),
+            now_unix: NOW,
+            ttl_secs: 60,
+            session_id: "ios-relay-stream-persistent".to_string(),
+            nonce: Some(vec![0x47; 16]),
+        })
+        .expect("prepare auth");
+        let signature = fixture
+            .guest
+            .sign(&request.signing_bytes)
+            .expect("guest sign")
+            .as_bytes()
+            .to_vec();
+
+        let session = relay_stream_connect_persistent(
+            offer_cbor,
+            fixture.owner.public().as_bytes().to_vec(),
+            fixture.guest.public().as_bytes().to_vec(),
+            request,
+            signature,
+            NOW,
+            1_000,
+        )
+        .await
+        .expect("connect persistent session");
+
+        // Target 1, over the connection `relay_stream_connect_persistent`
+        // just opened via 0x18 (not legacy 0x10 — the double asserts this).
+        session
+            .send_data(b"first".to_vec())
+            .await
+            .expect("send target 1");
+        assert_eq!(
+            session.read_frame().await.expect("recv target 1"),
+            RelayStreamGuestFrameRecord {
+                kind: RelayStreamGuestFrameKind::Data,
+                data: b"ACK:first".to_vec(),
+                number: 0,
+                text: String::new(),
+            }
+        );
+        // `send_close` drains the server's Close ack ITSELF (see its doc) —
+        // asserting on `read_frame()` here would hang forever waiting for a
+        // second frame the mock only ever sends one of.
+        session.send_close().await.expect("close target 1");
+
+        // Target 2: same Noise connection (the listener only ever accepted
+        // ONE socket), no new signing, just `open_next_target` — which
+        // likewise drains its own Open ack internally.
+        session
+            .open_next_target()
+            .await
+            .expect("open target 2 on the reused connection");
+        session
+            .send_data(b"nothing-leaked".to_vec())
+            .await
+            .expect("send target 2");
+        // Proves the drain actually happened: the FIRST thing the bridge-
+        // facing `read_frame()` sees for target 2 is real Data, never the
+        // Open ack `open_next_target` already consumed.
+        assert_eq!(
+            session.read_frame().await.expect("recv target 2"),
+            RelayStreamGuestFrameRecord {
+                kind: RelayStreamGuestFrameKind::Data,
+                data: b"ACK:nothing-leaked".to_vec(),
+                number: 0,
+                text: String::new(),
+            }
+        );
+        session.send_close().await.expect("close target 2");
+
+        server.await.expect("server task");
+    }
+
+    #[tokio::test]
+    async fn open_next_target_is_rejected_locally_while_a_target_is_still_open() {
+        let (client_io, server_io) = duplex(4096);
+        let (client_read, client_write) = tokio::io::split(client_io);
+        let (mut server_read, _server_write) = tokio::io::split(server_io);
+        let (command_tx, command_rx) = mpsc::channel(32);
+        let (frame_tx, frame_rx) = mpsc::channel(32);
+        tokio::spawn(drive_guest_writer(client_write, command_rx, true));
+        tokio::spawn(drive_guest_reader(client_read, frame_tx));
+        let session = Arc::new(RelayStreamGuestSession {
+            command_tx,
+            frame_rx: TokioMutex::new(frame_rx),
+            metadata: RelayStreamGuestSessionMetadata {
+                mesh_ipv4: None,
+                mesh_ipv6: Some("fd00::10".to_string()),
+                mtu: 1280,
+                session_id: "session-guard-test".to_string(),
+            },
+            // Matches the real post-connect state: one target already open.
+            target_open: TokioMutex::new(true),
+            target_operation: TokioMutex::new(()),
+            persistent: true,
+        });
+
+        let result = session.open_next_target().await;
+        assert!(
+            matches!(result, Err(RelayStreamGuestError::DataTunnel(_))),
+            "expected the local guard to reject a second open before close, got {result:?}"
+        );
+
+        // The guard must fire BEFORE anything reaches the wire: sending an
+        // out-of-turn OpenPersistent is a framing violation for the real
+        // server (it tears down the whole connection, not just the request).
+        let mut probe = [0u8; 1];
+        let read_result =
+            tokio::time::timeout(Duration::from_millis(50), server_read.read(&mut probe)).await;
+        assert!(
+            read_result.is_err(),
+            "local guard must reject before writing anything to the wire"
+        );
+    }
+
+    #[tokio::test]
+    async fn server_rejection_of_open_persistent_surfaces_as_an_error_frame_and_ends_the_session()
+     {
+        let (client_io, server_io) = duplex(4096);
+        let (client_read, client_write) = tokio::io::split(client_io);
+        let (mut server_read, mut server_write) = tokio::io::split(server_io);
+        let (command_tx, command_rx) = mpsc::channel(32);
+        let (frame_tx, frame_rx) = mpsc::channel(32);
+        tokio::spawn(drive_guest_writer(client_write, command_rx, true));
+        tokio::spawn(drive_guest_reader(client_read, frame_tx));
+        let session = Arc::new(RelayStreamGuestSession {
+            command_tx,
+            frame_rx: TokioMutex::new(frame_rx),
+            metadata: RelayStreamGuestSessionMetadata {
+                mesh_ipv4: None,
+                mesh_ipv6: Some("fd00::10".to_string()),
+                mtu: 1280,
+                session_id: "session-reset-test".to_string(),
+            },
+            target_open: TokioMutex::new(false),
+            target_operation: TokioMutex::new(()),
+            persistent: true,
+        });
+
+        // `open_next_target` now drains its own ack (see its doc) — it does
+        // not return until the mock server has answered, so the response
+        // must be produced concurrently rather than after.
+        let responder = tokio::spawn(async move {
+            let open = read_raw_frame(&mut server_read).await;
+            assert_eq!(open, vec![OPEN_PERSISTENT_FRAME]);
+            // Exact rejection string from the real server contract at
+            // 07f11942e0bb17814d0283c83b6930da780c30c1 — see
+            // relay_stream_connect_persistent's provenance note.
+            send_frame(
+                &mut server_write,
+                &TunnelFrame::Error("session-open-budget-exhausted".into()),
+            )
+            .await
+            .expect("send rejection");
+            // Reset: the real server drops the whole connection on
+            // rejection (`return Err(...)`) — drop both halves to mirror
+            // that once the rejection has been sent.
+            drop(server_write);
+            drop(server_read);
+        });
+
+        let result = session.open_next_target().await;
+        match result {
+            Err(RelayStreamGuestError::AuthRejected(reason)) => {
+                assert_eq!(reason, "session-open-budget-exhausted");
+            }
+            other => panic!("expected the rejection to surface directly, got {other:?}"),
+        }
+        responder.await.expect("responder task");
+
+        // The rejection must not be silently reusable: any further use of
+        // the session fails rather than pretending the target opened.
+        let after = session.read_frame().await;
+        assert!(
+            after.is_err(),
+            "session must not be silently reusable after a server rejection, got {after:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn spontaneous_close_makes_send_close_a_noop_and_open_next_target_still_works() {
+        // theyos 2ff5599aa76bb1fdbb390905d3d41fbfc6c33f8c's scenario: the
+        // target ends on its own (the backend hung up) BEFORE the bridge
+        // ever calls `close()` — e.g. the bridge's own `.closed`-before-
+        // complete error path, which still calls `session.close()` on its
+        // way out. A naive `send_close` would write a SECOND `Close` here;
+        // the real server treats that redundant one as a no-op with no
+        // second ack, so draining for one would hang forever.
+        let (client_io, server_io) = duplex(4096);
+        let (client_read, client_write) = tokio::io::split(client_io);
+        let (mut server_read, mut server_write) = tokio::io::split(server_io);
+        let (command_tx, command_rx) = mpsc::channel(32);
+        let (frame_tx, frame_rx) = mpsc::channel(32);
+        tokio::spawn(drive_guest_writer(client_write, command_rx, true));
+        tokio::spawn(drive_guest_reader(client_read, frame_tx));
+        let session = Arc::new(RelayStreamGuestSession {
+            command_tx,
+            frame_rx: TokioMutex::new(frame_rx),
+            metadata: RelayStreamGuestSessionMetadata {
+                mesh_ipv4: None,
+                mesh_ipv6: Some("fd00::10".to_string()),
+                mtu: 1280,
+                session_id: "session-spontaneous-close-test".to_string(),
+            },
+            target_open: TokioMutex::new(true),
+            target_operation: TokioMutex::new(()),
+            persistent: true,
+        });
+
+        send_frame(&mut server_write, &TunnelFrame::Close)
+            .await
+            .expect("send spontaneous close");
+        let observed = session.read_frame().await.expect("recv spontaneous close");
+        assert_eq!(observed.kind, RelayStreamGuestFrameKind::Close);
+
+        // Idempotent: returns immediately, and writes NOTHING — proven by a
+        // bounded read on the server side seeing no further bytes at all.
+        session.send_close().await.expect("idempotent close");
+        let mut probe = [0u8; 1];
+        let saw_a_second_write =
+            tokio::time::timeout(Duration::from_millis(50), server_read.read(&mut probe)).await;
+        assert!(
+            saw_a_second_write.is_err(),
+            "send_close must not write a second Close once the target already ended"
+        );
+
+        // The connection itself is still perfectly usable — open_next_target
+        // is unaffected by the idempotent close that preceded it.
+        let opener = tokio::spawn(async move {
+            let open = read_raw_frame(&mut server_read).await;
+            assert_eq!(open, vec![OPEN_PERSISTENT_FRAME]);
+            send_frame(&mut server_write, &TunnelFrame::Open)
+                .await
+                .expect("open ack");
+        });
+        session
+            .open_next_target()
+            .await
+            .expect("open next target after idempotent close");
+        opener.await.expect("opener task");
+    }
+
+    #[tokio::test]
+    async fn concurrent_send_close_calls_write_exactly_one_close_frame_and_both_await_the_ack() {
+        // debt #2: `send_close`'s idempotency check used to be check-then-act,
+        // not atomic under `target_open`'s lock -- two genuinely concurrent
+        // Rust-level `send_close` calls could both observe `target_open ==
+        // true` and both write a `Close` command. This drives the REAL
+        // `send_close` (not an extracted helper) with two truly concurrent
+        // callers and observes the ACTUAL frame on the wire via `recv_frame`
+        // on the server side, not just the internal `target_open` flag.
+        //
+        // Determinism note: proving "both callers only return after the ack"
+        // via a shared flag stored right after `send_frame(...).await` on
+        // this task and loaded on the CALLER tasks is itself racy -- the
+        // store and the loads are on different tasks with no ordering
+        // relationship beyond the bytes crossing the wire, so a correct
+        // implementation could still flake the assertion under adverse
+        // scheduling. `JoinHandle::is_finished()`, checked from THIS task
+        // in the window between receiving the frame and sending the ack,
+        // has no such race: it is a direct fact about another task's
+        // completion, read sequentially, not a value racing to be written.
+        let (client_io, server_io) = duplex(4096);
+        let (client_read, client_write) = tokio::io::split(client_io);
+        let (mut server_read, mut server_write) = tokio::io::split(server_io);
+        let (command_tx, command_rx) = mpsc::channel(32);
+        let (frame_tx, frame_rx) = mpsc::channel(32);
+        tokio::spawn(drive_guest_writer(client_write, command_rx, true));
+        tokio::spawn(drive_guest_reader(client_read, frame_tx));
+        let session = Arc::new(RelayStreamGuestSession {
+            command_tx,
+            frame_rx: TokioMutex::new(frame_rx),
+            metadata: RelayStreamGuestSessionMetadata {
+                mesh_ipv4: None,
+                mesh_ipv6: Some("fd00::10".to_string()),
+                mtu: 1280,
+                session_id: "session-concurrent-close-test".to_string(),
+            },
+            target_open: TokioMutex::new(true),
+            target_operation: TokioMutex::new(()),
+            persistent: true,
+        });
+
+        let session_a = Arc::clone(&session);
+        let session_b = Arc::clone(&session);
+        let caller_a = tokio::spawn(async move { session_a.send_close().await });
+        let caller_b = tokio::spawn(async move { session_b.send_close().await });
+
+        // Exactly ONE Close frame must reach the wire.
+        let frame = recv_frame(&mut server_read)
+            .await
+            .expect("recv the single Close frame");
+        assert_eq!(frame, TunnelFrame::Close);
+
+        // The deterministic core of the proof: at this precise point, BEFORE
+        // the ack has been sent, neither caller may have returned yet. If
+        // either had, it returned without ever having seen an ack -- exactly
+        // the bug this test exists to catch.
+        assert!(
+            !caller_a.is_finished() && !caller_b.is_finished(),
+            "a send_close call returned before the server sent its ack"
+        );
+
+        send_frame(&mut server_write, &TunnelFrame::Close)
+            .await
+            .expect("send the close ack");
+
+        // Bounded: under the old check-then-act bug, a second racing
+        // `send_close` could end up reading a stray extra frame off the
+        // SAME `frame_rx` a well-behaved caller needed, leaving that
+        // caller's drain blocked forever on an ack this test never sends a
+        // second copy of. That must fail this test fast, not hang the
+        // whole suite.
+        tokio::time::timeout(Duration::from_secs(1), caller_a)
+            .await
+            .expect("first send_close call hung waiting for the ack")
+            .expect("first caller task")
+            .expect("first concurrent send_close");
+        tokio::time::timeout(Duration::from_secs(1), caller_b)
+            .await
+            .expect("second send_close call hung waiting for the ack")
+            .expect("second caller task")
+            .expect("second concurrent send_close");
+
+        // Proven by a bounded read seeing nothing further: no second Close
+        // (or anything else) ever crossed the wire.
+        let mut probe = [0u8; 1];
+        let saw_more =
+            tokio::time::timeout(Duration::from_millis(100), server_read.read(&mut probe)).await;
+        assert!(
+            saw_more.is_err(),
+            "a second concurrent send_close must not write anything else"
+        );
+    }
+
+    #[tokio::test]
+    async fn drive_guest_writer_close_is_terminal_only_for_a_legacy_session() {
+        // debt #4: `Close` used to never be terminal for the writer task
+        // regardless of session kind, so a LEGACY (non-persistent) session's
+        // writer lingered alive until the `RelayStreamGuestSession` Arc
+        // dropped, instead of returning right after its one-and-only Close
+        // like it did before persistent sessions existed. `persistent` is
+        // now threaded through explicitly; this drives `drive_guest_writer`
+        // directly (not through the full session API) and observes the
+        // writer task's OWN lifetime, bounded by an explicit timeout rather
+        // than a fixed sleep -- a slow CI box shouldn't make either branch
+        // flake, and a hang must fail fast, not stall the suite.
+        for persistent in [false, true] {
+            let (client_io, server_io) = duplex(4096);
+            let (_client_read, client_write) = tokio::io::split(client_io);
+            let (mut server_read, _server_write) = tokio::io::split(server_io);
+            let (command_tx, command_rx) = mpsc::channel(32);
+            let mut writer = tokio::spawn(drive_guest_writer(client_write, command_rx, persistent));
+
+            let (tx, rx) = oneshot::channel();
+            command_tx
+                .send(RelayStreamGuestCommand::Close(tx))
+                .await
+                .expect("send close command");
+            let frame = recv_frame(&mut server_read)
+                .await
+                .expect("recv the close frame");
+            assert_eq!(frame, TunnelFrame::Close);
+            rx.await
+                .expect("close reply channel")
+                .expect("close command result");
+
+            if persistent {
+                // Must NOT terminate: proven by a short timeout over `&mut
+                // writer` (polling without consuming the handle) actually
+                // EXPIRING, not by absence of evidence after a fixed sleep.
+                let outcome =
+                    tokio::time::timeout(Duration::from_millis(200), &mut writer).await;
+                assert!(
+                    outcome.is_err(),
+                    "drive_guest_writer must NOT terminate after Close when persistent=true, \
+                     but it did: {outcome:?}"
+                );
+                writer.abort();
+            } else {
+                // Must terminate: proven by actually awaiting completion,
+                // bounded so a regression back to "never terminates" fails
+                // fast instead of hanging the suite.
+                tokio::time::timeout(Duration::from_secs(1), writer)
+                    .await
+                    .expect(
+                        "drive_guest_writer must terminate right after a successful Close \
+                         when persistent=false, but it hung",
+                    )
+                    .expect("writer task");
+            }
+        }
     }
 
     #[test]

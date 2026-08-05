@@ -551,8 +551,76 @@ public protocol RelayStreamGuestSessionProtocol: AnyObject, Sendable {
 
     func metadata() async  -> RelayStreamGuestSessionMetadata
 
+    /**
+     * Close the current target (see [`RelayStreamGuestSession::send_close`]),
+     * then open the next one over the SAME authenticated Noise connection via
+     * `OpenPersistent` (0x18) — no new signing, no new `RelayStreamAuthSigningRequest`.
+     * Errors closed: calling this while a target is already open is
+     * rejected locally without writing anything, because the server treats
+     * an out-of-turn `OpenPersistent` as a framing violation and drops the
+     * whole connection.
+     *
+     * **Atomic.** The write AND its ack are both handled inside this call,
+     * through the SAME `read_frame` path `read_frame()` itself uses —
+     * deliberately not a second reader on `frame_rx` (there is exactly one
+     * consumer slot, guarded by `frame_rx`'s mutex). Callers never observe
+     * the ack frame this produces: a bare `TunnelFrame::Open` here means
+     * success and is fully consumed before returning `Ok`; a `.error` kind
+     * is a rejection (budget exhausted or not authorized), consumed and
+     * turned into `Err` — the whole session should be treated as dead
+     * either way, not retried.
+     */
+    func openNextTarget() async throws
+
+    /**
+     * Every caller of this session reads frames through here — including
+     * `send_close`'s own ack drain, deliberately, rather than a second
+     * reader on `frame_rx` (there is exactly one consumer slot). A `Close`
+     * passing through, from ANY caller, means this target has ended: mark
+     * `target_open = false` right here so a subsequent `send_close` — from
+     * the bridge's own error path, when a spontaneous `Close` arrived via
+     * THIS call rather than `send_close`'s drain — knows there is no ack
+     * left to wait for.
+     */
     func readFrame() async throws  -> RelayStreamGuestFrameRecord
 
+    /**
+     * Close the current target. Safe to call once its response has been
+     * fully consumed even if the target's own backend would otherwise keep
+     * its connection alive (e.g. HTTP keep-alive): the bridge — not the
+     * backend — decides when a target stream ends, so a persistent session
+     * never lets keep-alive smuggle state across `open_next_target` calls.
+     *
+     * **Idempotent on a persistent session.** If `target_open` is already
+     * `false` — some earlier `read_frame()` already observed the server's
+     * `Close` for this target, e.g. the backend ended on its own before the
+     * caller got around to closing — this returns `Ok(())` immediately
+     * without writing anything. That is load-bearing, not an optimization:
+     * theyos `2ff5599aa76bb1fdbb390905d3d41fbfc6c33f8c` makes a REDUNDANT
+     * `Close` in that state a server-side no-op with **no second ack**, so
+     * writing one and then draining for an ack would hang forever.
+     *
+     * **Otherwise atomic**, same reasoning as `open_next_target`: drains the
+     * server's lifecycle ack (a bare `TunnelFrame::Close`, possibly preceded
+     * by an `Exit` if the target's own process ended around the same time)
+     * through the SAME `read_frame` path before returning, so it never
+     * reaches a caller's `read_frame()` — a stray leftover `Close` there
+     * would otherwise be indistinguishable from the NEXT exchange's target
+     * ending before its response arrived (this is exactly the bug the
+     * idempotency above also has to coexist with, not paper over: draining
+     * here AND flagging in `read_frame` are two sides of the same fix). Any
+     * OTHER frame here — most of all `Data` — means the caller closed
+     * before actually consuming everything the target sent for this
+     * exchange: fails closed rather than silently dropping (or worse,
+     * leaking into the next exchange's read) unaccounted response bytes.
+     *
+     * A LEGACY (non-persistent) session's server never echoes a `Close` at
+     * all — a client-initiated `Close` just ends the whole connection
+     * (`writer.shutdown` + `return Ok(())`, no frame back) — so draining
+     * here would wait for something that is never coming. `persistent`
+     * gates the whole drain/idempotency mechanism off for that case,
+     * preserving the exact original write-and-return behavior.
+     */
     func sendClose() async throws
 
     func sendData(data: Data) async throws
@@ -631,6 +699,52 @@ open func metadata()async  -> RelayStreamGuestSessionMetadata  {
         )
 }
 
+    /**
+     * Close the current target (see [`RelayStreamGuestSession::send_close`]),
+     * then open the next one over the SAME authenticated Noise connection via
+     * `OpenPersistent` (0x18) — no new signing, no new `RelayStreamAuthSigningRequest`.
+     * Errors closed: calling this while a target is already open is
+     * rejected locally without writing anything, because the server treats
+     * an out-of-turn `OpenPersistent` as a framing violation and drops the
+     * whole connection.
+     *
+     * **Atomic.** The write AND its ack are both handled inside this call,
+     * through the SAME `read_frame` path `read_frame()` itself uses —
+     * deliberately not a second reader on `frame_rx` (there is exactly one
+     * consumer slot, guarded by `frame_rx`'s mutex). Callers never observe
+     * the ack frame this produces: a bare `TunnelFrame::Open` here means
+     * success and is fully consumed before returning `Ok`; a `.error` kind
+     * is a rejection (budget exhausted or not authorized), consumed and
+     * turned into `Err` — the whole session should be treated as dead
+     * either way, not retried.
+     */
+open func openNextTarget()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_relay_stream_guest_ffi_fn_method_relaystreamguestsession_open_next_target(
+                    self.uniffiCloneHandle()
+
+                )
+            },
+            pollFunc: ffi_relay_stream_guest_ffi_rust_future_poll_void,
+            completeFunc: ffi_relay_stream_guest_ffi_rust_future_complete_void,
+            freeFunc: ffi_relay_stream_guest_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeRelayStreamGuestError_lift
+        )
+}
+
+    /**
+     * Every caller of this session reads frames through here — including
+     * `send_close`'s own ack drain, deliberately, rather than a second
+     * reader on `frame_rx` (there is exactly one consumer slot). A `Close`
+     * passing through, from ANY caller, means this target has ended: mark
+     * `target_open = false` right here so a subsequent `send_close` — from
+     * the bridge's own error path, when a spontaneous `Close` arrived via
+     * THIS call rather than `send_close`'s drain — knows there is no ack
+     * left to wait for.
+     */
 open func readFrame()async throws  -> RelayStreamGuestFrameRecord  {
     return
         try  await uniffiRustCallAsync(
@@ -648,6 +762,43 @@ open func readFrame()async throws  -> RelayStreamGuestFrameRecord  {
         )
 }
 
+    /**
+     * Close the current target. Safe to call once its response has been
+     * fully consumed even if the target's own backend would otherwise keep
+     * its connection alive (e.g. HTTP keep-alive): the bridge — not the
+     * backend — decides when a target stream ends, so a persistent session
+     * never lets keep-alive smuggle state across `open_next_target` calls.
+     *
+     * **Idempotent on a persistent session.** If `target_open` is already
+     * `false` — some earlier `read_frame()` already observed the server's
+     * `Close` for this target, e.g. the backend ended on its own before the
+     * caller got around to closing — this returns `Ok(())` immediately
+     * without writing anything. That is load-bearing, not an optimization:
+     * theyos `2ff5599aa76bb1fdbb390905d3d41fbfc6c33f8c` makes a REDUNDANT
+     * `Close` in that state a server-side no-op with **no second ack**, so
+     * writing one and then draining for an ack would hang forever.
+     *
+     * **Otherwise atomic**, same reasoning as `open_next_target`: drains the
+     * server's lifecycle ack (a bare `TunnelFrame::Close`, possibly preceded
+     * by an `Exit` if the target's own process ended around the same time)
+     * through the SAME `read_frame` path before returning, so it never
+     * reaches a caller's `read_frame()` — a stray leftover `Close` there
+     * would otherwise be indistinguishable from the NEXT exchange's target
+     * ending before its response arrived (this is exactly the bug the
+     * idempotency above also has to coexist with, not paper over: draining
+     * here AND flagging in `read_frame` are two sides of the same fix). Any
+     * OTHER frame here — most of all `Data` — means the caller closed
+     * before actually consuming everything the target sent for this
+     * exchange: fails closed rather than silently dropping (or worse,
+     * leaking into the next exchange's read) unaccounted response bytes.
+     *
+     * A LEGACY (non-persistent) session's server never echoes a `Close` at
+     * all — a client-initiated `Close` just ends the whole connection
+     * (`writer.shutdown` + `return Ok(())`, no frame back) — so draining
+     * here would wait for something that is never coming. `persistent`
+     * gates the whole drain/idempotency mechanism off for that case,
+     * preserving the exact original write-and-return behavior.
+     */
 open func sendClose()async throws   {
     return
         try  await uniffiRustCallAsync(
@@ -1646,6 +1797,45 @@ public func relayStreamConnect(offerCbor: Data, expectedOwnerPub: Data, expected
             errorHandler: FfiConverterTypeRelayStreamGuestError_lift
         )
 }
+/**
+ * Connect and negotiate `OpenPersistent` (0x18) for the first target instead
+ * of the legacy single-shot `Open` (0x10).
+ *
+ * **Provenance / honesty note.** `OpenPersistent` is NOT part of the vendored
+ * `household_rs::claw_share_data_tunnel::TunnelFrame` enum this crate pins
+ * (`.vendor` snapshot at rev `c81144ba9ac98c0b19912c51765886b227ba30f5`, whose
+ * `TunnelFrame::decode` is exhaustive with no `_` arm — it cannot represent
+ * 0x18 without editing that vendored crate, which is out of scope here). The
+ * opcode, its bare/no-payload framing, and the "ack is always the legacy
+ * `TunnelFrame::Open`" contract are reproduced here to match the real server
+ * implementation committed at theyos `07f11942e0bb17814d0283c83b6930da780c30c1`
+ * ("feat(share): reuse authenticated ClawSite tunnel sessions",
+ * `admin/rust/household-rs/src/claw_share_data_tunnel.rs`, branch
+ * `share/relay-e2e`, parent `86018f16`, 2026-08-03T23:11:53-03:00) — verified
+ * directly (`git show`) against that SHA, not taken on trust. That branch is
+ * not yet merged to `main` and this crate's `.vendor` pin is NOT being moved
+ * to it (still `c81144ba9a...`, pre-dating `OpenPersistent` entirely) — this
+ * note exists so the wire contract can be re-diffed against the landed form
+ * before trusting it again. Authorization for `OpenPersistent` is entirely a
+ * property of the ONE initial signed `request`/`signature` (server derives
+ * `allows_persistent_targets` from the offer's resource == `ClawSite`, once,
+ * at connect time) — there is deliberately no per-target request/signature
+ * here; see [`RelayStreamGuestSession::open_next_target`].
+ */
+public func relayStreamConnectPersistent(offerCbor: Data, expectedOwnerPub: Data, expectedGuestPub: Data, request: RelayStreamAuthSigningRequest, signature: Data, nowUnix: UInt64, connectTimeoutMs: UInt64)async throws  -> RelayStreamGuestSession  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_relay_stream_guest_ffi_fn_func_relay_stream_connect_persistent(FfiConverterData.lower(offerCbor),FfiConverterData.lower(expectedOwnerPub),FfiConverterData.lower(expectedGuestPub),FfiConverterTypeRelayStreamAuthSigningRequest_lower(request),FfiConverterData.lower(signature),FfiConverterUInt64.lower(nowUnix),FfiConverterUInt64.lower(connectTimeoutMs)
+                )
+            },
+            pollFunc: ffi_relay_stream_guest_ffi_rust_future_poll_u64,
+            completeFunc: ffi_relay_stream_guest_ffi_rust_future_complete_u64,
+            freeFunc: ffi_relay_stream_guest_ffi_rust_future_free_u64,
+            liftFunc: FfiConverterTypeRelayStreamGuestSession_lift,
+            errorHandler: FfiConverterTypeRelayStreamGuestError_lift
+        )
+}
 public func relayStreamEncodeAuthEnvelope(request: RelayStreamAuthSigningRequest, signature: Data)throws  -> Data  {
     return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeRelayStreamGuestError_lift) {
     uniffi_relay_stream_guest_ffi_fn_func_relay_stream_encode_auth_envelope(
@@ -1687,6 +1877,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_connect() != 8906) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_connect_persistent() != 1535) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_encode_auth_envelope() != 28683) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1699,10 +1892,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_metadata() != 15319) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_read_frame() != 48265) {
+    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_open_next_target() != 50387) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_send_close() != 16828) {
+    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_read_frame() != 48481) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_send_close() != 65375) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_relay_stream_guest_ffi_checksum_method_relaystreamguestsession_send_data() != 54460) {

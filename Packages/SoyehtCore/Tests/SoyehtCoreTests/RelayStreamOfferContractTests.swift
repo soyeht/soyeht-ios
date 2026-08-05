@@ -20,7 +20,12 @@ final class RelayStreamOfferContractTests: XCTestCase {
         let payload = try Self.payload()
 
         XCTAssertNil(payload.authz)
+        XCTAssertNil(payload.appPresentation)
         XCTAssertEqual(payload.audience, .device)
+        // Unchanged by adding `app_presentation` to the type: the baseline
+        // fixture (minted before this field existed) must still decode/
+        // re-encode byte-identically. This IS the "omitted preserves the
+        // canonical fixture" proof — no separate fixture needed.
         XCTAssertEqual(payload.canonicalBytes().soyehtHexEncodedString(), Self.rustPayloadHex)
     }
 
@@ -267,6 +272,343 @@ final class RelayStreamOfferContractTests: XCTestCase {
         }
     }
 
+    // MARK: - Slice B: signed app presentation
+
+    func testAppPresentationRoundTrips() throws {
+        let payload = try Self.deviceClawSitePayloadWithPresentation()
+        let bytes = payload.canonicalBytes()
+
+        // `RelayStreamOfferPayload.decode` is fileprivate, so this goes
+        // through the same envelope-wrap technique `assertPayloadRoundTrips`
+        // uses: decode the payload bytes, wrap with a dummy signature/
+        // signer_pub, and decode the whole envelope via the public API.
+        let payloadValue = try HouseholdCBOR.decode(bytes)
+        let envelopeBytes = HouseholdCBOR.encode(.map([
+            "payload": payloadValue,
+            "signature": .bytes(Data(repeating: 0, count: 64)),
+            "signer_pub": .bytes(Data(repeating: 0, count: 33)),
+        ]))
+        let decoded = try RelayStreamOfferContract.fromCanonicalBytes(envelopeBytes)
+
+        XCTAssertEqual(decoded.payload, payload)
+        XCTAssertEqual(decoded.payload.appPresentation, payload.appPresentation)
+        XCTAssertEqual(decoded.payload.canonicalBytes(), bytes)
+    }
+
+    func testAppPresentationIsSignedAndTamperingBreaksVerify() throws {
+        let ownerKey = try Self.ownerKey()
+        let offer = try Self.signedOffer(
+            ownerKey: ownerKey,
+            payload: Self.deviceClawSitePayloadWithPresentation()
+        )
+
+        try offer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )
+
+        // The snapshot is INSIDE the signature: editing any presentation
+        // field on the WIRE bytes after signing must break verification,
+        // not silently pass with the edited value.
+        let decoded = try HouseholdCBOR.decode(offer.canonicalBytes())
+        guard case .map(var envelope) = decoded,
+              case .map(var payload) = envelope["payload"],
+              case .map(var presentation) = payload["app_presentation"]
+        else {
+            return XCTFail("expected payload.app_presentation to be a map")
+        }
+        presentation["display_name"] = .text("Other App")
+        payload["app_presentation"] = .map(presentation)
+        envelope["payload"] = .map(payload)
+        let tamperedBytes = HouseholdCBOR.encode(.map(envelope))
+        let tampered = try RelayStreamOfferContract.fromCanonicalBytes(tamperedBytes)
+
+        XCTAssertThrowsError(try tampered.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .signatureRejected)
+        }
+    }
+
+    func testAppPresentationRejectedOutsideDeviceClawSite() throws {
+        let ownerKey = try Self.ownerKey()
+
+        // Group audience: namespace violation even though the signature
+        // would cover it.
+        let groupPayload = try Self.payload(
+            clawId: "app_" + String(repeating: "5", count: 32),
+            resource: .clawSite,
+            authz: .group(groupId: "g", memberId: "g_a"),
+            appPresentation: ShareableAppPresentation(
+                appId: "app_" + String(repeating: "5", count: 32),
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
+        )
+        let group = try Self.signedOffer(ownerKey: ownerKey, payload: groupPayload)
+        XCTAssertThrowsError(try group.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("audience-resource"))
+        }
+
+        // Public audience with presentation.
+        let publicPayload = try Self.payload(
+            clawId: "app_" + String(repeating: "5", count: 32),
+            resource: .clawSite,
+            authz: .public,
+            appPresentation: ShareableAppPresentation(
+                appId: "app_" + String(repeating: "5", count: 32),
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
+        )
+        let publicOffer = try Self.signedOffer(ownerKey: ownerKey, payload: publicPayload)
+        XCTAssertThrowsError(try publicOffer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("audience-resource"))
+        }
+
+        // Device + PTY with presentation: legacy PTY must not grow a Share
+        // presentation.
+        let ptyPayload = try Self.payload(
+            clawId: "app_" + String(repeating: "5", count: 32),
+            resource: .pty,
+            appPresentation: ShareableAppPresentation(
+                appId: "app_" + String(repeating: "5", count: 32),
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
+        )
+        let ptyOffer = try Self.signedOffer(ownerKey: ownerKey, payload: ptyPayload)
+        XCTAssertThrowsError(try ptyOffer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("audience-resource"))
+        }
+
+        // Device + IpTunnel with presentation: Product A/nvpn boundary --
+        // this field must never reach that path either.
+        let ipTunnelPayload = try Self.payload(
+            clawId: "app_" + String(repeating: "5", count: 32),
+            resource: .ipTunnel,
+            authz: .group(groupId: "g", memberId: "g_a"),
+            appPresentation: ShareableAppPresentation(
+                appId: "app_" + String(repeating: "5", count: 32),
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
+        )
+        let ipTunnelOffer = try Self.signedOffer(ownerKey: ownerKey, payload: ipTunnelPayload)
+        XCTAssertThrowsError(try ipTunnelOffer.verifyRelayStreamIPTunnelGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("audience-resource"))
+        }
+    }
+
+    func testAppPresentationAppIdMustEqualOfferClawId() throws {
+        let ownerKey = try Self.ownerKey()
+        let mismatched = try Self.payload(
+            clawId: "app_" + String(repeating: "5", count: 32),
+            resource: .clawSite,
+            appPresentation: ShareableAppPresentation(
+                appId: "app_" + String(repeating: "d", count: 32),
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
+        )
+        let offer = try Self.signedOffer(ownerKey: ownerKey, payload: mismatched)
+        XCTAssertThrowsError(try offer.verifyRelayStreamGuest(
+            expectedSignerPublicKey: ownerKey.publicKey.compressedRepresentation,
+            expectedGuestDevicePublicKey: try Self.guestPublicKey(),
+            nowUnix: Self.now,
+            allowedResources: [.clawSite]
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id-claw-mismatch"))
+        }
+    }
+
+    func testAppPresentationValidatesIdShapeAndNames() throws {
+        let validAppId = "app_" + String(repeating: "5", count: 32)
+
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: "claw_alpha",
+            displayName: "Study",
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id"))
+        }
+
+        // Uppercase hex is rejected -- the Rust shape is lowercase-only.
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: "app_" + String(repeating: "5", count: 31) + "D",
+            displayName: "Study",
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id"))
+        }
+
+        // Wrong hex length.
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: "app_" + String(repeating: "5", count: 31),
+            displayName: "Study",
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id"))
+        }
+
+        for badName in ["", "   "] {
+            XCTAssertThrowsError(try ShareableAppPresentation(
+                appId: validAppId,
+                displayName: badName,
+                ownerDisplayName: "Owner"
+            )) { error in
+                XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("display_name"))
+            }
+            XCTAssertThrowsError(try ShareableAppPresentation(
+                appId: validAppId,
+                displayName: "Study",
+                ownerDisplayName: badName
+            )) { error in
+                XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("owner_display_name"))
+            }
+        }
+
+        let oversized = String(repeating: "x", count: 129)
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: validAppId,
+            displayName: oversized,
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("display_name"))
+        }
+
+        // Exactly 128 chars is the boundary, not past it -- must succeed.
+        let atLimit = String(repeating: "x", count: 128)
+        XCTAssertNoThrow(try ShareableAppPresentation(
+            appId: validAppId,
+            displayName: atLimit,
+            ownerDisplayName: "Owner"
+        ))
+    }
+
+    /// Two Unicode-model gaps between Swift and Rust that a naive port of
+    /// the shape rules would miss silently -- caught by review, not by a
+    /// mutation of already-written code.
+    func testAppPresentationRejectsNonASCIIHexAndCountsUnicodeScalarsNotGraphemeClusters() throws {
+        let validAppId = "app_" + String(repeating: "5", count: 32)
+
+        // 1. `Character.isHexDigit` is Unicode-aware: U+FF11 FULLWIDTH DIGIT
+        // ONE ('１') reports `isHexDigit == true` AND `isUppercase == false`,
+        // so a naive `$0.isHexDigit && !$0.isUppercase` guard (matching
+        // Rust's `is_ascii_hexdigit() && !is_ascii_uppercase()` in shape
+        // ONLY, not in character set) accepts a fullwidth-digit app_id that
+        // Rust's ASCII-only check would reject.
+        let fullWidthDigitAppId = "app_" + String(repeating: "\u{FF11}", count: 32)
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: fullWidthDigitAppId,
+            displayName: "Study",
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id"))
+        }
+
+        // Load-bearing on its own, not just extra thoroughness: U+FF41
+        // FULLWIDTH LATIN SMALL LETTER A ('ａ') is fullwidth lowercase
+        // 'a' -- squarely inside the hex alphabet (a-f) -- and reports
+        // `isHexDigit == true`, `isUppercase == false`, `isASCII == false`,
+        // independently exploitable by the same naive guard as the digit
+        // case above. (Its uppercase counterpart U+FF21 'Ａ' reports
+        // `isUppercase == true` and would already be barred by the
+        // existing uppercase check even without `.isASCII` -- it is the
+        // LOWERCASE fullwidth letters that needed `.isASCII` specifically.)
+        let fullWidthLetterAppId = "app_" + String(repeating: "\u{FF41}", count: 32) // 'ａ'
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: fullWidthLetterAppId,
+            displayName: "Study",
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("app_id"))
+        }
+
+        // 2. Rust's `name.chars().count()` counts Unicode SCALAR values (a
+        // Rust `char` is one scalar); Swift's `String.count` counts
+        // extended GRAPHEME CLUSTERS. A base character followed by many
+        // combining marks clusters into very few Swift "characters" while
+        // still being that many Rust `char`s -- this name is 1 base
+        // scalar + 128 combining acute accents: 129 Unicode scalars (over
+        // the 128 limit, same as Rust would see), but Swift's grapheme
+        // count collapses it to a single Character.
+        let combiningOversizedName = "a" + String(repeating: "\u{0301}", count: 128)
+        XCTAssertEqual(combiningOversizedName.count, 1, "sanity: this really is 1 grapheme cluster in Swift")
+        XCTAssertEqual(combiningOversizedName.unicodeScalars.count, 129, "sanity: but 129 Unicode scalars")
+        XCTAssertThrowsError(try ShareableAppPresentation(
+            appId: validAppId,
+            displayName: combiningOversizedName,
+            ownerDisplayName: "Owner"
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .invalidPresentation("display_name"))
+        }
+    }
+
+    func testAppPresentationNestedUnknownFieldFailsClosed() throws {
+        let offer = try Self.signedOffer(
+            ownerKey: Self.ownerKey(),
+            payload: Self.deviceClawSitePayloadWithPresentation()
+        )
+
+        // Inject an extra key INSIDE the nested app_presentation map. The
+        // nested deny_unknown_fields analogue must reject the decode: an
+        // ignored key would vanish on re-encode and let unauthenticated
+        // bytes verify.
+        XCTAssertThrowsError(try RelayStreamOfferContract.fromCanonicalBytes(
+            Self.offerBytes(offer, extraPresentationKey: "evil")
+        )) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .malformed)
+        }
+    }
+
+    func testAppPresentationMissingRequiredNestedFieldFailsClosed() throws {
+        // A shape check distinct from the unknown-key case: the map has
+        // no extra key, but is missing a required one.
+        let offer = try Self.signedOffer(
+            ownerKey: Self.ownerKey(),
+            payload: Self.deviceClawSitePayloadWithPresentation()
+        )
+        let decoded = try HouseholdCBOR.decode(offer.canonicalBytes())
+        guard case .map(var envelope) = decoded,
+              case .map(var payload) = envelope["payload"],
+              case .map(var presentation) = payload["app_presentation"]
+        else {
+            return XCTFail("expected payload.app_presentation to be a map")
+        }
+        presentation.removeValue(forKey: "owner_display_name")
+        payload["app_presentation"] = .map(presentation)
+        envelope["payload"] = .map(payload)
+        let poisoned = HouseholdCBOR.encode(.map(envelope))
+
+        XCTAssertThrowsError(try RelayStreamOfferContract.fromCanonicalBytes(poisoned)) { error in
+            XCTAssertEqual(error as? RelayStreamOfferError, .malformed)
+        }
+    }
+
     static func ownerKey() throws -> P256.Signing.PrivateKey {
         try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x11, count: 32))
     }
@@ -285,7 +627,8 @@ final class RelayStreamOfferContractTests: XCTestCase {
         expectedPath: RelayStreamExpectedPath = .relayStream,
         relayEndpoint: String = "relay-stream://127.0.0.1:49152",
         notAfter: UInt64 = RelayStreamOfferContractTests.notAfter,
-        authz: RelayStreamAudience? = nil
+        authz: RelayStreamAudience? = nil,
+        appPresentation: ShareableAppPresentation? = nil
     ) throws -> RelayStreamOfferPayload {
         RelayStreamOfferPayload(
             rendezvousToken: Data(repeating: 0x42, count: 16),
@@ -297,7 +640,26 @@ final class RelayStreamOfferContractTests: XCTestCase {
             relayEndpoint: relayEndpoint,
             clawStaticPublicKey: Data(repeating: 0x33, count: 32),
             notAfter: notAfter,
-            authz: authz
+            authz: authz,
+            appPresentation: appPresentation
+        )
+    }
+
+    /// A Device+ClawSite payload with a valid presentation whose `app_id`
+    /// matches `clawId` — the one shape every "should be accepted" test
+    /// starts from, mirroring Rust's `device_clawsite_payload()` +
+    /// `presentation_for(&payload)` test helpers.
+    static func deviceClawSitePayloadWithPresentation(
+        appId: String = "app_" + String(repeating: "5", count: 32)
+    ) throws -> RelayStreamOfferPayload {
+        try payload(
+            clawId: appId,
+            resource: .clawSite,
+            appPresentation: ShareableAppPresentation(
+                appId: appId,
+                displayName: "Study",
+                ownerDisplayName: "Owner"
+            )
         )
     }
 
@@ -347,7 +709,8 @@ final class RelayStreamOfferContractTests: XCTestCase {
         _ offer: RelayStreamOfferContract,
         extraEnvelopeKey: String? = nil,
         extraPayloadKey: String? = nil,
-        extraGroupAuthzKey: String? = nil
+        extraGroupAuthzKey: String? = nil,
+        extraPresentationKey: String? = nil
     ) throws -> Data {
         let decoded = try HouseholdCBOR.decode(offer.canonicalBytes())
         guard case .map(var envelope) = decoded,
@@ -367,6 +730,15 @@ final class RelayStreamOfferContractTests: XCTestCase {
             group[extraGroupAuthzKey] = .text("unexpected")
             authz["group"] = .map(group)
             payload["authz"] = .map(authz)
+        }
+        if let extraPresentationKey,
+           case .map(var presentation) = payload["app_presentation"] {
+            // Injects a key INSIDE the nested app_presentation map — the
+            // nested deny_unknown_fields analogue must reject this, not the
+            // outer envelope/payload check, which is why this is a distinct
+            // parameter from `extraPayloadKey`.
+            presentation[extraPresentationKey] = .text("unexpected")
+            payload["app_presentation"] = .map(presentation)
         }
         envelope["payload"] = .map(payload)
         return HouseholdCBOR.encode(.map(envelope))

@@ -11,28 +11,40 @@ import Foundation
 /// response.
 public enum ClawSiteStreamFrame: Sendable, Equatable {
     case data(Data)
-    /// The peer finished the response and closed. For ClawSite this is the
-    /// authoritative end-of-body signal, because the request asks for
-    /// `Connection: close`.
+    /// The target stream ended. NOT a completion signal — `ClawSiteHTTPBridge`
+    /// decides a response is done by `Content-Length`/chunked framing
+    /// (`ClawSiteHTTPCodec.isResponseComplete`) instead, because the target's
+    /// own backend closing (or not) is never something the client can rely
+    /// on as a signal — including under `OpenPersistent`, where each target
+    /// is still its own fresh backend connection (only the Noise session is
+    /// reused; see `ClawSiteRelayStreamOpener`). Arriving before the bridge
+    /// saw a complete response is therefore a failure, not a normal
+    /// end-of-body.
     case closed
     case failed(String)
 }
 
 /// A single request/response byte stream to a shared claw's HTTP backend.
+///
+/// The stream's identity — a fresh dial each time, or a fresh target opened
+/// on an already-authenticated session (`OpenPersistent`) — is entirely the
+/// opener implementation's decision (see `ClawSiteRelayStreamOpener`); this
+/// protocol only promises one exchange per `openClawSiteStream()`/`close()`
+/// pair.
 public protocol ClawSiteStreamSession: Sendable {
     func send(_ data: Data) async throws
     func nextFrame() async throws -> ClawSiteStreamFrame
     func close() async throws
 }
 
-/// Opens a fresh stream per HTTP exchange.
+/// Opens one stream for one HTTP exchange.
 ///
-/// Deliberately one session per request. The relay's replay guard is keyed on
-/// the per-dial auth nonce (freshly minted on every `prepare`), not on the
-/// offer, so re-dialing the same offer is expected and safe — while the slot
-/// itself was already consumed once, at claim time. Reusing a single long-lived
-/// stream instead would mean multiplexing HTTP over a transport with no request
-/// framing, which is precisely what `Connection: close` avoids.
+/// Implementations choose how: a fresh dial per call, or — per
+/// `ClawSiteRelayStreamOpener` — one persistent authenticated session reused
+/// via `OpenPersistent`/`openNextTarget`, redialed only after the session
+/// itself fails. Either way, `close()` on the returned stream ends only THIS
+/// exchange; the caller (`ClawSiteHTTPBridge`) neither knows nor needs to
+/// know which.
 public protocol ClawSiteStreamOpening: Sendable {
     func openClawSiteStream() async throws -> any ClawSiteStreamSession
 }
@@ -123,6 +135,12 @@ public struct ClawSiteHTTPBridge: Sendable {
         }
     }
 
+    /// Reads `Data` frames until `ClawSiteHTTPCodec.isResponseComplete` says
+    /// the response is fully in hand, then returns WITHOUT waiting for the
+    /// target to close on its own — a target reused across exchanges
+    /// (`OpenPersistent`) may sit on a backend that never closes, so `.closed`
+    /// arriving is no longer treated as the completion signal. It arriving
+    /// BEFORE completion is now a real failure: the target ended mid-response.
     private func run(
         session: any ClawSiteStreamSession,
         requestBytes: Data
@@ -138,11 +156,16 @@ public struct ClawSiteHTTPBridge: Sendable {
                 guard accumulated.count <= maxResponseBytes else {
                     throw ClawSiteBridgeError.responseTooLarge(limit: maxResponseBytes)
                 }
+                if try ClawSiteHTTPCodec.isResponseComplete(accumulated) {
+                    return try ClawSiteHTTPCodec.parseResponse(accumulated)
+                }
             case .closed:
                 guard !accumulated.isEmpty else {
                     throw ClawSiteBridgeError.streamEndedBeforeResponse
                 }
-                return try ClawSiteHTTPCodec.parseResponse(accumulated)
+                throw ClawSiteBridgeError.streamFailed(
+                    "target closed before the response was fully framed"
+                )
             case .failed(let reason):
                 throw ClawSiteBridgeError.streamFailed(reason)
             }

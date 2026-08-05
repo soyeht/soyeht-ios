@@ -62,7 +62,7 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         XCTAssertTrue(enrollBranch.contains("appState = .recoveryMessage(snapshot)"))
     }
 
-    func test_routeVocabularyKeepsAllFourteenCasesWithoutMovingRootHandlers() throws {
+    func test_routeVocabularyKeepsAllFifteenCasesWithoutMovingRootHandlers() throws {
         let rootSource = try iosSource("SSHLoginView.swift")
         let routeSource = try iosSource("App/AppRoute.swift")
 
@@ -71,13 +71,16 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             .split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { $0.hasPrefix("case ") }
-        // 14: `clawSite` (a shared claw serving an app rather than a
-        // terminal, chosen by the offer's resource) and `shareApp` (the
+        // 15: `clawSite` (a shared claw serving an app rather than a
+        // terminal, chosen by the offer's resource), `shareApp` (the
         // owner-side flow that mints the invite, which lives on this device
-        // because the owner key does). Bumping this number is meant to be a
-        // deliberate act — add the signature below too, so the count alone
-        // can never drift.
-        XCTAssertEqual(declaredCases.count, 14)
+        // because the owner key does), and `activeShares` (the owner-side
+        // list of live claw-share slots, reached from `shareApp`'s header —
+        // a sibling screen, not a replacement, since minting and reviewing
+        // existing shares are different moments). Bumping this number is
+        // meant to be a deliberate act — add the signature below too, so
+        // the count alone can never drift.
+        XCTAssertEqual(declaredCases.count, 15)
 
         for signature in [
             "case splash",
@@ -95,6 +98,7 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             "case relayStreamTerminal(RelayStreamTerminalConfiguration)",
             "case clawSite(ClawSiteViewModel)",
             "case shareApp(SoyehtIdentitySnapshot)",
+            "case activeShares(SoyehtIdentitySnapshot)",
         ] {
             XCTAssertTrue(routeSource.contains(signature), "Missing route signature: \(signature)")
         }
