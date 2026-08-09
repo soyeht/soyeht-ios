@@ -35,6 +35,11 @@ jobs:
           RELAY_STREAM_GUEST_FFI_PROFILE: release
         run: scripts/bootstrap-relay-stream-guest-ffi.sh
 
+      - name: Build NatProbeFFI XCFramework
+        env:
+          NAT_PROBE_FFI_PROFILE: release
+        run: scripts/bootstrap-nat-probe-ffi.sh
+
       - name: iOS Accessibility Snapshot Tests (RTL + AX5)
         run: |
           SIM_ARCH="$(uname -m)"

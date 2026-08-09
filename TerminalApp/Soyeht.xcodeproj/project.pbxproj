@@ -178,9 +178,13 @@
 		A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
 		A2E100000000000000000006 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000081 /* SoyehtCore */; };
 		A2E100000000000000000007 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000082 /* RelayStreamGuestFFI */; };
+		A2E100000000000000000091 /* SoyehtCore in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000081 /* SoyehtCore */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A2E1000000000000000000C1 /* BLAKE3 in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E1000000000000000000A2 /* BLAKE3 */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A2E1000000000000000000C2 /* P256K in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E1000000000000000000B2 /* P256K */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
 		A2E100000000000000000009 /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
 		A2E10000000000000000000A /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
+		A2E10000000000000000000B /* M0bSmokeCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E10000000000000000001A /* M0bSmokeCheck.swift */; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
 		BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000300000000000C0003 /* FileBrowserCell.swift */; };
@@ -215,7 +219,10 @@
 		7A1C55F0D3B44F1A9E220C56 /* ActiveShareDateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C55F1D3B44F1A9E220C57 /* ActiveShareDateFormatter.swift */; };
 		8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */; };
 		8E1200000000000000000001 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = 8E1200000000000000000002 /* RelayStreamGuestFFI */; };
+		9A1200000000000000000003 /* NatProbeFFI in Frameworks */ = {isa = PBXBuildFile; productRef = 9A1200000000000000000004 /* NatProbeFFI */; };
 		8E1300000000000000000002 /* RelayStreamIPTunnelControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */; };
+		8E1300000000000000000013 /* M0bProvisioningSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000113 /* M0bProvisioningSmokeTests.swift */; };
+		8E1300000000000000000014 /* NatProbeDeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000114 /* NatProbeDeviceTests.swift */; };
 		8E1300000000000000000003 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */; };
 		8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */; };
 		8E1300000000000000000005 /* ClawSiteRelayStreamOpenerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */; };
@@ -395,6 +402,7 @@
 		A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NEPacketTunnelFlowAdapter.swift; sourceTree = "<group>"; };
 		A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayStreamGuestIPTunnelSessionAdapter.swift; sourceTree = "<group>"; };
 		A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelNetworkSettings.swift; sourceTree = "<group>"; };
+		A2E10000000000000000001A /* M0bSmokeCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M0bSmokeCheck.swift; sourceTree = "<group>"; };
 		A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtClawShareTunnelProvider.appex; path = SoyehtClawShareTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2E100000000000000000015 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
@@ -597,6 +605,8 @@
 		7A1C55F1D3B44F1A9E220C57 /* ActiveShareDateFormatter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveShareDateFormatter.swift; sourceTree = "<group>"; };
 		8E1100000000000000000104 /* RelayStreamIPTunnelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelController.swift; sourceTree = "<group>"; };
 		8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelControllerTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000113 /* M0bProvisioningSmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = M0bProvisioningSmokeTests.swift; sourceTree = "<group>"; };
+		8E1300000000000000000114 /* NatProbeDeviceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NatProbeDeviceTests.swift; sourceTree = "<group>"; };
 		8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamGuestIPTunnelSessionAdapterTests.swift; sourceTree = "<group>"; };
 		8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RelayStreamIPTunnelNetworkSettingsTests.swift; sourceTree = "<group>"; };
 		8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSiteRelayStreamOpenerTests.swift; sourceTree = "<group>"; };
@@ -629,6 +639,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A2E100000000000000000092 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				A2E100000000000000000091 /* SoyehtCore in Embed Frameworks */,
+				A2E1000000000000000000C1 /* BLAKE3 in Embed Frameworks */,
+				A2E1000000000000000000C2 /* P256K in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		49BD1A57224207B5005A2252 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -650,6 +673,7 @@
 				5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */,
 				C0F0A00000000000000000B1 /* SoyehtCore in Frameworks */,
 				713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */,
+				9A1200000000000000000003 /* NatProbeFFI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1036,6 +1060,8 @@
 				8E1300000000000000000101 /* RelayStreamOpenControllerTests.swift */,
 				7A1C55EED3B44F1A9E220C4F /* ShareAppViewModelTests.swift */,
 				8E1300000000000000000102 /* RelayStreamIPTunnelControllerTests.swift */,
+				8E1300000000000000000113 /* M0bProvisioningSmokeTests.swift */,
+				8E1300000000000000000114 /* NatProbeDeviceTests.swift */,
 				8E1300000000000000000103 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift */,
 				8E1300000000000000000104 /* RelayStreamIPTunnelNetworkSettingsTests.swift */,
 				8E1300000000000000000105 /* ClawSiteRelayStreamOpenerTests.swift */,
@@ -1125,6 +1151,7 @@
 			isa = PBXGroup;
 			children = (
 				A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */,
+				A2E10000000000000000001A /* M0bSmokeCheck.swift */,
 				A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */,
 				A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */,
 				A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */,
@@ -1380,6 +1407,7 @@
 			buildPhases = (
 				A2E100000000000000000041 /* Sources */,
 				A2E100000000000000000042 /* Frameworks */,
+				A2E100000000000000000092 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -1389,6 +1417,8 @@
 			packageProductDependencies = (
 				A2E100000000000000000081 /* SoyehtCore */,
 				A2E100000000000000000082 /* RelayStreamGuestFFI */,
+				A2E1000000000000000000A2 /* BLAKE3 */,
+				A2E1000000000000000000B2 /* P256K */,
 			);
 			productName = SoyehtClawShareTunnelProvider;
 			productReference = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */;
@@ -1411,6 +1441,7 @@
 			packageProductDependencies = (
 				C0F0A00000000000000000B2 /* SoyehtCore */,
 				FBBE1B1846B242EAB3017F46 /* SnapshotTesting */,
+				9A1200000000000000000004 /* NatProbeFFI */,
 			);
 			productName = iOSTerminalTests;
 			productReference = 186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */;
@@ -1463,6 +1494,9 @@
 				7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */,
 				8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */,
+				9A12000000000000000000F1 /* XCLocalSwiftPackageReference "NatProbeFFI" */,
+				A2E1000000000000000000A1 /* XCRemoteSwiftPackageReference "blake3-swift" */,
+				A2E1000000000000000000B1 /* XCRemoteSwiftPackageReference "secp256k1.swift" */,
 			);
 			productRefGroup = 49BD1A5B224207B5005A2252 /* Products */;
 			projectDirPath = "";
@@ -1794,6 +1828,8 @@
 				8E1300000000000000000001 /* RelayStreamOpenControllerTests.swift in Sources */,
 				7A1C55EDD3B44F1A9E220C4E /* ShareAppViewModelTests.swift in Sources */,
 				8E1300000000000000000002 /* RelayStreamIPTunnelControllerTests.swift in Sources */,
+				8E1300000000000000000013 /* M0bProvisioningSmokeTests.swift in Sources */,
+				8E1300000000000000000014 /* NatProbeDeviceTests.swift in Sources */,
 				8E1300000000000000000003 /* RelayStreamGuestIPTunnelSessionAdapterTests.swift in Sources */,
 				A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */,
 				8E1300000000000000000004 /* RelayStreamIPTunnelNetworkSettingsTests.swift in Sources */,
@@ -1847,6 +1883,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */,
+				A2E10000000000000000000B /* M0bSmokeCheck.swift in Sources */,
 				A2E100000000000000000004 /* NEPacketTunnelFlowAdapter.swift in Sources */,
 				A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */,
 				A2E100000000000000000009 /* RelayStreamIPTunnelNetworkSettings.swift in Sources */,
@@ -2487,6 +2524,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Native/RelayStreamGuestFFI;
 		};
+		9A12000000000000000000F1 /* XCLocalSwiftPackageReference "NatProbeFFI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Native/NatProbeFFI;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -2512,6 +2553,22 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.17.6;
+			};
+		};
+		A2E1000000000000000000A1 /* XCRemoteSwiftPackageReference "blake3-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/JoshBashed/blake3-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.2.2;
+			};
+		};
+		A2E1000000000000000000B1 /* XCRemoteSwiftPackageReference "secp256k1.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/GigaBitcoin/secp256k1.swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.23.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -2551,6 +2608,11 @@
 			package = 8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */;
 			productName = RelayStreamGuestFFI;
 		};
+		9A1200000000000000000004 /* NatProbeFFI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9A12000000000000000000F1 /* XCLocalSwiftPackageReference "NatProbeFFI" */;
+			productName = NatProbeFFI;
+		};
 		A2E100000000000000000081 /* SoyehtCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */;
@@ -2560,6 +2622,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8E12000000000000000000F1 /* XCLocalSwiftPackageReference "RelayStreamGuestFFI" */;
 			productName = RelayStreamGuestFFI;
+		};
+		A2E1000000000000000000A2 /* BLAKE3 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2E1000000000000000000A1 /* XCRemoteSwiftPackageReference "blake3-swift" */;
+			productName = BLAKE3;
+		};
+		A2E1000000000000000000B2 /* P256K */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2E1000000000000000000B1 /* XCRemoteSwiftPackageReference "secp256k1.swift" */;
+			productName = P256K;
 		};
 		FBBE1B1846B242EAB3017F46 /* SnapshotTesting */ = {
 			isa = XCSwiftPackageProductDependency;

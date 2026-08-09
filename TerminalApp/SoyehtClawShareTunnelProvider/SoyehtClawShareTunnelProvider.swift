@@ -26,6 +26,13 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
         options: [String: NSObject]?,
         completionHandler: @escaping (Error?) -> Void
     ) {
+        #if DEBUG
+        if case .handled(let error) = M0bSmokeCheck.runIfRequested(options: options, logger: logger) {
+            completionHandler(error)
+            return
+        }
+        #endif
+
         // Claimed before anything is spawned, so a stop that arrives next is
         // ordered strictly after this claim.
         guard let epoch = lifecycle.begin() else {
