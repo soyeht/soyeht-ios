@@ -104,6 +104,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if DebugPasteboardInjector.handleIfNeeded(url) {
             return true
         }
+        if M0bLockCanaryURLTrigger.handleIfNeeded(url) {
+            return true
+        }
         #endif
         SessionStore.shared.pendingDeepLink = url
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
@@ -202,6 +205,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
             if DebugPasteboardInjector.handleIfNeeded(url) {
+                return
+            }
+            if M0bLockCanaryURLTrigger.handleIfNeeded(url) {
                 return
             }
         }
@@ -320,6 +326,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #if DEBUG
         if DebugPasteboardInjector.handleIfNeeded(url) {
+            return
+        }
+        if M0bLockCanaryURLTrigger.handleIfNeeded(url) {
             return
         }
         if DebugLocalStateReporter.handleIfNeeded(
@@ -716,6 +725,49 @@ enum DebugPasteboardInjector {
         }
         UIPasteboard.general.string = payload
         appDelegateLogger.log("debug pasteboard injection: wrote \(payload.count, privacy: .public) chars")
+        return true
+        #else
+        _ = url
+        return false
+        #endif
+    }
+}
+
+/// `soyeht://debug/m0b-lock-canary-start[?delaySeconds=60]` — runs
+/// `M0bLockCanaryActions.prepare()` then `.start(delaySeconds:)` in one
+/// shot, headless, no Settings navigation required. Exists because the
+/// M0b step-4 proof needs the device physically locked within seconds of
+/// starting the canary, and hunting through in-app menus to find that
+/// button first is exactly the kind of thing that eats the window and
+/// wastes the attempt. Opening this URL (paste into Safari's address bar,
+/// tap Go, tap "Open in Soyeht Dev") does both steps, then the phone just
+/// needs to be locked immediately.
+enum M0bLockCanaryURLTrigger {
+    @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
+        #if DEBUG
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/m0b-lock-canary-start"
+        else {
+            return false
+        }
+        let delaySeconds = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "delaySeconds" })?.value
+            .flatMap(Double.init) ?? 60
+        do {
+            try M0bLockCanaryActions.prepare()
+        } catch {
+            appDelegateLogger.error("m0b lock canary prepare failed: \(String(describing: error), privacy: .public)")
+            return true
+        }
+        Task {
+            do {
+                let status = try await M0bLockCanaryActions.start(delaySeconds: delaySeconds)
+                appDelegateLogger.log("m0b lock canary started, \(status, privacy: .public) — lock the phone now")
+            } catch {
+                appDelegateLogger.error("m0b lock canary start failed: \(String(describing: error), privacy: .public)")
+            }
+        }
         return true
         #else
         _ = url

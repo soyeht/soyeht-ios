@@ -73,6 +73,7 @@
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		5EE2ECB865D963FE80A02153 /* ProximityQuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5FC3292AC27CC813C9389EB /* ProximityQuestionView.swift */; };
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
+		3FC3D73BBB084B9FB65E1D96 /* M0bLockCanaryDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBD9781CEAA43E38D2DA761 /* M0bLockCanaryDebugView.swift */; };
 		61E142F163921C01E3621957 /* ResidentExplainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C44754C9783E79F3A14AC4 /* ResidentExplainerView.swift */; };
 		6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		6E5B70DE5C989BBFD9B168B8 /* SharedAppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4671A823A685336C83F0132A /* SharedAppsView.swift */; };
@@ -409,6 +410,7 @@
 		55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaterParkingLotView.swift; sourceTree = "<group>"; };
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
 		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		1EBD9781CEAA43E38D2DA761 /* M0bLockCanaryDebugView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = M0bLockCanaryDebugView.swift; sourceTree = "<group>"; };
 		599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewState.swift; sourceTree = "<group>"; };
 		6025A720F1F59D21FB9844A2 /* CardClawStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardClawStore.swift; sourceTree = "<group>"; };
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
@@ -1194,6 +1196,7 @@
 				E1A2B3C4D5E6F708192A3C0C /* ShortcutBar */,
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
+				1EBD9781CEAA43E38D2DA761 /* M0bLockCanaryDebugView.swift */,
 				8DDA00000000000000000110 /* HouseholdApplePushServiceView.swift */,
 				8DDA00000000000000000117 /* HouseholdApplePushServiceViewModel.swift */,
 				49FA000000000000000FA005 /* PairedMacsListView.swift */,
@@ -1670,6 +1673,7 @@
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
+				3FC3D73BBB084B9FB65E1D96 /* M0bLockCanaryDebugView.swift in Sources */,
 				8DDA00000000000000000010 /* HouseholdApplePushServiceView.swift in Sources */,
 				8DDA00000000000000000017 /* HouseholdApplePushServiceViewModel.swift in Sources */,
 				F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */,

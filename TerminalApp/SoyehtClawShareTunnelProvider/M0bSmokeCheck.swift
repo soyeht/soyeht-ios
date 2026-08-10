@@ -35,6 +35,23 @@ enum M0bSmokeCheck {
     static let canaryResultDefaultsKey = "m0bKeychainCanaryResult"
     static let canaryProtectedFileName = "m0b-keybag-probe.dat"
 
+    /// Optional `NSNumber` (seconds) in the start options. See
+    /// `docs/mesh-plan.md`'s M0b step-4 note in theyos: the only measurement
+    /// taken so far was under an attached XCTest/debugger/USB context, which
+    /// itself kept protected data available regardless of the physical lock
+    /// — an invalid instrument, not a real answer. Removing that whole
+    /// context means the HOST app can no longer just `Task.sleep` across the
+    /// lock window itself, since a plain backgrounded app is liable to be
+    /// suspended the moment the screen locks. A `NEPacketTunnelProvider`
+    /// that has already reported itself connected is exactly the kind of
+    /// long-lived background process iOS keeps running, so the wait moves
+    /// here: the host starts the tunnel (still unlocked), this returns
+    /// success immediately so NetworkExtension has no reason to tear the
+    /// extension down, and the actual Keychain read happens later, from a
+    /// detached Task, after the caller has had time to lock the device for
+    /// real.
+    static let canaryDelaySecondsKey = "com.soyeht.mobile.clawshare.m0bKeychainCanaryDelaySeconds"
+
     /// Returns `.handled(error:)` if this was a smoke-check start — `error` is
     /// nil on success (report success to NetworkExtension so the extension
     /// process isn't torn down as a failed connection before its App Group
@@ -50,7 +67,33 @@ enum M0bSmokeCheck {
         logger: Logger
     ) -> Outcome {
         if let canarySentinel = options?[canarySentinelKey] as? String, canarySentinel == canarySentinelValue {
-            return runKeychainAccessibilityCanary(logger: logger)
+            let rawDelaySeconds = (options?[canaryDelaySecondsKey] as? NSNumber)?.doubleValue ?? 0
+            guard rawDelaySeconds > 0 else {
+                return runKeychainAccessibilityCanary(logger: logger)
+            }
+            // `delaySeconds` comes from a URL query string with no upstream
+            // validation — `.isFinite` rejects NaN/inf (Double("inf") parses
+            // successfully and is `> 0`), and the cap keeps a fat-fingered
+            // huge value from doing anything worse than a long wait. Without
+            // both, `UInt64(delaySeconds * 1e9)` below traps: the non-failable
+            // `UInt64(_:)` initializer aborts the process on out-of-range or
+            // non-finite input, unlike `UInt64(exactly:)`.
+            guard rawDelaySeconds.isFinite else {
+                return .handled(error: M0bSmokeCheckFailed(reason: "canary_delay_seconds_not_finite"))
+            }
+            let delaySeconds = min(rawDelaySeconds, 3600)
+            let waitStartedAt = Date()
+            // Diagnostic checkpoint distinct from the immediate-path result,
+            // so a poll landing mid-wait can tell "extension launched and is
+            // waiting for the lock window" apart from "extension never
+            // launched at all" or "already wrote the real answer."
+            writeCanaryWaitingCheckpoint(delaySeconds: delaySeconds, waitStartedAt: waitStartedAt)
+            logger.info("m0b_keychain_canary_delayed_wait_started")
+            Task.detached {
+                try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+                _ = runKeychainAccessibilityCanary(logger: logger, trigger: "delayed", waitStartedAt: waitStartedAt)
+            }
+            return .handled(error: nil)
         }
 
         guard let sentinel = options?[sentinelKey] as? String, sentinel == sentinelValue else {
@@ -102,8 +145,28 @@ enum M0bSmokeCheck {
     /// Reads both canary items and reports raw `OSStatus` values only — the
     /// test caller compares these against `errSecInteractionNotAllowed`
     /// (-25308) and `errSecSuccess`, so there is nothing here to
-    /// misinterpret as "read worked" when it actually didn't.
-    private static func runKeychainAccessibilityCanary(logger: Logger) -> Outcome {
+    /// misinterpret as "read worked" when it actually didn't. `trigger`
+    /// records which path produced the result — "immediate" (the original,
+    /// XCTest-attached path) vs "delayed" (detached-Task path, meant to run
+    /// with no debugger/USB attached) — but `trigger` alone only says which
+    /// CODE PATH ran, not whether the device was actually locked when it
+    /// ran: a human who unlocks before tapping "Refresh" (the documented
+    /// workflow) can't tell a genuinely-locked read from one that landed
+    /// after unlock just by looking at `trigger`. `waitStartedAt`, when
+    /// given, is carried into the result so that evidence survives instead
+    /// of being overwritten by this function's own `defaults.set` — without
+    /// it, nothing could later prove the delay actually elapsed.
+    /// `instrumentValid` is the same fail-fast signal
+    /// `M0bProvisioningSmokeTests.testKeychainAccessibilityCanaryUnderLock`
+    /// already applies via `protectedFileReadable`: `false` here means what
+    /// invalidated the very first measurement of this canary (protected data
+    /// staying available despite a real physical lock) may be happening
+    /// again, and the OSStatus values below should not be trusted.
+    private static func runKeychainAccessibilityCanary(
+        logger: Logger,
+        trigger: String = "immediate",
+        waitStartedAt: Date? = nil
+    ) -> Outcome {
         guard let accessGroup = try? MeshTunnelKeychainAccessGroup.resolve(from: .main) else {
             return .handled(error: M0bSmokeCheckFailed(reason: "canary_access_group_unresolved"))
         }
@@ -144,18 +207,37 @@ enum M0bSmokeCheck {
         guard let defaults = UserDefaults(suiteName: appGroupSuiteName) else {
             return .handled(error: M0bSmokeCheckFailed(reason: "canary_app_group_unavailable"))
         }
+        let now = Date()
+        var result: [String: Any] = [
+            "whenUnlockedStatus": Int(whenUnlockedStatus),
+            "afterFirstUnlockStatus": Int(afterFirstUnlockStatus),
+            "whenPasscodeSetStatus": Int(whenPasscodeSetStatus),
+            "protectedFileReadable": protectedFileReadable,
+            "instrumentValid": !protectedFileReadable,
+            "trigger": trigger,
+            "done": true,
+            "timestamp": now.timeIntervalSince1970,
+        ]
+        if let waitStartedAt {
+            result["waitStartedAt"] = waitStartedAt.timeIntervalSince1970
+            result["waitElapsedSeconds"] = now.timeIntervalSince(waitStartedAt)
+        }
+        defaults.set(result, forKey: canaryResultDefaultsKey)
+        return .handled(error: nil)
+    }
+
+    private static func writeCanaryWaitingCheckpoint(delaySeconds: Double, waitStartedAt: Date) {
+        guard let defaults = UserDefaults(suiteName: appGroupSuiteName) else { return }
         defaults.set(
             [
-                "whenUnlockedStatus": Int(whenUnlockedStatus),
-                "afterFirstUnlockStatus": Int(afterFirstUnlockStatus),
-                "whenPasscodeSetStatus": Int(whenPasscodeSetStatus),
-                "protectedFileReadable": protectedFileReadable,
-                "done": true,
+                "waiting": true,
+                "delaySeconds": delaySeconds,
+                "waitStartedAt": waitStartedAt.timeIntervalSince1970,
+                "done": false,
                 "timestamp": Date().timeIntervalSince1970,
             ],
             forKey: canaryResultDefaultsKey
         )
-        return .handled(error: nil)
     }
 
     private static func readKeychainValue() -> String? {

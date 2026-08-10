@@ -130,6 +130,17 @@ struct SettingsRootView: View {
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier(AccessibilityID.Settings.mobileClawVPNButton)
                                 }
+                                #if DEBUG
+                                divider
+                                Button { path.append(SettingsRoute.m0bLockCanary) } label: {
+                                    SettingsRow(
+                                        icon: "lock.rotation",
+                                        label: "M0b Lock Canary",
+                                        value: "Dev"
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                #endif
                                 if identity.isActive {
                                     divider
                                     Button { path.append(SettingsRoute.householdApplePushService) } label: {
@@ -217,6 +228,10 @@ struct SettingsRootView: View {
                     MobileClawVPNRendezvousControlPlaneView()
                 case .householdApplePushService:
                     HouseholdApplePushServiceView()
+                #if DEBUG
+                case .m0bLockCanary:
+                    M0bLockCanaryDebugView()
+                #endif
                 }
             }
         }

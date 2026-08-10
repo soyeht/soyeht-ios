@@ -11,4 +11,7 @@ enum SettingsRoute: Hashable {
     case pairedMacs
     case mobileClawVPNControlPlane
     case householdApplePushService
+    #if DEBUG
+    case m0bLockCanary
+    #endif
 }
