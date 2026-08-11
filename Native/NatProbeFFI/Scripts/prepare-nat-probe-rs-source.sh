@@ -3,10 +3,11 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_REPO="https://github.com/soyeht/theyos.git"
-# MERGED PIN: theyos PR #454 landed on main as d8ba4f22f507203835b89fd70a33ffa13e169ac7. Pinned to that
-# merge commit rather than the pre-merge branch tip, which is gone now
-# that the branch merged and isn't guaranteed fetchable from a fresh clone.
-SOURCE_REV="d8ba4f22f507203835b89fd70a33ffa13e169ac7"
+# Pinned to a commit on theyos main, never to a branch tip: a tip is not
+# guaranteed fetchable from a fresh clone once its branch is gone, and a rev
+# that no longer resolves fails the clone below rather than the build, which
+# is a confusing place to discover a stale pin.
+SOURCE_REV="43a517f0d8b527130ca734e4e1727190e96b04f0"
 VENDOR_PARENT="$ROOT/.vendor"
 VENDOR_ROOT="$VENDOR_PARENT/theyos"
 STAMP="$VENDOR_ROOT/.nat-probe-source"
