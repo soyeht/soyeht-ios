@@ -1069,6 +1069,7 @@ dependencies = [
  "percent-encoding",
  "qrcode",
  "rand 0.8.6",
+ "rustix 0.38.44",
  "rustls-pki-types",
  "rustls-webpki",
  "security-framework",
@@ -1083,6 +1084,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "tunnel-wire-rs",
  "ureq",
  "vsss-rs",
  "webauthn-rs",
@@ -1311,10 +1313,17 @@ name = "keystore-rs"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "blake3",
+ "core-foundation 0.9.4",
  "keyring",
+ "libc",
+ "p256",
+ "rand_core 0.6.4",
  "security-framework",
+ "security-framework-sys",
  "thiserror 1.0.69",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]
@@ -2656,6 +2665,18 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "tunnel-wire-rs"
+version = "0.1.0"
+dependencies = [
+ "ciborium",
+ "libc",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

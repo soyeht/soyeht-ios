@@ -32,6 +32,14 @@ public enum BootstrapErrorCode: String, Codable, Equatable, Hashable, Sendable, 
     case invitationNotRecognized = "invitation_not_recognized"
     /// The setup invitation has expired.
     case invitationExpired = "invitation_expired"
+    /// A pair-device reissue is unavailable in the current bootstrap state.
+    case reissueUnavailable = "reissue_unavailable"
+    /// The household identity required for pair-device reissue is unavailable.
+    case identityUnavailable = "identity_unavailable"
+    /// The owner is already paired to the household.
+    case alreadyPaired = "already_paired"
+    /// A pair-device window is already open and must not be replaced.
+    case windowStillOpen = "window_still_open"
     /// Teardown was requested but there is no household to tear down.
     case noHouseholdToTeardown = "no_household_to_teardown"
     /// Internal server error.

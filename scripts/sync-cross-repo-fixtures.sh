@@ -27,7 +27,7 @@ TESTS="${REPO_ROOT}/Packages/SoyehtCore/Tests/SoyehtCoreTests"
 # C4: Claw Store v1 route/wire contract + household docs mirror.
 sync_claw_store_contract() {
     local src_contract="${THEYOS_DIR}/admin/contracts/claw-store/v1/contract.json"
-    local src_household_docs="${THEYOS_DIR}/docs/contracts/claw-store-household-v1.json"
+    local src_household_docs="${THEYOS_DIR}/admin/contracts/claw-store/v1/claw-store-household-v1.json"
     local dest_dir="${TESTS}/Fixtures/claw-store/v1"
     local dest_docs_dir="${REPO_ROOT}/docs/contracts"
 

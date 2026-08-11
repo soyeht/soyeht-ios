@@ -545,7 +545,12 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
             contentsOf: repositoryRoot.appendingPathComponent("scripts/cross-repo-contract.sha"),
             encoding: .utf8
         ).trimmingCharacters(in: .whitespacesAndNewlines)
-        #expect(pin == "87d524bb521352ecde03e098fe452fb902472e61")
+        // Re-freezing this literal is the ritual this assertion exists to force:
+        // the pin may only move once owner_present_success_wire_v1.json has been
+        // shown byte-identical between the vendored copy and the source at the
+        // new pin, so the slice's historical evidence is provably unchanged and
+        // only the pin moved.
+        #expect(pin == "43a517f0d8b527130ca734e4e1727190e96b04f0")
     }
 }
 

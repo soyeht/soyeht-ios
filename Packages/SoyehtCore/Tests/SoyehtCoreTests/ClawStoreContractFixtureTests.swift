@@ -205,6 +205,10 @@ struct ClawStoreContractFixtureTests {
             // C4.2b-2 terminal PTY WebSocket upgrades (kind: websocket_upgrade;
             // produced by client request-builders, not HTTP-captured responses).
             "admin_terminal_pty", "household_terminal_pty",
+            // Owner-site pre-effect + AKE (household namespace only). Both carry
+            // peer_guard and their own auth kinds (owner_site_pre_effect,
+            // owner_site_ake); the AKE route is a websocket_upgrade.
+            "household_owner_site_preflight", "household_owner_site_ake",
         ]
         #expect(Set(contract.routes.map(\.id)) == expectedRouteIDs)
     }
