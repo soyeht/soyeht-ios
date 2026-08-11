@@ -17,13 +17,15 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
+    # The pipeline body lives in scripts/ci/test-ios (the canonical command,
+    # also run by `soyeht check test-ios` and by developers locally). Each step
+    # below invokes exactly one phase so the GitHub UI keeps per-step timing
+    # and logs. `scripts/ci/test-ios --list` prints the phase order.
+    - name: Toolchain versions
+      run: scripts/ci/test-ios env
+
     - name: Verify frozen owner-site A2-R1 corpus integrity
-      run: |
-        bash -n \
-          scripts/check-owner-site-a2-r1-corpus-fixture.sh \
-          scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
-        scripts/check-owner-site-a2-r1-corpus-fixture.sh
-        scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
+      run: scripts/ci/test-ios corpus-integrity
 
 #    - name: Checkout esctest for testing
 #      uses: actions/checkout@v5
@@ -36,72 +38,28 @@ jobs:
       run: ls -lR
 
     - name: Mobile Claw VPN DEV E2E tooling tests
-      run: |
-        bash -n \
-          scripts/mobile-claw-vpn-dev-e2e-env.sh \
-          scripts/mobile-claw-vpn-dev-e2e-preflight.sh \
-          scripts/mobile-claw-vpn-dev-e2e-runner.sh \
-          scripts/mobile-claw-vpn-dev-e2e-owner-request.sh \
-          scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh \
-          scripts/test-mobile-claw-vpn-dev-e2e-runner.sh \
-          scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh \
-          scripts/test-mobile-claw-vpn-dev-local-presence.sh
-        python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("scripts/mobile-claw-vpn-dev-e2e-owner-request.py").read_text())'
-        scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh
-        scripts/test-mobile-claw-vpn-dev-e2e-runner.sh
-        scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh
-        scripts/test-mobile-claw-vpn-dev-local-presence.sh
+      run: scripts/ci/test-ios vpn-e2e-tooling
 
     - name: Install Rust toolchain
-      run: |
-        if ! command -v rustup >/dev/null 2>&1; then
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.cargo/bin:$PATH"
-        fi
-        rustup toolchain install stable --profile minimal
-        rustup default stable
+      run: scripts/ci/test-ios rust-toolchain
 
     - name: Build RelayStreamGuestFFI XCFramework
-      env:
-        RELAY_STREAM_GUEST_FFI_PROFILE: release
-      run: scripts/bootstrap-relay-stream-guest-ffi.sh
+      run: scripts/ci/test-ios ffi-relay-stream
 
     - name: Build NatProbeFFI XCFramework
-      env:
-        NAT_PROBE_FFI_PROFILE: release
-      run: scripts/bootstrap-nat-probe-ffi.sh
+      run: scripts/ci/test-ios ffi-nat-probe
 
     - name: Xcode Mac Build
-      run: |
-        xcodebuild \
-          -project TerminalApp/SoyehtMac.xcodeproj \
-          -scheme SoyehtMac \
-          -skipPackagePluginValidation \
-          -destination "platform=macOS,arch=$(uname -m)"
+      run: scripts/ci/test-ios mac-build
 
     - name: Soyeht iOS Unit Tests
-      run: |
-        SIM_ARCH="$(uname -m)"
-        xcodebuild test \
-          -project TerminalApp/Soyeht.xcodeproj \
-          -scheme Soyeht \
-          -skipPackagePluginValidation \
-          -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
-          CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+      run: scripts/ci/test-ios ios-tests
 
     - name: Swift Package Build
-      run: swift build
+      run: scripts/ci/test-ios swift-build
 
     - name: Run tests
-      env:
-        SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
-      run: swift test
+      run: scripts/ci/test-ios swift-test
 
     - name: Coverage
-      env:
-        SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
-      run: |
-        swift test --enable-code-coverage
-        BINDIR=$(swift build --show-bin-path)
-        xcrun llvm-cov report "$BINDIR/SwiftTermPackageTests.xctest/Contents/MacOS/SwiftTermPackageTests" --instr-profile=.build/debug/codecov/default.profdata -use-color
+      run: scripts/ci/test-ios coverage
