@@ -9,7 +9,7 @@ BUILT_AT="${NAT_PROBE_FFI_BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 FRAMEWORK="$ROOT/NatProbeFFI.xcframework"
 CRATE="$ROOT"
 LIB_NAME="libnat_probe_ffi.a"
-SOURCE_REV="d8ba4f22f507203835b89fd70a33ffa13e169ac7"
+SOURCE_REV="43a517f0d8b527130ca734e4e1727190e96b04f0"
 
 "$ROOT/Scripts/prepare-nat-probe-rs-source.sh"
 
@@ -134,7 +134,7 @@ cat > "$FRAMEWORK/buildinfo.json" <<JSON
 {
   "source_repo": "https://github.com/soyeht/theyos",
   "source_rev": "$SOURCE_REV",
-  "source_note": "merged: theyos PR #454 landed on main as d8ba4f22f507203835b89fd70a33ffa13e169ac7",
+  "source_note": "pinned to a commit on theyos main; see source_rev",
   "ffi_source_repo": "$FFI_SOURCE_REPO",
   "ffi_source_rev": "$FFI_SOURCE_REV",
   "built_at": "$BUILT_AT",

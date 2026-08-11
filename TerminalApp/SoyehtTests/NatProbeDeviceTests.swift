@@ -4,7 +4,7 @@ import Network
 import XCTest
 
 /// M0a — NAT mapping probe run from a physical device. Plain UDP socket via
-/// `nat-probe-rs` (theyos PR #454): no Network Extension entitlement, no VPN
+/// the vendored `nat-probe-rs`: no Network Extension entitlement, no VPN
 /// configuration, so unlike M0b this needs no interactive system prompt.
 final class NatProbeDeviceTests: XCTestCase {
     /// Simulator-safe, never skipped: proves the FFI binding actually links
@@ -30,10 +30,11 @@ final class NatProbeDeviceTests: XCTestCase {
             throw XCTSkip("Could not resolve a concrete network type; not recording an ambiguous sample.")
         }
 
-        // gloria (theyos): an all-empty NAT sample (v4 AND v6, even DNS-over-UDP
-        // to a public literal) isn't NAT telemetry, it's "no data path yet" —
-        // most likely the interface hadn't actually attached right after a
-        // network toggle. Gate on a real TCP connection first so we never record
+        // Engine-side review of this probe: an all-empty NAT sample (v4 AND
+        // v6, even DNS-over-UDP to a public literal) isn't NAT telemetry, it's
+        // "no data path yet" — most likely the interface hadn't actually
+        // attached right after a network toggle. Gate on a real TCP
+        // connection first so we never record
         // a misleading empty row again; skip cleanly instead of guessing.
         let tcpReachable = try tcpReachability(host: "apple.com", port: 443, timeout: 10)
         print(
