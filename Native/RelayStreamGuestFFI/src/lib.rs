@@ -26,7 +26,7 @@ use household_rs::claw_share::GuestCredential;
 use household_rs::claw_share_data_tunnel::{
     AuthEnvelope, DataTunnelError, HEALTH_PROBE, MAX_FRAME_LEN, NetworkSettings, SessionAuthToken,
     TargetExit, TunnelAck, TunnelFrame, client_authenticate, client_health, client_open_stream,
-    client_resize, recv_frame, send_frame,
+    client_resize, decode_network_settings_body, recv_frame, send_frame,
 };
 use household_rs::claw_share_relay_stream_contract::{
     RelayStreamAudience, RelayStreamExpectedPath, RelayStreamOfferContract, RelayStreamResource,
@@ -455,22 +455,33 @@ pub async fn relay_stream_connect(
 /// Connect and negotiate `OpenPersistent` (0x18) for the first target instead
 /// of the legacy single-shot `Open` (0x10).
 ///
-/// **Provenance / honesty note.** `OpenPersistent` is NOT part of the vendored
-/// `household_rs::claw_share_data_tunnel::TunnelFrame` enum this crate pins
-/// (`.vendor` snapshot at rev `c81144ba9ac98c0b19912c51765886b227ba30f5`, whose
-/// `TunnelFrame::decode` is exhaustive with no `_` arm — it cannot represent
-/// 0x18 without editing that vendored crate, which is out of scope here). The
-/// opcode, its bare/no-payload framing, and the "ack is always the legacy
-/// `TunnelFrame::Open`" contract are reproduced here to match the real server
-/// implementation committed at theyos `07f11942e0bb17814d0283c83b6930da780c30c1`
-/// ("feat(share): reuse authenticated ClawSite tunnel sessions",
-/// `admin/rust/household-rs/src/claw_share_data_tunnel.rs`, branch
-/// `share/relay-e2e`, parent `86018f16`, 2026-08-03T23:11:53-03:00) — verified
-/// directly (`git show`) against that SHA, not taken on trust. That branch is
-/// not yet merged to `main` and this crate's `.vendor` pin is NOT being moved
-/// to it (still `c81144ba9a...`, pre-dating `OpenPersistent` entirely) — this
-/// note exists so the wire contract can be re-diffed against the landed form
-/// before trusting it again. Authorization for `OpenPersistent` is entirely a
+/// **Provenance note.** `OpenPersistent` IS part of the vendored wire enum. The
+/// enum lives in the `tunnel-wire-rs` crate and is re-exported unchanged
+/// (`household_rs::claw_share_data_tunnel` does `pub use
+/// tunnel_wire_rs::tunnel_wire::{TunnelFrame, WireError}`), where
+/// `FRAME_OPEN_PERSISTENT = 0x18` encodes as a bare opcode with no payload.
+/// `.vendor` snapshot at rev `43a517f0d8b527130ca734e4e1727190e96b04f0`.
+///
+/// An earlier revision of this note recorded that 0x18 was absent from the then
+/// pinned enum, that the opcode, its bare framing and the "ack is always the
+/// legacy `TunnelFrame::Open`" contract had been hand-reproduced, and asked for
+/// a re-diff against the landed form before trusting it again. **That re-diff
+/// was done against this pin, and all three hold**: the opcode is 0x18, the
+/// frame is bare, and the server's ack is the legacy `TunnelFrame::Open`,
+/// emitted as the explicit stream-ready ack after negotiation succeeds.
+///
+/// Three server behaviours are NOT described by that reproduction. The server
+/// rejects with `TunnelFrame::Error` carrying `persistent-target-not-authorized`
+/// when the credential does not allow persistent targets, and
+/// `session-open-budget-exhausted` once a session exceeds
+/// `PERSISTENT_MAX_TARGET_OPENS` (128); and a legacy `Open` sent after
+/// persistent mode is negotiated is refused outright. This client routes any
+/// typed `TunnelFrame::Error` through [`client_open_persistent_stream`], so all
+/// three surface rather than hang — but they surface as `AuthRejected`, which
+/// reads oddly for a budget that is not an authorization failure. Worth a typed
+/// variant if callers ever need to tell them apart.
+///
+/// Authorization for `OpenPersistent` is entirely a
 /// property of the ONE initial signed `request`/`signature` (server derives
 /// `allows_persistent_targets` from the offer's resource == `ClawSite`, once,
 /// at connect time) — there is deliberately no per-target request/signature
@@ -1123,17 +1134,19 @@ where
 
 /// `OpenPersistent` (0x18): open one target stream inside an already
 /// Noise-authenticated connection, without ending it when that target
-/// closes. NOT part of the vendored `TunnelFrame` enum this crate pins — see
-/// [`relay_stream_connect_persistent`] for why, and for the exact reference
-/// this byte layout was verified against. Framed with a bare opcode byte and
-/// no payload, exactly like the vendored `TunnelFrame::Open`/`Close`.
+/// closes. It IS part of the vendored `TunnelFrame` enum at the pinned rev,
+/// which encodes and decodes it; this constant spells the opcode out for the
+/// local raw writer below and for the tests that assert exact bytes. Framed
+/// with a bare opcode byte and no payload, like `TunnelFrame::Open`/`Close`.
 const OPEN_PERSISTENT_FRAME: u8 = 0x18;
 
 /// Byte-identical envelope to `household_rs::claw_share_data_tunnel`'s
 /// private `write_frame`: a `u32` big-endian length prefix followed by the
-/// payload, capped at [`MAX_FRAME_LEN`]. Needed locally because that
-/// function is `pub(crate)` to the vendored crate and cannot frame an opcode
-/// its own `TunnelFrame::encode` does not know about.
+/// payload, capped at [`MAX_FRAME_LEN`].
+///
+/// It mirrors that private envelope and stands as an equivalent local path,
+/// pinned as equivalent by the tests below. Collapsing onto the vendored
+/// public API is a separate change — see [`client_open_persistent_stream`].
 async fn write_raw_frame<W>(w: &mut W, payload: &[u8]) -> Result<(), RelayStreamGuestError>
 where
     W: AsyncWrite + Unpin,
@@ -1165,11 +1178,15 @@ where
     write_raw_frame(w, &[OPEN_PERSISTENT_FRAME]).await
 }
 
-/// Send `OpenPersistent` and await its ack. The ack is decodable through the
-/// VENDORED `recv_frame`/`TunnelFrame::decode` unchanged: the server always
-/// answers with the pre-existing `TunnelFrame::Open` (0x10), or a typed
-/// `TunnelFrame::Error` — both already-known variants. Only the outbound
-/// 0x18 request needed a local raw writer.
+/// Send `OpenPersistent` and await its ack: the server answers with
+/// `TunnelFrame::Open` (0x10) or a typed `TunnelFrame::Error`.
+///
+/// The vendored crate now offers its own `client_open_persistent_stream`, and
+/// `TunnelFrame::OpenPersistent` encodes to the same bytes this writes, so
+/// neither direction requires a local raw path any more. This one is kept
+/// because it emits the identical frame and the tests below pin that
+/// equivalence; collapsing onto the vendored helper is a separate change with
+/// its own diff, not a rider on the pin move.
 async fn client_open_persistent_stream<S>(stream: &mut S) -> Result<(), RelayStreamGuestError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -1203,6 +1220,21 @@ where
             "expected post-open network settings".to_string(),
         ));
     };
+    // The frame carries an OPAQUE body, not a decoded struct, so decoding is a
+    // step this guest performs rather than something the wire type guarantees.
+    //
+    // ORDER IS LOAD-BEARING: strict decode runs BEFORE any validation. It is the
+    // only place a malformed body is rejected — every check in
+    // `validate_ip_tunnel_network_settings` reads already-typed fields and so
+    // cannot see a body that never parsed. Decoding later, or leniently, would
+    // let a peer-supplied body reach the validators in a shape they do not
+    // model.
+    //
+    // Propagated, not re-worded: the decoder already collapses every parse
+    // failure to a fixed `InvalidFrame("bad network_settings frame")` that
+    // carries none of the peer's bytes, so forwarding it keeps the upstream
+    // classification instead of flattening it into a local string.
+    let settings = decode_network_settings_body(&settings)?;
     validate_ip_tunnel_network_settings(settings, auth_mtu, auth_session_id)
 }
 
@@ -1344,6 +1376,17 @@ where
         TunnelFrame::Exit(TargetExit::Lost) => RelayStreamGuestFrame::ExitLost,
         TunnelFrame::NetworkSettings(_) => {
             RelayStreamGuestFrame::Error("unexpected network settings frame".to_string())
+        }
+        // `OpenPersistent` is a REQUEST this client sends; it is never something
+        // a well-behaved peer sends back. Reaching this arm means the far side
+        // emitted a client-role frame on the guest's read path, so it is
+        // reported as an error rather than mapped onto `Open` — treating it as
+        // an ack would let a peer satisfy an open handshake with the wrong
+        // frame. Refused explicitly, matching the `Resize` precedent above,
+        // rather than via a `_` arm, so a future variant still forces a
+        // decision here instead of silently landing in a catch-all.
+        TunnelFrame::OpenPersistent => {
+            RelayStreamGuestFrame::Error("unexpected open-persistent frame".to_string())
         }
     })
 }
@@ -1565,7 +1608,8 @@ mod tests {
     use household_rs::claw_share::{ClawShareSlotStore, SlotId, SlotRecord, SlotState};
     use household_rs::claw_share_data_tunnel::{
         ClawTargetRouter, DataTunnelSession, MeshIpv4, ReplayGuard, TargetSession,
-        authorize_session, serve_connection_io, serve_connection_io_with_auth_deadline,
+        authorize_session, encode_network_settings_body, serve_connection_io,
+        serve_connection_io_with_auth_deadline,
     };
     use household_rs::claw_share_relay_stream_contract::{
         RelayStreamOfferContract, RelayStreamOfferMintInput, RelayStreamResource,
@@ -1630,6 +1674,7 @@ mod tests {
                     expected_path: RelayStreamExpectedPath::RelayStream,
                     relay_endpoint,
                     claw_static_pub: noise_keypair.public_key().clone(),
+                    app_presentation: None,
                     not_after: NOT_AFTER,
                     now_unix: NOW,
                 },
@@ -1678,6 +1723,12 @@ mod tests {
                         guest_device_pub: self.credential.guest_device_pub.clone(),
                         consumed_at: NOW,
                     },
+                    // Both `None`: this fixture exercises the tunnel, not the
+                    // owner-facing presentation, and `created_at` is documented
+                    // upstream as never synthesized — an invented mint time
+                    // would be indistinguishable from an observed one.
+                    app_presentation: None,
+                    created_at: None,
                 })
                 .expect("slot insert");
             Arc::new(store)
@@ -2159,23 +2210,30 @@ mod tests {
 
     // ─── OpenPersistent (0x18) ──────────────────────────────────────────────
     //
-    // 0x18 is NOT in this crate's vendored `TunnelFrame` (pinned at rev
-    // c81144ba9ac98c0b19912c51765886b227ba30f5, whose `decode` is exhaustive
-    // with no `_` arm), so `serve_connection_io` above cannot serve it. These
-    // tests exercise the client against a hand-rolled LOCAL DOUBLE
-    // (`serve_persistent_double`) that reproduces only the wire shape read
-    // directly out of the real server implementation committed at theyos
-    // `07f11942e0bb17814d0283c83b6930da780c30c1` ("feat(share): reuse
-    // authenticated ClawSite tunnel sessions", branch `share/relay-e2e`, not
-    // yet merged to `main`). This is NOT a claim that the real engine (at
-    // that commit or any other) has been exercised — the double is a
-    // local-only stand-in, and this crate's own `.vendor` pin is unchanged.
+    // 0x18 IS in this crate's vendored `TunnelFrame` as of rev
+    // 43a517f0d8b527130ca734e4e1727190e96b04f0 (re-exported from
+    // `tunnel-wire-rs`), but `serve_connection_io` above still does not serve
+    // it, so these tests keep exercising the client against a hand-rolled
+    // LOCAL DOUBLE (`serve_persistent_double`).
+    //
+    // The double's wire shape was re-diffed against the landed form: bare 0x18
+    // request, legacy `TunnelFrame::Open` as the stream-ready ack, and the
+    // `session-open-budget-exhausted` rejection string, all confirmed present
+    // in the landed server. The budget rejection IS modelled below. Two landed
+    // paths are NOT: `persistent-target-not-authorized`, and the
+    // post-negotiation ban on a legacy `Open`.
+    //
+    // This remains NOT a claim that the real engine has been exercised: the
+    // double is a local-only stand-in. Serving 0x18 from `serve_connection_io`
+    // against the vendored enum is now possible and would make these tests
+    // real; it is deliberately left as a separate change.
 
     /// Read one raw length-prefixed frame (`u32` BE length + payload),
     /// mirroring the private wire envelope in
-    /// `household_rs::claw_share_data_tunnel`. Test-only: production client
-    /// code never needs to read an opcode the vendored `TunnelFrame::decode`
-    /// cannot represent — every ack it waits for is a pre-existing variant.
+    /// `household_rs::claw_share_data_tunnel`. Test-only: it lets the double
+    /// assert the exact bytes on the wire. Production client code reads acks
+    /// through the vendored `recv_frame`, which decodes `OpenPersistent`
+    /// (0x18); this raw reader exists so the double can inspect exact bytes.
     async fn read_raw_frame<R>(r: &mut R) -> Vec<u8>
     where
         R: AsyncReadExt + Unpin,
@@ -2451,8 +2509,10 @@ mod tests {
         let responder = tokio::spawn(async move {
             let open = read_raw_frame(&mut server_read).await;
             assert_eq!(open, vec![OPEN_PERSISTENT_FRAME]);
-            // Exact rejection string from the real server contract at
-            // 07f11942e0bb17814d0283c83b6930da780c30c1 — see
+            // Exact rejection string from the landed server contract at
+            // 43a517f0d8b527130ca734e4e1727190e96b04f0
+            // (`claw_share_data_tunnel.rs`, emitted once a session exceeds
+            // `PERSISTENT_MAX_TARGET_OPENS`) — see
             // relay_stream_connect_persistent's provenance note.
             send_frame(
                 &mut server_write,
@@ -2771,7 +2831,7 @@ mod tests {
         let server_task = tokio::spawn(async move {
             send_frame(
                 &mut server,
-                &TunnelFrame::NetworkSettings(NetworkSettings {
+                &TunnelFrame::NetworkSettings(encode_network_settings_body(&NetworkSettings {
                     mesh_ipv4: MeshIpv4 {
                         addr: "192.0.2.2".to_string(),
                         prefix_len: 24,
@@ -2779,7 +2839,7 @@ mod tests {
                     },
                     mtu: 1280,
                     session_id: "session-alpha".to_string(),
-                }),
+                })),
             )
             .await
             .expect("send settings");
@@ -2853,7 +2913,7 @@ mod tests {
         let server_task = tokio::spawn(async move {
             send_frame(
                 &mut server,
-                &TunnelFrame::NetworkSettings(NetworkSettings {
+                &TunnelFrame::NetworkSettings(encode_network_settings_body(&NetworkSettings {
                     mesh_ipv4: MeshIpv4 {
                         addr: "192.0.2.2".to_string(),
                         prefix_len: 24,
@@ -2861,7 +2921,7 @@ mod tests {
                     },
                     mtu: 1280,
                     session_id: "session-alpha".to_string(),
-                }),
+                })),
             )
             .await
             .expect("send late settings");
@@ -2879,6 +2939,103 @@ mod tests {
         // And the refusal must not echo the address or the session id.
         assert!(!record.text.contains("192.0.2.2"));
         assert!(!record.text.contains("session-alpha"));
+        server_task.await.expect("server task");
+    }
+
+    /// `FRAME_NETWORK_SETTINGS`. Declared locally, like `OPEN_PERSISTENT_FRAME`
+    /// above, because the opcode is what a peer actually puts on the wire and
+    /// this test has to write one the framing layer will accept.
+    const NETWORK_SETTINGS_FRAME: u8 = 0x17;
+
+    /// THE DECODE IS THE REJECTION BOUNDARY, AND IT MUST CLOSE.
+    ///
+    /// The settings frame carries an OPAQUE body: the framing layer wraps
+    /// whatever bytes arrive without looking at them, so a peer can put
+    /// arbitrary garbage inside a structurally valid frame. Nothing in
+    /// `validate_ip_tunnel_network_settings` can catch that — every check there
+    /// reads already-typed fields, so a body that never parsed cannot even
+    /// reach them in a shape they model.
+    ///
+    /// This drives the real wire path (raw opcode + garbage payload, decoded by
+    /// the production `recv_frame`) rather than hand-building a body, because
+    /// the body type's constructor is crate-private upstream — and because the
+    /// wire is where a hostile body actually comes from.
+    ///
+    /// The assertion is deliberately two-sided: the failure must be the DECODE
+    /// error, and must NOT be any of the validator's messages. A test that only
+    /// asserted "some error" would still pass if the decode were moved after
+    /// validation, which is precisely the regression this guards.
+    #[tokio::test]
+    async fn malformed_network_settings_body_is_refused_by_the_strict_decode() {
+        let (mut client, mut server) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move {
+            let mut framed = vec![NETWORK_SETTINGS_FRAME];
+            framed.extend_from_slice(b"not-canonical-cbor");
+            write_raw_frame(&mut server, &framed)
+                .await
+                .expect("send malformed settings");
+        });
+
+        let error = receive_ip_tunnel_network_settings(
+            &mut client,
+            1280,
+            "session-alpha_1",
+            Duration::from_secs(2),
+        )
+        .await
+        .expect_err("a malformed settings body must be refused");
+
+        let RelayStreamGuestError::DataTunnel(message) = error else {
+            panic!("expected a DataTunnel error, got {error:?}");
+        };
+        assert!(
+            message.contains("bad network_settings frame"),
+            "expected the strict decoder's refusal, got {message:?}"
+        );
+        // Fail-closed AT THE DECODE: none of these validator messages may
+        // appear, because the validator must never have been reached.
+        for validator_message in [
+            "post-open settings do not match authenticated session",
+            "network settings address invalid",
+            "network settings peer invalid",
+            "network settings prefix invalid",
+        ] {
+            assert!(
+                !message.contains(validator_message),
+                "a malformed body reached the validator: {message:?}"
+            );
+        }
+        server_task.await.expect("server task");
+    }
+
+    /// `OpenPersistent` is a frame this client SENDS. Receiving one means the
+    /// peer emitted a client-role frame on the guest's read path.
+    ///
+    /// The dangerous mapping would be onto `Open`: the open handshake treats a
+    /// bare `Open` as its ack, so translating `OpenPersistent` into `Open`
+    /// would let a peer satisfy an open with a frame that is not the ack. It is
+    /// surfaced as a typed error instead, and this pins that it is neither an
+    /// `Open` nor silently carried as `Data`.
+    #[tokio::test]
+    async fn unexpected_open_persistent_frame_is_surfaced_as_an_error() {
+        let (mut client, mut server) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move {
+            send_frame(&mut server, &TunnelFrame::OpenPersistent)
+                .await
+                .expect("send open-persistent");
+        });
+
+        let frame = recv_guest_frame(&mut client).await.expect("decode");
+        let record = RelayStreamGuestFrameRecord::from(frame);
+        assert_eq!(record.kind, RelayStreamGuestFrameKind::Error);
+        assert_eq!(record.text, "unexpected open-persistent frame");
+        assert_ne!(
+            record.kind,
+            RelayStreamGuestFrameKind::Open,
+            "a client-role frame must never be accepted as the open ack"
+        );
+        assert_ne!(record.kind, RelayStreamGuestFrameKind::Data);
+        assert!(record.data.is_empty());
         server_task.await.expect("server task");
     }
 

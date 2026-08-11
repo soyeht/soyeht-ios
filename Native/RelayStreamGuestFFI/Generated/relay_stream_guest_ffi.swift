@@ -1801,22 +1801,33 @@ public func relayStreamConnect(offerCbor: Data, expectedOwnerPub: Data, expected
  * Connect and negotiate `OpenPersistent` (0x18) for the first target instead
  * of the legacy single-shot `Open` (0x10).
  *
- * **Provenance / honesty note.** `OpenPersistent` is NOT part of the vendored
- * `household_rs::claw_share_data_tunnel::TunnelFrame` enum this crate pins
- * (`.vendor` snapshot at rev `c81144ba9ac98c0b19912c51765886b227ba30f5`, whose
- * `TunnelFrame::decode` is exhaustive with no `_` arm — it cannot represent
- * 0x18 without editing that vendored crate, which is out of scope here). The
- * opcode, its bare/no-payload framing, and the "ack is always the legacy
- * `TunnelFrame::Open`" contract are reproduced here to match the real server
- * implementation committed at theyos `07f11942e0bb17814d0283c83b6930da780c30c1`
- * ("feat(share): reuse authenticated ClawSite tunnel sessions",
- * `admin/rust/household-rs/src/claw_share_data_tunnel.rs`, branch
- * `share/relay-e2e`, parent `86018f16`, 2026-08-03T23:11:53-03:00) — verified
- * directly (`git show`) against that SHA, not taken on trust. That branch is
- * not yet merged to `main` and this crate's `.vendor` pin is NOT being moved
- * to it (still `c81144ba9a...`, pre-dating `OpenPersistent` entirely) — this
- * note exists so the wire contract can be re-diffed against the landed form
- * before trusting it again. Authorization for `OpenPersistent` is entirely a
+ * **Provenance note.** `OpenPersistent` IS part of the vendored wire enum. The
+ * enum lives in the `tunnel-wire-rs` crate and is re-exported unchanged
+ * (`household_rs::claw_share_data_tunnel` does `pub use
+ * tunnel_wire_rs::tunnel_wire::{TunnelFrame, WireError}`), where
+ * `FRAME_OPEN_PERSISTENT = 0x18` encodes as a bare opcode with no payload.
+ * `.vendor` snapshot at rev `43a517f0d8b527130ca734e4e1727190e96b04f0`.
+ *
+ * An earlier revision of this note recorded that 0x18 was absent from the then
+ * pinned enum, that the opcode, its bare framing and the "ack is always the
+ * legacy `TunnelFrame::Open`" contract had been hand-reproduced, and asked for
+ * a re-diff against the landed form before trusting it again. **That re-diff
+ * was done against this pin, and all three hold**: the opcode is 0x18, the
+ * frame is bare, and the server's ack is the legacy `TunnelFrame::Open`,
+ * emitted as the explicit stream-ready ack after negotiation succeeds.
+ *
+ * Three server behaviours are NOT described by that reproduction. The server
+ * rejects with `TunnelFrame::Error` carrying `persistent-target-not-authorized`
+ * when the credential does not allow persistent targets, and
+ * `session-open-budget-exhausted` once a session exceeds
+ * `PERSISTENT_MAX_TARGET_OPENS` (128); and a legacy `Open` sent after
+ * persistent mode is negotiated is refused outright. This client routes any
+ * typed `TunnelFrame::Error` through [`client_open_persistent_stream`], so all
+ * three surface rather than hang — but they surface as `AuthRejected`, which
+ * reads oddly for a budget that is not an authorization failure. Worth a typed
+ * variant if callers ever need to tell them apart.
+ *
+ * Authorization for `OpenPersistent` is entirely a
  * property of the ONE initial signed `request`/`signature` (server derives
  * `allows_persistent_targets` from the offer's resource == `ClawSite`, once,
  * at connect time) — there is deliberately no per-target request/signature
@@ -1877,7 +1888,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_connect() != 8906) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_connect_persistent() != 1535) {
+    if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_connect_persistent() != 32751) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_relay_stream_guest_ffi_checksum_func_relay_stream_encode_auth_envelope() != 28683) {
