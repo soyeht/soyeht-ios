@@ -84,7 +84,7 @@ expect_guard_failure "${root}" path_ref_drift "A2-R1 corpus pin differs from the
 
 root="$(make_ios_root expected-hash-drift)"
 printf '%s\n' \
-  'theyos_commit=b201a075884eb1ac77f2b0f6904c38866bbafb5b' \
+  'theyos_commit=43a517f0d8b527130ca734e4e1727190e96b04f0' \
   'source_path=admin/contracts/mobile-claw-vpn/v1/owner_site_a2_r1_semantic_corpus_v1.json' \
   'sha256=0000000000000000000000000000000000000000000000000000000000000000' \
   > "${root}/${PIN_REL}"

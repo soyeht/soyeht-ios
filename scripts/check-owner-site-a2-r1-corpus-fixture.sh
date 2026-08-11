@@ -13,7 +13,7 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 
 PIN_REL="scripts/owner-site-a2-r1-corpus.pin"
 VENDORED_REL="Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_site_a2_r1_semantic_corpus_v1.json"
-EXPECTED_COMMIT="b201a075884eb1ac77f2b0f6904c38866bbafb5b"
+EXPECTED_COMMIT="43a517f0d8b527130ca734e4e1727190e96b04f0"
 EXPECTED_SOURCE_PATH="admin/contracts/mobile-claw-vpn/v1/owner_site_a2_r1_semantic_corpus_v1.json"
 EXPECTED_SHA256="dde67030a035928d0a859a19fc7dcf14ea8e8fa54643e9f66302652740548330"
 

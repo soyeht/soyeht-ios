@@ -1,7 +1,9 @@
 Soyeht
 ======
 
-Soyeht is an iOS terminal client for [theyOS](https://soyeht.com) servers. It lets you manage remote AI coding agents (Claude Code, Codex, OpenCode) and containerized instances directly from your iPhone.
+The Apple (macOS/iOS) client for Soyeht, the agent-orchestrator OS. Early beta, under active development.
+
+It lets you manage remote AI coding agents (Claude Code, Codex, OpenCode) and containerized instances directly from your iPhone.
 
 Built on top of [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), a production-grade VT100/Xterm terminal emulator used in apps like Secure Shellfish, La Terminal, and CodeEdit.
 

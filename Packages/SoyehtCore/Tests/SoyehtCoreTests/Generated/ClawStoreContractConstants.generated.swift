@@ -37,6 +37,8 @@ enum ClawStoreContractConstants {
         static let householdListClaws = "household_list_claws"
         static let householdListInstances = "household_list_instances"
         static let householdListWorkspaces = "household_list_workspaces"
+        static let householdOwnerSiteAke = "household_owner_site_ake"
+        static let householdOwnerSitePreflight = "household_owner_site_preflight"
         static let householdRebuildInstance = "household_rebuild_instance"
         static let householdRenameWorkspace = "household_rename_workspace"
         static let householdRestartInstance = "household_restart_instance"
@@ -49,7 +51,7 @@ enum ClawStoreContractConstants {
         static let mobileInstanceStatus = "mobile_instance_status"
         static let mobileListClaws = "mobile_list_claws"
         static let mobileUninstallClaw = "mobile_uninstall_claw"
-        static let all: [String] = [Self.adminClawAvailability, Self.adminCreateInstance, Self.adminCreateWorkspace, Self.adminDeleteInstance, Self.adminDeleteWorkspace, Self.adminGetClaw, Self.adminInstallClaw, Self.adminInstanceStatus, Self.adminListClaws, Self.adminListWorkspaces, Self.adminRebuildInstance, Self.adminRenameWorkspace, Self.adminResourceOptions, Self.adminRestartInstance, Self.adminStopInstance, Self.adminTerminalPty, Self.adminUninstallClaw, Self.adminUsers, Self.householdAttachToken, Self.householdClawAvailability, Self.householdCreateInstance, Self.householdCreateWorkspace, Self.householdDeleteInstance, Self.householdDeleteWorkspace, Self.householdInstallClaw, Self.householdInstanceStatus, Self.householdListClaws, Self.householdListInstances, Self.householdListWorkspaces, Self.householdRebuildInstance, Self.householdRenameWorkspace, Self.householdRestartInstance, Self.householdStopInstance, Self.householdTerminalPty, Self.householdUninstallClaw, Self.mobileClawAvailability, Self.mobileCreateInstance, Self.mobileInstallClaw, Self.mobileInstanceStatus, Self.mobileListClaws, Self.mobileUninstallClaw]
+        static let all: [String] = [Self.adminClawAvailability, Self.adminCreateInstance, Self.adminCreateWorkspace, Self.adminDeleteInstance, Self.adminDeleteWorkspace, Self.adminGetClaw, Self.adminInstallClaw, Self.adminInstanceStatus, Self.adminListClaws, Self.adminListWorkspaces, Self.adminRebuildInstance, Self.adminRenameWorkspace, Self.adminResourceOptions, Self.adminRestartInstance, Self.adminStopInstance, Self.adminTerminalPty, Self.adminUninstallClaw, Self.adminUsers, Self.householdAttachToken, Self.householdClawAvailability, Self.householdCreateInstance, Self.householdCreateWorkspace, Self.householdDeleteInstance, Self.householdDeleteWorkspace, Self.householdInstallClaw, Self.householdInstanceStatus, Self.householdListClaws, Self.householdListInstances, Self.householdListWorkspaces, Self.householdOwnerSiteAke, Self.householdOwnerSitePreflight, Self.householdRebuildInstance, Self.householdRenameWorkspace, Self.householdRestartInstance, Self.householdStopInstance, Self.householdTerminalPty, Self.householdUninstallClaw, Self.mobileClawAvailability, Self.mobileCreateInstance, Self.mobileInstallClaw, Self.mobileInstanceStatus, Self.mobileListClaws, Self.mobileUninstallClaw]
     }
 
     /// Distinct auth kinds across the contract routes.
@@ -60,7 +62,9 @@ enum ClawStoreContractConstants {
         static let householdPop = "household_pop"
         static let mobileBearer = "mobile_bearer"
         static let mobileBearerAdmin = "mobile_bearer_admin"
-        static let all: [String] = [Self.adminSession, Self.adminStreamAuth, Self.householdAttachToken, Self.householdPop, Self.mobileBearer, Self.mobileBearerAdmin]
+        static let ownerSiteAke = "owner_site_ake"
+        static let ownerSitePreEffect = "owner_site_pre_effect"
+        static let all: [String] = [Self.adminSession, Self.adminStreamAuth, Self.householdAttachToken, Self.householdPop, Self.mobileBearer, Self.mobileBearerAdmin, Self.ownerSiteAke, Self.ownerSitePreEffect]
     }
 
     /// Distinct household PoP operations.
@@ -106,6 +110,8 @@ enum ClawStoreContractConstants {
         static let householdListClaws = "/api/v1/household/claws"
         static let householdListInstances = "/api/v1/household/instances"
         static let householdListWorkspaces = "/api/v1/household/terminals/{container}/workspaces"
+        static let householdOwnerSiteAke = "/api/v1/household/claws/{name}/owner-site/ake"
+        static let householdOwnerSitePreflight = "/api/v1/household/claws/{name}/owner-site/preflight"
         static let householdRebuildInstance = "/api/v1/household/instances/{id}/rebuild"
         static let householdRenameWorkspace = "/api/v1/household/terminals/{container}/workspaces/{id}"
         static let householdRestartInstance = "/api/v1/household/instances/{id}/restart"
@@ -148,6 +154,8 @@ enum ClawStoreContractConstants {
             "household_list_claws": Self.householdListClaws,
             "household_list_instances": Self.householdListInstances,
             "household_list_workspaces": Self.householdListWorkspaces,
+            "household_owner_site_ake": Self.householdOwnerSiteAke,
+            "household_owner_site_preflight": Self.householdOwnerSitePreflight,
             "household_rebuild_instance": Self.householdRebuildInstance,
             "household_rename_workspace": Self.householdRenameWorkspace,
             "household_restart_instance": Self.householdRestartInstance,

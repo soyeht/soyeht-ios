@@ -20,7 +20,7 @@ PAIRS=(
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/mobile-claw-vpn/v1/owner_present_wire_authority_status_v1.json:admin/contracts/mobile-claw-vpn/v1/owner_present_wire_authority_status_v1.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_assertion_fields_v1.json:admin/contracts/owner-approval/v2/owner_approval_v2_assertion_fields_v1.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/OwnerApprovalV2/owner_approval_v2_wire_vectors.json:admin/rust/server-rs/tests/data/owner_approval_v2_wire_vectors.json"
-  "docs/contracts/claw-store-household-v1.json:docs/contracts/claw-store-household-v1.json"
+  "docs/contracts/claw-store-household-v1.json:admin/contracts/claw-store/v1/claw-store-household-v1.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json:admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
   "Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/PersonCert/person_cert_tier_vectors.json:admin/rust/household-rs/tests/fixtures/person_cert_tier_vectors.json"
