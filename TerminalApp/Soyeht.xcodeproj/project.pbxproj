@@ -179,9 +179,6 @@
 		A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
 		A2E100000000000000000006 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000081 /* SoyehtCore */; };
 		A2E100000000000000000007 /* RelayStreamGuestFFI in Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000082 /* RelayStreamGuestFFI */; };
-		A2E100000000000000000091 /* SoyehtCore in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E100000000000000000081 /* SoyehtCore */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		A2E1000000000000000000C1 /* BLAKE3 in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E1000000000000000000A2 /* BLAKE3 */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		A2E1000000000000000000C2 /* P256K in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A2E1000000000000000000B2 /* P256K */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000008 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
 		A2E100000000000000000009 /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
 		A2E10000000000000000000A /* RelayStreamIPTunnelNetworkSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000019 /* RelayStreamIPTunnelNetworkSettings.swift */; };
@@ -647,9 +644,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				A2E100000000000000000091 /* SoyehtCore in Embed Frameworks */,
-				A2E1000000000000000000C1 /* BLAKE3 in Embed Frameworks */,
-				A2E1000000000000000000C2 /* P256K in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
