@@ -18,9 +18,10 @@ jobs:
     - uses: actions/checkout@v5
 
     # The pipeline body lives in scripts/ci/test-ios (the canonical command,
-    # also run by `soyeht check test-ios` and by developers locally). Each step
-    # below invokes exactly one phase so the GitHub UI keeps per-step timing
-    # and logs. `scripts/ci/test-ios --list` prints the phase order.
+    # also run by `soyeht check test-ios` and by developers locally). Each
+    # canonical phase step below invokes exactly one phase, so the GitHub UI
+    # keeps per-step timing and logs; the checkout step and the ls -lR debug
+    # step are not phases. `scripts/ci/test-ios --list` prints the phase order.
     - name: Toolchain versions
       run: scripts/ci/test-ios env
 
@@ -51,6 +52,9 @@ jobs:
 
     - name: Xcode Mac Build
       run: scripts/ci/test-ios mac-build
+
+    - name: Soyeht iOS Build (build-only, fail-loud)
+      run: scripts/ci/test-ios ios-build
 
     - name: Soyeht iOS Unit Tests
       run: scripts/ci/test-ios ios-tests

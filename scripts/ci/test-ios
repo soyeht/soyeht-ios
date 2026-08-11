@@ -12,7 +12,9 @@
 #   - idempotent; re-running a phase does not corrupt state
 #   - prints toolchain versions up front (the `env` phase)
 #   - exits with the failing command's code and names the failing phase
-#   - reads no secrets and requires none
+#   - requires no secrets to be supplied by CI; local Debug builds may
+#     consume an existing Secrets.plist through the project's normal Copy
+#     Secrets phase
 #
 # Usage:
 #   scripts/ci/test-ios                 # run every phase, in order
@@ -33,6 +35,7 @@ PHASES=(
   ffi-relay-stream
   ffi-nat-probe
   mac-build
+  ios-build
   ios-tests
   swift-build
   swift-test
@@ -43,13 +46,15 @@ CURRENT_PHASE="(none)"
 SUMMARY=()
 
 phase_env() {
-  uname -a
+  # Neutral output only: `uname -srm` carries OS/release/arch and no
+  # hostname; the repository path is deliberately not printed — local logs
+  # get pasted into public surfaces, and machine/account identifiers must
+  # never travel with them.
+  uname -srm
   sw_vers
-  echo "xcode-select: $(xcode-select -p)"
   xcodebuild -version
   swift --version
   if command -v rustup >/dev/null 2>&1; then rustup --version; else echo "rustup: not installed yet"; fi
-  echo "repo root: ${REPO_ROOT}"
   echo "HEAD: $(git rev-parse --short=12 HEAD 2>/dev/null || echo 'no git metadata')"
 }
 
@@ -103,6 +108,42 @@ phase_mac_build() {
     -scheme SoyehtMac \
     -skipPackagePluginValidation \
     -destination "platform=macOS,arch=$(uname -m)"
+}
+
+phase_ios_build() {
+  # Build-only, deliberately separate from ios-tests, and fail-loud.
+  # Measured reason: the test action materialises _PackageProduct.framework
+  # wrappers that the build action alone does not, so `xcodebuild test` can
+  # pass while `xcodebuild build` fails — exactly the asymmetry behind the
+  # appex embed defect this repo just fixed. A pipeline with only the test
+  # action cannot see that class of breakage; this phase keeps the invariant
+  # that caught it. No output filter, no exit-status masking: the phase's
+  # exit code IS xcodebuild's.
+  #
+  # GENERIC destination on purpose, with the arch PINNED. Two measured
+  # failures shaped this invocation:
+  #
+  #   1. A concrete `name=iPhone 16` couples the phase to the host's
+  #      simulator inventory: on a dev host without that simulator,
+  #      xcodebuild refused the destination outright (exit 70) while the
+  #      same tree built fine — an environment red, not a code red. A
+  #      build needs no booted device; `generic/platform=iOS Simulator`
+  #      removes that coupling. The concrete device stays in ios-tests,
+  #      the phase that actually boots one.
+  #
+  #   2. Generic WITHOUT an arch widens the surface: it implies every
+  #      simulator arch, and the x86_64 link failed because the FFI
+  #      xcframeworks ship arm64-only slices by design (Apple Silicon
+  #      product). `ARCHS="$(uname -m)"` pins the arch to the host's,
+  #      exactly what the concrete destination's `arch=$(uname -m)` did —
+  #      same slice as before, no widening, no narrowing.
+  xcodebuild build \
+    -project TerminalApp/Soyeht.xcodeproj \
+    -scheme Soyeht \
+    -skipPackagePluginValidation \
+    -destination "generic/platform=iOS Simulator" \
+    ARCHS="$(uname -m)" \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 }
 
 phase_ios_tests() {
