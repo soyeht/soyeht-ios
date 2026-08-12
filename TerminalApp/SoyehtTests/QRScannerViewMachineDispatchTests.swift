@@ -408,6 +408,112 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         }
     }
 
+    // MARK: - Presentation gate: one sheet, one claim
+
+    private let slotA = Data(repeating: 0xA1, count: 16)
+    private let slotB = Data(repeating: 0xB2, count: 16)
+
+    /// THE DOUBLE-DELIVERY THAT THE APP DELIBERATELY CREATES. The AppDelegate
+    /// writes `pendingDeepLink` *and* posts `.soyehtDeepLink` for the same URL,
+    /// on purpose, because foreground delivery can race subscriber setup. Both
+    /// arrive; exactly one sheet may result, and no claim yet.
+    func testSameInviteDeliveredTwicePresentsOnceAndClaimsNothing() {
+        var gate = ClawShareInvitePresentation()
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+
+        XCTAssertEqual(gate.awaitingSlotID, slotA, "the second delivery must not lose the first")
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotA), "still awaiting: presenting is not claiming")
+    }
+
+    /// A double tap on the confirm button must not claim twice. The slot is
+    /// consumed atomically server-side, so a second claim burns the invite and
+    /// leaves the person with nothing to retry.
+    func testDoubleConfirmClaimsExactlyOnce() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertTrue(gate.confirm(), "first confirm is the claim")
+        XCTAssertFalse(gate.confirm(), "second confirm must produce no effect")
+        XCTAssertEqual(gate.state, .opening(slotID: slotA))
+    }
+
+    /// Cancel claims nothing, and a confirm arriving afterwards claims nothing
+    /// either — there is no invite under it any more.
+    func testCancelClaimsNothingAndACancelledInviteCannotBeConfirmed() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertTrue(gate.cancel())
+        XCTAssertEqual(gate.state, .idle)
+        XCTAssertFalse(gate.confirm(), "a cancelled invite must not be claimable")
+    }
+
+    /// A cancel that lands after confirm must not pretend the slot is unspent.
+    /// The sheet dismissing is not evidence that nothing happened.
+    func testCancelAfterConfirmDoesNotReopenASpentInvite() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm())
+
+        XCTAssertFalse(gate.cancel(), "the claim is already in flight")
+        XCTAssertEqual(gate.state, .opening(slotID: slotA))
+    }
+
+    /// IN-PROCESS REPLAY. `protectedDataDidBecomeAvailable` and the launch
+    /// replay both re-post the same URL while the sheet is up. The invite must
+    /// be neither lost nor duplicated.
+    ///
+    /// Scope, stated rather than implied: this is replay *within the process*.
+    /// `pendingDeepLink` is not persisted, so a later relaunch without the OS
+    /// re-delivering the URL is not covered here and is not claimed to be.
+    func testInProcessReplayWhileAwaitingNeitherLosesNorDuplicates() {
+        var gate = ClawShareInvitePresentation()
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+
+        XCTAssertEqual(gate.awaitingSlotID, slotA)
+        XCTAssertTrue(gate.confirm(), "the invite survived the replays and is still claimable exactly once")
+        XCTAssertFalse(gate.confirm())
+    }
+
+    /// A genuinely different invite while merely awaiting replaces it: the
+    /// person tapped a newer link and that is the one they mean.
+    func testADifferentInviteWhileAwaitingReplacesTheOlderOne() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertEqual(gate.awaitingSlotID, slotB)
+    }
+
+    /// But never while a claim is in flight: swapping the subject under an
+    /// in-flight claim would attribute its outcome to the wrong invite.
+    func testADifferentInviteIsIgnoredWhileAClaimIsInFlight() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm())
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .ignoreDuplicate)
+        XCTAssertEqual(gate.state, .opening(slotID: slotA), "the in-flight claim keeps its own subject")
+    }
+
+    /// Once the claim settles the gate frees up for a future invite, without
+    /// ever reopening the spent one.
+    func testFinishingOpeningFreesTheGateWithoutReopeningTheSpentInvite() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm())
+
+        gate.finishOpening()
+        XCTAssertEqual(gate.state, .idle)
+        XCTAssertFalse(gate.confirm(), "the spent invite is not claimable again")
+        XCTAssertEqual(gate.receive(slotID: slotB), .present, "a new invite is welcome")
+    }
+
     func testOnboardingLaunchIntentOpensQRScannerOnlyOnce() throws {
         let suiteName = "com.soyeht.tests.onboardingIntent.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

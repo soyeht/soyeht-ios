@@ -66,6 +66,93 @@ struct PendingClawShareInvite: Identifiable {
     }
 }
 
+/// Decides whether an incoming invite is presented, ignored as a duplicate, or
+/// claimed — as a value, so those properties are asserted directly instead of
+/// inferred from a view.
+///
+/// WHY A GATE. The same invite reaches the app by more than one route:
+/// `SessionStore.pendingDeepLink` has a publisher and the AppDelegate also
+/// posts `.soyehtDeepLink` for the same URL — deliberately, because foreground
+/// delivery can race SwiftUI subscriber setup. Unmediated that is two sheets
+/// for one invite and, far worse, two claims against a slot the engine
+/// consumes atomically: the invite would be burnt with nothing to retry.
+///
+/// IDENTITY IS THE SLOT ID, not a time window. The same link delivered twice
+/// carries the same `slot_id`; two different invites never do. A debounce
+/// interval would admit a slow duplicate and reject a fast second invite, so
+/// it is the wrong observable.
+struct ClawShareInvitePresentation: Equatable {
+    enum State: Equatable {
+        case idle
+        /// Sheet is up for this slot. Nothing claimed yet.
+        case awaiting(slotID: Data)
+        /// Confirmed. A claim is in flight or done — the slot is spent either
+        /// way, so this never returns to `awaiting`.
+        case opening(slotID: Data)
+    }
+
+    enum Reception: Equatable {
+        /// Fresh invite: install `awaiting` and show the confirmation sheet.
+        case present
+        /// The same invite arriving again by the other route. No second sheet
+        /// and, above all, no second claim.
+        case ignoreDuplicate
+    }
+
+    private(set) var state: State = .idle
+
+    var awaitingSlotID: Data? {
+        if case .awaiting(let slotID) = state { return slotID }
+        return nil
+    }
+
+    /// A delivery of `slotID`.
+    ///
+    /// A *different* invite arriving while one is merely `awaiting` replaces
+    /// it: the person tapped a newer link and that is the one they mean. It
+    /// replaces nothing while `opening`, because a claim is already in flight
+    /// against a slot the engine is consuming, and swapping the subject under
+    /// it would attribute that outcome to the wrong invite.
+    mutating func receive(slotID: Data) -> Reception {
+        switch state {
+        case .awaiting(let current) where current == slotID:
+            return .ignoreDuplicate
+        case .opening:
+            return .ignoreDuplicate
+        case .idle, .awaiting:
+            state = .awaiting(slotID: slotID)
+            return .present
+        }
+    }
+
+    /// Returns `true` exactly once per invite; the caller creates the claim
+    /// task only on `true`.
+    ///
+    /// The transition happens BEFORE the caller starts async work. Deciding
+    /// after an await would leave a window where two confirms both read
+    /// `awaiting` and both claim.
+    mutating func confirm() -> Bool {
+        guard case .awaiting(let slotID) = state else { return false }
+        state = .opening(slotID: slotID)
+        return true
+    }
+
+    /// Only leaves `awaiting`: a cancel arriving after confirm must not
+    /// pretend the slot is still unspent.
+    @discardableResult
+    mutating func cancel() -> Bool {
+        guard case .awaiting = state else { return false }
+        state = .idle
+        return true
+    }
+
+    /// The claim finished, either way. Frees the gate for a future, different
+    /// invite without ever reopening this one.
+    mutating func finishOpening() {
+        if case .opening = state { state = .idle }
+    }
+}
+
 /// Derive the BLAKE3 -> BIP-39 fingerprint words from a
 /// `soyeht://household/pair-device` or `/device-pairing` URL.
 ///
@@ -178,6 +265,10 @@ struct SoyehtAppView: View {
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
     @State private var pendingClawShareInvite: PendingClawShareInvite?
+    /// One sheet and one claim per invite, keyed by slot id — see
+    /// `ClawShareInvitePresentation` for why the app delivers the same URL
+    /// twice on purpose and why a time window would be the wrong observable.
+    @State private var invitePresentation = ClawShareInvitePresentation()
     @State private var macLocalPairingPublisher: SetupInvitationPublisher?
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
@@ -742,6 +833,11 @@ struct SoyehtAppView: View {
             ClawShareInviteConfirmationSheet(
                 appName: pending.invite.clawId,
                 onConfirm: {
+                    // The gate transitions BEFORE the task is created, so a
+                    // second confirm (double tap, or the sheet re-firing)
+                    // finds `opening` and produces no second claim against a
+                    // slot the engine consumes atomically.
+                    guard invitePresentation.confirm() else { return }
                     let (url, invite) = (pending.url, pending.invite)
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
@@ -752,10 +848,14 @@ struct SoyehtAppView: View {
                             result: .clawShareInvite(invite),
                             sourceURL: url
                         )
+                        // Settled either way; the slot is spent and the gate
+                        // frees up for a future, different invite.
+                        invitePresentation.finishOpening()
                     }
                 },
                 onCancel: {
                     let invite = pending.invite
+                    invitePresentation.cancel()
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
                         "claw-share user cancelled claw=\(invite.clawId, privacy: .public)"
@@ -1140,16 +1240,31 @@ struct SoyehtAppView: View {
         // decode and validate identically, but held behind a confirmation —
         // see `PendingClawShareInvite` for why the deep-link path is not
         // consent the way the camera path is.
+        // `store.pendingDeepLink` is cleared at NAMED transitions below —
+        // awaiting installed, replay recognised, or factually refused — never
+        // merely because a view was mounted. Clearing it up front would drop
+        // the URL on any path that then failed to install anything.
         if PendingClawShareInvite.matches(url) {
-            store.pendingDeepLink = nil
             switch QRScannerDispatcher.result(
                 for: url,
                 activeHouseholdId: activeHouseholdId,
                 now: Date()
             ) {
             case .success(.clawShareInvite(let invite)):
-                pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
+                switch invitePresentation.receive(slotID: invite.slotId) {
+                case .present:
+                    pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
+                    store.pendingDeepLink = nil   // transition: awaiting installed
+                case .ignoreDuplicate:
+                    // The same invite arriving by the other route, or while a
+                    // claim is already in flight. One sheet, one claim.
+                    store.pendingDeepLink = nil   // transition: replay recognised
+                    householdDeepLinkLogger.info(
+                        "claw-share duplicate delivery ignored claw=\(invite.clawId, privacy: .public)"
+                    )
+                }
             case .success(let other):
+                store.pendingDeepLink = nil       // transition: factually refused
                 // The prefix matched but the dispatcher classified it as
                 // something else. Refuse rather than dispatch: a URL that
                 // looks like an invite and behaves like another kind is
@@ -1158,6 +1273,7 @@ struct SoyehtAppView: View {
                     "claw-share deep-link classified as \(String(describing: other), privacy: .public); refusing"
                 )
             case .failure(let error):
+                store.pendingDeepLink = nil       // transition: factually refused
                 householdDeepLinkLogger.error(
                     "claw-share deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
                 )
