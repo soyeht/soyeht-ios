@@ -28,8 +28,8 @@ struct ClawSiteSource {
 /// the offer+credential this device already claimed; it never itself picks
 /// a backend, that routing decision is entirely server-side.
 ///
-/// Kept behind a protocol for the same reason `OwnerGroupsReading` is: the screen
-/// never changes when the live resolver replaces the unavailable one.
+/// Kept behind a protocol so the screen never changes when the live
+/// resolver replaces the unavailable one.
 protocol ClawSiteEndpointProviding: Sendable {
     /// A source for `clawName`, or `nil` when this device cannot currently
     /// reach it. Returning `nil` is a first-class answer — the UI renders an

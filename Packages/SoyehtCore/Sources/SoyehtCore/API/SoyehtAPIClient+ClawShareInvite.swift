@@ -7,8 +7,8 @@ import Foundation
 // `POST /api/v1/claw-share/invites` (owner PoP; `household-rs::claw_share::
 // owner_mint_invite` server-side, `handlers_claw_share.rs::handle_mint_invite`).
 //
-// This is the 1:1 slot mechanism, not the group mechanism
-// (`GroupOwnerActions`/`GroupOp`): the engine allocates a slot scoped to
+// This is the 1:1 slot mechanism, not the engine-side group mechanism
+// (`GroupOp`): the engine allocates a slot scoped to
 // exactly the `claw_id` passed in, and later, when a guest claims it
 // (`engine_handle_claim`), the resulting `GuestCredential` is signed with
 // that same single `claw_id` — the claim path never consults group
