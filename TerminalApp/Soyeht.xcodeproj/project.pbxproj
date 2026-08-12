@@ -76,7 +76,6 @@
 		3FC3D73BBB084B9FB65E1D96 /* M0bLockCanaryDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBD9781CEAA43E38D2DA761 /* M0bLockCanaryDebugView.swift */; };
 		61E142F163921C01E3621957 /* ResidentExplainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C44754C9783E79F3A14AC4 /* ResidentExplainerView.swift */; };
 		6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
-		6E5B70DE5C989BBFD9B168B8 /* SharedAppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4671A823A685336C83F0132A /* SharedAppsView.swift */; };
 		6FFF470844BFCD1D5C34C7B0 /* CardMacAndIphone.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF36A38670AB5BA84A9E6A74 /* CardMacAndIphone.swift */; };
 		713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = FBBE1B1846B242EAB3017F46 /* SnapshotTesting */; };
 		750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */; };
@@ -352,7 +351,6 @@
 		3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomColorPickerView.swift; sourceTree = "<group>"; };
 		3E724E43A39E6607FCF008CD /* ANSIParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParser.swift; sourceTree = "<group>"; };
 		45A9499AF79D1566E098DA9F /* SettingsRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRoute.swift; sourceTree = "<group>"; };
-		4671A823A685336C83F0132A /* SharedAppsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedAppsView.swift; sourceTree = "<group>"; };
 		4783BDEE2E62B7833640F92C /* MorphingPageIndicator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MorphingPageIndicator.swift; sourceTree = "<group>"; };
 		4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIKitSshTerminalView.swift; sourceTree = "<group>"; };
 		49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtTheme.swift; sourceTree = "<group>"; };
@@ -832,7 +830,6 @@
 				88F3C5B32F95E22D54632B87 /* APNs */,
 				FDE31AD4B47B8074E38570EF /* Home */,
 				8DDA00000000000000000300 /* Identity */,
-				4671A823A685336C83F0132A /* SharedAppsView.swift */,
 				7A1C55E1D3B44F1A9E220C42 /* ClawSiteView.swift */,
 			);
 			path = Soyeht;
@@ -1785,7 +1782,6 @@
 				7A1C55F0D3B44F1A9E220C54 /* ActiveSharesViewModel.swift in Sources */,
 				7A1C55F0D3B44F1A9E220C56 /* ActiveShareDateFormatter.swift in Sources */,
 				8E1100000000000000000204 /* RelayStreamIPTunnelController.swift in Sources */,
-				6E5B70DE5C989BBFD9B168B8 /* SharedAppsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
