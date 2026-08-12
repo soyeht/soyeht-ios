@@ -1,0 +1,38 @@
+# Closed, minimal allowlist of engine `stage` tokens the privacy-safe diagnostic
+# may emit. Membership is EXACT (full-string), never prefix or charset — a
+# prefix admits a value-carrying stage (an IP/hostname is [a-z0-9_.]) and a
+# charset guard admits an interpolated all-lowercase token; only exact-value
+# membership is fail-closed across all three ways the engine emits a stage
+# (compile-time literal, format!, and variable-bound). A stage not listed here
+# is dropped by omission — including the one interpolated stage
+# (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
+#
+# Provenance: generated + hand-minimized from the pinned engine source
+# theyos@eb1da5184b4422d956f592e0b85358626ddd83eb (refs/tags/v0.1.25, the source
+# the shipped 0.1.25 engine asset is attested to). Every token below was
+# verified present as a compile-time literal in that tree. Scope: the
+# initialize/bootstrap/bonjour/long-poll path that carries the initialize
+# failure, plus the progress markers needed to locate where it fell. Regenerate
+# and re-review if the pin moves. Lines starting with '#' and blank lines are
+# ignored.
+#
+# ── failure tokens (any may BE the initialize/long-poll networkDrop cause) ──
+bootstrap.initialize_failed
+bootstrap.initialize.rejected
+bootstrap.initialize_task_failed
+bootstrap.endpoint.bind_failed
+bonjour.start_failed
+bonjour.register_failed
+bonjour.candidate_register_failed
+owner_events.long_poll.timeout
+owner_events.long_poll.read_failed
+owner_events.long_poll.rejected
+household_listener.serve_failed
+macos_local_registration.listener_unavailable
+# ── progress / success markers (locate the failure point) ──
+bootstrap.cold
+bootstrap.initialized
+bootstrap.endpoint.live
+bootstrap.complete
+pair_machine.window_opened
+macos_local_registration.listener_started

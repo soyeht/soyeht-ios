@@ -14,6 +14,11 @@ on:
       - "scripts/theyos-engine.version"
       - "scripts/theyos-engine.sha256"
       - "scripts/ci/lint-ui-resources.py"
+      - "scripts/ci/extract-engine-log-safe.py"
+      - "scripts/ci/engine-safe-stages.txt"
+      - "scripts/ci/test-engine-log-extractor"
+      - "scripts/ci/engine-log-diagnostic"
+      - "scripts/ci/harness-safe-stages.txt"
       - ".github/workflows/onboarding-quality.yml"
 
 env:
@@ -39,7 +44,28 @@ jobs:
         env:
           THEYOS_HARNESS: "1"
           SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
+          # The harness archives each engine.log under RUNNER_TEMP itself (it
+          # derives the path from RUNNER_TEMP + GITHUB_ACTIONS; no free-form
+          # path env), so the diagnostic step below can extract the safe summary.
         run: swift test --package-path Packages/SoyehtCore --filter EngineHarness
+
+      # Privacy-safe diagnostic. Runs even when the harness failed (that is when
+      # we most need the cause). The control gate proves the extractor is a
+      # sound allowlist (exact-token membership, zero planted values); then the
+      # same extractor turns each captured engine.log into an environment-free
+      # one-line summary. The RAW engine.log is never uploaded, and neither the
+      # file names nor any raw bytes are echoed — only extractor output. Fixed
+      # tokens report capture states that could not be safely published or
+      # extracted; raw logs and paths are never printed.
+      - name: Engine-log privacy-safe diagnostic
+        if: always()
+        # The whole diagnostic is one shared script that the control gate copies
+        # and mutates, so its guarantees (gate-first abort, fixed token on
+        # extractor failure) are proven against the REAL artifact, not a duplicate
+        # snippet. It runs the gate first under `set -Eeuo pipefail`, then feeds
+        # each captured engine.log through the extractor; only extractor output
+        # and fixed tokens reach stdout, and the raw log is never uploaded.
+        run: bash scripts/ci/engine-log-diagnostic
 
   # ── UI resource lint: localization + theme-driven colors ───────────────────
   ui-resource-lint:

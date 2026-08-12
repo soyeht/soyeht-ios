@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# Control gate for the privacy-safe engine-log diagnostic. Synthetic JSON only
+# (no engine run, no LAN beacon, no real log). Each negative targets a specific
+# control, so weakening one turns a negative RED. A string OR any-typed non-member
+# `stage` value yields ONLY the fixed sentinel; inputs with no string-decision
+# (missing key, non-dict fields, non-JSON) stay silent. Completeness is proven for
+# BOTH allowlists (engine + harness) with independent tables. The workflow-block
+# controls exercise the REAL scripts/ci/engine-log-diagnostic (copied with stubbed
+# neighbours), and the path-filter is parsed from the ACTIVE YAML entries — a
+# comment never satisfies it.
+set -Eeuo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXTRACT="${PYTHON:-python3} ${HERE}/extract-engine-log-safe.py"
+SENT="engine_log_unlisted_stage_present"
+fail() { echo "[extractor-control] FAIL: $*" >&2; exit 1; }
+emit() { printf '%s\n' "$1" | ${EXTRACT}; }
+stages_of() { grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$1" | sort; }
+
+# ── POSITIVE: real allowlisted tokens surface; co-located leak values drop; no
+#    sentinel, because every stage was a listed member. ──
+pos='{"level":"ERROR","target":"server_rs::handlers_bootstrap","fields":{"stage":"bootstrap.initialize_failed","error":"bind 127.0.0.1:8080: address in use","message":"initialize failed"}}'
+out="$(emit "$pos")"
+[ "$out" = "ERROR bootstrap.initialize_failed" ] || fail "positive shape wrong: [$out]"
+case "$out" in *127.0.0.1*|*"address in use"*|*"$SENT"*) fail "positive leaked/flagged: [$out]";; esac
+for s in bonjour.start_failed bootstrap.endpoint.bind_failed owner_events.long_poll.timeout pair_machine.window_opened; do
+  o="$(emit "{\"level\":\"WARN\",\"fields\":{\"stage\":\"${s}\"}}")"
+  [ "$o" = "WARN ${s}" ] || fail "allowlisted stage ${s} not surfaced cleanly: [$o]"
+done
+echo "[extractor-control] POSITIVE ok"
+
+# ── NEGATIVE: teeth. String OR any-typed non-member -> ONLY the sentinel, 0
+#    planted bytes. No string decision -> fully silent. ──
+IP="100.64.0.10"; HOST="mac-alpha.tail-scale.ts.net"; PUB="AAAAC3NzaC1lZDI1NTE5AAAAIplantedpubkey000000000"; MAC="02:00:5e:10:00:00"
+FULL="Soyeht Setup device-alpha"; ERR="connection refused to 100.64.0.10:8080"
+
+# T1 data-shaped string stage under a would-be-safe prefix — the membership win.
+for s in "bootstrap.${IP}" "bonjour.mac_alpha.tail_scale.ts.net" "bootstrap.user_devicealpha"; do
+  o="$(emit "{\"level\":\"ERROR\",\"fields\":{\"stage\":\"${s}\"}}")"
+  [ "$o" = "$SENT" ] || fail "T1 data-shaped stage: expected sentinel only, got [$o]"
+  printf '%s' "$o" | grep -qE '100\.64|mac_alpha|devicealpha' && fail "T1 leaked stage bytes: [$o]"
+done
+# T2 duplicate stage key: last-wins data-shaped leak -> sentinel only.
+o="$(emit "{\"level\":\"ERROR\",\"fields\":{\"stage\":\"bootstrap.initialize_failed\",\"stage\":\"bootstrap.${IP}\"}}")"
+[ "$o" = "$SENT" ] || fail "T2 duplicate-key: expected sentinel only, got [$o]"
+printf '%s' "$o" | grep -q "100.64" && fail "T2 leaked the last-wins value"
+# T3 newline / ANSI in stage — valid JSON escapes decoded INTO the value.
+o="$(printf '%s' '{"level":"ERROR","fields":{"stage":"bootstrap.initialize_failed\ninjected"}}' | ${EXTRACT})"
+[ "$o" = "$SENT" ] || fail "T3 newline-in-stage: expected sentinel only, got [$o]"
+printf '%s' "$o" | grep -q "injected" && fail "T3 newline leaked injected bytes"
+o="$(printf '%s' '{"level":"ERROR","fields":{"stage":"bootstrap.initialize_failed\u001b[31m"}}' | ${EXTRACT})"
+[ "$o" = "$SENT" ] || fail "T3 ANSI-in-stage: expected sentinel only, got [$o]"
+printf '%s' "$o" | grep -q '31m' && fail "T3 ANSI leaked escape payload"
+# T4 over-long string stage under a safe prefix.
+LONG="bootstrap.$(printf 'a%.0s' {1..4096})"
+o="$(emit "{\"level\":\"ERROR\",\"fields\":{\"stage\":\"${LONG}\"}}")"
+[ "$o" = "$SENT" ] || fail "T4 over-long stage: expected sentinel only, got [$o]"
+# T5-SILENT: no string decision to make -> fully silent (not even the sentinel).
+for bad in '{"level":"ERROR","fields":"bootstrap.initialize_failed"}' \
+           '{"level":"ERROR","fields":{"message":"no stage key"}}' \
+           '["bootstrap.initialize_failed"]' \
+           'not json at all'; do
+  o="$(emit "$bad")"
+  [ -z "$o" ] || fail "T5-silent: expected silence, got [$o] from [$bad]"
+done
+# T5-SENTINEL: the `stage` KEY is present but its value is not an exact
+# string member — number / list / dict / bool / null — sentinel ONCE, no value.
+for bad in '{"level":"ERROR","fields":{"stage":123}}' \
+           '{"level":"ERROR","fields":{"stage":["x"]}}' \
+           '{"level":"ERROR","fields":{"stage":{"a":1}}}' \
+           '{"level":"ERROR","fields":{"stage":true}}' \
+           '{"level":"ERROR","fields":{"stage":null}}'; do
+  o="$(emit "$bad")"
+  [ "$o" = "$SENT" ] || fail "T5-sentinel: expected sentinel, got [$o] from [$bad]"
+done
+# T6 leak-bearing lines whose stages are ALL allowlisted: tokens surface, values
+# drop, and NO sentinel.
+neg="$(cat <<JSON
+{"level":"ERROR","fields":{"stage":"bonjour.register_failed","error":"${ERR}","fullname":"${FULL}"}}
+{"level":"INFO","fields":{"stage":"bonjour.start_failed","addr":"${IP}","mac":"${MAC}"}}
+{"level":"INFO","fields":{"message":"Listening on ${IP}:8080"}}
+{"level":"INFO","fields":{"stage":"pair_machine.window_opened","pubkey":"${PUB}","host":"${HOST}"}}
+JSON
+)"
+negout="$(printf '%s\n' "$neg" | ${EXTRACT})"
+for planted in "$IP" "$HOST" "$PUB" "$MAC" "$FULL" "$ERR"; do
+  printf '%s' "$negout" | grep -qF -- "$planted" && fail "T6 planted value leaked: ${planted}"
+done
+printf '%s' "$negout" | grep -qx "ERROR bonjour.register_failed" || fail "T6 dropped a legitimate token"
+printf '%s' "$negout" | grep -qx "INFO pair_machine.window_opened" || fail "T6 dropped a legitimate token"
+printf '%s' "$negout" | grep -q "Listening on" && fail "T6 message-only line survived"
+printf '%s' "$negout" | grep -qx "$SENT" && fail "T6 emitted sentinel though all stages were listed"
+# T7 MIXED: allowlisted stages + one non-member -> tokens + exactly one sentinel.
+mix="$(cat <<JSON
+{"level":"ERROR","fields":{"stage":"bootstrap.initialize_failed"}}
+{"level":"WARN","fields":{"stage":"bootstrap.${IP}"}}
+{"level":"INFO","fields":{"stage":"pair_machine.window_opened"}}
+JSON
+)"
+mixout="$(printf '%s\n' "$mix" | ${EXTRACT})"
+printf '%s' "$mixout" | grep -qx "ERROR bootstrap.initialize_failed" || fail "T7 dropped an allowlisted token"
+printf '%s' "$mixout" | grep -qx "INFO pair_machine.window_opened" || fail "T7 dropped an allowlisted token"
+[ "$(printf '%s\n' "$mixout" | grep -cx "$SENT")" = "1" ] || fail "T7 sentinel not emitted exactly once"
+printf '%s' "$mixout" | grep -q "100.64" && fail "T7 leaked the non-member stage bytes"
+echo "[extractor-control] NEGATIVE ok: non-members -> sentinel; no-decision -> silent; tokens kept"
+
+# ── TAMPER: a prefix-mutant extractor must LEAK T1's data-shaped stage, proving
+# exact-membership is load-bearing. ──
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+sed 's/stage in safe_stages/any(stage == s or stage.startswith(s.split(".")[0] + ".") for s in safe_stages)/' \
+  "${HERE}/extract-engine-log-safe.py" > "$tmp/mutant.py"
+cp "${HERE}/engine-safe-stages.txt" "$tmp/engine-safe-stages.txt"
+cp "${HERE}/harness-safe-stages.txt" "$tmp/harness-safe-stages.txt"
+mutout="$(printf '{"level":"ERROR","fields":{"stage":"bootstrap.%s"}}\n' "$IP" | ${PYTHON:-python3} "$tmp/mutant.py" || true)"
+printf '%s' "$mutout" | grep -q "$IP" || fail "TAMPER: prefix-mutant did not leak"
+echo "[extractor-control] TAMPER ok: prefix-mutant leaks (${mutout}); exact-membership load-bearing"
+
+# ── COMPLETENESS: each allowlist equals an INDEPENDENT table (a deliberate
+# canary); add/remove/typo in a data file turns this RED. Plus a per-token
+# positive, and a removal tooth (dropping any one is detected). ──
+ENGINE_EXPECTED=(
+  bootstrap.initialize_failed bootstrap.initialize.rejected bootstrap.initialize_task_failed
+  bootstrap.endpoint.bind_failed bonjour.start_failed bonjour.register_failed
+  bonjour.candidate_register_failed owner_events.long_poll.timeout owner_events.long_poll.read_failed
+  owner_events.long_poll.rejected household_listener.serve_failed macos_local_registration.listener_unavailable
+  bootstrap.cold bootstrap.initialized bootstrap.endpoint.live bootstrap.complete
+  pair_machine.window_opened macos_local_registration.listener_started
+)
+HARNESS_EXPECTED=(
+  harness_case.status_only harness_case.initialize_pair harness_case.long_poll
+  harness_initialize.not_observed harness_initialize.transport_returned
+  harness_initialize.transport_timed_out harness_initialize.transport_connection_lost
+  harness_initialize.transport_cannot_connect harness_initialize.transport_bad_server_response
+  harness_initialize.transport_other
+  harness_initiate.ok harness_initiate.http_4xx harness_initiate.http_5xx
+  harness_initiate.http_other_status harness_initiate.not_http harness_initiate.body_undecodable
+  harness_initiate.transport_timed_out harness_initiate.transport_connection_lost
+  harness_initiate.transport_cannot_connect harness_initiate.transport_other
+  harness_initiate.not_observed harness_initiate.not_recorded
+)
+check_list() {
+  local file="$1" want="$2"; shift 2
+  local -a table=("$@")
+  [ "${#table[@]}" -eq "$want" ] || fail "completeness: $file table is not $want tokens (${#table[@]})"
+  local sorted; sorted="$(printf '%s\n' "${table[@]}" | sort)"
+  [ "$(stages_of "$file")" = "$sorted" ] || fail "completeness: $file != independent table"
+  local t o tmpf
+  for t in "${table[@]}"; do
+    o="$(emit "{\"level\":\"INFO\",\"fields\":{\"stage\":\"${t}\"}}")"
+    [ "$o" = "INFO ${t}" ] || fail "completeness: token not surfaced: ${t} -> [$o]"
+  done
+  for t in "${table[@]}"; do
+    tmpf="$(mktemp)"; grep -vxF "$t" "$file" > "$tmpf"
+    [ "$(stages_of "$tmpf")" != "$sorted" ] || fail "completeness: removing ${t} not detected"
+    rm -f "$tmpf"
+  done
+}
+check_list "${HERE}/engine-safe-stages.txt" 18 "${ENGINE_EXPECTED[@]}"
+check_list "${HERE}/harness-safe-stages.txt" 22 "${HARNESS_EXPECTED[@]}"
+echo "[extractor-control] COMPLETENESS ok: engine 18/18 + harness 22/22 set-equal; each load-bearing"
+
+# ── INVALID UTF-8: a non-UTF-8 byte must not crash and must never surface. ──
+set +e
+o="$(printf '\xff\xfe not json\n' | ${EXTRACT})"; rc=$?
+set -e
+[ "$rc" = 0 ] || fail "invalid-UTF8 non-JSON: crashed (rc=$rc)"
+[ -z "$o" ] || fail "invalid-UTF8 non-JSON: unexpected output [$o]"
+set +e
+o="$(printf '{"level":"ERROR","fields":{"stage":"bootstrap.\xffinit"}}\n' | ${EXTRACT})"; rc=$?
+set -e
+[ "$rc" = 0 ] || fail "invalid-UTF8 in stage: crashed (rc=$rc)"
+[ "$o" = "$SENT" ] || fail "invalid-UTF8 in stage: expected sentinel, got [$o]"
+printf '%s' "$o" | LC_ALL=C grep -q $'\xff' && fail "invalid-UTF8: raw byte leaked"
+echo "[extractor-control] INVALID-UTF8 ok: no crash, no raw byte, non-member -> sentinel"
+
+# ── EXTRACTOR-BROKEN: run the REAL engine-log-diagnostic with a passing gate stub
+# and a broken extractor stub; a raising extractor must yield the FIXED token with
+# NO stderr/traceback (never silent-green, never a raw line). ──
+btmp="$(mktemp -d)"; brt="$(mktemp -d)"
+cp "${HERE}/engine-log-diagnostic" "$btmp/engine-log-diagnostic"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$btmp/test-engine-log-extractor"; chmod +x "$btmp/test-engine-log-extractor"
+printf 'raise ValueError("SENSITIVE_RAW_LINE")\n' > "$btmp/extract-engine-log-safe.py"
+mkdir -p "$brt/engine-harness-logs"
+echo '{"level":"ERROR","fields":{"stage":"bootstrap.initialize_failed"}}' > "$brt/engine-harness-logs/engine-x.log"
+set +e
+bout="$(RUNNER_TEMP="$brt" bash "$btmp/engine-log-diagnostic" 2>&1)"; brc=$?
+set -e
+[ "$brc" = 0 ] || fail "extractor-broken: real script failed (rc=$brc): [$bout]"
+printf '%s' "$bout" | grep -q "engine_log_extract_failed" || fail "extractor-broken: fixed token missing"
+printf '%s' "$bout" | grep -qiE 'traceback|SENSITIVE_RAW_LINE|ValueError' && fail "extractor-broken: stderr/traceback leaked"
+rm -rf "$btmp" "$brt"
+echo "[extractor-control] EXTRACTOR-BROKEN ok: real script -> fixed token, no stderr"
+
+# ── DIAGNOSTIC-ABORT: run the REAL engine-log-diagnostic with a FAILING gate stub;
+# it must abort before the extractor loop (no real data reached). ──
+dtmp="$(mktemp -d)"; drt="$(mktemp -d)"
+cp "${HERE}/engine-log-diagnostic" "$dtmp/engine-log-diagnostic"
+printf '#!/usr/bin/env bash\nexit 97\n' > "$dtmp/test-engine-log-extractor"; chmod +x "$dtmp/test-engine-log-extractor"
+printf 'print("REACHED_REAL_DATA")\n' > "$dtmp/extract-engine-log-safe.py"
+mkdir -p "$drt/engine-harness-logs"
+echo '{"level":"INFO","fields":{"stage":"bootstrap.cold"}}' > "$drt/engine-harness-logs/engine-x.log"
+set +e
+dout="$(RUNNER_TEMP="$drt" bash "$dtmp/engine-log-diagnostic" 2>&1)"; drc=$?
+set -e
+[ "$drc" -ne 0 ] || fail "diagnostic-abort: real script did not abort on gate failure"
+printf '%s' "$dout" | grep -q "REACHED_REAL_DATA" && fail "diagnostic-abort: reached data after gate failure"
+rm -rf "$dtmp" "$drt"
+echo "[extractor-control] DIAGNOSTIC-ABORT ok: real script aborts at gate before data"
+
+# ── PATH-FILTER: parse the ACTIVE on.pull_request.paths entries (a comment or a
+# non-list line never counts); assert every control artifact is active, and that
+# removing/commenting any is detected. ──
+WF="$(cd "${HERE}/../.." && pwd)/.github/workflows/onboarding-quality.yml"
+active_paths() {
+  awk '/^    paths:/{p=1; next} /^[[:alpha:]]/{p=0}
+       p && /^[[:space:]]*-[[:space:]]*"/ {
+         line=$0; sub(/^[[:space:]]*-[[:space:]]*"/,"",line); sub(/".*/,"",line); print line
+       }' "$1"
+}
+CONTROL_PATHS=(
+  "scripts/ci/extract-engine-log-safe.py" "scripts/ci/engine-safe-stages.txt"
+  "scripts/ci/harness-safe-stages.txt" "scripts/ci/test-engine-log-extractor"
+  "scripts/ci/engine-log-diagnostic" "Packages/SoyehtCore/**"
+  ".github/workflows/onboarding-quality.yml"
+)
+active="$(active_paths "$WF")"
+for p in "${CONTROL_PATHS[@]}"; do
+  printf '%s\n' "$active" | grep -qxF "$p" || fail "path-filter: not an active trigger entry: $p"
+done
+# removal tooth: dropping any script entry must drop it from the active set.
+for p in "scripts/ci/extract-engine-log-safe.py" "scripts/ci/engine-safe-stages.txt" \
+         "scripts/ci/harness-safe-stages.txt" "scripts/ci/test-engine-log-extractor" \
+         "scripts/ci/engine-log-diagnostic"; do
+  mwf="$(mktemp)"; grep -vF -- "- \"$p\"" "$WF" > "$mwf"
+  active_paths "$mwf" | grep -qxF "$p" && fail "path-filter: removing $p not detected"
+  rm -f "$mwf"
+done
+# a COMMENTED entry must not count as active.
+cwf="$(mktemp)"
+sed 's|      - "scripts/ci/engine-log-diagnostic"|      # - "scripts/ci/engine-log-diagnostic"|' "$WF" > "$cwf"
+active_paths "$cwf" | grep -qxF "scripts/ci/engine-log-diagnostic" && fail "path-filter: commented entry counted active"
+rm -f "$cwf"
+echo "[extractor-control] PATH-FILTER ok: active entries only; removal/comment detected"
+
+# ── WORKFLOW-INVOCATION: the ACTIVE diagnostic step must invoke EXACTLY the
+# shared script; a mutated run line (echo / anything else) must be detected. ──
+diag_run_line() {
+  awk '/- name: Engine-log privacy-safe diagnostic/{s=1}
+       s && /^[[:space:]]*run:[[:space:]]/{sub(/^[[:space:]]*run:[[:space:]]*/,""); print; exit}' "$1"
+}
+[ "$(diag_run_line "$WF")" = "bash scripts/ci/engine-log-diagnostic" ] \
+  || fail "workflow-invocation: active step does not invoke the shared script"
+imwf="$(mktemp)"
+sed 's|^        run: bash scripts/ci/engine-log-diagnostic|        run: echo mutated|' "$WF" > "$imwf"
+[ "$(diag_run_line "$imwf")" = "bash scripts/ci/engine-log-diagnostic" ] \
+  && fail "workflow-invocation: echo mutant not detected"
+rm -f "$imwf"
+echo "[extractor-control] WORKFLOW-INVOCATION ok: active step runs the shared script; echo mutant detected"
+
+# ── SCRIPT-MATRIX: the REAL engine-log-diagnostic over the engine-* namespace.
+# Known reason markers -> their fixed tokens; an unknown engine-* marker ->
+# generic; .log.partial -> partial token (never the extractor); .log -> extractor
+# (once); a non-engine file is ignored; markers are NEVER indistinguishable from
+# no capture. Gate stub passes; the real extractor runs. ──
+smtmp="$(mktemp -d)"; smrt="$(mktemp -d)"
+cp "${HERE}/engine-log-diagnostic" "$smtmp/engine-log-diagnostic"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$smtmp/test-engine-log-extractor"; chmod +x "$smtmp/test-engine-log-extractor"
+cp "${HERE}/extract-engine-log-safe.py" "$smtmp/extract-engine-log-safe.py"
+cp "${HERE}/engine-safe-stages.txt" "$smtmp/engine-safe-stages.txt"
+cp "${HERE}/harness-safe-stages.txt" "$smtmp/harness-safe-stages.txt"
+smd="$smrt/engine-harness-logs"; mkdir -p "$smd"
+smu="engine-11111111-1111-1111-1111-111111111111"
+echo '{"level":"INFO","fields":{"stage":"bootstrap.cold"}}' > "$smd/$smu.log"
+: > "$smd/${smu}.process_not_quiescent"
+: > "$smd/${smu}.log_close_failed"
+: > "$smd/${smu}.annotation_failed"
+: > "$smd/${smu}.some_unknown_suffix"
+: > "$smd/${smu}.log.partial"
+: > "$smd/not-an-engine-file.log"
+smout="$(RUNNER_TEMP="$smrt" bash "$smtmp/engine-log-diagnostic" 2>&1 || true)"
+for tok in engine_log_process_not_quiescent engine_log_close_failed engine_log_annotation_failed \
+           engine_log_marker_unrecognized engine_log_partial_present; do
+  printf '%s' "$smout" | grep -qx "$tok" || fail "matrix: token missing: $tok"
+done
+[ "$(printf '%s\n' "$smout" | grep -c "an EngineHarness run")" = "1" ] || fail "matrix: .log not processed exactly once (non-engine leaked?)"
+printf '%s' "$smout" | grep -q "no engine.log captured" && fail "matrix: had markers but reported no capture"
+# ABSENCE has its own case: a SECOND tree with an EMPTY engine-harness-logs must
+# print EXACTLY "no engine.log captured" once — the claim needs a positive tooth,
+# not only the negative above. A mutant that drops that line (e.g. `|| true`) -> RED.
+smr2="$(mktemp -d)"; mkdir -p "$smr2/engine-harness-logs"
+absout="$(RUNNER_TEMP="$smr2" bash "$smtmp/engine-log-diagnostic" 2>&1 | grep -vE '^\[extractor-control\]')"
+[ "$absout" = "no engine.log captured" ] || fail "matrix absence: expected exactly 'no engine.log captured', got [$absout]"
+rm -rf "$smtmp" "$smrt" "$smr2"
+echo "[extractor-control] SCRIPT-MATRIX ok: known/unknown/partial/.log/non-engine handled; real absence -> no-capture"
+
+# ── CORRELATION: an engine stage, the case token, the WARN initialize category,
+# and the INFO initiate token all surface from one capture — how a red is
+# attributed to its test, and proof the red section is not all-INFO. ──
+corr="$(cat <<JSON
+{"level":"INFO","fields":{"stage":"bootstrap.initialized"}}
+{"level":"INFO","fields":{"stage":"harness_case.initialize_pair"}}
+{"level":"WARN","fields":{"stage":"harness_initialize.transport_bad_server_response"}}
+{"level":"INFO","fields":{"stage":"harness_initiate.not_observed"}}
+JSON
+)"
+corrout="$(printf '%s\n' "$corr" | ${EXTRACT})"
+printf '%s' "$corrout" | grep -qx "INFO bootstrap.initialized" || fail "correlation: engine stage dropped"
+printf '%s' "$corrout" | grep -qx "INFO harness_case.initialize_pair" || fail "correlation: case token dropped"
+printf '%s' "$corrout" | grep -qx "WARN harness_initialize.transport_bad_server_response" || fail "correlation: initialize category dropped"
+printf '%s' "$corrout" | grep -qx "INFO harness_initiate.not_observed" || fail "correlation: initiate token dropped"
+printf '%s' "$corrout" | grep -q "^WARN " || fail "correlation: red section is all-INFO"
+echo "[extractor-control] CORRELATION ok: engine + case + WARN initialize + initiate; not all-INFO"
+
+echo "[extractor-control] PASS"

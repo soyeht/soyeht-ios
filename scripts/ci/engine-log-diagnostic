@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Privacy-safe engine-log diagnostic — the SINGLE implementation the workflow
+# invokes AND the control gate exercises/mutates. Under `set -Eeuo pipefail` the
+# control gate runs FIRST; its nonzero exit aborts before any real engine.log is
+# read. Only extractor output and fixed tokens reach stdout; the raw engine.log is
+# never printed or uploaded.
+set -Eeuo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 1) The control gate is authoritative and runs FIRST.
+bash "${HERE}/test-engine-log-extractor"
+
+# 2) Only after the gate certifies the extractor do we touch real captures.
+dir="${RUNNER_TEMP:?RUNNER_TEMP must be set}/engine-harness-logs"
+shopt -s nullglob
+
+# ACTIVE reason table (incomplete-marker suffix -> fixed token). An XCTest asserts
+# REASON_SUFFIXES equals IncompleteReason.allCases.rawValue, both ways, unique.
+# reason-table-begin
+REASON_SUFFIXES=(process_not_quiescent log_close_failed annotation_failed)
+REASON_TOKENS=(engine_log_process_not_quiescent engine_log_close_failed engine_log_annotation_failed)
+# reason-table-end
+
+# Single case restricted to the controlled engine-* namespace; no path/name is
+# printed. Files outside engine-* are ignored. An incomplete capture is NEVER
+# indistinguishable from no capture: an unknown engine-* marker is fail-closed to
+# a generic fixed token.
+captured=0
+for f in "$dir"/engine-*; do
+  [ -e "$f" ] || continue
+  case "$f" in
+    *.log.partial)
+      captured=1; echo "engine_log_partial_present"; continue;;
+    *.log)
+      captured=1
+      echo "── an EngineHarness run, allowlisted (raw log NOT published) ──"
+      python3 "${HERE}/extract-engine-log-safe.py" < "$f" 2>/dev/null \
+        || echo "engine_log_extract_failed"
+      continue;;
+  esac
+  matched=""; i=0
+  for r in "${REASON_SUFFIXES[@]}"; do
+    case "$f" in *".$r") matched="${REASON_TOKENS[$i]}"; break;; esac
+    i=$((i + 1))
+  done
+  captured=1
+  if [ -n "$matched" ]; then echo "$matched"; else echo "engine_log_marker_unrecognized"; fi
+done
+[ "$captured" = 1 ] || echo "no engine.log captured"
