@@ -12,9 +12,8 @@ Two allowlists, loaded as an EXACT UNION, kept as separate files for distinct
 provenance:
  - engine-safe-stages.txt  : engine `stage` literals (pinned engine source).
  - harness-safe-stages.txt : TEST-HARNESS tokens the harness appends to the same
-   engine.log as THREE synthetic events — a static case ID, a static
-   BootstrapInitializeClient.initialize transport outcome class, and a static
-   /pair-device/initiate outcome class.
+   engine.log as TWO synthetic events — a static case ID and a static
+   BootstrapInitializeClient.initialize transport outcome class.
 
 Why exact membership and not a prefix or charset guard: a stage is emitted three
 ways — a compile-time literal, a format!(...) value, and a variable — and a

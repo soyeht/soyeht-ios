@@ -1,13 +1,13 @@
 # Closed allowlist of TEST-HARNESS diagnostic tokens — DISTINCT provenance from
 # engine-safe-stages.txt. These are emitted by EngineHarness itself, not by the
 # engine: a static case ID per harness test, plus a static classification of the
-# BootstrapInitializeClient.initialize transport outcome AND of the
-# /pair-device/initiate outcome. They are appended as THREE synthetic JSON events to the
-# captured engine.log so engine stages and harness classification flow through the
-# SAME extractor/allowlist and correlate per capture. Every token is a fixed
-# compile-time literal in the test target; none carries a value (no status code,
-# body, header, userInfo, name, path, or UUID). Membership is EXACT. Blank lines
-# and lines starting with '#' are ignored.
+# BootstrapInitializeClient.initialize transport outcome. They are appended as
+# TWO synthetic JSON events to the captured engine.log so engine stages and
+# harness classification flow through the SAME extractor/allowlist and correlate
+# per capture. Every token is a fixed compile-time literal in the test target;
+# none carries a value (no status code, body, header, userInfo, name, path, or
+# UUID). Membership is EXACT. Blank lines and lines starting with '#' are
+# ignored.
 #
 # ── static case IDs (which harness test produced the capture) ──
 harness_case.status_only
@@ -23,16 +23,3 @@ harness_initialize.transport_connection_lost
 harness_initialize.transport_cannot_connect
 harness_initialize.transport_bad_server_response
 harness_initialize.transport_other
-# ── static /pair-device/initiate outcome classes (category only, never a value) ──
-harness_initiate.ok
-harness_initiate.http_4xx
-harness_initiate.http_5xx
-harness_initiate.http_other_status
-harness_initiate.not_http
-harness_initiate.body_undecodable
-harness_initiate.transport_timed_out
-harness_initiate.transport_connection_lost
-harness_initiate.transport_cannot_connect
-harness_initiate.transport_other
-harness_initiate.not_observed
-harness_initiate.not_recorded

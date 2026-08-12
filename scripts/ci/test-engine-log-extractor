@@ -132,11 +132,6 @@ HARNESS_EXPECTED=(
   harness_initialize.transport_timed_out harness_initialize.transport_connection_lost
   harness_initialize.transport_cannot_connect harness_initialize.transport_bad_server_response
   harness_initialize.transport_other
-  harness_initiate.ok harness_initiate.http_4xx harness_initiate.http_5xx
-  harness_initiate.http_other_status harness_initiate.not_http harness_initiate.body_undecodable
-  harness_initiate.transport_timed_out harness_initiate.transport_connection_lost
-  harness_initiate.transport_cannot_connect harness_initiate.transport_other
-  harness_initiate.not_observed harness_initiate.not_recorded
 )
 check_list() {
   local file="$1" want="$2"; shift 2
@@ -156,8 +151,8 @@ check_list() {
   done
 }
 check_list "${HERE}/engine-safe-stages.txt" 18 "${ENGINE_EXPECTED[@]}"
-check_list "${HERE}/harness-safe-stages.txt" 22 "${HARNESS_EXPECTED[@]}"
-echo "[extractor-control] COMPLETENESS ok: engine 18/18 + harness 22/22 set-equal; each load-bearing"
+check_list "${HERE}/harness-safe-stages.txt" 10 "${HARNESS_EXPECTED[@]}"
+echo "[extractor-control] COMPLETENESS ok: engine 18/18 + harness 10/10 set-equal; each load-bearing"
 
 # ── INVALID UTF-8: a non-UTF-8 byte must not crash and must never surface. ──
 set +e
@@ -293,22 +288,20 @@ absout="$(RUNNER_TEMP="$smr2" bash "$smtmp/engine-log-diagnostic" 2>&1 | grep -v
 rm -rf "$smtmp" "$smrt" "$smr2"
 echo "[extractor-control] SCRIPT-MATRIX ok: known/unknown/partial/.log/non-engine handled; real absence -> no-capture"
 
-# ── CORRELATION: an engine stage, the case token, the WARN initialize category,
-# and the INFO initiate token all surface from one capture — how a red is
-# attributed to its test, and proof the red section is not all-INFO. ──
+# ── CORRELATION: an engine stage, the case token, and the WARN initialize
+# category all surface from one capture — how a red is attributed to its test,
+# and proof the red section is not all-INFO. ──
 corr="$(cat <<JSON
 {"level":"INFO","fields":{"stage":"bootstrap.initialized"}}
 {"level":"INFO","fields":{"stage":"harness_case.initialize_pair"}}
 {"level":"WARN","fields":{"stage":"harness_initialize.transport_bad_server_response"}}
-{"level":"INFO","fields":{"stage":"harness_initiate.not_observed"}}
 JSON
 )"
 corrout="$(printf '%s\n' "$corr" | ${EXTRACT})"
 printf '%s' "$corrout" | grep -qx "INFO bootstrap.initialized" || fail "correlation: engine stage dropped"
 printf '%s' "$corrout" | grep -qx "INFO harness_case.initialize_pair" || fail "correlation: case token dropped"
 printf '%s' "$corrout" | grep -qx "WARN harness_initialize.transport_bad_server_response" || fail "correlation: initialize category dropped"
-printf '%s' "$corrout" | grep -qx "INFO harness_initiate.not_observed" || fail "correlation: initiate token dropped"
 printf '%s' "$corrout" | grep -q "^WARN " || fail "correlation: red section is all-INFO"
-echo "[extractor-control] CORRELATION ok: engine + case + WARN initialize + initiate; not all-INFO"
+echo "[extractor-control] CORRELATION ok: engine + case + WARN initialize; not all-INFO"
 
 echo "[extractor-control] PASS"

@@ -73,32 +73,30 @@ final class EngineHarnessAnnotationTests: XCTestCase {
         (o?["fields"] as? [String: Any])?["stage"] as? String
     }
 
-    func test_annotation_appendsThreeObjects_caseInitializeInitiate_notAllINFO() throws {
+    func test_annotation_appendsTwoObjects_caseInitialize_notAllINFO() throws {
         let log = scratch.appendingPathComponent("engine.log")
         try Data(#"{"level":"INFO","fields":{"stage":"bootstrap.initialized"}}"#.utf8).write(to: log)
         let ok = EngineHarness.appendHarnessClassification(
             to: log, caseID: .initializePair,
-            initialize: .transportBadServerResponse, initiate: .notObserved
+            initialize: .transportBadServerResponse
         )
         XCTAssertTrue(ok)
         let lines = try linesOf(log)
-        XCTAssertEqual(lines.count, 4) // original + case + initialize + initiate
-        let c = try obj(lines[1]); let i = try obj(lines[2]); let t = try obj(lines[3])
+        XCTAssertEqual(lines.count, 3) // original + case + initialize
+        let c = try obj(lines[1]); let i = try obj(lines[2])
         XCTAssertEqual(stage(c), "harness_case.initialize_pair")
         XCTAssertEqual(stage(i), "harness_initialize.transport_bad_server_response")
-        XCTAssertEqual(stage(t), "harness_initiate.not_observed")
         XCTAssertEqual(c?["level"] as? String, "INFO")
         XCTAssertEqual(i?["level"] as? String, "WARN") // the causal error names + marks the failure
-        XCTAssertEqual(t?["level"] as? String, "INFO")
         // A red section is NOT all-INFO: the initialize error carries WARN.
-        XCTAssertTrue([c, i, t].map { $0?["level"] as? String }.contains("WARN"))
+        XCTAssertTrue([c, i].map { $0?["level"] as? String }.contains("WARN"))
     }
 
     func test_annotation_failsOnUnopenablePath() {
         // Parent directory does not exist: open() (no O_CREAT) fails -> false.
         let bogus = scratch.appendingPathComponent("no-such-dir/engine.log")
         let ok = EngineHarness.appendHarnessClassification(
-            to: bogus, caseID: .statusOnly, initialize: .notObserved, initiate: .notObserved
+            to: bogus, caseID: .statusOnly, initialize: .notObserved
         )
         XCTAssertFalse(ok)
         XCTAssertFalse(FileManager.default.fileExists(atPath: bogus.path))
