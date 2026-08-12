@@ -164,23 +164,32 @@ struct ClawShareInvitePresentation: Equatable {
         }
     }
 
-    /// Returns `true` at most once per slot while this gate lives; the caller starts
-    /// task only on `true`.
+    /// Returns `true` at most once per slot while this gate lives; the caller
+    /// starts its task only on `true`.
+    ///
+    /// TAKES THE SLOT THE SHEET RENDERED. Reading only the current state was
+    /// not enough: a sheet showing A can fire its action after B has replaced
+    /// A in `awaiting` but before the old UI is gone, and a subject-less
+    /// confirm would then authorise B while opening the bytes captured for A.
+    /// Requiring the caller to name what it is confirming makes a stale action
+    /// a no-op instead of a substitution.
     ///
     /// The transition happens BEFORE the caller starts async work. Deciding
     /// after an await would leave a window where two confirms both read
-    /// `awaiting` and both claim.
-    mutating func confirm() -> Bool {
-        guard case .awaiting(let slotID) = state else { return false }
-        state = .opening(slotID: slotID)
+    /// `awaiting` and both proceed.
+    mutating func confirm(slotID: Data) -> Bool {
+        guard case .awaiting(let current) = state, current == slotID else { return false }
+        state = .opening(slotID: current)
         return true
     }
 
-    /// Only leaves `awaiting`: a cancel arriving after confirm must not
+    /// Only leaves `awaiting`, and only for the slot the caller names — a
+    /// stale cancel from a sheet that has already been replaced must not clear
+    /// the invite now on screen. A cancel arriving after confirm must also not
     /// pretend the slot has not been attempted.
     @discardableResult
-    mutating func cancel() -> Bool {
-        guard case .awaiting = state else { return false }
+    mutating func cancel(slotID: Data) -> Bool {
+        guard case .awaiting(let current) = state, current == slotID else { return false }
         state = .idle
         return true
     }
@@ -884,11 +893,14 @@ struct SoyehtAppView: View {
             ClawShareInviteConfirmationSheet(
                 appName: pending.invite.clawId,
                 onConfirm: {
-                    // The gate transitions BEFORE the task is created, so a
-                    // second confirm (double tap, or the sheet re-firing)
-                    // finds `opening` and produces no second claim against a
-                    // slot the engine consumes atomically.
-                    guard invitePresentation.confirm() else { return }
+                    // Names the slot THIS sheet rendered, rather than
+                    // re-reading the gate: a stale action from a sheet that has
+                    // already been replaced must be refused, not applied to
+                    // whatever is awaiting now. The gate also transitions
+                    // BEFORE the task is created, so a double tap finds
+                    // `opening` and produces no second attempt against a slot
+                    // the engine consumes atomically.
+                    guard invitePresentation.confirm(slotID: pending.invite.slotId) else { return }
                     let (url, invite) = (pending.url, pending.invite)
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
@@ -906,7 +918,7 @@ struct SoyehtAppView: View {
                 },
                 onCancel: {
                     let invite = pending.invite
-                    invitePresentation.cancel()
+                    invitePresentation.cancel(slotID: pending.invite.slotId)
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
                         "claw-share user cancelled claw=\(invite.clawId, privacy: .public)"

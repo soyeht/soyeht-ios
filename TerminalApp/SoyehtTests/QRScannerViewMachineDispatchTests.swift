@@ -434,20 +434,20 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
 
-        XCTAssertTrue(gate.confirm(), "first confirm is the claim")
-        XCTAssertFalse(gate.confirm(), "second confirm must produce no effect")
+        XCTAssertTrue(gate.confirm(slotID: slotA), "first confirm is the claim")
+        XCTAssertFalse(gate.confirm(slotID: slotA), "second confirm must produce no effect")
         XCTAssertEqual(gate.state, .opening(slotID: slotA))
     }
 
-    /// Cancel claims nothing, and a confirm arriving afterwards claims nothing
-    /// either — there is no invite under it any more.
+    /// Cancel attempts nothing, and a confirm arriving afterwards attempts
+    /// nothing either — there is no invite under it any more.
     func testCancelAttemptsNothingAndACancelledInviteCannotBeConfirmed() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
 
-        XCTAssertTrue(gate.cancel())
+        XCTAssertTrue(gate.cancel(slotID: slotA))
         XCTAssertEqual(gate.state, .idle)
-        XCTAssertFalse(gate.confirm(), "a cancelled invite must not be confirmable without being presented again")
+        XCTAssertFalse(gate.confirm(slotID: slotA), "a cancelled invite must not be confirmable without being presented again")
     }
 
     /// A cancel landing after confirm must not pretend the slot was never attempted.
@@ -455,20 +455,22 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     func testCancelAfterConfirmDoesNotReopenAnAttemptedInvite() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA))
 
-        XCTAssertFalse(gate.cancel(), "the claim is already in flight")
+        XCTAssertFalse(gate.cancel(slotID: slotA), "the claim is already in flight")
         XCTAssertEqual(gate.state, .opening(slotID: slotA))
     }
 
-    /// IN-PROCESS REPLAY. `protectedDataDidBecomeAvailable` and the launch
+    /// REDELIVERY OF THE SAME LINK. `protectedDataDidBecomeAvailable` and the launch
     /// replay both re-post the same URL while the sheet is up. The invite must
     /// be neither lost nor duplicated.
     ///
-    /// Scope, stated rather than implied: this is replay *within the process*.
-    /// `pendingDeepLink` is not persisted, so a later relaunch without the OS
-    /// re-delivering the URL is not covered here and is not claimed to be.
-    func testInProcessReplayWhileAwaitingNeitherLosesNorDuplicates() {
+    /// Scope, stated rather than implied: this holds while THIS gate instance
+    /// lives. The gate is `@State` on a view, so its lifetime follows the view
+    /// identity SwiftUI decides — not something this diff can enumerate, and
+    /// not the process. `pendingDeepLink` is not persisted either, so a later
+    /// relaunch without the OS re-delivering the URL is not covered.
+    func testRedeliveryWhileAwaitingNeitherLosesNorDuplicates() {
         var gate = ClawShareInvitePresentation()
         XCTAssertEqual(gate.receive(slotID: slotA), .present)
 
@@ -476,8 +478,49 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
 
         XCTAssertEqual(gate.awaitingSlotID, slotA)
-        XCTAssertTrue(gate.confirm(), "the invite survived the replays and is still attemptable exactly once by this gate")
-        XCTAssertFalse(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA), "the invite survived the replays and is still attemptable exactly once by this gate")
+        XCTAssertFalse(gate.confirm(slotID: slotA))
+    }
+
+    /// A STALE SHEET MUST NOT AUTHORISE THE INVITE THAT REPLACED IT.
+    ///
+    /// The sheet for A can fire its confirm after B has taken `awaiting` but
+    /// before the old UI is gone. While `confirm()` read only the current
+    /// state, that action moved B to `opening` and then opened the bytes
+    /// captured for A — one invite's consent applied to another's payload.
+    ///
+    /// The control below is what makes this test say something: B's own
+    /// confirm must still work, so the refusal is about identity and not about
+    /// having broken confirm altogether.
+    func testAStaleConfirmFromAReplacedSheetDoesNotAuthoriseTheInviteThatReplacedIt() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+
+        XCTAssertFalse(
+            gate.confirm(slotID: slotA),
+            "A's sheet is stale; its confirm must not authorise anything"
+        )
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotB), "B must be untouched")
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty, "a refused action must mark nothing")
+
+        XCTAssertTrue(gate.confirm(slotID: slotB), "control: B's own confirm still works")
+        XCTAssertEqual(gate.state, .opening(slotID: slotB))
+    }
+
+    /// The same, for cancel: a stale dismissal must not clear the invite now on
+    /// screen. Without identity it did, and the person lost an invite they had
+    /// just been shown.
+    func testAStaleCancelFromAReplacedSheetDoesNotClearTheInviteThatReplacedIt() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+
+        XCTAssertFalse(gate.cancel(slotID: slotA), "A's sheet is stale; its cancel must be a no-op")
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotB), "B must still be on screen")
+
+        XCTAssertTrue(gate.cancel(slotID: slotB), "control: B's own cancel still works")
+        XCTAssertEqual(gate.state, .idle)
     }
 
     /// A genuinely different invite while merely awaiting replaces it: the
@@ -497,7 +540,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     func testADifferentInviteMidClaimIsDroppedAndNamedAsSuchNotAsADuplicate() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA))
 
         XCTAssertEqual(
             gate.receive(slotID: slotB), .ignoredWhileOpening,
@@ -518,19 +561,19 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     func testAnAttemptedSlotStaysRefusedAcrossAnUnrelatedInviteComingAndGoing() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA))
         gate.finishAttempt()
 
         // An unrelated invite arrives, is shown, and is dismissed.
         XCTAssertEqual(gate.receive(slotID: slotB), .present)
-        XCTAssertTrue(gate.cancel())
+        XCTAssertTrue(gate.cancel(slotID: slotB))
         XCTAssertEqual(gate.state, .idle)
 
         XCTAssertEqual(
             gate.receive(slotID: slotA), .ignoreDuplicate,
             "A was already attempted; another invite passing through must not amnesty it"
         )
-        XCTAssertFalse(gate.confirm())
+        XCTAssertFalse(gate.confirm(slotID: slotA))
     }
 
     /// The same refusal must survive a second invite that is itself attempted,
@@ -538,11 +581,11 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     func testAnAttemptedSlotStaysRefusedAfterAnotherInviteIsAlsoAttempted() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA))
         gate.finishAttempt()
 
         XCTAssertEqual(gate.receive(slotID: slotB), .present)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotB))
         gate.finishAttempt()
 
         XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate, "A was already attempted")
@@ -553,14 +596,14 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     func testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
-        XCTAssertTrue(gate.confirm())
+        XCTAssertTrue(gate.confirm(slotID: slotA))
         gate.finishAttempt()
 
         XCTAssertEqual(
             gate.receive(slotID: slotA), .ignoreDuplicate,
             "a late delivery of an already-attempted invite must not present again"
         )
-        XCTAssertFalse(gate.confirm(), "and it must not be attempted a second time")
+        XCTAssertFalse(gate.confirm(slotID: slotA), "and it must not be attempted a second time")
         XCTAssertEqual(gate.state, .idle)
         XCTAssertTrue(gate.attemptedSlotIDs.contains(slotA))
 
@@ -600,14 +643,14 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         // `_ = invitePresentation.confirm()` followed by the claim, which is
         // the fail-open worth pinning: the decision is computed and discarded.
         XCTAssertTrue(
-            confirmBody.contains("guard invitePresentation.confirm() else { return }"),
-            "the gate's result must control the branch; calling and ignoring it claims regardless"
+            confirmBody.contains("guard invitePresentation.confirm(slotID: pending.invite.slotId) else { return }"),
+            "confirm must name the slot THIS sheet rendered and let the answer control the branch; a subject-less confirm applies a stale sheet's consent to whatever is awaiting now"
         )
 
         // And the claim must not be reachable before that decision.
         let gate = try XCTUnwrap(
-            confirmBody.range(of: "invitePresentation.confirm()"),
-            "confirm must go through the gate, or a double tap claims twice"
+            confirmBody.range(of: "invitePresentation.confirm(slotID:"),
+            "confirm must go through the gate, or a double tap attempts twice"
         )
         let claim = try XCTUnwrap(
             confirmBody.range(of: "handleQRScanned"),
@@ -624,8 +667,8 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
 
         // Cancel must release the gate and claim nothing.
         XCTAssertTrue(
-            cancelBody.contains("invitePresentation.cancel()"),
-            "cancel must release the gate, or the invite can never be presented again"
+            cancelBody.contains("invitePresentation.cancel(slotID: pending.invite.slotId)"),
+            "cancel must name the slot THIS sheet rendered, or a stale dismissal clears the invite now on screen"
         )
         XCTAssertFalse(
             cancelBody.contains("handleQRScanned"),
