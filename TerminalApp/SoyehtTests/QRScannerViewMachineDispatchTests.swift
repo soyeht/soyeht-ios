@@ -408,7 +408,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         }
     }
 
-    // MARK: - Presentation gate: one presentation, one attempt per process
+    // MARK: - Presentation gate: one presentation, one attempt while the gate lives
 
     private let slotA = Data(repeating: 0xA1, count: 16)
     private let slotB = Data(repeating: 0xB2, count: 16)
@@ -476,7 +476,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
 
         XCTAssertEqual(gate.awaitingSlotID, slotA)
-        XCTAssertTrue(gate.confirm(), "the invite survived the replays and is still attemptable exactly once in this process")
+        XCTAssertTrue(gate.confirm(), "the invite survived the replays and is still attemptable exactly once by this gate")
         XCTAssertFalse(gate.confirm())
     }
 
@@ -558,7 +558,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
 
         XCTAssertEqual(
             gate.receive(slotID: slotA), .ignoreDuplicate,
-            "a late delivery of an already-claimed invite must not present again"
+            "a late delivery of an already-attempted invite must not present again"
         )
         XCTAssertFalse(gate.confirm(), "and it must not be attempted a second time")
         XCTAssertEqual(gate.state, .idle)

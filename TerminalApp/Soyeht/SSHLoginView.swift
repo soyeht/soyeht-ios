@@ -70,7 +70,8 @@ struct PendingClawShareInvite: Identifiable {
 /// a value, so those properties are asserted directly instead of inferred from
 /// a view.
 ///
-/// THE PROPERTY IT ENFORCES is one ATTEMPT per slot per process. Not "the claim
+/// THE PROPERTY IT ENFORCES is one ATTEMPT per slot for as long as THIS gate
+/// lives. Not "the claim
 /// was consumed exactly once": see `finishAttempt()` for why those differ and
 /// why the weaker one is what this can honestly promise today.
 ///
@@ -111,7 +112,7 @@ struct ClawShareInvitePresentation: Equatable {
 
     private(set) var state: State = .idle
 
-    /// Every slot that has already had an attempt in THIS process.
+    /// Every slot that has already had an attempt while this gate has existed.
     ///
     /// Separate from `state` on purpose. Holding only the most recent settled
     /// slot was still fail-open: settle A, receive B (which replaces it),
@@ -119,9 +120,16 @@ struct ClawShareInvitePresentation: Equatable {
     /// current state or "already attempted" is only true until the next invite
     /// arrives.
     ///
-    /// No eviction, so the refusal holds for the lifetime of the process and
-    /// no longer. That is the honest bound: this is not durable across a
-    /// relaunch, and nothing here should be read as promising that.
+    /// No eviction, so nothing is forgotten while this gate lives — but the
+    /// gate is `@State` on the view, and `showMainStoryboard` builds a fresh
+    /// root, which this very branch does when an invite arrives during
+    /// onboarding. A root swap therefore starts a new, empty history inside the
+    /// SAME process.
+    ///
+    /// So the honest bound is this gate's own lifetime: not the process's, and
+    /// certainly not durable across a relaunch. Widening it means moving the
+    /// history somewhere genuinely process-owned, which is deliberately not in
+    /// this slice.
     private(set) var attemptedSlotIDs: Set<Data> = []
 
     var awaitingSlotID: Data? {
@@ -156,7 +164,7 @@ struct ClawShareInvitePresentation: Equatable {
         }
     }
 
-    /// Returns `true` at most once per slot in this process; the caller starts
+    /// Returns `true` at most once per slot while this gate lives; the caller starts
     /// task only on `true`.
     ///
     /// The transition happens BEFORE the caller starts async work. Deciding
@@ -181,7 +189,8 @@ struct ClawShareInvitePresentation: Equatable {
     /// because the handler this follows does not report which it was.
     ///
     /// So the property this type actually enforces is **one attempt per slot
-    /// per process**, not "the claim was consumed exactly once". Those differ:
+    /// for as long as this gate lives**, not "the claim was consumed exactly
+    /// once". Those differ:
     /// an open that failed before the engine consumed the slot is recorded the
     /// same as one that succeeded, and the person cannot retry it from this
     /// link. Stated rather than implied, so nobody reads a stronger guarantee
@@ -307,7 +316,7 @@ struct SoyehtAppView: View {
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
     @State private var pendingClawShareInvite: PendingClawShareInvite?
-    /// One presentation and one attempt per slot per process, keyed by slot id — see
+    /// One presentation and one attempt per slot while this gate lives, keyed by slot id — see
     /// `ClawShareInvitePresentation` for why the app delivers the same URL
     /// twice on purpose and why a time window would be the wrong observable.
     @State private var invitePresentation = ClawShareInvitePresentation()
