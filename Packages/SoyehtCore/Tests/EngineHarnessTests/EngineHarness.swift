@@ -199,6 +199,30 @@ final class EngineHarness {
         Self.recordingInitializeTransport(underlying: underlying, recorder: initializeRecorder)
     }
 
+    /// A1 EXPERIMENT (disposable; never a merge candidate): raise the client
+    /// budget to 120 s on EXACTLY the `POST /bootstrap/initialize` request.
+    /// Every other request — including the EngineCompat pre-flight
+    /// `GET /bootstrap/status` that rides the same injected transport — passes
+    /// through unchanged, so the existing outcome tokens (`transport_returned`
+    /// vs `transport_timed_out`) carry the whole result and no new output
+    /// surface exists.
+    static let experimentInitializePOSTTimeout: TimeInterval = 120
+
+    /// Exact-match gate: method must be `POST` and the percent-encoded path
+    /// must equal `/bootstrap/initialize`. `URLComponents` preserves a trailing
+    /// slash, so `/bootstrap/initialize/`, `/bootstrap/initialized`, any
+    /// prefixed spelling, and any non-POST method are all left untouched.
+    static func applyingExperimentTimeoutOverride(_ request: URLRequest) -> URLRequest {
+        guard request.httpMethod == "POST",
+              let url = request.url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.percentEncodedPath == "/bootstrap/initialize"
+        else { return request }
+        var overridden = request
+        overridden.timeoutInterval = Self.experimentInitializePOSTTimeout
+        return overridden
+    }
+
     /// Wraps an initialize `TransportPerform` so the RAW transport error is
     /// classified and recorded UPSTREAM of the `.networkDrop` collapse, then
     /// rethrown unchanged (external behavior preserved). On a returned response it
@@ -209,8 +233,9 @@ final class EngineHarness {
         recorder: InitializeOutcomeRecorder
     ) -> BootstrapInitializeClient.TransportPerform {
         return { request in
+            let effective = Self.applyingExperimentTimeoutOverride(request)
             do {
-                let result = try await underlying(request)
+                let result = try await underlying(effective)
                 recorder.record(.transportReturned)
                 return result
             } catch {
