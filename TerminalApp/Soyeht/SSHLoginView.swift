@@ -86,17 +86,30 @@ struct ClawShareInvitePresentation: Equatable {
         case idle
         /// Sheet is up for this slot. Nothing claimed yet.
         case awaiting(slotID: Data)
-        /// Confirmed. A claim is in flight or done — the slot is spent either
-        /// way, so this never returns to `awaiting`.
+        /// Confirmed. A claim is in flight — the slot is being spent.
         case opening(slotID: Data)
+        /// The claim settled. This slot is spent FOREVER, and remembering
+        /// which one is what keeps "one claim per invite" true after the fact:
+        /// returning to `idle` here would let a late delivery of the same link
+        /// — the replay routes make that ordinary — present and claim a second
+        /// time. Bounded to one slot on purpose; a different invite still
+        /// displaces it.
+        case settled(slotID: Data)
     }
 
     enum Reception: Equatable {
         /// Fresh invite: install `awaiting` and show the confirmation sheet.
         case present
-        /// The same invite arriving again by the other route. No second sheet
-        /// and, above all, no second claim.
+        /// The SAME invite again — another delivery route, or one that arrives
+        /// after it was already claimed. No second sheet, no second claim.
         case ignoreDuplicate
+        /// A DIFFERENT invite, dropped because a claim is in flight and
+        /// swapping the subject under it would attribute that outcome to the
+        /// wrong invite. Named apart from `ignoreDuplicate` because it is not
+        /// one: this invite is genuinely lost, and the caller must be able to
+        /// say so rather than log it as a repeat. Queuing it is a deliberate
+        /// non-goal here, not an oversight.
+        case ignoredWhileOpening
     }
 
     private(set) var state: State = .idle
@@ -117,9 +130,15 @@ struct ClawShareInvitePresentation: Equatable {
         switch state {
         case .awaiting(let current) where current == slotID:
             return .ignoreDuplicate
-        case .opening:
+        case .opening(let current) where current == slotID:
             return .ignoreDuplicate
-        case .idle, .awaiting:
+        case .settled(let current) where current == slotID:
+            // Already claimed. A late delivery of the same link must not open
+            // a second claim against a slot the engine has consumed.
+            return .ignoreDuplicate
+        case .opening:
+            return .ignoredWhileOpening
+        case .idle, .awaiting, .settled:
             state = .awaiting(slotID: slotID)
             return .present
         }
@@ -146,10 +165,11 @@ struct ClawShareInvitePresentation: Equatable {
         return true
     }
 
-    /// The claim finished, either way. Frees the gate for a future, different
-    /// invite without ever reopening this one.
+    /// The claim finished, either way. Records WHICH slot was spent instead of
+    /// clearing to `idle`: a later delivery of that same link must still be
+    /// refused, and only remembering it makes that possible.
     mutating func finishOpening() {
-        if case .opening = state { state = .idle }
+        if case .opening(let slotID) = state { state = .settled(slotID: slotID) }
     }
 }
 
@@ -1256,11 +1276,22 @@ struct SoyehtAppView: View {
                     pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
                     store.pendingDeepLink = nil   // transition: awaiting installed
                 case .ignoreDuplicate:
-                    // The same invite arriving by the other route, or while a
-                    // claim is already in flight. One sheet, one claim.
+                    // The same invite by the other delivery route, or after it
+                    // was already claimed. One sheet, one claim.
                     store.pendingDeepLink = nil   // transition: replay recognised
                     householdDeepLinkLogger.info(
                         "claw-share duplicate delivery ignored claw=\(invite.clawId, privacy: .public)"
+                    )
+                case .ignoredWhileOpening:
+                    // A DIFFERENT invite arriving mid-claim. Logged apart from
+                    // a duplicate because it is not one: this invite is
+                    // genuinely dropped, and calling it a repeat would hide a
+                    // real loss behind a benign word. Not queued — that is a
+                    // deliberate non-goal in this slice, recorded so the next
+                    // person sees a decision rather than an accident.
+                    store.pendingDeepLink = nil   // transition: explicitly dropped
+                    householdDeepLinkLogger.error(
+                        "claw-share invite dropped while another claim is in flight claw=\(invite.clawId, privacy: .public)"
                     )
                 }
             case .success(let other):

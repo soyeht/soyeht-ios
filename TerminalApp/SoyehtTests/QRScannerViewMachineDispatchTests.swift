@@ -490,28 +490,117 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(gate.awaitingSlotID, slotB)
     }
 
-    /// But never while a claim is in flight: swapping the subject under an
-    /// in-flight claim would attribute its outcome to the wrong invite.
-    func testADifferentInviteIsIgnoredWhileAClaimIsInFlight() {
+    /// A different invite mid-claim is DROPPED, and the result says so rather
+    /// than calling it a duplicate — it is not one. Naming the loss is the
+    /// point: `ignoreDuplicate` in the log would hide a real invite going
+    /// nowhere behind a benign word.
+    func testADifferentInviteMidClaimIsDroppedAndNamedAsSuchNotAsADuplicate() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm())
 
-        XCTAssertEqual(gate.receive(slotID: slotB), .ignoreDuplicate)
+        XCTAssertEqual(
+            gate.receive(slotID: slotB), .ignoredWhileOpening,
+            "a genuinely different invite is lost here; the caller must be able to report that"
+        )
         XCTAssertEqual(gate.state, .opening(slotID: slotA), "the in-flight claim keeps its own subject")
     }
 
-    /// Once the claim settles the gate frees up for a future invite, without
-    /// ever reopening the spent one.
-    func testFinishingOpeningFreesTheGateWithoutReopeningTheSpentInvite() {
+    /// THE PROMISE AFTER THE FACT, which the first version of this gate broke.
+    ///
+    /// `finishOpening` used to return to `.idle`, so a late delivery of the
+    /// SAME link — and the replay routes make that ordinary — was received as
+    /// fresh and could be claimed a second time against a slot the engine had
+    /// already consumed. The earlier test only re-called `confirm()` after
+    /// finishing, never `receive`, so it never bit.
+    ///
+    /// The settled slot must stay refused; a different invite may still come.
+    func testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm())
-
         gate.finishOpening()
-        XCTAssertEqual(gate.state, .idle)
-        XCTAssertFalse(gate.confirm(), "the spent invite is not claimable again")
-        XCTAssertEqual(gate.receive(slotID: slotB), .present, "a new invite is welcome")
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .ignoreDuplicate,
+            "a late delivery of an already-claimed invite must not present again"
+        )
+        XCTAssertFalse(gate.confirm(), "and it must not be claimable a second time")
+        XCTAssertEqual(gate.state, .settled(slotID: slotA))
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present, "a genuinely new invite is still welcome")
+    }
+
+    // MARK: - The wiring the reducer tests cannot reach
+
+    /// THE BOUNDARY THE VALUE TESTS DO NOT PROVE. Every test above exercises
+    /// `ClawShareInvitePresentation` in isolation; none of them can see whether
+    /// the sheet actually consults it. That gap is precisely the shape of both
+    /// defects this branch exists to fix — a correct component nothing routes
+    /// through — so it gets a tooth even though this target has no UI test
+    /// harness.
+    ///
+    /// Structural, deliberately narrow, and anchored on
+    /// `ClawShareInviteConfirmationSheet(` because it occurs exactly once;
+    /// `onConfirm:`/`onCancel:` do not, and slicing on a repeated marker would
+    /// silently read some other sheet. The window is closed at the next sheet.
+    func testTheInviteSheetActionsAreWiredThroughTheGate() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        XCTAssertEqual(
+            source.components(separatedBy: "ClawShareInviteConfirmationSheet(").count - 1, 1,
+            "anchor must stay unique or this test reads the wrong region"
+        )
+
+        let sheet = try slice(
+            source,
+            from: "ClawShareInviteConfirmationSheet(",
+            to: ".sheet(isPresented: $showAddDeviceSheet)"
+        )
+        let confirmBody = try slice(sheet, from: "onConfirm: {", to: "onCancel: {")
+        let cancelBody = String(sheet[(try XCTUnwrap(sheet.range(of: "onCancel: {"))).upperBound...])
+
+        // Confirm must ask the gate, and must not be able to claim before it.
+        let gate = try XCTUnwrap(
+            confirmBody.range(of: "invitePresentation.confirm()"),
+            "confirm must go through the gate, or a double tap claims twice"
+        )
+        let claim = try XCTUnwrap(
+            confirmBody.range(of: "handleQRScanned"),
+            "confirm is expected to reach the claim"
+        )
+        XCTAssertTrue(
+            gate.lowerBound < claim.lowerBound,
+            "the claim must be reachable only after the gate has decided"
+        )
+        XCTAssertTrue(
+            confirmBody.contains("invitePresentation.finishOpening()"),
+            "the settled slot must be recorded on the claim path, or a late replay claims again"
+        )
+
+        // Cancel must release the gate and claim nothing.
+        XCTAssertTrue(
+            cancelBody.contains("invitePresentation.cancel()"),
+            "cancel must release the gate, or the invite can never be presented again"
+        )
+        XCTAssertFalse(
+            cancelBody.contains("handleQRScanned"),
+            "cancelling must not claim"
+        )
+    }
+
+    private func iosSource(_ relativePath: String) throws -> String {
+        let terminalApp = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // SoyehtTests/
+            .deletingLastPathComponent()  // TerminalApp/
+        let url = terminalApp.appendingPathComponent("Soyeht").appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
+        let start = try XCTUnwrap(source.range(of: startMarker))
+        let tail = source[start.upperBound...]
+        let end = try XCTUnwrap(tail.range(of: endMarker))
+        return String(tail[..<end.lowerBound])
     }
 
     func testOnboardingLaunchIntentOpensQRScannerOnlyOnce() throws {
