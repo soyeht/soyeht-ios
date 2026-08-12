@@ -90,7 +90,7 @@ struct ClawShareInvitePresentation: Equatable {
         case idle
         /// Sheet is up for this slot. Nothing claimed yet.
         case awaiting(slotID: Data)
-        /// Confirmed. A claim is in flight — the slot is being spent.
+        /// Confirmed. An attempt is in flight against this slot.
         case opening(slotID: Data)
     }
 
@@ -98,7 +98,7 @@ struct ClawShareInvitePresentation: Equatable {
         /// Fresh invite: install `awaiting` and show the confirmation sheet.
         case present
         /// The SAME invite again — another delivery route, or one that arrives
-        /// after it was already claimed. No second sheet, no second claim.
+        /// after it was already attempted. No second sheet, no second attempt.
         case ignoreDuplicate
         /// A DIFFERENT invite, dropped because a claim is in flight and
         /// swapping the subject under it would attribute that outcome to the
@@ -156,7 +156,7 @@ struct ClawShareInvitePresentation: Equatable {
         }
     }
 
-    /// Returns `true` exactly once per invite; the caller creates the claim
+    /// Returns `true` at most once per slot in this process; the caller starts
     /// task only on `true`.
     ///
     /// The transition happens BEFORE the caller starts async work. Deciding
@@ -169,7 +169,7 @@ struct ClawShareInvitePresentation: Equatable {
     }
 
     /// Only leaves `awaiting`: a cancel arriving after confirm must not
-    /// pretend the slot is still unspent.
+    /// pretend the slot has not been attempted.
     @discardableResult
     mutating func cancel() -> Bool {
         guard case .awaiting = state else { return false }
@@ -307,7 +307,7 @@ struct SoyehtAppView: View {
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
     @State private var pendingClawShareInvite: PendingClawShareInvite?
-    /// One sheet and one claim per invite, keyed by slot id — see
+    /// One presentation and one attempt per slot per process, keyed by slot id — see
     /// `ClawShareInvitePresentation` for why the app delivers the same URL
     /// twice on purpose and why a time window would be the wrong observable.
     @State private var invitePresentation = ClawShareInvitePresentation()
@@ -890,8 +890,8 @@ struct SoyehtAppView: View {
                             result: .clawShareInvite(invite),
                             sourceURL: url
                         )
-                        // Settled either way; the slot is spent and the gate
-                        // frees up for a future, different invite.
+                        // The attempt finished, either way. Recording it is
+                        // what makes a later replay of this link refusable.
                         invitePresentation.finishAttempt()
                     }
                 },
@@ -1299,7 +1299,7 @@ struct SoyehtAppView: View {
                     store.pendingDeepLink = nil   // transition: awaiting installed
                 case .ignoreDuplicate:
                     // The same invite by the other delivery route, or after it
-                    // was already claimed. One sheet, one claim.
+                    // was already attempted. One presentation, one attempt.
                     store.pendingDeepLink = nil   // transition: replay recognised
                     householdDeepLinkLogger.info(
                         "claw-share duplicate delivery ignored claw=\(invite.clawId, privacy: .public)"
