@@ -238,24 +238,30 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let storage = CarouselSeenStorage()
         let restoredFromBackup = RestoredFromBackupDetector().detect()
-        if restoredFromBackup {
+        // The decision is a value (`OnboardingDeepLinkRouter.launchRoot`) so it
+        // can be asserted directly; this switch only presents it.
+        switch OnboardingDeepLinkRouter.launchRoot(
+            launchURL: launchURL,
+            restoredFromBackup: restoredFromBackup,
+            hasNoSetupState: !Self.hasAnySetupState(),
+            carouselEnabled: SoyehtFeatureFlags.onboardingCarouselEnabled,
+            shouldShowCarousel: storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup)
+        ) {
+        case .restoredFromBackup:
             window.rootViewController = UIHostingController(rootView:
                 RestoredFromBackupView { [weak window] in
                     guard let window else { return }
                     self.showMainStoryboard(in: window)
                 }
             )
-        } else if let launchURL, OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: launchURL) {
-            showMainStoryboard(in: window)
-        } else if !Self.hasAnySetupState() {
+        case .automaticMacDiscovery:
             // The iPhone release experience is Mac-first: if there is no
             // paired state, start looking for the nearby Mac immediately and
             // keep platform/manual choices as recovery actions.
             showAutomaticMacDiscovery(in: window)
-        } else if SoyehtFeatureFlags.onboardingCarouselEnabled,
-                  storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
+        case .carousel:
             showCarousel(in: window)
-        } else {
+        case .mainStoryboard:
             showMainStoryboard(in: window)
         }
 
@@ -341,9 +347,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url
-        if OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
-           !(window?.rootViewController is ViewController),
-           let window {
+        if let window,
+           OnboardingDeepLinkRouter.shouldSwapToMain(
+               for: url,
+               rootIsAlreadyMain: window.rootViewController is ViewController
+           ) {
             showMainStoryboard(in: window)
         }
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
@@ -627,6 +635,54 @@ enum OnboardingDeepLinkRouter {
             return false
         }
     }
+
+    /// The cold-launch root, as data.
+    ///
+    /// This exists so the decision is testable rather than only the predicate
+    /// underneath it. A test that asserts an invite yields `.mainStoryboard`
+    /// here fails if this branch is removed from the cold path, which a test
+    /// of `shouldOpenMainStoryboard` alone cannot see.
+    static func launchRoot(
+        launchURL: URL?,
+        restoredFromBackup: Bool,
+        hasNoSetupState: Bool,
+        carouselEnabled: Bool,
+        shouldShowCarousel: Bool
+    ) -> OnboardingLaunchRoot {
+        if restoredFromBackup {
+            return .restoredFromBackup
+        }
+        // Ahead of the no-setup-state branch on purpose: a device with no
+        // household that arrives holding an invite is a guest, not someone
+        // starting a home. Without this ordering it lands in Mac discovery
+        // and the invite is never consumed.
+        if let launchURL, shouldOpenMainStoryboard(for: launchURL) {
+            return .mainStoryboard
+        }
+        if hasNoSetupState {
+            return .automaticMacDiscovery
+        }
+        if carouselEnabled, shouldShowCarousel {
+            return .carousel
+        }
+        return .mainStoryboard
+    }
+
+    /// Warm delivery: swap the root only when the URL needs the main flow and
+    /// we are not already showing it. Same reasoning as `launchRoot` — the
+    /// decision is a value so the warm path has a tooth of its own.
+    static func shouldSwapToMain(for url: URL, rootIsAlreadyMain: Bool) -> Bool {
+        guard !rootIsAlreadyMain else { return false }
+        return shouldOpenMainStoryboard(for: url)
+    }
+}
+
+/// Which root the cold launch should present.
+enum OnboardingLaunchRoot: Equatable {
+    case restoredFromBackup
+    case mainStoryboard
+    case automaticMacDiscovery
+    case carousel
 }
 
 private extension Data {

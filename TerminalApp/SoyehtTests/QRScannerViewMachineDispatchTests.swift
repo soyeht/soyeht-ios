@@ -270,6 +270,124 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         }
     }
 
+    // MARK: - Per-call-site teeth
+    //
+    // `shouldOpenMainStoryboard` alone is not enough: a mutant that deletes the
+    // invite consideration from the COLD path (`willConnectTo`) or the WARM
+    // path (`openURLContexts`) leaves a test of the predicate green. The two
+    // decisions below are the values those call sites present, so removing the
+    // invite handling from either one turns its own test RED.
+
+    /// COLD LAUNCH. This is the exact shape that shipped broken: no household,
+    /// so `hasSetupState` is false, and the invite must still win over Mac
+    /// discovery. Without the invite branch this returns `.automaticMacDiscovery`
+    /// — which is literally the "Where do you want to install Soyeht?" path the
+    /// invited guest was dropped into.
+    func testColdLaunchWithAnInviteAndNoHouseholdOpensMainNotMacDiscovery() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: false,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .mainStoryboard
+        )
+    }
+
+    /// The same cold launch without an invite must keep onboarding, or every
+    /// fresh install is ejected into a home it does not have.
+    func testColdLaunchWithoutAnInviteKeepsOnboarding() {
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: nil,
+                restoredFromBackup: false,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .automaticMacDiscovery
+        )
+    }
+
+    /// A restore-from-backup outranks everything, invite included: the device
+    /// has state to reconcile before it can act on anything.
+    func testRestoredFromBackupOutranksAnInvite() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: true,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .restoredFromBackup
+        )
+    }
+
+    /// THE ALREADY-A-HOUSEHOLD ARM. An owner who taps an invite must not be
+    /// diverted into the carousel; the invite still reaches the dispatcher and
+    /// sheet. Also pins that the carousel is what an ordinary launch gets, so
+    /// this test fails if the invite branch stops outranking it.
+    func testInviteOutranksTheCarouselOnADeviceThatAlreadyHasAHousehold() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: false,
+                hasNoSetupState: false,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .mainStoryboard
+        )
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: nil,
+                restoredFromBackup: false,
+                hasNoSetupState: false,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .carousel,
+            "control: without an invite this launch is the carousel, so the case above is not vacuous"
+        )
+    }
+
+    /// WARM DELIVERY, app already open on an onboarding screen — the other
+    /// shape measured on hardware. The root must be swapped so the flow that
+    /// consumes the invite exists.
+    func testWarmInviteSwapsRootWhenNotAlreadyOnMain() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertTrue(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: false)
+        )
+        XCTAssertFalse(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: true),
+            "already on main: rebuilding the root would tear down the very sheet we are about to show"
+        )
+    }
+
+    /// And a warm non-invite must not move anyone.
+    func testWarmNonInviteNeverSwapsRoot() throws {
+        let url = try XCTUnwrap(URL(string: "theyos://instance/inst-123"))
+
+        XCTAssertFalse(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: false)
+        )
+    }
+
     /// The other half of the invariant: a device that is genuinely onboarding
     /// must keep onboarding. If this ever goes true, every fresh install gets
     /// ejected out of setup into a home it does not have yet.
