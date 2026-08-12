@@ -506,27 +506,63 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(gate.state, .opening(slotID: slotA), "the in-flight claim keeps its own subject")
     }
 
-    /// THE PROMISE AFTER THE FACT, which the first version of this gate broke.
+    /// THE INTERLEAVED CASE, which is what makes "already attempted" mean
+    /// anything. Holding only the most recently settled slot was still
+    /// fail-open, and this is the exact sequence that showed it: settle A,
+    /// then let another invite come and go, then replay A.
     ///
-    /// `finishOpening` used to return to `.idle`, so a late delivery of the
-    /// SAME link — and the replay routes make that ordinary — was received as
-    /// fresh and could be claimed a second time against a slot the engine had
-    /// already consumed. The earlier test only re-called `confirm()` after
-    /// finishing, never `receive`, so it never bit.
-    ///
-    /// The settled slot must stay refused; a different invite may still come.
+    /// With history kept only in the current state, receiving B replaced A and
+    /// cancelling B cleared the lot, so A presented again and could be
+    /// attempted a second time. A test that only replays A immediately after
+    /// settling it cannot see that.
+    func testAnAttemptedSlotStaysRefusedAcrossAnUnrelatedInviteComingAndGoing() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm())
+        gate.finishAttempt()
+
+        // An unrelated invite arrives, is shown, and is dismissed.
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertTrue(gate.cancel())
+        XCTAssertEqual(gate.state, .idle)
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .ignoreDuplicate,
+            "A was already attempted; another invite passing through must not amnesty it"
+        )
+        XCTAssertFalse(gate.confirm())
+    }
+
+    /// The same refusal must survive a second invite that is itself attempted,
+    /// not merely cancelled — the other way the history could be clobbered.
+    func testAnAttemptedSlotStaysRefusedAfterAnotherInviteIsAlsoAttempted() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm())
+        gate.finishAttempt()
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertTrue(gate.confirm())
+        gate.finishAttempt()
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate, "A is still spent")
+        XCTAssertEqual(gate.receive(slotID: slotB), .ignoreDuplicate, "and so is B")
+    }
+
+    /// Immediately after settling: the simplest case, kept as the floor.
     func testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome() {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm())
-        gate.finishOpening()
+        gate.finishAttempt()
 
         XCTAssertEqual(
             gate.receive(slotID: slotA), .ignoreDuplicate,
             "a late delivery of an already-claimed invite must not present again"
         )
         XCTAssertFalse(gate.confirm(), "and it must not be claimable a second time")
-        XCTAssertEqual(gate.state, .settled(slotID: slotA))
+        XCTAssertEqual(gate.state, .idle)
+        XCTAssertTrue(gate.attemptedSlotIDs.contains(slotA))
 
         XCTAssertEqual(gate.receive(slotID: slotB), .present, "a genuinely new invite is still welcome")
     }
@@ -559,7 +595,16 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         let confirmBody = try slice(sheet, from: "onConfirm: {", to: "onCancel: {")
         let cancelBody = String(sheet[(try XCTUnwrap(sheet.range(of: "onCancel: {"))).upperBound...])
 
-        // Confirm must ask the gate, and must not be able to claim before it.
+        // The gate's ANSWER must govern the branch, not merely be called.
+        // Presence and order alone stay green against
+        // `_ = invitePresentation.confirm()` followed by the claim, which is
+        // the fail-open worth pinning: the decision is computed and discarded.
+        XCTAssertTrue(
+            confirmBody.contains("guard invitePresentation.confirm() else { return }"),
+            "the gate's result must control the branch; calling and ignoring it claims regardless"
+        )
+
+        // And the claim must not be reachable before that decision.
         let gate = try XCTUnwrap(
             confirmBody.range(of: "invitePresentation.confirm()"),
             "confirm must go through the gate, or a double tap claims twice"
@@ -573,8 +618,8 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             "the claim must be reachable only after the gate has decided"
         )
         XCTAssertTrue(
-            confirmBody.contains("invitePresentation.finishOpening()"),
-            "the settled slot must be recorded on the claim path, or a late replay claims again"
+            confirmBody.contains("invitePresentation.finishAttempt()"),
+            "the attempted slot must be recorded on the claim path, or a late replay attempts again"
         )
 
         // Cancel must release the gate and claim nothing.

@@ -66,9 +66,13 @@ struct PendingClawShareInvite: Identifiable {
     }
 }
 
-/// Decides whether an incoming invite is presented, ignored as a duplicate, or
-/// claimed — as a value, so those properties are asserted directly instead of
-/// inferred from a view.
+/// Decides whether an incoming invite is presented, ignored, or attempted — as
+/// a value, so those properties are asserted directly instead of inferred from
+/// a view.
+///
+/// THE PROPERTY IT ENFORCES is one ATTEMPT per slot per process. Not "the claim
+/// was consumed exactly once": see `finishAttempt()` for why those differ and
+/// why the weaker one is what this can honestly promise today.
 ///
 /// WHY A GATE. The same invite reaches the app by more than one route:
 /// `SessionStore.pendingDeepLink` has a publisher and the AppDelegate also
@@ -88,13 +92,6 @@ struct ClawShareInvitePresentation: Equatable {
         case awaiting(slotID: Data)
         /// Confirmed. A claim is in flight — the slot is being spent.
         case opening(slotID: Data)
-        /// The claim settled. This slot is spent FOREVER, and remembering
-        /// which one is what keeps "one claim per invite" true after the fact:
-        /// returning to `idle` here would let a late delivery of the same link
-        /// — the replay routes make that ordinary — present and claim a second
-        /// time. Bounded to one slot on purpose; a different invite still
-        /// displaces it.
-        case settled(slotID: Data)
     }
 
     enum Reception: Equatable {
@@ -114,6 +111,19 @@ struct ClawShareInvitePresentation: Equatable {
 
     private(set) var state: State = .idle
 
+    /// Every slot that has already had an attempt in THIS process.
+    ///
+    /// Separate from `state` on purpose. Holding only the most recent settled
+    /// slot was still fail-open: settle A, receive B (which replaces it),
+    /// cancel B, and a replay of A presented again. History has to outlive the
+    /// current state or "already attempted" is only true until the next invite
+    /// arrives.
+    ///
+    /// No eviction, so the refusal holds for the lifetime of the process and
+    /// no longer. That is the honest bound: this is not durable across a
+    /// relaunch, and nothing here should be read as promising that.
+    private(set) var attemptedSlotIDs: Set<Data> = []
+
     var awaitingSlotID: Data? {
         if case .awaiting(let slotID) = state { return slotID }
         return nil
@@ -127,18 +137,20 @@ struct ClawShareInvitePresentation: Equatable {
     /// against a slot the engine is consuming, and swapping the subject under
     /// it would attribute that outcome to the wrong invite.
     mutating func receive(slotID: Data) -> Reception {
+        // History first, and independent of the current state: a slot already
+        // attempted stays refused however many other invites came and went in
+        // between.
+        if attemptedSlotIDs.contains(slotID) {
+            return .ignoreDuplicate
+        }
         switch state {
         case .awaiting(let current) where current == slotID:
             return .ignoreDuplicate
         case .opening(let current) where current == slotID:
             return .ignoreDuplicate
-        case .settled(let current) where current == slotID:
-            // Already claimed. A late delivery of the same link must not open
-            // a second claim against a slot the engine has consumed.
-            return .ignoreDuplicate
         case .opening:
             return .ignoredWhileOpening
-        case .idle, .awaiting, .settled:
+        case .idle, .awaiting:
             state = .awaiting(slotID: slotID)
             return .present
         }
@@ -165,11 +177,21 @@ struct ClawShareInvitePresentation: Equatable {
         return true
     }
 
-    /// The claim finished, either way. Records WHICH slot was spent instead of
-    /// clearing to `idle`: a later delivery of that same link must still be
-    /// refused, and only remembering it makes that possible.
-    mutating func finishOpening() {
-        if case .opening(let slotID) = state { state = .settled(slotID: slotID) }
+    /// The attempt finished — SUCCESS AND FAILURE ARE NOT DISTINGUISHED HERE,
+    /// because the handler this follows does not report which it was.
+    ///
+    /// So the property this type actually enforces is **one attempt per slot
+    /// per process**, not "the claim was consumed exactly once". Those differ:
+    /// an open that failed before the engine consumed the slot is recorded the
+    /// same as one that succeeded, and the person cannot retry it from this
+    /// link. Stated rather than implied, so nobody reads a stronger guarantee
+    /// into it. Distinguishing them means extracting a factual outcome from
+    /// the handler, which is deliberately not in this slice.
+    mutating func finishAttempt() {
+        if case .opening(let slotID) = state {
+            attemptedSlotIDs.insert(slotID)
+            state = .idle
+        }
     }
 }
 
@@ -870,7 +892,7 @@ struct SoyehtAppView: View {
                         )
                         // Settled either way; the slot is spent and the gate
                         // frees up for a future, different invite.
-                        invitePresentation.finishOpening()
+                        invitePresentation.finishAttempt()
                     }
                 },
                 onCancel: {
