@@ -17,7 +17,7 @@ protocol HarnessTokenProducing: CaseIterable {
 /// engine state path at a fresh temporary directory. The client always dials a
 /// loopback URL with an ephemeral port.
 ///
-/// theyos 0.1.21 still publishes its household listener to eligible LAN and
+/// The pinned engine still publishes its household listener to eligible LAN and
 /// tailnet interfaces in addition to the loopback address. This helper does
 /// not hide that engine-side limitation; see this target's README.
 final class EngineHarness {
@@ -41,7 +41,7 @@ final class EngineHarness {
             case .portAllocationFailed:
                 return "The EngineHarness could not allocate an ephemeral loopback port."
             case .lanBeaconPermissionRequired:
-                return "Real-engine execution requires CI=true or THEYOS_HARNESS_ALLOW_LAN_BEACON=1 because theyos 0.1.21 announces Bonjour beacons on eligible network interfaces. See PR1.1."
+                return "Real-engine execution requires CI=true or THEYOS_HARNESS_ALLOW_LAN_BEACON=1 because the pinned engine announces Bonjour beacons on eligible network interfaces. See PR1.1."
             case .engineExitedBeforeReady:
                 return "The disposable engine exited before bootstrap became ready."
             case .engineDidNotBecomeReady:
@@ -75,10 +75,6 @@ final class EngineHarness {
     private let logHandle: FileHandle
     private let lifecycleLock = NSLock()
     private var didTearDown = false
-    // Defaults to `.notRecorded` so a teardown that never reached classification
-    // (e.g. the boot-error path) is DISTINGUISHABLE from a ready harness whose
-    // case simply never called initiate (`.notObserved`, set on ready).
-    private var initiateOutcome: InitiateOutcome = .notRecorded
     // Recorded by the injected initialize transport (a Sendable box, so the
     // `@Sendable` TransportPerform may capture it). `.notObserved` until the
     // transport records a class; it is observed UPSTREAM of BootstrapWire's
@@ -145,40 +141,6 @@ final class EngineHarness {
         }
     }
 
-    /// Static classification of the /pair-device/initiate outcome — a category
-    /// only, never a status code / body / header / userInfo value.
-    enum InitiateOutcome: String, CaseIterable, HarnessTokenProducing {
-        case ok
-        case http4xx = "http_4xx"
-        case http5xx = "http_5xx"
-        case httpOtherStatus = "http_other_status"
-        case notHTTP = "not_http"
-        case bodyUndecodable = "body_undecodable"
-        case transportTimedOut = "transport_timed_out"
-        case transportConnectionLost = "transport_connection_lost"
-        case transportCannotConnect = "transport_cannot_connect"
-        case transportOther = "transport_other"
-        case notObserved = "not_observed"
-        case notRecorded = "not_recorded"
-        var token: String { "harness_initiate.\(rawValue)" }
-        // Normal states are INFO; every abnormal one (a failure class, or a
-        // teardown that never reached classification) is WARN.
-        var level: String { (self == .ok || self == .notObserved) ? "INFO" : "WARN" }
-    }
-
-    /// Records the initiate classification observed by the test's QR simulator.
-    func recordInitiateOutcome(_ outcome: InitiateOutcome) {
-        lifecycleLock.lock()
-        initiateOutcome = outcome
-        lifecycleLock.unlock()
-    }
-
-    private func snapshotInitiateOutcome() -> InitiateOutcome {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        return initiateOutcome
-    }
-
     /// Records the initialize transport class observed by the injected wrapper.
     func recordInitializeOutcome(_ outcome: InitializeOutcome) {
         initializeRecorder.record(outcome)
@@ -231,7 +193,7 @@ final class EngineHarness {
         let runningInCI = environment["CI"]?.lowercased() == "true"
         let localBeaconOptIn = environment["THEYOS_HARNESS_ALLOW_LAN_BEACON"] == "1"
         guard runningInCI || localBeaconOptIn else {
-            return "Skipped: theyos 0.1.21 may advertise setup/household Bonjour beacons on LAN/tailnet. Run only in CI or explicitly set THEYOS_HARNESS_ALLOW_LAN_BEACON=1; PR1.1 tracks the required hermeticity controls."
+            return "Skipped: the pinned engine may advertise setup/household Bonjour beacons on LAN/tailnet. Run only in CI or explicitly set THEYOS_HARNESS_ALLOW_LAN_BEACON=1; PR1.1 tracks the required hermeticity controls."
         }
         return nil
     }
@@ -295,9 +257,6 @@ final class EngineHarness {
             )
             do {
                 try await harness.waitUntilReady()
-                // Ready: the case is now running. A case that never calls initiate
-                // stays at `.notObserved` (distinct from `.notRecorded`).
-                harness.recordInitiateOutcome(.notObserved)
                 return harness
             } catch {
                 harness.tearDown()
@@ -333,9 +292,9 @@ final class EngineHarness {
         let environment = ProcessInfo.processInfo.environment
         if environment["GITHUB_ACTIONS"] == "true" {
             let logURL = stateDirectory.appendingPathComponent("engine.log")
-            // The case + initialize + initiate annotation is LOAD-BEARING for
-            // correlation: append it only when the group is quiescent AND the close
-            // is confirmed, and publish the .log only when the annotation is INTACT.
+            // The case + initialize annotation is LOAD-BEARING for correlation:
+            // append it only when the group is quiescent AND the close is
+            // confirmed, and publish the .log only when the annotation is INTACT.
             // Any failure publishes a reason-named empty marker instead — never a
             // .log missing the classification.
             var annotationSucceeded = false
@@ -343,8 +302,7 @@ final class EngineHarness {
                 annotationSucceeded = Self.appendHarnessClassification(
                     to: logURL,
                     caseID: caseID,
-                    initialize: snapshotInitializeOutcome(),
-                    initiate: snapshotInitiateOutcome()
+                    initialize: snapshotInitializeOutcome()
                 )
             }
             let decision = Self.publishDecision(
@@ -649,8 +607,8 @@ final class EngineHarness {
         return fd
     }
 
-    /// Appends the harness classification as THREE synthetic JSON events (case,
-    /// then initialize outcome, then initiate outcome) to the captured engine.log,
+    /// Appends the harness classification as TWO synthetic JSON events (case,
+    /// then initialize outcome) to the captured engine.log,
     /// built with JSONSerialization — never hand-interpolated — carrying only
     /// `level` and `fields.stage` and each event's fixed level.
     ///
@@ -674,20 +632,17 @@ final class EngineHarness {
     static var allHarnessTokens: Set<String> {
         Set(HarnessCaseID.allCases.map(\.token))
             .union(InitializeOutcome.allCases.map(\.token))
-            .union(InitiateOutcome.allCases.map(\.token))
     }
 
     @discardableResult
     static func appendHarnessClassification(
         to url: URL,
         caseID: HarnessCaseID,
-        initialize: InitializeOutcome,
-        initiate: InitiateOutcome
+        initialize: InitializeOutcome
     ) -> Bool {
         appendHarnessTokens(
             [(level: "INFO", token: caseID.token),
-             (level: initialize.level, token: initialize.token),
-             (level: initiate.level, token: initiate.token)],
+             (level: initialize.level, token: initialize.token)],
             to: url
         )
     }

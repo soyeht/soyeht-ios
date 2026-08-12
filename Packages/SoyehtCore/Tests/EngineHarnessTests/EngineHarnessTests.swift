@@ -31,30 +31,27 @@ final class EngineHarnessTests: XCTestCase {
 
     func testInitializeThenConfirmPairsWithSoftwareP256Owner() async throws {
         let harness = try await bootEngine(case: .initializePair)
-        let stage = try await BootstrapInitializeClient(
-            baseURL: harness.baseURL, transport: harness.initializeTransport()
+        // The pairing URI is consumed EXACTLY from the initialize response —
+        // the same boundary the iOS production onboarding uses (initialize →
+        // `URL(string: response.pairQrUri)` guard → `PairDeviceQR`). No other
+        // endpoint is contacted for the URI.
+        let (stage, scannedPairQR) = try await PairQRConsumption.initializeAndScanPairQR(
+            baseURL: harness.baseURL,
+            transport: harness.initializeTransport(),
+            name: syntheticHouseholdName()
         )
-        .initialize(name: syntheticHouseholdName(), claimToken: nil)
 
         let stagedStatus = try await BootstrapStatusClient(baseURL: harness.baseURL).fetch()
         XCTAssertEqual(stagedStatus.state, .namedAwaitingPair)
         XCTAssertEqual(stagedStatus.hhId, stage.hhId)
         XCTAssertEqual(stage.hhPub.count, HouseholdIdentifiers.compressedP256PublicKeyLength)
         XCTAssertEqual(try HouseholdIdentifiers.householdIdentifier(for: stage.hhPub), stage.hhId)
-        // theyos 0.1.21 omits hh_pub from status while awaiting the first
+        // The pinned engine omits hh_pub from status while awaiting the first
         // pairing. Pin that observed contract rather than silently filling it
         // from initialize; a future engine change must update this test.
         XCTAssertNil(stagedStatus.hhPub)
 
         let owner = try SoftwareOwnerIdentity()
-        // The physical world reads this URI from the Mac's QR code. The iPhone
-        // production surface has no initiate client, so this test-only double
-        // models the camera scan while the mutation stays on production clients.
-        let scannedPairURI = try await QRScanSimulator.scanPairDeviceURI(
-            endpoint: harness.baseURL,
-            recordOutcome: { harness.recordInitiateOutcome($0) }
-        )
-        let scannedPairQR = try PairDeviceQR(url: scannedPairURI)
         XCTAssertEqual(scannedPairQR.householdPublicKey, stage.hhPub)
         XCTAssertEqual(scannedPairQR.householdId, stage.hhId)
         let request = try makePairConfirmRequest(pairQR: scannedPairQR, owner: owner)
@@ -74,22 +71,15 @@ final class EngineHarnessTests: XCTestCase {
 
     func testOwnerEventsLongPollAcceptsPoPAndHoldsUntilClientCancellation() async throws {
         let harness = try await bootEngine(case: .longPoll)
-        let stage = try await BootstrapInitializeClient(
-            baseURL: harness.baseURL, transport: harness.initializeTransport()
+        let (stage, scannedPairQR) = try await PairQRConsumption.initializeAndScanPairQR(
+            baseURL: harness.baseURL,
+            transport: harness.initializeTransport(),
+            name: syntheticHouseholdName()
         )
-        .initialize(name: syntheticHouseholdName(), claimToken: nil)
         let owner = try SoftwareOwnerIdentity()
         let confirmation = try await URLSessionHouseholdPairingHTTPClient().confirmPairing(
             endpoint: harness.baseURL,
-            body: try makePairConfirmRequest(
-                pairQR: try PairDeviceQR(
-                    url: try await QRScanSimulator.scanPairDeviceURI(
-                        endpoint: harness.baseURL,
-                        recordOutcome: { harness.recordInitiateOutcome($0) }
-                    )
-                ),
-                owner: owner
-            )
+            body: try makePairConfirmRequest(pairQR: scannedPairQR, owner: owner)
         )
         XCTAssertEqual(confirmation.personId, owner.personId)
 
@@ -184,72 +174,43 @@ private struct SoftwareOwnerIdentity: OwnerIdentitySigning {
     }
 }
 
-/// Test-only stand-in for the physical camera reading the URI the Mac exposes.
-/// It exists because no SoyehtCore production client consumes `initiate` today.
-/// The transport is injectable so each classification branch can be unit tested
-/// with synthetic responses/errors and no network; `recordOutcome` reports a
-/// static category (never a code/body/header/userInfo value) for the diagnostic.
-enum QRScanSimulator {
-    struct InitiateResponse: Decodable {
-        let uri: String
+/// The single boundary error the URI-consumption helper can add on top of the
+/// production parser: the response's `pairQrUri` was not even parseable as a
+/// `URL` (which is how the engine's documented empty-string degradation
+/// surfaces — `URL(string: "")` is nil on this platform).
+enum PairQRConsumptionError: Error, Equatable {
+    case uriNotParseableAsURL
+}
+
+/// Test-only orchestration shared by BOTH engine-booting cases: runs the real
+/// `BootstrapInitializeClient.initialize` through the given transport, then
+/// builds the `PairDeviceQR` EXACTLY from `response.pairQrUri` — the same
+/// consumption boundary the iOS production onboarding uses (initialize →
+/// `URL(string: response.pairQrUri)` guard → `PairDeviceQR(url:)`). No other
+/// endpoint is contacted for the URI: the initialize response already carries
+/// every field the parser requires. `parse` is a seam so fixtures can observe
+/// the exact String consumed; its default is the real consumption boundary.
+enum PairQRConsumption {
+    static func initializeAndScanPairQR(
+        baseURL: URL,
+        transport: @escaping BootstrapInitializeClient.TransportPerform,
+        name: String,
+        parse: (String) throws -> PairDeviceQR = PairQRConsumption.parsePairQR
+    ) async throws -> (stage: BootstrapInitializeResponse, qr: PairDeviceQR) {
+        let stage = try await BootstrapInitializeClient(baseURL: baseURL, transport: transport)
+            .initialize(name: name, claimToken: nil)
+        let qr = try parse(stage.pairQrUri)
+        return (stage, qr)
     }
 
-    typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
-
-    /// Classify a transport error into a static outcome category.
-    static func classify(transportError error: Error) -> EngineHarness.InitiateOutcome {
-        guard let urlError = error as? URLError else { return .transportOther }
-        switch urlError.code {
-        case .timedOut: return .transportTimedOut
-        case .networkConnectionLost: return .transportConnectionLost
-        case .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
-            return .transportCannotConnect
-        default: return .transportOther
+    /// The production consumption boundary, split factually: `URL(string:)`
+    /// fails closed on a non-URL (its own error), then the real `PairDeviceQR`
+    /// parser validates scheme/path/fields (its own typed errors).
+    static func parsePairQR(from uri: String) throws -> PairDeviceQR {
+        guard let url = URL(string: uri) else {
+            throw PairQRConsumptionError.uriNotParseableAsURL
         }
-    }
-
-    /// Classify a non-2xx HTTP response by status CATEGORY only.
-    static func classifyNon2xx(_ http: HTTPURLResponse) -> EngineHarness.InitiateOutcome {
-        switch http.statusCode {
-        case 400..<500: return .http4xx
-        case 500..<600: return .http5xx
-        default: return .httpOtherStatus
-        }
-    }
-
-    static func scanPairDeviceURI(
-        endpoint: URL,
-        transport: Transport = { try await URLSession.shared.data(for: $0) },
-        recordOutcome: (EngineHarness.InitiateOutcome) -> Void = { _ in }
-    ) async throws -> URL {
-        var request = URLRequest(
-            url: endpoint.appending(path: "/api/v1/household/pair-device/initiate")
-        )
-        request.httpMethod = "POST"
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await transport(request)
-        } catch {
-            recordOutcome(classify(transportError: error))
-            throw error
-        }
-        guard let http = response as? HTTPURLResponse else {
-            recordOutcome(.notHTTP)
-            throw URLError(.badServerResponse)
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            recordOutcome(classifyNon2xx(http))
-            throw URLError(.badServerResponse)
-        }
-        guard let decoded = try? JSONDecoder().decode(InitiateResponse.self, from: data),
-              let uri = URL(string: decoded.uri) else {
-            recordOutcome(.bodyUndecodable)
-            throw URLError(.badServerResponse)
-        }
-        recordOutcome(.ok)
-        return uri
+        return try PairDeviceQR(url: url)
     }
 }
 

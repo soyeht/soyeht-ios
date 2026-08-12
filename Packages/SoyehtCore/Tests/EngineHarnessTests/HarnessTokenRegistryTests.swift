@@ -23,7 +23,6 @@ final class HarnessTokenRegistryTests: XCTestCase {
     private var producerTokens: [String] {
         EngineHarness.HarnessCaseID.allCases.map(\.token)
             + EngineHarness.InitializeOutcome.allCases.map(\.token)
-            + EngineHarness.InitiateOutcome.allCases.map(\.token)
     }
 
     func test_registry_equalsAllowlistFile() throws {
@@ -50,7 +49,7 @@ final class HarnessTokenRegistryTests: XCTestCase {
         let ok = EngineHarness.appendHarnessTokens(
             [(level: "INFO", token: "harness_case.status_only"),
              (level: "WARN", token: "harness_totally_unregistered_token"),
-             (level: "INFO", token: "harness_initiate.ok")],
+             (level: "INFO", token: "harness_initialize.transport_returned")],
             to: log
         )
         XCTAssertFalse(ok, "append must refuse an unregistered token")

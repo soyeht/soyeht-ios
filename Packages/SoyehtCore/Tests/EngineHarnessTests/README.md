@@ -37,29 +37,33 @@ The current flows are:
 - `BootstrapStatusClient` plus `EngineCompat` startup handshake.
 - `BootstrapInitializeClient.initialize` followed by the production
   `URLSessionHouseholdPairingHTTPClient` confirm call using a test-generated
-  software P-256 owner key. A clearly test-only `QRScanSimulator` performs
-  the `initiate` read between them, modelling the physical camera scanning the
-  Mac's QR code.
+  software P-256 owner key. The pairing QR is consumed EXACTLY from
+  `BootstrapInitializeResponse.pairQrUri` — the same boundary the iOS
+  production onboarding uses (initialize → `URL(string:)` guard →
+  `PairDeviceQR`).
 - An authenticated `OwnerEventsLongPoll` handshake: real Soyeht-PoP header,
   canonical CBOR cursor, a two-second held request, then client cancellation
   rather than the engine's fixed 45-second empty-poll timeout.
 
-The `QRScanSimulator` is intentionally not a production client. The current
-Swift production surface has no `initiate` client; `initialize` is the real
-production stage that opens the first-owner pairing window, while the test
-double represents the physical QR scan. Record the missing Swift endpoint
-client as Phase 2 contract input if a real product use case emerges.
+Contract decision: the harness does NOT call
+`POST /api/v1/household/pair-device/initiate`. No production flow in this
+repository consumes that route (the product reads the URI from the initialize
+response, or re-fetches it via `GET /bootstrap/pair-device-uri`), so the
+harness models the surfaces the product actually exercises. The route's own
+engine-side behaviour remains an engine-repo contract question; removing the
+harness call does not adjudicate it. If a product flow ever adopts the route,
+coverage returns as a new case.
 
-Pin 0.1.21 omits `hh_pub` from `/bootstrap/status` while the state is
+The pinned engine omits `hh_pub` from `/bootstrap/status` while the state is
 `named_awaiting_pair`. The harness asserts that the initialize response
 contains a valid 33-byte household key, that the staged status omits it, and
 that the scanned QR carries the exact initialize key. This makes the observed
 contract explicit until an engine change intentionally revises it.
 
-## Known engine 0.1.21 limitations
+## Known pinned-engine limitations
 
-The harness itself dials only `http://127.0.0.1:<allocated-nonzero-port>`, but pinned
-theyos 0.1.21 also binds eligible LAN/tailnet interfaces on that port. It has
+The harness itself dials only `http://127.0.0.1:<allocated-nonzero-port>`, but the
+pinned theyos engine also binds eligible LAN/tailnet interfaces on that port. It has
 no loopback-only bind override, so this is an explicit engine-side capability
 gap for PR1.1—not a claim of fully hermetic network binding. The state,
 credentials, binary source, and client traffic remain isolated as described
