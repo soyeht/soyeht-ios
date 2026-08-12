@@ -114,12 +114,22 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(host, "linux.local")
     }
 
+    /// Subject: WHICH parser owns this URL. It used to also assert that the
+    /// onboarding router ignores invites — true when this test was written
+    /// (2026-06-24, `8777b4bd`), because invites then arrived only by scanner
+    /// or paste and the deep-link path did not exist yet. The matcher and
+    /// handler were added later; the routing half was not, which is what left
+    /// an invited guest staring at the install picker.
+    ///
+    /// Routing now has its own home in
+    /// `testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt`,
+    /// so the stale assertion is not flipped here — it is moved, one property
+    /// per test.
     func testClawShareInviteRoutesOnlyThroughScannerDispatcher() throws {
         let invite = try makeClawShareInvite()
         let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
 
         XCTAssertNil(QRScanResult.from(url: url))
-        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url))
 
         let result = try QRScannerDispatcher
             .result(for: url, activeHouseholdId: nil, now: now)
@@ -215,6 +225,69 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
             for: try XCTUnwrap(URL(string: "soyeht://household/pair-device"))
         ))
+    }
+
+    /// THE MOUNTING, NOT THE HANDLER. `testClawShareInviteURLIsClaimedByTheDeepLinkMatcher`
+    /// already proves the matcher claims this URL and the handler decodes it —
+    /// and both passed while the guest experience was still broken, because
+    /// nothing asserted that the flow owning that handler is ever presented.
+    ///
+    /// Measured on hardware 2026-08-12: a device with no household shows the
+    /// onboarding flow the AppDelegate presents, `SSHLoginView` — the only
+    /// consumer of `SessionStore.pendingDeepLink` — is never mounted, and the
+    /// invite is stored and silently dropped. The person who was invited is
+    /// asked "Where do you want to install Soyeht?" instead. Zero deep-link log
+    /// lines on the guest across two independent deliveries.
+    ///
+    /// This is the routing half, and it is the half that was false.
+    func testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertTrue(
+            OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+            "an invited guest must reach the flow that consumes the invite, not the install picker"
+        )
+    }
+
+    /// Routing must not depend on the invite being *good*, or the router would
+    /// need its own decode — a second definition of "is this an invite" that
+    /// can drift from `ClawShareURI.prefix` and reopen the bug above.
+    ///
+    /// The refusal still happens, one layer down and already covered by
+    /// `testMalformedClawShareURLIsClaimedThenRefused`: the dispatcher rejects
+    /// it and nothing is claimed or consumed. Routing decides WHICH flow reads
+    /// the URL; it grants nothing.
+    func testMalformedClawShareURLStillRoutesAndIsRefusedDownstreamNotHere() throws {
+        let url = try XCTUnwrap(URL(string: "\(ClawShareURI.prefix)not-valid-base64"))
+
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url))
+        switch QRScannerDispatcher.result(for: url, activeHouseholdId: nil, now: now) {
+        case .success(let result):
+            XCTFail("routing must not imply acceptance; got \(result)")
+        case .failure:
+            break
+        }
+    }
+
+    /// The other half of the invariant: a device that is genuinely onboarding
+    /// must keep onboarding. If this ever goes true, every fresh install gets
+    /// ejected out of setup into a home it does not have yet.
+    func testNonInviteURLsLeaveOnboardingUntouched() throws {
+        // Deliberately excludes `soyeht://household/pair-machine`: whether that
+        // shape should route during onboarding is a question this slice has not
+        // investigated, and pinning it here would cement an answer either way.
+        let untouched = [
+            "theyos://instance/inst-123",
+            "https://example.com/claw-share/v1?e=abc"
+        ]
+        for raw in untouched {
+            let url = try XCTUnwrap(URL(string: raw))
+            XCTAssertFalse(
+                OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+                "\(raw) must not eject a device out of onboarding"
+            )
+        }
     }
 
     func testOnboardingLaunchIntentOpensQRScannerOnlyOnce() throws {

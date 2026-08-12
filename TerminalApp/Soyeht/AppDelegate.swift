@@ -585,6 +585,26 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 enum OnboardingDeepLinkRouter {
     static func shouldOpenMainStoryboard(for url: URL) -> Bool {
+        // A claw-share invite is a CONTEXT, not a request to set up a home.
+        // Checked before parsing into `URLComponents` so the decision uses the
+        // one predicate the handler uses; a second URL-shape test here could
+        // drift from `ClawShareURI.prefix` and reopen this exact bug.
+        //
+        // Without this branch the guest experience is: install Soyeht, tap the
+        // link, and get asked "Where do you want to install Soyeht?". The only
+        // consumer of `SessionStore.pendingDeepLink` is `SSHLoginView`, which a
+        // device with no household never mounts — the root stays on the
+        // onboarding flow the AppDelegate presents, so the invite is stored and
+        // silently dropped. Measured on hardware 2026-08-12: zero deep-link log
+        // lines on the guest across two independent deliveries.
+        //
+        // This only decides WHICH flow is presented. It grants nothing:
+        // `QRScannerDispatcher` still decodes and validates the invite, and the
+        // slot is consumed only when the person confirms.
+        if PendingClawShareInvite.matches(url) {
+            return true
+        }
+
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let scheme = components.scheme else {
             return false
