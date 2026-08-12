@@ -408,7 +408,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         }
     }
 
-    // MARK: - Presentation gate: one presentation, one attempt while the gate lives
+    // MARK: - Presentation gate: duplicate suppression while awaiting/opening, one attempt per slot per gate instance
 
     private let slotA = Data(repeating: 0xA1, count: 16)
     private let slotB = Data(repeating: 0xB2, count: 16)
@@ -523,6 +523,44 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(gate.state, .idle)
     }
 
+    /// A STALE FINISH MUST NOT MARK SOMEONE ELSE'S SLOT.
+    ///
+    /// `.opening(S)` is stable today — `receive` refuses while opening, and
+    /// confirm/cancel act only from `.awaiting` — so a subject-less
+    /// `finishAttempt` was safe by a property of the OTHER guards, not by its
+    /// own. This test refuses to depend on that: it drives the mismatch
+    /// directly, so the contract holds even if a neighbour changes.
+    func testAStaleFinishMarksNothingAndLeavesTheOpeningSubjectIntact() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+
+        gate.finishAttempt(slotID: slotB)
+
+        XCTAssertEqual(gate.state, .opening(slotID: slotA), "A's attempt is still in flight")
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty, "a mismatched finish must mark nothing")
+
+        gate.finishAttempt(slotID: slotA)
+        XCTAssertEqual(gate.attemptedSlotIDs, [slotA], "control: A's own finish records A")
+        XCTAssertEqual(gate.state, .idle)
+    }
+
+    /// CANCEL BEFORE ANY ATTEMPT LEAVES THE SLOT PRESENTABLE. This is the
+    /// property that makes "one presentation per slot" false, and it is
+    /// deliberate: someone who dismisses a sheet by accident must be able to
+    /// open the same link again. Only an ATTEMPT is one-shot.
+    func testCancelBeforeAnyAttemptLeavesTheSlotPresentableAgain() {
+        var gate = ClawShareInvitePresentation()
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+        XCTAssertTrue(gate.cancel(slotID: slotA))
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .present,
+            "a cancelled invite was never attempted, so it may be presented again"
+        )
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty)
+    }
+
     /// A genuinely different invite while merely awaiting replaces it: the
     /// person tapped a newer link and that is the one they mean.
     func testADifferentInviteWhileAwaitingReplacesTheOlderOne() {
@@ -562,7 +600,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm(slotID: slotA))
-        gate.finishAttempt()
+        gate.finishAttempt(slotID: slotA)
 
         // An unrelated invite arrives, is shown, and is dismissed.
         XCTAssertEqual(gate.receive(slotID: slotB), .present)
@@ -582,11 +620,11 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm(slotID: slotA))
-        gate.finishAttempt()
+        gate.finishAttempt(slotID: slotA)
 
         XCTAssertEqual(gate.receive(slotID: slotB), .present)
         XCTAssertTrue(gate.confirm(slotID: slotB))
-        gate.finishAttempt()
+        gate.finishAttempt(slotID: slotB)
 
         XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate, "A was already attempted")
         XCTAssertEqual(gate.receive(slotID: slotB), .ignoreDuplicate, "and so is B")
@@ -597,7 +635,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         var gate = ClawShareInvitePresentation()
         _ = gate.receive(slotID: slotA)
         XCTAssertTrue(gate.confirm(slotID: slotA))
-        gate.finishAttempt()
+        gate.finishAttempt(slotID: slotA)
 
         XCTAssertEqual(
             gate.receive(slotID: slotA), .ignoreDuplicate,
@@ -661,18 +699,36 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             "the claim must be reachable only after the gate has decided"
         )
         XCTAssertTrue(
-            confirmBody.contains("invitePresentation.finishAttempt()"),
+            confirmBody.contains("invitePresentation.finishAttempt(slotID: pending.invite.slotId)"),
             "the attempted slot must be recorded on the claim path, or a late replay attempts again"
         )
 
         // Cancel must release the gate and claim nothing.
         XCTAssertTrue(
-            cancelBody.contains("invitePresentation.cancel(slotID: pending.invite.slotId)"),
-            "cancel must name the slot THIS sheet rendered, or a stale dismissal clears the invite now on screen"
+            cancelBody.contains("guard invitePresentation.cancel(slotID: pending.invite.slotId) else { return }"),
+            "cancel must name the slot THIS sheet rendered AND let the answer govern the clear; refusing and then clearing anyway is indistinguishable from not refusing"
         )
         XCTAssertFalse(
             cancelBody.contains("handleQRScanned"),
-            "cancelling must not claim"
+            "cancelling must not attempt"
+        )
+
+        // ORDER, not just presence. A guard that runs AFTER the side effect it
+        // is supposed to gate protects nothing: clearing first and refusing
+        // second still takes the invite off screen. Asserted for cancel the
+        // same way it is for confirm — the asymmetry between them is exactly
+        // how the live stale-cancel defect survived a green suite.
+        let cancelGate = try XCTUnwrap(
+            cancelBody.range(of: "guard invitePresentation.cancel(slotID:"),
+            "cancel must be gated"
+        )
+        let cancelClear = try XCTUnwrap(
+            cancelBody.range(of: "pendingClawShareInvite = nil"),
+            "cancel is expected to clear the pending invite"
+        )
+        XCTAssertTrue(
+            cancelGate.lowerBound < cancelClear.lowerBound,
+            "the gate must decide before the global clear, or a refused cancel still clears it"
         )
     }
 
