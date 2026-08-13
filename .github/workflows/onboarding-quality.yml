@@ -18,6 +18,7 @@ on:
       - "scripts/ci/engine-safe-stages.txt"
       - "scripts/ci/test-engine-log-extractor"
       - "scripts/ci/engine-log-diagnostic"
+      - "scripts/ci/test-workflow-signal-hardening.py"
       - "scripts/ci/harness-safe-stages.txt"
       - ".github/workflows/onboarding-quality.yml"
 
@@ -36,6 +37,14 @@ jobs:
         env:
           SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
         run: swift test --package-path Packages/SoyehtCore -v
+
+  # EngineHarness is a distinct signal: its known failure remains red without
+  # obscuring the result of the rest of the SoyehtCore unit-test suite.
+  engine-harness:
+    name: EngineHarness Tests (isolated CI)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
 
       # The pinned engine is arm64 and may advertise Bonjour services. GitHub's
       # fresh macOS runner is the deliberately isolated execution environment;
@@ -77,6 +86,9 @@ jobs:
       - name: Verify localized UI strings and theme colors
         run: python3 scripts/ci/lint-ui-resources.py
 
+      - name: Verify workflow signal contracts
+        run: python3 scripts/ci/test-workflow-signal-hardening.py
+
   # ── iOS onboarding build check ────────────────────────────────────────────────
   ios-build:
     name: iOS Build (onboarding targets)
@@ -84,8 +96,29 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install Rust toolchain
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build RelayStreamGuestFFI XCFramework
+        env:
+          RELAY_STREAM_GUEST_FFI_PROFILE: release
+        run: scripts/bootstrap-relay-stream-guest-ffi.sh
+
+      - name: Build NatProbeFFI XCFramework
+        env:
+          NAT_PROBE_FFI_PROFILE: release
+        run: scripts/bootstrap-nat-probe-ffi.sh
+
       - name: Build Soyeht iOS
         run: |
+          set -o pipefail
           SIM_ARCH="$(uname -m)"
           xcodebuild build \
             -project TerminalApp/Soyeht.xcodeproj \
@@ -93,10 +126,12 @@ jobs:
             -skipPackagePluginValidation \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            | xcpretty || true
+            2>&1 | tee build.log
+          grep -q "BUILD SUCCEEDED" build.log
 
       - name: Run iOS unit tests
         run: |
+          set -o pipefail
           SIM_ARCH="$(uname -m)"
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
@@ -104,4 +139,5 @@ jobs:
             -skipPackagePluginValidation \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            | xcpretty || true
+            2>&1 | tee test.log
+          grep -q "TEST SUCCEEDED" test.log

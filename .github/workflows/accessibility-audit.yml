@@ -8,7 +8,10 @@ on:
     paths:
       - "TerminalApp/Soyeht/**"
       - "TerminalApp/SoyehtMac/**"
+      - "TerminalApp/SoyehtTests/**"
       - "Packages/SoyehtCore/**"
+      - "scripts/ci/test-workflow-signal-hardening.py"
+      - ".github/workflows/accessibility-audit.yml"
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -19,6 +22,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify workflow signal contracts
+        run: python3 scripts/ci/test-workflow-signal-hardening.py
 
       - name: Install Rust toolchain
         run: |
@@ -42,27 +48,54 @@ jobs:
 
       - name: iOS Accessibility Snapshot Tests (RTL + AX5)
         run: |
+          set -o pipefail
           SIM_ARCH="$(uname -m)"
-          xcodebuild test \
-            -project TerminalApp/Soyeht.xcodeproj \
-            -scheme Soyeht \
-            -skipPackagePluginValidation \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
-            -only-testing:SoyehtTests/AccessibilitySnapshotTests \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            SNAPSHOT_RECORD_MODE=NO \
-            TEST_LOCALE=ar \
-            || true
+          AR_RESULT="$RUNNER_TEMP/accessibility-ar.xcresult"
+          AX5_RESULT="$RUNNER_TEMP/accessibility-ax5.xcresult"
+          test "$AR_RESULT" != "$AX5_RESULT"
 
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
             -skipPackagePluginValidation \
             -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
-            -only-testing:SoyehtTests/AccessibilitySnapshotTests \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            SNAPSHOT_RECORD_MODE=NO \
-            DYNAMIC_TYPE_SIZE=AX5
+            -only-testing:SoyehtTests/ParkingLotSnapshotTests/testParkingLot_ar_RTL \
+            -resultBundlePath "$AR_RESULT" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+
+          xcodebuild test \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -skipPackagePluginValidation \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+            -only-testing:SoyehtTests/ParkingLotSnapshotTests/testParkingLot_en_AX5 \
+            -resultBundlePath "$AX5_RESULT" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+
+          validate_result() {
+            local bundle="$1"
+            local expected="$2"
+            xcrun xcresulttool get test-results tests \
+              --path "$bundle" --compact | \
+              jq -er --arg expected "$expected" '
+                [.. | objects | select(.nodeType? == "Test Case") | .nodeIdentifier] as $ids
+                | select(($ids | length) == 1 and $ids[0] == $expected)
+                | $ids | length
+              ' >/dev/null
+          }
+
+          validate_result \
+            "$AR_RESULT" \
+            "ParkingLotSnapshotTests/testParkingLot_ar_RTL()"
+          validate_result \
+            "$AX5_RESULT" \
+            "ParkingLotSnapshotTests/testParkingLot_en_AX5()"
+
+          AR_ROOT="$(plutil -extract rootId.hash raw -o - "$AR_RESULT/Info.plist")"
+          AX5_ROOT="$(plutil -extract rootId.hash raw -o - "$AX5_RESULT/Info.plist")"
+          test -n "$AR_ROOT"
+          test -n "$AX5_ROOT"
+          test "$AR_ROOT" != "$AX5_ROOT"
 
       - name: Verify no snapshot regressions
         run: |
