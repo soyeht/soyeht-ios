@@ -21,6 +21,10 @@ EXECUTION_STEPS = (
 )
 EXECUTION_JOBS = ("ios-build", "snapshot-accessibility", "core-tests", "engine-harness")
 DIAGNOSTIC = "Engine-log privacy-safe diagnostic"
+RUST = "Install Rust toolchain"
+RELAY = "Build RelayStreamGuestFFI XCFramework"
+NAT = "Build NatProbeFFI XCFramework"
+IOS_BUILD = "Build Soyeht iOS"
 
 
 def step(text: str, name: str) -> str:
@@ -86,6 +90,7 @@ def execute(shell: str, tools: dict[str, str], extra: dict[str, str] | None = No
         directory = Path(raw)
         for name, body in tools.items():
             path = directory / name
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("#!/bin/sh\nset -eu\n" + body, encoding="utf-8")
             path.chmod(path.stat().st_mode | stat.S_IXUSR)
         env = os.environ.copy()
@@ -111,10 +116,95 @@ def insert(text: str, marker: str, value: str) -> str:
     return text.replace(marker, marker + value, 1)
 
 
+def require_ios_build_prerequisites(onboarding: str) -> None:
+    block = job(onboarding, "ios-build")
+    names = (RUST, RELAY, NAT, IOS_BUILD)
+    positions = [block.find(f"      - name: {name}\n") for name in names]
+    assert all(position >= 0 for position in positions), "missing iOS build prerequisite"
+    assert positions == sorted(positions), "iOS build prerequisites are out of order"
+    assert re.search(
+        r"^          RELAY_STREAM_GUEST_FFI_PROFILE:\s*release\s*$",
+        step(block, RELAY),
+        re.M,
+    )
+    assert re.search(
+        r"^          NAT_PROBE_FFI_PROFILE:\s*release\s*$",
+        step(block, NAT),
+        re.M,
+    )
+    assert script(step(block, RELAY)).strip() == "scripts/bootstrap-relay-stream-guest-ffi.sh"
+    assert script(step(block, NAT)).strip() == "scripts/bootstrap-nat-probe-ffi.sh"
+
+
 def main() -> None:
     onboarding = ONBOARDING.read_text(encoding="utf-8")
     accessibility = ACCESSIBILITY.read_text(encoding="utf-8")
     assert '- "TerminalApp/SoyehtTests/**"' in accessibility
+    require_ios_build_prerequisites(onboarding)
+
+    prerequisite_mutants = []
+    for name in (RELAY, NAT):
+        block = step(onboarding, name)
+        prerequisite_mutants.append(onboarding.replace(block, "", 1))
+    relay_block = step(onboarding, RELAY)
+    relay_after_build = onboarding.replace(relay_block, "", 1)
+    build_block = step(relay_after_build, IOS_BUILD)
+    relay_after_build = relay_after_build.replace(
+        build_block,
+        build_block + "\n\n" + relay_block,
+        1,
+    )
+    prerequisite_mutants.append(relay_after_build)
+    for mutant in prerequisite_mutants:
+        try:
+            require_ios_build_prerequisites(mutant)
+        except AssertionError:
+            continue
+        raise AssertionError("iOS build prerequisite mutant passed")
+
+    prebuild_run = "\n".join(
+        script(step(onboarding, name)) for name in (RELAY, NAT, IOS_BUILD)
+    )
+    prebuild_tools = {
+        "uname": "printf 'arm64\\n'",
+        "scripts/bootstrap-relay-stream-guest-ffi.sh": (
+            'test "$RELAY_STREAM_GUEST_FFI_PROFILE" = release\n'
+            'touch "$RUNNER_TEMP/relay.ready"'
+        ),
+        "scripts/bootstrap-nat-probe-ffi.sh": (
+            'test "$NAT_PROBE_FFI_PROFILE" = release\n'
+            'touch "$RUNNER_TEMP/nat.ready"'
+        ),
+        "xcodebuild": (
+            'test -f "$RUNNER_TEMP/relay.ready"\n'
+            'test -f "$RUNNER_TEMP/nat.ready"\n'
+            'printf "BUILD SUCCEEDED\\n"\n'
+            'printf reached > "$BUILD_REACHED"'
+        ),
+    }
+    profiles = {
+        "RELAY_STREAM_GUEST_FFI_PROFILE": "release",
+        "NAT_PROBE_FFI_PROFILE": "release",
+    }
+    with tempfile.TemporaryDirectory() as raw:
+        reached = Path(raw) / "build-reached"
+        expect(
+            execute(prebuild_run, prebuild_tools, profiles | {"BUILD_REACHED": str(reached)}),
+            True,
+            "iOS build prerequisites",
+        )
+        assert reached.read_text(encoding="utf-8") == "reached"
+        blocked = Path(raw) / "build-blocked"
+        failing_tools = prebuild_tools | {
+            "scripts/bootstrap-relay-stream-guest-ffi.sh": "exit 31"
+        }
+        expect(
+            execute(prebuild_run, failing_tools, profiles | {"BUILD_REACHED": str(blocked)}),
+            False,
+            "iOS build prerequisite failure",
+        )
+        assert not blocked.exists()
+
     for name, marker in (("Build Soyeht iOS", "BUILD SUCCEEDED"), ("Run iOS unit tests", "TEST SUCCEEDED")):
         run = script(step(onboarding, name))
         base_tools = {"uname": "printf 'arm64\\n'"}
