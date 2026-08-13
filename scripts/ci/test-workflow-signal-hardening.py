@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
-"""Exercise the shell contracts that keep iOS CI signals fail-loud.
+"""Prove that the three hardened iOS signals cannot fail green."""
 
-The tests execute the workflow run blocks with controlled tool doubles. They
-therefore check exit behavior, marker behavior, variant coverage, and job
-separation without invoking Xcode or changing snapshot baselines.
-"""
-
-from __future__ import annotations
-
-import os
 from pathlib import Path
+import os
 import re
 import stat
 import subprocess
@@ -19,37 +12,43 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 ONBOARDING = ROOT / ".github/workflows/onboarding-quality.yml"
 ACCESSIBILITY = ROOT / ".github/workflows/accessibility-audit.yml"
+EXECUTION_STEPS = (
+    "Build Soyeht iOS",
+    "Run iOS unit tests",
+    "iOS Accessibility Snapshot Tests (RTL + AX5)",
+    "Run SoyehtCore tests",
+    "Run EngineHarnessTests in isolated CI",
+)
+EXECUTION_JOBS = ("ios-build", "snapshot-accessibility", "core-tests", "engine-harness")
+DIAGNOSTIC = "Engine-log privacy-safe diagnostic"
 
 
-def fail(message: str) -> None:
-    raise AssertionError(message)
-
-
-def workflow_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
-
-
-def step_block(text: str, step_name: str) -> str:
-    marker = f"      - name: {step_name}\n"
+def step(text: str, name: str) -> str:
+    marker = f"      - name: {name}\n"
     start = text.find(marker)
-    if start < 0:
-        fail(f"missing workflow step: {step_name}")
+    assert start >= 0, f"missing step: {name}"
     end = text.find("\n      - ", start + len(marker))
-    if end < 0:
-        end = len(text)
+    return text[start : len(text) if end < 0 else end]
+
+
+def job(text: str, name: str) -> str:
+    marker = f"  {name}:\n"
+    start = text.find(marker)
+    assert start >= 0, f"missing job: {name}"
+    following = re.search(r"^  [a-z0-9-]+:\n", text[start + len(marker) :], re.M)
+    end = len(text) if not following else start + len(marker) + following.start()
     return text[start:end]
 
 
-def run_script(block: str) -> str:
-    marker = "        run: |\n"
-    start = block.find(marker)
+def script(block: str) -> str:
+    multiline = "        run: |\n"
+    start = block.find(multiline)
     if start < 0:
         inline = re.search(r"^        run: (.+)$", block, re.M)
-        if inline:
-            return inline.group(1) + "\n"
-        fail("step is missing a run block")
-    body: list[str] = []
-    for line in block[start + len(marker) :].splitlines():
+        assert inline, "step has no run block"
+        return inline.group(1) + "\n"
+    body = []
+    for line in block[start + len(multiline) :].splitlines():
         if line.startswith("          "):
             body.append(line[10:])
         elif not line:
@@ -59,141 +58,109 @@ def run_script(block: str) -> str:
     return "\n".join(body) + "\n"
 
 
-def job_for_step(text: str, step_name: str) -> str:
-    marker = f"      - name: {step_name}\n"
-    step_at = text.find(marker)
-    if step_at < 0:
-        fail(f"missing workflow step: {step_name}")
-    jobs = list(re.finditer(r"^  ([a-z0-9-]+):\n", text[:step_at], re.M))
-    if not jobs:
-        fail(f"step has no enclosing job: {step_name}")
-    return jobs[-1].group(1)
+def job_of(text: str, name: str) -> str:
+    at = text.find(f"      - name: {name}\n")
+    assert at >= 0, f"missing step: {name}"
+    matches = list(re.finditer(r"^  ([a-z0-9-]+):\n", text[:at], re.M))
+    assert matches, f"step has no job: {name}"
+    return matches[-1].group(1)
 
 
-def write_tool(directory: Path, name: str, body: str) -> None:
-    path = directory / name
-    path.write_text("#!/bin/sh\nset -eu\n" + body, encoding="utf-8")
-    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+def reject_neutralizers(onboarding: str, accessibility: str) -> None:
+    text = onboarding + "\n" + accessibility
+    diagnostic = step(text, DIAGNOSTIC)
+    assert re.search(r"^        if:\s*always\(\)\s*$", diagnostic, re.M)
+    assert not re.search(r"^        continue-on-error\s*:", diagnostic, re.M)
+    for name in EXECUTION_STEPS:
+        block = step(text, name)
+        assert not re.search(r"^        continue-on-error\s*:", block, re.M), name
+        assert not re.search(r"^        if:.*\b(?:always|failure)\s*\(", block, re.M), name
+    for name in EXECUTION_JOBS:
+        block = job(text, name)
+        assert not re.search(r"^    continue-on-error\s*:", block, re.M), name
+        assert not re.search(r"^    if:.*\b(?:always|failure)\s*\(", block, re.M), name
 
 
-def execute(script: str, tools: dict[str, str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def execute(shell: str, tools: dict[str, str], extra: dict[str, str] | None = None) -> int:
     with tempfile.TemporaryDirectory() as raw:
         directory = Path(raw)
         for name, body in tools.items():
-            write_tool(directory, name, body)
+            path = directory / name
+            path.write_text("#!/bin/sh\nset -eu\n" + body, encoding="utf-8")
+            path.chmod(path.stat().st_mode | stat.S_IXUSR)
         env = os.environ.copy()
         env["PATH"] = f"{directory}:{env['PATH']}"
-        if extra_env:
-            env.update(extra_env)
+        env.update(extra or {})
         return subprocess.run(
-            ["/bin/bash", "-e", "-o", "pipefail", "-c", script],
+            ["/bin/bash", "-e", "-o", "pipefail", "-c", shell],
             cwd=directory,
             env=env,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             check=False,
-        )
+        ).returncode
 
 
-def require_success(result: subprocess.CompletedProcess[str], label: str) -> None:
-    if result.returncode != 0:
-        fail(f"{label}: expected success, got {result.returncode}\n{result.stdout}")
-    print(f"PASS green: {label}")
+def expect(actual: int, success: bool, label: str) -> None:
+    assert (actual == 0) is success, f"{label}: exit {actual}"
 
 
-def require_failure(result: subprocess.CompletedProcess[str], label: str) -> None:
-    if result.returncode == 0:
-        fail(f"{label}: false green\n{result.stdout}")
-    print(f"PASS red: {label} (exit {result.returncode})")
-
-
-def test_onboarding_markers(text: str) -> None:
-    cases = (
-        ("Build Soyeht iOS", "BUILD SUCCEEDED"),
-        ("Run iOS unit tests", "TEST SUCCEEDED"),
-    )
-    for name, marker in cases:
-        script = run_script(step_block(text, name))
-        require_success(
-            execute(script, {"uname": "printf 'arm64\\n'", "xcodebuild": f"printf '%s\\n' '{marker}'"}),
-            f"{name} positive control",
-        )
-        require_failure(
-            execute(script, {"uname": "printf 'arm64\\n'", "xcodebuild": "printf '%s\\n' 'tool failed'; exit 17"}),
-            f"{name} propagates xcodebuild failure",
-        )
-        require_failure(
-            execute(script, {"uname": "printf 'arm64\\n'", "xcodebuild": "printf '%s\\n' 'no success marker'"}),
-            f"{name} rejects missing positive marker",
-        )
-
-
-def test_accessibility_variants(text: str) -> None:
-    script = run_script(step_block(text, "iOS Accessibility Snapshot Tests (RTL + AX5)"))
-    with tempfile.TemporaryDirectory() as raw:
-        calls = Path(raw) / "calls"
-        tool = "printf '%s\\n' \"$*\" >> \"$CALLS_FILE\"\nexit \"${XCODEBUILD_EXIT:-0}\""
-        green = execute(script, {"uname": "printf 'arm64\\n'", "xcodebuild": tool}, {"CALLS_FILE": str(calls)})
-        require_success(green, "accessibility positive control")
-        recorded = calls.read_text(encoding="utf-8")
-        if recorded.count("-only-testing:SoyehtTests/AccessibilitySnapshotTests") != 2:
-            fail("accessibility control did not execute exactly two test invocations")
-        if "TEST_LOCALE=ar" not in recorded or "DYNAMIC_TYPE_SIZE=AX5" not in recorded:
-            fail("accessibility control lost the ar or AX5 variant")
-
-    require_failure(
-        execute(
-            script,
-            {
-                "uname": "printf 'arm64\\n'",
-                "xcodebuild": "case \"$*\" in *TEST_LOCALE=ar*) exit 23;; *) exit 0;; esac",
-            },
-        ),
-        "accessibility ar failure",
-    )
-
-
-def test_snapshot_diff_gate(text: str) -> None:
-    script = run_script(step_block(text, "Verify no snapshot regressions"))
-    require_success(execute(script, {"git": "exit 0"}), "snapshot diff positive control")
-    require_failure(execute(script, {"git": "exit 1"}), "snapshot diff mutation")
-
-
-def test_core_harness_separation(text: str) -> None:
-    core = "Run SoyehtCore tests"
-    harness = "Run EngineHarnessTests in isolated CI"
-    diagnostic = "Engine-log privacy-safe diagnostic"
-    core_job = job_for_step(text, core)
-    harness_job = job_for_step(text, harness)
-    if core_job == harness_job:
-        fail("SoyehtCore and EngineHarness still share one job signal")
-    if job_for_step(text, diagnostic) != harness_job:
-        fail("EngineHarness diagnostic is not attached to the harness signal")
-    if "        if: always()\n" not in step_block(text, diagnostic):
-        fail("EngineHarness diagnostic no longer runs after a harness failure")
-
-    core_script = run_script(step_block(text, core))
-    require_success(
-        execute(core_script, {"swift": "exit 0"}),
-        "SoyehtCore deterministic step remains independently green",
-    )
-
-    harness_script = run_script(step_block(text, harness))
-    require_failure(
-        execute(harness_script, {"swift": "exit 29"}),
-        "EngineHarness failure remains red",
-    )
-    print(f"PASS split: {core_job} != {harness_job}; diagnostic stays with {harness_job}")
+def insert(text: str, marker: str, value: str) -> str:
+    assert text.count(marker) == 1, f"non-unique mutation anchor: {marker.strip()}"
+    return text.replace(marker, marker + value, 1)
 
 
 def main() -> None:
-    onboarding = workflow_text(ONBOARDING)
-    accessibility = workflow_text(ACCESSIBILITY)
-    test_onboarding_markers(onboarding)
-    test_accessibility_variants(accessibility)
-    test_snapshot_diff_gate(accessibility)
-    test_core_harness_separation(onboarding)
+    onboarding = ONBOARDING.read_text(encoding="utf-8")
+    accessibility = ACCESSIBILITY.read_text(encoding="utf-8")
+    reject_neutralizers(onboarding, accessibility)
+
+    # Same run block and invocation count; only the neutralizer changes.
+    build_marker = "      - name: Build Soyeht iOS\n"
+    build_run = script(step(onboarding, "Build Soyeht iOS"))
+    mutants = (
+        insert(onboarding, build_marker, "        continue-on-error: true\n"),
+        insert(onboarding, build_marker, '        continue-on-error: "true"\n'),
+        insert(onboarding, "  ios-build:\n", '    continue-on-error: "${{ always() }}"\n'),
+        insert(onboarding, build_marker, "        if: failure()\n"),
+    )
+    for mutant in mutants:
+        assert script(step(mutant, "Build Soyeht iOS")) == build_run
+        assert mutant.count("xcodebuild") == onboarding.count("xcodebuild")
+        try:
+            reject_neutralizers(mutant, accessibility)
+        except AssertionError:
+            continue
+        raise AssertionError("neutralizer mutant passed")
+
+    for name, marker in (("Build Soyeht iOS", "BUILD SUCCEEDED"), ("Run iOS unit tests", "TEST SUCCEEDED")):
+        run = script(step(onboarding, name))
+        base_tools = {"uname": "printf 'arm64\\n'"}
+        expect(execute(run, base_tools | {"xcodebuild": f"printf '%s\\n' '{marker}'"}), True, name)
+        expect(execute(run, base_tools | {"xcodebuild": "exit 17"}), False, f"{name} exit")
+        expect(execute(run, base_tools | {"xcodebuild": "printf 'no marker\\n'"}), False, f"{name} marker")
+
+    access_run = script(step(accessibility, "iOS Accessibility Snapshot Tests (RTL + AX5)"))
+    with tempfile.TemporaryDirectory() as raw:
+        calls = Path(raw) / "calls"
+        logger = "printf '%s\\n' \"$*\" >> \"$CALLS\""
+        expect(execute(access_run, {"uname": "printf 'arm64\\n'", "xcodebuild": logger}, {"CALLS": str(calls)}), True, "accessibility")
+        recorded = calls.read_text(encoding="utf-8")
+        assert recorded.count("-only-testing:SoyehtTests/AccessibilitySnapshotTests") == 2
+        assert "TEST_LOCALE=ar" in recorded and "DYNAMIC_TYPE_SIZE=AX5" in recorded
+    ar_fails = 'case "$*" in *TEST_LOCALE=ar*) exit 23;; *) exit 0;; esac'
+    expect(execute(access_run, {"uname": "printf 'arm64\\n'", "xcodebuild": ar_fails}), False, "accessibility ar")
+
+    diff_run = script(step(accessibility, "Verify no snapshot regressions"))
+    expect(execute(diff_run, {"git": "exit 0"}), True, "snapshot clean")
+    expect(execute(diff_run, {"git": "exit 1"}), False, "snapshot mutation")
+
+    core = "Run SoyehtCore tests"
+    harness = "Run EngineHarnessTests in isolated CI"
+    assert job_of(onboarding, core) != job_of(onboarding, harness)
+    assert job_of(onboarding, DIAGNOSTIC) == job_of(onboarding, harness)
+    expect(execute(script(step(onboarding, core)), {"swift": "exit 0"}), True, "core")
+    expect(execute(script(step(onboarding, harness)), {"swift": "exit 29"}), False, "harness")
     print("workflow-signal-hardening: all controls passed")
 
 
