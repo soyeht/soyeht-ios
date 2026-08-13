@@ -154,12 +154,21 @@ while [ "$#" -gt 0 ]; do
 done
 test -n "$bundle"
 test -n "$selected"
-mkdir -p "$bundle"
-case "$bundle" in
-  *accessibility-ar.xcresult) root=ar-root ;;
-  *accessibility-ax5.xcresult) root=ax5-root ;;
-  *) root=unexpected-root ;;
+case "${XCODE_MODE:-}" in
+  fail-ar) case "$bundle" in *accessibility-ar.xcresult) exit 17;; esac ;;
+  fail-ax5) case "$bundle" in *accessibility-ax5.xcresult) exit 17;; esac ;;
+  missing-ar) case "$bundle" in *accessibility-ar.xcresult) exit 0;; esac ;;
 esac
+mkdir -p "$bundle"
+if [ "${XCODE_MODE:-}" = same-root ]; then
+  root=shared-root
+else
+  case "$bundle" in
+    *accessibility-ar.xcresult) root=ar-root ;;
+    *accessibility-ax5.xcresult) root=ax5-root ;;
+    *) root=unexpected-root ;;
+  esac
+fi
 printf '%s\n' "$root" > "$bundle/root"
 printf '%s()\n' "$selected" > "$bundle/node"
 '''
@@ -195,6 +204,12 @@ cat "${path%/Info.plist}/root"
         "plutil": plutil,
     }
     expect(execute(access_run, access_tools), True, "accessibility evidence")
+    for mode in ("fail-ar", "fail-ax5", "missing-ar", "same-root"):
+        expect(
+            execute(access_run, access_tools, {"XCODE_MODE": mode}),
+            False,
+            f"accessibility {mode}",
+        )
     for mode in ("zero-ar", "zero-ax5", "wrong-ar", "malformed", "fail"):
         expect(
             execute(access_run, access_tools, {"XCRUN_MODE": mode}),
