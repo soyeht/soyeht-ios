@@ -90,6 +90,7 @@ def execute(shell: str, tools: dict[str, str], extra: dict[str, str] | None = No
             path.chmod(path.stat().st_mode | stat.S_IXUSR)
         env = os.environ.copy()
         env["PATH"] = f"{directory}:{env['PATH']}"
+        env["RUNNER_TEMP"] = str(directory)
         env.update(extra or {})
         return subprocess.run(
             ["/bin/bash", "-e", "-o", "pipefail", "-c", shell],
@@ -113,6 +114,7 @@ def insert(text: str, marker: str, value: str) -> str:
 def main() -> None:
     onboarding = ONBOARDING.read_text(encoding="utf-8")
     accessibility = ACCESSIBILITY.read_text(encoding="utf-8")
+    assert '- "TerminalApp/SoyehtTests/**"' in accessibility
     for name, marker in (("Build Soyeht iOS", "BUILD SUCCEEDED"), ("Run iOS unit tests", "TEST SUCCEEDED")):
         run = script(step(onboarding, name))
         base_tools = {"uname": "printf 'arm64\\n'"}
@@ -140,19 +142,86 @@ def main() -> None:
         raise AssertionError("neutralizer mutant passed")
 
     access_run = script(step(accessibility, "iOS Accessibility Snapshot Tests (RTL + AX5)"))
-    with tempfile.TemporaryDirectory() as raw:
-        calls = Path(raw) / "calls"
-        logger = "printf '%s\\n' \"$*\" >> \"$CALLS\""
-        expect(execute(access_run, {"uname": "printf 'arm64\\n'", "xcodebuild": logger}, {"CALLS": str(calls)}), True, "accessibility")
-        recorded = calls.read_text(encoding="utf-8")
-        assert recorded.count("-only-testing:SoyehtTests/AccessibilitySnapshotTests") == 2
-        assert "TEST_LOCALE=ar" in recorded and "DYNAMIC_TYPE_SIZE=AX5" in recorded
-    ar_fails = 'case "$*" in *TEST_LOCALE=ar*) exit 23;; *) exit 0;; esac'
-    expect(execute(access_run, {"uname": "printf 'arm64\\n'", "xcodebuild": ar_fails}), False, "accessibility ar")
+    xcodebuild = r'''
+bundle=
+selected=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -resultBundlePath) bundle="$2"; shift 2 ;;
+    -only-testing:*) selected="${1#-only-testing:SoyehtTests/}"; shift ;;
+    *) shift ;;
+  esac
+done
+test -n "$bundle"
+test -n "$selected"
+mkdir -p "$bundle"
+case "$bundle" in
+  *accessibility-ar.xcresult) root=ar-root ;;
+  *accessibility-ax5.xcresult) root=ax5-root ;;
+  *) root=unexpected-root ;;
+esac
+printf '%s\n' "$root" > "$bundle/root"
+printf '%s()\n' "$selected" > "$bundle/node"
+'''
+    xcrun = r'''
+test "${XCRUN_MODE:-}" != fail
+path=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --path) path="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+test -d "$path"
+case "${XCRUN_MODE:-}" in
+  malformed) printf '{not-json\n'; exit 0 ;;
+  zero-ar) case "$path" in *accessibility-ar.xcresult) printf '{"testNodes":[{"nodeType":"Test Plan"}]}\n'; exit 0;; esac ;;
+  zero-ax5) case "$path" in *accessibility-ax5.xcresult) printf '{"testNodes":[{"nodeType":"Test Plan"}]}\n'; exit 0;; esac ;;
+esac
+node="$(cat "$path/node")"
+case "${XCRUN_MODE:-}" in
+  wrong-ar) case "$path" in *accessibility-ar.xcresult) node='ParkingLotSnapshotTests/testParkingLot_en_AX5()';; esac ;;
+esac
+printf '{"testNodes":[{"children":[{"children":[{"children":[{"nodeIdentifier":"%s","nodeType":"Test Case"}],"name":"ParkingLotSnapshotTests","nodeType":"Test Suite"}],"nodeType":"Unit test bundle"}],"nodeType":"Test Plan"}]}\n' "$node"
+'''
+    plutil = r'''
+for argument in "$@"; do path="$argument"; done
+cat "${path%/Info.plist}/root"
+'''
+    access_tools = {
+        "uname": "printf 'arm64\\n'",
+        "xcodebuild": xcodebuild,
+        "xcrun": xcrun,
+        "plutil": plutil,
+    }
+    expect(execute(access_run, access_tools), True, "accessibility evidence")
+    for mode in ("zero-ar", "zero-ax5", "wrong-ar", "malformed", "fail"):
+        expect(
+            execute(access_run, access_tools, {"XCRUN_MODE": mode}),
+            False,
+            f"accessibility {mode}",
+        )
+
+    shared = access_run.replace(
+        'AX5_RESULT="$RUNNER_TEMP/accessibility-ax5.xcresult"',
+        'AX5_RESULT="$RUNNER_TEMP/accessibility-ar.xcresult"',
+        1,
+    )
+    assert shared != access_run
+    expect(execute(shared, access_tools), False, "accessibility shared bundle")
+
+    ar_path = '-resultBundlePath "$AR_RESULT"'
+    ax5_path = '-resultBundlePath "$AX5_RESULT"'
+    assert access_run.count(ar_path) == access_run.count(ax5_path) == 1
+    swapped = access_run.replace(ar_path, "-resultBundlePath \"$SWAP_RESULT\"", 1)
+    swapped = swapped.replace(ax5_path, ar_path, 1)
+    swapped = swapped.replace("-resultBundlePath \"$SWAP_RESULT\"", ax5_path, 1)
+    expect(execute(swapped, access_tools), False, "accessibility swapped bundles")
 
     diff_run = script(step(accessibility, "Verify no snapshot regressions"))
     expect(execute(diff_run, {"git": "exit 0"}), True, "snapshot clean")
     expect(execute(diff_run, {"git": "exit 1"}), False, "snapshot mutation")
+    expect(execute(access_run, access_tools, {"XCRUN_MODE": "zero-ar"}), False, "clean diff cannot rescue zero tests")
 
     core = "Run SoyehtCore tests"
     harness = "Run EngineHarnessTests in isolated CI"

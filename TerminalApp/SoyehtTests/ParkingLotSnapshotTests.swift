@@ -46,6 +46,14 @@ final class ParkingLotSnapshotTests: XCTestCase {
         )
     }
 
+    func testParkingLot_en_AX5() {
+        assertParkingLotSnapshot(
+            of: makeParkingLot(locale: Locale(identifier: "en"))
+                .dynamicTypeSize(.accessibility5),
+            named: "en-AX5"
+        )
+    }
+
     func testParkingLot_ar_RTL() {
         assertParkingLotSnapshot(
             of: makeParkingLot(locale: Locale(identifier: "ar"), layoutDirection: .rightToLeft),
