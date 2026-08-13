@@ -318,7 +318,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
         await model.load()
         model.requestRevoke(model.rows[0])
 
-        await model.confirmRevoke()
+        await model.confirmRevoke(model.rows[0])
 
         let calls = await revoker.calls
         XCTAssertEqual(calls, [slotId])
@@ -329,6 +329,43 @@ final class ActiveSharesViewModelTests: XCTestCase {
         XCTAssertFalse(model.canCopyLink(model.rows[0]))
     }
 
+    /// THE ORDERING SwiftUI ACTUALLY USES, which is what shipped broken.
+    ///
+    /// `confirmationDialog` dismisses *before* running the button's action.
+    /// Dismissal drives `isPresented` to false, and that setter calls
+    /// `cancelRevoke()`. So by the time the action runs, `pendingRevoke` is
+    /// already nil.
+    ///
+    /// While `confirmRevoke` read `pendingRevoke` and returned early on nil,
+    /// a confirmed revoke was a silent no-op: no request, no error message,
+    /// dialog gone, row still Accepted. Measured on hardware 2026-08-12 — the
+    /// owner confirmed a dialog promising "Whoever has this link loses access"
+    /// and the guest went on interacting with the shared app.
+    ///
+    /// Every other test here sets `pendingRevoke` and leaves it set, so none
+    /// of them could see this. This one reproduces the dismissal first.
+    func test_confirmRevokeStillCallsRevokerWhenDismissalAlreadyClearedPendingRevoke() async {
+        let slotId = Data(repeating: 0x1A, count: 16)
+        let revoker = RecordingRevoker()
+        let model = makeModel(shares: [descriptor(slotId: slotId, status: .accepted)], revoker: revoker)
+        await model.load()
+        model.requestRevoke(model.rows[0])
+        let target = model.rows[0]
+
+        // The dialog's dismissal, verbatim: `isPresented` false -> cancelRevoke.
+        model.cancelRevoke()
+        XCTAssertNil(model.pendingRevoke, "precondition: dismissal ran first")
+
+        await model.confirmRevoke(target)
+
+        let calls = await revoker.calls
+        XCTAssertEqual(
+            calls, [slotId],
+            "a confirmed revoke must reach the revocation boundary even though dismissal cleared the pending row first"
+        )
+        XCTAssertEqual(model.rows[0].status, .revoked)
+    }
+
     func test_confirmRevokeFailureLeavesTheRowUnchanged() async {
         let slotId = Data(repeating: 0x0E, count: 16)
         let revoker = RecordingRevoker(error: SentinelError.boom)
@@ -336,7 +373,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
         await model.load()
         model.requestRevoke(model.rows[0])
 
-        await model.confirmRevoke()
+        await model.confirmRevoke(model.rows[0])
 
         XCTAssertNil(model.pendingRevoke)
         XCTAssertEqual(model.rows[0].status, .waiting, "a failed revoke must not change the row")
@@ -355,7 +392,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
         await model.load()
         model.requestRevoke(model.rows[0])
 
-        await model.confirmRevoke()
+        await model.confirmRevoke(model.rows[0])
 
         let message = model.revokeFailureMessage
         XCTAssertNotNil(message)
@@ -373,7 +410,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
         let model = makeModel(shares: [descriptor(slotId: slotId, status: .waiting)], revoker: revoker)
         await model.load()
         model.requestRevoke(model.rows[0])
-        await model.confirmRevoke()
+        await model.confirmRevoke(model.rows[0])
         XCTAssertNotNil(model.revokeFailureMessage)
 
         model.dismissRevokeFailure()
@@ -382,7 +419,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
         // Retry: the row is still intact, so requesting/confirming again
         // must be possible and must reach the revoker a second time.
         model.requestRevoke(model.rows[0])
-        await model.confirmRevoke()
+        await model.confirmRevoke(model.rows[0])
 
         let calls = await revoker.calls
         XCTAssertEqual(calls, [slotId, slotId])
@@ -407,7 +444,7 @@ final class ActiveSharesViewModelTests: XCTestCase {
 
         let target = model.rows.first { $0.id == secondSlot }!
         model.requestRevoke(target)
-        await model.confirmRevoke()
+        await model.confirmRevoke(target)
 
         let calls = await revoker.calls
         XCTAssertEqual(calls, [secondSlot], "only the targeted slot must be revoked")
