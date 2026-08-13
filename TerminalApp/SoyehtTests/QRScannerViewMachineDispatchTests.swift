@@ -114,12 +114,22 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(host, "linux.local")
     }
 
+    /// Subject: WHICH parser owns this URL. It used to also assert that the
+    /// onboarding router ignores invites — true when this test was written
+    /// (2026-06-24, `8777b4bd`), because invites then arrived only by scanner
+    /// or paste and the deep-link path did not exist yet. The matcher and
+    /// handler were added later; the routing half was not, which is what left
+    /// an invited guest staring at the install picker.
+    ///
+    /// Routing now has its own home in
+    /// `testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt`,
+    /// so the stale assertion is not flipped here — it is moved, one property
+    /// per test.
     func testClawShareInviteRoutesOnlyThroughScannerDispatcher() throws {
         let invite = try makeClawShareInvite()
         let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
 
         XCTAssertNil(QRScanResult.from(url: url))
-        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url))
 
         let result = try QRScannerDispatcher
             .result(for: url, activeHouseholdId: nil, now: now)
@@ -215,6 +225,526 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
             for: try XCTUnwrap(URL(string: "soyeht://household/pair-device"))
         ))
+    }
+
+    /// THE MOUNTING, NOT THE HANDLER. `testClawShareInviteURLIsClaimedByTheDeepLinkMatcher`
+    /// already proves the matcher claims this URL and the handler decodes it —
+    /// and both passed while the guest experience was still broken, because
+    /// nothing asserted that the flow owning that handler is ever presented.
+    ///
+    /// Measured on hardware 2026-08-12: a device with no household shows the
+    /// onboarding flow the AppDelegate presents, `SSHLoginView` — the only
+    /// consumer of `SessionStore.pendingDeepLink` — is never mounted, and the
+    /// invite is stored and silently dropped. The person who was invited is
+    /// asked "Where do you want to install Soyeht?" instead. Zero deep-link log
+    /// lines on the guest across two independent deliveries.
+    ///
+    /// This is the routing half, and it is the half that was false.
+    func testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertTrue(
+            OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+            "an invited guest must reach the flow that consumes the invite, not the install picker"
+        )
+    }
+
+    /// Routing must not depend on the invite being *good*, or the router would
+    /// need its own decode — a second definition of "is this an invite" that
+    /// can drift from `ClawShareURI.prefix` and reopen the bug above.
+    ///
+    /// The refusal still happens, one layer down and already covered by
+    /// `testMalformedClawShareURLIsClaimedThenRefused`: the dispatcher rejects
+    /// it and nothing is claimed or consumed. Routing decides WHICH flow reads
+    /// the URL; it grants nothing.
+    func testMalformedClawShareURLStillRoutesAndIsRefusedDownstreamNotHere() throws {
+        let url = try XCTUnwrap(URL(string: "\(ClawShareURI.prefix)not-valid-base64"))
+
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url))
+        switch QRScannerDispatcher.result(for: url, activeHouseholdId: nil, now: now) {
+        case .success(let result):
+            XCTFail("routing must not imply acceptance; got \(result)")
+        case .failure:
+            break
+        }
+    }
+
+    // MARK: - Per-call-site teeth
+    //
+    // `shouldOpenMainStoryboard` alone is not enough: a mutant that deletes the
+    // invite consideration from the COLD path (`willConnectTo`) or the WARM
+    // path (`openURLContexts`) leaves a test of the predicate green. The two
+    // decisions below are the values those call sites present, so removing the
+    // invite handling from either one turns its own test RED.
+
+    /// COLD LAUNCH. This is the exact shape that shipped broken: no household,
+    /// so `hasSetupState` is false, and the invite must still win over Mac
+    /// discovery. Without the invite branch this returns `.automaticMacDiscovery`
+    /// — which is literally the "Where do you want to install Soyeht?" path the
+    /// invited guest was dropped into.
+    func testColdLaunchWithAnInviteAndNoHouseholdOpensMainNotMacDiscovery() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: false,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .mainStoryboard
+        )
+    }
+
+    /// The same cold launch without an invite must keep onboarding, or every
+    /// fresh install is ejected into a home it does not have.
+    func testColdLaunchWithoutAnInviteKeepsOnboarding() {
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: nil,
+                restoredFromBackup: false,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .automaticMacDiscovery
+        )
+    }
+
+    /// A restore-from-backup outranks everything, invite included: the device
+    /// has state to reconcile before it can act on anything.
+    func testRestoredFromBackupOutranksAnInvite() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: true,
+                hasNoSetupState: true,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .restoredFromBackup
+        )
+    }
+
+    /// THE ALREADY-A-HOUSEHOLD ARM. An owner who taps an invite must not be
+    /// diverted into the carousel; the invite still reaches the dispatcher and
+    /// sheet. Also pins that the carousel is what an ordinary launch gets, so
+    /// this test fails if the invite branch stops outranking it.
+    func testInviteOutranksTheCarouselOnADeviceThatAlreadyHasAHousehold() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: url,
+                restoredFromBackup: false,
+                hasNoSetupState: false,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .mainStoryboard
+        )
+        XCTAssertEqual(
+            OnboardingDeepLinkRouter.launchRoot(
+                launchURL: nil,
+                restoredFromBackup: false,
+                hasNoSetupState: false,
+                carouselEnabled: true,
+                shouldShowCarousel: true
+            ),
+            .carousel,
+            "control: without an invite this launch is the carousel, so the case above is not vacuous"
+        )
+    }
+
+    /// WARM DELIVERY, app already open on an onboarding screen — the other
+    /// shape measured on hardware. The root must be swapped so the flow that
+    /// consumes the invite exists.
+    func testWarmInviteSwapsRootWhenNotAlreadyOnMain() throws {
+        let invite = try makeClawShareInvite()
+        let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
+
+        XCTAssertTrue(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: false)
+        )
+        XCTAssertFalse(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: true),
+            "already on main: rebuilding the root would tear down the very sheet we are about to show"
+        )
+    }
+
+    /// And a warm non-invite must not move anyone.
+    func testWarmNonInviteNeverSwapsRoot() throws {
+        let url = try XCTUnwrap(URL(string: "theyos://instance/inst-123"))
+
+        XCTAssertFalse(
+            OnboardingDeepLinkRouter.shouldSwapToMain(for: url, rootIsAlreadyMain: false)
+        )
+    }
+
+    /// The other half of the invariant: a device that is genuinely onboarding
+    /// must keep onboarding. If this ever goes true, every fresh install gets
+    /// ejected out of setup into a home it does not have yet.
+    func testNonInviteURLsLeaveOnboardingUntouched() throws {
+        // Deliberately excludes `soyeht://household/pair-machine`: whether that
+        // shape should route during onboarding is a question this slice has not
+        // investigated, and pinning it here would cement an answer either way.
+        let untouched = [
+            "theyos://instance/inst-123",
+            "https://example.com/claw-share/v1?e=abc"
+        ]
+        for raw in untouched {
+            let url = try XCTUnwrap(URL(string: raw))
+            XCTAssertFalse(
+                OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+                "\(raw) must not eject a device out of onboarding"
+            )
+        }
+    }
+
+    // MARK: - Presentation gate: duplicate suppression while awaiting/opening, one attempt per slot per gate instance
+
+    private let slotA = Data(repeating: 0xA1, count: 16)
+    private let slotB = Data(repeating: 0xB2, count: 16)
+
+    /// THE DOUBLE-DELIVERY THAT THE APP DELIBERATELY CREATES. The AppDelegate
+    /// writes `pendingDeepLink` *and* posts `.soyehtDeepLink` for the same URL,
+    /// on purpose, because foreground delivery can race subscriber setup. Both
+    /// arrive; exactly one sheet may result, and no claim yet.
+    func testSameInviteDeliveredTwicePresentsOnceAndAttemptsNothing() {
+        var gate = ClawShareInvitePresentation()
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+
+        XCTAssertEqual(gate.awaitingSlotID, slotA, "the second delivery must not lose the first")
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotA), "still awaiting: presenting is not claiming")
+    }
+
+    /// A double tap on the confirm button must not claim twice. The slot is
+    /// consumed atomically server-side, so a second claim burns the invite and
+    /// leaves the person with nothing to retry.
+    func testDoubleConfirmAttemptsExactlyOnce() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertTrue(gate.confirm(slotID: slotA), "first confirm is the claim")
+        XCTAssertFalse(gate.confirm(slotID: slotA), "second confirm must produce no effect")
+        XCTAssertEqual(gate.state, .opening(slotID: slotA))
+    }
+
+    /// Cancel attempts nothing, and a confirm arriving afterwards attempts
+    /// nothing either — there is no invite under it any more.
+    func testCancelAttemptsNothingAndACancelledInviteCannotBeConfirmed() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertTrue(gate.cancel(slotID: slotA))
+        XCTAssertEqual(gate.state, .idle)
+        XCTAssertFalse(gate.confirm(slotID: slotA), "a cancelled invite must not be confirmable without being presented again")
+    }
+
+    /// A cancel landing after confirm must not pretend the slot was never attempted.
+    /// The sheet dismissing is not evidence that nothing happened.
+    func testCancelAfterConfirmDoesNotReopenAnAttemptedInvite() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+
+        XCTAssertFalse(gate.cancel(slotID: slotA), "the claim is already in flight")
+        XCTAssertEqual(gate.state, .opening(slotID: slotA))
+    }
+
+    /// REDELIVERY OF THE SAME LINK. `protectedDataDidBecomeAvailable` and the launch
+    /// replay both re-post the same URL while the sheet is up. The invite must
+    /// be neither lost nor duplicated.
+    ///
+    /// Scope, stated rather than implied: this holds while THIS gate instance
+    /// lives. The gate is `@State` on a view, so its lifetime follows the view
+    /// identity SwiftUI decides — not something this diff can enumerate, and
+    /// not the process. `pendingDeepLink` is not persisted either, so a later
+    /// relaunch without the OS re-delivering the URL is not covered.
+    func testRedeliveryWhileAwaitingNeitherLosesNorDuplicates() {
+        var gate = ClawShareInvitePresentation()
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate)
+
+        XCTAssertEqual(gate.awaitingSlotID, slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA), "the invite survived the replays and is still attemptable exactly once by this gate")
+        XCTAssertFalse(gate.confirm(slotID: slotA))
+    }
+
+    /// A STALE SHEET MUST NOT AUTHORISE THE INVITE THAT REPLACED IT.
+    ///
+    /// The sheet for A can fire its confirm after B has taken `awaiting` but
+    /// before the old UI is gone. While `confirm()` read only the current
+    /// state, that action moved B to `opening` and then opened the bytes
+    /// captured for A — one invite's consent applied to another's payload.
+    ///
+    /// The control below is what makes this test say something: B's own
+    /// confirm must still work, so the refusal is about identity and not about
+    /// having broken confirm altogether.
+    func testAStaleConfirmFromAReplacedSheetDoesNotAuthoriseTheInviteThatReplacedIt() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+
+        XCTAssertFalse(
+            gate.confirm(slotID: slotA),
+            "A's sheet is stale; its confirm must not authorise anything"
+        )
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotB), "B must be untouched")
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty, "a refused action must mark nothing")
+
+        XCTAssertTrue(gate.confirm(slotID: slotB), "control: B's own confirm still works")
+        XCTAssertEqual(gate.state, .opening(slotID: slotB))
+    }
+
+    /// The same, for cancel: a stale dismissal must not clear the invite now on
+    /// screen. Without identity it did, and the person lost an invite they had
+    /// just been shown.
+    func testAStaleCancelFromAReplacedSheetDoesNotClearTheInviteThatReplacedIt() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+
+        XCTAssertFalse(gate.cancel(slotID: slotA), "A's sheet is stale; its cancel must be a no-op")
+        XCTAssertEqual(gate.state, .awaiting(slotID: slotB), "B must still be on screen")
+
+        XCTAssertTrue(gate.cancel(slotID: slotB), "control: B's own cancel still works")
+        XCTAssertEqual(gate.state, .idle)
+    }
+
+    /// A STALE FINISH MUST NOT MARK SOMEONE ELSE'S SLOT.
+    ///
+    /// `.opening(S)` is stable today — `receive` refuses while opening, and
+    /// confirm/cancel act only from `.awaiting` — so a subject-less
+    /// `finishAttempt` was safe by a property of the OTHER guards, not by its
+    /// own. This test refuses to depend on that: it drives the mismatch
+    /// directly, so the contract holds even if a neighbour changes.
+    func testAStaleFinishMarksNothingAndLeavesTheOpeningSubjectIntact() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+
+        gate.finishAttempt(slotID: slotB)
+
+        XCTAssertEqual(gate.state, .opening(slotID: slotA), "A's attempt is still in flight")
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty, "a mismatched finish must mark nothing")
+
+        gate.finishAttempt(slotID: slotA)
+        XCTAssertEqual(gate.attemptedSlotIDs, [slotA], "control: A's own finish records A")
+        XCTAssertEqual(gate.state, .idle)
+    }
+
+    /// CANCEL BEFORE ANY ATTEMPT LEAVES THE SLOT PRESENTABLE. This is the
+    /// property that makes "one presentation per slot" false, and it is
+    /// deliberate: someone who dismisses a sheet by accident must be able to
+    /// open the same link again. Only an ATTEMPT is one-shot.
+    func testCancelBeforeAnyAttemptLeavesTheSlotPresentableAgain() {
+        var gate = ClawShareInvitePresentation()
+        XCTAssertEqual(gate.receive(slotID: slotA), .present)
+        XCTAssertTrue(gate.cancel(slotID: slotA))
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .present,
+            "a cancelled invite was never attempted, so it may be presented again"
+        )
+        XCTAssertTrue(gate.attemptedSlotIDs.isEmpty)
+    }
+
+    /// A genuinely different invite while merely awaiting replaces it: the
+    /// person tapped a newer link and that is the one they mean.
+    func testADifferentInviteWhileAwaitingReplacesTheOlderOne() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertEqual(gate.awaitingSlotID, slotB)
+    }
+
+    /// A different invite mid-claim is DROPPED, and the result says so rather
+    /// than calling it a duplicate — it is not one. Naming the loss is the
+    /// point: `ignoreDuplicate` in the log would hide a real invite going
+    /// nowhere behind a benign word.
+    func testADifferentInviteMidClaimIsDroppedAndNamedAsSuchNotAsADuplicate() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotB), .ignoredWhileOpening,
+            "a genuinely different invite is lost here; the caller must be able to report that"
+        )
+        XCTAssertEqual(gate.state, .opening(slotID: slotA), "the in-flight claim keeps its own subject")
+    }
+
+    /// THE INTERLEAVED CASE, which is what makes "already attempted" mean
+    /// anything. Holding only the most recently settled slot was still
+    /// fail-open, and this is the exact sequence that showed it: settle A,
+    /// then let another invite come and go, then replay A.
+    ///
+    /// With history kept only in the current state, receiving B replaced A and
+    /// cancelling B cleared the lot, so A presented again and could be
+    /// attempted a second time. A test that only replays A immediately after
+    /// settling it cannot see that.
+    func testAnAttemptedSlotStaysRefusedAcrossAnUnrelatedInviteComingAndGoing() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+        gate.finishAttempt(slotID: slotA)
+
+        // An unrelated invite arrives, is shown, and is dismissed.
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertTrue(gate.cancel(slotID: slotB))
+        XCTAssertEqual(gate.state, .idle)
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .ignoreDuplicate,
+            "A was already attempted; another invite passing through must not amnesty it"
+        )
+        XCTAssertFalse(gate.confirm(slotID: slotA))
+    }
+
+    /// The same refusal must survive a second invite that is itself attempted,
+    /// not merely cancelled — the other way the history could be clobbered.
+    func testAnAttemptedSlotStaysRefusedAfterAnotherInviteIsAlsoAttempted() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+        gate.finishAttempt(slotID: slotA)
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present)
+        XCTAssertTrue(gate.confirm(slotID: slotB))
+        gate.finishAttempt(slotID: slotB)
+
+        XCTAssertEqual(gate.receive(slotID: slotA), .ignoreDuplicate, "A was already attempted")
+        XCTAssertEqual(gate.receive(slotID: slotB), .ignoreDuplicate, "and so is B")
+    }
+
+    /// Immediately after settling: the simplest case, kept as the floor.
+    func testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome() {
+        var gate = ClawShareInvitePresentation()
+        _ = gate.receive(slotID: slotA)
+        XCTAssertTrue(gate.confirm(slotID: slotA))
+        gate.finishAttempt(slotID: slotA)
+
+        XCTAssertEqual(
+            gate.receive(slotID: slotA), .ignoreDuplicate,
+            "a late delivery of an already-attempted invite must not present again"
+        )
+        XCTAssertFalse(gate.confirm(slotID: slotA), "and it must not be attempted a second time")
+        XCTAssertEqual(gate.state, .idle)
+        XCTAssertTrue(gate.attemptedSlotIDs.contains(slotA))
+
+        XCTAssertEqual(gate.receive(slotID: slotB), .present, "a genuinely new invite is still welcome")
+    }
+
+    // MARK: - The wiring the reducer tests cannot reach
+
+    /// THE BOUNDARY THE VALUE TESTS DO NOT PROVE. Every test above exercises
+    /// `ClawShareInvitePresentation` in isolation; none of them can see whether
+    /// the sheet actually consults it. That gap is precisely the shape of both
+    /// defects this branch exists to fix — a correct component nothing routes
+    /// through — so it gets a tooth even though this target has no UI test
+    /// harness.
+    ///
+    /// Structural, deliberately narrow, and anchored on
+    /// `ClawShareInviteConfirmationSheet(` because it occurs exactly once;
+    /// `onConfirm:`/`onCancel:` do not, and slicing on a repeated marker would
+    /// silently read some other sheet. The window is closed at the next sheet.
+    func testTheInviteSheetActionsAreWiredThroughTheGate() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        XCTAssertEqual(
+            source.components(separatedBy: "ClawShareInviteConfirmationSheet(").count - 1, 1,
+            "anchor must stay unique or this test reads the wrong region"
+        )
+
+        let sheet = try slice(
+            source,
+            from: "ClawShareInviteConfirmationSheet(",
+            to: ".sheet(isPresented: $showAddDeviceSheet)"
+        )
+        let confirmBody = try slice(sheet, from: "onConfirm: {", to: "onCancel: {")
+        let cancelBody = String(sheet[(try XCTUnwrap(sheet.range(of: "onCancel: {"))).upperBound...])
+
+        // The gate's ANSWER must govern the branch, not merely be called.
+        // Presence and order alone stay green against
+        // `_ = invitePresentation.confirm()` followed by the claim, which is
+        // the fail-open worth pinning: the decision is computed and discarded.
+        XCTAssertTrue(
+            confirmBody.contains("guard invitePresentation.confirm(slotID: pending.invite.slotId) else { return }"),
+            "confirm must name the slot THIS sheet rendered and let the answer control the branch; a subject-less confirm applies a stale sheet's consent to whatever is awaiting now"
+        )
+
+        // And the claim must not be reachable before that decision.
+        let gate = try XCTUnwrap(
+            confirmBody.range(of: "invitePresentation.confirm(slotID:"),
+            "confirm must go through the gate, or a double tap attempts twice"
+        )
+        let claim = try XCTUnwrap(
+            confirmBody.range(of: "handleQRScanned"),
+            "confirm is expected to reach the claim"
+        )
+        XCTAssertTrue(
+            gate.lowerBound < claim.lowerBound,
+            "the claim must be reachable only after the gate has decided"
+        )
+        XCTAssertTrue(
+            confirmBody.contains("invitePresentation.finishAttempt(slotID: pending.invite.slotId)"),
+            "the attempted slot must be recorded on the claim path, or a late replay attempts again"
+        )
+
+        // Cancel must release the gate and claim nothing.
+        XCTAssertTrue(
+            cancelBody.contains("guard invitePresentation.cancel(slotID: pending.invite.slotId) else { return }"),
+            "cancel must name the slot THIS sheet rendered AND let the answer govern the clear; refusing and then clearing anyway is indistinguishable from not refusing"
+        )
+        XCTAssertFalse(
+            cancelBody.contains("handleQRScanned"),
+            "cancelling must not attempt"
+        )
+
+        // ORDER, not just presence. A guard that runs AFTER the side effect it
+        // is supposed to gate protects nothing: clearing first and refusing
+        // second still takes the invite off screen. Asserted for cancel the
+        // same way it is for confirm — the asymmetry between them is exactly
+        // how the live stale-cancel defect survived a green suite.
+        let cancelGate = try XCTUnwrap(
+            cancelBody.range(of: "guard invitePresentation.cancel(slotID:"),
+            "cancel must be gated"
+        )
+        let cancelClear = try XCTUnwrap(
+            cancelBody.range(of: "pendingClawShareInvite = nil"),
+            "cancel is expected to clear the pending invite"
+        )
+        XCTAssertTrue(
+            cancelGate.lowerBound < cancelClear.lowerBound,
+            "the gate must decide before the global clear, or a refused cancel still clears it"
+        )
+    }
+
+    private func iosSource(_ relativePath: String) throws -> String {
+        let terminalApp = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // SoyehtTests/
+            .deletingLastPathComponent()  // TerminalApp/
+        let url = terminalApp.appendingPathComponent("Soyeht").appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
+        let start = try XCTUnwrap(source.range(of: startMarker))
+        let tail = source[start.upperBound...]
+        let end = try XCTUnwrap(tail.range(of: endMarker))
+        return String(tail[..<end.lowerBound])
     }
 
     func testOnboardingLaunchIntentOpensQRScannerOnlyOnce() throws {

@@ -66,6 +66,165 @@ struct PendingClawShareInvite: Identifiable {
     }
 }
 
+/// Decides whether an incoming invite is presented, ignored, or attempted — as
+/// a value, so those properties are asserted directly instead of inferred from
+/// a view.
+///
+/// THE PROPERTIES IT ENFORCES: a redelivery is suppressed while its slot is
+/// awaiting or opening, and a slot gets at most one ATTEMPT for as long as THIS
+/// gate instance lives. NOT one presentation per slot — a cancel before any
+/// attempt returns the slot to presentable, by design. And not "the claim
+/// was consumed exactly once": see `finishAttempt()` for why those differ and
+/// why the weaker one is what this can honestly promise today.
+///
+/// WHY A GATE. The same invite reaches the app by more than one route:
+/// `SessionStore.pendingDeepLink` has a publisher and the AppDelegate also
+/// posts `.soyehtDeepLink` for the same URL — deliberately, because foreground
+/// delivery can race SwiftUI subscriber setup. Unmediated that is two sheets
+/// for one invite and, far worse, two claims against a slot the engine
+/// consumes atomically: the invite would be burnt with nothing to retry.
+///
+/// IDENTITY IS THE SLOT ID, not a time window. The same link delivered twice
+/// carries the same `slot_id`; two different invites never do. A debounce
+/// interval would admit a slow duplicate and reject a fast second invite, so
+/// it is the wrong observable.
+struct ClawShareInvitePresentation: Equatable {
+    enum State: Equatable {
+        case idle
+        /// Sheet is up for this slot. Nothing claimed yet.
+        case awaiting(slotID: Data)
+        /// Confirmed. An attempt is in flight against this slot.
+        case opening(slotID: Data)
+    }
+
+    enum Reception: Equatable {
+        /// Fresh invite: install `awaiting` and show the confirmation sheet.
+        case present
+        /// The SAME invite again — another delivery route, or one that arrives
+        /// after it was already attempted. No second sheet, no second attempt.
+        case ignoreDuplicate
+        /// A DIFFERENT invite, dropped because a claim is in flight and
+        /// swapping the subject under it would attribute that outcome to the
+        /// wrong invite. Named apart from `ignoreDuplicate` because it is not
+        /// one: this invite is genuinely lost, and the caller must be able to
+        /// say so rather than log it as a repeat. Queuing it is a deliberate
+        /// non-goal here, not an oversight.
+        case ignoredWhileOpening
+    }
+
+    private(set) var state: State = .idle
+
+    /// Every slot that has already had an attempt while this gate has existed.
+    ///
+    /// Separate from `state` on purpose. Holding only the most recent settled
+    /// slot was still fail-open: settle A, receive B (which replaces it),
+    /// cancel B, and a replay of A presented again. History has to outlive the
+    /// current state or "already attempted" is only true until the next invite
+    /// arrives.
+    ///
+    /// No eviction, so nothing is forgotten while this gate lives — but the
+    /// gate is `@State` on the view, and `showMainStoryboard` builds a fresh
+    /// root, which this very branch does when an invite arrives during
+    /// onboarding. A root swap therefore starts a new, empty history inside the
+    /// SAME process.
+    ///
+    /// So the honest bound is this gate's own lifetime: not the process's, and
+    /// certainly not durable across a relaunch. Widening it means moving the
+    /// history somewhere genuinely process-owned, which is deliberately not in
+    /// this slice.
+    private(set) var attemptedSlotIDs: Set<Data> = []
+
+    var awaitingSlotID: Data? {
+        if case .awaiting(let slotID) = state { return slotID }
+        return nil
+    }
+
+    /// A delivery of `slotID`.
+    ///
+    /// A *different* invite arriving while one is merely `awaiting` replaces
+    /// it: the person tapped a newer link and that is the one they mean. It
+    /// replaces nothing while `opening`, because a claim is already in flight
+    /// against a slot the engine is consuming, and swapping the subject under
+    /// it would attribute that outcome to the wrong invite.
+    mutating func receive(slotID: Data) -> Reception {
+        // History first, and independent of the current state: a slot already
+        // attempted stays refused however many other invites came and went in
+        // between.
+        if attemptedSlotIDs.contains(slotID) {
+            return .ignoreDuplicate
+        }
+        switch state {
+        case .awaiting(let current) where current == slotID:
+            return .ignoreDuplicate
+        case .opening(let current) where current == slotID:
+            return .ignoreDuplicate
+        case .opening:
+            return .ignoredWhileOpening
+        case .idle, .awaiting:
+            state = .awaiting(slotID: slotID)
+            return .present
+        }
+    }
+
+    /// Returns `true` at most once per slot while this gate lives; the caller
+    /// starts its task only on `true`.
+    ///
+    /// TAKES THE SLOT THE SHEET RENDERED. Reading only the current state was
+    /// not enough: a sheet showing A can fire its action after B has replaced
+    /// A in `awaiting` but before the old UI is gone, and a subject-less
+    /// confirm would then authorise B while opening the bytes captured for A.
+    /// Requiring the caller to name what it is confirming makes a stale action
+    /// a no-op instead of a substitution.
+    ///
+    /// The transition happens BEFORE the caller starts async work. Deciding
+    /// after an await would leave a window where two confirms both read
+    /// `awaiting` and both proceed.
+    mutating func confirm(slotID: Data) -> Bool {
+        guard case .awaiting(let current) = state, current == slotID else { return false }
+        state = .opening(slotID: current)
+        return true
+    }
+
+    /// Only leaves `awaiting`, and only for the slot the caller names — a
+    /// stale cancel from a sheet that has already been replaced must not clear
+    /// the invite now on screen. A cancel arriving after confirm must also not
+    /// pretend the slot has not been attempted.
+    @discardableResult
+    mutating func cancel(slotID: Data) -> Bool {
+        guard case .awaiting(let current) = state, current == slotID else { return false }
+        state = .idle
+        return true
+    }
+
+    /// The attempt finished — SUCCESS AND FAILURE ARE NOT DISTINGUISHED HERE,
+    /// because the handler this follows does not report which it was.
+    ///
+    /// So the property this type actually enforces is **one attempt per slot
+    /// for as long as this gate lives**, not "the claim was consumed exactly
+    /// once". Those differ:
+    /// an open that failed before the engine consumed the slot is recorded the
+    /// same as one that succeeded, and the person cannot retry it from this
+    /// link. Stated rather than implied, so nobody reads a stronger guarantee
+    /// into it. Distinguishing them means extracting a factual outcome from
+    /// the handler, which is deliberately not in this slice.
+    /// TAKES THE SLOT, like `confirm` and `cancel`. Reading `state` and
+    /// recording whatever was there made this the one action in the group that
+    /// still trusted shared state — the same shape as the defect this type
+    /// exists to prevent, surviving in its third member.
+    ///
+    /// `.opening(S)` happens to be stable today, because `receive` refuses
+    /// while opening and the other two act only from `.awaiting`. That makes
+    /// the old version safe by a property of the OTHER guards rather than by
+    /// its own contract, and a guarantee that holds only until someone changes
+    /// a neighbour is not a guarantee. A stale or mismatched finish is now a
+    /// no-op that marks nothing.
+    mutating func finishAttempt(slotID: Data) {
+        guard case .opening(let current) = state, current == slotID else { return }
+        attemptedSlotIDs.insert(current)
+        state = .idle
+    }
+}
+
 /// Derive the BLAKE3 -> BIP-39 fingerprint words from a
 /// `soyeht://household/pair-device` or `/device-pairing` URL.
 ///
@@ -178,6 +337,13 @@ struct SoyehtAppView: View {
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
     @State private var pendingClawShareInvite: PendingClawShareInvite?
+    /// Duplicate suppression while a slot is awaiting or opening, and at most
+    /// one attempt per slot while this gate instance lives — keyed by slot id. A
+    /// cancel before any attempt leaves the slot presentable again, so this is
+    /// deliberately NOT "one presentation per slot". See
+    /// `ClawShareInvitePresentation` for why the app delivers the same URL
+    /// twice on purpose and why a time window would be the wrong observable.
+    @State private var invitePresentation = ClawShareInvitePresentation()
     @State private var macLocalPairingPublisher: SetupInvitationPublisher?
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
@@ -742,6 +908,14 @@ struct SoyehtAppView: View {
             ClawShareInviteConfirmationSheet(
                 appName: pending.invite.clawId,
                 onConfirm: {
+                    // Names the slot THIS sheet rendered, rather than
+                    // re-reading the gate: a stale action from a sheet that has
+                    // already been replaced must be refused, not applied to
+                    // whatever is awaiting now. The gate also transitions
+                    // BEFORE the task is created, so a double tap finds
+                    // `opening` and produces no second attempt against a slot
+                    // the engine consumes atomically.
+                    guard invitePresentation.confirm(slotID: pending.invite.slotId) else { return }
                     let (url, invite) = (pending.url, pending.invite)
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
@@ -752,9 +926,19 @@ struct SoyehtAppView: View {
                             result: .clawShareInvite(invite),
                             sourceURL: url
                         )
+                        // The attempt finished, either way. Recording it is
+                        // what makes a later replay of this link refusable.
+                        invitePresentation.finishAttempt(slotID: pending.invite.slotId)
                     }
                 },
                 onCancel: {
+                    // The gate's ANSWER governs the side effect, not just the
+                    // call. Binding the reducer alone was not enough: a stale
+                    // sheet's cancel was correctly refused and the code then
+                    // cleared `pendingClawShareInvite` anyway, taking the
+                    // invite now on screen off it. Refusing and then acting is
+                    // indistinguishable from not refusing at all.
+                    guard invitePresentation.cancel(slotID: pending.invite.slotId) else { return }
                     let invite = pending.invite
                     pendingClawShareInvite = nil
                     householdDeepLinkLogger.info(
@@ -1140,16 +1324,42 @@ struct SoyehtAppView: View {
         // decode and validate identically, but held behind a confirmation —
         // see `PendingClawShareInvite` for why the deep-link path is not
         // consent the way the camera path is.
+        // `store.pendingDeepLink` is cleared at NAMED transitions below —
+        // awaiting installed, replay recognised, or factually refused — never
+        // merely because a view was mounted. Clearing it up front would drop
+        // the URL on any path that then failed to install anything.
         if PendingClawShareInvite.matches(url) {
-            store.pendingDeepLink = nil
             switch QRScannerDispatcher.result(
                 for: url,
                 activeHouseholdId: activeHouseholdId,
                 now: Date()
             ) {
             case .success(.clawShareInvite(let invite)):
-                pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
+                switch invitePresentation.receive(slotID: invite.slotId) {
+                case .present:
+                    pendingClawShareInvite = PendingClawShareInvite(url: url, invite: invite)
+                    store.pendingDeepLink = nil   // transition: awaiting installed
+                case .ignoreDuplicate:
+                    // The same invite by the other delivery route, or after it
+                    // was already attempted. One attempt per slot.
+                    store.pendingDeepLink = nil   // transition: replay recognised
+                    householdDeepLinkLogger.info(
+                        "claw-share duplicate delivery ignored claw=\(invite.clawId, privacy: .public)"
+                    )
+                case .ignoredWhileOpening:
+                    // A DIFFERENT invite arriving mid-claim. Logged apart from
+                    // a duplicate because it is not one: this invite is
+                    // genuinely dropped, and calling it a repeat would hide a
+                    // real loss behind a benign word. Not queued — that is a
+                    // deliberate non-goal in this slice, recorded so the next
+                    // person sees a decision rather than an accident.
+                    store.pendingDeepLink = nil   // transition: explicitly dropped
+                    householdDeepLinkLogger.error(
+                        "claw-share invite dropped while another claim is in flight claw=\(invite.clawId, privacy: .public)"
+                    )
+                }
             case .success(let other):
+                store.pendingDeepLink = nil       // transition: factually refused
                 // The prefix matched but the dispatcher classified it as
                 // something else. Refuse rather than dispatch: a URL that
                 // looks like an invite and behaves like another kind is
@@ -1158,6 +1368,7 @@ struct SoyehtAppView: View {
                     "claw-share deep-link classified as \(String(describing: other), privacy: .public); refusing"
                 )
             case .failure(let error):
+                store.pendingDeepLink = nil       // transition: factually refused
                 householdDeepLinkLogger.error(
                     "claw-share deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
                 )
