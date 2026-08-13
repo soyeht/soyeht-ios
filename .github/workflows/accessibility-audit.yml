@@ -9,6 +9,8 @@ on:
       - "TerminalApp/Soyeht/**"
       - "TerminalApp/SoyehtMac/**"
       - "Packages/SoyehtCore/**"
+      - "scripts/ci/test-workflow-signal-hardening.py"
+      - ".github/workflows/accessibility-audit.yml"
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -19,6 +21,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify workflow signal contracts
+        run: python3 scripts/ci/test-workflow-signal-hardening.py
 
       - name: Install Rust toolchain
         run: |
@@ -51,8 +56,7 @@ jobs:
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
-            TEST_LOCALE=ar \
-            || true
+            TEST_LOCALE=ar
 
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
