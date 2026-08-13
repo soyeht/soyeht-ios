@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# Canonical CI command for the primary soyeht-ios pipeline ("test-ios").
+#
+# Single source of truth for what the Swift/build check executes. Run by:
+#   - GitHub Actions (.github/workflows/xcode.yml), one phase per step
+#   - `soyeht check test-ios` (disposable-VM preflight)
+#   - developers, directly from any checkout: scripts/ci/test-ios
+#
+# Contract:
+#   - no implicit GitHub dependency (works in a plain shell and in a VM)
+#   - paths resolved from the repository root; safe to invoke from any cwd
+#   - idempotent; re-running a phase does not corrupt state
+#   - prints toolchain versions up front (the `env` phase)
+#   - exits with the failing command's code and names the failing phase
+#   - requires no secrets to be supplied by CI; local Debug builds may
+#     consume an existing Secrets.plist through the project's normal Copy
+#     Secrets phase
+#
+# Usage:
+#   scripts/ci/test-ios                 # run every phase, in order
+#   scripts/ci/test-ios <phase> [...]   # run only the named phase(s), in order
+#   scripts/ci/test-ios --list          # print phase names, one per line
+set -Eeuo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+# Phase order is the pipeline definition. Keep in sync with xcode.yml, which
+# invokes one phase per step so the GitHub UI keeps per-step visibility.
+PHASES=(
+  env
+  corpus-integrity
+  vpn-e2e-tooling
+  rust-toolchain
+  ffi-relay-stream
+  ffi-nat-probe
+  mac-build
+  ios-build
+  ios-tests
+  swift-build
+  swift-test
+  coverage
+)
+
+CURRENT_PHASE="(none)"
+SUMMARY=()
+
+phase_env() {
+  # Neutral output only: `uname -srm` carries OS/release/arch and no
+  # hostname; the repository path is deliberately not printed — local logs
+  # get pasted into public surfaces, and machine/account identifiers must
+  # never travel with them.
+  uname -srm
+  sw_vers
+  xcodebuild -version
+  swift --version
+  if command -v rustup >/dev/null 2>&1; then rustup --version; else echo "rustup: not installed yet"; fi
+  echo "HEAD: $(git rev-parse --short=12 HEAD 2>/dev/null || echo 'no git metadata')"
+}
+
+phase_corpus_integrity() {
+  bash -n \
+    scripts/check-owner-site-a2-r1-corpus-fixture.sh \
+    scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
+  scripts/check-owner-site-a2-r1-corpus-fixture.sh
+  scripts/test-owner-site-a2-r1-corpus-fixture-guard.sh
+}
+
+phase_vpn_e2e_tooling() {
+  bash -n \
+    scripts/mobile-claw-vpn-dev-e2e-env.sh \
+    scripts/mobile-claw-vpn-dev-e2e-preflight.sh \
+    scripts/mobile-claw-vpn-dev-e2e-runner.sh \
+    scripts/mobile-claw-vpn-dev-e2e-owner-request.sh \
+    scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh \
+    scripts/test-mobile-claw-vpn-dev-e2e-runner.sh \
+    scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh \
+    scripts/test-mobile-claw-vpn-dev-local-presence.sh
+  python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("scripts/mobile-claw-vpn-dev-e2e-owner-request.py").read_text())'
+  scripts/test-mobile-claw-vpn-dev-e2e-preflight.sh
+  scripts/test-mobile-claw-vpn-dev-e2e-runner.sh
+  scripts/test-mobile-claw-vpn-dev-e2e-owner-request.sh
+  scripts/test-mobile-claw-vpn-dev-local-presence.sh
+}
+
+phase_rust_toolchain() {
+  if ! command -v rustup >/dev/null 2>&1; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+    # GitHub steps get cargo via GITHUB_PATH; a single process just extends PATH.
+    if [ -n "${GITHUB_PATH:-}" ]; then echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"; fi
+    export PATH="$HOME/.cargo/bin:$PATH"
+  fi
+  rustup toolchain install stable --profile minimal
+  rustup default stable
+}
+
+phase_ffi_relay_stream() {
+  RELAY_STREAM_GUEST_FFI_PROFILE=release scripts/bootstrap-relay-stream-guest-ffi.sh
+}
+
+phase_ffi_nat_probe() {
+  NAT_PROBE_FFI_PROFILE=release scripts/bootstrap-nat-probe-ffi.sh
+}
+
+phase_mac_build() {
+  xcodebuild \
+    -project TerminalApp/SoyehtMac.xcodeproj \
+    -scheme SoyehtMac \
+    -skipPackagePluginValidation \
+    -destination "platform=macOS,arch=$(uname -m)"
+}
+
+phase_ios_build() {
+  # Build-only, deliberately separate from ios-tests, and fail-loud.
+  # Measured reason: the test action materialises _PackageProduct.framework
+  # wrappers that the build action alone does not, so `xcodebuild test` can
+  # pass while `xcodebuild build` fails — exactly the asymmetry behind the
+  # appex embed defect this repo just fixed. A pipeline with only the test
+  # action cannot see that class of breakage; this phase keeps the invariant
+  # that caught it. No output filter, no exit-status masking: the phase's
+  # exit code IS xcodebuild's.
+  #
+  # GENERIC destination on purpose, with the arch PINNED. Two measured
+  # failures shaped this invocation:
+  #
+  #   1. A concrete `name=iPhone 16` couples the phase to the host's
+  #      simulator inventory: on a dev host without that simulator,
+  #      xcodebuild refused the destination outright (exit 70) while the
+  #      same tree built fine — an environment red, not a code red. A
+  #      build needs no booted device; `generic/platform=iOS Simulator`
+  #      removes that coupling. The concrete device stays in ios-tests,
+  #      the phase that actually boots one.
+  #
+  #   2. Generic WITHOUT an arch widens the surface: it implies every
+  #      simulator arch, and the x86_64 link failed because the FFI
+  #      xcframeworks ship arm64-only slices by design (Apple Silicon
+  #      product). `ARCHS="$(uname -m)"` pins the arch to the host's,
+  #      exactly what the concrete destination's `arch=$(uname -m)` did —
+  #      same slice as before, no widening, no narrowing.
+  xcodebuild build \
+    -project TerminalApp/Soyeht.xcodeproj \
+    -scheme Soyeht \
+    -skipPackagePluginValidation \
+    -destination "generic/platform=iOS Simulator" \
+    ARCHS="$(uname -m)" \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+}
+
+phase_ios_tests() {
+  local SIM_ARCH
+  SIM_ARCH="$(uname -m)"
+  xcodebuild test \
+    -project TerminalApp/Soyeht.xcodeproj \
+    -scheme Soyeht \
+    -skipPackagePluginValidation \
+    -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+}
+
+phase_swift_build() {
+  swift build
+}
+
+phase_swift_test() {
+  SWIFT_TEST_DISABLE_PARALLELIZATION=1 swift test
+}
+
+phase_coverage() {
+  SWIFT_TEST_DISABLE_PARALLELIZATION=1 swift test --enable-code-coverage
+  local BINDIR
+  BINDIR=$(swift build --show-bin-path)
+  xcrun llvm-cov report \
+    "$BINDIR/SwiftTermPackageTests.xctest/Contents/MacOS/SwiftTermPackageTests" \
+    --instr-profile=.build/debug/codecov/default.profdata -use-color
+}
+
+on_exit() {
+  local code=$?
+  if [ ${#SUMMARY[@]} -gt 0 ]; then
+    printf '\n[test-ios] phase timing:\n'
+    printf '  %s\n' "${SUMMARY[@]}"
+  fi
+  if [ "$code" -ne 0 ]; then
+    printf '[test-ios] FAILED in phase: %s (exit %d)\n' "$CURRENT_PHASE" "$code" >&2
+  fi
+}
+trap on_exit EXIT
+
+run_phase() {
+  local name="$1"
+  local fn="phase_${name//-/_}"
+  if ! declare -F "$fn" >/dev/null; then
+    echo "[test-ios] unknown phase: ${name}" >&2
+    echo "[test-ios] known phases: ${PHASES[*]}" >&2
+    exit 64
+  fi
+  CURRENT_PHASE="$name"
+  local start=$SECONDS
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    echo "::group::test-ios ${name}"
+  else
+    printf '\n=== [test-ios] %s ===\n' "$name"
+  fi
+  "$fn"
+  local dur=$(( SECONDS - start ))
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "::endgroup::"; fi
+  SUMMARY+=("$(printf '%5ss  %s' "$dur" "$name")")
+}
+
+if [ "${1:-}" = "--list" ]; then
+  printf '%s\n' "${PHASES[@]}"
+  trap - EXIT
+  exit 0
+fi
+
+if [ "$#" -eq 0 ]; then
+  for p in "${PHASES[@]}"; do run_phase "$p"; done
+else
+  for p in "$@"; do run_phase "$p"; done
+fi
