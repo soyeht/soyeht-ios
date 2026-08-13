@@ -198,13 +198,26 @@ final class ActiveSharesViewModel: ObservableObject {
         pendingRevoke = nil
     }
 
-    /// Revokes whichever row `pendingRevoke` names. On success: removes the
-    /// cached link immediately (not waiting for the next `load()` to prune
-    /// it) and marks the row Revoked optimistically — the device that just
-    /// revoked already knows the outcome, no refetch needed. On failure,
-    /// the row is left exactly as it was so the owner can just try again.
-    func confirmRevoke() async {
-        guard let target = pendingRevoke else { return }
+    /// Revokes `target`. On success: removes the cached link immediately (not
+    /// waiting for the next `load()` to prune it) and marks the row Revoked
+    /// optimistically — the device that just revoked already knows the
+    /// outcome, no refetch needed. On failure, the row is left exactly as it
+    /// was so the owner can just try again.
+    ///
+    /// TAKES THE ROW RATHER THAN READING `pendingRevoke`. It used to read it,
+    /// and `guard let target = pendingRevoke else { return }` made the whole
+    /// call a silent no-op: SwiftUI dismisses a `confirmationDialog` before
+    /// running the button's action, the dismissal drives `isPresented` to
+    /// false, and that setter calls `cancelRevoke()` — so by the time this ran,
+    /// `pendingRevoke` was already nil. No request, no error, dialog gone, row
+    /// untouched. Measured on hardware 2026-08-12: the owner confirmed a
+    /// dialog promising "Whoever has this link loses access" and the guest
+    /// kept interacting with the shared app.
+    ///
+    /// Acting on the value the dialog displayed removes the dependence on
+    /// mutable state that dismissal races, and is what the caller means: revoke
+    /// the share this dialog named.
+    func confirmRevoke(_ target: ActiveShareRow) async {
         pendingRevoke = nil
         do {
             try await revoker.revokeActiveShare(slotID: target.descriptor.slotId)

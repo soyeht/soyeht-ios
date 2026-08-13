@@ -78,8 +78,11 @@ struct ActiveSharesView: View {
             ),
             presenting: model.pendingRevoke
         ) { row in
+            // Pass `row` — the value this dialog is presenting. Reading
+            // `model.pendingRevoke` inside the action instead would find it
+            // already nil, because dismissal runs first and clears it.
             Button("Stop sharing \(row.displayName)", role: .destructive) {
-                Task { await model.confirmRevoke() }
+                Task { await model.confirmRevoke(row) }
             }
             Button("Cancel", role: .cancel) { model.cancelRevoke() }
         } message: { _ in
