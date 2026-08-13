@@ -113,8 +113,14 @@ def insert(text: str, marker: str, value: str) -> str:
 def main() -> None:
     onboarding = ONBOARDING.read_text(encoding="utf-8")
     accessibility = ACCESSIBILITY.read_text(encoding="utf-8")
-    reject_neutralizers(onboarding, accessibility)
+    for name, marker in (("Build Soyeht iOS", "BUILD SUCCEEDED"), ("Run iOS unit tests", "TEST SUCCEEDED")):
+        run = script(step(onboarding, name))
+        base_tools = {"uname": "printf 'arm64\\n'"}
+        expect(execute(run, base_tools | {"xcodebuild": f"printf '%s\\n' '{marker}'"}), True, name)
+        expect(execute(run, base_tools | {"xcodebuild": "exit 17"}), False, f"{name} exit")
+        expect(execute(run, base_tools | {"xcodebuild": "printf 'no marker\\n'"}), False, f"{name} marker")
 
+    reject_neutralizers(onboarding, accessibility)
     # Same run block and invocation count; only the neutralizer changes.
     build_marker = "      - name: Build Soyeht iOS\n"
     build_run = script(step(onboarding, "Build Soyeht iOS"))
@@ -132,13 +138,6 @@ def main() -> None:
         except AssertionError:
             continue
         raise AssertionError("neutralizer mutant passed")
-
-    for name, marker in (("Build Soyeht iOS", "BUILD SUCCEEDED"), ("Run iOS unit tests", "TEST SUCCEEDED")):
-        run = script(step(onboarding, name))
-        base_tools = {"uname": "printf 'arm64\\n'"}
-        expect(execute(run, base_tools | {"xcodebuild": f"printf '%s\\n' '{marker}'"}), True, name)
-        expect(execute(run, base_tools | {"xcodebuild": "exit 17"}), False, f"{name} exit")
-        expect(execute(run, base_tools | {"xcodebuild": "printf 'no marker\\n'"}), False, f"{name} marker")
 
     access_run = script(step(accessibility, "iOS Accessibility Snapshot Tests (RTL + AX5)"))
     with tempfile.TemporaryDirectory() as raw:
