@@ -965,6 +965,70 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     // chain; `focusedPaneID` is updated before dispatch so the grid knows
     // which leaf the split/close applies to.
 
+    /// Presents the agent switcher anchored on the header's agent chip.
+    /// Switching keeps this pane's conversation (handle, scrollback) and
+    /// replays the transcript into the new agent as handoff context.
+    private func presentAgentSwitcherMenu(anchor: NSView) {
+        guard let convStore = AppEnvironment.conversationStore,
+              let conv = convStore.conversation(conversationID),
+              conv.content.isTerminal else { return }
+
+        let currentAgentName = conv.agent.isShell ? "shell" : conv.agent.displayName
+        let available = LocalAgentCatalog.availableAgents()
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let title = NSMenuItem(title: String(
+            localized: "pane.header.agentSwitch.menu.title",
+            defaultValue: "Switch agent",
+            comment: "Title row of the pane-header agent switcher menu."
+        ), action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+
+        let currentEntry = LocalAgentCatalog.agent(forAgentType: conv.agent)
+        for agent in available {
+            let item = NSMenuItem(
+                title: agent.displayName,
+                action: #selector(agentSwitchMenuSelected(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = agent.name
+            if agent.name == currentEntry?.name {
+                item.state = .on
+                item.isEnabled = false
+            }
+            menu.addItem(item)
+        }
+
+        if menu.items.count == 1 {
+            let empty = NSMenuItem(title: String(
+                localized: "pane.header.agentSwitch.menu.none",
+                defaultValue: "Nenhum outro agente instalado",
+                comment: "Shown in the agent switcher when no other local agent CLI is installed."
+            ), action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            menu.addItem(empty)
+        }
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+    }
+
+    @objc private func agentSwitchMenuSelected(_ sender: NSMenuItem) {
+        guard let agentName = sender.representedObject as? String else { return }
+        let paneID = conversationID
+        Task { @MainActor [weak self] in
+            guard let controller = self?.mainWindowController() else { return }
+            do {
+                _ = try await controller.switchAgent(in: paneID, to: agentName)
+            } catch {
+                Self.logger.error("agent switch failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     private func wireHeaderActions() {
         header.onQRTapped = { [weak self] in
             self?.presentQRHandoff()
@@ -995,6 +1059,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                   let grid = self.findGridController()
             else { return }
             grid.paneHeaderClicked(self.conversationID, modifiers: modifiers)
+        }
+        header.onAgentSwitchRequested = { [weak self] anchorView in
+            self?.presentAgentSwitcherMenu(anchor: anchorView)
         }
         // Fase 2.2: wire drag-source identity so a user drag on the handle
         // area carries (paneID, sourceWorkspaceID) to the pasteboard. The

@@ -71,6 +71,7 @@
 		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
 		AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500005000000000000002 /* SoyehtAutomationService.swift */; };
 		AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700001000000000000002 /* AgentAttentionNotifier.swift */; };
+		AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700004000000000000002 /* LocalAgentCatalog.swift */; };
 		F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */; };
 		F3A100020000000000000001 /* WindowCommandActionPerformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100020000000000000002 /* WindowCommandActionPerformer.swift */; };
 		AA510001000000000000001 /* MenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510001000000000000002 /* MenuModel.swift */; };
@@ -244,6 +245,7 @@
 		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
 		AA500005000000000000002 /* SoyehtAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationService.swift; sourceTree = "<group>"; };
 		AB700001000000000000002 /* AgentAttentionNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAttentionNotifier.swift; sourceTree = "<group>"; };
+		AB700004000000000000002 /* LocalAgentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentCatalog.swift; path = ../Model/LocalAgentCatalog.swift; sourceTree = "<group>"; };
 		F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationRequestRouter.swift; sourceTree = "<group>"; };
 		F3A100020000000000000002 /* WindowCommandActionPerformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCommandActionPerformer.swift; sourceTree = "<group>"; };
 		AA510001000000000000002 /* MenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModel.swift; sourceTree = "<group>"; };
@@ -618,6 +620,7 @@
 				AA500004000000000000002 /* AppCommandRegistry.swift */,
 				AA500005000000000000002 /* SoyehtAutomationService.swift */,
 				AB700001000000000000002 /* AgentAttentionNotifier.swift */,
+				AB700004000000000000002 /* LocalAgentCatalog.swift */,
 				F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
@@ -1040,6 +1043,7 @@
 				AA510004000000000000001 /* MainMenuController.swift in Sources */,
 				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
 				AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */,
+				AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */,
 				F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,

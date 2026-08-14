@@ -38,12 +38,21 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         }
     }
 
-    /// Retained for API compatibility with existing bind paths — no-op
-    /// visually because the SXnc2 pane header doesn't show an agent
-    /// subtitle. Kept so PaneViewController's bind logic doesn't break.
+    /// Agent chip: shows the agent currently driving this pane (e.g.
+    /// "claude"). Clicking it asks the host to present the agent switcher
+    /// menu anchored on the chip. Empty and "shell" hide the chip.
     var agentName: String = "" {
-        didSet { /* intentionally empty */ }
+        didSet {
+            let trimmed = agentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let showable = !trimmed.isEmpty && trimmed != "shell"
+            agentChipButton.title = showable ? agentName.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            agentChipButton.isHidden = !showable
+        }
     }
+
+    /// Fired when the user clicks the agent chip. Receives the chip view so
+    /// the host can anchor the switcher menu on it.
+    var onAgentSwitchRequested: ((NSView) -> Void)?
 
     /// Focus is communicated through the 3pt bottom accent.
     var isFocused: Bool = true {
@@ -112,6 +121,24 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     // MARK: - Views
 
     private let handleLabel = NSTextField(labelWithString: "—")
+    /// Agent chip in the header's left cluster. Borderless button styled as
+    /// a quiet label with a disclosure indicator.
+    private lazy var agentChipButton: NSButton = {
+        let button = NSButton()
+        button.isBordered = false
+        button.bezelStyle = .inline
+        button.font = MacTypography.NSFonts.paneHeaderHandle
+        button.contentTintColor = Self.iconTint
+        button.alignment = .left
+        button.isHidden = true
+        button.toolTip = String(
+            localized: "pane.header.agentSwitch.tooltip",
+            defaultValue: "Switch agent (keeps this conversation)",
+            comment: "Tooltip on the pane-header agent chip that opens the agent switcher menu."
+        )
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
     private let copiedIndicatorLabel = NSTextField(labelWithString: String(
         localized: "pane.selectionCopied.indicator",
         defaultValue: "Copied",
@@ -228,11 +255,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         agentDot.layer?.cornerRadius = 4
         agentDot.isHidden = true
 
-        let leftStack = NSStackView(views: [agentDot, handleLabel])
+        let leftStack = NSStackView(views: [agentDot, handleLabel, agentChipButton])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
         leftStack.spacing = 6
         leftStack.translatesAutoresizingMaskIntoConstraints = false
+
+        agentChipButton.target = self
+        agentChipButton.action = #selector(agentChipTapped)
 
         copiedIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
         copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
@@ -412,6 +442,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
     @objc private func renameMenuTapped()    { onRenameRequested?() }
+    @objc private func agentChipTapped()     { onAgentSwitchRequested?(agentChipButton) }
 
     // MARK: - Drag source (Fase 2.2)
     //

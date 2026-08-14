@@ -75,6 +75,15 @@ enum DeferredEngineSessionReaper {
         logger.info("reap cancelled (session re-adopted) pane=\(engineConversationID, privacy: .public)")
     }
 
+    /// Immediate teardown for a deliberate agent switch (no undo window).
+    /// The pane is about to adopt a brand-new engine session, so the previous
+    /// one must not linger. Cancels any pending reap for the same id first so
+    /// the deferred task can't race the inline teardown.
+    static func reapNow(engineConversationID: String) async {
+        cancelReap(engineConversationID: engineConversationID)
+        await Self.performReap(engineConversationID: engineConversationID)
+    }
+
     /// Number of sessions currently in the undo window (for tests/inspection).
     static var pendingCount: Int { pending.count }
 

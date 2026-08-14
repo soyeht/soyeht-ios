@@ -65,6 +65,9 @@ final class SoyehtAutomationRequestRouter {
         case sourceHandleNotFound(String)
         case sourceIdentityUnavailable
         case invalidAgentState(String)
+        case unknownAgent(String)
+        case emptyPaneInputTargets
+        case invalidConversationIDFormat(String)
 
         var errorDescription: String? {
             switch self {
@@ -106,6 +109,12 @@ final class SoyehtAutomationRequestRouter {
                 return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
             case .invalidAgentState(let value):
                 return "Invalid agent state: \(value). Expected one of: working, idle, blocked, done, unknown."
+            case .unknownAgent(let value):
+                return "Unknown local agent: \(value). Run list_agents to see available agents."
+            case .emptyPaneInputTargets:
+                return "Automation request did not match any pane to act on."
+            case .invalidConversationIDFormat(let value):
+                return "Conversation ID is not a valid UUID: \(value)."
             }
         }
     }
@@ -164,6 +173,8 @@ final class SoyehtAutomationRequestRouter {
             return try handleReportAgentState(request)
         case .requestAttention:
             return try handleRequestAttention(request)
+        case .switchAgent:
+            return try await handleSwitchAgent(request)
         case .openEditor:
             return try handleOpenEditor(request)
         case .openExplorer:
@@ -1009,8 +1020,82 @@ final class SoyehtAutomationRequestRouter {
         }
     }
 
-    private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
+    /// Switches the agent driving target panes while keeping each pane's
+    /// conversation. The previous agent's transcript is replayed into the
+    /// new agent as handoff context. Targets resolve like send_pane_input:
+    /// explicit conversationIDs/handles, else the source pane, else the
+    /// active pane.
+    private func handleSwitchAgent(_ request: SoyehtAutomationRequest) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let agentName = payload.agent?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !agentName.isEmpty else {
+            throw AutomationError.emptyPaneInput
+        }
+        guard LocalAgentCatalog.agent(named: agentName) != nil else {
+            throw AutomationError.unknownAgent(agentName)
+        }
+        let target = try automationTargetWindow(payload: payload)
+        let conversationIDStrings = payload.conversationIDs ?? []
+        let handles = payload.handles ?? []
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            if let source = try resolveAutomationSource(payload: payload) {
+                return try await performAgentSwitch(
+                    on: target,
+                    conversationIDs: [source.conversation.id.uuidString],
+                    agentName: agentName,
+                    payload: payload
+                )
+            }
+            guard let activePaneID = target.activePaneConversationID() else {
+                throw AutomationError.emptyPaneInputTargets
+            }
+            return try await performAgentSwitch(
+                on: target,
+                conversationIDs: [activePaneID.uuidString],
+                agentName: agentName,
+                payload: payload
+            )
+        }
+        return try await performAgentSwitch(
+            on: target,
+            conversationIDs: conversationIDStrings,
+            agentName: agentName,
+            payload: payload
+        )
+    }
+
+    private func performAgentSwitch(
+        on target: SoyehtMainWindowController,
+        conversationIDs: [String],
+        agentName: String,
+        payload: SoyehtAutomationRequest.Payload
+    ) async throws -> SoyehtAutomationResult {
+        var switched: [SoyehtAutomationResponse.SwitchedAgent] = []
+        for idString in conversationIDs {
+            guard let paneID = UUID(uuidString: idString) else {
+                throw AutomationError.invalidConversationIDFormat(idString)
+            }
+            let result = try await target.switchAgent(
+                in: paneID,
+                to: agentName,
+                command: payload.command,
+                handoffPrompt: payload.prompt,
+                promptDelayMs: payload.promptDelayMs
+            )
+            switched.append(SoyehtAutomationResponse.SwitchedAgent(
+                conversationID: result.conversationID.uuidString,
+                workspaceID: result.workspaceID.uuidString,
+                handle: result.handle,
+                previousAgent: result.previousAgent,
+                newAgent: result.newAgent,
+                transcriptLineCount: result.transcriptLineCount
+            ))
+        }
+        return SoyehtAutomationResult(switchedAgents: switched)
+    }
+
+    private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         let panes: [SoyehtMainWindowController.ListedPaneResult]
         if let target {

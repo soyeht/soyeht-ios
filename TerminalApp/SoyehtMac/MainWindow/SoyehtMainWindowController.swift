@@ -291,6 +291,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case paneRenameRequiresSingleTarget
         case workspaceRenameRequiresSingleTarget
         case noActiveWorkspace
+        case unknownLocalAgent(String)
+        case agentSwitchRequiresTerminalPane(Conversation.ID)
 
         var errorDescription: String? {
             switch self {
@@ -375,6 +377,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Cannot rename multiple workspaces to the same name. Rename one workspace at a time."
             case .noActiveWorkspace:
                 return "No active workspace is available."
+            case .unknownLocalAgent(let name):
+                return "Unknown local agent: \(name)."
+            case .agentSwitchRequiresTerminalPane(let id):
+                return "Only terminal panes can switch agents: \(id.uuidString)"
             }
         }
     }
@@ -385,6 +391,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     let store: WorkspaceStore
     private(set) var activeWorkspaceID: Workspace.ID
+
+    /// Active pane of the active workspace, for automation targets that
+    /// don't name an explicit pane (mirrors capture_panes' fallback).
+    func activePaneConversationID() -> Conversation.ID? {
+        guard let ws = store.workspace(activeWorkspaceID) else { return nil }
+        if let active = ws.activePaneID, ws.layout.contains(active) {
+            return active
+        }
+        return ws.layout.leafIDs.last
+    }
 
     private var tabsView: WorkspaceTabsView?
 
@@ -3460,6 +3476,139 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 self.presentLocalPTYError(error)
             }
         }
+    }
+
+    // MARK: - Agent switch (same pane, same conversation)
+    struct SwitchedAgentResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let previousAgent: String
+        let newAgent: String
+        let transcriptLineCount: Int
+    }
+
+    /// How much of the pane transcript is replayed into the new agent when
+    /// switching agents in place. Terminal scrollback can grow unbounded;
+    /// the tail carries the working context.
+    private static let agentSwitchTranscriptMaxLines = 400
+
+    /// Default handoff prompt injected into the new agent when the caller
+    /// does not provide one. Tells the agent it is resuming another agent's
+    /// conversation and delimits the transcript.
+    private static func defaultAgentHandoffPrompt(previousAgent: String, transcript: String) -> String {
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = trimmed.isEmpty ? "(sem saída de terminal capturada)" : trimmed
+        return """
+        Você está continuando uma conversa que estava sendo conduzida pelo agente "\(previousAgent)" neste mesmo diretório. Abaixo está o histórico anterior da conversa (transcript do terminal, incluindo comandos e saídas). Continue de onde a conversa parou, mantendo total continuidade com o que já foi discutido e feito.
+
+        --- HISTÓRICO ANTERIOR (agente \(previousAgent)) ---
+        \(body)
+        --- FIM DO HISTÓRICO ANTERIOR ---
+
+        Retome a conversa exatamente de onde parou.
+        """
+    }
+
+    /// Switches the agent running in an existing pane while keeping the same
+    /// conversation (pane identity, handle and scrollback). The previous
+    /// agent's terminal transcript is captured before teardown and replayed
+    /// into the new agent as handoff context.
+    @MainActor
+    func switchAgent(
+        in paneID: Conversation.ID,
+        to agentName: String,
+        command customCommand: String? = nil,
+        handoffPrompt customPrompt: String? = nil,
+        promptDelayMs: Int? = nil
+    ) async throws -> SwitchedAgentResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        guard let conv = convStore.conversation(paneID) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        guard conv.content.isTerminal else {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresTerminalPane(paneID)
+        }
+        guard let target = LocalAgentCatalog.agent(named: agentName) else {
+            throw LocalAgentWorkspaceError.unknownLocalAgent(agentName)
+        }
+
+        let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName
+
+        // 1. Capture the transcript BEFORE tearing the current process down.
+        var transcript = ""
+        if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+            let terminal = pane.terminalView.getTerminal()
+            let scrollback = terminal.getScrollbackText()
+            let visible = terminal.getVisibleText()
+            transcript = scrollback.isEmpty
+                ? visible
+                : (visible.isEmpty ? scrollback : scrollback + "\n" + visible)
+        }
+        transcript = Self.tailLines(transcript, Self.agentSwitchTranscriptMaxLines)
+
+        // 2. Tear down the current process: engine sessions are reaped
+        // immediately (the switch is deliberate — no undo window), local
+        // PTYs are closed directly.
+        switch conv.commander {
+        case .engineLocal(let engineConversationID):
+            await DeferredEngineSessionReaper.reapNow(engineConversationID: engineConversationID)
+        default:
+            if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+                pane.terminalView.disconnect()
+            }
+        }
+
+        // 3. Keep the conversation identity (same handle/pane); only the
+        // agent changes. Commander drops to the bridge value until the new
+        // attach flips it to `.engineLocal`/`.native`.
+        convStore.updateFields(paneID, handle: conv.handle, agent: .claw(target.name))
+        convStore.updateCommander(paneID, commander: .mirror(instanceID: "pending"))
+
+        // 4. Re-attach the pane with the new agent command and the handoff
+        // prompt. attachLocalPTY reuses the nonce handshake + ack/retry
+        // delivery, so the prompt only reaches a booted agent.
+        let cwd = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        let prompt = customPrompt ?? Self.defaultAgentHandoffPrompt(
+            previousAgent: previousAgent,
+            transcript: transcript
+        )
+        let command = AgentLaunchCommandBuilder.prepare(customCommand ?? target.command)
+        try await attachLocalPTY(
+            to: paneID,
+            cwd: cwd,
+            initialCommand: command,
+            prompt: prompt,
+            promptDelayMs: promptDelayMs,
+            promptMode: "raw",
+            promptSourceConversationIDString: nil,
+            promptSourceHandle: nil,
+            promptSourceTTY: nil
+        )
+
+        Self.logger.info(
+            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) transcriptLines=\(transcript.split(separator: "\n", omittingEmptySubsequences: false).count, privacy: .public)"
+        )
+        return SwitchedAgentResult(
+            conversationID: paneID,
+            workspaceID: conv.workspaceID,
+            handle: conv.handle,
+            previousAgent: previousAgent,
+            newAgent: target.name,
+            transcriptLineCount: transcript.split(separator: "\n", omittingEmptySubsequences: false).count
+        )
+    }
+
+    /// Keeps the last `maxLines` lines of `text` (marked with a truncation
+    /// header when content is dropped).
+    private static func tailLines(_ text: String, _ maxLines: Int) -> String {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count > maxLines else { return text }
+        let dropped = lines.count - maxLines
+        return "[… \(dropped) linhas anteriores omitidas …]\n" + lines.suffix(maxLines).joined(separator: "\n")
     }
 
     private func attachLocalPTY(

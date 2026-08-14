@@ -30,6 +30,7 @@ struct SoyehtAutomationRequest: Decodable {
         case listAgents = "list_agents"
         case reportAgentState = "report_agent_state"
         case requestAttention = "request_attention"
+        case switchAgent = "switch_agent"
         case openEditor = "open_editor"
         case openExplorer = "open_explorer"
         case openGit = "open_git"
@@ -448,6 +449,15 @@ struct SoyehtAutomationResponse: Encodable {
         let reason: String?
     }
 
+    struct SwitchedAgent: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let previousAgent: String
+        let newAgent: String
+        let transcriptLineCount: Int
+    }
+
     struct CapturedPane: Encodable {
         let conversationID: String
         let workspaceID: String
@@ -534,6 +544,7 @@ struct SoyehtAutomationResponse: Encodable {
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
     let agentStateReported: AgentStateReported?
+    let switchedAgents: [SwitchedAgent]?
 }
 
 struct SoyehtAutomationResult {
@@ -560,6 +571,7 @@ struct SoyehtAutomationResult {
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
+    var switchedAgents: [SoyehtAutomationResponse.SwitchedAgent]? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -776,7 +788,8 @@ final class SoyehtAutomationService {
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
                 listedAgents: result.listedAgents,
-                agentStateReported: result.agentStateReported
+                agentStateReported: result.agentStateReported,
+                switchedAgents: result.switchedAgents
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -808,7 +821,8 @@ final class SoyehtAutomationService {
                 activeContext: nil,
                 sourceIdentity: nil,
                 listedAgents: [],
-                agentStateReported: nil
+                agentStateReported: nil,
+                switchedAgents: nil
             ))
         }
     }
