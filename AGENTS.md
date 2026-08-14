@@ -40,8 +40,8 @@ Release checklist for agents:
    it signs, notarizes, staples, generates `appcast.xml`, and uploads an Actions
    artifact. The adapter separately creates and reads back the tag object, tag
    ref, draft Release, each asset, and final publication, one mutation at a
-   time. A missing or mismatched guard must fail closed; there is no direct
-   tag, Release, clobber, or publication fallback.
+   time. A missing or mismatched guard must fail closed. There is no direct
+   `git tag`, `git push`, `gh release`, `--clobber`, or publication fallback.
 4. After release, validate the public download, not just local artifacts:
    `curl -fsSL https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg`,
    then run `xcrun stapler validate` and

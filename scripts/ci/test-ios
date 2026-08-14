@@ -29,6 +29,7 @@ cd "$REPO_ROOT"
 # invokes one phase per step so the GitHub UI keeps per-step visibility.
 PHASES=(
   env
+  governed-release-contract
   corpus-integrity
   vpn-e2e-tooling
   rust-toolchain
@@ -56,6 +57,10 @@ phase_env() {
   swift --version
   if command -v rustup >/dev/null 2>&1; then rustup --version; else echo "rustup: not installed yet"; fi
   echo "HEAD: $(git rev-parse --short=12 HEAD 2>/dev/null || echo 'no git metadata')"
+}
+
+phase_governed_release_contract() {
+  python3 scripts/ci/check-governed-macos-release.py --self-test
 }
 
 phase_corpus_integrity() {

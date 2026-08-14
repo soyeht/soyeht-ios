@@ -1,6 +1,7 @@
 name: macOS Release
 
 # governed-release-contract: theyos-safe-external-write-v1
+# governed-release-required-build: scripts/ci/check-governed-macos-release.py
 
 on:
   push:

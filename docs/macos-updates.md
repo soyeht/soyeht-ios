@@ -86,8 +86,19 @@ is invoked once for each of the two assets. It requires a fresh `theyos`
 checkout whose `main` contains the reviewed `governed-release` adapter and an
 iOS target commit whose workflow contains the matching consumer contract. A
 missing or mismatched guard is a hard failure; there is no unguarded fallback.
-The adapter pins the reviewed workflow bytes, so workflow changes land by
-updating the adapter contract first and then re-anchoring this consumer.
+The adapter pins the reviewed execution quartet: the build-only release
+workflow, the required `build` workflow, its phase dispatcher, and the
+dedicated checker. Changes to any of those four files land by updating the
+adapter contract first and then re-anchoring this consumer.
+
+The required `build` context validates this release contract through
+`scripts/ci/test-ios governed-release-contract`. It checks the build-only
+workflow, its required-build wiring, this document, and the matching release
+blocks in `AGENTS.md` and `CLAUDE.md`; the existing product phases remain in
+their prior order. A trusted-base workflow or repository protection is
+required to make simultaneous removal of both the checker and its invocation
+mechanically red. This repository-local contract cannot prove that external
+property, and no such protection is claimed here.
 
 Freeze the release inputs first. `TARGET_OID` is the full iOS commit to build;
 it must already be merged into iOS `main`. `EXPECTED_MAIN` is the full iOS
