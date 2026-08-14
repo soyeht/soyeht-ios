@@ -53,8 +53,9 @@ GitHub secrets are write-only: agents can verify that a secret exists, but
 cannot read it back. If the notary API key is lost or compromised, revoke it in
 App Store Connect and replace both the GitHub secrets and the local `.p8` file.
 The local fallback is to build with `scripts/build-dmg.sh` and
-`NOTARIZATION_PROFILE=soyeht-notary`, then upload `Soyeht.dmg` and
-`appcast.xml` to the GitHub Release.
+`NOTARIZATION_PROFILE=soyeht-notary`. It may produce the governed release
+inputs locally, but publication still goes through the reviewed `theyos`
+`governed-release` adapter; the fallback never creates a tag or Release.
 
 Release checklist for agents:
 
@@ -66,16 +67,23 @@ Release checklist for agents:
    `APPLE_CODESIGN_IDENTITY`, and `SOYEHT_APNS_P8_BASE64`.
 2. Do not use or recreate `APPLE_ID_APP_PASSWORD`; CI notarization should use
    the App Store Connect API key path only.
-3. Release by pushing a tag like `mac-v0.1.11`; the `macOS Release` workflow
-   must build, sign, notarize, staple, generate `appcast.xml`, and publish the
-   release assets.
+3. Preserve the governed A-then-B order: first land the reviewed adapter and
+   tests in `theyos`; then re-anchor and land the matching workflow/docs
+   consumer in `soyeht-ios`. Invoke that adapter with the complete annotated
+   ref and full merged commit OIDs. The `macOS Release` workflow is build-only:
+   it signs, notarizes, staples, generates `appcast.xml`, and uploads an Actions
+   artifact. The adapter separately creates and reads back the tag object, tag
+   ref, draft Release, each asset, and final publication, one mutation at a
+   time. A missing or mismatched guard must fail closed; there is no direct
+   tag, Release, clobber, or publication fallback.
 4. After release, validate the public download, not just local artifacts:
    `curl -fsSL https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg`,
    then run `xcrun stapler validate` and
    `spctl --assess --verbose=4 --type open --context context:primary-signature`.
-5. If CI notarization fails, inspect the workflow log first. Only use the
-   local `soyeht-notary` fallback to publish when CI is blocked and document
-   that explicitly in the final status.
+5. If CI notarization fails, inspect the workflow log first. The local
+   `soyeht-notary` fallback may build the governed inputs when CI is blocked;
+   publication still uses the guarded phases. Document fallback use explicitly
+   in the final status.
 
 ## Local Soyeht App Safety
 

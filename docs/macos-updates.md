@@ -6,7 +6,7 @@ and a GitHub-hosted release flow:
 - initial download: `https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg`
 - update feed: `https://github.com/soyeht/soyeht-ios/releases/latest/download/appcast.xml`
 - update archive: `Soyeht.dmg` on each GitHub Release
-- release trigger: push a tag named `mac-vX.Y.Z`
+- release trigger: create the governed annotated ref `refs/tags/mac-vX.Y.Z`
 - signing identity: `Developer ID Application: Gilberto Filho (W7677A5BK2)`
 
 ## One-Time Setup
@@ -81,21 +81,110 @@ xcrun notarytool history \
 
 ## Releasing
 
-Create and push a macOS release tag:
+Publication uses a five-operation guarded adapter family; the asset operation
+is invoked once for each of the two assets. It requires a fresh `theyos`
+checkout whose `main` contains the reviewed `governed-release` adapter and an
+iOS target commit whose workflow contains the matching consumer contract. A
+missing or mismatched guard is a hard failure; there is no unguarded fallback.
+The adapter pins the reviewed workflow bytes, so workflow changes land by
+updating the adapter contract first and then re-anchoring this consumer.
+
+Freeze the release inputs first. `TARGET_OID` is the full iOS commit to build;
+it must already be merged into iOS `main`. `EXPECTED_MAIN` is the full iOS
+`main` OID observed for the current phase. The adapter checks both against
+GitHub immediately before and after every mutation.
 
 ```sh
-git tag -a mac-v1.0.1 -m "Soyeht 1.0.1"
-git push origin mac-v1.0.1
+VERSION=0.1.19
+TAG_REF="refs/tags/mac-v${VERSION}"
+TARGET_OID="FULL_40_HEX_IOS_COMMIT"
+EXPECTED_MAIN="FULL_40_HEX_IOS_MAIN"
+GUARD="/absolute/path/to/theyos/scripts/safe_external_write.py"
+
+printf 'Soyeht %s\n' "$VERSION" | python3 "$GUARD" --stdin -- \
+  governed-release tag-object-create \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  > tag-object-receipt.json
+
+TAG_OBJECT_OID="$(jq -er '.tag_object_oid' tag-object-receipt.json)"
+printf 'Soyeht %s\n' "$VERSION" | python3 "$GUARD" --stdin -- \
+  governed-release tag-ref-create \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  --tag-object-oid "$TAG_OBJECT_OID"
 ```
 
-The `macOS Release` workflow archives the app, signs it with Developer ID,
-creates and signs `Soyeht.dmg`, notarizes and staples the DMG, signs it for
-Sparkle, generates `appcast.xml`, and uploads both files to the GitHub Release.
+The tag-ref phase triggers `macOS Release`. That workflow verifies the complete
+ref, annotated-tag type, peeled OID, checked-out OID, and declared marketing
+version. It archives the app, signs it with Developer ID, creates and signs
+`Soyeht.dmg`, notarizes and staples the DMG, generates `appcast.xml`, and ends
+by uploading an Actions artifact. It has read-only repository permission and
+does not create or publish a GitHub Release.
+
+Download that exact run's artifact. It contains `Soyeht.dmg`, `appcast.xml`,
+release notes, and `release-artifact-manifest.json`. Verify that the manifest's
+contract, full ref, full OID, two release-asset names, sizes, and SHA-256 values
+match the files before continuing. Then create the draft from the exact notes,
+upload one asset per invocation, and publish only after the remote readback is
+an exact two-asset match:
+
+```sh
+RELEASE_TITLE="Soyeht macOS ${VERSION}"
+NOTES_PATH="/absolute/path/to/release-notes.md"
+DMG_PATH="/absolute/path/to/Soyeht.dmg"
+APPCAST_PATH="/absolute/path/to/appcast.xml"
+MANIFEST_PATH="/absolute/path/to/release-artifact-manifest.json"
+
+python3 "$GUARD" --stdin -- \
+  governed-release release-draft-create \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  --tag-object-oid "$TAG_OBJECT_OID" \
+  --title "$RELEASE_TITLE" \
+  < "$NOTES_PATH" > release-draft-receipt.json
+RELEASE_ID="$(jq -er '.release_id' release-draft-receipt.json)"
+
+DMG_SIZE="$(jq -er '.release_assets[] | select(.name == "Soyeht.dmg") | .size' "$MANIFEST_PATH")"
+DMG_SHA="$(jq -er '.release_assets[] | select(.name == "Soyeht.dmg") | .sha256' "$MANIFEST_PATH")"
+APPCAST_SIZE="$(jq -er '.release_assets[] | select(.name == "appcast.xml") | .size' "$MANIFEST_PATH")"
+APPCAST_SHA="$(jq -er '.release_assets[] | select(.name == "appcast.xml") | .sha256' "$MANIFEST_PATH")"
+
+printf '' | python3 "$GUARD" --stdin -- governed-release asset-upload \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  --tag-object-oid "$TAG_OBJECT_OID" \
+  --release-id "$RELEASE_ID" --asset-name Soyeht.dmg \
+  --asset-path "$DMG_PATH" --asset-size "$DMG_SIZE" --asset-sha256 "$DMG_SHA"
+
+printf '' | python3 "$GUARD" --stdin -- governed-release asset-upload \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  --tag-object-oid "$TAG_OBJECT_OID" \
+  --release-id "$RELEASE_ID" --asset-name appcast.xml \
+  --asset-path "$APPCAST_PATH" --asset-size "$APPCAST_SIZE" \
+  --asset-sha256 "$APPCAST_SHA"
+
+printf '' | python3 "$GUARD" --stdin -- governed-release release-publish \
+  --tag-ref "$TAG_REF" --version "$VERSION" \
+  --target-oid "$TARGET_OID" --expected-main "$EXPECTED_MAIN" \
+  --tag-object-oid "$TAG_OBJECT_OID" \
+  --release-id "$RELEASE_ID" \
+  --asset "Soyeht.dmg:${DMG_SIZE}:${DMG_SHA}" \
+  --asset "appcast.xml:${APPCAST_SIZE}:${APPCAST_SHA}"
+```
+
+Each phase performs one mutation and then reads the created object back. Reuse,
+target drift, a lightweight or mismatched tag, an existing asset name, an extra
+asset, or a size/digest mismatch stops the sequence. Repository-level immutable
+releases are a separate setting: this contract proves the immediate readback
+and absence of versioned bypasses, not permanence against a later administrator.
 
 The Mac local fallback is the `soyeht-notary` Keychain profile: build
 the archive locally, run `scripts/build-dmg.sh` with
-`NOTARIZATION_PROFILE=soyeht-notary`, generate `appcast.xml`, then upload
-`Soyeht.dmg` and `appcast.xml` to the release. This uses the same Apple
-notarization service, but reads the credential from the local Keychain profile.
+`NOTARIZATION_PROFILE=soyeht-notary`, and generate `appcast.xml`. This uses the
+same Apple notarization service but reads the credential from the local
+Keychain profile. Any resulting publication still uses the guarded draft,
+single-asset, and publish phases above; local building does not bypass them.
 
 The DMG contains `Soyeht.app` and an `Applications` symlink. Users should drag the app to Applications before launching it; running directly from the mounted DMG can prevent Sparkle from replacing the app later because the mounted image is read-only.
