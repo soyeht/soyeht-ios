@@ -9,8 +9,11 @@ It does not publish, tag, upload, read secrets, or call the network.
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping
@@ -91,6 +94,62 @@ def active_lines(text: str) -> tuple[str, ...]:
     return tuple(result)
 
 
+def workflow_step(text: str, name: str) -> str:
+    marker = f"      - name: {name}\n"
+    require(text.count(marker) == 1, f"workflow step is missing or ambiguous: {name}")
+    start = text.index(marker)
+    end = text.find("\n      - name:", start + len(marker))
+    return text[start : end if end >= 0 else len(text)]
+
+
+def multiline_run_body(step: str) -> str:
+    lines = step.splitlines()
+    run_index = next(
+        (index for index, line in enumerate(lines) if line.strip() == "run: |"),
+        None,
+    )
+    require(run_index is not None, "workflow step must carry one multiline run block")
+    assert run_index is not None
+    run_indent = len(lines[run_index]) - len(lines[run_index].lstrip())
+    body = []
+    for line in lines[run_index + 1 :]:
+        if line and len(line) - len(line.lstrip()) <= run_indent:
+            break
+        body.append(line[run_indent + 2 :] if line else "")
+    require(body, "workflow multiline run body is empty")
+    return "\n".join(body) + "\n"
+
+
+def workflow_run_bodies(text: str) -> tuple[str, ...]:
+    """Return every inline or block ``run`` value from the tracked workflow."""
+
+    lines = text.splitlines()
+    bodies = []
+    index = 0
+    while index < len(lines):
+        match = re.match(r"^(?P<indent> *)run:\s*(?P<value>.*)$", lines[index])
+        if match is None:
+            index += 1
+            continue
+        value = match.group("value")
+        if value not in ("|", "|-", "|+", ">", ">-", ">+"):
+            bodies.append(value + "\n")
+            index += 1
+            continue
+        run_indent = len(match.group("indent"))
+        body = []
+        index += 1
+        while index < len(lines):
+            line = lines[index]
+            if line and len(line) - len(line.lstrip()) <= run_indent:
+                break
+            body.append(line[run_indent + 2 :] if line else "")
+            index += 1
+        bodies.append("\n".join(body) + "\n")
+    require(bodies, "release workflow has no run commands")
+    return tuple(bodies)
+
+
 def parse_phases(dispatcher: str) -> tuple[str, ...]:
     match = re.search(r"(?ms)^PHASES=\(\n(?P<body>.*?)^\)$", dispatcher)
     require(match is not None, "dispatcher PHASES roster is missing or ambiguous")
@@ -138,6 +197,39 @@ def validate_release_workflow(text: str) -> None:
                 f"release workflow exposes forbidden trigger: {forbidden_trigger}")
     require_once(text, "permissions:\n  contents: read\n", "release workflow must be read-only")
     require("contents: write" not in text, "release workflow requests write permission")
+
+    resolve_step = workflow_step(text, "Resolve version")
+    safe_dispatch_env = """        env:
+          DISPATCH_EXPECTED_REF: ${{ inputs.expected_ref }}
+          DISPATCH_EXPECTED_OID: ${{ inputs.expected_oid }}
+        run: |
+"""
+    require_once(
+        resolve_step,
+        safe_dispatch_env,
+        "workflow_dispatch inputs must cross the shell boundary through step env",
+    )
+    resolve_run = multiline_run_body(resolve_step)
+    require(
+        all("${{ inputs." not in body for body in workflow_run_bodies(text)),
+        "workflow_dispatch input is interpolated directly inside a run command",
+    )
+    require_once(
+        resolve_run,
+        'if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then',
+        "workflow_dispatch branch must use the trusted runner event variable",
+    )
+    require_once(
+        resolve_run,
+        'expected_ref="$DISPATCH_EXPECTED_REF"',
+        "expected_ref must be copied from the quoted step environment",
+    )
+    require_once(
+        resolve_run,
+        'expected_oid="$DISPATCH_EXPECTED_OID"',
+        "expected_oid must be copied from the quoted step environment",
+    )
+    require("eval " not in resolve_run, "release workflow must not eval dispatch inputs")
 
     required_fragments = (
         ("expected_ref:", 1),
@@ -323,6 +415,8 @@ def mutants() -> tuple[Mutant, ...]:
                lambda s: s + "\n# self-test\nrun: git push origin refs/tags/mac-v9.9.9\n"),
         Mutant("release-clobber", RELEASE_WORKFLOW,
                lambda s: s + "\n# self-test\nrun: uploader --clobber asset\n"),
+        Mutant("release-direct-dispatch-interpolation", RELEASE_WORKFLOW,
+               lambda s: replace_once(s, 'expected_ref="$DISPATCH_EXPECTED_REF"', 'expected_ref="${{ inputs.expected_ref }}"')),
         Mutant("required-build-paths", REQUIRED_WORKFLOW,
                lambda s: replace_once(s, "  pull_request:\n    branches: [ main ]", "  pull_request:\n    branches: [ main ]\n    paths: [ 'TerminalApp/**' ]")),
         Mutant("required-build-paths-ignore", REQUIRED_WORKFLOW,
@@ -362,6 +456,66 @@ def mutants() -> tuple[Mutant, ...]:
     )
 
 
+def run_dispatch_injection_control(snapshot: Mapping[str, str]) -> None:
+    """Execute the real Resolve-version shell against an adversarial input.
+
+    The safe workflow must reject the payload without executing it.  A
+    controlled direct-interpolation mutant must create the marker before the
+    same validation turns the run red, proving this control distinguishes the
+    vulnerable grammar from inert data transport.
+    """
+
+    workflow = snapshot[RELEASE_WORKFLOW]
+    run_body = multiline_run_body(workflow_step(workflow, "Resolve version"))
+    payload = '\"; printf \'INJECTED_BEFORE_VALIDATION\\n\' > injection-marker; #'
+
+    with tempfile.TemporaryDirectory(prefix="governed-release-injection-") as directory:
+        marker = Path(directory) / "injection-marker"
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "GITHUB_EVENT_NAME": "workflow_dispatch",
+                "GITHUB_REF": "refs/heads/main",
+                "DISPATCH_EXPECTED_REF": payload,
+                "DISPATCH_EXPECTED_OID": "0" * 40,
+            }
+        )
+
+        safe = subprocess.run(
+            ["bash", "-c", run_body],
+            cwd=directory,
+            env=environment,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        require(safe.returncode != 0, "adversarial dispatch input did not turn the workflow red")
+        require(not marker.exists(), "adversarial dispatch input executed before validation")
+        require(
+            "Expected ref must be a complete macOS annotated tag ref." in safe.stderr,
+            "adversarial dispatch input failed for the wrong reason",
+        )
+
+        vulnerable = replace_once(
+            run_body,
+            'expected_ref="$DISPATCH_EXPECTED_REF"',
+            'expected_ref="${{ inputs.expected_ref }}"',
+        ).replace("${{ inputs.expected_ref }}", payload)
+        unsafe = subprocess.run(
+            ["bash", "-c", vulnerable],
+            cwd=directory,
+            env=environment,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        require(unsafe.returncode != 0, "direct-interpolation control did not finish red")
+        require(marker.read_text(encoding="utf-8") == "INJECTED_BEFORE_VALIDATION\n",
+                "direct-interpolation control did not execute the adversarial payload")
+
+
 def run_self_tests(snapshot: Mapping[str, str]) -> int:
     passed = 0
     for mutant in mutants():
@@ -373,6 +527,7 @@ def run_self_tests(snapshot: Mapping[str, str]) -> int:
             passed += 1
             continue
         raise ContractError(f"self-test mutant survived: {mutant.name}")
+    run_dispatch_injection_control(snapshot)
     print(f"governed macOS release contract: {passed}/{len(mutants())} mutants rejected")
     return passed
 

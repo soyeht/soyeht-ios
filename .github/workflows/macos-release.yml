@@ -53,11 +53,14 @@ jobs:
       - name: Resolve version
         id: version
         shell: bash
+        env:
+          DISPATCH_EXPECTED_REF: ${{ inputs.expected_ref }}
+          DISPATCH_EXPECTED_OID: ${{ inputs.expected_oid }}
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            expected_ref="${{ inputs.expected_ref }}"
-            expected_oid="${{ inputs.expected_oid }}"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            expected_ref="$DISPATCH_EXPECTED_REF"
+            expected_oid="$DISPATCH_EXPECTED_OID"
           else
             expected_ref="${GITHUB_REF}"
             expected_oid=""
