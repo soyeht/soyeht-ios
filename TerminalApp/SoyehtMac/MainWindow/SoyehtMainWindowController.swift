@@ -235,6 +235,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let agent: String
         let status: String
         let exitCode: Int?
+        let agentState: String?
+        let agentStateMessage: String?
+        let agentStateSource: String?
+        let agentHandshake: String?
+        let lastMcpActivityAt: String?
     }
 
     struct CapturedPaneResult {
@@ -2422,6 +2427,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         return targets.map { conv in
+            let stateReport = PaneStatusTracker.shared.agentStateReport(for: conv.id)
+            let lastMcpActivity = PaneStatusTracker.shared.lastMcpActivity(for: conv.id).map(Self.iso8601Automation)
             if !conv.content.isTerminal {
                 return PaneStatusResult(
                     conversationID: conv.id,
@@ -2429,7 +2436,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     handle: conv.handle,
                     agent: conv.content.displayKind,
                     status: LivePaneRegistry.shared.pane(for: conv.id) != nil ? "live" : "not_live",
-                    exitCode: nil
+                    exitCode: nil,
+                    agentState: stateReport?.state,
+                    agentStateMessage: stateReport?.message,
+                    agentStateSource: stateReport?.source,
+                    agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                    lastMcpActivityAt: lastMcpActivity
                 )
             }
             let idStr = conv.id.uuidString
@@ -2440,7 +2452,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     handle: conv.handle,
                     agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                     status: d["status"] as? String ?? "unknown",
-                    exitCode: d["exit_code"] as? Int
+                    exitCode: d["exit_code"] as? Int,
+                    agentState: stateReport?.state,
+                    agentStateMessage: stateReport?.message,
+                    agentStateSource: stateReport?.source,
+                    agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                    lastMcpActivityAt: lastMcpActivity
                 )
             }
             return PaneStatusResult(
@@ -2449,9 +2466,24 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: conv.handle,
                 agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 status: "not_live",
-                exitCode: nil
+                exitCode: nil,
+                agentState: stateReport?.state,
+                agentStateMessage: stateReport?.message,
+                agentStateSource: stateReport?.source,
+                agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                lastMcpActivityAt: lastMcpActivity
             )
         }
+    }
+
+    private static let automationISO8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static func iso8601Automation(_ date: Date) -> String {
+        automationISO8601.string(from: date)
     }
 
     @MainActor
@@ -3448,6 +3480,22 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.paneUnavailable(paneID)
         }
 
+        // Agent panes launched with a command get a per-launch nonce. The
+        // installed state reporters echo it back; the first matching report
+        // is the handshake that gates the initial prompt (no fixed sleeps,
+        // no prompt leaked into a shell when the agent fails to boot).
+        // Agents with no startup hook (e.g. agy) are exempt and use the
+        // legacy timed prompt delivery instead.
+        let conversation = convStore.conversation(paneID)
+        let preparedInitialCommand = initialCommand.map { AgentLaunchCommandBuilder.prepare($0) }
+        let isAgentLaunch = preparedInitialCommand != nil
+            && (conversation?.agent.isShell ?? true) == false
+            && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
+        let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
+        if let launchNonce {
+            PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
+        }
+
         // Seed PTY with the terminal's current geometry so the first prompt
         // already fits the pane's real size.
         let term = pane.terminalView.getTerminal()
@@ -3468,10 +3516,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // unconditionally — the flag must never regress a pane that would
         // have worked with it off.
         let attachedViaEngine: Bool
-        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation = convStore.conversation(paneID) {
+        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation {
             attachedViaEngine = await attachEnginePane(
                 paneID: paneID,
                 conversation: conversation,
+                launchNonce: launchNonce,
                 cwd: cwd,
                 loginPath: loginPath,
                 cols: cols,
@@ -3490,7 +3539,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 cols: cols,
                 rows: rows,
                 loginPath: loginPath,
-                extraEnvironment: convStore.conversation(paneID).map { AgentPaneEnvironment.values(for: $0) } ?? [:]
+                extraEnvironment: convStore.conversation(paneID).map {
+                    AgentPaneEnvironment.values(for: $0, launchNonce: launchNonce)
+                } ?? [:]
             )
 
             // Flip commander BEFORE configuring the terminal so
@@ -3509,31 +3560,96 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             sourceTTY: promptSourceTTY,
             convStore: convStore
         )
-        if initialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
+        if preparedInitialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             Task { @MainActor [weak pane] in
-                if let initialCommand {
+                if let preparedInitialCommand {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
                     guard let terminalView = pane?.terminalView else { return }
                     let prepared = AgentPaneInputPlanner.terminalPayload(
-                        text: initialCommand,
+                        text: preparedInitialCommand,
                         appendNewline: true,
                         lineEnding: "crlf"
                     )
                     terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
                 }
                 if let plannedPrompt {
-                    let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
-                        initialCommand: initialCommand,
-                        explicitDelayMs: promptDelayMs
-                    )) * 1_000_000
-                    try? await Task.sleep(nanoseconds: delay)
                     guard let terminalView = pane?.terminalView else { return }
-                    terminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
+                    if launchNonce != nil {
+                        // Handshake-gated delivery: wait until the agent's
+                        // reporter proves the agent booted, then send. On
+                        // timeout the prompt is NOT typed (nothing leaks into
+                        // a bare shell or half-booted TUI). Window is long:
+                        // engine spawn + login shell + agent boot can take a
+                        // while on cold starts.
+                        let deadline = Date().addingTimeInterval(90)
+                        var satisfied = false
+                        while Date() < deadline {
+                            try? await Task.sleep(nanoseconds: 500_000_000)
+                            if PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied {
+                                satisfied = true
+                                break
+                            }
+                        }
+                        guard let liveTerminalView = pane?.terminalView else { return }
+                        if satisfied {
+                            // Settle after the handshake: the handshake only
+                            // proves the agent's hooks fired (process booted),
+                            // not that the TUI input box is interactive. Some
+                            // agents (qwen) keep streaming a banner for a few
+                            // seconds after SessionStart and swallow early
+                            // keystrokes, so wait a base settle and let an
+                            // explicit promptDelayMs extend it.
+                            let settleMs = max(1500, promptDelayMs ?? 0)
+                            try? await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
+                            // Deliver with acknowledgement: an accepted prompt
+                            // makes the agent's hooks report within seconds
+                            // (UserPromptSubmit / chat.message / ...). If no
+                            // fresh report arrives the TUI likely swallowed
+                            // the keystrokes — settle again and retry.
+                            var attempts = 0
+                            while attempts < 3 {
+                                attempts += 1
+                                let baseline = PaneStatusTracker.shared.lastReportAt(for: paneID) ?? .distantPast
+                                liveTerminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
+                                let ackDeadline = Date().addingTimeInterval(8)
+                                var acked = false
+                                while Date() < ackDeadline {
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    if let last = PaneStatusTracker.shared.lastReportAt(for: paneID), last > baseline {
+                                        acked = true
+                                        break
+                                    }
+                                }
+                                if acked { break }
+                                if attempts < 3 {
+                                    Self.logger.info(
+                                        "agent_prompt_retry pane=\(paneID.uuidString, privacy: .public) attempt=\(attempts) no fresh report after delivery"
+                                    )
+                                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                }
+                            }
+                            PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+                        } else {
+                            PaneStatusTracker.shared.markHandshakeTimeout(paneID: paneID)
+                            Self.logger.error(
+                                "agent_handshake_timeout pane=\(paneID.uuidString, privacy: .public) initial prompt withheld"
+                            )
+                        }
+                        _ = terminalView
+                    } else {
+                        let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                            initialCommand: preparedInitialCommand,
+                            explicitDelayMs: promptDelayMs
+                        )) * 1_000_000
+                        try? await Task.sleep(nanoseconds: delay)
+                        guard let liveTerminalView = pane?.terminalView else { return }
+                        liveTerminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
+                    }
                 }
             }
         }
         Self.logger.info(
-            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine)"
+            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
         )
     }
 
@@ -3545,6 +3661,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func attachEnginePane(
         paneID: Conversation.ID,
         conversation: Conversation,
+        launchNonce: String?,
         cwd: URL,
         loginPath: String?,
         cols: Int,
@@ -3554,6 +3671,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     ) async -> Bool {
         switch await EnginePaneAttacher.attach(
             conversation: conversation,
+            launchNonce: launchNonce,
             cwd: cwd,
             loginPath: loginPath,
             cols: cols,

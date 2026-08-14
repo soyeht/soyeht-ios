@@ -39,7 +39,10 @@ final class SoyehtAutomationRequestRouter {
     func handle(
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
-        try await handleAutomationRequest(request)
+        if let source = try? resolveAutomationSource(payload: request.payload) {
+            PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
+        }
+        return try await handleAutomationRequest(request)
     }
 
     private enum AutomationError: LocalizedError {
@@ -61,6 +64,7 @@ final class SoyehtAutomationRequestRouter {
         case sourceConversationNotFound(String)
         case sourceHandleNotFound(String)
         case sourceIdentityUnavailable
+        case invalidAgentState(String)
 
         var errorDescription: String? {
             switch self {
@@ -100,6 +104,8 @@ final class SoyehtAutomationRequestRouter {
                 return "Source pane handle does not exist: \(handle). Run list_agents or list_panes to get current handles before messaging."
             case .sourceIdentityUnavailable:
                 return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
+            case .invalidAgentState(let value):
+                return "Invalid agent state: \(value). Expected one of: working, idle, blocked, done, unknown."
             }
         }
     }
@@ -154,6 +160,10 @@ final class SoyehtAutomationRequestRouter {
             return try handleIdentifyAgent(request)
         case .listAgents:
             return try handleListAgents(request)
+        case .reportAgentState:
+            return try handleReportAgentState(request)
+        case .requestAttention:
+            return try handleRequestAttention(request)
         case .openEditor:
             return try handleOpenEditor(request)
         case .openExplorer:
@@ -880,6 +890,125 @@ final class SoyehtAutomationRequestRouter {
         return SoyehtAutomationResult(sourceIdentity: sourceIdentity(source))
     }
 
+    private static let validAgentStates: Set<String> = ["working", "idle", "blocked", "done", "unknown"]
+
+    private func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let rawState = payload.state?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard Self.validAgentStates.contains(rawState) else {
+            throw AutomationError.invalidAgentState(rawState)
+        }
+        let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
+        let reportSource = payload.reportSource?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedSource = (reportSource?.isEmpty ?? true) ? "self_report" : reportSource!
+        let outcome = PaneStatusTracker.shared.recordAgentStateReport(
+            paneID: source.conversation.id,
+            state: rawState,
+            message: message,
+            seq: payload.seq,
+            source: resolvedSource,
+            nonce: payload.nonce
+        )
+        if outcome.accepted {
+            notifyAttentionIfNeeded(
+                conversationID: source.conversation.id,
+                handle: source.conversation.handle,
+                state: rawState,
+                message: message
+            )
+        }
+        return SoyehtAutomationResult(agentStateReported: SoyehtAutomationResponse.AgentStateReported(
+            conversationID: source.conversation.id.uuidString,
+            workspaceID: source.conversation.workspaceID.uuidString,
+            handle: source.conversation.handle,
+            state: rawState,
+            message: message,
+            seq: payload.seq,
+            accepted: outcome.accepted,
+            reason: outcome.reason
+        ))
+    }
+
+    private func handleRequestAttention(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let kind = payload.attentionKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "question"
+        let state: String
+        switch kind {
+        case "blocked", "question", "error":
+            state = "blocked"
+        case "done":
+            state = "done"
+        default:
+            throw AutomationError.invalidAgentState(kind)
+        }
+        let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
+        let outcome = PaneStatusTracker.shared.recordAgentStateReport(
+            paneID: source.conversation.id,
+            state: state,
+            message: message,
+            seq: payload.seq,
+            source: "mcp_attention"
+        )
+        if outcome.accepted {
+            let title = state == "done"
+                ? "\(source.conversation.handle) terminou"
+                : "\(source.conversation.handle) precisa de atenção"
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: source.conversation.id,
+                handle: source.conversation.handle,
+                title: title,
+                message: message
+            )
+        }
+        return SoyehtAutomationResult(agentStateReported: SoyehtAutomationResponse.AgentStateReported(
+            conversationID: source.conversation.id.uuidString,
+            workspaceID: source.conversation.workspaceID.uuidString,
+            handle: source.conversation.handle,
+            state: state,
+            message: message,
+            seq: payload.seq,
+            accepted: outcome.accepted,
+            reason: outcome.reason
+        ))
+    }
+
+    /// Hook/harness-reported `blocked` always notifies; `done` notifies only
+    /// when it carries a message; plain working/idle transitions stay silent.
+    private func notifyAttentionIfNeeded(
+        conversationID: Conversation.ID,
+        handle: String,
+        state: String,
+        message: String?
+    ) {
+        switch state {
+        case "blocked":
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: conversationID,
+                handle: handle,
+                title: "\(handle) precisa de atenção",
+                message: message
+            )
+        case "done":
+            guard message != nil else { return }
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: conversationID,
+                handle: handle,
+                title: "\(handle) terminou",
+                message: message
+            )
+        default:
+            return
+        }
+    }
+
     private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
@@ -1394,7 +1523,12 @@ final class SoyehtAutomationRequestRouter {
                 handle: $0.handle,
                 agent: $0.agent,
                 status: $0.status,
-                exitCode: $0.exitCode
+                exitCode: $0.exitCode,
+                agentState: $0.agentState,
+                agentStateMessage: $0.agentStateMessage,
+                agentStateSource: $0.agentStateSource,
+                agentHandshake: $0.agentHandshake,
+                lastMcpActivityAt: $0.lastMcpActivityAt
             )
         })
     }

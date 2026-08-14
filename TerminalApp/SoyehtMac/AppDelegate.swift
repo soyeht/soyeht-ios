@@ -132,6 +132,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
+        // Initialize the attention notifier early so notification
+        // authorization is resolved before the first blocked report arrives.
+        _ = AgentAttentionNotifier.shared
+        // Install/update agent-state reporters (claude hooks, codex hooks,
+        // opencode plugin). Env-gated: inert outside Soyeht panes.
+        Task.detached {
+            let summary = await AgentStateIntegrationInstaller.installAllIfNeeded()
+            if !summary.failed.isEmpty {
+                NSLog("Soyeht agent integrations partial: \(summary.failed.joined(separator: " | "))")
+            }
+        }
         // When the app has no paired server yet, open the dedicated Welcome
         // window instead of the main workspace. The main window only appears
         // after pairing completes — avoids the old "empty workspace behind a

@@ -28,6 +28,8 @@ struct SoyehtAutomationRequest: Decodable {
         case getActiveContext = "get_active_context"
         case identifyAgent = "identify_agent"
         case listAgents = "list_agents"
+        case reportAgentState = "report_agent_state"
+        case requestAttention = "request_attention"
         case openEditor = "open_editor"
         case openExplorer = "open_explorer"
         case openGit = "open_git"
@@ -108,6 +110,12 @@ struct SoyehtAutomationRequest: Decodable {
         let branch: String?
         let compareBase: String?
         let selectedFile: String?
+        let state: String?
+        let message: String?
+        let seq: Int?
+        let nonce: String?
+        let reportSource: String?
+        let attentionKind: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -422,6 +430,22 @@ struct SoyehtAutomationResponse: Encodable {
         let agent: String
         let status: String
         let exitCode: Int?
+        let agentState: String?
+        let agentStateMessage: String?
+        let agentStateSource: String?
+        let agentHandshake: String?
+        let lastMcpActivityAt: String?
+    }
+
+    struct AgentStateReported: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let state: String
+        let message: String?
+        let seq: Int?
+        let accepted: Bool
+        let reason: String?
     }
 
     struct CapturedPane: Encodable {
@@ -509,6 +533,7 @@ struct SoyehtAutomationResponse: Encodable {
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
+    let agentStateReported: AgentStateReported?
 }
 
 struct SoyehtAutomationResult {
@@ -534,6 +559,7 @@ struct SoyehtAutomationResult {
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
+    var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -749,7 +775,8 @@ final class SoyehtAutomationService {
                 openedSpecialPanes: result.openedSpecialPanes,
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
-                listedAgents: result.listedAgents
+                listedAgents: result.listedAgents,
+                agentStateReported: result.agentStateReported
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -780,7 +807,8 @@ final class SoyehtAutomationService {
                 openedSpecialPanes: [],
                 activeContext: nil,
                 sourceIdentity: nil,
-                listedAgents: []
+                listedAgents: [],
+                agentStateReported: nil
             ))
         }
     }

@@ -5,9 +5,11 @@ enum AgentPaneEnvironment {
     static let conversationIDKey = "SOYEHT_CONVERSATION_ID"
     static let handleKey = "SOYEHT_HANDLE"
     static let automationDirKey = "SOYEHT_AUTOMATION_DIR"
+    static let launchNonceKey = "SOYEHT_LAUNCH_NONCE"
 
     static func values(
         for conversation: Conversation,
+        launchNonce: String? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         profile: SoyehtInstallProfile = .current
     ) -> [String: String] {
@@ -17,6 +19,9 @@ enum AgentPaneEnvironment {
         ]
         if let automationDir = automationDirectoryPath(environment: environment, profile: profile) {
             values[automationDirKey] = automationDir
+        }
+        if let launchNonce, !launchNonce.isEmpty {
+            values[launchNonceKey] = launchNonce
         }
         return values
     }
