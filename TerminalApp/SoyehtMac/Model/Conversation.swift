@@ -43,11 +43,16 @@ struct Conversation: Codable, Identifiable, Hashable {
     var commander: CommanderState
     var content: PaneContent
     var workingDirectoryPath: String?
+    /// Bounded terminal context persisted across in-place agent switches.
+    /// Full-screen TUIs can replace scrollback, so the live terminal alone is
+    /// not an authoritative accumulated conversation transcript.
+    var agentHandoffTranscript: String?
     var stats: ConversationStats
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, handle, agent, workspaceID, commander, content, workingDirectoryPath, stats, createdAt
+        case id, handle, agent, workspaceID, commander, content, workingDirectoryPath
+        case agentHandoffTranscript, stats, createdAt
     }
 
     init(
@@ -58,6 +63,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander: CommanderState,
         content: PaneContent = .terminal(TerminalPaneState()),
         workingDirectoryPath: String? = nil,
+        agentHandoffTranscript: String? = nil,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -68,6 +74,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.commander = commander
         self.content = content
         self.workingDirectoryPath = workingDirectoryPath
+        self.agentHandoffTranscript = agentHandoffTranscript
         self.stats = stats
         self.createdAt = createdAt
     }
@@ -81,6 +88,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander = try container.decode(CommanderState.self, forKey: .commander)
         content = try container.decodeIfPresent(PaneContent.self, forKey: .content) ?? .terminal(TerminalPaneState())
         workingDirectoryPath = try container.decodeIfPresent(String.self, forKey: .workingDirectoryPath)
+        agentHandoffTranscript = try container.decodeIfPresent(String.self, forKey: .agentHandoffTranscript)
         stats = try container.decodeIfPresent(ConversationStats.self, forKey: .stats) ?? .zero
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
@@ -94,6 +102,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(commander, forKey: .commander)
         try container.encode(content, forKey: .content)
         try container.encodeIfPresent(workingDirectoryPath, forKey: .workingDirectoryPath)
+        try container.encodeIfPresent(agentHandoffTranscript, forKey: .agentHandoffTranscript)
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }

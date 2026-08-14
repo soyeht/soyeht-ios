@@ -58,6 +58,178 @@ enum AgentPaneEnvironment {
     }
 }
 
+/// Startup hooks are not uniformly emitted when a CLI first paints its TUI.
+/// Some agents create their session only after the first submitted prompt, so
+/// waiting for their SessionStart report before typing that prompt deadlocks.
+enum AgentStartupHandshakePolicy {
+    static let turnBoundAgents: Set<String> = [
+        "agy", "antigravity", "codex", "copilot", "grok", "kimi", "devin",
+    ]
+
+    static func supportsStartupHandshake(agentName: String?) -> Bool {
+        guard let agentName, !agentName.isEmpty else { return false }
+        return !turnBoundAgents.contains(agentName.lowercased())
+    }
+}
+
+/// Builds a durable handoff transcript across repeated in-place agent
+/// switches. A full-screen TUI may replace the terminal's visible/scrollback
+/// buffer, so each newly captured session is appended to the previously saved
+/// handoff before the bounded tail is injected into the next agent.
+enum AgentHandoffContext {
+    static let maximumTranscriptLines = 400
+    private static let maximumPreservedContinuityMarkers = 30
+    private static let sessionSeparator = "--- NEXT AGENT SESSION ---"
+    private static let injectedHistoryStart = "--- HISTÓRICO ANTERIOR ("
+    private static let injectedHistoryEnd = "--- FIM DO HISTÓRICO ANTERIOR ---"
+
+    static func accumulating(previous: String?, current: String) -> String {
+        let previous = sanitizedSession(previous ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let current = sanitizedSession(current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let combined: String
+        switch (previous.isEmpty, current.isEmpty) {
+        case (true, true):
+            combined = ""
+        case (true, false):
+            combined = current
+        case (false, true):
+            combined = previous
+        case (false, false):
+            combined = "\(previous)\n\n\(sessionSeparator)\n\(current)"
+        }
+        return tailLines(combined, maximumTranscriptLines)
+    }
+
+    /// Terminal screen buffers may contain NUL padding, which some agent TUIs
+    /// treat as an invalid paste and discard wholesale. The current session
+    /// also contains the handoff prompt we injected into that agent; remove
+    /// its nested history block so repeated switches do not duplicate the
+    /// entire transcript exponentially.
+    static func sanitizedSession(_ text: String) -> String {
+        let withoutNUL = text.replacingOccurrences(of: "\0", with: "")
+        let normalizedNewlines = withoutNUL
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        var historyDepth = 0
+        var retained: [Substring] = []
+        for line in normalizedNewlines.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line.contains(injectedHistoryStart) {
+                historyDepth += 1
+                continue
+            }
+            if line.contains(injectedHistoryEnd), historyDepth > 0 {
+                historyDepth -= 1
+                continue
+            }
+            if historyDepth == 0 {
+                retained.append(line)
+            }
+        }
+        return retained.joined(separator: "\n")
+    }
+
+    static func prompt(
+        previousAgent: String,
+        transcript: String,
+        additionalInstruction: String? = nil
+    ) -> String {
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = trimmed.isEmpty ? "(sem saída de terminal capturada)" : trimmed
+        var prompt = """
+        Você está continuando uma conversa que estava sendo conduzida pelo agente "\(previousAgent)" neste mesmo diretório. Abaixo está o histórico anterior da conversa (transcript do terminal, incluindo comandos e saídas). Continue de onde a conversa parou, mantendo total continuidade com o que já foi discutido e feito.
+
+        --- HISTÓRICO ANTERIOR (agente \(previousAgent)) ---
+        \(body)
+        --- FIM DO HISTÓRICO ANTERIOR ---
+
+        Retome a conversa exatamente de onde parou.
+        """
+        if let instruction = additionalInstruction?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !instruction.isEmpty {
+            prompt += """
+
+
+            --- INSTRUÇÃO ADICIONAL DO HANDOFF ---
+            \(instruction)
+            --- FIM DA INSTRUÇÃO ADICIONAL ---
+            """
+        }
+        return prompt
+    }
+
+    static func tailLines(_ text: String, _ maxLines: Int) -> String {
+        guard maxLines > 0 else { return "" }
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count > maxLines else { return text }
+        let markerFragments = [
+            "SOYEHT_STAGE_DONE=",
+            "SOYEHT_HANDOFF_TOKEN=",
+            "NEXT_AGENT_MUST="
+        ]
+        let provisionalRetainedLineCount = max(maxLines - 1, 0)
+        let provisionalDroppedLines = lines.prefix(lines.count - provisionalRetainedLineCount)
+        var preservedMarkers = provisionalDroppedLines
+            .filter { line in markerFragments.contains { line.contains($0) } }
+            .filter { !$0.contains("SOYEHT_HANDOFF_TOKEN=") }
+            .map(String.init)
+        preservedMarkers.append(contentsOf: canonicalHandoffTokenMarkers(
+            in: provisionalDroppedLines.joined(separator: "\n")
+        ))
+        preservedMarkers = Array(preservedMarkers
+            .suffix(maximumPreservedContinuityMarkers)
+        )
+        let markerHeaderCount = preservedMarkers.isEmpty ? 0 : 1
+        let retainedLineCount = max(
+            maxLines - 1 - markerHeaderCount - preservedMarkers.count,
+            0
+        )
+        let dropped = lines.count - retainedLineCount
+        guard retainedLineCount > 0 else {
+            return "[… \(dropped) linhas anteriores omitidas …]"
+        }
+        var prefix = ["[… \(dropped) linhas anteriores omitidas …]"]
+        if !preservedMarkers.isEmpty {
+            prefix.append("--- MARCADORES DE CONTINUIDADE PRESERVADOS ---")
+            prefix.append(contentsOf: preservedMarkers)
+        }
+        return (prefix + lines.suffix(retainedLineCount).map(String.init))
+            .joined(separator: "\n")
+    }
+
+    /// Full-screen TUIs may wrap a UUID after its third dash and paint a
+    /// timestamp/status column before the continuation. Preserve a canonical
+    /// one-line marker so later agents can recover the exact token even after
+    /// the verbose session itself falls outside the bounded transcript tail.
+    private static func canonicalHandoffTokenMarkers(in text: String) -> [String] {
+        let patterns = [
+            #"SOYEHT_HANDOFF_TOKEN=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"#,
+            #"SOYEHT_HANDOFF_TOKEN=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-)[^\n]*\n[^0-9a-fA-F\n]*([0-9a-fA-F]{4}-[0-9a-fA-F]{12})"#
+        ]
+        var locatedTokens: [(location: Int, token: String)] = []
+        let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            for match in regex.matches(in: text, range: fullRange) {
+                let groups = (1..<match.numberOfRanges).compactMap { index -> String? in
+                    guard let range = Range(match.range(at: index), in: text) else { return nil }
+                    return String(text[range])
+                }
+                let token = groups.joined().lowercased()
+                guard token.count == 36 else { continue }
+                locatedTokens.append((match.range.location, token))
+            }
+        }
+        var tokens: [String] = []
+        for located in locatedTokens.sorted(by: { $0.location < $1.location }) {
+            guard !tokens.contains(located.token) else { continue }
+            tokens.append(located.token)
+        }
+        return tokens.map { "SOYEHT_HANDOFF_TOKEN=\($0)" }
+    }
+}
+
 enum AgentPaneInputPlanner {
     enum InitialPromptMode: String {
         case auto
@@ -245,6 +417,16 @@ enum AgentPaneInputPlanner {
             return 15_000
         }
         return 1_500
+    }
+
+    static func promptAcknowledgementTimeoutSeconds(for text: String) -> TimeInterval {
+        text.count > 256 || text.contains("\n") ? 20 : 8
+    }
+
+    static func terminalPastePayload(_ text: String, bracketedPasteMode: Bool) -> String {
+        let isLongPaste = text.count > 256 || text.contains("\n")
+        guard bracketedPasteMode, isLongPaste else { return text }
+        return "\u{001B}[200~\(text)\u{001B}[201~"
     }
 
     private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {

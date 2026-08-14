@@ -112,6 +112,13 @@ final class ConversationStore {
         postChange()
     }
 
+    func updateAgentHandoffTranscript(_ id: Conversation.ID, transcript: String?) {
+        guard var conv = conversations[id] else { return }
+        conv.agentHandoffTranscript = transcript
+        conversations[id] = conv
+        postChange()
+    }
+
     func remove(_ id: Conversation.ID) {
         if conversations.removeValue(forKey: id) != nil {
             postChange()

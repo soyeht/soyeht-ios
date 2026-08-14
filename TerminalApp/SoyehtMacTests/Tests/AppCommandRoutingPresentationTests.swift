@@ -615,16 +615,17 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         XCTAssertFalse(skipped.envelopeApplied)
         XCTAssertEqual(skipped.envelopeReason, "non_terminal_target")
-        XCTAssertEqual(skipped.payload, "not terminal")
+        XCTAssertEqual(skipped.payload, "not terminal ")
         XCTAssertTrue(skipped.shouldSendEnterKey)
 
         let terminalViewSource = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         let brokerSend = try slice(
             terminalViewSource,
-            from: "func brokerSend(text: String, submitWithEnter: Bool)",
-            to: "/// Public entry point for mirrored group input"
+            from: "func brokerSend(\n        text: String,",
+            to: "func brokerSend(data: Data)"
         )
-        XCTAssertTrue(brokerSend.contains("brokerSend(text: text)"))
+        XCTAssertTrue(brokerSend.contains("brokerSend(text: pastePayload)"))
+        XCTAssertTrue(brokerSend.contains("forceBracketedPaste || getTerminal().bracketedPasteMode"))
         XCTAssertTrue(brokerSend.contains("isLongPrompt"))
         XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
@@ -702,10 +703,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let nativePTYWrite = try slice(
             nativePTYSource,
             from: "func write(_ data: Data)",
-            to: "private func writeSynchronously"
+            to: "private func flushPendingInput"
         )
         XCTAssertTrue(nativePTYWrite.contains("ioQueue.async"))
-        XCTAssertTrue(nativePTYWrite.contains("writeSynchronously(data)"))
+        XCTAssertTrue(nativePTYWrite.contains("pendingInput.append(data)"))
+        XCTAssertTrue(nativePTYWrite.contains("flushPendingInput()"))
     }
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {

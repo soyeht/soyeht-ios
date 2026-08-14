@@ -957,17 +957,8 @@ enum CodexHookAudit {
 
 /// Prepares agent launch commands typed into Soyeht panes.
 enum AgentLaunchCommandBuilder {
-    /// Agents with no hook that fires at startup (Antigravity CLI only fires
-    /// PreInvocation after the first user prompt; Copilot CLI creates the
-    /// session — and fires sessionStart — only on the first prompt; Grok and
-    /// Kimi likewise only create a session on the first message), so a
-    /// nonce-gated prompt would deadlock: they fall back to the legacy timed
-    /// prompt delivery.
-    static let noHandshakeAgents: Set<String> = ["agy", "antigravity", "copilot", "grok", "kimi", "devin"]
-
     static func supportsStartupHandshake(agentName: String?) -> Bool {
-        guard let agentName, !agentName.isEmpty else { return false }
-        return !noHandshakeAgents.contains(agentName.lowercased())
+        AgentStartupHandshakePolicy.supportsStartupHandshake(agentName: agentName)
     }
 
     static func prepare(_ command: String) -> String {

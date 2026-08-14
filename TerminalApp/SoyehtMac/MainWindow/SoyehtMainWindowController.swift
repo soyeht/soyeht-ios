@@ -3488,28 +3488,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let transcriptLineCount: Int
     }
 
-    /// How much of the pane transcript is replayed into the new agent when
-    /// switching agents in place. Terminal scrollback can grow unbounded;
-    /// the tail carries the working context.
-    private static let agentSwitchTranscriptMaxLines = 400
-
-    /// Default handoff prompt injected into the new agent when the caller
-    /// does not provide one. Tells the agent it is resuming another agent's
-    /// conversation and delimits the transcript.
-    private static func defaultAgentHandoffPrompt(previousAgent: String, transcript: String) -> String {
-        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = trimmed.isEmpty ? "(sem saída de terminal capturada)" : trimmed
-        return """
-        Você está continuando uma conversa que estava sendo conduzida pelo agente "\(previousAgent)" neste mesmo diretório. Abaixo está o histórico anterior da conversa (transcript do terminal, incluindo comandos e saídas). Continue de onde a conversa parou, mantendo total continuidade com o que já foi discutido e feito.
-
-        --- HISTÓRICO ANTERIOR (agente \(previousAgent)) ---
-        \(body)
-        --- FIM DO HISTÓRICO ANTERIOR ---
-
-        Retome a conversa exatamente de onde parou.
-        """
-    }
-
     /// Switches the agent running in an existing pane while keeping the same
     /// conversation (pane identity, handle and scrollback). The previous
     /// agent's terminal transcript is captured before teardown and replayed
@@ -3538,16 +3516,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName
 
         // 1. Capture the transcript BEFORE tearing the current process down.
-        var transcript = ""
+        var liveTranscript = ""
         if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
             let terminal = pane.terminalView.getTerminal()
             let scrollback = terminal.getScrollbackText()
             let visible = terminal.getVisibleText()
-            transcript = scrollback.isEmpty
+            liveTranscript = scrollback.isEmpty
                 ? visible
                 : (visible.isEmpty ? scrollback : scrollback + "\n" + visible)
         }
-        transcript = Self.tailLines(transcript, Self.agentSwitchTranscriptMaxLines)
+        let transcript = AgentHandoffContext.accumulating(
+            previous: conv.agentHandoffTranscript,
+            current: liveTranscript
+        )
+        convStore.updateAgentHandoffTranscript(paneID, transcript: transcript)
 
         // 2. Tear down the current process: engine sessions are reaped
         // immediately (the switch is deliberate — no undo window), local
@@ -3557,7 +3539,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             await DeferredEngineSessionReaper.reapNow(engineConversationID: engineConversationID)
         default:
             if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
-                pane.terminalView.disconnect()
+                pane.terminalView.disconnect(reapLocalProcessTree: true)
             }
         }
 
@@ -3572,9 +3554,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // delivery, so the prompt only reaches a booted agent.
         let cwd = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.homeDirectoryForCurrentUser
-        let prompt = customPrompt ?? Self.defaultAgentHandoffPrompt(
+        let prompt = AgentHandoffContext.prompt(
             previousAgent: previousAgent,
-            transcript: transcript
+            transcript: transcript,
+            additionalInstruction: customPrompt
         )
         let command = AgentLaunchCommandBuilder.prepare(customCommand ?? target.command)
         try await attachLocalPTY(
@@ -3600,15 +3583,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             newAgent: target.name,
             transcriptLineCount: transcript.split(separator: "\n", omittingEmptySubsequences: false).count
         )
-    }
-
-    /// Keeps the last `maxLines` lines of `text` (marked with a truncation
-    /// header when content is dropped).
-    private static func tailLines(_ text: String, _ maxLines: Int) -> String {
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        guard lines.count > maxLines else { return text }
-        let dropped = lines.count - maxLines
-        return "[… \(dropped) linhas anteriores omitidas …]\n" + lines.suffix(maxLines).joined(separator: "\n")
     }
 
     private func attachLocalPTY(
@@ -3641,6 +3615,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             && (conversation?.agent.isShell ?? true) == false
             && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
         let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
+        PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
         if let launchNonce {
             PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
         }
@@ -3756,11 +3731,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             // fresh report arrives the TUI likely swallowed
                             // the keystrokes — settle again and retry.
                             var attempts = 0
+                            var promptAcknowledged = false
                             while attempts < 3 {
                                 attempts += 1
                                 let baseline = PaneStatusTracker.shared.lastReportAt(for: paneID) ?? .distantPast
-                                liveTerminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
-                                let ackDeadline = Date().addingTimeInterval(8)
+                                liveTerminalView.brokerSend(
+                                    text: plannedPrompt.payload,
+                                    submitWithEnter: plannedPrompt.shouldSendEnterKey,
+                                    forceBracketedPaste: true
+                                )
+                                let ackDeadline = Date().addingTimeInterval(
+                                    AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(
+                                        for: plannedPrompt.payload
+                                    )
+                                )
                                 var acked = false
                                 while Date() < ackDeadline {
                                     try? await Task.sleep(nanoseconds: 500_000_000)
@@ -3769,7 +3753,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                                         break
                                     }
                                 }
-                                if acked { break }
+                                if acked {
+                                    promptAcknowledged = true
+                                    break
+                                }
                                 if attempts < 3 {
                                     Self.logger.info(
                                         "agent_prompt_retry pane=\(paneID.uuidString, privacy: .public) attempt=\(attempts) no fresh report after delivery"
@@ -3777,7 +3764,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                                 }
                             }
-                            PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+                            if promptAcknowledged {
+                                PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+                            } else {
+                                PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
+                                Self.logger.error(
+                                    "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after \(attempts) attempts"
+                                )
+                            }
                         } else {
                             PaneStatusTracker.shared.markHandshakeTimeout(paneID: paneID)
                             Self.logger.error(
@@ -3792,7 +3786,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                         )) * 1_000_000
                         try? await Task.sleep(nanoseconds: delay)
                         guard let liveTerminalView = pane?.terminalView else { return }
-                        liveTerminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
+                        liveTerminalView.brokerSend(
+                            text: plannedPrompt.payload,
+                            submitWithEnter: plannedPrompt.shouldSendEnterKey,
+                            forceBracketedPaste: true
+                        )
                     }
                 }
             }

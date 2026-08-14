@@ -67,6 +67,18 @@ final class PaneStatusTracker {
     private var expectedHandshakeNonce: [Conversation.ID: String] = [:]
     private var handshakeStates: [Conversation.ID: HandshakeState] = [:]
 
+    /// Clears runtime evidence that belongs to the previous process before a
+    /// pane launches another agent in place. Without this reset, switching
+    /// from a handshake-gated agent to a turn-bound one can surface the old
+    /// launch as `delivered`, and the old agent's semantic state remains
+    /// visible until the replacement emits its first report.
+    func prepareForAgentLaunch(paneID: Conversation.ID) {
+        expectedHandshakeNonce[paneID] = nil
+        handshakeStates[paneID] = nil
+        agentStateReports[paneID] = nil
+        lastMcpActivityAt[paneID] = nil
+    }
+
     func expectHandshake(paneID: Conversation.ID, nonce: String) {
         expectedHandshakeNonce[paneID] = nonce
         handshakeStates[paneID] = .pending
@@ -84,6 +96,11 @@ final class PaneStatusTracker {
     func markHandshakeDelivered(paneID: Conversation.ID) {
         guard handshakeStates[paneID] == .satisfied else { return }
         handshakeStates[paneID] = .delivered
+    }
+
+    func markHandshakeDeliveryFailed(paneID: Conversation.ID) {
+        guard handshakeStates[paneID] == .satisfied else { return }
+        handshakeStates[paneID] = .timeout
     }
 
     /// Timestamp of the most recent state report for the pane (any source).
