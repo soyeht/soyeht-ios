@@ -67,20 +67,37 @@ enum AgentStateIntegrationInstaller {
         }
         let summary = installAll()
         defaults.set(AgentStateReporterScripts.version, forKey: versionDefaultsKey)
-        defaults.set(sha256(claudeScriptPath()), forKey: claudeScriptHashKey)
-        defaults.set(sha256(codexScriptPath()), forKey: codexScriptHashKey)
-        defaults.set(sha256OrNil(opencodePluginPath()), forKey: opencodeScriptHashKey)
-        defaults.set(sha256OrNil(qwenScriptPath()), forKey: qwenScriptHashKey)
-        defaults.set(agyExpectedHash(), forKey: agyScriptHashKey)
-        defaults.set(sha256OrNil(piExtensionPath()), forKey: piScriptHashKey)
-        defaults.set(sha256OrNil(droidScriptPath()), forKey: droidScriptHashKey)
-        defaults.set(sha256OrNil(kiloPluginPath()), forKey: kiloScriptHashKey)
-        defaults.set(sha256OrNil(cursorScriptPath()), forKey: cursorScriptHashKey)
-        defaults.set(sha256OrNil(copilotScriptPath()), forKey: copilotScriptHashKey)
-        defaults.set(sha256OrNil(grokScriptPath()), forKey: grokScriptHashKey)
-        defaults.set(sha256OrNil(kimiScriptPath()), forKey: kimiScriptHashKey)
-        defaults.set(sha256OrNil(devinScriptPath()), forKey: devinScriptHashKey)
+        persistInstalledHash(sha256(claudeScriptPath()), key: claudeScriptHashKey, agent: "claude", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256(codexScriptPath()), key: codexScriptHashKey, agent: "codex", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(opencodePluginPath()), key: opencodeScriptHashKey, agent: "opencode", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(qwenScriptPath()), key: qwenScriptHashKey, agent: "qwen", summary: summary, defaults: defaults)
+        persistInstalledHash(agyExpectedHash(), key: agyScriptHashKey, agent: "antigravity", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(piExtensionPath()), key: piScriptHashKey, agent: "pi", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(droidScriptPath()), key: droidScriptHashKey, agent: "droid", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(kiloPluginPath()), key: kiloScriptHashKey, agent: "kilo", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(cursorScriptPath()), key: cursorScriptHashKey, agent: "cursor", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(copilotScriptPath()), key: copilotScriptHashKey, agent: "copilot", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(grokScriptPath()), key: grokScriptHashKey, agent: "grok", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(kimiScriptPath()), key: kimiScriptHashKey, agent: "kimi", summary: summary, defaults: defaults)
+        persistInstalledHash(sha256OrNil(devinScriptPath()), key: devinScriptHashKey, agent: "devin", summary: summary, defaults: defaults)
         return summary
+    }
+
+    /// A failed per-agent write must remain pending. Recording the hash of an
+    /// older file after a partial install makes the next launch believe the
+    /// stale integration is current merely because its hash is self-consistent.
+    private static func persistInstalledHash(
+        _ hash: String?,
+        key: String,
+        agent: String,
+        summary: Summary,
+        defaults: UserDefaults
+    ) {
+        if summary.installed.contains(agent) {
+            defaults.set(hash, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     @MainActor
