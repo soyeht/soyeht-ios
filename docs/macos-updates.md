@@ -22,7 +22,7 @@ SPARKLE_BIN=$(find ~/Library/Developer/Xcode/DerivedData -path '*/SourcePackages
 "$SPARKLE_BIN/generate_keys" --account soyeht-mac -x /tmp/soyeht-sparkle-private-key
 ```
 
-Add repository secrets:
+Add the two required repository secrets:
 
 ```sh
 gh secret set SPARKLE_PRIVATE_KEY --repo soyeht/soyeht-ios < /tmp/soyeht-sparkle-private-key
@@ -50,11 +50,6 @@ Required GitHub Actions secrets:
 | `APPLE_NOTARY_ISSUER_ID` | App Store Connect Team API issuer ID. |
 | `APPLE_TEAM_ID` | `W7677A5BK2`. |
 | `APPLE_CODESIGN_IDENTITY` | `Developer ID Application: Gilberto Filho (W7677A5BK2)`. |
-
-Optional, but recommended for push-assisted pairing:
-
-| Secret | Value |
-|---|---|
 | `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |
 
 The `theyos` repo already uses the same Apple secret names. GitHub does not

@@ -54,6 +54,19 @@ PRODUCT_PHASES = (
 CONTRACT_PHASE = "governed-release-contract"
 EXPECTED_PHASES = (PRODUCT_PHASES[0], CONTRACT_PHASE, *PRODUCT_PHASES[1:])
 
+REQUIRED_RELEASE_SECRETS = (
+    "SPARKLE_PRIVATE_KEY",
+    "SOYEHT_SPARKLE_PUBLIC_ED_KEY",
+    "APPLE_DEVELOPER_ID_P12_BASE64",
+    "APPLE_DEVELOPER_ID_P12_PASSWORD",
+    "APPLE_NOTARY_KEY_P8_BASE64",
+    "APPLE_NOTARY_KEY_ID",
+    "APPLE_NOTARY_ISSUER_ID",
+    "APPLE_TEAM_ID",
+    "APPLE_CODESIGN_IDENTITY",
+    "SOYEHT_APNS_P8_BASE64",
+)
+
 
 class ContractError(RuntimeError):
     """The versioned release contract is absent, ambiguous, or bypassable."""
@@ -308,6 +321,41 @@ def validate_required_build(workflow: str, dispatcher: str) -> None:
     )
 
 
+def validate_release_secret_inventory(workflow: str, release_doc: str) -> None:
+    check_run = multiline_run_body(workflow_step(workflow, "Check release secrets"))
+    match = re.search(r"for name in \\\n(?P<names>.*?)\n\s*do\n", check_run, re.DOTALL)
+    require(match is not None, "release workflow required-secret loop is missing")
+    assert match is not None
+    workflow_names = tuple(
+        re.findall(r"^\s*([A-Z][A-Z0-9_]*)\s*(?:\\)?$", match.group("names"), re.MULTILINE)
+    )
+    require(
+        workflow_names == REQUIRED_RELEASE_SECRETS,
+        "release workflow required-secret inventory/order drifted",
+    )
+
+    sparkle_names = tuple(
+        re.findall(r"^gh secret set ([A-Z][A-Z0-9_]*)\s", release_doc, re.MULTILINE)
+    )
+    heading = "Required GitHub Actions secrets:\n"
+    require_once(release_doc, heading, "release documentation required-secret heading drifted")
+    table_start = release_doc.index(heading) + len(heading)
+    table_end = release_doc.find("\n\n", table_start)
+    require(table_end >= 0, "release documentation required-secret table is unterminated")
+    table_names = tuple(
+        re.findall(
+            r"^\| `([A-Z][A-Z0-9_]*)` \|",
+            release_doc[table_start:table_end],
+            re.MULTILINE,
+        )
+    )
+    documented_names = sparkle_names + table_names
+    require(
+        documented_names == workflow_names,
+        "release documentation required-secret inventory/classification differs from workflow",
+    )
+
+
 def validate_docs(release_doc: str, agent_doc: str, claude_doc: str) -> None:
     heading = "## macOS Release Signing"
     agent_block = markdown_section(agent_doc, heading)
@@ -358,6 +406,7 @@ def validate_snapshot(files: Mapping[str, str]) -> None:
     require(not missing, f"contract files missing: {', '.join(missing)}")
     validate_release_workflow(files[RELEASE_WORKFLOW])
     validate_required_build(files[REQUIRED_WORKFLOW], files[DISPATCHER])
+    validate_release_secret_inventory(files[RELEASE_WORKFLOW], files[RELEASE_DOC])
     validate_docs(files[RELEASE_DOC], files[AGENT_DOC], files[CLAUDE_DOC])
 
 
@@ -417,6 +466,8 @@ def mutants() -> tuple[Mutant, ...]:
                lambda s: s + "\n# self-test\nrun: uploader --clobber asset\n"),
         Mutant("release-direct-dispatch-interpolation", RELEASE_WORKFLOW,
                lambda s: replace_once(s, 'expected_ref="$DISPATCH_EXPECTED_REF"', 'expected_ref="${{ inputs.expected_ref }}"')),
+        Mutant("release-required-apns-removed", RELEASE_WORKFLOW,
+               lambda s: replace_once(s, "            SOYEHT_APNS_P8_BASE64\n          do", "          do")),
         Mutant("required-build-paths", REQUIRED_WORKFLOW,
                lambda s: replace_once(s, "  pull_request:\n    branches: [ main ]", "  pull_request:\n    branches: [ main ]\n    paths: [ 'TerminalApp/**' ]")),
         Mutant("required-build-paths-ignore", REQUIRED_WORKFLOW,
@@ -453,6 +504,19 @@ def mutants() -> tuple[Mutant, ...]:
                lambda s: s + "\nRun git push as a fallback.\n"),
         Mutant("docs-clobber", RELEASE_DOC,
                lambda s: s + "\nRetry with --clobber as a fallback.\n"),
+        Mutant("docs-required-apns-reclassified", RELEASE_DOC,
+               lambda s: replace_once(
+                   s,
+                   "| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |",
+                   "Optional secret: `SOYEHT_APNS_P8_BASE64`.",
+               )),
+        Mutant("docs-required-secret-extra", RELEASE_DOC,
+               lambda s: replace_once(
+                   s,
+                   "| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |",
+                   "| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |\n"
+                   "| `UNEXPECTED_RELEASE_SECRET` | Self-test-only unexpected inventory entry. |",
+               )),
     )
 
 
