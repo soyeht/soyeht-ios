@@ -655,6 +655,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func rebindFromStore() {
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
+        // Coding-agent TUIs occasionally leave xterm mouse tracking enabled
+        // while their prompt editor treats the resulting SGR packets as text
+        // (`ESC[<button;x;yM/m`). Prefer normal macOS selection in agent panes
+        // and never let random mouse movement/clicks corrupt a user prompt.
+        // Plain shell panes retain opt-in terminal mouse support for tmux/vim.
+        terminalView.allowMouseReporting = conv.content.isTerminal && conv.agent.isShell
         configureContent(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
