@@ -193,6 +193,7 @@ enum AgentStateIntegrationInstaller {
         let eventsAsync: [(event: String, matcher: String?)] = [
             ("SessionStart", nil),
             ("UserPromptSubmit", nil),
+            ("MessageDisplay", nil),
             ("PreToolUse", nil),
             ("PostToolUse", nil),
             ("PermissionRequest", nil),
@@ -200,12 +201,15 @@ enum AgentStateIntegrationInstaller {
             ("Stop", nil),
         ]
         for (event, matcher) in eventsAsync {
+            let mustPersistConversationBeforeContinuing = [
+                "SessionStart", "UserPromptSubmit", "MessageDisplay", "Stop",
+            ].contains(event)
             hooks[event] = mergedGroups(
                 existing: hooks[event] as? [[String: Any]] ?? [],
                 replacement: hookGroup(
                     command: claudeHookCommand(),
                     matcher: matcher,
-                    async: true
+                    async: !mustPersistConversationBeforeContinuing
                 )
             )
         }
@@ -964,10 +968,22 @@ enum AgentLaunchCommandBuilder {
     static func prepare(_ command: String) -> String {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return command }
-        let executable = ((trimmed as NSString).pathComponents.last ?? "").lowercased()
+        let pieces = trimmed.split(
+            maxSplits: 1,
+            omittingEmptySubsequences: true,
+            whereSeparator: { $0.isWhitespace }
+        )
+        guard let executableToken = pieces.first else { return command }
+        let unquotedExecutable = executableToken.trimmingCharacters(
+            in: CharacterSet(charactersIn: "'\"")
+        )
+        let executable = (unquotedExecutable as NSString).lastPathComponent.lowercased()
         guard executable == "codex" else { return command }
         guard !trimmed.contains("--dangerously-bypass-hook-trust") else { return command }
         guard CodexHookAudit.bypassAllowed() else { return command }
-        return command + " --dangerously-bypass-hook-trust"
+        let remainder = pieces.count > 1 ? String(pieces[1]) : ""
+        return remainder.isEmpty
+            ? "\(executableToken) --dangerously-bypass-hook-trust"
+            : "\(executableToken) --dangerously-bypass-hook-trust \(remainder)"
     }
 }

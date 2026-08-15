@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 10
+    static let version = 11
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -22,6 +22,73 @@ enum AgentStateReporterScripts {
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import json, os, sys, time, uuid
 from pathlib import Path
+
+
+def write_request(automation_dir, request_type, payload):
+    request = {"id": str(uuid.uuid4()), "type": request_type, "payload": payload}
+    requests_dir = Path(automation_dir) / "Requests"
+    requests_dir.mkdir(parents=True, exist_ok=True)
+    request_id = request["id"]
+    tmp = requests_dir / (".%s.tmp" % request_id)
+    tmp.write_text(json.dumps(request))
+    tmp.rename(requests_dir / ("%s.json" % request_id))
+
+
+def scalar(value, *keys):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in keys:
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate:
+                return candidate
+    return None
+
+
+def report_conversation(data, event, conversation_id, automation_dir):
+    session_id = scalar(data.get("session_id") or data.get("sessionId"), "id")
+    model = scalar(data.get("model"), "id", "model_id", "display_name")
+    effort = scalar(data.get("effort") or data.get("reasoning_effort"), "level", "effective")
+    variant = scalar(data.get("variant"), "id", "name")
+    payload = {
+        "sourceConversationID": conversation_id,
+        "nativeSessionID": session_id,
+        "model": model,
+        "reasoningEffort": effort,
+        "variant": variant,
+    }
+    payload = {key: value for key, value in payload.items() if value}
+
+    role = None
+    text = None
+    if event == "UserPromptSubmit":
+        role = "user"
+        text = data.get("prompt") or data.get("user_prompt")
+    elif event == "MessageDisplay":
+        role = "assistant"
+        text = data.get("message") or data.get("text")
+    elif event == "Stop":
+        role = "assistant"
+        text = data.get("last_assistant_message") or data.get("lastAssistantMessage")
+
+    if isinstance(text, str) and text.strip():
+        # A handoff envelope is transport already represented by its original
+        # canonical events. It must not become a second user turn.
+        if role == "user" and text.lstrip().startswith("SOYEHT_AGENT_HANDOFF_V1"):
+            return
+        payload["role"] = role
+        payload["text"] = text
+        source_event_id = data.get("message_id") or data.get("messageId")
+        turn_id = data.get("turn_id") or data.get("turnId")
+        if not source_event_id and turn_id:
+            source_event_id = "%s:%s" % (turn_id, role)
+        if source_event_id:
+            payload["sourceEventID"] = str(source_event_id)
+        write_request(automation_dir, "report_agent_conversation", payload)
+    elif any(payload.get(key) for key in (
+        "nativeSessionID", "model", "reasoningEffort", "variant"
+    )):
+        write_request(automation_dir, "report_agent_conversation", payload)
 
 
 def main():
@@ -40,6 +107,9 @@ def main():
     command = str(tool_input.get("command") or "")
     snippet = (command[:120] + "...") if len(command) > 120 else command
     notification_type = str(data.get("notification_type") or "")
+
+    if event in ("SessionStart", "UserPromptSubmit", "MessageDisplay", "Stop"):
+        report_conversation(data, event, conversation_id, automation_dir)
 
     state = None
     message = None
@@ -80,13 +150,7 @@ def main():
     nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
     if nonce:
         payload["nonce"] = nonce
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
-    requests_dir = Path(automation_dir) / "Requests"
-    requests_dir.mkdir(parents=True, exist_ok=True)
-    request_id = request["id"]
-    tmp = requests_dir / (".%s.tmp" % request_id)
-    tmp.write_text(json.dumps(request))
-    tmp.rename(requests_dir / ("%s.json" % request_id))
+    write_request(automation_dir, "report_agent_state", payload)
     return 0
 
 
@@ -308,14 +372,53 @@ const BUSY_STATUSES = new Set([
 ]);
 
 const pendingPermissions = new Set();
+const messageInfo = new Map();
+const pendingTextParts = new Map();
 let lastBaseState = null;
 let lastBlockedMessage = null;
+
+async function writeAutomationRequest(type, payload) {
+  const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
+  if (!automationDir) return;
+  const id = randomUUID();
+  try {
+    const dir = join(automationDir, "Requests");
+    await mkdir(dir, { recursive: true });
+    const tmp = join(dir, `.${id}.tmp`);
+    await writeFile(tmp, JSON.stringify({ id, type, payload }));
+    await rename(tmp, join(dir, `${id}.json`));
+  } catch {
+    // never disturb the agent session
+  }
+}
+
+async function reportConversation(payload) {
+  const conversationID = process.env.SOYEHT_CONVERSATION_ID;
+  if (!conversationID) return;
+  await writeAutomationRequest("report_agent_conversation", {
+    sourceConversationID: conversationID,
+    ...payload,
+  });
+}
+
+async function reportAssistantPart(part, info) {
+  await reportConversation({
+    role: "assistant",
+    text: part.text,
+    nativeSessionID: part.sessionID,
+    sourceEventID: part.id,
+    model: info.providerID && info.modelID
+      ? `${info.providerID}/${info.modelID}`
+      : info.modelID,
+    reasoningEffort: info.variant,
+    variant: info.variant,
+  });
+}
 
 async function report(state, message) {
   const conversationID = process.env.SOYEHT_CONVERSATION_ID;
   const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
   if (!conversationID || !automationDir || !state) return;
-  const id = randomUUID();
   const payload = {
     state,
     sourceConversationID: conversationID,
@@ -325,15 +428,7 @@ async function report(state, message) {
   if (message) payload.message = String(message).slice(0, 200);
   const nonce = process.env.SOYEHT_LAUNCH_NONCE;
   if (nonce) payload.nonce = nonce;
-  try {
-    const dir = join(automationDir, "Requests");
-    await mkdir(dir, { recursive: true });
-    const tmp = join(dir, `.${id}.tmp`);
-    await writeFile(tmp, JSON.stringify({ id, type: "report_agent_state", payload }));
-    await rename(tmp, join(dir, `${id}.json`));
-  } catch {
-    // never disturb the agent session
-  }
+  await writeAutomationRequest("report_agent_state", payload);
 }
 
 async function publish(message) {
@@ -352,8 +447,31 @@ export const SoyehtAgentStatePlugin = async () => {
   lastBaseState = "idle";
   await report("idle", "ready");
   return {
-    "chat.message": async () => {
+    "chat.message": async (input, output) => {
       lastBaseState = "working";
+      const text = (output?.parts ?? [])
+        .filter((part) => part?.type === "text" && !part.synthetic && !part.ignored)
+        .map((part) => part.text ?? "")
+        .join("\n")
+        .trim();
+      if (text && !text.startsWith("SOYEHT_AGENT_HANDOFF_V1")) {
+        await reportConversation({
+          role: "user",
+          text,
+          nativeSessionID: input?.sessionID,
+          sourceEventID: output?.message?.id ?? input?.messageID,
+          model: input?.model ? `${input.model.providerID}/${input.model.modelID}` : undefined,
+          reasoningEffort: input?.variant,
+          variant: input?.variant,
+        });
+      } else if (input?.sessionID) {
+        await reportConversation({
+          nativeSessionID: input.sessionID,
+          model: input?.model ? `${input.model.providerID}/${input.model.modelID}` : undefined,
+          reasoningEffort: input?.variant,
+          variant: input?.variant,
+        });
+      }
       await publish();
     },
     "tool.execute.before": async () => {
@@ -367,8 +485,45 @@ export const SoyehtAgentStatePlugin = async () => {
       switch (type) {
         case "session.created":
           lastBaseState = lastBaseState ?? "idle";
+          await reportConversation({
+            nativeSessionID: properties?.info?.id ?? properties?.sessionID,
+          });
           await publish();
           break;
+        case "message.updated": {
+          const info = properties?.info;
+          if (info?.id) messageInfo.set(info.id, info);
+          if (info?.role === "assistant") {
+            const pendingPart = pendingTextParts.get(info.id);
+            if (pendingPart) {
+              pendingTextParts.delete(info.id);
+              await reportAssistantPart(pendingPart, info);
+            }
+            await reportConversation({
+              nativeSessionID: info.sessionID ?? properties?.sessionID,
+              model: info.providerID && info.modelID
+                ? `${info.providerID}/${info.modelID}`
+                : info.modelID,
+              reasoningEffort: info.variant,
+              variant: info.variant,
+            });
+          }
+          break;
+        }
+        case "message.part.updated": {
+          const part = properties?.part;
+          const info = messageInfo.get(part?.messageID);
+          if (part?.type === "text" && !part.synthetic && !part.ignored) {
+            if (info?.role === "assistant") {
+              await reportAssistantPart(part, info);
+            } else if (!info && part?.messageID) {
+              // OpenCode usually emits message.updated first, but retain the
+              // newest full text if event ordering changes between versions.
+              pendingTextParts.set(part.messageID, part);
+            }
+          }
+          break;
+        }
         case "session.status": {
           const status = properties.status;
           const kind = (typeof status === "string" ? status : status?.type ?? "").toLowerCase();

@@ -29,6 +29,7 @@ struct SoyehtAutomationRequest: Decodable {
         case identifyAgent = "identify_agent"
         case listAgents = "list_agents"
         case reportAgentState = "report_agent_state"
+        case reportAgentConversation = "report_agent_conversation"
         case requestAttention = "request_attention"
         case switchAgent = "switch_agent"
         case openEditor = "open_editor"
@@ -117,6 +118,12 @@ struct SoyehtAutomationRequest: Decodable {
         let nonce: String?
         let reportSource: String?
         let attentionKind: String?
+        let role: String?
+        let nativeSessionID: String?
+        let sourceEventID: String?
+        let model: String?
+        let reasoningEffort: String?
+        let variant: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -449,6 +456,15 @@ struct SoyehtAutomationResponse: Encodable {
         let reason: String?
     }
 
+    struct AgentConversationReported: Encodable {
+        let conversationID: String
+        let handle: String
+        let sourceAgent: String
+        let kind: String
+        let sequence: Int?
+        let nativeSessionID: String?
+    }
+
     struct SwitchedAgent: Encodable {
         let conversationID: String
         let workspaceID: String
@@ -456,6 +472,11 @@ struct SoyehtAutomationResponse: Encodable {
         let previousAgent: String
         let newAgent: String
         let transcriptLineCount: Int
+        let importedEventCount: Int
+        let historySource: String
+        let resumedNativeSession: Bool
+        let sourceModel: String?
+        let sourceReasoningEffort: String?
     }
 
     struct CapturedPane: Encodable {
@@ -544,6 +565,7 @@ struct SoyehtAutomationResponse: Encodable {
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
     let agentStateReported: AgentStateReported?
+    let agentConversationReported: AgentConversationReported?
     let switchedAgents: [SwitchedAgent]?
 }
 
@@ -571,6 +593,7 @@ struct SoyehtAutomationResult {
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
+    var agentConversationReported: SoyehtAutomationResponse.AgentConversationReported? = nil
     var switchedAgents: [SoyehtAutomationResponse.SwitchedAgent]? = nil
 }
 
@@ -789,6 +812,7 @@ final class SoyehtAutomationService {
                 sourceIdentity: result.sourceIdentity,
                 listedAgents: result.listedAgents,
                 agentStateReported: result.agentStateReported,
+                agentConversationReported: result.agentConversationReported,
                 switchedAgents: result.switchedAgents
             ))
         } catch {
@@ -822,6 +846,7 @@ final class SoyehtAutomationService {
                 sourceIdentity: nil,
                 listedAgents: [],
                 agentStateReported: nil,
+                agentConversationReported: nil,
                 switchedAgents: nil
             ))
         }

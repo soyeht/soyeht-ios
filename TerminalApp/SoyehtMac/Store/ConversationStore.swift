@@ -112,9 +112,58 @@ final class ConversationStore {
         postChange()
     }
 
-    func updateAgentHandoffTranscript(_ id: Conversation.ID, transcript: String?) {
+    func updateAgentConversation(_ id: Conversation.ID, state: AgentConversationState) {
         guard var conv = conversations[id] else { return }
-        conv.agentHandoffTranscript = transcript
+        conv.agentConversation = state
+        conversations[id] = conv
+        postChange()
+    }
+
+    @discardableResult
+    func recordAgentConversationEvent(
+        _ id: Conversation.ID,
+        role: AgentConversationEvent.Role,
+        text: String,
+        sourceAgent: String,
+        nativeSessionID: String?,
+        sourceEventID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?
+    ) -> AgentConversationEvent? {
+        guard var conv = conversations[id] else { return nil }
+        let event = conv.agentConversation.recordEvent(
+            role: role,
+            text: text,
+            sourceAgent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            sourceEventID: sourceEventID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        )
+        guard event != nil else { return nil }
+        conversations[id] = conv
+        postChange()
+        return event
+    }
+
+    func recordAgentSession(
+        _ id: Conversation.ID,
+        sourceAgent: String,
+        nativeSessionID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentConversation.recordSession(
+            agent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        )
         conversations[id] = conv
         postChange()
     }

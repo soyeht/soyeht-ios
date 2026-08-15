@@ -3486,12 +3486,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let previousAgent: String
         let newAgent: String
         let transcriptLineCount: Int
+        let importedEventCount: Int
+        let historySource: String
+        let resumedNativeSession: Bool
+        let sourceModel: String?
+        let sourceReasoningEffort: String?
     }
 
     /// Switches the agent running in an existing pane while keeping the same
-    /// conversation (pane identity, handle and scrollback). The previous
-    /// agent's terminal transcript is captured before teardown and replayed
-    /// into the new agent as handoff context.
+    /// logical conversation. Continuity comes exclusively from structured
+    /// provider events captured by hooks/plugins; terminal paint is never read
+    /// or replayed as conversation history.
     @MainActor
     func switchAgent(
         in paneID: Conversation.ID,
@@ -3513,23 +3518,34 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.unknownLocalAgent(agentName)
         }
 
-        let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName
+        let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName.lowercased()
 
-        // 1. Capture the transcript BEFORE tearing the current process down.
-        var liveTranscript = ""
-        if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
-            let terminal = pane.terminalView.getTerminal()
-            let scrollback = terminal.getScrollbackText()
-            let visible = terminal.getVisibleText()
-            liveTranscript = scrollback.isEmpty
-                ? visible
-                : (visible.isEmpty ? scrollback : scrollback + "\n" + visible)
-        }
-        let transcript = AgentHandoffContext.accumulating(
-            previous: conv.agentHandoffTranscript,
-            current: liveTranscript
+        // 1. Snapshot the canonical semantic history. The source agent has
+        // already seen every event up to this point, including any prior
+        // import, so advancing its cursor makes a future native resume receive
+        // only the intervening delta.
+        var conversationState = conv.agentConversation
+        conversationState.markImported(
+            through: conversationState.lastSequence,
+            by: previousAgent
         )
-        convStore.updateAgentHandoffTranscript(paneID, transcript: transcript)
+        if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !instruction.isEmpty {
+            _ = conversationState.recordEvent(
+                role: .user,
+                text: instruction,
+                sourceAgent: "soyeht"
+            )
+        }
+        let targetEvents = conversationState.eventsNotImported(by: target.name)
+        let throughSequence = conversationState.lastSequence
+        let prompt = AgentConversationHandoff.prompt(
+            previousAgent: previousAgent,
+            events: targetEvents,
+            throughSequence: throughSequence
+        )
+        let targetBinding = conversationState.bindings[target.name]
+        convStore.updateAgentConversation(paneID, state: conversationState)
 
         // 2. Tear down the current process: engine sessions are reaped
         // immediately (the switch is deliberate — no undo window), local
@@ -3549,17 +3565,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         convStore.updateFields(paneID, handle: conv.handle, agent: .claw(target.name))
         convStore.updateCommander(paneID, commander: .mirror(instanceID: "pending"))
 
-        // 4. Re-attach the pane with the new agent command and the handoff
-        // prompt. attachLocalPTY reuses the nonce handshake + ack/retry
-        // delivery, so the prompt only reaches a booted agent.
+        // 4. Resume the target's exact native session when its adapter supports
+        // it, then import only the canonical events after that session's
+        // cursor. First-time targets receive the complete canonical history.
         let cwd = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.homeDirectoryForCurrentUser
-        let prompt = AgentHandoffContext.prompt(
-            previousAgent: previousAgent,
-            transcript: transcript,
-            additionalInstruction: customPrompt
+        let baseCommand = customCommand ?? AgentNativeSessionCommand.command(
+            for: target,
+            binding: targetBinding
         )
-        let command = AgentLaunchCommandBuilder.prepare(customCommand ?? target.command)
+        let command = AgentLaunchCommandBuilder.prepare(baseCommand)
         try await attachLocalPTY(
             to: paneID,
             cwd: cwd,
@@ -3573,7 +3588,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         Self.logger.info(
-            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) transcriptLines=\(transcript.split(separator: "\n", omittingEmptySubsequences: false).count, privacy: .public)"
+            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(targetBinding?.nativeSessionID != nil, privacy: .public)"
         )
         return SwitchedAgentResult(
             conversationID: paneID,
@@ -3581,7 +3596,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handle: conv.handle,
             previousAgent: previousAgent,
             newAgent: target.name,
-            transcriptLineCount: transcript.split(separator: "\n", omittingEmptySubsequences: false).count
+            // Preserve the response field for automation compatibility. Its
+            // value now counts canonical messages, never terminal lines.
+            transcriptLineCount: conversationState.events.count,
+            importedEventCount: targetEvents.count,
+            historySource: "structured",
+            resumedNativeSession: targetBinding?.nativeSessionID != nil,
+            sourceModel: conversationState.bindings[previousAgent]?.model,
+            sourceReasoningEffort: conversationState.bindings[previousAgent]?.reasoningEffort
         )
     }
 

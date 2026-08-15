@@ -65,6 +65,8 @@ final class SoyehtAutomationRequestRouter {
         case sourceHandleNotFound(String)
         case sourceIdentityUnavailable
         case invalidAgentState(String)
+        case invalidConversationRole(String)
+        case emptyConversationEvent
         case unknownAgent(String)
         case emptyPaneInputTargets
         case invalidConversationIDFormat(String)
@@ -109,6 +111,10 @@ final class SoyehtAutomationRequestRouter {
                 return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
             case .invalidAgentState(let value):
                 return "Invalid agent state: \(value). Expected one of: working, idle, blocked, done, unknown."
+            case .invalidConversationRole(let value):
+                return "Invalid conversation role: \(value). Expected user or assistant."
+            case .emptyConversationEvent:
+                return "Conversation event did not include session metadata or user-visible message text."
             case .unknownAgent(let value):
                 return "Unknown local agent: \(value). Run list_agents to see available agents."
             case .emptyPaneInputTargets:
@@ -171,6 +177,8 @@ final class SoyehtAutomationRequestRouter {
             return try handleListAgents(request)
         case .reportAgentState:
             return try handleReportAgentState(request)
+        case .reportAgentConversation:
+            return try handleReportAgentConversation(request)
         case .requestAttention:
             return try handleRequestAttention(request)
         case .switchAgent:
@@ -903,6 +911,87 @@ final class SoyehtAutomationRequestRouter {
 
     private static let validAgentStates: Set<String> = ["working", "idle", "blocked", "done", "unknown"]
 
+    /// Accepts structured provider events emitted by Soyeht-owned hooks and
+    /// plugins. Source agent attribution comes from the pane itself, never
+    /// from caller-controlled payload text.
+    private func handleReportAgentConversation(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let sourceAgent = source.conversation.agent.displayName.lowercased()
+        let nativeSessionID = payload.nativeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = payload.model?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effort = payload.reasoningEffort?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let variant = payload.variant?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let rawRole = payload.role?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !rawRole.isEmpty else {
+            guard [nativeSessionID, model, effort, variant].contains(where: {
+                !($0?.isEmpty ?? true)
+            }) else {
+                throw AutomationError.emptyConversationEvent
+            }
+            conversationStore.recordAgentSession(
+                source.conversation.id,
+                sourceAgent: sourceAgent,
+                nativeSessionID: nativeSessionID,
+                model: model,
+                reasoningEffort: effort,
+                variant: variant
+            )
+            return SoyehtAutomationResult(agentConversationReported: .init(
+                conversationID: source.conversation.id.uuidString,
+                handle: source.conversation.handle,
+                sourceAgent: sourceAgent,
+                kind: "session",
+                sequence: nil,
+                nativeSessionID: nativeSessionID
+            ))
+        }
+
+        guard let role = AgentConversationEvent.Role(rawValue: rawRole) else {
+            throw AutomationError.invalidConversationRole(rawRole)
+        }
+        let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !text.isEmpty else { throw AutomationError.emptyConversationEvent }
+        // Imported SAHP envelopes are transport, not new user turns. Hooks see
+        // them at the provider boundary, so filter them again in the app even
+        // if an older reporter failed to do so.
+        guard !text.hasPrefix(AgentConversationHandoff.marker) else {
+            return SoyehtAutomationResult(agentConversationReported: .init(
+                conversationID: source.conversation.id.uuidString,
+                handle: source.conversation.handle,
+                sourceAgent: sourceAgent,
+                kind: "ignored_handoff",
+                sequence: nil,
+                nativeSessionID: nativeSessionID
+            ))
+        }
+        let recorded = conversationStore.recordAgentConversationEvent(
+            source.conversation.id,
+            role: role,
+            text: text,
+            sourceAgent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            sourceEventID: payload.sourceEventID,
+            model: model,
+            reasoningEffort: effort,
+            variant: variant
+        )
+        guard let recorded else { throw AutomationError.emptyConversationEvent }
+        return SoyehtAutomationResult(agentConversationReported: .init(
+            conversationID: source.conversation.id.uuidString,
+            handle: source.conversation.handle,
+            sourceAgent: sourceAgent,
+            kind: "message",
+            sequence: recorded.sequence,
+            nativeSessionID: recorded.nativeSessionID
+        ))
+    }
+
     private func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload) else {
@@ -1021,8 +1110,7 @@ final class SoyehtAutomationRequestRouter {
     }
 
     /// Switches the agent driving target panes while keeping each pane's
-    /// conversation. The previous agent's transcript is replayed into the
-    /// new agent as handoff context. Targets resolve like send_pane_input:
+    /// structured conversation. Targets resolve like send_pane_input:
     /// explicit conversationIDs/handles, else the source pane, else the
     /// active pane.
     private func handleSwitchAgent(_ request: SoyehtAutomationRequest) async throws -> SoyehtAutomationResult {
@@ -1089,7 +1177,12 @@ final class SoyehtAutomationRequestRouter {
                 handle: result.handle,
                 previousAgent: result.previousAgent,
                 newAgent: result.newAgent,
-                transcriptLineCount: result.transcriptLineCount
+                transcriptLineCount: result.transcriptLineCount,
+                importedEventCount: result.importedEventCount,
+                historySource: result.historySource,
+                resumedNativeSession: result.resumedNativeSession,
+                sourceModel: result.sourceModel,
+                sourceReasoningEffort: result.sourceReasoningEffort
             ))
         }
         return SoyehtAutomationResult(switchedAgents: switched)

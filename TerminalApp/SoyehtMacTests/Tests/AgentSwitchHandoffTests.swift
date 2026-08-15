@@ -10,18 +10,9 @@ final class AgentSwitchHandoffTests: XCTestCase {
     }
 
     func testLongHandoffGetsEnoughTimeToAcknowledgePaste() {
-        XCTAssertEqual(
-            AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: "short"),
-            8
-        )
+        XCTAssertEqual(AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: "short"), 8)
         XCTAssertEqual(
             AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: "line one\nline two"),
-            20
-        )
-        XCTAssertEqual(
-            AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(
-                for: String(repeating: "x", count: 257)
-            ),
             20
         )
     }
@@ -36,120 +27,177 @@ final class AgentSwitchHandoffTests: XCTestCase {
             AgentPaneInputPlanner.terminalPastePayload(text, bracketedPasteMode: false),
             text
         )
-        XCTAssertEqual(
-            AgentPaneInputPlanner.terminalPastePayload("short", bracketedPasteMode: true),
-            "short"
+    }
+
+    func testCanonicalConversationRecordsOnlyExplicitSemanticEvents() {
+        var state = AgentConversationState()
+        state.recordEvent(
+            role: .user,
+            text: " pergunta real\r\ncom NUL\0 ",
+            sourceAgent: "Codex",
+            nativeSessionID: "thread-1",
+            sourceEventID: "user-1",
+            model: "gpt-example",
+            reasoningEffort: "high",
+            variant: nil
         )
-    }
-
-    func testTranscriptAccumulatesWhenNextTUIReplacesItsScrollback() {
-        let first = AgentHandoffContext.accumulating(previous: nil, current: "first\ntoken-one")
-        let second = AgentHandoffContext.accumulating(previous: first, current: "second\ntoken-two")
-
-        XCTAssertGreaterThan(second.split(separator: "\n").count, first.split(separator: "\n").count)
-        XCTAssertTrue(second.contains("token-one"))
-        XCTAssertTrue(second.contains("token-two"))
-    }
-
-    func testTranscriptRemovesNULPaddingThatBreaksAgentPastes() {
-        let accumulated = AgentHandoffContext.accumulating(
-            previous: nil,
-            current: "before\0\0after\nSOYEHT_HANDOFF_TOKEN=kept"
+        state.recordEvent(
+            role: .assistant,
+            text: "resposta real",
+            sourceAgent: "codex",
+            nativeSessionID: "thread-1",
+            sourceEventID: "assistant-1"
         )
 
-        XCTAssertFalse(accumulated.contains("\0"))
-        XCTAssertTrue(accumulated.contains("beforeafter"))
-        XCTAssertTrue(accumulated.contains("SOYEHT_HANDOFF_TOKEN=kept"))
+        XCTAssertEqual(state.events.map(\.role), [.user, .assistant])
+        XCTAssertEqual(state.events[0].text, "pergunta real\ncom NUL")
+        XCTAssertEqual(state.bindings["codex"]?.nativeSessionID, "thread-1")
+        XCTAssertEqual(state.bindings["codex"]?.model, "gpt-example")
+        XCTAssertEqual(state.bindings["codex"]?.reasoningEffort, "high")
     }
 
-    func testTranscriptDoesNotReaccumulateInjectedHistoryBlock() {
-        let previous = "first-session\nSOYEHT_HANDOFF_TOKEN=token-one"
-        let current = """
-        Você está continuando uma conversa.
-        --- HISTÓRICO ANTERIOR (agente claude) ---
-        first-session
-        SOYEHT_HANDOFF_TOKEN=token-one
-        --- FIM DO HISTÓRICO ANTERIOR ---
-        second-session
-        SOYEHT_HANDOFF_TOKEN=token-two
-        """
+    func testStreamingSourceEventUpdatesInsteadOfDuplicating() {
+        var state = AgentConversationState()
+        state.recordEvent(
+            role: .assistant,
+            text: "parcial",
+            sourceAgent: "opencode",
+            sourceEventID: "part-1"
+        )
+        state.recordEvent(
+            role: .assistant,
+            text: "resposta completa",
+            sourceAgent: "opencode",
+            sourceEventID: "part-1"
+        )
 
-        let accumulated = AgentHandoffContext.accumulating(previous: previous, current: current)
-
-        XCTAssertEqual(accumulated.components(separatedBy: "token-one").count - 1, 1)
-        XCTAssertTrue(accumulated.contains("second-session"))
-        XCTAssertTrue(accumulated.contains("token-two"))
+        XCTAssertEqual(state.events.count, 1)
+        XCTAssertEqual(state.events[0].text, "resposta completa")
+        XCTAssertEqual(state.events[0].sequence, 1)
     }
 
-    func testCustomInstructionComplementsRatherThanReplacesTranscript() {
-        let prompt = AgentHandoffContext.prompt(
+    func testProviderStopAndDisplayExactDuplicateBecomeOneTurn() {
+        var state = AgentConversationState()
+        state.recordEvent(role: .assistant, text: "final", sourceAgent: "claude")
+        state.recordEvent(role: .assistant, text: "final", sourceAgent: "claude")
+        XCTAssertEqual(state.events.count, 1)
+    }
+
+    func testReturningAgentReceivesOnlyDeltaAfterItsCursor() {
+        var state = AgentConversationState()
+        let first = state.recordEvent(role: .user, text: "primeira", sourceAgent: "claude")!
+        state.markImported(through: first.sequence, by: "codex")
+        state.recordEvent(role: .assistant, text: "segunda", sourceAgent: "claude")
+
+        XCTAssertEqual(state.eventsNotImported(by: "codex").map(\.text), ["segunda"])
+        XCTAssertEqual(state.eventsNotImported(by: "opencode").map(\.text), ["primeira", "segunda"])
+    }
+
+    func testHandoffEnvelopePreservesRolesAndMetadata() throws {
+        var state = AgentConversationState()
+        state.recordEvent(
+            role: .user,
+            text: "pergunta",
+            sourceAgent: "claude",
+            nativeSessionID: "session-1",
+            sourceEventID: "event-1",
+            model: "model-example",
+            reasoningEffort: "medium",
+            variant: "balanced"
+        )
+        let prompt = try XCTUnwrap(AgentConversationHandoff.prompt(
             previousAgent: "claude",
-            transcript: "SOYEHT_HANDOFF_TOKEN=transcript-only",
-            additionalInstruction: "Execute the next protocol stage."
-        )
-
-        XCTAssertTrue(prompt.contains("SOYEHT_HANDOFF_TOKEN=transcript-only"))
-        XCTAssertTrue(prompt.contains("Execute the next protocol stage."))
-    }
-
-    func testTranscriptTailIsBoundedWithoutDroppingNewestSession() {
-        let previous = (1...399).map { "old-\($0)" }.joined(separator: "\n")
-        let current = "new-one\nnew-two\nnew-three"
-        let accumulated = AgentHandoffContext.accumulating(previous: previous, current: current)
-        let lines = accumulated.split(separator: "\n", omittingEmptySubsequences: false)
-
-        XCTAssertEqual(lines.count, AgentHandoffContext.maximumTranscriptLines)
-        XCTAssertTrue(lines.first?.contains("linhas anteriores omitidas") == true)
-        XCTAssertEqual(lines.suffix(3).map(String.init), ["new-one", "new-two", "new-three"])
-    }
-
-    func testTranscriptTailPreservesContinuityMarkersAcrossNoisySessions() {
-        let token = "SOYEHT_HANDOFF_TOKEN=5d7c8ce8-2da9-4ada-a6e2-28732be97fde"
-        let previous = (["completed-stage", token] + (1...350).map { "old-noise-\($0)" })
-            .joined(separator: "\n")
-        let current = (1...200).map { "new-noise-\($0)" }.joined(separator: "\n")
-
-        let accumulated = AgentHandoffContext.accumulating(previous: previous, current: current)
-        let lines = accumulated.split(separator: "\n", omittingEmptySubsequences: false)
-
-        XCTAssertEqual(lines.count, AgentHandoffContext.maximumTranscriptLines)
-        XCTAssertTrue(accumulated.contains("MARCADORES DE CONTINUIDADE PRESERVADOS"))
-        XCTAssertTrue(accumulated.contains(token))
-        XCTAssertEqual(lines.last, "new-noise-200")
-    }
-
-    func testTranscriptTailCanonicalizesWrappedHandoffToken() {
-        let wrappedToken = """
-        SOYEHT_STAGE_DONE=2 SOYEHT_HANDOFF_TOKEN=a39b2f78-73f3-4aff-    8:03 PM
-        b5a2-671102f4c0a5 NEXT_AGENT_MUST=Read PROTOCOL.md
-        """
-        let previous = ([wrappedToken] + (1...450).map { "old-noise-\($0)" })
-            .joined(separator: "\n")
-
-        let accumulated = AgentHandoffContext.accumulating(previous: previous, current: "latest")
-
-        XCTAssertTrue(accumulated.contains(
-            "SOYEHT_HANDOFF_TOKEN=a39b2f78-73f3-4aff-b5a2-671102f4c0a5"
+            events: state.events,
+            throughSequence: state.lastSequence,
+            handoffID: "handoff-example"
         ))
-        XCTAssertEqual(
-            accumulated.split(separator: "\n", omittingEmptySubsequences: false).count,
-            AgentHandoffContext.maximumTranscriptLines
-        )
+
+        XCTAssertTrue(prompt.hasPrefix(AgentConversationHandoff.marker))
+        XCTAssertTrue(prompt.contains("\"role\":\"user\""))
+        XCTAssertTrue(prompt.contains("\"model\":\"model-example\""))
+        XCTAssertTrue(prompt.contains("\"reasoningEffort\":\"medium\""))
+        XCTAssertTrue(prompt.contains("\"handoffID\":\"handoff-example\""))
     }
 
-    func testConversationPersistsAccumulatedHandoffTranscript() throws {
+    func testEmptyCanonicalHistoryProducesNoFabricatedTerminalHandoff() {
+        XCTAssertNil(AgentConversationHandoff.prompt(
+            previousAgent: "codex",
+            events: [],
+            throughSequence: 0
+        ))
+    }
+
+    func testLegacyTerminalTranscriptIsDiscardedAndNeverReencoded() throws {
+        let id = UUID()
+        let workspaceID = UUID()
+        let legacy = """
+        {
+          "id":"\(id.uuidString)",
+          "handle":"legacy",
+          "agent":"codex",
+          "workspaceID":"\(workspaceID.uuidString)",
+          "commander":{"mirror":{"instanceID":"pending"}},
+          "agentHandoffTranscript":"typed in editor, not a real message",
+          "stats":{"commander":"—","seq":0,"tokens":0,"open":0},
+          "createdAt":0
+        }
+        """
+        let conversation = try JSONDecoder().decode(Conversation.self, from: Data(legacy.utf8))
+        XCTAssertTrue(conversation.agentConversation.events.isEmpty)
+
+        let encoded = try JSONEncoder().encode(conversation)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertNil(object["agentHandoffTranscript"])
+        XCTAssertNotNil(object["agentConversation"])
+    }
+
+    func testConversationPersistsCanonicalHistory() throws {
+        var state = AgentConversationState()
+        state.recordEvent(
+            role: .assistant,
+            text: "persisted",
+            sourceAgent: "opencode",
+            nativeSessionID: "session-example",
+            model: "provider/model",
+            reasoningEffort: "high"
+        )
         let original = Conversation(
             handle: "switch-e2e",
-            agent: .claw("claude"),
+            agent: .claw("opencode"),
             workspaceID: UUID(),
             commander: .mirror(instanceID: "pending"),
-            agentHandoffTranscript: "first session"
+            agentConversation: state
         )
-
         let decoded = try JSONDecoder().decode(
             Conversation.self,
             from: JSONEncoder().encode(original)
         )
-        XCTAssertEqual(decoded.agentHandoffTranscript, "first session")
+        XCTAssertEqual(decoded.agentConversation, state)
+    }
+
+    func testPrimaryAdaptersUseNativeResumeCommands() throws {
+        let binding = AgentSessionBinding(
+            agent: "codex",
+            nativeSessionID: "session example",
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil,
+            lastImportedSequence: 0,
+            updatedAt: Date()
+        )
+        let codex = try XCTUnwrap(LocalAgentCatalog.agent(named: "codex"))
+        let claude = try XCTUnwrap(LocalAgentCatalog.agent(named: "claude"))
+        let opencode = try XCTUnwrap(LocalAgentCatalog.agent(named: "opencode"))
+        XCTAssertEqual(AgentNativeSessionCommand.command(for: codex, binding: binding), "codex resume 'session example'")
+        XCTAssertEqual(AgentNativeSessionCommand.command(for: claude, binding: binding), "claude --resume 'session example'")
+        XCTAssertEqual(AgentNativeSessionCommand.command(for: opencode, binding: binding), "opencode --session 'session example'")
+    }
+
+    func testCapabilitiesFailClosedForUnimplementedAdapters() {
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "codex").nativeResume)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "claude").structuredCapture)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").modelMetadata)
+        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
+        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "unknown").nativeResume)
     }
 }

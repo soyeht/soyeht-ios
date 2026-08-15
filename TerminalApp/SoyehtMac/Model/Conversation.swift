@@ -27,6 +27,191 @@ struct ConversationStats: Codable, Hashable {
     static let zero = ConversationStats(commander: "—", seq: 0, tokens: 0, open: 0)
 }
 
+/// Provider-neutral, user-visible conversation history used when a pane
+/// changes agents. Only real user/assistant messages belong here; terminal
+/// paint, tool output, reasoning, hooks, and shell commands are deliberately
+/// outside the protocol.
+struct AgentConversationEvent: Codable, Hashable, Identifiable {
+    enum Role: String, Codable, Hashable {
+        case user
+        case assistant
+    }
+
+    var id: String
+    var sequence: Int
+    var role: Role
+    var text: String
+    var sourceAgent: String
+    var nativeSessionID: String?
+    var sourceEventID: String?
+    var model: String?
+    var reasoningEffort: String?
+    var variant: String?
+    var createdAt: Date
+}
+
+struct AgentSessionBinding: Codable, Hashable {
+    var agent: String
+    var nativeSessionID: String?
+    var model: String?
+    var reasoningEffort: String?
+    var variant: String?
+    /// Last canonical event delivered to this agent. Returning native sessions
+    /// receive only events after this cursor instead of the full history.
+    var lastImportedSequence: Int
+    var updatedAt: Date
+}
+
+/// Soyeht Agent Handoff Protocol (SAHP) v1 state for one logical pane
+/// conversation. It is intentionally append-only at the semantic level.
+struct AgentConversationState: Codable, Hashable {
+    static let currentProtocolVersion = 1
+
+    var protocolVersion: Int = currentProtocolVersion
+    var events: [AgentConversationEvent] = []
+    var bindings: [String: AgentSessionBinding] = [:]
+    var nextSequence: Int = 1
+
+    var lastSequence: Int { events.last?.sequence ?? 0 }
+
+    mutating func recordSession(
+        agent: String,
+        nativeSessionID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?,
+        at date: Date = Date()
+    ) {
+        let key = Self.agentKey(agent)
+        var binding = bindings[key] ?? AgentSessionBinding(
+            agent: key,
+            nativeSessionID: nil,
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil,
+            lastImportedSequence: 0,
+            updatedAt: date
+        )
+        if let nativeSessionID = Self.nonEmpty(nativeSessionID) {
+            binding.nativeSessionID = nativeSessionID
+        }
+        if let model = Self.nonEmpty(model) { binding.model = model }
+        if let reasoningEffort = Self.nonEmpty(reasoningEffort) {
+            binding.reasoningEffort = reasoningEffort
+        }
+        if let variant = Self.nonEmpty(variant) { binding.variant = variant }
+        binding.updatedAt = date
+        bindings[key] = binding
+    }
+
+    /// Inserts or updates an event from a structured provider source.
+    /// Streaming providers can reuse `sourceEventID`; the newest full text
+    /// replaces the partial text without creating duplicate transcript turns.
+    @discardableResult
+    mutating func recordEvent(
+        role: AgentConversationEvent.Role,
+        text rawText: String,
+        sourceAgent: String,
+        nativeSessionID: String? = nil,
+        sourceEventID: String? = nil,
+        model: String? = nil,
+        reasoningEffort: String? = nil,
+        variant: String? = nil,
+        at date: Date = Date()
+    ) -> AgentConversationEvent? {
+        let text = Self.normalizeMessage(rawText)
+        guard !text.isEmpty else { return nil }
+        let agent = Self.agentKey(sourceAgent)
+        recordSession(
+            agent: agent,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant,
+            at: date
+        )
+
+        if let sourceEventID = Self.nonEmpty(sourceEventID),
+           let index = events.firstIndex(where: {
+               $0.sourceAgent == agent && $0.sourceEventID == sourceEventID
+           }) {
+            events[index].role = role
+            events[index].text = text
+            events[index].nativeSessionID = Self.nonEmpty(nativeSessionID) ?? events[index].nativeSessionID
+            events[index].model = Self.nonEmpty(model) ?? events[index].model
+            events[index].reasoningEffort = Self.nonEmpty(reasoningEffort) ?? events[index].reasoningEffort
+            events[index].variant = Self.nonEmpty(variant) ?? events[index].variant
+            return events[index]
+        }
+
+        // Some hook families emit both a display-final and a stop-final event.
+        // Exact adjacent semantic duplicates are one turn, not two.
+        if let last = events.last,
+           last.role == role,
+           last.text == text,
+           last.sourceAgent == agent,
+           last.nativeSessionID == Self.nonEmpty(nativeSessionID) {
+            return last
+        }
+
+        let event = AgentConversationEvent(
+            id: UUID().uuidString,
+            sequence: nextSequence,
+            role: role,
+            text: text,
+            sourceAgent: agent,
+            nativeSessionID: Self.nonEmpty(nativeSessionID),
+            sourceEventID: Self.nonEmpty(sourceEventID),
+            model: Self.nonEmpty(model),
+            reasoningEffort: Self.nonEmpty(reasoningEffort),
+            variant: Self.nonEmpty(variant),
+            createdAt: date
+        )
+        nextSequence += 1
+        events.append(event)
+        return event
+    }
+
+    func eventsNotImported(by agent: String) -> [AgentConversationEvent] {
+        let cursor = bindings[Self.agentKey(agent)]?.lastImportedSequence ?? 0
+        return events.filter { $0.sequence > cursor }
+    }
+
+    mutating func markImported(through sequence: Int, by agent: String, at date: Date = Date()) {
+        let key = Self.agentKey(agent)
+        recordSession(
+            agent: key,
+            nativeSessionID: nil,
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil,
+            at: date
+        )
+        guard var binding = bindings[key] else { return }
+        binding.lastImportedSequence = max(binding.lastImportedSequence, sequence)
+        binding.updatedAt = date
+        bindings[key] = binding
+    }
+
+    private static func agentKey(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else { return nil }
+        return value
+    }
+
+    private static func normalizeMessage(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\0", with: "")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 /// A single live or attachable conversation within a workspace.
 ///
 /// `handle` is the user-facing `@name` token. Uniqueness is enforced by
@@ -43,16 +228,15 @@ struct Conversation: Codable, Identifiable, Hashable {
     var commander: CommanderState
     var content: PaneContent
     var workingDirectoryPath: String?
-    /// Bounded terminal context persisted across in-place agent switches.
-    /// Full-screen TUIs can replace scrollback, so the live terminal alone is
-    /// not an authoritative accumulated conversation transcript.
-    var agentHandoffTranscript: String?
+    /// Structured, provider-neutral conversation. Terminal scrollback is not
+    /// a source for this state.
+    var agentConversation: AgentConversationState
     var stats: ConversationStats
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, handle, agent, workspaceID, commander, content, workingDirectoryPath
-        case agentHandoffTranscript, stats, createdAt
+        case agentConversation, agentHandoffTranscript, stats, createdAt
     }
 
     init(
@@ -63,7 +247,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander: CommanderState,
         content: PaneContent = .terminal(TerminalPaneState()),
         workingDirectoryPath: String? = nil,
-        agentHandoffTranscript: String? = nil,
+        agentConversation: AgentConversationState = AgentConversationState(),
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -74,7 +258,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.commander = commander
         self.content = content
         self.workingDirectoryPath = workingDirectoryPath
-        self.agentHandoffTranscript = agentHandoffTranscript
+        self.agentConversation = agentConversation
         self.stats = stats
         self.createdAt = createdAt
     }
@@ -88,7 +272,14 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander = try container.decode(CommanderState.self, forKey: .commander)
         content = try container.decodeIfPresent(PaneContent.self, forKey: .content) ?? .terminal(TerminalPaneState())
         workingDirectoryPath = try container.decodeIfPresent(String.self, forKey: .workingDirectoryPath)
-        agentHandoffTranscript = try container.decodeIfPresent(String.self, forKey: .agentHandoffTranscript)
+        agentConversation = try container.decodeIfPresent(
+            AgentConversationState.self,
+            forKey: .agentConversation
+        ) ?? AgentConversationState()
+        // `agentHandoffTranscript` is intentionally decoded only for backward
+        // compatibility and discarded: it was terminal paint and can contain
+        // text that was never part of the conversation.
+        _ = try container.decodeIfPresent(String.self, forKey: .agentHandoffTranscript)
         stats = try container.decodeIfPresent(ConversationStats.self, forKey: .stats) ?? .zero
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
@@ -102,7 +293,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(commander, forKey: .commander)
         try container.encode(content, forKey: .content)
         try container.encodeIfPresent(workingDirectoryPath, forKey: .workingDirectoryPath)
-        try container.encodeIfPresent(agentHandoffTranscript, forKey: .agentHandoffTranscript)
+        try container.encode(agentConversation, forKey: .agentConversation)
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }
