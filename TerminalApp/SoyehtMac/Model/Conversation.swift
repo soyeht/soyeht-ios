@@ -89,7 +89,10 @@ struct AgentConversationState: Codable, Hashable {
     func contextPage(afterSequence requestedAfter: Int, maxEvents requestedLimit: Int) -> ContextPage {
         let afterSequence = max(0, requestedAfter)
         let limit = min(50, max(1, requestedLimit))
-        let pageEvents = Array(events.lazy.filter { $0.sequence > afterSequence }.prefix(limit))
+        let pageEvents = Array(events.lazy
+            .filter { $0.sequence > afterSequence }
+            .prefix(limit)
+            .map(Self.sanitizedEvent))
         let throughSequence = pageEvents.last?.sequence ?? afterSequence
         let hasMore = events.contains { $0.sequence > throughSequence }
         return ContextPage(
@@ -207,7 +210,9 @@ struct AgentConversationState: Codable, Hashable {
 
     func eventsNotImported(by agent: String) -> [AgentConversationEvent] {
         let cursor = bindings[Self.agentKey(agent)]?.lastImportedSequence ?? 0
-        return events.filter { $0.sequence > cursor }
+        return events
+            .filter { $0.sequence > cursor }
+            .map(Self.sanitizedEvent)
     }
 
     mutating func markImported(through sequence: Int, by agent: String, at date: Date = Date()) {
@@ -231,9 +236,36 @@ struct AgentConversationState: Codable, Hashable {
     }
 
     private static func nonEmpty(_ value: String?) -> String? {
-        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+        guard var value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !value.isEmpty else { return nil }
+        // Some provider hooks inherit terminal styling in model/variant
+        // labels. Metadata is semantic data, so remove ANSI CSI sequences,
+        // stray SGR suffixes, and control characters before persisting it.
+        value = value.replacingOccurrences(
+            of: "\u{001B}\\[[0-?]*[ -/]*[@-~]",
+            with: "",
+            options: .regularExpression
+        )
+        value = value.replacingOccurrences(
+            of: "\\[[0-9;]*m\\]?$",
+            with: "",
+            options: .regularExpression
+        )
+        value = String(value.unicodeScalars.filter { scalar in
+            scalar.value >= 0x20 && scalar.value != 0x7F
+        }).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
         return value
+    }
+
+    private static func sanitizedEvent(_ rawEvent: AgentConversationEvent) -> AgentConversationEvent {
+        var event = rawEvent
+        event.nativeSessionID = nonEmpty(event.nativeSessionID)
+        event.sourceEventID = nonEmpty(event.sourceEventID)
+        event.model = nonEmpty(event.model)
+        event.reasoningEffort = nonEmpty(event.reasoningEffort)
+        event.variant = nonEmpty(event.variant)
+        return event
     }
 
     private static func normalizeMessage(_ text: String) -> String {

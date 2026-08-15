@@ -59,6 +59,44 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(state.events[1].reasoningEffort, "high")
     }
 
+    func testConversationMetadataStripsTerminalFormattingArtifacts() {
+        var state = AgentConversationState()
+        state.recordEvent(
+            role: .assistant,
+            text: "resposta",
+            sourceAgent: "claude",
+            nativeSessionID: "session-example\u{0007}",
+            model: "claude-opus-example\u{001B}[1m",
+            reasoningEffort: "xhigh[0m"
+        )
+
+        XCTAssertEqual(state.events[0].nativeSessionID, "session-example")
+        XCTAssertEqual(state.events[0].model, "claude-opus-example")
+        XCTAssertEqual(state.events[0].reasoningEffort, "xhigh")
+    }
+
+    func testMCPContextSanitizesMetadataAlreadyPersistedByOlderBuild() {
+        var state = AgentConversationState()
+        state.events = [AgentConversationEvent(
+            id: "event-example",
+            sequence: 1,
+            role: .assistant,
+            text: "resposta",
+            sourceAgent: "claude",
+            nativeSessionID: "session-example\u{001B}[0m",
+            sourceEventID: "message-example",
+            model: "claude-opus-example[1m]",
+            reasoningEffort: "xhigh",
+            variant: nil,
+            createdAt: Date()
+        )]
+        state.nextSequence = 2
+
+        let page = state.contextPage(afterSequence: 0, maxEvents: 20)
+        XCTAssertEqual(page.events[0].nativeSessionID, "session-example")
+        XCTAssertEqual(page.events[0].model, "claude-opus-example")
+    }
+
     func testStreamingSourceEventUpdatesInsteadOfDuplicating() {
         var state = AgentConversationState()
         state.recordEvent(
