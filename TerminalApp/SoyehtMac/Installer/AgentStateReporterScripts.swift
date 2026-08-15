@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 14
+    static let version = 15
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v3). Do not edit.
+# Managed by Soyeht (agent-state integration v15). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -72,10 +72,18 @@ def last_assistant_event(transcript_path):
         if not isinstance(message, dict):
             message = value if isinstance(value, dict) else {}
         value_type = str(value.get("type") or "").lower() if isinstance(value, dict) else ""
+        is_antigravity_response = (
+            value_type == "planner_response"
+            and str(value.get("source") or "").lower() == "model"
+        )
         role = (
             message.get("role")
             or (value.get("role") if isinstance(value, dict) else None)
-            or ("assistant" if value_type in ("assistant.message", "assistant_message") else None)
+            or (
+                "assistant"
+                if value_type in ("assistant.message", "assistant_message") or is_antigravity_response
+                else None
+            )
         )
         if str(role or "").lower() != "assistant":
             continue
@@ -102,6 +110,15 @@ def last_assistant_event(transcript_path):
                 or (value.get("id") if isinstance(value, dict) else None),
                 "id"
             )
+            if not source_event_id and is_antigravity_response:
+                stable_parts = (
+                    str(value.get("created_at") or ""),
+                    str(value.get("step_index") or ""),
+                    value_type,
+                )
+                source_event_id = "agy:" + hashlib.sha256(
+                    ":".join(stable_parts).encode("utf-8")
+                ).hexdigest()
             model = scalar(
                 message.get("model") or message.get("modelId") or message.get("model_id"),
                 "id", "model_id", "display_name"
@@ -174,9 +191,12 @@ def report_deferred_copilot_transcript():
 
 
 def report_conversation(data, event, conversation_id, automation_dir):
-    session_id = scalar(data.get("session_id") or data.get("sessionId"), "id")
+    session_id = scalar(
+        data.get("session_id") or data.get("sessionId") or data.get("conversationId"),
+        "id"
+    )
     model = scalar(
-        data.get("model") or data.get("model_id") or data.get("modelId"),
+        data.get("model") or data.get("model_id") or data.get("modelId") or data.get("modelName"),
         "id", "model_id", "display_name"
     )
     effort = scalar(
