@@ -26,6 +26,13 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(reporter.contains("data.get(\"modelName\")"))
     }
 
+    func testClaudeCompatibleReporterRejectsCrossAgentHookLeakage() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let main = try slice(source, from: "def main():", to: "if __name__ == \"__main__\":")
+        XCTAssertTrue(main.contains("SOYEHT_AGENT_NAME"))
+        XCTAssertTrue(main.contains("report_agent != declared_agent"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

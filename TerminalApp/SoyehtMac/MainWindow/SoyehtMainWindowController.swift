@@ -3642,6 +3642,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Agents with no startup hook (e.g. agy) are exempt and use the
         // legacy timed prompt delivery instead.
         let conversation = convStore.conversation(paneID)
+        let expectedReportSource = conversation.map { "hook:\($0.agent.rawValue)" }
         let preparedInitialCommand = initialCommand.map { AgentLaunchCommandBuilder.prepare($0) }
         let isAgentLaunch = preparedInitialCommand != nil
             && (conversation?.agent.isShell ?? true) == false
@@ -3759,6 +3760,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             try? await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
                             let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
                                 paneID: paneID,
+                                expectedReportSource: expectedReportSource,
                                 terminalView: liveTerminalView,
                                 payload: plannedPrompt.payload,
                                 shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
@@ -3788,6 +3790,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                         guard let liveTerminalView = pane?.terminalView else { return }
                         let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
                             paneID: paneID,
+                            expectedReportSource: expectedReportSource,
                             terminalView: liveTerminalView,
                             payload: plannedPrompt.payload,
                             shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
@@ -3815,12 +3818,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @MainActor
     private static func deliverAgentPromptWithAcknowledgement(
         paneID: Conversation.ID,
+        expectedReportSource: String?,
         terminalView: MacOSWebSocketTerminalView,
         payload: String,
         shouldSendEnterKey: Bool
     ) async -> Bool {
+        guard let expectedReportSource else { return false }
         for attempt in 1...3 {
-            let baseline = PaneStatusTracker.shared.lastReportAt(for: paneID) ?? .distantPast
+            let baseline = PaneStatusTracker.shared.lastReportAt(
+                for: paneID,
+                source: expectedReportSource
+            ) ?? .distantPast
             terminalView.brokerSend(
                 text: payload,
                 submitWithEnter: shouldSendEnterKey,
@@ -3831,7 +3839,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             )
             while Date() < deadline {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                if let last = PaneStatusTracker.shared.lastReportAt(for: paneID), last > baseline {
+                if let last = PaneStatusTracker.shared.lastReportAt(
+                    for: paneID,
+                    source: expectedReportSource
+                ), last > baseline {
                     return true
                 }
             }

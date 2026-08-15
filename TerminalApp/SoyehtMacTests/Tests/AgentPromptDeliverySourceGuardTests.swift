@@ -25,7 +25,7 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
             to: "/// Attempts to spawn/reattach the pane's shell"
         )
         XCTAssertTrue(helper.contains("for attempt in 1...3"))
-        XCTAssertTrue(helper.contains("lastReportAt(for: paneID)"))
+        XCTAssertTrue(helper.contains("source: expectedReportSource"))
         XCTAssertTrue(helper.contains("last > baseline"))
     }
 

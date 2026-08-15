@@ -46,6 +46,7 @@ final class PaneStatusTracker {
     private static let agentStateStaleThreshold: TimeInterval = 10 * 60
 
     private var agentStateReports: [Conversation.ID: AgentStateReport] = [:]
+    private var lastAcceptedReportAtBySource: [Conversation.ID: [String: Date]] = [:]
     private var lastMcpActivityAt: [Conversation.ID: Date] = [:]
 
     // MARK: - Launch handshake
@@ -76,6 +77,7 @@ final class PaneStatusTracker {
         expectedHandshakeNonce[paneID] = nil
         handshakeStates[paneID] = nil
         agentStateReports[paneID] = nil
+        lastAcceptedReportAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 
@@ -103,11 +105,11 @@ final class PaneStatusTracker {
         handshakeStates[paneID] = .timeout
     }
 
-    /// Timestamp of the most recent state report for the pane (any source).
-    /// Used to verify that a delivered prompt was actually consumed: an
-    /// accepted prompt triggers a fresh hook report almost immediately.
-    func lastReportAt(for paneID: Conversation.ID) -> Date? {
-        agentStateReports[paneID]?.reportedAt
+    /// Timestamp of the most recent accepted state report from one integration.
+    /// Prompt delivery must not be acknowledged by a different agent's global
+    /// hook when multiple Claude-compatible tools coexist on the machine.
+    func lastReportAt(for paneID: Conversation.ID, source: String) -> Date? {
+        lastAcceptedReportAtBySource[paneID]?[source]
     }
 
     /// Last known wire fingerprint of each pane, used to emit deltas only on
@@ -263,6 +265,7 @@ final class PaneStatusTracker {
             }
         }
         agentStateReports[paneID] = incoming
+        lastAcceptedReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
         return (true, nil)
     }
 
@@ -287,6 +290,7 @@ final class PaneStatusTracker {
 
     private func forgetAutomationState(paneID: Conversation.ID) {
         agentStateReports[paneID] = nil
+        lastAcceptedReportAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 

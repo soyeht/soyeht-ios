@@ -6,6 +6,7 @@ enum AgentPaneEnvironment {
     static let handleKey = "SOYEHT_HANDLE"
     static let automationDirKey = "SOYEHT_AUTOMATION_DIR"
     static let launchNonceKey = "SOYEHT_LAUNCH_NONCE"
+    static let agentNameKey = "SOYEHT_AGENT_NAME"
 
     static func values(
         for conversation: Conversation,
@@ -16,6 +17,7 @@ enum AgentPaneEnvironment {
         var values = [
             conversationIDKey: conversation.id.uuidString,
             handleKey: conversation.handle,
+            agentNameKey: conversation.agent.rawValue,
         ]
         if let automationDir = automationDirectoryPath(environment: environment, profile: profile) {
             values[automationDirKey] = automationDir
