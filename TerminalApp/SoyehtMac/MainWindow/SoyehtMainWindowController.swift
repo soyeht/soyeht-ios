@@ -3519,6 +3519,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName.lowercased()
+        let sourceBinding = conv.agentConversation.bindings[previousAgent]
+        let usesCustomCommand = customCommand != nil
 
         // 1. Snapshot the canonical semantic history. Advance the source only
         // across a contiguous run of its own events. If an earlier MCP import
@@ -3526,6 +3528,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // resume can retrieve the missing history again.
         var conversationState = conv.agentConversation
         conversationState.markContiguousLocalEventsImported(by: previousAgent)
+        if usesCustomCommand {
+            // A command override launches a fresh process. It may select a
+            // different model while keeping the same agent name, so neither a
+            // prior native session ID nor its import cursor can be reused.
+            conversationState.resetForFreshSession(agent: target.name)
+        }
         if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
            !instruction.isEmpty {
             _ = conversationState.recordEvent(
@@ -3562,7 +3570,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 events: targetEvents,
                 throughSequence: throughSequence
             )
-        let nativeResumeBinding = targetCapabilities.nativeResume ? targetBinding : nil
+        let nativeResumeBinding = !usesCustomCommand && targetCapabilities.nativeResume
+            ? targetBinding
+            : nil
+        let didResumeNativeSession = nativeResumeBinding?.nativeSessionID != nil
         convStore.updateAgentConversation(paneID, state: conversationState)
 
         // 2. Tear down the current process: engine sessions are reaped
@@ -3616,7 +3627,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         Self.logger.info(
-            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(nativeResumeBinding?.nativeSessionID != nil, privacy: .public)"
+            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(didResumeNativeSession, privacy: .public)"
         )
         return SwitchedAgentResult(
             conversationID: paneID,
@@ -3629,9 +3640,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             transcriptLineCount: conversationState.events.count,
             importedEventCount: targetEvents.count,
             historySource: usesMCPContext ? "mcp" : "structured",
-            resumedNativeSession: nativeResumeBinding?.nativeSessionID != nil,
-            sourceModel: conversationState.bindings[previousAgent]?.model,
-            sourceReasoningEffort: conversationState.bindings[previousAgent]?.reasoningEffort
+            resumedNativeSession: didResumeNativeSession,
+            sourceModel: sourceBinding?.model,
+            sourceReasoningEffort: sourceBinding?.reasoningEffort
         )
     }
 

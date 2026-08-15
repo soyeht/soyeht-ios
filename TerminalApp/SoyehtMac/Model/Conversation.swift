@@ -215,6 +215,23 @@ struct AgentConversationState: Codable, Hashable {
             .map(Self.sanitizedEvent)
     }
 
+    /// Prepares an agent binding for a new process that is not resuming the
+    /// recorded native session. A fresh process must import the canonical
+    /// conversation from sequence zero, even when it uses the same agent name
+    /// as the process being replaced (for example, an OpenCode model change).
+    mutating func resetForFreshSession(agent: String, at date: Date = Date()) {
+        let key = Self.agentKey(agent)
+        bindings[key] = AgentSessionBinding(
+            agent: key,
+            nativeSessionID: nil,
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil,
+            lastImportedSequence: 0,
+            updatedAt: date
+        )
+    }
+
     mutating func markImported(through sequence: Int, by agent: String, at date: Date = Date()) {
         let key = Self.agentKey(agent)
         recordSession(

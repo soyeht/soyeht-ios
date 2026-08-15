@@ -807,6 +807,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(switchAgent.contains("AgentConversationHandoff.prompt("))
         XCTAssertTrue(switchAgent.contains("using structured fallback"))
         XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
+        XCTAssertTrue(switchAgent.contains("let usesCustomCommand = customCommand != nil"))
+        XCTAssertTrue(switchAgent.contains("conversationState.resetForFreshSession(agent: target.name)"))
+        XCTAssertTrue(switchAgent.contains("let nativeResumeBinding = !usesCustomCommand"))
+        XCTAssertTrue(switchAgent.contains("resumedNativeSession: didResumeNativeSession"))
     }
 
     func testAgentHandoffLogsPaginationAcknowledgementAndModelWithoutMessageText() throws {

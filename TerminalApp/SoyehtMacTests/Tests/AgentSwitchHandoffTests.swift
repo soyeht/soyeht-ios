@@ -134,6 +134,32 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(state.eventsNotImported(by: "opencode").map(\.text), ["primeira", "segunda"])
     }
 
+    func testFreshCustomCommandResetsSessionMetadataAndImportsFullHistory() {
+        var state = AgentConversationState()
+        state.recordSession(
+            agent: "opencode",
+            nativeSessionID: "session-old",
+            model: "provider/model-old",
+            reasoningEffort: "high",
+            variant: "build"
+        )
+        let first = state.recordEvent(
+            role: .assistant,
+            text: "resposta anterior",
+            sourceAgent: "opencode"
+        )!
+        state.markImported(through: first.sequence, by: "opencode")
+
+        state.resetForFreshSession(agent: "opencode")
+
+        XCTAssertEqual(state.eventsNotImported(by: "opencode").map(\.text), ["resposta anterior"])
+        XCTAssertEqual(state.bindings["opencode"]?.lastImportedSequence, 0)
+        XCTAssertNil(state.bindings["opencode"]?.nativeSessionID)
+        XCTAssertNil(state.bindings["opencode"]?.model)
+        XCTAssertNil(state.bindings["opencode"]?.reasoningEffort)
+        XCTAssertNil(state.bindings["opencode"]?.variant)
+    }
+
     func testFailedMCPImportDoesNotAdvanceSourceAcrossHistoryGap() {
         var state = AgentConversationState()
         for index in 1...2 {
