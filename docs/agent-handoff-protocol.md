@@ -29,7 +29,10 @@ metadata, and the last canonical sequence imported into that session.
    session. Otherwise it starts a new target session.
 5. Soyeht serializes only events after the target cursor in a JSON SAHP envelope
    and submits it after the target readiness handshake.
-6. Target hooks ignore the SAHP transport envelope as a new user message, so
+6. Once delivery succeeds, Soyeht advances the target cursor immediately. The
+   update is merged into the latest store value so concurrent startup metadata
+   is preserved.
+7. Target hooks ignore the SAHP transport envelope as a new user message, so
    repeated switches do not duplicate history.
 
 The legacy response field `transcriptLineCount` remains for automation
@@ -46,10 +49,16 @@ Adapters declare capabilities instead of guessing unsupported flags:
 - model metadata
 - reasoning-effort/variant metadata
 
-The initial native adapters are Claude Code, Codex, and OpenCode. Other agents
-may receive a SAHP envelope, but are not advertised as structured capture or
-native resume until their public hook/session contracts are implemented and
-tested.
+Claude Code, Codex, and OpenCode support both structured capture and native
+session resume. Structured-capture adapters without guessed resume flags are
+also installed for Qwen, Antigravity, Pi, Droid, Kilo, Cursor Agent, Copilot,
+Grok, Kimi, and Devin. Unknown agents, including Qoder until it has a supported
+contract, fail closed.
+
+Adapter validation is independent from account/model availability. A provider
+can prove hook installation, readiness, session binding, and SAHP receipt even
+when its configured model later rejects the request; that failure must be
+reported as an external provider block rather than a handoff failure.
 
 ## Safety and failure behavior
 
@@ -58,7 +67,8 @@ tested.
   discarded, and never encoded again.
 - Streaming events update by provider event id; exact adjacent finals are
   deduplicated.
+- Events inherit missing session/model/effort metadata from the latest binding
+  for their source agent.
 - Agent attribution comes from the live Soyeht pane, not caller-supplied text.
 - An empty canonical record produces no fabricated handoff prompt.
 - Unknown adapters fail closed for native resume and metadata capabilities.
-

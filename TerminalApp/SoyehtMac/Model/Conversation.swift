@@ -130,6 +130,11 @@ struct AgentConversationState: Codable, Hashable {
             variant: variant,
             at: date
         )
+        let binding = bindings[agent]
+        let resolvedNativeSessionID = Self.nonEmpty(nativeSessionID) ?? binding?.nativeSessionID
+        let resolvedModel = Self.nonEmpty(model) ?? binding?.model
+        let resolvedReasoningEffort = Self.nonEmpty(reasoningEffort) ?? binding?.reasoningEffort
+        let resolvedVariant = Self.nonEmpty(variant) ?? binding?.variant
 
         if let sourceEventID = Self.nonEmpty(sourceEventID),
            let index = events.firstIndex(where: {
@@ -137,10 +142,10 @@ struct AgentConversationState: Codable, Hashable {
            }) {
             events[index].role = role
             events[index].text = text
-            events[index].nativeSessionID = Self.nonEmpty(nativeSessionID) ?? events[index].nativeSessionID
-            events[index].model = Self.nonEmpty(model) ?? events[index].model
-            events[index].reasoningEffort = Self.nonEmpty(reasoningEffort) ?? events[index].reasoningEffort
-            events[index].variant = Self.nonEmpty(variant) ?? events[index].variant
+            events[index].nativeSessionID = resolvedNativeSessionID ?? events[index].nativeSessionID
+            events[index].model = resolvedModel ?? events[index].model
+            events[index].reasoningEffort = resolvedReasoningEffort ?? events[index].reasoningEffort
+            events[index].variant = resolvedVariant ?? events[index].variant
             return events[index]
         }
 
@@ -150,7 +155,7 @@ struct AgentConversationState: Codable, Hashable {
            last.role == role,
            last.text == text,
            last.sourceAgent == agent,
-           last.nativeSessionID == Self.nonEmpty(nativeSessionID) {
+           last.nativeSessionID == resolvedNativeSessionID {
             return last
         }
 
@@ -160,11 +165,11 @@ struct AgentConversationState: Codable, Hashable {
             role: role,
             text: text,
             sourceAgent: agent,
-            nativeSessionID: Self.nonEmpty(nativeSessionID),
+            nativeSessionID: resolvedNativeSessionID,
             sourceEventID: Self.nonEmpty(sourceEventID),
-            model: Self.nonEmpty(model),
-            reasoningEffort: Self.nonEmpty(reasoningEffort),
-            variant: Self.nonEmpty(variant),
+            model: resolvedModel,
+            reasoningEffort: resolvedReasoningEffort,
+            variant: resolvedVariant,
             createdAt: date
         )
         nextSequence += 1

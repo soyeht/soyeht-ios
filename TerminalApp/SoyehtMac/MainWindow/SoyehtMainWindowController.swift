@@ -3586,6 +3586,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             promptSourceHandle: nil,
             promptSourceTTY: nil
         )
+        // The import is durable as soon as attachLocalPTY has delivered the
+        // prompt. Mutate the latest store value because target startup hooks
+        // may already have added session metadata while the process booted.
+        convStore.markAgentConversationImported(
+            paneID,
+            through: throughSequence,
+            by: target.name
+        )
 
         Self.logger.info(
             "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(targetBinding?.nativeSessionID != nil, privacy: .public)"

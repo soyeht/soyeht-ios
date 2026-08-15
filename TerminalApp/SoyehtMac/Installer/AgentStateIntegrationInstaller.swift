@@ -25,6 +25,7 @@ enum AgentStateIntegrationInstaller {
     private static let versionDefaultsKey = "soyeht.agentStateIntegration.version"
     private static let claudeScriptHashKey = "soyeht.agentStateIntegration.claudeScriptHash"
     private static let codexScriptHashKey = "soyeht.agentStateIntegration.codexScriptHash"
+    private static let opencodeScriptHashKey = "soyeht.agentStateIntegration.opencodeScriptHash"
     private static let qwenScriptHashKey = "soyeht.agentStateIntegration.qwenScriptHash"
     private static let agyScriptHashKey = "soyeht.agentStateIntegration.agyScriptHash"
     private static let piScriptHashKey = "soyeht.agentStateIntegration.piScriptHash"
@@ -50,6 +51,7 @@ enum AgentStateIntegrationInstaller {
         let hashesMatch =
             defaults.string(forKey: claudeScriptHashKey) == sha256(claudeScriptPath())
             && defaults.string(forKey: codexScriptHashKey) == sha256(codexScriptPath())
+            && defaults.string(forKey: opencodeScriptHashKey) == sha256OrNil(opencodePluginPath())
             && defaults.string(forKey: qwenScriptHashKey) == sha256OrNil(qwenScriptPath())
             && defaults.string(forKey: agyScriptHashKey) == agyExpectedHash()
             && defaults.string(forKey: piScriptHashKey) == sha256OrNil(piExtensionPath())
@@ -67,6 +69,7 @@ enum AgentStateIntegrationInstaller {
         defaults.set(AgentStateReporterScripts.version, forKey: versionDefaultsKey)
         defaults.set(sha256(claudeScriptPath()), forKey: claudeScriptHashKey)
         defaults.set(sha256(codexScriptPath()), forKey: codexScriptHashKey)
+        defaults.set(sha256OrNil(opencodePluginPath()), forKey: opencodeScriptHashKey)
         defaults.set(sha256OrNil(qwenScriptPath()), forKey: qwenScriptHashKey)
         defaults.set(agyExpectedHash(), forKey: agyScriptHashKey)
         defaults.set(sha256OrNil(piExtensionPath()), forKey: piScriptHashKey)
@@ -286,7 +289,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: opencodePluginPath(),
-            content: AgentStateReporterScripts.opencodePluginReporter
+            content: AgentStateReporterScripts.opencodeStructuredPluginReporter
         )
     }
 
@@ -394,7 +397,7 @@ enum AgentStateIntegrationInstaller {
         )
         try writeScript(
             to: agyReporterPath(),
-            content: AgentStateReporterScripts.antigravityHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "antigravity")
         )
         let hooks = AgentStateReporterScripts.antigravityPluginHooks.replacingOccurrences(
             of: "__REPORTER__",
@@ -546,7 +549,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: cursorScriptPath(),
-            content: AgentStateReporterScripts.cursorHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "cursor")
         )
 
         // Cursor hooks.json schema: {"version": 1, "hooks": {event: [{command}]}}
@@ -597,7 +600,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: copilotScriptPath(),
-            content: AgentStateReporterScripts.copilotHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "copilot")
         )
 
         // Copilot personal hooks live in ~/.copilot/hooks/*.json. We own one
@@ -643,7 +646,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: grokScriptPath(),
-            content: AgentStateReporterScripts.grokHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "grok")
         )
         // Global hooks dir (~/.grok/hooks/*.json) is always trusted by grok.
         // Grok executes hook commands directly (no shell), so the command is
@@ -692,7 +695,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: kimiScriptPath(),
-            content: AgentStateReporterScripts.kimiHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "kimi")
         )
 
         // Hooks live in ~/.kimi-code/config.toml as [[hooks]] entries. We own
@@ -761,7 +764,7 @@ enum AgentStateIntegrationInstaller {
         }
         try writeScript(
             to: devinScriptPath(),
-            content: AgentStateReporterScripts.devinHookReporter
+            content: AgentStateReporterScripts.claudeCompatibleStructuredReporter(agent: "devin")
         )
 
         // Devin user hooks live in ~/.config/devin/config.json under "hooks".

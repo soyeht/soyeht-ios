@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 11
+    static let version = 12
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -45,10 +45,54 @@ def scalar(value, *keys):
     return None
 
 
+def last_assistant_text(transcript_path):
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return None
+    try:
+        with open(transcript_path, "rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            handle.seek(max(0, size - 2_000_000))
+            tail = handle.read().decode("utf-8", errors="replace")
+    except Exception:
+        return None
+    for line in reversed(tail.splitlines()):
+        try:
+            value = json.loads(line)
+        except Exception:
+            continue
+        message = value.get("message") if isinstance(value, dict) else None
+        if not isinstance(message, dict):
+            message = value if isinstance(value, dict) else {}
+        if str(message.get("role") or "").lower() != "assistant":
+            continue
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            return content
+        if isinstance(content, list):
+            texts = [
+                str(part.get("text"))
+                for part in content
+                if isinstance(part, dict)
+                and part.get("type") in ("text", "output_text")
+                and isinstance(part.get("text"), str)
+            ]
+            joined = "\n".join(texts).strip()
+            if joined:
+                return joined
+    return None
+
+
 def report_conversation(data, event, conversation_id, automation_dir):
     session_id = scalar(data.get("session_id") or data.get("sessionId"), "id")
-    model = scalar(data.get("model"), "id", "model_id", "display_name")
-    effort = scalar(data.get("effort") or data.get("reasoning_effort"), "level", "effective")
+    model = scalar(
+        data.get("model") or data.get("model_id") or data.get("modelId"),
+        "id", "model_id", "display_name"
+    )
+    effort = scalar(
+        data.get("effort") or data.get("reasoning_effort") or data.get("reasoningEffort"),
+        "level", "effective"
+    )
     variant = scalar(data.get("variant"), "id", "name")
     payload = {
         "sourceConversationID": conversation_id,
@@ -63,13 +107,24 @@ def report_conversation(data, event, conversation_id, automation_dir):
     text = None
     if event == "UserPromptSubmit":
         role = "user"
-        text = data.get("prompt") or data.get("user_prompt")
+        text = data.get("prompt") or data.get("user_prompt") or data.get("userPrompt")
+        if not text and isinstance(data.get("input"), str):
+            text = data.get("input")
     elif event == "MessageDisplay":
         role = "assistant"
         text = data.get("message") or data.get("text")
     elif event == "Stop":
         role = "assistant"
-        text = data.get("last_assistant_message") or data.get("lastAssistantMessage")
+        text = (
+            data.get("last_assistant_message")
+            or data.get("lastAssistantMessage")
+            or last_assistant_text(data.get("transcript_path") or data.get("transcriptPath"))
+        )
+        if not text:
+            for candidate in (data.get("response"), data.get("output")):
+                if isinstance(candidate, str) and candidate.strip():
+                    text = candidate
+                    break
 
     if isinstance(text, str) and text.strip():
         # A handoff envelope is transport already represented by its original
@@ -101,9 +156,29 @@ def main():
         data = json.loads(raw) if raw.strip() else {}
     except Exception:
         data = {}
-    event = str(data.get("hook_event_name") or "")
-    tool_name = str(data.get("tool_name") or "")
-    tool_input = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
+    raw_event = str(
+        data.get("hook_event_name")
+        or data.get("hookEventName")
+        or os.environ.get("SOYEHT_HOOK_EVENT", "")
+    )
+    event = {
+        "sessionStart": "SessionStart",
+        "PreInvocation": "UserPromptSubmit",
+        "PostInvocation": "PostToolUse",
+        "userPromptSubmitted": "UserPromptSubmit",
+        "beforeSubmitPrompt": "UserPromptSubmit",
+        "preToolUse": "PreToolUse",
+        "beforeShellExecution": "PreToolUse",
+        "beforeMCPExecution": "PreToolUse",
+        "beforeReadFile": "PreToolUse",
+        "postToolUse": "PostToolUse",
+        "agentStop": "Stop",
+        "stop": "Stop",
+        "sessionEnd": "SessionEnd",
+    }.get(raw_event, raw_event)
+    tool_name = str(data.get("tool_name") or data.get("toolName") or "")
+    raw_tool_input = data.get("tool_input") or data.get("toolInput")
+    tool_input = raw_tool_input if isinstance(raw_tool_input, dict) else {}
     command = str(tool_input.get("command") or "")
     snippet = (command[:120] + "...") if len(command) > 120 else command
     notification_type = str(data.get("notification_type") or "")
@@ -131,8 +206,10 @@ def main():
         else:
             state = "blocked"
             message = str(data.get("message") or "agente pediu atencao")[:160]
-    elif event in ("Stop", "SessionEnd"):
+    elif event == "Stop":
         state = "idle"
+    elif event == "SessionEnd":
+        state = "done"
     elif event == "SessionStart":
         state = "idle"
         message = "ready"
@@ -322,6 +399,16 @@ import { join } from "node:path";
 export default function (pi: any) {
   const enabled = () => Boolean(process.env.SOYEHT_CONVERSATION_ID && process.env.SOYEHT_AUTOMATION_DIR);
 
+  async function writeRequest(type: string, payload: Record<string, unknown>) {
+    if (!enabled()) return;
+    const dir = join(process.env.SOYEHT_AUTOMATION_DIR as string, "Requests");
+    await mkdir(dir, { recursive: true });
+    const id = randomUUID();
+    const tmp = join(dir, `.${id}.tmp`);
+    await writeFile(tmp, JSON.stringify({ id, type, payload }));
+    await rename(tmp, join(dir, `${id}.json`));
+  }
+
   async function report(state: string, message?: string) {
     if (!enabled() || !state) return;
     try {
@@ -333,12 +420,7 @@ export default function (pi: any) {
       };
       if (message) payload.message = String(message).slice(0, 200);
       if (process.env.SOYEHT_LAUNCH_NONCE) payload.nonce = process.env.SOYEHT_LAUNCH_NONCE;
-      const dir = join(process.env.SOYEHT_AUTOMATION_DIR as string, "Requests");
-      await mkdir(dir, { recursive: true });
-      const id = randomUUID();
-      const tmp = join(dir, `.${id}.tmp`);
-      await writeFile(tmp, JSON.stringify({ id, type: "report_agent_state", payload }));
-      await rename(tmp, join(dir, `${id}.json`));
+      await writeRequest("report_agent_state", payload);
     } catch {
       // never disturb the agent session
     }
@@ -347,6 +429,37 @@ export default function (pi: any) {
   pi.on("session_start", async () => { await report("idle", "ready"); });
   pi.on("agent_start", async () => { await report("working"); });
   pi.on("turn_start", async () => { await report("working"); });
+  pi.on("message_end", async (event: any) => {
+    try {
+      const message = event?.message;
+      const role = message?.role;
+      if (role !== "user" && role !== "assistant") return;
+      const content = message?.content;
+      const text = typeof content === "string"
+        ? content.trim()
+        : (Array.isArray(content)
+          ? content
+              .filter((part: any) => part?.type === "text" && typeof part?.text === "string")
+              .map((part: any) => part.text)
+              .join("\n")
+              .trim()
+          : "");
+      if (!text || (role === "user" && text.startsWith("SOYEHT_AGENT_HANDOFF_V1"))) return;
+      const payload: Record<string, unknown> = {
+        sourceConversationID: process.env.SOYEHT_CONVERSATION_ID,
+        role,
+        text,
+        sourceEventID: message?.id ?? message?.responseId
+          ?? (message?.timestamp ? `${message.timestamp}:${role}` : undefined),
+        model: message?.provider && message?.model
+          ? `${message.provider}/${message.model}`
+          : message?.model,
+      };
+      await writeRequest("report_agent_conversation", payload);
+    } catch {
+      // never disturb the agent session
+    }
+  });
   pi.on("tool_execution_start", async (event: any) => {
     await report("working", event?.toolName ?? event?.name);
   });
@@ -1052,4 +1165,26 @@ export const SoyehtAgentStatePlugin = async () => {
   };
 };
 """#
+
+    /// OpenCode and Kilo share the same typed plugin contract. Keep one
+    /// structured-history implementation so event-order and filtering fixes
+    /// cannot drift between the two adapters.
+    static var opencodeStructuredPluginReporter: String {
+        kiloPluginReporter
+            .replacingOccurrences(
+                of: "agent-state integration v6",
+                with: "agent-state integration v12"
+            )
+            .replacingOccurrences(of: "hook:kilo", with: "hook:opencode")
+    }
+
+    /// Claude-compatible hook families use the same semantic event adapter.
+    /// Only the state-report attribution fallback differs when an agent's
+    /// config format cannot inject SOYEHT_REPORT_AGENT.
+    static func claudeCompatibleStructuredReporter(agent: String) -> String {
+        claudeCodexHookReporter.replacingOccurrences(
+            of: "os.environ.get(\"SOYEHT_REPORT_AGENT\", \"agent\")",
+            with: "os.environ.get(\"SOYEHT_REPORT_AGENT\", \"\(agent)\")"
+        )
+    }
 }

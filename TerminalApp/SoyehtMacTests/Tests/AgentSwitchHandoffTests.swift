@@ -54,6 +54,9 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(state.bindings["codex"]?.nativeSessionID, "thread-1")
         XCTAssertEqual(state.bindings["codex"]?.model, "gpt-example")
         XCTAssertEqual(state.bindings["codex"]?.reasoningEffort, "high")
+        XCTAssertEqual(state.events[1].nativeSessionID, "thread-1")
+        XCTAssertEqual(state.events[1].model, "gpt-example")
+        XCTAssertEqual(state.events[1].reasoningEffort, "high")
     }
 
     func testStreamingSourceEventUpdatesInsteadOfDuplicating() {
@@ -193,11 +196,14 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(AgentNativeSessionCommand.command(for: opencode, binding: binding), "opencode --session 'session example'")
     }
 
-    func testCapabilitiesFailClosedForUnimplementedAdapters() {
+    func testCapabilitiesDescribeStructuredAndNativeAdapters() {
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "codex").nativeResume)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "claude").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").modelMetadata)
-        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "pi").structuredCapture)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "copilot").reasoningEffortMetadata)
+        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "qoder").structuredCapture)
         XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "unknown").nativeResume)
     }
 }

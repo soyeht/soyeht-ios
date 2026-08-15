@@ -119,6 +119,16 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Advances a handoff cursor against the latest store value so hook events
+    /// arriving while a replacement process boots cannot be overwritten by a
+    /// stale pre-launch snapshot.
+    func markAgentConversationImported(_ id: Conversation.ID, through sequence: Int, by agent: String) {
+        guard var conv = conversations[id] else { return }
+        conv.agentConversation.markImported(through: sequence, by: agent)
+        conversations[id] = conv
+        postChange()
+    }
+
     @discardableResult
     func recordAgentConversationEvent(
         _ id: Conversation.ID,
