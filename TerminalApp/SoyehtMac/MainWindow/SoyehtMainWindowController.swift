@@ -3584,15 +3584,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             promptMode: "raw",
             promptSourceConversationIDString: nil,
             promptSourceHandle: nil,
-            promptSourceTTY: nil
-        )
-        // The import is durable as soon as attachLocalPTY has delivered the
-        // prompt. Mutate the latest store value because target startup hooks
-        // may already have added session metadata while the process booted.
-        convStore.markAgentConversationImported(
-            paneID,
-            through: throughSequence,
-            by: target.name
+            promptSourceTTY: nil,
+            onPromptDelivered: {
+                // Merge against the latest store value: target startup hooks
+                // may already have added session metadata while it booted.
+                convStore.markAgentConversationImported(
+                    paneID,
+                    through: throughSequence,
+                    by: target.name
+                )
+            }
         )
 
         Self.logger.info(
@@ -3624,7 +3625,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         promptMode: String?,
         promptSourceConversationIDString: String?,
         promptSourceHandle: String?,
-        promptSourceTTY: String?
+        promptSourceTTY: String?,
+        onPromptDelivered: (@MainActor () -> Void)? = nil
     ) async throws {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -3796,6 +3798,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             }
                             if promptAcknowledged {
                                 PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+                                onPromptDelivered?()
                             } else {
                                 PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
                                 Self.logger.error(
@@ -3821,6 +3824,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             submitWithEnter: plannedPrompt.shouldSendEnterKey,
                             forceBracketedPaste: true
                         )
+                        onPromptDelivered?()
                     }
                 }
             }
