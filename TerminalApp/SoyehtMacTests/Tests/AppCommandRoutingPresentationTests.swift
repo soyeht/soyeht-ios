@@ -731,17 +731,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let writeConfig = try slice(
             source,
             from: "private static func writeConfig",
-            to: "private static func mcpEnvironment"
+            to: "// MARK: - Claude Code"
         )
         let readJSONObject = try slice(
             source,
             from: "private static func readJSONObject",
             to: "private static func writeJSONObject"
-        )
-        let mcpEnvironment = try slice(
-            source,
-            from: "private static func mcpEnvironment",
-            to: "// MARK: - Claude Code"
         )
         let claudeConfig = try slice(
             source,
@@ -751,7 +746,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let codexConfig = try slice(
             source,
             from: "private static func patchCodexTOML",
-            to: "private static func tomlString"
+            to: "// MARK: - OpenCode"
         )
         let opencodeConfig = try slice(
             source,
@@ -779,19 +774,39 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains(".appendingPathComponent(\".factory\", isDirectory: true)"))
         XCTAssertFalse(source.contains(".appendingPathComponent(\".droid\", isDirectory: true)"))
 
-        XCTAssertTrue(mcpEnvironment.contains("SOYEHT_AUTOMATION_DIR"))
-        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.developerEnvironmentOverride"))
-        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.subdirectory(\"Automation\")"))
         XCTAssertTrue(writeConfig.contains("try installClaudeCodeMCP()"))
+        XCTAssertTrue(source.contains("ensureMCPAvailable(forLocalAgentName"))
         XCTAssertFalse(source.contains("private static func patchClaudeJSON"))
         XCTAssertTrue(claudeConfig.contains("claudeURL = resolvedCLIURL(for: .claudeCode)"))
-        XCTAssertTrue(claudeConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertFalse(claudeConfig.contains("\"env\""))
+        XCTAssertTrue(claudeConfig.contains("\"mcp\", \"remove\", \"--scope\", \"user\", launcherKey"))
         XCTAssertTrue(claudeConfig.contains("\"mcp\", \"add-json\", \"--scope\", \"user\", launcherKey"))
         XCTAssertTrue(claudeConfig.contains("runAgentCommand("))
-        XCTAssertTrue(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
-        XCTAssertTrue(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
-        XCTAssertTrue(opencodeConfig.contains("\"environment\": try mcpEnvironment()"))
-        XCTAssertTrue(droidConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertTrue(codexConfig.contains("command = \"\\(launcherURL.path)\""))
+        XCTAssertTrue(codexConfig.contains("required = true"))
+        XCTAssertTrue(codexConfig.contains("tools.get_conversation_context"))
+        XCTAssertTrue(codexConfig.contains("tools.ack_conversation_context"))
+        XCTAssertTrue(codexConfig.contains("approval_mode = \"approve\""))
+        XCTAssertFalse(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
+        XCTAssertFalse(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
+        XCTAssertFalse(opencodeConfig.contains("\"environment\""))
+        XCTAssertFalse(droidConfig.contains("\"env\""))
+    }
+
+    func testAgentSwitchRepairsMCPBeforeChoosingBootstrapProtocol() throws {
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let switchAgent = try slice(
+            source,
+            from: "func switchAgent(",
+            to: "private func attachLocalPTY("
+        )
+
+        XCTAssertTrue(switchAgent.contains("ensureMCPAvailable(forLocalAgentName: target.name)"))
+        XCTAssertTrue(switchAgent.contains("let usesMCPContext = mcpIntegrationAvailable && !targetEvents.isEmpty"))
+        XCTAssertTrue(switchAgent.contains("AgentConversationMCPHandoff.prompt("))
+        XCTAssertTrue(switchAgent.contains("AgentConversationHandoff.prompt("))
+        XCTAssertTrue(switchAgent.contains("using structured fallback"))
+        XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
     }
 
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {

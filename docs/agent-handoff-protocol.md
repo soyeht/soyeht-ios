@@ -44,6 +44,14 @@ metadata, and the last canonical sequence imported into that session.
 8. Target hooks ignore both transport bootstrap forms as new user messages, so
    repeated switches do not duplicate history.
 
+Before an MCP-capable target starts, Soyeht repairs its managed MCP entry to
+use the profile-aware launcher and pre-approves the two context transport
+tools. If that repair fails, the switch sends the structured SAHP envelope
+instead of an MCP bootstrap the target cannot satisfy. A source cursor advances
+across locally authored events only while they are contiguous with its
+acknowledged cursor; an unacknowledged MCP gap therefore survives a switch away
+and can be retried.
+
 MCP pagination is event-based (20 messages by default, up to 50) and therefore
 scales independently of terminal paste limits. A single message remains one
 atomic event even when it is very large; future protocol versions may add

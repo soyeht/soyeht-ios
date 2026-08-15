@@ -134,6 +134,36 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(state.eventsNotImported(by: "opencode").map(\.text), ["primeira", "segunda"])
     }
 
+    func testFailedMCPImportDoesNotAdvanceSourceAcrossHistoryGap() {
+        var state = AgentConversationState()
+        for index in 1...2 {
+            state.recordEvent(role: index == 1 ? .user : .assistant, text: "codex-\(index)", sourceAgent: "codex")
+        }
+        state.markImported(through: 2, by: "codex")
+        state.recordEvent(role: .user, text: "nova instrução", sourceAgent: "soyeht")
+        state.recordEvent(role: .assistant, text: "resposta claude", sourceAgent: "claude")
+        state.recordEvent(role: .assistant, text: "MCP indisponível", sourceAgent: "codex")
+
+        state.markContiguousLocalEventsImported(by: "codex")
+
+        XCTAssertEqual(state.bindings["codex"]?.lastImportedSequence, 2)
+        XCTAssertEqual(
+            state.eventsNotImported(by: "codex").map(\.text),
+            ["nova instrução", "resposta claude", "MCP indisponível"]
+        )
+    }
+
+    func testInitialSourceAdvancesAcrossItsOwnContiguousConversation() {
+        var state = AgentConversationState()
+        state.recordEvent(role: .user, text: "pergunta", sourceAgent: "codex")
+        state.recordEvent(role: .assistant, text: "resposta", sourceAgent: "codex")
+
+        state.markContiguousLocalEventsImported(by: "codex")
+
+        XCTAssertEqual(state.bindings["codex"]?.lastImportedSequence, 2)
+        XCTAssertTrue(state.eventsNotImported(by: "codex").isEmpty)
+    }
+
     func testHandoffEnvelopePreservesRolesAndMetadata() throws {
         var state = AgentConversationState()
         state.recordEvent(

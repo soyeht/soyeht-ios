@@ -231,6 +231,21 @@ struct AgentConversationState: Codable, Hashable {
         bindings[key] = binding
     }
 
+    /// Advances an agent cursor only across the contiguous events authored by
+    /// that agent after its last acknowledged import. This preserves a gap
+    /// when an MCP handoff failed before acknowledgement; switching away must
+    /// not pretend the agent saw intervening messages from another provider.
+    mutating func markContiguousLocalEventsImported(by agent: String, at date: Date = Date()) {
+        let key = Self.agentKey(agent)
+        var cursor = bindings[key]?.lastImportedSequence ?? 0
+        for event in events where event.sequence > cursor {
+            guard event.sequence == cursor + 1,
+                  event.sourceAgent == key else { break }
+            cursor = event.sequence
+        }
+        markImported(through: cursor, by: key, at: date)
+    }
+
     private static func agentKey(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

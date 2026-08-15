@@ -231,28 +231,22 @@ checkout's `scripts/soyeht-mcp` when it is started inside a Soyeht git
 checkout or worktree, and falls back to the main checkout for this clone
 otherwise.
 
-For the shipping app, pin the MCP server to:
-
-```sh
-export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht/Automation"
-```
-
-For `Soyeht Dev.app`, use:
-
-```sh
-export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht Dev/Automation"
-```
+Do not pin `SOYEHT_AUTOMATION_DIR` in a global agent MCP configuration.
+Soyeht exports the correct profile directory to every pane, and the launcher
+can also resolve release versus Dev from the calling pane identity. A pinned
+release directory prevents a Codex session launched by Soyeht Dev from
+reaching its own conversation.
 
 ### Codex
 
 ```sh
-codex mcp add soyeht --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR" -- ~/.local/bin/soyeht-mcp
+codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
 ```
 
 ### Claude Code
 
 ```sh
-claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[],\"env\":{\"SOYEHT_AUTOMATION_DIR\":\"$SOYEHT_AUTOMATION_DIR\"}}"
+claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[]}"
 ```
 
 Claude Code user-scoped MCP servers live in `~/.claude.json`; project-scoped
@@ -270,9 +264,6 @@ printed by the installer:
     "soyeht": {
       "type": "local",
       "command": ["/Users/you/.local/bin/soyeht-mcp"],
-      "environment": {
-        "SOYEHT_AUTOMATION_DIR": "/Users/you/Library/Application Support/Soyeht/Automation"
-      },
       "enabled": true
     }
   }
@@ -282,7 +273,7 @@ printed by the installer:
 ### Droid
 
 ```sh
-droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR"
+droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio
 ```
 
 Droid stores user MCP servers in `~/.factory/mcp.json`.
@@ -307,9 +298,11 @@ Faça uma auditoria somente leitura e responda em português:
    - Codex: ~/.codex/config.toml, seção [mcp_servers.soyeht].
    - OpenCode: ~/.config/opencode/opencode.json, chave mcp.soyeht.
    - Droid: ~/.factory/mcp.json, chave mcpServers.soyeht.
-4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e se
-   SOYEHT_AUTOMATION_DIR aponta para:
+4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e confirme
+   que a configuração global não fixa SOYEHT_AUTOMATION_DIR. A pasta correta é
+   herdada ou resolvida dinamicamente entre:
    ~/Library/Application Support/Soyeht/Automation
+   ~/Library/Application Support/SoyehtDev/Automation
 5. Não edite nada. Termine com "OK PARA INSTALAR" ou "NAO INSTALAR AINDA" e liste
    exatamente o que está faltando.
 ```

@@ -3520,15 +3520,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName.lowercased()
 
-        // 1. Snapshot the canonical semantic history. The source agent has
-        // already seen every event up to this point, including any prior
-        // import, so advancing its cursor makes a future native resume receive
-        // only the intervening delta.
+        // 1. Snapshot the canonical semantic history. Advance the source only
+        // across a contiguous run of its own events. If an earlier MCP import
+        // failed before ack, its cursor must stay before that gap so a future
+        // resume can retrieve the missing history again.
         var conversationState = conv.agentConversation
-        conversationState.markImported(
-            through: conversationState.lastSequence,
-            by: previousAgent
-        )
+        conversationState.markContiguousLocalEventsImported(by: previousAgent)
         if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
            !instruction.isEmpty {
             _ = conversationState.recordEvent(
@@ -3541,7 +3538,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let throughSequence = conversationState.lastSequence
         let targetBinding = conversationState.bindings[target.name]
         let targetCapabilities = AgentConversationAdapterCapabilities.capabilities(for: target.name)
-        let usesMCPContext = targetCapabilities.mcpContext && !targetEvents.isEmpty
+        var mcpIntegrationAvailable = false
+        if targetCapabilities.mcpContext {
+            do {
+                mcpIntegrationAvailable = try await Task.detached(priority: .userInitiated) {
+                    try AIAgentIntegrator.ensureMCPAvailable(forLocalAgentName: target.name)
+                }.value
+            } catch {
+                Self.logger.warning(
+                    "agent_mcp_repair_failed agent=\(target.name, privacy: .public) error=\(error.localizedDescription, privacy: .public); using structured fallback"
+                )
+            }
+        }
+        let usesMCPContext = mcpIntegrationAvailable && !targetEvents.isEmpty
         let prompt = usesMCPContext
             ? AgentConversationMCPHandoff.prompt(
                 previousAgent: previousAgent,
