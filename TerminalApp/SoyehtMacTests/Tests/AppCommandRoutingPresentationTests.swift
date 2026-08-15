@@ -565,6 +565,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
                 AgentPaneEnvironment.conversationIDKey: sourceConversationID.uuidString,
                 AgentPaneEnvironment.handleKey: "@sender",
                 AgentPaneEnvironment.automationDirKey: "/tmp/soyeht-dev-e2e/Automation",
+                AgentPaneEnvironment.agentNameKey: "shell",
             ]
         )
 
@@ -630,7 +631,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
         XCTAssertTrue(brokerSend.contains("brokerSendEnterKey()"))
-        XCTAssertTrue(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
+        XCTAssertFalse(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
         let brokerSendEnterKey = try slice(
             terminalViewSource,
             from: "func brokerSendEnterKey()",

@@ -963,12 +963,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         let isLongPrompt = text.count > 256 || text.contains("\n")
         let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self else { return }
-            if isLongPrompt {
-                self.brokerSend(data: Data([0x0D]))
-            } else {
-                self.brokerSendEnterKey()
-            }
+            self?.brokerSendEnterKey()
         }
     }
 
