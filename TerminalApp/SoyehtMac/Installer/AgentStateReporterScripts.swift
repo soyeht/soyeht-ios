@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 12
+    static let version = 13
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -64,7 +64,8 @@ def last_assistant_text(transcript_path):
         message = value.get("message") if isinstance(value, dict) else None
         if not isinstance(message, dict):
             message = value if isinstance(value, dict) else {}
-        if str(message.get("role") or "").lower() != "assistant":
+        role = message.get("role") or (value.get("role") if isinstance(value, dict) else None)
+        if str(role or "").lower() != "assistant":
             continue
         content = message.get("content")
         if isinstance(content, str) and content.strip():
