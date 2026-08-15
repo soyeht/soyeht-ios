@@ -25,6 +25,9 @@ jobs:
     - name: Toolchain versions
       run: scripts/ci/test-ios env
 
+    - name: Verify governed macOS release contract
+      run: scripts/ci/test-ios governed-release-contract
+
     - name: Verify frozen owner-site A2-R1 corpus integrity
       run: scripts/ci/test-ios corpus-integrity
 
