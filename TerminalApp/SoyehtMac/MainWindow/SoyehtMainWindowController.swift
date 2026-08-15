@@ -3855,21 +3855,29 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     ) async -> Bool {
         guard let expectedReportSource else { return false }
         for attempt in 1...3 {
-            let baseline = PaneStatusTracker.shared.lastReportAt(
+            let baseline = PaneStatusTracker.shared.lastWorkingReportAt(
                 for: paneID,
                 source: expectedReportSource
             ) ?? .distantPast
-            terminalView.brokerSend(
-                text: payload,
-                submitWithEnter: shouldSendEnterKey,
-                forceBracketedPaste: true
-            )
+            if attempt == 2, shouldSendEnterKey, expectedReportSource == "hook:kimi" {
+                // Kimi can paint its resumed editor before its enhanced
+                // keyboard mode is ready. The first SwiftTerm Return may leave
+                // the complete prompt buffered; a raw CR submits that buffer
+                // without pasting the prompt a second time.
+                terminalView.brokerSend(text: "\r")
+            } else {
+                terminalView.brokerSend(
+                    text: payload,
+                    submitWithEnter: shouldSendEnterKey,
+                    forceBracketedPaste: true
+                )
+            }
             let deadline = Date().addingTimeInterval(
                 AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: payload)
             )
             while Date() < deadline {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                if let last = PaneStatusTracker.shared.lastReportAt(
+                if let last = PaneStatusTracker.shared.lastWorkingReportAt(
                     for: paneID,
                     source: expectedReportSource
                 ), last > baseline {

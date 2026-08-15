@@ -47,6 +47,7 @@ final class PaneStatusTracker {
 
     private var agentStateReports: [Conversation.ID: AgentStateReport] = [:]
     private var lastAcceptedReportAtBySource: [Conversation.ID: [String: Date]] = [:]
+    private var lastAcceptedWorkingReportAtBySource: [Conversation.ID: [String: Date]] = [:]
     private var lastMcpActivityAt: [Conversation.ID: Date] = [:]
 
     // MARK: - Launch handshake
@@ -78,6 +79,7 @@ final class PaneStatusTracker {
         handshakeStates[paneID] = nil
         agentStateReports[paneID] = nil
         lastAcceptedReportAtBySource[paneID] = nil
+        lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 
@@ -110,6 +112,13 @@ final class PaneStatusTracker {
     /// hook when multiple Claude-compatible tools coexist on the machine.
     func lastReportAt(for paneID: Conversation.ID, source: String) -> Date? {
         lastAcceptedReportAtBySource[paneID]?[source]
+    }
+
+    /// Timestamp of the most recent accepted `working` report. SessionStart
+    /// emits `idle`, so it must never be mistaken for proof that the initial
+    /// prompt was actually submitted by the target TUI.
+    func lastWorkingReportAt(for paneID: Conversation.ID, source: String) -> Date? {
+        lastAcceptedWorkingReportAtBySource[paneID]?[source]
     }
 
     /// Last known wire fingerprint of each pane, used to emit deltas only on
@@ -266,6 +275,9 @@ final class PaneStatusTracker {
         }
         agentStateReports[paneID] = incoming
         lastAcceptedReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
+        if state == "working" {
+            lastAcceptedWorkingReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
+        }
         return (true, nil)
     }
 
@@ -291,6 +303,7 @@ final class PaneStatusTracker {
     private func forgetAutomationState(paneID: Conversation.ID) {
         agentStateReports[paneID] = nil
         lastAcceptedReportAtBySource[paneID] = nil
+        lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 
