@@ -118,6 +118,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
+    private var isSwitchingAgent = false
 
     /// Fase 3.1 — observation loop token. Installed on first attach,
     /// cancelled only when the view is genuinely removed from the window
@@ -971,7 +972,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     // chain; `focusedPaneID` is updated before dispatch so the grid knows
     // which leaf the split/close applies to.
 
-    /// Presents the agent switcher anchored on the header's agent chip.
+    /// Presents the agent switcher anchored on the disclosure button beside
+    /// the current agent name.
     /// Switching keeps this pane's conversation (handle, scrollback) and
     /// replays the transcript into the new agent as handoff context.
     private func presentAgentSwitcherMenu(anchor: NSView) {
@@ -979,7 +981,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
               let conv = convStore.conversation(conversationID),
               conv.content.isTerminal else { return }
 
-        let currentAgentName = conv.agent.isShell ? "shell" : conv.agent.displayName
         let available = LocalAgentCatalog.availableAgents()
 
         let menu = NSMenu()
@@ -994,6 +995,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         menu.addItem(title)
 
         let currentEntry = LocalAgentCatalog.agent(forAgentType: conv.agent)
+        let selectableAgents = available.filter { $0.name != currentEntry?.name }
         for agent in available {
             let item = NSMenuItem(
                 title: agent.displayName,
@@ -1009,7 +1011,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             menu.addItem(item)
         }
 
-        if menu.items.count == 1 {
+        if selectableAgents.isEmpty {
             let empty = NSMenuItem(title: String(
                 localized: "pane.header.agentSwitch.menu.none",
                 defaultValue: "Nenhum outro agente instalado",
@@ -1023,14 +1025,36 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     @objc private func agentSwitchMenuSelected(_ sender: NSMenuItem) {
-        guard let agentName = sender.representedObject as? String else { return }
+        guard !isSwitchingAgent,
+              let agentName = sender.representedObject as? String else { return }
         let paneID = conversationID
         Task { @MainActor [weak self] in
-            guard let controller = self?.mainWindowController() else { return }
+            guard let self,
+                  let controller = self.mainWindowController() else { return }
+            self.isSwitchingAgent = true
+            self.header.isAgentSwitchEnabled = false
+            defer {
+                self.isSwitchingAgent = false
+                self.header.isAgentSwitchEnabled = true
+            }
             do {
                 _ = try await controller.switchAgent(in: paneID, to: agentName)
             } catch {
                 Self.logger.error("agent switch failed: \(error.localizedDescription, privacy: .public)")
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = String(
+                    localized: "pane.header.agentSwitch.error.title",
+                    defaultValue: "Couldn't switch agent",
+                    comment: "Alert title shown when an in-place agent switch fails."
+                )
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
+                if let window = self.view.window {
+                    alert.beginSheetModal(for: window) { _ in }
+                } else {
+                    alert.runModal()
+                }
             }
         }
     }
