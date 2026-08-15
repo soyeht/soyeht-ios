@@ -60,6 +60,14 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(parser.contains("source_event_id = \"atif:"))
     }
 
+    func testLateTranscriptWritersUseDeferredCollector() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        XCTAssertTrue(source.contains("report_agent in (\"copilot\", \"devin\")"))
+        XCTAssertTrue(source.contains("schedule_deferred_agent_transcript("))
+        XCTAssertTrue(source.contains("SOYEHT_DEFERRED_AGENT_TRANSCRIPT"))
+        XCTAssertTrue(source.contains("assistant_event_signature"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

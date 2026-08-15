@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 18
+    static let version = 19
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v18). Do not edit.
+# Managed by Soyeht (agent-state integration v19). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -166,12 +166,12 @@ def assistant_event_signature(event):
     return "sha256:" + hashlib.sha256(str(event.get("text") or "").encode("utf-8")).hexdigest()
 
 
-def schedule_deferred_copilot_transcript(transcript_path, session_id):
+def schedule_deferred_agent_transcript(transcript_path, session_id):
     if not isinstance(transcript_path, str) or not transcript_path:
         return False
     baseline = assistant_event_signature(last_assistant_event(transcript_path))
     env = os.environ.copy()
-    env["SOYEHT_DEFERRED_COPILOT_TRANSCRIPT"] = "1"
+    env["SOYEHT_DEFERRED_AGENT_TRANSCRIPT"] = "1"
     env["SOYEHT_DEFERRED_TRANSCRIPT_PATH"] = transcript_path
     env["SOYEHT_DEFERRED_BASELINE"] = baseline
     if session_id:
@@ -191,7 +191,7 @@ def schedule_deferred_copilot_transcript(transcript_path, session_id):
         return False
 
 
-def report_deferred_copilot_transcript():
+def report_deferred_agent_transcript():
     conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
     automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
     transcript_path = os.environ.get("SOYEHT_DEFERRED_TRANSCRIPT_PATH", "")
@@ -264,7 +264,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
             or os.environ.get("SOYEHT_AGENT_TRANSCRIPT_PATH")
         )
         report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
-        if not text and report_agent == "copilot" and schedule_deferred_copilot_transcript(
+        if not text and report_agent in ("copilot", "devin") and schedule_deferred_agent_transcript(
             transcript_path, session_id
         ):
             role = None
@@ -307,8 +307,8 @@ def report_conversation(data, event, conversation_id, automation_dir):
 
 
 def main():
-    if os.environ.get("SOYEHT_DEFERRED_COPILOT_TRANSCRIPT") == "1":
-        return report_deferred_copilot_transcript()
+    if os.environ.get("SOYEHT_DEFERRED_AGENT_TRANSCRIPT") == "1":
+        return report_deferred_agent_transcript()
     conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
     automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
     if not conversation_id or not automation_dir:
