@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 13
+    static let version = 14
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -20,7 +20,7 @@ enum AgentStateReporterScripts {
 # Managed by Soyeht (agent-state integration v3). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
-import json, os, sys, time, uuid
+import hashlib, json, os, subprocess, sys, time, uuid
 from pathlib import Path
 
 
@@ -45,7 +45,7 @@ def scalar(value, *keys):
     return None
 
 
-def last_assistant_text(transcript_path):
+def last_assistant_event(transcript_path):
     if not isinstance(transcript_path, str) or not transcript_path:
         return None
     try:
@@ -62,15 +62,28 @@ def last_assistant_text(transcript_path):
         except Exception:
             continue
         message = value.get("message") if isinstance(value, dict) else None
+        if (
+            not isinstance(message, dict)
+            and isinstance(value, dict)
+            and str(value.get("type") or "").lower() in ("assistant.message", "assistant_message")
+            and isinstance(value.get("data"), dict)
+        ):
+            message = value.get("data")
         if not isinstance(message, dict):
             message = value if isinstance(value, dict) else {}
-        role = message.get("role") or (value.get("role") if isinstance(value, dict) else None)
+        value_type = str(value.get("type") or "").lower() if isinstance(value, dict) else ""
+        role = (
+            message.get("role")
+            or (value.get("role") if isinstance(value, dict) else None)
+            or ("assistant" if value_type in ("assistant.message", "assistant_message") else None)
+        )
         if str(role or "").lower() != "assistant":
             continue
         content = message.get("content")
+        text = None
         if isinstance(content, str) and content.strip():
-            return content
-        if isinstance(content, list):
+            text = content.strip()
+        elif isinstance(content, list):
             texts = [
                 str(part.get("text"))
                 for part in content
@@ -80,8 +93,84 @@ def last_assistant_text(transcript_path):
             ]
             joined = "\n".join(texts).strip()
             if joined:
-                return joined
+                text = joined
+        if text:
+            source_event_id = scalar(
+                message.get("messageId")
+                or message.get("message_id")
+                or message.get("id")
+                or (value.get("id") if isinstance(value, dict) else None),
+                "id"
+            )
+            model = scalar(
+                message.get("model") or message.get("modelId") or message.get("model_id"),
+                "id", "model_id", "display_name"
+            )
+            return {"text": text, "sourceEventID": source_event_id, "model": model}
     return None
+
+
+def last_assistant_text(transcript_path):
+    event = last_assistant_event(transcript_path)
+    return event.get("text") if event else None
+
+
+def assistant_event_signature(event):
+    if not event:
+        return ""
+    if event.get("sourceEventID"):
+        return "id:" + str(event.get("sourceEventID"))
+    return "sha256:" + hashlib.sha256(str(event.get("text") or "").encode("utf-8")).hexdigest()
+
+
+def schedule_deferred_copilot_transcript(transcript_path, session_id):
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return False
+    baseline = assistant_event_signature(last_assistant_event(transcript_path))
+    env = os.environ.copy()
+    env["SOYEHT_DEFERRED_COPILOT_TRANSCRIPT"] = "1"
+    env["SOYEHT_DEFERRED_TRANSCRIPT_PATH"] = transcript_path
+    env["SOYEHT_DEFERRED_BASELINE"] = baseline
+    if session_id:
+        env["SOYEHT_DEFERRED_SESSION_ID"] = session_id
+    try:
+        subprocess.Popen(
+            [sys.executable, os.path.abspath(__file__)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            start_new_session=True,
+            env=env,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def report_deferred_copilot_transcript():
+    conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
+    automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
+    transcript_path = os.environ.get("SOYEHT_DEFERRED_TRANSCRIPT_PATH", "")
+    baseline = os.environ.get("SOYEHT_DEFERRED_BASELINE", "")
+    if not conversation_id or not automation_dir or not transcript_path:
+        return 0
+    for _ in range(50):
+        event = last_assistant_event(transcript_path)
+        if event and assistant_event_signature(event) != baseline:
+            payload = {
+                "sourceConversationID": conversation_id,
+                "role": "assistant",
+                "text": event.get("text"),
+                "sourceEventID": event.get("sourceEventID"),
+                "model": event.get("model"),
+                "nativeSessionID": os.environ.get("SOYEHT_DEFERRED_SESSION_ID"),
+            }
+            payload = {key: value for key, value in payload.items() if value}
+            write_request(automation_dir, "report_agent_conversation", payload)
+            return 0
+        time.sleep(0.1)
+    return 0
 
 
 def report_conversation(data, event, conversation_id, automation_dir):
@@ -106,6 +195,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
 
     role = None
     text = None
+    transcript_event = None
     if event == "UserPromptSubmit":
         role = "user"
         text = data.get("prompt") or data.get("user_prompt") or data.get("userPrompt")
@@ -116,16 +206,25 @@ def report_conversation(data, event, conversation_id, automation_dir):
         text = data.get("message") or data.get("text")
     elif event == "Stop":
         role = "assistant"
-        text = (
-            data.get("last_assistant_message")
-            or data.get("lastAssistantMessage")
-            or last_assistant_text(data.get("transcript_path") or data.get("transcriptPath"))
-        )
+        text = data.get("last_assistant_message") or data.get("lastAssistantMessage")
         if not text:
             for candidate in (data.get("response"), data.get("output")):
                 if isinstance(candidate, str) and candidate.strip():
                     text = candidate
                     break
+        transcript_path = data.get("transcript_path") or data.get("transcriptPath")
+        report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
+        if not text and report_agent == "copilot" and schedule_deferred_copilot_transcript(
+            transcript_path, session_id
+        ):
+            role = None
+        elif not text:
+            transcript_event = last_assistant_event(transcript_path)
+            if transcript_event:
+                text = transcript_event.get("text")
+                model = model or transcript_event.get("model")
+                if model:
+                    payload["model"] = model
 
     if isinstance(text, str) and text.strip():
         # A handoff envelope is transport already represented by its original
@@ -134,8 +233,18 @@ def report_conversation(data, event, conversation_id, automation_dir):
             return
         payload["role"] = role
         payload["text"] = text
-        source_event_id = data.get("message_id") or data.get("messageId")
-        turn_id = data.get("turn_id") or data.get("turnId")
+        source_event_id = (
+            data.get("message_id")
+            or data.get("messageId")
+            or (transcript_event.get("sourceEventID") if transcript_event else None)
+        )
+        turn_id = (
+            data.get("turn_id")
+            or data.get("turnId")
+            or data.get("generation_id")
+            or data.get("generationId")
+            or data.get("interactionId")
+        )
         if not source_event_id and turn_id:
             source_event_id = "%s:%s" % (turn_id, role)
         if source_event_id:
@@ -148,6 +257,8 @@ def report_conversation(data, event, conversation_id, automation_dir):
 
 
 def main():
+    if os.environ.get("SOYEHT_DEFERRED_COPILOT_TRANSCRIPT") == "1":
+        return report_deferred_copilot_transcript()
     conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
     automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
     if not conversation_id or not automation_dir:
