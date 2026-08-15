@@ -30,6 +30,8 @@ struct SoyehtAutomationRequest: Decodable {
         case listAgents = "list_agents"
         case reportAgentState = "report_agent_state"
         case reportAgentConversation = "report_agent_conversation"
+        case getConversationContext = "get_conversation_context"
+        case ackConversationContext = "ack_conversation_context"
         case requestAttention = "request_attention"
         case switchAgent = "switch_agent"
         case openEditor = "open_editor"
@@ -124,6 +126,9 @@ struct SoyehtAutomationRequest: Decodable {
         let model: String?
         let reasoningEffort: String?
         let variant: String?
+        let afterSequence: Int?
+        let maxEvents: Int?
+        let throughSequence: Int?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -465,6 +470,26 @@ struct SoyehtAutomationResponse: Encodable {
         let nativeSessionID: String?
     }
 
+    struct AgentConversationContext: Encodable {
+        let conversationID: String
+        let handle: String
+        let agent: String
+        let protocolVersion: Int
+        let afterSequence: Int
+        let throughSequence: Int
+        let lastSequence: Int
+        let hasMore: Bool
+        let nextCursor: Int?
+        let events: [AgentConversationEvent]
+    }
+
+    struct AgentConversationContextAcknowledged: Encodable {
+        let conversationID: String
+        let handle: String
+        let agent: String
+        let throughSequence: Int
+    }
+
     struct SwitchedAgent: Encodable {
         let conversationID: String
         let workspaceID: String
@@ -567,6 +592,8 @@ struct SoyehtAutomationResponse: Encodable {
     let agentStateReported: AgentStateReported?
     let agentConversationReported: AgentConversationReported?
     let switchedAgents: [SwitchedAgent]?
+    let agentConversationContext: AgentConversationContext?
+    let agentConversationContextAcknowledged: AgentConversationContextAcknowledged?
 }
 
 struct SoyehtAutomationResult {
@@ -595,6 +622,8 @@ struct SoyehtAutomationResult {
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
     var agentConversationReported: SoyehtAutomationResponse.AgentConversationReported? = nil
     var switchedAgents: [SoyehtAutomationResponse.SwitchedAgent]? = nil
+    var agentConversationContext: SoyehtAutomationResponse.AgentConversationContext? = nil
+    var agentConversationContextAcknowledged: SoyehtAutomationResponse.AgentConversationContextAcknowledged? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -813,7 +842,9 @@ final class SoyehtAutomationService {
                 listedAgents: result.listedAgents,
                 agentStateReported: result.agentStateReported,
                 agentConversationReported: result.agentConversationReported,
-                switchedAgents: result.switchedAgents
+                switchedAgents: result.switchedAgents,
+                agentConversationContext: result.agentConversationContext,
+                agentConversationContextAcknowledged: result.agentConversationContextAcknowledged
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -847,7 +878,9 @@ final class SoyehtAutomationService {
                 listedAgents: [],
                 agentStateReported: nil,
                 agentConversationReported: nil,
-                switchedAgents: nil
+                switchedAgents: nil,
+                agentConversationContext: nil,
+                agentConversationContextAcknowledged: nil
             ))
         }
     }

@@ -3539,13 +3539,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         let targetEvents = conversationState.eventsNotImported(by: target.name)
         let throughSequence = conversationState.lastSequence
-        let prompt = AgentConversationHandoff.prompt(
-            previousAgent: previousAgent,
-            events: targetEvents,
-            throughSequence: throughSequence
-        )
         let targetBinding = conversationState.bindings[target.name]
         let targetCapabilities = AgentConversationAdapterCapabilities.capabilities(for: target.name)
+        let usesMCPContext = targetCapabilities.mcpContext && !targetEvents.isEmpty
+        let prompt = usesMCPContext
+            ? AgentConversationMCPHandoff.prompt(
+                previousAgent: previousAgent,
+                throughSequence: throughSequence
+            )
+            : AgentConversationHandoff.prompt(
+                previousAgent: previousAgent,
+                events: targetEvents,
+                throughSequence: throughSequence
+            )
         let nativeResumeBinding = targetCapabilities.nativeResume ? targetBinding : nil
         convStore.updateAgentConversation(paneID, state: conversationState)
 
@@ -3588,6 +3594,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             promptSourceHandle: nil,
             promptSourceTTY: nil,
             onPromptDelivered: {
+                guard !usesMCPContext else { return }
                 // Merge against the latest store value: target startup hooks
                 // may already have added session metadata while it booted.
                 convStore.markAgentConversationImported(
@@ -3611,7 +3618,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             // value now counts canonical messages, never terminal lines.
             transcriptLineCount: conversationState.events.count,
             importedEventCount: targetEvents.count,
-            historySource: "structured",
+            historySource: usesMCPContext ? "mcp" : "structured",
             resumedNativeSession: nativeResumeBinding?.nativeSessionID != nil,
             sourceModel: conversationState.bindings[previousAgent]?.model,
             sourceReasoningEffort: conversationState.bindings[previousAgent]?.reasoningEffort

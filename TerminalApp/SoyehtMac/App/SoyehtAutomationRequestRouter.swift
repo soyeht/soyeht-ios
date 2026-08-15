@@ -70,6 +70,7 @@ final class SoyehtAutomationRequestRouter {
         case unknownAgent(String)
         case emptyPaneInputTargets
         case invalidConversationIDFormat(String)
+        case invalidConversationSequence(Int, Int)
 
         var errorDescription: String? {
             switch self {
@@ -121,6 +122,8 @@ final class SoyehtAutomationRequestRouter {
                 return "Automation request did not match any pane to act on."
             case .invalidConversationIDFormat(let value):
                 return "Conversation ID is not a valid UUID: \(value)."
+            case .invalidConversationSequence(let requested, let last):
+                return "Conversation sequence \(requested) is beyond the canonical tail \(last)."
             }
         }
     }
@@ -179,6 +182,10 @@ final class SoyehtAutomationRequestRouter {
             return try handleReportAgentState(request)
         case .reportAgentConversation:
             return try handleReportAgentConversation(request)
+        case .getConversationContext:
+            return try handleGetConversationContext(request)
+        case .ackConversationContext:
+            return try handleAckConversationContext(request)
         case .requestAttention:
             return try handleRequestAttention(request)
         case .switchAgent:
@@ -960,7 +967,8 @@ final class SoyehtAutomationRequestRouter {
         // Imported SAHP envelopes are transport, not new user turns. Hooks see
         // them at the provider boundary, so filter them again in the app even
         // if an older reporter failed to do so.
-        guard !text.hasPrefix(AgentConversationHandoff.marker) else {
+        guard !text.hasPrefix(AgentConversationHandoff.marker),
+              !text.hasPrefix(AgentConversationMCPHandoff.marker) else {
             return SoyehtAutomationResult(agentConversationReported: .init(
                 conversationID: source.conversation.id.uuidString,
                 handle: source.conversation.handle,
@@ -989,6 +997,74 @@ final class SoyehtAutomationRequestRouter {
             kind: "message",
             sequence: recorded.sequence,
             nativeSessionID: recorded.nativeSessionID
+        ))
+    }
+
+    /// Returns only canonical user/assistant events for the calling pane.
+    /// Pagination defaults to the current agent's acknowledged cursor, so a
+    /// resumed native session receives just the delta while a first-time
+    /// target receives the complete conversation.
+    private func handleGetConversationContext(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        guard let source = try resolveAutomationSource(payload: request.payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        guard let conversation = conversationStore.conversation(source.conversation.id) else {
+            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        }
+        let state = conversation.agentConversation
+        let agent = conversation.agent.displayName.lowercased()
+        let acknowledged = state.bindings[agent]?.lastImportedSequence ?? 0
+        let requestedAfter = max(0, request.payload.afterSequence ?? acknowledged)
+        let afterSequence = max(acknowledged, requestedAfter)
+        let page = state.contextPage(
+            afterSequence: afterSequence,
+            maxEvents: request.payload.maxEvents ?? 20
+        )
+
+        return SoyehtAutomationResult(agentConversationContext: .init(
+            conversationID: conversation.id.uuidString,
+            handle: conversation.handle,
+            agent: agent,
+            protocolVersion: state.protocolVersion,
+            afterSequence: page.afterSequence,
+            throughSequence: page.throughSequence,
+            lastSequence: page.lastSequence,
+            hasMore: page.hasMore,
+            nextCursor: page.nextCursor,
+            events: page.events
+        ))
+    }
+
+    /// Advances the calling agent's cursor only after it confirms successful
+    /// context retrieval. Acknowledging beyond the canonical tail is rejected.
+    private func handleAckConversationContext(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        guard let source = try resolveAutomationSource(payload: request.payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        guard let conversation = conversationStore.conversation(source.conversation.id) else {
+            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        }
+        let requested = max(0, request.payload.throughSequence ?? 0)
+        let lastSequence = conversation.agentConversation.lastSequence
+        guard requested <= lastSequence else {
+            throw AutomationError.invalidConversationSequence(requested, lastSequence)
+        }
+        let throughSequence = requested
+        let agent = conversation.agent.displayName.lowercased()
+        conversationStore.markAgentConversationImported(
+            conversation.id,
+            through: throughSequence,
+            by: agent
+        )
+        return SoyehtAutomationResult(agentConversationContextAcknowledged: .init(
+            conversationID: conversation.id.uuidString,
+            handle: conversation.handle,
+            agent: agent,
+            throughSequence: throughSequence
         ))
     }
 

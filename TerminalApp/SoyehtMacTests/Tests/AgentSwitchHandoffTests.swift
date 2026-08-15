@@ -130,6 +130,61 @@ final class AgentSwitchHandoffTests: XCTestCase {
         ))
     }
 
+    func testMCPHandoffContainsOnlyBootstrapAndNoConversationText() throws {
+        let prompt = try XCTUnwrap(AgentConversationMCPHandoff.prompt(
+            previousAgent: "codex",
+            throughSequence: 42
+        ))
+
+        XCTAssertTrue(prompt.hasPrefix(AgentConversationMCPHandoff.marker))
+        XCTAssertTrue(prompt.contains("get_conversation_context"))
+        XCTAssertTrue(prompt.contains("ack_conversation_context"))
+        XCTAssertFalse(prompt.contains("texto secreto da conversa"))
+    }
+
+    func testMCPHandoffIsNilForEmptyConversation() {
+        XCTAssertNil(AgentConversationMCPHandoff.prompt(
+            previousAgent: "codex",
+            throughSequence: 0
+        ))
+    }
+
+    func testMCPContextPagesWholeCanonicalEventsAndAdvancesCursor() throws {
+        var state = AgentConversationState()
+        for index in 1...5 {
+            state.recordEvent(
+                role: index.isMultiple(of: 2) ? .assistant : .user,
+                text: "event-\(index)",
+                sourceAgent: "codex"
+            )
+        }
+
+        let first = state.contextPage(afterSequence: 0, maxEvents: 2)
+        XCTAssertEqual(first.events.map(\.text), ["event-1", "event-2"])
+        XCTAssertEqual(first.throughSequence, 2)
+        XCTAssertEqual(first.nextCursor, 2)
+        XCTAssertTrue(first.hasMore)
+
+        let second = state.contextPage(afterSequence: try XCTUnwrap(first.nextCursor), maxEvents: 50)
+        XCTAssertEqual(second.events.map(\.text), ["event-3", "event-4", "event-5"])
+        XCTAssertEqual(second.throughSequence, 5)
+        XCTAssertEqual(second.lastSequence, 5)
+        XCTAssertNil(second.nextCursor)
+        XCTAssertFalse(second.hasMore)
+    }
+
+    func testMCPContextClampsPageSizeButDoesNotSplitLongMessage() {
+        var state = AgentConversationState()
+        let longMessage = String(repeating: "x", count: 100_000)
+        state.recordEvent(role: .user, text: longMessage, sourceAgent: "codex")
+        state.recordEvent(role: .assistant, text: "second", sourceAgent: "codex")
+
+        let page = state.contextPage(afterSequence: 0, maxEvents: 0)
+        XCTAssertEqual(page.events.count, 1)
+        XCTAssertEqual(page.events[0].text, longMessage)
+        XCTAssertTrue(page.hasMore)
+    }
+
     func testLegacyTerminalTranscriptIsDiscardedAndNeverReencoded() throws {
         let id = UUID()
         let workspaceID = UUID()
@@ -200,11 +255,15 @@ final class AgentSwitchHandoffTests: XCTestCase {
 
     func testCapabilitiesDescribeStructuredAndNativeAdapters() {
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "codex").nativeResume)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "codex").mcpContext)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "claude").mcpContext)
+        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").mcpContext)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "claude").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").modelMetadata)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "pi").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "copilot").reasoningEffortMetadata)
+        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").mcpContext)
         XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "qoder").structuredCapture)
         XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "unknown").nativeResume)
     }

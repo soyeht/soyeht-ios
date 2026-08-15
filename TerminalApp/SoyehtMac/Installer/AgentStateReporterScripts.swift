@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 19
+    static let version = 20
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v19). Do not edit.
+# Managed by Soyeht (agent-state integration v20). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -279,7 +279,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
     if isinstance(text, str) and text.strip():
         # A handoff envelope is transport already represented by its original
         # canonical events. It must not become a second user turn.
-        if role == "user" and text.lstrip().startswith("SOYEHT_AGENT_HANDOFF_V1"):
+        if role == "user" and text.lstrip().startswith("SOYEHT_AGENT_HANDOFF_"):
             return
         payload["role"] = role
         payload["text"] = text
@@ -613,7 +613,7 @@ export default function (pi: any) {
               .join("\n")
               .trim()
           : "");
-      if (!text || (role === "user" && text.startsWith("SOYEHT_AGENT_HANDOFF_V1"))) return;
+      if (!text || (role === "user" && text.startsWith("SOYEHT_AGENT_HANDOFF_"))) return;
       const payload: Record<string, unknown> = {
         sourceConversationID: process.env.SOYEHT_CONVERSATION_ID,
         role,
@@ -736,7 +736,7 @@ export const SoyehtAgentStatePlugin = async () => {
         .map((part) => part.text ?? "")
         .join("\n")
         .trim();
-      if (text && !text.startsWith("SOYEHT_AGENT_HANDOFF_V1")) {
+      if (text && !text.startsWith("SOYEHT_AGENT_HANDOFF_")) {
         await reportConversation({
           role: "user",
           text,

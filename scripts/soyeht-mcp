@@ -1419,6 +1419,34 @@ def tool_get_pane_status(args):
     )
 
 
+def tool_get_conversation_context(args):
+    payload = with_source_context({
+        "afterSequence": args.get("afterSequence"),
+        "maxEvents": args.get("maxEvents", 20),
+    }, args)
+    return submit_request(
+        "get_conversation_context",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 15.0),
+    )
+
+
+def tool_ack_conversation_context(args):
+    through_sequence = args.get("throughSequence")
+    if through_sequence is None:
+        raise RuntimeError("ack_conversation_context requires throughSequence.")
+    payload = with_source_context({
+        "throughSequence": through_sequence,
+    }, args)
+    return submit_request(
+        "ack_conversation_context",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 15.0),
+    )
+
+
 def tool_capture_pane(args):
     payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
@@ -2353,6 +2381,53 @@ TOOLS = [
         },
     },
     {
+        "name": "get_conversation_context",
+        "description": (
+            "Read canonical user and assistant messages for the calling Soyeht pane without terminal scraping. "
+            "Call this when a SOYEHT_AGENT_HANDOFF_MCP_V1 bootstrap asks you to continue another agent's conversation. "
+            "If hasMore is true, call again with afterSequence=nextCursor. After the final page, acknowledge throughSequence."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "afterSequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Sequence cursor returned as nextCursor by the previous page. Omit on the first call.",
+                },
+                "maxEvents": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "Maximum canonical messages in one page.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 15.0},
+            },
+        },
+    },
+    {
+        "name": "ack_conversation_context",
+        "description": (
+            "Acknowledge canonical Soyeht conversation context after all pages were read successfully. "
+            "Use the throughSequence returned by the final get_conversation_context page."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "throughSequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Final throughSequence returned by get_conversation_context.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 15.0},
+            },
+            "required": ["throughSequence"],
+        },
+    },
+    {
         "name": "get_pane_status",
         "description": (
             "Return the current status of one or more Soyeht panes. "
@@ -2496,6 +2571,8 @@ TOOL_HANDLERS = {
     "close_workspace": tool_close_workspace,
     "move_pane": tool_move_pane,
     "get_pane_status": tool_get_pane_status,
+    "get_conversation_context": tool_get_conversation_context,
+    "ack_conversation_context": tool_ack_conversation_context,
     "capture_pane": tool_capture_pane,
     "capture_pane_range": tool_capture_pane_range,
     "get_active_context": tool_get_active_context,

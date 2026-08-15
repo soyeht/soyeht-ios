@@ -27,18 +27,27 @@ metadata, and the last canonical sequence imported into that session.
 3. Soyeht stops the source process and keeps the pane/conversation identity.
 4. If the target has a supported native binding, Soyeht resumes that exact
    session. Otherwise it starts a new target session.
-5. Soyeht serializes only events after the target cursor in a JSON SAHP envelope
-   and submits it after the target readiness handshake. Agents whose session is
-   created by the first turn use prompt-bound readiness instead of waiting for a
-   startup event that cannot exist yet.
+5. For Claude Code, Codex, and OpenCode, Soyeht submits only a short MCP
+   bootstrap. The target calls `get_conversation_context`, follows
+   `nextCursor` until `hasMore` is false, then calls
+   `ack_conversation_context` with the final `throughSequence`. Other adapters
+   receive only events after their cursor in a JSON SAHP envelope. Agents whose
+   session is created by the first turn use prompt-bound readiness instead of
+   waiting for a startup event that cannot exist yet.
 6. Delivery is acknowledged only by a fresh hook report from the declared
    target agent. Soyeht retries swallowed TUI input, and long pasted prompts are
    submitted through the same Return-key path as interactive input.
-7. Once delivery succeeds, Soyeht advances the target cursor immediately. The
-   update is merged into the latest store value so concurrent startup metadata
-   is preserved.
-8. Target hooks ignore the SAHP transport envelope as a new user message, so
+7. MCP targets advance their cursor only after explicit acknowledgement of the
+   final page. Envelope targets advance it after delivery succeeds. Updates are
+   merged into the latest store value so concurrent startup metadata is
+   preserved.
+8. Target hooks ignore both transport bootstrap forms as new user messages, so
    repeated switches do not duplicate history.
+
+MCP pagination is event-based (20 messages by default, up to 50) and therefore
+scales independently of terminal paste limits. A single message remains one
+atomic event even when it is very large; future protocol versions may add
+content chunks without changing semantic ordering.
 
 The legacy response field `transcriptLineCount` remains for automation
 compatibility, but in SAHP it counts canonical message events, not terminal
@@ -51,6 +60,7 @@ Adapters declare capabilities instead of guessing unsupported flags:
 
 - structured message capture
 - native session resume
+- MCP context retrieval
 - model metadata
 - reasoning-effort/variant metadata
 

@@ -74,6 +74,34 @@ struct AgentConversationState: Codable, Hashable {
 
     var lastSequence: Int { events.last?.sequence ?? 0 }
 
+    struct ContextPage: Equatable {
+        let afterSequence: Int
+        let throughSequence: Int
+        let lastSequence: Int
+        let hasMore: Bool
+        let nextCursor: Int?
+        let events: [AgentConversationEvent]
+    }
+
+    /// Returns whole semantic events so messages are never split or confused
+    /// with terminal bytes. Callers can follow `nextCursor` until `hasMore`
+    /// becomes false, then acknowledge the final `throughSequence`.
+    func contextPage(afterSequence requestedAfter: Int, maxEvents requestedLimit: Int) -> ContextPage {
+        let afterSequence = max(0, requestedAfter)
+        let limit = min(50, max(1, requestedLimit))
+        let pageEvents = Array(events.lazy.filter { $0.sequence > afterSequence }.prefix(limit))
+        let throughSequence = pageEvents.last?.sequence ?? afterSequence
+        let hasMore = events.contains { $0.sequence > throughSequence }
+        return ContextPage(
+            afterSequence: afterSequence,
+            throughSequence: throughSequence,
+            lastSequence: lastSequence,
+            hasMore: hasMore,
+            nextCursor: hasMore ? throughSequence : nil,
+            events: pageEvents
+        )
+    }
+
     mutating func recordSession(
         agent: String,
         nativeSessionID: String?,
