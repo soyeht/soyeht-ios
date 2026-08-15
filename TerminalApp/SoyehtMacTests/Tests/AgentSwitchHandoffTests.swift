@@ -194,6 +194,8 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(AgentNativeSessionCommand.command(for: codex, binding: binding), "codex resume 'session example'")
         XCTAssertEqual(AgentNativeSessionCommand.command(for: claude, binding: binding), "claude --resume 'session example'")
         XCTAssertEqual(AgentNativeSessionCommand.command(for: opencode, binding: binding), "opencode --session 'session example'")
+        let devin = try XCTUnwrap(LocalAgentCatalog.agent(named: "devin"))
+        XCTAssertEqual(AgentNativeSessionCommand.command(for: devin, binding: binding), "devin")
     }
 
     func testCapabilitiesDescribeStructuredAndNativeAdapters() {

@@ -3545,6 +3545,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throughSequence: throughSequence
         )
         let targetBinding = conversationState.bindings[target.name]
+        let targetCapabilities = AgentConversationAdapterCapabilities.capabilities(for: target.name)
+        let nativeResumeBinding = targetCapabilities.nativeResume ? targetBinding : nil
         convStore.updateAgentConversation(paneID, state: conversationState)
 
         // 2. Tear down the current process: engine sessions are reaped
@@ -3572,7 +3574,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ?? FileManager.default.homeDirectoryForCurrentUser
         let baseCommand = customCommand ?? AgentNativeSessionCommand.command(
             for: target,
-            binding: targetBinding
+            binding: nativeResumeBinding
         )
         let command = AgentLaunchCommandBuilder.prepare(baseCommand)
         try await attachLocalPTY(
@@ -3597,7 +3599,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         Self.logger.info(
-            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(targetBinding?.nativeSessionID != nil, privacy: .public)"
+            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(nativeResumeBinding?.nativeSessionID != nil, privacy: .public)"
         )
         return SwitchedAgentResult(
             conversationID: paneID,
@@ -3610,7 +3612,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             transcriptLineCount: conversationState.events.count,
             importedEventCount: targetEvents.count,
             historySource: "structured",
-            resumedNativeSession: targetBinding?.nativeSessionID != nil,
+            resumedNativeSession: nativeResumeBinding?.nativeSessionID != nil,
             sourceModel: conversationState.bindings[previousAgent]?.model,
             sourceReasoningEffort: conversationState.bindings[previousAgent]?.reasoningEffort
         )

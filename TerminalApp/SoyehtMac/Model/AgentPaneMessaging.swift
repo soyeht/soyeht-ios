@@ -7,6 +7,7 @@ enum AgentPaneEnvironment {
     static let automationDirKey = "SOYEHT_AUTOMATION_DIR"
     static let launchNonceKey = "SOYEHT_LAUNCH_NONCE"
     static let agentNameKey = "SOYEHT_AGENT_NAME"
+    static let transcriptPathKey = "SOYEHT_AGENT_TRANSCRIPT_PATH"
 
     static func values(
         for conversation: Conversation,
@@ -24,6 +25,12 @@ enum AgentPaneEnvironment {
         }
         if let launchNonce, !launchNonce.isEmpty {
             values[launchNonceKey] = launchNonce
+        }
+        if conversation.agent.rawValue == "devin",
+           let transcripts = try? AppSupportDirectory.subdirectory("AgentTranscripts") {
+            values[transcriptPathKey] = transcripts
+                .appendingPathComponent("\(conversation.id.uuidString)-devin.json")
+                .path
         }
         return values
     }

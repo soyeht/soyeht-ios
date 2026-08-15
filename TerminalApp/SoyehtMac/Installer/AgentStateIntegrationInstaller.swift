@@ -998,6 +998,10 @@ enum AgentLaunchCommandBuilder {
             in: CharacterSet(charactersIn: "'\"")
         )
         let executable = (unquotedExecutable as NSString).lastPathComponent.lowercased()
+        if executable == "devin" {
+            guard !trimmed.contains("--export") else { return command }
+            return "\(trimmed) --export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""
+        }
         guard executable == "codex" else { return command }
         guard !trimmed.contains("--dangerously-bypass-hook-trust") else { return command }
         guard CodexHookAudit.bypassAllowed() else { return command }

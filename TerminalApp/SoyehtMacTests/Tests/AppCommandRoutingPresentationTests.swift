@@ -640,6 +640,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(brokerSendEnterKey.contains("window?.makeFirstResponder(self)"))
         XCTAssertTrue(brokerSendEnterKey.contains("insertNewline"))
 
+        let installerSource = try macSource("Installer/AgentStateIntegrationInstaller.swift")
+        let commandBuilder = try slice(
+            installerSource,
+            from: "enum AgentLaunchCommandBuilder",
+            to: "guard executable == \"codex\""
+        )
+        XCTAssertTrue(commandBuilder.contains("if executable == \"devin\""))
+        XCTAssertTrue(commandBuilder.contains(#"--export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""#))
+        XCTAssertTrue(commandBuilder.contains("guard !trimmed.contains(\"--export\")"))
+
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(
             source,

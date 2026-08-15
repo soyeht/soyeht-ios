@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 16
+    static let version = 17
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v16). Do not edit.
+# Managed by Soyeht (agent-state integration v17). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -232,7 +232,11 @@ def report_conversation(data, event, conversation_id, automation_dir):
                 if isinstance(candidate, str) and candidate.strip():
                     text = candidate
                     break
-        transcript_path = data.get("transcript_path") or data.get("transcriptPath")
+        transcript_path = (
+            data.get("transcript_path")
+            or data.get("transcriptPath")
+            or os.environ.get("SOYEHT_AGENT_TRANSCRIPT_PATH")
+        )
         report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
         if not text and report_agent == "copilot" and schedule_deferred_copilot_transcript(
             transcript_path, session_id

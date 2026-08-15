@@ -33,6 +33,17 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(main.contains("report_agent != declared_agent"))
     }
 
+    func testStopReporterFallsBackToManagedTranscriptExport() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let reporter = try slice(
+            source,
+            from: "def report_conversation(data, event, conversation_id, automation_dir):",
+            to: "def main():"
+        )
+        XCTAssertTrue(reporter.contains("SOYEHT_AGENT_TRANSCRIPT_PATH"))
+        XCTAssertTrue(reporter.contains("last_assistant_event(transcript_path)"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
