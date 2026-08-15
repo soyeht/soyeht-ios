@@ -81,6 +81,18 @@ enum AgentStartupHandshakePolicy {
     }
 }
 
+/// Rejects state reports emitted by a process that belonged to the pane before
+/// an in-place agent switch. SessionEnd hooks can arrive after the new agent
+/// has launched; conversation identity alone is therefore insufficient.
+enum AgentStateReportAttribution {
+    static func accepts(reportSource: String, currentAgent: String) -> Bool {
+        let normalizedSource = reportSource.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedSource.hasPrefix("hook:") else { return true }
+        let reportedAgent = String(normalizedSource.dropFirst("hook:".count))
+        return reportedAgent == currentAgent.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}
+
 /// Serializes semantic conversation events for an agent switch. The JSON
 /// envelope is length-safe and role-preserving; it never reads terminal state.
 enum AgentConversationHandoff {

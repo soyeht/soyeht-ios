@@ -9,6 +9,27 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertTrue(AgentStartupHandshakePolicy.supportsStartupHandshake(agentName: "opencode"))
     }
 
+    func testLateHookReportCannotOverwriteReplacementAgentState() {
+        XCTAssertFalse(
+            AgentStateReportAttribution.accepts(
+                reportSource: "hook:pi",
+                currentAgent: "grok"
+            )
+        )
+        XCTAssertTrue(
+            AgentStateReportAttribution.accepts(
+                reportSource: "hook:grok",
+                currentAgent: "grok"
+            )
+        )
+        XCTAssertTrue(
+            AgentStateReportAttribution.accepts(
+                reportSource: "self_report",
+                currentAgent: "grok"
+            )
+        )
+    }
+
     func testLongHandoffGetsEnoughTimeToAcknowledgePaste() {
         XCTAssertEqual(AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: "short"), 8)
         XCTAssertEqual(

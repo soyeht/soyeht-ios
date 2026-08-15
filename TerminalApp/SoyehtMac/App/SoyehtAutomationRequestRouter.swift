@@ -1165,14 +1165,22 @@ final class SoyehtAutomationRequestRouter {
         let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
         let reportSource = payload.reportSource?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedSource = (reportSource?.isEmpty ?? true) ? "self_report" : reportSource!
-        let outcome = PaneStatusTracker.shared.recordAgentStateReport(
-            paneID: source.conversation.id,
-            state: rawState,
-            message: message,
-            seq: payload.seq,
-            source: resolvedSource,
-            nonce: payload.nonce
-        )
+        let outcome: (accepted: Bool, reason: String?)
+        if AgentStateReportAttribution.accepts(
+            reportSource: resolvedSource,
+            currentAgent: source.conversation.agent.rawValue
+        ) {
+            outcome = PaneStatusTracker.shared.recordAgentStateReport(
+                paneID: source.conversation.id,
+                state: rawState,
+                message: message,
+                seq: payload.seq,
+                source: resolvedSource,
+                nonce: payload.nonce
+            )
+        } else {
+            outcome = (false, "agent_mismatch")
+        }
         if outcome.accepted {
             notifyAttentionIfNeeded(
                 conversationID: source.conversation.id,
