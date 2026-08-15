@@ -644,11 +644,14 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let commandBuilder = try slice(
             installerSource,
             from: "enum AgentLaunchCommandBuilder",
-            to: "guard executable == \"codex\""
+            to: "private static func exitSafeAgentCommand"
         )
         XCTAssertTrue(commandBuilder.contains("if executable == \"devin\""))
         XCTAssertTrue(commandBuilder.contains(#"--export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""#))
-        XCTAssertTrue(commandBuilder.contains("guard !trimmed.contains(\"--export\")"))
+        XCTAssertTrue(commandBuilder.contains("trimmed.contains(\"--export\")"))
+        XCTAssertTrue(commandBuilder.contains("exitSafeAgentCommand"))
+        XCTAssertTrue(commandBuilder.contains("turnBoundExecutables"))
+        XCTAssertTrue(installerSource.contains("return \"exec \\(command)\""))
 
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(

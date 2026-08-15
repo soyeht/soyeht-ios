@@ -981,6 +981,15 @@ enum CodexHookAudit {
 
 /// Prepares agent launch commands typed into Soyeht panes.
 enum AgentLaunchCommandBuilder {
+    /// Agents whose startup hook is emitted only after their first prompt.
+    /// They use timed delivery, so the login shell must not survive a fast
+    /// launch failure: otherwise the structured handoff can be typed into the
+    /// restored shell and interpreted as commands. `exec` makes agent exit
+    /// close the PTY instead of exposing that shell during the delivery race.
+    private static let turnBoundExecutables: Set<String> = [
+        "agy", "codex", "copilot", "devin", "grok", "kimi",
+    ]
+
     static func supportsStartupHandshake(agentName: String?) -> Bool {
         AgentStartupHandshakePolicy.supportsStartupHandshake(agentName: agentName)
     }
@@ -999,15 +1008,25 @@ enum AgentLaunchCommandBuilder {
         )
         let executable = (unquotedExecutable as NSString).lastPathComponent.lowercased()
         if executable == "devin" {
-            guard !trimmed.contains("--export") else { return command }
-            return "\(trimmed) --export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""
+            let withExport = trimmed.contains("--export")
+                ? trimmed
+                : "\(trimmed) --export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""
+            return exitSafeAgentCommand(withExport, executable: executable)
         }
-        guard executable == "codex" else { return command }
-        guard !trimmed.contains("--dangerously-bypass-hook-trust") else { return command }
-        guard CodexHookAudit.bypassAllowed() else { return command }
-        let remainder = pieces.count > 1 ? String(pieces[1]) : ""
-        return remainder.isEmpty
-            ? "\(executableToken) --dangerously-bypass-hook-trust"
-            : "\(executableToken) --dangerously-bypass-hook-trust \(remainder)"
+        if executable == "codex",
+           !trimmed.contains("--dangerously-bypass-hook-trust"),
+           CodexHookAudit.bypassAllowed() {
+            let remainder = pieces.count > 1 ? String(pieces[1]) : ""
+            let withBypass = remainder.isEmpty
+                ? "\(executableToken) --dangerously-bypass-hook-trust"
+                : "\(executableToken) --dangerously-bypass-hook-trust \(remainder)"
+            return exitSafeAgentCommand(withBypass, executable: executable)
+        }
+        return exitSafeAgentCommand(trimmed, executable: executable)
+    }
+
+    private static func exitSafeAgentCommand(_ command: String, executable: String) -> String {
+        guard turnBoundExecutables.contains(executable) else { return command }
+        return "exec \(command)"
     }
 }
