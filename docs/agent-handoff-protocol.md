@@ -28,11 +28,16 @@ metadata, and the last canonical sequence imported into that session.
 4. If the target has a supported native binding, Soyeht resumes that exact
    session. Otherwise it starts a new target session.
 5. Soyeht serializes only events after the target cursor in a JSON SAHP envelope
-   and submits it after the target readiness handshake.
-6. Once delivery succeeds, Soyeht advances the target cursor immediately. The
+   and submits it after the target readiness handshake. Agents whose session is
+   created by the first turn use prompt-bound readiness instead of waiting for a
+   startup event that cannot exist yet.
+6. Delivery is acknowledged only by a fresh hook report from the declared
+   target agent. Soyeht retries swallowed TUI input, and long pasted prompts are
+   submitted through the same Return-key path as interactive input.
+7. Once delivery succeeds, Soyeht advances the target cursor immediately. The
    update is merged into the latest store value so concurrent startup metadata
    is preserved.
-7. Target hooks ignore the SAHP transport envelope as a new user message, so
+8. Target hooks ignore the SAHP transport envelope as a new user message, so
    repeated switches do not duplicate history.
 
 The legacy response field `transcriptLineCount` remains for automation
@@ -55,6 +60,12 @@ also installed for Qwen, Antigravity, Pi, Droid, Kilo, Cursor Agent, Copilot,
 Grok, Kimi, and Devin. Unknown agents, including Qoder until it has a supported
 contract, fail closed.
 
+Provider-specific transcript adapters still normalize to the same record. For
+example, Antigravity reads its documented `transcriptPath` and treats only
+completed model `PLANNER_RESPONSE` content as assistant output; Copilot defers
+its stop-time read briefly because its transcript appends the assistant message
+after the stop hook returns. Hidden reasoning is never imported.
+
 Adapter validation is independent from account/model availability. A provider
 can prove hook installation, readiness, session binding, and SAHP receipt even
 when its configured model later rejects the request; that failure must be
@@ -70,5 +81,10 @@ reported as an external provider block rather than a handoff failure.
 - Events inherit missing session/model/effort metadata from the latest binding
   for their source agent.
 - Agent attribution comes from the live Soyeht pane, not caller-supplied text.
+- Panes export their declared agent identity. A global hook belonging to a
+  different Claude-compatible CLI is inert and cannot acknowledge delivery or
+  contaminate the canonical record.
+- Agent panes disable terminal mouse reporting, preventing SGR mouse packets
+  from appearing as random prompt text; shell panes retain mouse support.
 - An empty canonical record produces no fabricated handoff prompt.
 - Unknown adapters fail closed for native resume and metadata capabilities.
