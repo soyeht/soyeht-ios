@@ -3757,52 +3757,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             // explicit promptDelayMs extend it.
                             let settleMs = max(1500, promptDelayMs ?? 0)
                             try? await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
-                            // Deliver with acknowledgement: an accepted prompt
-                            // makes the agent's hooks report within seconds
-                            // (UserPromptSubmit / chat.message / ...). If no
-                            // fresh report arrives the TUI likely swallowed
-                            // the keystrokes — settle again and retry.
-                            var attempts = 0
-                            var promptAcknowledged = false
-                            while attempts < 3 {
-                                attempts += 1
-                                let baseline = PaneStatusTracker.shared.lastReportAt(for: paneID) ?? .distantPast
-                                liveTerminalView.brokerSend(
-                                    text: plannedPrompt.payload,
-                                    submitWithEnter: plannedPrompt.shouldSendEnterKey,
-                                    forceBracketedPaste: true
-                                )
-                                let ackDeadline = Date().addingTimeInterval(
-                                    AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(
-                                        for: plannedPrompt.payload
-                                    )
-                                )
-                                var acked = false
-                                while Date() < ackDeadline {
-                                    try? await Task.sleep(nanoseconds: 500_000_000)
-                                    if let last = PaneStatusTracker.shared.lastReportAt(for: paneID), last > baseline {
-                                        acked = true
-                                        break
-                                    }
-                                }
-                                if acked {
-                                    promptAcknowledged = true
-                                    break
-                                }
-                                if attempts < 3 {
-                                    Self.logger.info(
-                                        "agent_prompt_retry pane=\(paneID.uuidString, privacy: .public) attempt=\(attempts) no fresh report after delivery"
-                                    )
-                                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                                }
-                            }
+                            let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
+                                paneID: paneID,
+                                terminalView: liveTerminalView,
+                                payload: plannedPrompt.payload,
+                                shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
+                            )
                             if promptAcknowledged {
                                 PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
                                 onPromptDelivered?()
                             } else {
                                 PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
                                 Self.logger.error(
-                                    "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after \(attempts) attempts"
+                                    "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
                                 )
                             }
                         } else {
@@ -3819,12 +3786,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                         )) * 1_000_000
                         try? await Task.sleep(nanoseconds: delay)
                         guard let liveTerminalView = pane?.terminalView else { return }
-                        liveTerminalView.brokerSend(
-                            text: plannedPrompt.payload,
-                            submitWithEnter: plannedPrompt.shouldSendEnterKey,
-                            forceBracketedPaste: true
+                        let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
+                            paneID: paneID,
+                            terminalView: liveTerminalView,
+                            payload: plannedPrompt.payload,
+                            shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
                         )
-                        onPromptDelivered?()
+                        if promptAcknowledged {
+                            onPromptDelivered?()
+                        } else {
+                            Self.logger.error(
+                                "turn_bound_agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
+                            )
+                        }
                     }
                 }
             }
@@ -3832,6 +3806,43 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         Self.logger.info(
             "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
         )
+    }
+
+    /// A prompt-bound agent cannot emit SessionStart before its first user
+    /// turn, so readiness must be confirmed after delivery. The same helper is
+    /// also used after a startup handshake because a painted hook-ready TUI
+    /// can still swallow early keystrokes.
+    @MainActor
+    private static func deliverAgentPromptWithAcknowledgement(
+        paneID: Conversation.ID,
+        terminalView: MacOSWebSocketTerminalView,
+        payload: String,
+        shouldSendEnterKey: Bool
+    ) async -> Bool {
+        for attempt in 1...3 {
+            let baseline = PaneStatusTracker.shared.lastReportAt(for: paneID) ?? .distantPast
+            terminalView.brokerSend(
+                text: payload,
+                submitWithEnter: shouldSendEnterKey,
+                forceBracketedPaste: true
+            )
+            let deadline = Date().addingTimeInterval(
+                AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: payload)
+            )
+            while Date() < deadline {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                if let last = PaneStatusTracker.shared.lastReportAt(for: paneID), last > baseline {
+                    return true
+                }
+            }
+            if attempt < 3 {
+                logger.info(
+                    "agent_prompt_retry pane=\(paneID.uuidString, privacy: .public) attempt=\(attempt) no fresh report after delivery"
+                )
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
+        return false
     }
 
     /// Attempts to spawn/reattach the pane's shell via this Mac's own
