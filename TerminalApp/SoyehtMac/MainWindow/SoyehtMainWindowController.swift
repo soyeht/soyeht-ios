@@ -3554,7 +3554,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let prompt = usesMCPContext
             ? AgentConversationMCPHandoff.prompt(
                 previousAgent: previousAgent,
-                throughSequence: throughSequence
+                throughSequence: throughSequence,
+                currentRequest: customPrompt
             )
             : AgentConversationHandoff.prompt(
                 previousAgent: previousAgent,

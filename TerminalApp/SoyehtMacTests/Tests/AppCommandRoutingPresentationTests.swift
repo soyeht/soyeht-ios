@@ -809,6 +809,29 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
     }
 
+    func testAgentHandoffLogsPaginationAcknowledgementAndModelWithoutMessageText() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+
+        XCTAssertTrue(source.contains("category: \"agent-handoff\""))
+        XCTAssertTrue(source.contains("context_page agent="))
+        XCTAssertTrue(source.contains("requestedAfter="))
+        XCTAssertTrue(source.contains("acknowledged="))
+        XCTAssertTrue(source.contains("first="))
+        XCTAssertTrue(source.contains("final="))
+        XCTAssertTrue(source.contains("hasMore="))
+        XCTAssertTrue(source.contains("context_ack agent="))
+        XCTAssertTrue(source.contains("conversation_event agent="))
+        XCTAssertTrue(source.contains("recorded.model ?? \"unknown\""))
+        XCTAssertTrue(source.contains("recorded.reasoningEffort ?? \"unknown\""))
+        XCTAssertTrue(source.contains("requestedMaxEvents"))
+        XCTAssertTrue(source.contains("effectiveLimit"))
+        XCTAssertTrue(source.contains("agent-handoff.ndjson"))
+        XCTAssertTrue(source.contains("traceMaximumBytes"))
+        XCTAssertTrue(source.contains("[.posixPermissions: NSNumber(value: 0o600 as Int16)]"))
+        XCTAssertFalse(source.contains("context_page text="))
+        XCTAssertFalse(source.contains("conversation_event text="))
+    }
+
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {
         let service = try macSource("App/SoyehtAutomationService.swift")
         let requestTypes = try slice(

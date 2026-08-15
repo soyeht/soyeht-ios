@@ -44,6 +44,26 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(reporter.contains("last_assistant_event(transcript_path)"))
     }
 
+    func testCodexReporterEnrichesFinalMessageFromTurnContextMetadata() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let metadata = try slice(
+            source,
+            from: "def last_turn_metadata(transcript_path):",
+            to: "def assistant_event_signature(event):"
+        )
+        let reporter = try slice(
+            source,
+            from: "def report_conversation(data, event, conversation_id, automation_dir):",
+            to: "def main():"
+        )
+
+        XCTAssertTrue(metadata.contains("turn_context"))
+        XCTAssertTrue(metadata.contains("payload.get(\"model\")"))
+        XCTAssertTrue(metadata.contains("payload.get(\"reasoning_effort\")"))
+        XCTAssertTrue(reporter.contains("turn_metadata = last_turn_metadata(transcript_path)"))
+        XCTAssertTrue(reporter.contains("payload[\"reasoningEffort\"] = effort"))
+    }
+
     func testATIFParserImportsOnlyVisibleAgentMessage() throws {
         let source = try macSource("Installer/AgentStateReporterScripts.swift")
         let parser = try slice(

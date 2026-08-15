@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 20
+    static let version = 21
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v20). Do not edit.
+# Managed by Soyeht (agent-state integration v21). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -158,6 +158,34 @@ def last_assistant_text(transcript_path):
     return event.get("text") if event else None
 
 
+def last_turn_metadata(transcript_path):
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return {}
+    try:
+        with open(transcript_path, "rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            handle.seek(max(0, size - 2_000_000))
+            tail = handle.read().decode("utf-8", errors="replace")
+    except Exception:
+        return {}
+    for line in reversed(tail.splitlines()):
+        try:
+            value = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(value, dict) or str(value.get("type") or "").lower() != "turn_context":
+            continue
+        payload = value.get("payload") if isinstance(value.get("payload"), dict) else value
+        model = scalar(payload.get("model"), "id", "model_id", "display_name")
+        effort = scalar(
+            payload.get("effort") or payload.get("reasoning_effort") or payload.get("reasoningEffort"),
+            "level", "effective"
+        )
+        return {"model": model, "reasoningEffort": effort}
+    return {}
+
+
 def assistant_event_signature(event):
     if not event:
         return ""
@@ -263,6 +291,13 @@ def report_conversation(data, event, conversation_id, automation_dir):
             or data.get("transcriptPath")
             or os.environ.get("SOYEHT_AGENT_TRANSCRIPT_PATH")
         )
+        turn_metadata = last_turn_metadata(transcript_path)
+        model = model or turn_metadata.get("model")
+        effort = effort or turn_metadata.get("reasoningEffort")
+        if model:
+            payload["model"] = model
+        if effort:
+            payload["reasoningEffort"] = effort
         report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
         if not text and report_agent in ("copilot", "devin") and schedule_deferred_agent_transcript(
             transcript_path, session_id

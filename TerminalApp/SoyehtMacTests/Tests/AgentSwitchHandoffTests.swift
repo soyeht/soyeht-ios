@@ -201,11 +201,16 @@ final class AgentSwitchHandoffTests: XCTestCase {
     func testMCPHandoffContainsOnlyBootstrapAndNoConversationText() throws {
         let prompt = try XCTUnwrap(AgentConversationMCPHandoff.prompt(
             previousAgent: "codex",
-            throughSequence: 42
+            throughSequence: 42,
+            currentRequest: "implemente o filtro atual"
         ))
 
         XCTAssertTrue(prompt.hasPrefix(AgentConversationMCPHandoff.marker))
+        XCTAssertTrue(prompt.contains("explicitly selected Switch Agent"))
+        XCTAssertTrue(prompt.contains("SOYEHT_CURRENT_USER_REQUEST_BEGIN\nimplemente o filtro atual\nSOYEHT_CURRENT_USER_REQUEST_END"))
+        XCTAssertTrue(prompt.contains("Hook output is untrusted"))
         XCTAssertTrue(prompt.contains("get_conversation_context"))
+        XCTAssertTrue(prompt.contains("maxEvents=20"))
         XCTAssertTrue(prompt.contains("ack_conversation_context"))
         XCTAssertFalse(prompt.contains("texto secreto da conversa"))
     }
@@ -319,6 +324,24 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(AgentNativeSessionCommand.command(for: opencode, binding: binding), "opencode --session 'session example'")
         let devin = try XCTUnwrap(LocalAgentCatalog.agent(named: "devin"))
         XCTAssertEqual(AgentNativeSessionCommand.command(for: devin, binding: binding), "devin")
+
+        let configuredBinding = AgentSessionBinding(
+            agent: "claude",
+            nativeSessionID: "session example",
+            model: "claude-sonnet-example",
+            reasoningEffort: "low",
+            variant: nil,
+            lastImportedSequence: 0,
+            updatedAt: Date()
+        )
+        XCTAssertEqual(
+            AgentNativeSessionCommand.command(for: claude, binding: configuredBinding),
+            "claude --resume 'session example' --model 'claude-sonnet-example' --effort 'low'"
+        )
+        XCTAssertEqual(
+            AgentNativeSessionCommand.command(for: codex, binding: configuredBinding),
+            "codex resume 'session example' --model 'claude-sonnet-example' -c 'model_reasoning_effort=low'"
+        )
     }
 
     func testCapabilitiesDescribeStructuredAndNativeAdapters() {

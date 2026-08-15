@@ -6,6 +6,7 @@
 import Cocoa
 import ApplicationServices
 import Darwin
+import os
 import SoyehtCore
 
 /// Executes requests accepted by `SoyehtAutomationService`.
@@ -16,11 +17,52 @@ import SoyehtCore
 /// then a newly created window when the operation permits it.
 @MainActor
 final class SoyehtAutomationRequestRouter {
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "agent-handoff")
+    private static let traceMaximumBytes = 2 * 1_024 * 1_024
     private let workspaceStore: WorkspaceStore
     private let conversationStore: ConversationStore
     private let mainWindowControllers: () -> [SoyehtMainWindowController]
     private let activeMainWindowController: () -> SoyehtMainWindowController?
     private let openNewMainWindow: () -> SoyehtMainWindowController
+
+    /// Persists metadata-only handoff diagnostics beside the private
+    /// Automation queue. Conversation text is deliberately never accepted by
+    /// this helper. The small rotating trace makes multi-page E2E handoffs
+    /// auditable even when macOS drops unified `info` log entries.
+    private static func traceHandoff(_ event: String, fields: [String: Any]) {
+        do {
+            let directory = try SoyehtAutomationService.defaultRootURL()
+                .appendingPathComponent("Diagnostics", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent("agent-handoff.ndjson")
+            let previousURL = directory.appendingPathComponent("agent-handoff.previous.ndjson")
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            if size >= traceMaximumBytes {
+                try? FileManager.default.removeItem(at: previousURL)
+                try FileManager.default.moveItem(at: url, to: previousURL)
+            }
+
+            var record = fields
+            record["event"] = event
+            record["timestamp"] = ISO8601DateFormatter().string(from: Date())
+            var data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+            data.append(0x0A)
+            if !FileManager.default.fileExists(atPath: url.path) {
+                guard FileManager.default.createFile(atPath: url.path, contents: data) else { return }
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: NSNumber(value: 0o600 as Int16)],
+                    ofItemAtPath: url.path
+                )
+                return
+            }
+            let handle = try FileHandle(forWritingTo: url)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+            try handle.close()
+        } catch {
+            logger.error("handoff_trace_failed error=\(error.localizedDescription, privacy: .public)")
+        }
+    }
 
     init(
         workspaceStore: WorkspaceStore,
@@ -990,6 +1032,16 @@ final class SoyehtAutomationRequestRouter {
             variant: variant
         )
         guard let recorded else { throw AutomationError.emptyConversationEvent }
+        Self.logger.info(
+            "conversation_event agent=\(sourceAgent, privacy: .public) role=\(rawRole, privacy: .public) sequence=\(recorded.sequence, privacy: .public) model=\(recorded.model ?? "unknown", privacy: .public) effort=\(recorded.reasoningEffort ?? "unknown", privacy: .public)"
+        )
+        Self.traceHandoff("conversation_event", fields: [
+            "agent": sourceAgent,
+            "role": rawRole,
+            "sequence": recorded.sequence,
+            "model": recorded.model ?? "unknown",
+            "effort": recorded.reasoningEffort ?? "unknown",
+        ])
         return SoyehtAutomationResult(agentConversationReported: .init(
             conversationID: source.conversation.id.uuidString,
             handle: source.conversation.handle,
@@ -1018,10 +1070,32 @@ final class SoyehtAutomationRequestRouter {
         let acknowledged = state.bindings[agent]?.lastImportedSequence ?? 0
         let requestedAfter = max(0, request.payload.afterSequence ?? acknowledged)
         let afterSequence = max(acknowledged, requestedAfter)
+        let requestedMaxEvents = request.payload.maxEvents ?? 20
+        let effectiveLimit = min(50, max(1, requestedMaxEvents))
         let page = state.contextPage(
             afterSequence: afterSequence,
-            maxEvents: request.payload.maxEvents ?? 20
+            maxEvents: requestedMaxEvents
         )
+        let firstSequence = page.events.first?.sequence ?? 0
+        let finalSequence = page.events.last?.sequence ?? 0
+        Self.logger.info(
+            "context_page agent=\(agent, privacy: .public) requestedAfter=\(requestedAfter, privacy: .public) acknowledged=\(acknowledged, privacy: .public) after=\(page.afterSequence, privacy: .public) first=\(firstSequence, privacy: .public) final=\(finalSequence, privacy: .public) count=\(page.events.count, privacy: .public) through=\(page.throughSequence, privacy: .public) last=\(page.lastSequence, privacy: .public) hasMore=\(page.hasMore, privacy: .public) next=\(page.nextCursor ?? 0, privacy: .public)"
+        )
+        Self.traceHandoff("context_page", fields: [
+            "agent": agent,
+            "requestedAfter": requestedAfter,
+            "acknowledged": acknowledged,
+            "after": page.afterSequence,
+            "first": firstSequence,
+            "final": finalSequence,
+            "count": page.events.count,
+            "requestedMaxEvents": requestedMaxEvents,
+            "effectiveLimit": effectiveLimit,
+            "through": page.throughSequence,
+            "last": page.lastSequence,
+            "hasMore": page.hasMore,
+            "next": page.nextCursor ?? 0,
+        ])
 
         return SoyehtAutomationResult(agentConversationContext: .init(
             conversationID: conversation.id.uuidString,
@@ -1055,11 +1129,21 @@ final class SoyehtAutomationRequestRouter {
         }
         let throughSequence = requested
         let agent = conversation.agent.displayName.lowercased()
+        let previousSequence = conversation.agentConversation.bindings[agent]?.lastImportedSequence ?? 0
         conversationStore.markAgentConversationImported(
             conversation.id,
             through: throughSequence,
             by: agent
         )
+        Self.logger.info(
+            "context_ack agent=\(agent, privacy: .public) previous=\(previousSequence, privacy: .public) through=\(throughSequence, privacy: .public) last=\(lastSequence, privacy: .public)"
+        )
+        Self.traceHandoff("context_ack", fields: [
+            "agent": agent,
+            "previous": previousSequence,
+            "through": throughSequence,
+            "last": lastSequence,
+        ])
         return SoyehtAutomationResult(agentConversationContextAcknowledged: .init(
             conversationID: conversation.id.uuidString,
             handle: conversation.handle,
