@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 21
+    static let version = 23
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v21). Do not edit.
+# Managed by Soyeht (agent-state integration v23). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -45,6 +45,79 @@ def scalar(value, *keys):
     return None
 
 
+def kimi_transcript_path(session_id):
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    root = Path.home() / ".kimi-code" / "sessions"
+    session_dir = session_id if session_id.startswith("session_") else "session_%s" % session_id
+    try:
+        matches = list(root.glob("*/%s/agents/main/wire.jsonl" % session_dir))
+    except Exception:
+        return None
+    if not matches:
+        return None
+    try:
+        return str(max(matches, key=lambda path: path.stat().st_mtime_ns))
+    except Exception:
+        return str(matches[-1])
+
+
+def kimi_assistant_event(lines):
+    values = []
+    for line in lines:
+        try:
+            value = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(value, dict):
+            values.append(value)
+    final_index = None
+    final_event = None
+    for index in range(len(values) - 1, -1, -1):
+        value = values[index]
+        event = value.get("event") if isinstance(value.get("event"), dict) else {}
+        if value.get("type") == "context.append_loop_event" and event.get("type") == "step.end":
+            final_index = index
+            final_event = event
+            break
+    if final_event is None:
+        return None
+    turn_id = final_event.get("turnId")
+    step = final_event.get("step")
+    texts = []
+    for value in values[:final_index]:
+        event = value.get("event") if isinstance(value.get("event"), dict) else {}
+        part = event.get("part") if isinstance(event.get("part"), dict) else {}
+        if (
+            value.get("type") == "context.append_loop_event"
+            and event.get("type") == "content.part"
+            and event.get("turnId") == turn_id
+            and event.get("step") == step
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+            and part.get("text").strip()
+        ):
+            texts.append(part.get("text").strip())
+    text = "\n".join(texts).strip()
+    if not text:
+        return None
+    model = None
+    effort = None
+    for value in reversed(values[:final_index]):
+        if value.get("type") != "llm.request":
+            continue
+        model = scalar(value.get("modelAlias") or value.get("model"), "id", "model_id")
+        effort = scalar(value.get("thinkingEffort"), "level", "effective")
+        break
+    source_id = scalar(final_event.get("messageId") or final_event.get("uuid"), "id")
+    return {
+        "text": text,
+        "sourceEventID": ("kimi:" + source_id) if source_id else None,
+        "model": model,
+        "reasoningEffort": effort,
+    }
+
+
 def last_assistant_event(transcript_path):
     if not isinstance(transcript_path, str) or not transcript_path:
         return None
@@ -58,6 +131,10 @@ def last_assistant_event(transcript_path):
             tail = handle.read().decode("utf-8", errors="replace")
     except Exception:
         return None
+    if Path(transcript_path).name == "wire.jsonl" and ".kimi-code" in Path(transcript_path).parts:
+        event = kimi_assistant_event(tail.splitlines())
+        if event:
+            return event
     try:
         document = json.loads(tail)
     except Exception:
@@ -258,6 +335,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
         "level", "effective"
     )
     variant = scalar(data.get("variant"), "id", "name")
+    report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
     payload = {
         "sourceConversationID": conversation_id,
         "nativeSessionID": session_id,
@@ -291,6 +369,8 @@ def report_conversation(data, event, conversation_id, automation_dir):
             or data.get("transcriptPath")
             or os.environ.get("SOYEHT_AGENT_TRANSCRIPT_PATH")
         )
+        if not transcript_path and report_agent == "kimi":
+            transcript_path = kimi_transcript_path(session_id)
         turn_metadata = last_turn_metadata(transcript_path)
         model = model or turn_metadata.get("model")
         effort = effort or turn_metadata.get("reasoningEffort")
@@ -298,7 +378,6 @@ def report_conversation(data, event, conversation_id, automation_dir):
             payload["model"] = model
         if effort:
             payload["reasoningEffort"] = effort
-        report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
         if not text and report_agent in ("copilot", "devin") and schedule_deferred_agent_transcript(
             transcript_path, session_id
         ):
@@ -310,6 +389,9 @@ def report_conversation(data, event, conversation_id, automation_dir):
                 model = model or transcript_event.get("model")
                 if model:
                     payload["model"] = model
+                effort = effort or transcript_event.get("reasoningEffort")
+                if effort:
+                    payload["reasoningEffort"] = effort
 
     if isinstance(text, str) and text.strip():
         # A handoff envelope is transport already represented by its original
