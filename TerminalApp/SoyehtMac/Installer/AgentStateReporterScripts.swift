@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 17
+    static let version = 18
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v17). Do not edit.
+# Managed by Soyeht (agent-state integration v18). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -52,10 +52,36 @@ def last_assistant_event(transcript_path):
         with open(transcript_path, "rb") as handle:
             handle.seek(0, 2)
             size = handle.tell()
-            handle.seek(max(0, size - 2_000_000))
+            # Devin exports ATIF as one JSON document. Read it whole within a
+            # bounded size; other providers remain tail-parsed JSONL.
+            handle.seek(0 if size <= 32_000_000 else max(0, size - 2_000_000))
             tail = handle.read().decode("utf-8", errors="replace")
     except Exception:
         return None
+    try:
+        document = json.loads(tail)
+    except Exception:
+        document = None
+    if (
+        isinstance(document, dict)
+        and str(document.get("schema_version") or "").startswith("ATIF-")
+        and isinstance(document.get("steps"), list)
+    ):
+        for step in reversed(document.get("steps")):
+            if not isinstance(step, dict) or str(step.get("source") or "").lower() != "agent":
+                continue
+            text = step.get("message")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            session = str(document.get("session_id") or "")
+            step_id = str(step.get("step_id") or "")
+            source_event_id = "atif:%s:%s" % (session, step_id) if session or step_id else None
+            model = scalar(step.get("model_name") or step.get("model"), "id", "model_id")
+            return {
+                "text": text.strip(),
+                "sourceEventID": source_event_id,
+                "model": model,
+            }
     for line in reversed(tail.splitlines()):
         try:
             value = json.loads(line)

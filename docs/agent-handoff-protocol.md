@@ -64,7 +64,8 @@ Provider-specific transcript adapters still normalize to the same record. For
 example, Antigravity reads its documented `transcriptPath` and treats only
 completed model `PLANNER_RESPONSE` content as assistant output; Copilot defers
 its stop-time read briefly because its transcript appends the assistant message
-after the stop hook returns. Hidden reasoning is never imported.
+after the stop hook returns. Devin is launched with a per-pane ATIF export and
+imports only `source: agent` message steps. Hidden reasoning is never imported.
 
 Adapter validation is independent from account/model availability. A provider
 can prove hook installation, readiness, session binding, and SAHP receipt even

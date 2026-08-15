@@ -44,6 +44,22 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(reporter.contains("last_assistant_event(transcript_path)"))
     }
 
+    func testATIFParserImportsOnlyVisibleAgentMessage() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let parser = try slice(
+            source,
+            from: "def last_assistant_event(transcript_path):",
+            to: "def last_assistant_text(transcript_path):"
+        )
+        XCTAssertTrue(parser.contains("schema_version"))
+        XCTAssertTrue(parser.contains("startswith(\"ATIF-\")"))
+        XCTAssertTrue(parser.contains("step.get(\"source\")"))
+        XCTAssertTrue(parser.contains("step.get(\"message\")"))
+        XCTAssertTrue(parser.contains("step.get(\"model_name\")"))
+        XCTAssertFalse(parser.contains("step.get(\"reasoning_content\")"))
+        XCTAssertTrue(parser.contains("source_event_id = \"atif:"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
