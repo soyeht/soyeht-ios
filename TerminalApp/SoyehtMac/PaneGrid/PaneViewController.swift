@@ -118,6 +118,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
+    private var isSwitchingAgent = false
 
     /// Fase 3.1 — observation loop token. Installed on first attach,
     /// cancelled only when the view is genuinely removed from the window
@@ -460,8 +461,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let hasLiveInstance: Bool
         if let conv = AppEnvironment.conversationStore?.conversation(conversationID) {
             switch conv.commander {
-            case .mirror(let instanceID):
-                hasLiveInstance = (instanceID != "pending")
+            case .mirror:
+                hasLiveInstance = !conv.commander.isPlaceholderMirror
             case .native(let pid):
                 // Any positive pid means NativePTY spawned successfully.
                 hasLiveInstance = (pid > 0)
@@ -655,6 +656,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func rebindFromStore() {
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
+        // Coding-agent TUIs occasionally leave xterm mouse tracking enabled
+        // while their prompt editor treats the resulting SGR packets as text
+        // (`ESC[<button;x;yM/m`). Prefer normal macOS selection in agent panes
+        // and never let random mouse movement/clicks corrupt a user prompt.
+        // Plain shell panes retain opt-in terminal mouse support for tmux/vim.
+        terminalView.allowMouseReporting = conv.content.isTerminal && conv.agent.isShell
+        header.isAgentSwitchAvailable = AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: conv.commander
+        )
         configureContent(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
@@ -965,6 +975,103 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     // chain; `focusedPaneID` is updated before dispatch so the grid knows
     // which leaf the split/close applies to.
 
+    /// Presents the agent switcher anchored on the disclosure button beside
+    /// the current agent name.
+    /// Switching keeps this pane's conversation (handle, scrollback) and
+    /// replays the transcript into the new agent as handoff context.
+    private func presentAgentSwitcherMenu(anchor: NSView) {
+        guard let convStore = AppEnvironment.conversationStore,
+              let conv = convStore.conversation(conversationID),
+              conv.content.isTerminal else { return }
+        guard AgentSwitchEligibility.supportsInPlaceSwitch(commander: conv.commander) else {
+            return
+        }
+
+        let available = LocalAgentCatalog.availableAgents()
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let title = NSMenuItem(title: String(
+            localized: "pane.header.agentSwitch.menu.title",
+            defaultValue: "Switch agent",
+            comment: "Title row of the pane-header agent switcher menu."
+        ), action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+
+        let currentEntry = LocalAgentCatalog.agent(forAgentType: conv.agent)
+        let isRetryingPendingSwitch = AgentSwitchEligibility.isPendingLocalBridge(
+            conv.commander
+        )
+        let selectableAgents = available.filter {
+            isRetryingPendingSwitch || $0.name != currentEntry?.name
+        }
+        for agent in available {
+            let item = NSMenuItem(
+                title: agent.displayName,
+                action: #selector(agentSwitchMenuSelected(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = agent.name
+            if agent.name == currentEntry?.name {
+                item.state = .on
+                // A checked item remains selectable only when the previous
+                // attach failed, allowing a retry of the same agent.
+                item.isEnabled = isRetryingPendingSwitch
+            }
+            menu.addItem(item)
+        }
+
+        if selectableAgents.isEmpty {
+            let empty = NSMenuItem(title: String(
+                localized: "pane.header.agentSwitch.menu.none",
+                defaultValue: "Nenhum outro agente instalado",
+                comment: "Shown in the agent switcher when no other local agent CLI is installed."
+            ), action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            menu.addItem(empty)
+        }
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+    }
+
+    @objc private func agentSwitchMenuSelected(_ sender: NSMenuItem) {
+        guard !isSwitchingAgent,
+              let agentName = sender.representedObject as? String else { return }
+        let paneID = conversationID
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let controller = self.mainWindowController() else { return }
+            self.isSwitchingAgent = true
+            self.header.isAgentSwitchEnabled = false
+            defer {
+                self.isSwitchingAgent = false
+                self.header.isAgentSwitchEnabled = true
+            }
+            do {
+                _ = try await controller.switchAgent(in: paneID, to: agentName)
+            } catch {
+                Self.logger.error("agent switch failed: \(error.localizedDescription, privacy: .public)")
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = String(
+                    localized: "pane.header.agentSwitch.error.title",
+                    defaultValue: "Couldn't switch agent",
+                    comment: "Alert title shown when an in-place agent switch fails."
+                )
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
+                if let window = self.view.window {
+                    alert.beginSheetModal(for: window) { _ in }
+                } else {
+                    alert.runModal()
+                }
+            }
+        }
+    }
+
     private func wireHeaderActions() {
         header.onQRTapped = { [weak self] in
             self?.presentQRHandoff()
@@ -995,6 +1102,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                   let grid = self.findGridController()
             else { return }
             grid.paneHeaderClicked(self.conversationID, modifiers: modifiers)
+        }
+        header.onAgentSwitchRequested = { [weak self] anchorView in
+            self?.presentAgentSwitcherMenu(anchor: anchorView)
         }
         // Fase 2.2: wire drag-source identity so a user drag on the handle
         // area carries (paneID, sourceWorkspaceID) to the pasteboard. The
@@ -1232,13 +1342,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
         // QR hand-off only makes sense for `.mirror` (remote tmux) — the
         // server is what generates the QR. `.native`/`.engineLocal` (local
-        // panes) and the `pending` placeholder all surface a friendly alert
+        // panes) and either placeholder mirror all surface a friendly alert
         // instead of calling the API with bogus args.
         let instanceID: String
-        switch conv.commander {
-        case .mirror(let id) where id != "pending":
+        switch AgentQRHandoffRoute.route(for: conv.commander) {
+        case .remote(let id):
             instanceID = id
-        case .native, .engineLocal:
+        case .local:
             Task { @MainActor in
                 do {
                     let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
@@ -1261,7 +1371,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 }
             }
             return
-        default:
+        case .unavailable:
             let alert = NSAlert()
             alert.messageText = String(localized: "pane.alert.noActiveSession.title", comment: "Alert title when generating QR hand-off but the pane isn't attached to a server-side session (e.g. pending placeholder).")
             alert.informativeText = String(localized: "pane.alert.noActiveSession.message", comment: "Alert body instructing the user to attach the conversation to an instance before generating the QR.")

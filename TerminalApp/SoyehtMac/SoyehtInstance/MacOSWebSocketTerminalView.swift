@@ -392,8 +392,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
     }
 
-    func disconnect() {
-        localPTY?.close()
+    func disconnect(reapLocalProcessTree: Bool = false) {
+        localPTY?.close(reapDescendants: reapLocalProcessTree)
         localPTY = nil
         localReplayBuffer.removeAll(keepingCapacity: true)
         resetFeedBridge()
@@ -846,6 +846,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - Terminal Response Routing
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
+        // SwiftTerm's mouseMoved path bypasses `allowMouseReporting`. Suppress
+        // only actual mouse packets; focus tracking and parser replies share
+        // this delegate callback and must still reach the agent.
+        if !allowMouseReporting,
+           !isFeedingServerData,
+           AgentTerminalPacketClassifier.isMouseReport(Array(data)) {
+            return
+        }
         if isFeedingServerData {
             // Parser-generated replies to host queries (CPR/DSR, DA1/DA2,
             // DECRQM, OSC color reports). They must reach the program on the
@@ -949,18 +957,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// keyboard path. Agent TUIs such as Codex treat raw CR/CRLF as editor
     /// input in some modes, while `insertNewline(_:)` follows the same path as
     /// a real Return key.
-    func brokerSend(text: String, submitWithEnter: Bool) {
-        brokerSend(text: text)
+    func brokerSend(
+        text: String,
+        submitWithEnter: Bool,
+        forceBracketedPaste: Bool = false,
+        focusBeforeSubmit: Bool = true
+    ) {
+        let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
+            text,
+            bracketedPasteMode: forceBracketedPaste || getTerminal().bracketedPasteMode
+        )
+        brokerSend(text: pastePayload)
         guard submitWithEnter else { return }
         let isLongPrompt = text.count > 256 || text.contains("\n")
         let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self else { return }
-            if isLongPrompt {
-                self.brokerSend(data: Data([0x0D]))
-            } else {
-                self.brokerSendEnterKey()
-            }
+            self?.brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)
         }
     }
 
@@ -972,8 +984,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active
     /// terminal modes such as Kitty keyboard enhancement decide the bytes.
-    func brokerSendEnterKey() {
-        window?.makeFirstResponder(self)
+    func brokerSendEnterKey(focusBeforeSubmit: Bool = true) {
+        if focusBeforeSubmit {
+            window?.makeFirstResponder(self)
+        }
         doCommand(by: #selector(insertNewline(_:)))
     }
 

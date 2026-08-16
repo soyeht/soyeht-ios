@@ -21,6 +21,43 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(stored.handle, "@foo")
     }
 
+    func testLiveAgentConversationMutationPreservesHookEventRecordedAfterSnapshot() throws {
+        let store = ConversationStore()
+        let stored = store.add(makeConversation(handle: "handoff", ws: UUID()))
+        _ = store.recordAgentConversationEvent(
+            stored.id,
+            role: .user,
+            text: "first turn",
+            sourceAgent: "claude",
+            nativeSessionID: nil,
+            sourceEventID: "user-1",
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil
+        )
+        let staleSnapshot = try XCTUnwrap(store.conversation(stored.id)).agentConversation
+
+        _ = store.recordAgentConversationEvent(
+            stored.id,
+            role: .assistant,
+            text: "late final response",
+            sourceAgent: "claude",
+            nativeSessionID: nil,
+            sourceEventID: "assistant-1",
+            model: nil,
+            reasoningEffort: nil,
+            variant: nil
+        )
+        let live = try XCTUnwrap(store.mutateAgentConversation(stored.id) { state in
+            state.markContiguousLocalEventsImported(by: "claude")
+        })
+
+        XCTAssertEqual(staleSnapshot.events.count, 1)
+        XCTAssertEqual(live.events.map(\.text), ["first turn", "late final response"])
+        XCTAssertEqual(live.nextSequence, 3)
+        XCTAssertEqual(live.bindings["claude"]?.lastImportedSequence, 2)
+    }
+
     func testAutoSuffixOnCollision() {
         let store = ConversationStore()
         let ws = UUID()

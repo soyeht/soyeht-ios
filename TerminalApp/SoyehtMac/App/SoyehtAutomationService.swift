@@ -28,6 +28,12 @@ struct SoyehtAutomationRequest: Decodable {
         case getActiveContext = "get_active_context"
         case identifyAgent = "identify_agent"
         case listAgents = "list_agents"
+        case reportAgentState = "report_agent_state"
+        case reportAgentConversation = "report_agent_conversation"
+        case getConversationContext = "get_conversation_context"
+        case ackConversationContext = "ack_conversation_context"
+        case requestAttention = "request_attention"
+        case switchAgent = "switch_agent"
         case openEditor = "open_editor"
         case openExplorer = "open_explorer"
         case openGit = "open_git"
@@ -108,6 +114,21 @@ struct SoyehtAutomationRequest: Decodable {
         let branch: String?
         let compareBase: String?
         let selectedFile: String?
+        let state: String?
+        let message: String?
+        let seq: Int?
+        let nonce: String?
+        let reportSource: String?
+        let attentionKind: String?
+        let role: String?
+        let nativeSessionID: String?
+        let sourceEventID: String?
+        let model: String?
+        let reasoningEffort: String?
+        let variant: String?
+        let afterSequence: Int?
+        let maxEvents: Int?
+        let throughSequence: Int?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -422,6 +443,65 @@ struct SoyehtAutomationResponse: Encodable {
         let agent: String
         let status: String
         let exitCode: Int?
+        let agentState: String?
+        let agentStateMessage: String?
+        let agentStateSource: String?
+        let agentHandshake: String?
+        let lastMcpActivityAt: String?
+    }
+
+    struct AgentStateReported: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let state: String
+        let message: String?
+        let seq: Int?
+        let accepted: Bool
+        let reason: String?
+    }
+
+    struct AgentConversationReported: Encodable {
+        let conversationID: String
+        let handle: String
+        let sourceAgent: String
+        let kind: String
+        let sequence: Int?
+        let nativeSessionID: String?
+    }
+
+    struct AgentConversationContext: Encodable {
+        let conversationID: String
+        let handle: String
+        let agent: String
+        let protocolVersion: Int
+        let afterSequence: Int
+        let throughSequence: Int
+        let lastSequence: Int
+        let hasMore: Bool
+        let nextCursor: Int?
+        let events: [AgentConversationEvent]
+    }
+
+    struct AgentConversationContextAcknowledged: Encodable {
+        let conversationID: String
+        let handle: String
+        let agent: String
+        let throughSequence: Int
+    }
+
+    struct SwitchedAgent: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let previousAgent: String
+        let newAgent: String
+        let transcriptLineCount: Int
+        let importedEventCount: Int
+        let historySource: String
+        let resumedNativeSession: Bool
+        let sourceModel: String?
+        let sourceReasoningEffort: String?
     }
 
     struct CapturedPane: Encodable {
@@ -509,6 +589,11 @@ struct SoyehtAutomationResponse: Encodable {
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
+    let agentStateReported: AgentStateReported?
+    let agentConversationReported: AgentConversationReported?
+    let switchedAgents: [SwitchedAgent]?
+    let agentConversationContext: AgentConversationContext?
+    let agentConversationContextAcknowledged: AgentConversationContextAcknowledged?
 }
 
 struct SoyehtAutomationResult {
@@ -534,6 +619,11 @@ struct SoyehtAutomationResult {
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
+    var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
+    var agentConversationReported: SoyehtAutomationResponse.AgentConversationReported? = nil
+    var switchedAgents: [SoyehtAutomationResponse.SwitchedAgent]? = nil
+    var agentConversationContext: SoyehtAutomationResponse.AgentConversationContext? = nil
+    var agentConversationContextAcknowledged: SoyehtAutomationResponse.AgentConversationContextAcknowledged? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -749,7 +839,12 @@ final class SoyehtAutomationService {
                 openedSpecialPanes: result.openedSpecialPanes,
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
-                listedAgents: result.listedAgents
+                listedAgents: result.listedAgents,
+                agentStateReported: result.agentStateReported,
+                agentConversationReported: result.agentConversationReported,
+                switchedAgents: result.switchedAgents,
+                agentConversationContext: result.agentConversationContext,
+                agentConversationContextAcknowledged: result.agentConversationContextAcknowledged
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -780,7 +875,12 @@ final class SoyehtAutomationService {
                 openedSpecialPanes: [],
                 activeContext: nil,
                 sourceIdentity: nil,
-                listedAgents: []
+                listedAgents: [],
+                agentStateReported: nil,
+                agentConversationReported: nil,
+                switchedAgents: nil,
+                agentConversationContext: nil,
+                agentConversationContextAcknowledged: nil
             ))
         }
     }
@@ -794,6 +894,10 @@ final class SoyehtAutomationService {
                 .appendingPathComponent(response.id)
                 .appendingPathExtension("json")
             try data.write(to: destination, options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600 as Int16)],
+                ofItemAtPath: destination.path
+            )
         } catch {
             Self.logger.error("automation_response_failed error=\(error.localizedDescription, privacy: .public)")
         }

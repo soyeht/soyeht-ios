@@ -26,6 +26,8 @@ private func soyeht_proc_pidinfo(
 
 /// `PROC_TTY_ONLY` from <sys/proc_info.h>.
 private let procTTYOnly: UInt32 = 3
+/// `PROC_ALL_PIDS` from <sys/proc_info.h>.
+private let procAllPIDs: UInt32 = 1
 
 /// `PROC_PIDLISTFDS` and `PROX_FDTYPE_VNODE` from <sys/proc_info.h>.
 private let procPIDListFDs: Int32 = 1
@@ -376,7 +378,7 @@ final class NativePTY {
     /// owning client over private stdio. Killing them independently drops the
     /// client's tool transport; killing the client closes those pipes and lets
     /// helpers exit naturally.
-    func close() {
+    func close(reapDescendants: Bool = false) {
         stateLock.lock()
         if closed {
             stateLock.unlock()
@@ -389,10 +391,18 @@ final class NativePTY {
         if !terminalPIDs.contains(pid) {
             terminalPIDs.append(pid)
         }
+        let descendantPIDs = reapDescendants
+            ? Self.descendantProcessPIDs(
+                of: pid,
+                allPIDs: Self.allProcessPIDs(),
+                parentPID: Self.processParentPID
+            )
+            : []
+        let escalationPIDs = Array(Set(terminalPIDs + descendantPIDs))
         // Bind every escalation target to its current process incarnation
         // before the initial HUP. Targets without start-time metadata receive
         // no later TERM/KILL, which is the fail-safe side of a PID reuse race.
-        let terminalProcessIdentities = Self.captureProcessIdentities(terminalPIDs)
+        let escalationProcessIdentities = Self.captureProcessIdentities(escalationPIDs)
         Self.signalProcesses(terminalPIDs, signal: SIGHUP)
         if readSuspended, let src = readSource {
             readSuspended = false
@@ -407,8 +417,48 @@ final class NativePTY {
         exitSource = nil
         Self.scheduleTerminationEscalation(
             leaderPID: pid,
-            terminalProcessIdentities: terminalProcessIdentities
+            processIdentities: escalationProcessIdentities,
+            resumeStoppedProcesses: reapDescendants
         )
+        Self.scheduleLeaderReap(leaderPID: pid)
+    }
+
+    private static func allProcessPIDs() -> [pid_t] {
+        let byteCount = soyeht_proc_listpids(procAllPIDs, 0, nil, 0)
+        guard byteCount > 0 else { return [] }
+        let capacity = Int(byteCount) / MemoryLayout<pid_t>.size + 32
+        var pids = [pid_t](repeating: 0, count: capacity)
+        let written = pids.withUnsafeMutableBytes { buffer in
+            soyeht_proc_listpids(procAllPIDs, 0, buffer.baseAddress, Int32(buffer.count))
+        }
+        guard written > 0 else { return [] }
+        return Array(pids.prefix(Int(written) / MemoryLayout<pid_t>.size)).filter { $0 > 0 }
+    }
+
+    /// Resolves the entire process tree rooted at the pane shell. General pane
+    /// close keeps the historical TTY-only isolation, but an in-place agent
+    /// switch deliberately replaces the whole process and must also terminate
+    /// pipe-backed or stopped MCP descendants.
+    static func descendantProcessPIDs(
+        of leaderPID: pid_t,
+        allPIDs: [pid_t],
+        parentPID: (pid_t) -> pid_t?
+    ) -> [pid_t] {
+        let parentByPID = Dictionary(
+            allPIDs.compactMap { processID in
+                parentPID(processID).map { (processID, $0) }
+            },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        var descendants: Set<pid_t> = []
+        var frontier = [leaderPID]
+        while let parent = frontier.popLast() {
+            for (candidate, candidateParent) in parentByPID
+            where candidateParent == parent && descendants.insert(candidate).inserted {
+                frontier.append(candidate)
+            }
+        }
+        return Array(descendants)
     }
 
     /// Every terminal-facing pid whose controlling terminal is `ttyPath`.
@@ -561,6 +611,21 @@ final class NativePTY {
         )
     }
 
+    private static func processParentPID(_ processID: pid_t) -> pid_t? {
+        var info = proc_bsdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
+            soyeht_proc_pidinfo(
+                processID,
+                Int32(PROC_PIDTBSDINFO),
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written == MemoryLayout<proc_bsdinfo>.size else { return nil }
+        return pid_t(info.pbi_ppid)
+    }
+
     private static func signalProcesses(_ processIDs: [pid_t], signal: Int32) {
         for processID in Set(processIDs) where Darwin.kill(processID, 0) == 0 {
             _ = Darwin.kill(processID, signal)
@@ -605,15 +670,19 @@ final class NativePTY {
     /// Captures only values, so it is safe to schedule from `deinit`.
     private static func scheduleTerminationEscalation(
         leaderPID: pid_t,
-        terminalProcessIdentities: [ProcessIdentity]
+        processIdentities: [ProcessIdentity],
+        resumeStoppedProcesses: Bool
     ) {
         let queue = DispatchQueue.global(qos: .utility)
 
         queue.asyncAfter(deadline: .now() + 2) {
             var status: Int32 = 0
             _ = waitpid(leaderPID, &status, WNOHANG)
+            if resumeStoppedProcesses {
+                _ = signalLiveProcessesForEscalation(processIdentities, signal: SIGCONT)
+            }
             guard signalLiveProcessesForEscalation(
-                terminalProcessIdentities,
+                processIdentities,
                 signal: SIGTERM
             ) else { return }
             logger.notice("pane processes survived SIGHUP; sent SIGTERM")
@@ -621,7 +690,7 @@ final class NativePTY {
                 var status2: Int32 = 0
                 _ = waitpid(leaderPID, &status2, WNOHANG)
                 guard signalLiveProcessesForEscalation(
-                    terminalProcessIdentities,
+                    processIdentities,
                     signal: SIGKILL
                 ) else { return }
                 logger.warning("pane processes survived SIGTERM; sent SIGKILL")
@@ -629,6 +698,23 @@ final class NativePTY {
                     var status3: Int32 = 0
                     _ = waitpid(leaderPID, &status3, WNOHANG)
                 }
+            }
+        }
+    }
+
+    /// The process source is cancelled during close, so keep polling waitpid
+    /// until the direct child actually becomes reapable. A few fixed probes
+    /// can miss agents that take longer to unwind their helper processes.
+    private static func scheduleLeaderReap(leaderPID: pid_t, attemptsRemaining: Int = 100) {
+        guard attemptsRemaining > 0 else { return }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.1) {
+            var status: Int32 = 0
+            let result = waitpid(leaderPID, &status, WNOHANG)
+            if result == 0 {
+                Self.scheduleLeaderReap(
+                    leaderPID: leaderPID,
+                    attemptsRemaining: attemptsRemaining - 1
+                )
             }
         }
     }

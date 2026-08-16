@@ -227,6 +227,34 @@ final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
         XCTAssertEqual(sentSignals.first?.1, SIGTERM)
     }
 
+    func testExplicitAgentSwitchTeardownFindsEntireDescendantTree() {
+        let parents: [pid_t: pid_t] = [
+            11: 10,
+            12: 11,
+            13: 11,
+            14: 12,
+            99: 1,
+        ]
+
+        let descendants = NativePTY.descendantProcessPIDs(
+            of: 10,
+            allPIDs: Array(parents.keys),
+            parentPID: { parents[$0] }
+        )
+
+        XCTAssertEqual(Set(descendants), Set([11, 12, 13, 14]))
+    }
+
+    func testDescendantDiscoveryToleratesDuplicateKernelPIDs() {
+        let descendants = NativePTY.descendantProcessPIDs(
+            of: 10,
+            allPIDs: [11, 11, 12],
+            parentPID: { pid in pid == 11 ? 10 : 11 }
+        )
+
+        XCTAssertEqual(Set(descendants), Set([11, 12]))
+    }
+
     func testPTYReaperTargetsTerminalJobsWithoutKillingPipeBackedMCPHelpers() throws {
         let source = try macSource("SoyehtInstance/NativePTY.swift")
 
@@ -250,6 +278,8 @@ final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
             source.contains("Darwin.kill(-pgid, sig)"),
             "Escalation must target classified terminal jobs, not every process in the group."
         )
+        XCTAssertTrue(source.contains("reapDescendants: Bool = false"))
+        XCTAssertTrue(source.contains("resumeStoppedProcesses"))
     }
 
     private struct PTYPair {

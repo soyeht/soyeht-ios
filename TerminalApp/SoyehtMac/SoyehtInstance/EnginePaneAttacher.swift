@@ -58,6 +58,7 @@ enum EnginePaneAttacher {
 
     static func attach(
         conversation: Conversation,
+        launchNonce: String? = nil,
         cwd: URL,
         loginPath: String?,
         cols: Int,
@@ -75,7 +76,8 @@ enum EnginePaneAttacher {
             cwd: cwd,
             loginPath: loginPath,
             cols: cols,
-            rows: rows
+            rows: rows,
+            launchNonce: launchNonce
         )
         do {
             let response = try await SoyehtAPIClient.shared.createLocalTerminal(request, context: context)

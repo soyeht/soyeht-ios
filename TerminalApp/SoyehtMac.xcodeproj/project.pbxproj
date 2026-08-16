@@ -70,6 +70,8 @@
 		AA500003000000000000001 /* ObservationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500003000000000000002 /* ObservationTracker.swift */; };
 		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
 		AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500005000000000000002 /* SoyehtAutomationService.swift */; };
+		AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700001000000000000002 /* AgentAttentionNotifier.swift */; };
+		AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700004000000000000002 /* LocalAgentCatalog.swift */; };
 		F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */; };
 		F3A100020000000000000001 /* WindowCommandActionPerformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100020000000000000002 /* WindowCommandActionPerformer.swift */; };
 		AA510001000000000000001 /* MenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510001000000000000002 /* MenuModel.swift */; };
@@ -105,6 +107,8 @@
 		C0F0A0000000000000000AB3 /* MacStyledSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0000000000000000AB4 /* MacStyledSurfaceView.swift */; };
 		C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000A002 /* MacCursor.swift */; };
 		C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */; };
+		AB700002000000000000001 /* AgentStateIntegrationInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700002000000000000002 /* AgentStateIntegrationInstaller.swift */; };
+		AB700003000000000000001 /* AgentStateReporterScripts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700003000000000000002 /* AgentStateReporterScripts.swift */; };
 		C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */; };
 		C0F0A0FF000000000000B005 /* soyeht-mcp in Resources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B006 /* soyeht-mcp */; };
 		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
@@ -240,6 +244,8 @@
 		AA500003000000000000002 /* ObservationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationTracker.swift; sourceTree = "<group>"; };
 		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
 		AA500005000000000000002 /* SoyehtAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationService.swift; sourceTree = "<group>"; };
+		AB700001000000000000002 /* AgentAttentionNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAttentionNotifier.swift; sourceTree = "<group>"; };
+		AB700004000000000000002 /* LocalAgentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentCatalog.swift; path = ../Model/LocalAgentCatalog.swift; sourceTree = "<group>"; };
 		F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationRequestRouter.swift; sourceTree = "<group>"; };
 		F3A100020000000000000002 /* WindowCommandActionPerformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCommandActionPerformer.swift; sourceTree = "<group>"; };
 		AA510001000000000000002 /* MenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModel.swift; sourceTree = "<group>"; };
@@ -274,6 +280,8 @@
 		C0F0A0000000000000000AB4 /* MacStyledSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacStyledSurfaceView.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000A002 /* MacCursor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacCursor.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentIntegrator.swift; sourceTree = "<group>"; };
+		AB700002000000000000002 /* AgentStateIntegrationInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStateIntegrationInstaller.swift; sourceTree = "<group>"; };
+		AB700003000000000000002 /* AgentStateReporterScripts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStateReporterScripts.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentsView.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000B006 /* soyeht-mcp */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "soyeht-mcp"; path = "../../scripts/soyeht-mcp"; sourceTree = "<group>"; };
 		C0F0A0FF000000000000C002 /* MacScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacScroll.swift; sourceTree = "<group>"; };
@@ -370,6 +378,8 @@
 				E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */,
 				7A69005F58B0EF277320044A /* HealthCheckPoller.swift */,
 				C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */,
+				AB700002000000000000002 /* AgentStateIntegrationInstaller.swift */,
+				AB700003000000000000002 /* AgentStateReporterScripts.swift */,
 			);
 			path = Installer;
 			sourceTree = "<group>";
@@ -609,6 +619,8 @@
 				AA500001000000000000002 /* AppEnvironment.swift */,
 				AA500004000000000000002 /* AppCommandRegistry.swift */,
 				AA500005000000000000002 /* SoyehtAutomationService.swift */,
+				AB700001000000000000002 /* AgentAttentionNotifier.swift */,
+				AB700004000000000000002 /* LocalAgentCatalog.swift */,
 				F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
@@ -928,6 +940,8 @@
 				C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */,
 				C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */,
 				C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */,
+				AB700002000000000000001 /* AgentStateIntegrationInstaller.swift in Sources */,
+				AB700003000000000000001 /* AgentStateReporterScripts.swift in Sources */,
 				C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */,
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
@@ -1028,6 +1042,8 @@
 				AA510005000000000000001 /* DynamicMenuSections.swift in Sources */,
 				AA510004000000000000001 /* MainMenuController.swift in Sources */,
 				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
+				AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */,
+				AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */,
 				F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,

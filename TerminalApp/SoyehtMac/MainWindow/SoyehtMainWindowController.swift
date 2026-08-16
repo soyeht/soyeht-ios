@@ -235,6 +235,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let agent: String
         let status: String
         let exitCode: Int?
+        let agentState: String?
+        let agentStateMessage: String?
+        let agentStateSource: String?
+        let agentHandshake: String?
+        let lastMcpActivityAt: String?
     }
 
     struct CapturedPaneResult {
@@ -286,6 +291,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case paneRenameRequiresSingleTarget
         case workspaceRenameRequiresSingleTarget
         case noActiveWorkspace
+        case unknownLocalAgent(String)
+        case agentSwitchRequiresTerminalPane(Conversation.ID)
+        case agentSwitchRequiresLocalPane(Conversation.ID)
+        case agentSwitchSourceChanged(Conversation.ID)
 
         var errorDescription: String? {
             switch self {
@@ -370,6 +379,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Cannot rename multiple workspaces to the same name. Rename one workspace at a time."
             case .noActiveWorkspace:
                 return "No active workspace is available."
+            case .unknownLocalAgent(let name):
+                return "Unknown local agent: \(name)."
+            case .agentSwitchRequiresTerminalPane(let id):
+                return "Only terminal panes can switch agents: \(id.uuidString)"
+            case .agentSwitchRequiresLocalPane(let id):
+                return "Remote mirror panes do not support in-place agent switching: \(id.uuidString)"
+            case .agentSwitchSourceChanged(let id):
+                return "Pane changed while the agent switch was being prepared: \(id.uuidString)"
             }
         }
     }
@@ -380,6 +397,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     let store: WorkspaceStore
     private(set) var activeWorkspaceID: Workspace.ID
+
+    /// Active pane of the active workspace, for automation targets that
+    /// don't name an explicit pane (mirrors capture_panes' fallback).
+    func activePaneConversationID() -> Conversation.ID? {
+        guard let ws = store.workspace(activeWorkspaceID) else { return nil }
+        if let active = ws.activePaneID, ws.layout.contains(active) {
+            return active
+        }
+        return ws.layout.leafIDs.last
+    }
 
     private var tabsView: WorkspaceTabsView?
 
@@ -1130,7 +1157,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handle: handle,
             agent: agent,
             workspaceID: added.id,
-            commander: .mirror(instanceID: "pending"),
+            commander: .placeholderMirror,
             workingDirectoryPath: projectURL.path
         ))
 
@@ -1186,7 +1213,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: agent,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending"),
+                commander: .placeholderMirror,
                 workingDirectoryPath: spec.projectURL.path
             ))
             store.setActivePane(workspaceID: workspaceID, paneID: paneID)
@@ -1354,7 +1381,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handle: desiredHandle,
             agent: .shell,
             workspaceID: workspaceID,
-            commander: .mirror(instanceID: "pending"),
+            commander: .placeholderMirror,
             content: content,
             workingDirectoryPath: workingDirectoryPath
         ))
@@ -1413,7 +1440,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: .shell,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending"),
+                commander: .placeholderMirror,
                 workingDirectoryPath: workingDirectoryPath
             ))
             terminalIDs.append(terminalID)
@@ -2422,6 +2449,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         return targets.map { conv in
+            let stateReport = PaneStatusTracker.shared.agentStateReport(for: conv.id)
+            let lastMcpActivity = PaneStatusTracker.shared.lastMcpActivity(for: conv.id).map(Self.iso8601Automation)
             if !conv.content.isTerminal {
                 return PaneStatusResult(
                     conversationID: conv.id,
@@ -2429,7 +2458,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     handle: conv.handle,
                     agent: conv.content.displayKind,
                     status: LivePaneRegistry.shared.pane(for: conv.id) != nil ? "live" : "not_live",
-                    exitCode: nil
+                    exitCode: nil,
+                    agentState: stateReport?.state,
+                    agentStateMessage: stateReport?.message,
+                    agentStateSource: stateReport?.source,
+                    agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                    lastMcpActivityAt: lastMcpActivity
                 )
             }
             let idStr = conv.id.uuidString
@@ -2440,7 +2474,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     handle: conv.handle,
                     agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                     status: d["status"] as? String ?? "unknown",
-                    exitCode: d["exit_code"] as? Int
+                    exitCode: d["exit_code"] as? Int,
+                    agentState: stateReport?.state,
+                    agentStateMessage: stateReport?.message,
+                    agentStateSource: stateReport?.source,
+                    agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                    lastMcpActivityAt: lastMcpActivity
                 )
             }
             return PaneStatusResult(
@@ -2449,9 +2488,24 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: conv.handle,
                 agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 status: "not_live",
-                exitCode: nil
+                exitCode: nil,
+                agentState: stateReport?.state,
+                agentStateMessage: stateReport?.message,
+                agentStateSource: stateReport?.source,
+                agentHandshake: PaneStatusTracker.shared.handshakeState(for: conv.id).rawValue,
+                lastMcpActivityAt: lastMcpActivity
             )
         }
+    }
+
+    private static let automationISO8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static func iso8601Automation(_ date: Date) -> String {
+        automationISO8601.string(from: date)
     }
 
     @MainActor
@@ -3347,7 +3401,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: agent,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending")
+                commander: .placeholderMirror
             )
             _ = convStore.add(conv)
         }
@@ -3405,7 +3459,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: .shell,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending")
+                commander: .placeholderMirror
             ))
         }
 
@@ -3430,6 +3484,231 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    // MARK: - Agent switch (same pane, same conversation)
+    struct SwitchedAgentResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let previousAgent: String
+        let newAgent: String
+        let transcriptLineCount: Int
+        let importedEventCount: Int
+        let historySource: String
+        let resumedNativeSession: Bool
+        let sourceModel: String?
+        let sourceReasoningEffort: String?
+    }
+
+    /// Switches the agent running in an existing pane while keeping the same
+    /// logical conversation. Continuity comes exclusively from structured
+    /// provider events captured by hooks/plugins; terminal paint is never read
+    /// or replayed as conversation history.
+    @MainActor
+    func switchAgents(
+        conversationIDStrings: [String],
+        handles: [String],
+        to agentName: String,
+        command customCommand: String? = nil,
+        handoffPrompt customPrompt: String? = nil,
+        promptDelayMs: Int? = nil
+    ) async throws -> [SwitchedAgentResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        var results: [SwitchedAgentResult] = []
+        for target in targets {
+            results.append(try await switchAgent(
+                in: target.id,
+                to: agentName,
+                command: customCommand,
+                handoffPrompt: customPrompt,
+                promptDelayMs: promptDelayMs
+            ))
+        }
+        return results
+    }
+
+    @MainActor
+    func switchAgent(
+        in paneID: Conversation.ID,
+        to agentName: String,
+        command customCommand: String? = nil,
+        handoffPrompt customPrompt: String? = nil,
+        promptDelayMs: Int? = nil
+    ) async throws -> SwitchedAgentResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        guard let initialConversation = convStore.conversation(paneID) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        guard initialConversation.content.isTerminal else {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresTerminalPane(paneID)
+        }
+        guard AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: initialConversation.commander
+        ) else {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
+        }
+        guard let target = LocalAgentCatalog.agent(named: agentName) else {
+            throw LocalAgentWorkspaceError.unknownLocalAgent(agentName)
+        }
+
+        let previousAgent = initialConversation.agent.isShell
+            ? "shell"
+            : initialConversation.agent.displayName.lowercased()
+        let usesCustomCommand = customCommand != nil
+        let targetCapabilities = AgentConversationAdapterCapabilities.capabilities(for: target.name)
+        var mcpIntegrationAvailable = false
+        if targetCapabilities.mcpContext {
+            do {
+                mcpIntegrationAvailable = try await Task.detached(priority: .userInitiated) {
+                    try AIAgentIntegrator.ensureMCPAvailable(forLocalAgentName: target.name)
+                }.value
+            } catch {
+                Self.logger.warning(
+                    "agent_mcp_repair_failed agent=\(target.name, privacy: .public) error=\(error.localizedDescription, privacy: .public); using structured fallback"
+                )
+            }
+        }
+
+        // 1. Prepare the canonical semantic history against the latest store
+        // value after MCP repair. Hooks can record final source events while
+        // the repair awaits; writing the pre-await snapshot would silently
+        // erase those events and regress nextSequence.
+        guard let conv = convStore.conversation(paneID) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        guard conv.agent == initialConversation.agent,
+              conv.commander == initialConversation.commander else {
+            throw LocalAgentWorkspaceError.agentSwitchSourceChanged(paneID)
+        }
+        guard let conversationState = convStore.mutateAgentConversation(paneID, { state in
+            // Advance the source only across a contiguous run of its own
+            // events. An unacknowledged MCP gap must survive for a retry.
+            state.markContiguousLocalEventsImported(by: previousAgent)
+            if usesCustomCommand {
+                // A command override launches a fresh process and must not
+                // reuse prior native session or import cursor metadata.
+                state.resetForFreshSession(agent: target.name)
+            }
+            if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !instruction.isEmpty {
+                _ = state.recordEvent(
+                    role: .user,
+                    text: instruction,
+                    sourceAgent: "soyeht"
+                )
+            }
+        }) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        let sourceBinding = conversationState.bindings[previousAgent]
+        let targetEvents = conversationState.eventsNotImported(by: target.name)
+        let throughSequence = conversationState.lastSequence
+        let targetBinding = conversationState.bindings[target.name]
+        let usesMCPContext = mcpIntegrationAvailable && !targetEvents.isEmpty
+        let prompt = usesMCPContext
+            ? AgentConversationMCPHandoff.prompt(
+                previousAgent: previousAgent,
+                throughSequence: throughSequence,
+                currentRequest: customPrompt
+            )
+            : AgentConversationHandoff.prompt(
+                previousAgent: previousAgent,
+                events: targetEvents,
+                throughSequence: throughSequence
+            )
+        let nativeResumeBinding = !usesCustomCommand && targetCapabilities.nativeResume
+            ? targetBinding
+            : nil
+        let didResumeNativeSession = nativeResumeBinding?.nativeSessionID != nil
+
+        // 2. Tear down the current process: engine sessions are reaped
+        // immediately (the switch is deliberate — no undo window), local
+        // PTYs are closed directly.
+        switch conv.commander {
+        case .engineLocal(let engineConversationID):
+            await DeferredEngineSessionReaper.reapNow(engineConversationID: engineConversationID)
+        case .native:
+            if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+                pane.terminalView.disconnect(reapLocalProcessTree: true)
+            }
+        case .mirror:
+            // The switch-specific sentinel is the recoverable local bridge
+            // left by an earlier failed attach. Generic placeholders and
+            // every real mirror remain protected.
+            guard AgentSwitchEligibility.isPendingLocalBridge(conv.commander) else {
+                throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
+            }
+        }
+
+        // 3. Keep the conversation identity (same handle/pane); only the
+        // agent changes. Commander drops to the bridge value until the new
+        // attach flips it to `.engineLocal`/`.native`.
+        convStore.updateFields(paneID, handle: conv.handle, agent: .claw(target.name))
+        convStore.updateCommander(
+            paneID,
+            commander: AgentSwitchEligibility.pendingLocalBridge
+        )
+
+        // 4. Resume the target's exact native session when its adapter supports
+        // it, then import only the canonical events after that session's
+        // cursor. First-time targets receive the complete canonical history.
+        let cwd = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        let baseCommand = customCommand ?? AgentNativeSessionCommand.command(
+            for: target,
+            binding: nativeResumeBinding
+        )
+        let command = AgentLaunchCommandBuilder.prepare(baseCommand)
+        try await attachLocalPTY(
+            to: paneID,
+            cwd: cwd,
+            initialCommand: command,
+            prompt: prompt,
+            promptDelayMs: promptDelayMs,
+            promptMode: "raw",
+            promptSourceConversationIDString: nil,
+            promptSourceHandle: nil,
+            promptSourceTTY: nil,
+            onPromptDelivered: {
+                guard !usesMCPContext else { return }
+                // Merge against the latest store value: target startup hooks
+                // may already have added session metadata while it booted.
+                convStore.markAgentConversationImported(
+                    paneID,
+                    through: throughSequence,
+                    by: target.name
+                )
+            }
+        )
+
+        Self.logger.info(
+            "agent_switch pane=\(paneID.uuidString, privacy: .public) from=\(previousAgent, privacy: .public) to=\(target.name, privacy: .public) canonicalEvents=\(conversationState.events.count, privacy: .public) importedEvents=\(targetEvents.count, privacy: .public) nativeResume=\(didResumeNativeSession, privacy: .public)"
+        )
+        return SwitchedAgentResult(
+            conversationID: paneID,
+            workspaceID: conv.workspaceID,
+            handle: conv.handle,
+            previousAgent: previousAgent,
+            newAgent: target.name,
+            // Preserve the response field for automation compatibility. Its
+            // value now counts canonical messages, never terminal lines.
+            transcriptLineCount: conversationState.events.count,
+            importedEventCount: targetEvents.count,
+            historySource: usesMCPContext ? "mcp" : "structured",
+            resumedNativeSession: didResumeNativeSession,
+            sourceModel: sourceBinding?.model,
+            sourceReasoningEffort: sourceBinding?.reasoningEffort
+        )
+    }
+
     private func attachLocalPTY(
         to paneID: Conversation.ID,
         cwd: URL,
@@ -3439,13 +3718,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         promptMode: String?,
         promptSourceConversationIDString: String?,
         promptSourceHandle: String?,
-        promptSourceTTY: String?
+        promptSourceTTY: String?,
+        onPromptDelivered: (@MainActor () -> Void)? = nil
     ) async throws {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
         guard let pane = await waitForLivePane(paneID) else {
             throw LocalAgentWorkspaceError.paneUnavailable(paneID)
+        }
+
+        // Agent panes launched with a command get a per-launch nonce. The
+        // installed state reporters echo it back; the first matching report
+        // is the handshake that gates the initial prompt (no fixed sleeps,
+        // no prompt leaked into a shell when the agent fails to boot).
+        // Agents with no startup hook (e.g. agy) are exempt and use the
+        // legacy timed prompt delivery instead.
+        let conversation = convStore.conversation(paneID)
+        let expectedReportSource = conversation.map { "hook:\($0.agent.rawValue)" }
+        let preparedInitialCommand = initialCommand.map { AgentLaunchCommandBuilder.prepare($0) }
+        let isAgentLaunch = preparedInitialCommand != nil
+            && (conversation?.agent.isShell ?? true) == false
+            && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
+        let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
+        PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
+        if let launchNonce {
+            PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
         }
 
         // Seed PTY with the terminal's current geometry so the first prompt
@@ -3468,10 +3766,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // unconditionally — the flag must never regress a pane that would
         // have worked with it off.
         let attachedViaEngine: Bool
-        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation = convStore.conversation(paneID) {
+        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation {
             attachedViaEngine = await attachEnginePane(
                 paneID: paneID,
                 conversation: conversation,
+                launchNonce: launchNonce,
                 cwd: cwd,
                 loginPath: loginPath,
                 cols: cols,
@@ -3490,7 +3789,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 cols: cols,
                 rows: rows,
                 loginPath: loginPath,
-                extraEnvironment: convStore.conversation(paneID).map { AgentPaneEnvironment.values(for: $0) } ?? [:]
+                extraEnvironment: convStore.conversation(paneID).map {
+                    AgentPaneEnvironment.values(for: $0, launchNonce: launchNonce)
+                } ?? [:]
             )
 
             // Flip commander BEFORE configuring the terminal so
@@ -3509,32 +3810,177 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             sourceTTY: promptSourceTTY,
             convStore: convStore
         )
-        if initialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
+        if preparedInitialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             Task { @MainActor [weak pane] in
-                if let initialCommand {
+                if let preparedInitialCommand {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
                     guard let terminalView = pane?.terminalView else { return }
                     let prepared = AgentPaneInputPlanner.terminalPayload(
-                        text: initialCommand,
+                        text: preparedInitialCommand,
                         appendNewline: true,
                         lineEnding: "crlf"
                     )
                     terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
                 }
                 if let plannedPrompt {
-                    let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
-                        initialCommand: initialCommand,
-                        explicitDelayMs: promptDelayMs
-                    )) * 1_000_000
-                    try? await Task.sleep(nanoseconds: delay)
                     guard let terminalView = pane?.terminalView else { return }
-                    terminalView.brokerSend(text: plannedPrompt.payload, submitWithEnter: plannedPrompt.shouldSendEnterKey)
+                    if launchNonce != nil {
+                        // Handshake-gated delivery: wait until the agent's
+                        // reporter proves the agent booted, then send. On
+                        // timeout the prompt is NOT typed (nothing leaks into
+                        // a bare shell or half-booted TUI). Window is long:
+                        // engine spawn + login shell + agent boot can take a
+                        // while on cold starts.
+                        let deadline = Date().addingTimeInterval(90)
+                        var satisfied = false
+                        while Date() < deadline {
+                            guard !Task.isCancelled,
+                                  LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                                return
+                            }
+                            do {
+                                try await Task.sleep(nanoseconds: 500_000_000)
+                            } catch {
+                                return
+                            }
+                            if PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied {
+                                satisfied = true
+                                break
+                            }
+                        }
+                        guard let liveTerminalView = pane?.terminalView else { return }
+                        if satisfied {
+                            // Settle after the handshake: the handshake only
+                            // proves the agent's hooks fired (process booted),
+                            // not that the TUI input box is interactive. Some
+                            // agents (qwen) keep streaming a banner for a few
+                            // seconds after SessionStart and swallow early
+                            // keystrokes, so wait a base settle and let an
+                            // explicit promptDelayMs extend it.
+                            let settleMs = max(1500, promptDelayMs ?? 0)
+                            do {
+                                try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
+                            } catch {
+                                return
+                            }
+                            let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
+                                paneID: paneID,
+                                expectedReportSource: expectedReportSource,
+                                terminalView: liveTerminalView,
+                                payload: plannedPrompt.payload,
+                                shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
+                            )
+                            if promptAcknowledged {
+                                PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+                                onPromptDelivered?()
+                            } else {
+                                PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
+                                Self.logger.error(
+                                    "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
+                                )
+                            }
+                        } else {
+                            PaneStatusTracker.shared.markHandshakeTimeout(paneID: paneID)
+                            Self.logger.error(
+                                "agent_handshake_timeout pane=\(paneID.uuidString, privacy: .public) initial prompt withheld"
+                            )
+                        }
+                        _ = terminalView
+                    } else {
+                        let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                            initialCommand: preparedInitialCommand,
+                            explicitDelayMs: promptDelayMs
+                        )) * 1_000_000
+                        try? await Task.sleep(nanoseconds: delay)
+                        guard let liveTerminalView = pane?.terminalView else { return }
+                        let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
+                            paneID: paneID,
+                            expectedReportSource: expectedReportSource,
+                            terminalView: liveTerminalView,
+                            payload: plannedPrompt.payload,
+                            shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
+                        )
+                        if promptAcknowledged {
+                            onPromptDelivered?()
+                        } else {
+                            Self.logger.error(
+                                "turn_bound_agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
+                            )
+                        }
+                    }
                 }
             }
         }
         Self.logger.info(
-            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine)"
+            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
         )
+    }
+
+    /// A prompt-bound agent cannot emit SessionStart before its first user
+    /// turn, so readiness must be confirmed after delivery. The same helper is
+    /// also used after a startup handshake because a painted hook-ready TUI
+    /// can still swallow early keystrokes.
+    @MainActor
+    private static func deliverAgentPromptWithAcknowledgement(
+        paneID: Conversation.ID,
+        expectedReportSource: String?,
+        terminalView: MacOSWebSocketTerminalView,
+        payload: String,
+        shouldSendEnterKey: Bool
+    ) async -> Bool {
+        guard let expectedReportSource else { return false }
+        let baseline = PaneStatusTracker.shared.lastWorkingReportAt(
+            for: paneID,
+            source: expectedReportSource
+        ) ?? .distantPast
+
+        // Paste the semantic user turn at most once. Without an agent-level
+        // idempotency key, a missing/late hook acknowledgement cannot prove
+        // that the TUI did not receive the text. Retrying the payload would
+        // create duplicate real user turns; later attempts may only resubmit
+        // the already-buffered editor with a raw carriage return.
+        terminalView.brokerSend(
+            text: payload,
+            submitWithEnter: shouldSendEnterKey,
+            forceBracketedPaste: true,
+            focusBeforeSubmit: false
+        )
+        for attempt in 1...3 {
+            let deadline = Date().addingTimeInterval(
+                AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: payload)
+            )
+            while Date() < deadline {
+                guard !Task.isCancelled,
+                      LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                    return false
+                }
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    return false
+                }
+                if let last = PaneStatusTracker.shared.lastWorkingReportAt(
+                    for: paneID,
+                    source: expectedReportSource
+                ), last > baseline {
+                    return true
+                }
+            }
+            if attempt < 3 {
+                logger.info(
+                    "agent_prompt_resubmit pane=\(paneID.uuidString, privacy: .public) attempt=\(attempt) no fresh report after delivery"
+                )
+                if shouldSendEnterKey {
+                    terminalView.brokerSend(text: "\r")
+                }
+                do {
+                    try await Task.sleep(nanoseconds: 2_000_000_000)
+                } catch {
+                    return false
+                }
+            }
+        }
+        return false
     }
 
     /// Attempts to spawn/reattach the pane's shell via this Mac's own
@@ -3545,6 +3991,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func attachEnginePane(
         paneID: Conversation.ID,
         conversation: Conversation,
+        launchNonce: String?,
         cwd: URL,
         loginPath: String?,
         cols: Int,
@@ -3554,6 +4001,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     ) async -> Bool {
         switch await EnginePaneAttacher.attach(
             conversation: conversation,
+            launchNonce: launchNonce,
             cwd: cwd,
             loginPath: loginPath,
             cols: cols,

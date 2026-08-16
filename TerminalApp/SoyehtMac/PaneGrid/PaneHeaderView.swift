@@ -38,12 +38,39 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         }
     }
 
-    /// Retained for API compatibility with existing bind paths — no-op
-    /// visually because the SXnc2 pane header doesn't show an agent
-    /// subtitle. Kept so PaneViewController's bind logic doesn't break.
+    /// Shows the agent currently driving this pane (e.g. "claude") followed
+    /// by a dedicated disclosure button. Empty and "shell" hide both views.
     var agentName: String = "" {
-        didSet { /* intentionally empty */ }
+        didSet {
+            let trimmed = agentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let showable = !trimmed.isEmpty && trimmed != "shell"
+            agentNameLabel.stringValue = showable
+                ? agentName.trimmingCharacters(in: .whitespacesAndNewlines)
+                : ""
+            agentNameLabel.isHidden = !showable
+            updateAgentSwitchVisibility()
+        }
     }
+
+    /// Remote mirror panes must never expose an action that replaces their
+    /// remote session with a local process.
+    var isAgentSwitchAvailable: Bool = true {
+        didSet { updateAgentSwitchVisibility() }
+    }
+
+    var isAgentSwitchEnabled: Bool = true {
+        didSet { agentSwitchButton.isEnabled = isAgentSwitchEnabled }
+    }
+
+    private func updateAgentSwitchVisibility() {
+        let trimmed = agentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let hasAgent = !trimmed.isEmpty && trimmed != "shell"
+        agentSwitchButton.isHidden = !hasAgent || !isAgentSwitchAvailable
+    }
+
+    /// Fired when the user clicks the agent switch button. Receives the button so
+    /// the host can anchor the switcher menu on it.
+    var onAgentSwitchRequested: ((NSView) -> Void)?
 
     /// Focus is communicated through the 3pt bottom accent.
     var isFocused: Bool = true {
@@ -112,6 +139,27 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     // MARK: - Views
 
     private let handleLabel = NSTextField(labelWithString: "—")
+    private let agentNameLabel = NSTextField(labelWithString: "")
+    /// Explicit button beside the agent name. Keeping the name as plain text
+    /// makes the switch action discoverable instead of hiding it in a label.
+    private lazy var agentSwitchButton: NSButton = {
+        let button = Self.makeIconButton(
+            glyph: .chevronDown,
+            tint: Self.iconTint,
+            accessibility: String(
+                localized: "pane.header.agentSwitch.button.a11y",
+                defaultValue: "Choose another agent",
+                comment: "VoiceOver label on the button beside the current agent name."
+            )
+        )
+        button.toolTip = String(
+            localized: "pane.header.agentSwitch.tooltip",
+            defaultValue: "Switch agent (keeps this conversation)",
+            comment: "Tooltip on the pane-header agent switch button that opens the agent switcher menu."
+        )
+        button.isHidden = true
+        return button
+    }()
     private let copiedIndicatorLabel = NSTextField(labelWithString: String(
         localized: "pane.selectionCopied.indicator",
         defaultValue: "Copied",
@@ -228,11 +276,21 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         agentDot.layer?.cornerRadius = 4
         agentDot.isHidden = true
 
-        let leftStack = NSStackView(views: [agentDot, handleLabel])
+        agentNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        agentNameLabel.font = MacTypography.NSFonts.paneHeaderHandle
+        agentNameLabel.textColor = Self.iconTint
+        agentNameLabel.lineBreakMode = .byTruncatingTail
+        agentNameLabel.maximumNumberOfLines = 1
+        agentNameLabel.isHidden = true
+
+        let leftStack = NSStackView(views: [agentDot, handleLabel, agentNameLabel, agentSwitchButton])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
         leftStack.spacing = 6
         leftStack.translatesAutoresizingMaskIntoConstraints = false
+
+        agentSwitchButton.target = self
+        agentSwitchButton.action = #selector(agentSwitchButtonTapped)
 
         copiedIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
         copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
@@ -412,6 +470,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
     @objc private func renameMenuTapped()    { onRenameRequested?() }
+    @objc private func agentSwitchButtonTapped() { onAgentSwitchRequested?(agentSwitchButton) }
 
     // MARK: - Drag source (Fase 2.2)
     //
@@ -596,6 +655,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         splitVButton.image = HeaderGlyph.columns.image(tint: Self.iconTint)
         splitHButton.image = HeaderGlyph.rows.image(tint: Self.iconTint)
         closeButton.image = HeaderGlyph.close.image(tint: Self.iconTint)
+        agentSwitchButton.image = HeaderGlyph.chevronDown.image(tint: Self.iconTint)
     }
 
     private enum HeaderGlyph {
@@ -604,6 +664,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         case columns
         case rows
         case close
+        case chevronDown
 
         func image(tint: NSColor) -> NSImage {
             let size = NSSize(width: PaneHeaderView.iconGlyphSize, height: PaneHeaderView.iconGlyphSize)
@@ -670,6 +731,16 @@ final class PaneHeaderView: NSView, NSDraggingSource {
                 path.line(to: NSPoint(x: 2.2, y: 9.8))
                 path.lineWidth = 1.35
                 path.lineCapStyle = .round
+                path.stroke()
+
+            case .chevronDown:
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: 3.0, y: 4.5))
+                path.line(to: NSPoint(x: 6.0, y: 7.5))
+                path.line(to: NSPoint(x: 9.0, y: 4.5))
+                path.lineWidth = lineWidth
+                path.lineCapStyle = .round
+                path.lineJoinStyle = .round
                 path.stroke()
             }
 

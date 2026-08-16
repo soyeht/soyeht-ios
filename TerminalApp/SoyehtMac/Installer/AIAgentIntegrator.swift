@@ -15,6 +15,16 @@ enum AIAgentIntegrator {
 
         var id: String { rawValue }
 
+        init?(localAgentName: String) {
+            switch localAgentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "claude": self = .claudeCode
+            case "codex": self = .codex
+            case "opencode": self = .opencode
+            case "droid": self = .droid
+            default: return nil
+            }
+        }
+
         var displayName: String {
             switch self {
             case .claudeCode: return "Claude Code"
@@ -162,6 +172,17 @@ enum AIAgentIntegrator {
         if let first = errors.first { throw first }
     }
 
+    /// Repairs the MCP launcher and config immediately before an in-place
+    /// switch. Older installations may still point at a specific app bundle,
+    /// pin the release automation directory, or carry a stale tool allowlist.
+    /// Returning `false` means the agent has no managed MCP adapter and the
+    /// switch must use the structured-envelope fallback.
+    static func ensureMCPAvailable(forLocalAgentName name: String) throws -> Bool {
+        guard let agent = Agent(localAgentName: name) else { return false }
+        try install(for: [agent])
+        return true
+    }
+
     private static func installLauncher() throws {
         guard let bundled = Bundle.main.url(forResource: "soyeht-mcp", withExtension: nil) else {
             throw IntegrationError.bundledLauncherMissing
@@ -206,16 +227,6 @@ enum AIAgentIntegrator {
         }
     }
 
-    private static func mcpEnvironment() throws -> [String: String] {
-        let automationDir: String
-        if let override = AppSupportDirectory.developerEnvironmentOverride("SOYEHT_AUTOMATION_DIR") {
-            automationDir = override
-        } else {
-            automationDir = try AppSupportDirectory.subdirectory("Automation").path
-        }
-        return ["SOYEHT_AUTOMATION_DIR": automationDir]
-    }
-
     // MARK: - Claude Code: claude mcp add-json --scope user soyeht ...
 
     private static func installClaudeCodeMCP() throws {
@@ -226,20 +237,47 @@ enum AIAgentIntegrator {
             "type": "stdio",
             "command": launcherURL.path,
             "args": [String](),
-            "env": try mcpEnvironment(),
         ] as [String: Any]
         let serverData = try JSONSerialization.data(withJSONObject: server, options: [.sortedKeys])
         guard let serverJSON = String(data: serverData, encoding: .utf8) else {
             throw CocoaError(.fileWriteUnknown)
         }
-        try runAgentCommand(
+        // `claude mcp add-json` rejects an existing server instead of updating
+        // it. Keep a rollback snapshot because remove + add-json is not an
+        // atomic CLI operation: a failed add must never leave the user's
+        // previously working Soyeht entry deleted.
+        let userConfigURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude.json")
+        let originalConfig = try? Data(contentsOf: userConfigURL)
+        let originalPermissions = (try? FileManager.default.attributesOfItem(
+            atPath: userConfigURL.path
+        )[.posixPermissions]) as? NSNumber
+        try? runAgentCommand(
             .claudeCode,
             executableURL: claudeURL,
-            arguments: ["mcp", "add-json", "--scope", "user", launcherKey, serverJSON]
+            arguments: ["mcp", "remove", "--scope", "user", launcherKey]
         )
+        do {
+            try runAgentCommand(
+                .claudeCode,
+                executableURL: claudeURL,
+                arguments: ["mcp", "add-json", "--scope", "user", launcherKey, serverJSON]
+            )
+        } catch {
+            if let originalConfig {
+                try? originalConfig.write(to: userConfigURL, options: .atomic)
+                if let originalPermissions {
+                    try? FileManager.default.setAttributes(
+                        [.posixPermissions: originalPermissions],
+                        ofItemAtPath: userConfigURL.path
+                    )
+                }
+            }
+            throw error
+        }
     }
 
-    // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = [], env
+    // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = []
 
     /// Idempotently rewrites the `[mcp_servers.soyeht]` block in
     /// `~/.codex/config.toml`. Strips our own table AND any orphan
@@ -250,14 +288,18 @@ enum AIAgentIntegrator {
     /// (`[]` on a tail line after a botched join). Then appends a fresh
     /// canonical block at end-of-file.
     private static func patchCodexTOML(at url: URL) throws {
-        let env = try mcpEnvironment()
         let block = """
         [mcp_servers.\(launcherKey)]
         command = "\(launcherURL.path)"
         args = []
+        enabled = true
+        required = false
 
-        [mcp_servers.\(launcherKey).env]
-        SOYEHT_AUTOMATION_DIR = "\(tomlString(env["SOYEHT_AUTOMATION_DIR"] ?? ""))"
+        [mcp_servers.\(launcherKey).tools.get_conversation_context]
+        approval_mode = "approve"
+
+        [mcp_servers.\(launcherKey).tools.ack_conversation_context]
+        approval_mode = "approve"
         """
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         let stripped = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: existing)
@@ -271,13 +313,7 @@ enum AIAgentIntegrator {
         try combined.data(using: .utf8)!.write(to: url, options: .atomic)
     }
 
-    private static func tomlString(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-    }
-
-    // MARK: - OpenCode: .mcp.soyeht = { type:"local", command:[...], environment:{...}, enabled:true }
+    // MARK: - OpenCode: .mcp.soyeht = { type:"local", command:[...], enabled:true }
 
     private static func patchOpenCodeJSON(at url: URL) throws {
         var root = try readJSONObject(at: url)
@@ -288,14 +324,13 @@ enum AIAgentIntegrator {
         mcp[launcherKey] = [
             "type": "local",
             "command": [launcherURL.path],
-            "environment": try mcpEnvironment(),
             "enabled": true,
         ] as [String: Any]
         root["mcp"] = mcp
         try writeJSONObject(root, to: url)
     }
 
-    // MARK: - Droid: .mcpServers.soyeht = { type:stdio, command, args, env, disabled:false }
+    // MARK: - Droid: .mcpServers.soyeht = { type:stdio, command, args, disabled:false }
 
     private static func patchDroidJSON(at url: URL) throws {
         var root = try readJSONObject(at: url)
@@ -304,7 +339,6 @@ enum AIAgentIntegrator {
             "type": "stdio",
             "command": launcherURL.path,
             "args": [String](),
-            "env": try mcpEnvironment(),
             "disabled": false,
         ] as [String: Any]
         root["mcpServers"] = servers

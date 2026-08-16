@@ -565,6 +565,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
                 AgentPaneEnvironment.conversationIDKey: sourceConversationID.uuidString,
                 AgentPaneEnvironment.handleKey: "@sender",
                 AgentPaneEnvironment.automationDirKey: "/tmp/soyeht-dev-e2e/Automation",
+                AgentPaneEnvironment.agentNameKey: "shell",
             ]
         )
 
@@ -615,28 +616,43 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
         XCTAssertFalse(skipped.envelopeApplied)
         XCTAssertEqual(skipped.envelopeReason, "non_terminal_target")
-        XCTAssertEqual(skipped.payload, "not terminal")
+        XCTAssertEqual(skipped.payload, "not terminal ")
         XCTAssertTrue(skipped.shouldSendEnterKey)
 
         let terminalViewSource = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         let brokerSend = try slice(
             terminalViewSource,
-            from: "func brokerSend(text: String, submitWithEnter: Bool)",
-            to: "/// Public entry point for mirrored group input"
+            from: "func brokerSend(\n        text: String,",
+            to: "func brokerSend(data: Data)"
         )
-        XCTAssertTrue(brokerSend.contains("brokerSend(text: text)"))
+        XCTAssertTrue(brokerSend.contains("brokerSend(text: pastePayload)"))
+        XCTAssertTrue(brokerSend.contains("forceBracketedPaste || getTerminal().bracketedPasteMode"))
         XCTAssertTrue(brokerSend.contains("isLongPrompt"))
         XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
-        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey()"))
-        XCTAssertTrue(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
+        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)"))
+        XCTAssertFalse(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
         let brokerSendEnterKey = try slice(
             terminalViewSource,
-            from: "func brokerSendEnterKey()",
+            from: "func brokerSendEnterKey(focusBeforeSubmit:",
             to: "/// Inserts text produced by macOS voice input"
         )
+        XCTAssertTrue(brokerSendEnterKey.contains("if focusBeforeSubmit"))
         XCTAssertTrue(brokerSendEnterKey.contains("window?.makeFirstResponder(self)"))
         XCTAssertTrue(brokerSendEnterKey.contains("insertNewline"))
+
+        let installerSource = try macSource("Installer/AgentStateIntegrationInstaller.swift")
+        let commandBuilder = try slice(
+            installerSource,
+            from: "enum AgentLaunchCommandBuilder",
+            to: "private static func exitSafeAgentCommand"
+        )
+        XCTAssertTrue(commandBuilder.contains("if executable == \"devin\""))
+        XCTAssertTrue(commandBuilder.contains(#"--export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""#))
+        XCTAssertTrue(commandBuilder.contains("trimmed.contains(\"--export\")"))
+        XCTAssertTrue(commandBuilder.contains("exitSafeAgentCommand"))
+        XCTAssertTrue(commandBuilder.contains("turnBoundExecutables"))
+        XCTAssertTrue(installerSource.contains("return \"exec \\(command)\""))
 
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let sendInput = try slice(
@@ -702,10 +718,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let nativePTYWrite = try slice(
             nativePTYSource,
             from: "func write(_ data: Data)",
-            to: "private func writeSynchronously"
+            to: "private func flushPendingInput"
         )
         XCTAssertTrue(nativePTYWrite.contains("ioQueue.async"))
-        XCTAssertTrue(nativePTYWrite.contains("writeSynchronously(data)"))
+        XCTAssertTrue(nativePTYWrite.contains("pendingInput.append(data)"))
+        XCTAssertTrue(nativePTYWrite.contains("flushPendingInput()"))
     }
 
     func testMCPInstallerDoesNotOverwriteMalformedAgentConfig() throws {
@@ -718,17 +735,12 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let writeConfig = try slice(
             source,
             from: "private static func writeConfig",
-            to: "private static func mcpEnvironment"
+            to: "// MARK: - Claude Code"
         )
         let readJSONObject = try slice(
             source,
             from: "private static func readJSONObject",
             to: "private static func writeJSONObject"
-        )
-        let mcpEnvironment = try slice(
-            source,
-            from: "private static func mcpEnvironment",
-            to: "// MARK: - Claude Code"
         )
         let claudeConfig = try slice(
             source,
@@ -738,7 +750,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let codexConfig = try slice(
             source,
             from: "private static func patchCodexTOML",
-            to: "private static func tomlString"
+            to: "// MARK: - OpenCode"
         )
         let opencodeConfig = try slice(
             source,
@@ -766,19 +778,84 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains(".appendingPathComponent(\".factory\", isDirectory: true)"))
         XCTAssertFalse(source.contains(".appendingPathComponent(\".droid\", isDirectory: true)"))
 
-        XCTAssertTrue(mcpEnvironment.contains("SOYEHT_AUTOMATION_DIR"))
-        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.developerEnvironmentOverride"))
-        XCTAssertTrue(mcpEnvironment.contains("AppSupportDirectory.subdirectory(\"Automation\")"))
         XCTAssertTrue(writeConfig.contains("try installClaudeCodeMCP()"))
+        XCTAssertTrue(source.contains("ensureMCPAvailable(forLocalAgentName"))
         XCTAssertFalse(source.contains("private static func patchClaudeJSON"))
         XCTAssertTrue(claudeConfig.contains("claudeURL = resolvedCLIURL(for: .claudeCode)"))
-        XCTAssertTrue(claudeConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertFalse(claudeConfig.contains("\"env\""))
+        XCTAssertTrue(claudeConfig.contains("\"mcp\", \"remove\", \"--scope\", \"user\", launcherKey"))
         XCTAssertTrue(claudeConfig.contains("\"mcp\", \"add-json\", \"--scope\", \"user\", launcherKey"))
+        XCTAssertTrue(claudeConfig.contains("let originalConfig = try? Data(contentsOf: userConfigURL)"))
+        XCTAssertTrue(claudeConfig.contains("try? originalConfig.write(to: userConfigURL, options: .atomic)"))
         XCTAssertTrue(claudeConfig.contains("runAgentCommand("))
-        XCTAssertTrue(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
-        XCTAssertTrue(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
-        XCTAssertTrue(opencodeConfig.contains("\"environment\": try mcpEnvironment()"))
-        XCTAssertTrue(droidConfig.contains("\"env\": try mcpEnvironment()"))
+        XCTAssertTrue(codexConfig.contains("command = \"\\(launcherURL.path)\""))
+        XCTAssertTrue(codexConfig.contains("required = false"))
+        XCTAssertTrue(codexConfig.contains("tools.get_conversation_context"))
+        XCTAssertTrue(codexConfig.contains("tools.ack_conversation_context"))
+        XCTAssertTrue(codexConfig.contains("approval_mode = \"approve\""))
+        XCTAssertFalse(codexConfig.contains("[mcp_servers.\\(launcherKey).env]"))
+        XCTAssertFalse(codexConfig.contains("SOYEHT_AUTOMATION_DIR"))
+        XCTAssertFalse(opencodeConfig.contains("\"environment\""))
+        XCTAssertFalse(droidConfig.contains("\"env\""))
+    }
+
+    func testAgentSwitchRepairsMCPBeforeChoosingBootstrapProtocol() throws {
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let switchAgent = try slice(
+            source,
+            from: "func switchAgent(",
+            to: "private func attachLocalPTY("
+        )
+
+        XCTAssertTrue(switchAgent.contains("ensureMCPAvailable(forLocalAgentName: target.name)"))
+        XCTAssertTrue(switchAgent.contains("let usesMCPContext = mcpIntegrationAvailable && !targetEvents.isEmpty"))
+        XCTAssertTrue(switchAgent.contains("AgentConversationMCPHandoff.prompt("))
+        XCTAssertTrue(switchAgent.contains("AgentConversationHandoff.prompt("))
+        XCTAssertTrue(switchAgent.contains("using structured fallback"))
+        XCTAssertTrue(switchAgent.contains("convStore.mutateAgentConversation"))
+        XCTAssertTrue(switchAgent.contains("agentSwitchSourceChanged"))
+        XCTAssertTrue(switchAgent.contains("AgentSwitchEligibility.supportsInPlaceSwitch"))
+        XCTAssertTrue(switchAgent.contains("AgentSwitchEligibility.isPendingLocalBridge"))
+        XCTAssertFalse(switchAgent.contains("updateAgentConversation(paneID, state:"))
+        XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
+        XCTAssertTrue(switchAgent.contains("let usesCustomCommand = customCommand != nil"))
+        XCTAssertTrue(switchAgent.contains("state.resetForFreshSession(agent: target.name)"))
+        XCTAssertTrue(switchAgent.contains("let nativeResumeBinding = !usesCustomCommand"))
+        XCTAssertTrue(switchAgent.contains("resumedNativeSession: didResumeNativeSession"))
+    }
+
+    func testSwitchAgentResolvesExplicitHandlesInsteadOfReturningSilentSuccess() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let handler = try slice(
+            source,
+            from: "private func handleSwitchAgent(",
+            to: "private func handleListAgents("
+        )
+        XCTAssertTrue(handler.contains("handles: handles"))
+        XCTAssertTrue(handler.contains("target.switchAgents("))
+    }
+
+    func testAgentHandoffLogsPaginationAcknowledgementAndModelWithoutMessageText() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+
+        XCTAssertTrue(source.contains("category: \"agent-handoff\""))
+        XCTAssertTrue(source.contains("context_page agent="))
+        XCTAssertTrue(source.contains("requestedAfter="))
+        XCTAssertTrue(source.contains("acknowledged="))
+        XCTAssertTrue(source.contains("first="))
+        XCTAssertTrue(source.contains("final="))
+        XCTAssertTrue(source.contains("hasMore="))
+        XCTAssertTrue(source.contains("context_ack agent="))
+        XCTAssertTrue(source.contains("conversation_event agent="))
+        XCTAssertTrue(source.contains("recorded.model ?? \"unknown\""))
+        XCTAssertTrue(source.contains("recorded.reasoningEffort ?? \"unknown\""))
+        XCTAssertTrue(source.contains("requestedMaxEvents"))
+        XCTAssertTrue(source.contains("effectiveLimit"))
+        XCTAssertTrue(source.contains("agent-handoff.ndjson"))
+        XCTAssertTrue(source.contains("traceMaximumBytes"))
+        XCTAssertTrue(source.contains("[.posixPermissions: NSNumber(value: 0o600 as Int16)]"))
+        XCTAssertFalse(source.contains("context_page text="))
+        XCTAssertFalse(source.contains("conversation_event text="))
     }
 
     func testMCPAgentDirectoryAndIdentityAreFirstClassAutomationContracts() throws {

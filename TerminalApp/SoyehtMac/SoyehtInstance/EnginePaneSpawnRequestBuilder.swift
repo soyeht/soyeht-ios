@@ -11,13 +11,14 @@ enum EnginePaneSpawnRequestBuilder {
         cwd: URL,
         loginPath: String?,
         cols: Int,
-        rows: Int
+        rows: Int,
+        launchNonce: String? = nil
     ) -> SoyehtAPIClient.LocalTerminalCreateRequest {
         let plan = NativePTY.resolveSpawnPlan(
             shellPath: nil,
             cwd: cwd,
             loginPath: loginPath,
-            extraEnvironment: AgentPaneEnvironment.values(for: conversation)
+            extraEnvironment: AgentPaneEnvironment.values(for: conversation, launchNonce: launchNonce)
         )
         // `pty_process::Command::new(program)` (engine side) both resolves
         // and execs `argv[0]` directly — unlike `NativePTY`'s `execve`, it has

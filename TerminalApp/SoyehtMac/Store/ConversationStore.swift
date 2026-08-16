@@ -112,6 +112,87 @@ final class ConversationStore {
         postChange()
     }
 
+    func updateAgentConversation(_ id: Conversation.ID, state: AgentConversationState) {
+        guard var conv = conversations[id] else { return }
+        conv.agentConversation = state
+        conversations[id] = conv
+        postChange()
+    }
+
+    /// Applies a synchronous mutation to the latest canonical conversation
+    /// state. Callers that crossed an `await` must use this instead of writing
+    /// a stale snapshot back over hook events recorded during suspension.
+    @discardableResult
+    func mutateAgentConversation(
+        _ id: Conversation.ID,
+        _ mutation: (inout AgentConversationState) -> Void
+    ) -> AgentConversationState? {
+        guard var conv = conversations[id] else { return nil }
+        mutation(&conv.agentConversation)
+        conversations[id] = conv
+        postChange()
+        return conv.agentConversation
+    }
+
+    /// Advances a handoff cursor against the latest store value so hook events
+    /// arriving while a replacement process boots cannot be overwritten by a
+    /// stale pre-launch snapshot.
+    func markAgentConversationImported(_ id: Conversation.ID, through sequence: Int, by agent: String) {
+        guard var conv = conversations[id] else { return }
+        conv.agentConversation.markImported(through: sequence, by: agent)
+        conversations[id] = conv
+        postChange()
+    }
+
+    @discardableResult
+    func recordAgentConversationEvent(
+        _ id: Conversation.ID,
+        role: AgentConversationEvent.Role,
+        text: String,
+        sourceAgent: String,
+        nativeSessionID: String?,
+        sourceEventID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?
+    ) -> AgentConversationEvent? {
+        guard var conv = conversations[id] else { return nil }
+        let event = conv.agentConversation.recordEvent(
+            role: role,
+            text: text,
+            sourceAgent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            sourceEventID: sourceEventID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        )
+        guard event != nil else { return nil }
+        conversations[id] = conv
+        postChange()
+        return event
+    }
+
+    func recordAgentSession(
+        _ id: Conversation.ID,
+        sourceAgent: String,
+        nativeSessionID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentConversation.recordSession(
+            agent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        )
+        conversations[id] = conv
+        postChange()
+    }
+
     func remove(_ id: Conversation.ID) {
         if conversations.removeValue(forKey: id) != nil {
             postChange()

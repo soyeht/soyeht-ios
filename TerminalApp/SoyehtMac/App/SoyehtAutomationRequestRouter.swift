@@ -6,6 +6,7 @@
 import Cocoa
 import ApplicationServices
 import Darwin
+import os
 import SoyehtCore
 
 /// Executes requests accepted by `SoyehtAutomationService`.
@@ -16,11 +17,52 @@ import SoyehtCore
 /// then a newly created window when the operation permits it.
 @MainActor
 final class SoyehtAutomationRequestRouter {
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "agent-handoff")
+    private static let traceMaximumBytes = 2 * 1_024 * 1_024
     private let workspaceStore: WorkspaceStore
     private let conversationStore: ConversationStore
     private let mainWindowControllers: () -> [SoyehtMainWindowController]
     private let activeMainWindowController: () -> SoyehtMainWindowController?
     private let openNewMainWindow: () -> SoyehtMainWindowController
+
+    /// Persists metadata-only handoff diagnostics beside the private
+    /// Automation queue. Conversation text is deliberately never accepted by
+    /// this helper. The small rotating trace makes multi-page E2E handoffs
+    /// auditable even when macOS drops unified `info` log entries.
+    private static func traceHandoff(_ event: String, fields: [String: Any]) {
+        do {
+            let directory = try SoyehtAutomationService.defaultRootURL()
+                .appendingPathComponent("Diagnostics", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent("agent-handoff.ndjson")
+            let previousURL = directory.appendingPathComponent("agent-handoff.previous.ndjson")
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            if size >= traceMaximumBytes {
+                try? FileManager.default.removeItem(at: previousURL)
+                try FileManager.default.moveItem(at: url, to: previousURL)
+            }
+
+            var record = fields
+            record["event"] = event
+            record["timestamp"] = ISO8601DateFormatter().string(from: Date())
+            var data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+            data.append(0x0A)
+            if !FileManager.default.fileExists(atPath: url.path) {
+                guard FileManager.default.createFile(atPath: url.path, contents: data) else { return }
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: NSNumber(value: 0o600 as Int16)],
+                    ofItemAtPath: url.path
+                )
+                return
+            }
+            let handle = try FileHandle(forWritingTo: url)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+            try handle.close()
+        } catch {
+            logger.error("handoff_trace_failed error=\(error.localizedDescription, privacy: .public)")
+        }
+    }
 
     init(
         workspaceStore: WorkspaceStore,
@@ -39,7 +81,10 @@ final class SoyehtAutomationRequestRouter {
     func handle(
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
-        try await handleAutomationRequest(request)
+        if let source = try? resolveAutomationSource(payload: request.payload) {
+            PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
+        }
+        return try await handleAutomationRequest(request)
     }
 
     private enum AutomationError: LocalizedError {
@@ -61,6 +106,13 @@ final class SoyehtAutomationRequestRouter {
         case sourceConversationNotFound(String)
         case sourceHandleNotFound(String)
         case sourceIdentityUnavailable
+        case invalidAgentState(String)
+        case invalidConversationRole(String)
+        case emptyConversationEvent
+        case unknownAgent(String)
+        case emptyPaneInputTargets
+        case invalidConversationIDFormat(String)
+        case invalidConversationSequence(Int, Int)
 
         var errorDescription: String? {
             switch self {
@@ -100,6 +152,20 @@ final class SoyehtAutomationRequestRouter {
                 return "Source pane handle does not exist: \(handle). Run list_agents or list_panes to get current handles before messaging."
             case .sourceIdentityUnavailable:
                 return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
+            case .invalidAgentState(let value):
+                return "Invalid agent state: \(value). Expected one of: working, idle, blocked, done, unknown."
+            case .invalidConversationRole(let value):
+                return "Invalid conversation role: \(value). Expected user or assistant."
+            case .emptyConversationEvent:
+                return "Conversation event did not include session metadata or user-visible message text."
+            case .unknownAgent(let value):
+                return "Unknown local agent: \(value). Run list_agents to see available agents."
+            case .emptyPaneInputTargets:
+                return "Automation request did not match any pane to act on."
+            case .invalidConversationIDFormat(let value):
+                return "Conversation ID is not a valid UUID: \(value)."
+            case .invalidConversationSequence(let requested, let last):
+                return "Conversation sequence \(requested) is beyond the canonical tail \(last)."
             }
         }
     }
@@ -154,6 +220,18 @@ final class SoyehtAutomationRequestRouter {
             return try handleIdentifyAgent(request)
         case .listAgents:
             return try handleListAgents(request)
+        case .reportAgentState:
+            return try handleReportAgentState(request)
+        case .reportAgentConversation:
+            return try handleReportAgentConversation(request)
+        case .getConversationContext:
+            return try handleGetConversationContext(request)
+        case .ackConversationContext:
+            return try handleAckConversationContext(request)
+        case .requestAttention:
+            return try handleRequestAttention(request)
+        case .switchAgent:
+            return try await handleSwitchAgent(request)
         case .openEditor:
             return try handleOpenEditor(request)
         case .openExplorer:
@@ -880,6 +958,403 @@ final class SoyehtAutomationRequestRouter {
         return SoyehtAutomationResult(sourceIdentity: sourceIdentity(source))
     }
 
+    private static let validAgentStates: Set<String> = ["working", "idle", "blocked", "done", "unknown"]
+
+    /// Accepts structured provider events emitted by Soyeht-owned hooks and
+    /// plugins. Source agent attribution comes from the pane itself, never
+    /// from caller-controlled payload text.
+    private func handleReportAgentConversation(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let sourceAgent = source.conversation.agent.displayName.lowercased()
+        let nativeSessionID = payload.nativeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = payload.model?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effort = payload.reasoningEffort?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let variant = payload.variant?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let rawRole = payload.role?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !rawRole.isEmpty else {
+            guard [nativeSessionID, model, effort, variant].contains(where: {
+                !($0?.isEmpty ?? true)
+            }) else {
+                throw AutomationError.emptyConversationEvent
+            }
+            conversationStore.recordAgentSession(
+                source.conversation.id,
+                sourceAgent: sourceAgent,
+                nativeSessionID: nativeSessionID,
+                model: model,
+                reasoningEffort: effort,
+                variant: variant
+            )
+            return SoyehtAutomationResult(agentConversationReported: .init(
+                conversationID: source.conversation.id.uuidString,
+                handle: source.conversation.handle,
+                sourceAgent: sourceAgent,
+                kind: "session",
+                sequence: nil,
+                nativeSessionID: nativeSessionID
+            ))
+        }
+
+        guard let role = AgentConversationEvent.Role(rawValue: rawRole) else {
+            throw AutomationError.invalidConversationRole(rawRole)
+        }
+        let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !text.isEmpty else { throw AutomationError.emptyConversationEvent }
+        // Imported SAHP envelopes are transport, not new user turns. Hooks see
+        // them at the provider boundary, so filter them again in the app even
+        // if an older reporter failed to do so.
+        guard !text.hasPrefix(AgentConversationHandoff.marker),
+              !text.hasPrefix(AgentConversationMCPHandoff.marker) else {
+            return SoyehtAutomationResult(agentConversationReported: .init(
+                conversationID: source.conversation.id.uuidString,
+                handle: source.conversation.handle,
+                sourceAgent: sourceAgent,
+                kind: "ignored_handoff",
+                sequence: nil,
+                nativeSessionID: nativeSessionID
+            ))
+        }
+        let recorded = conversationStore.recordAgentConversationEvent(
+            source.conversation.id,
+            role: role,
+            text: text,
+            sourceAgent: sourceAgent,
+            nativeSessionID: nativeSessionID,
+            sourceEventID: payload.sourceEventID,
+            model: model,
+            reasoningEffort: effort,
+            variant: variant
+        )
+        guard let recorded else { throw AutomationError.emptyConversationEvent }
+        Self.logger.info(
+            "conversation_event agent=\(sourceAgent, privacy: .public) role=\(rawRole, privacy: .public) sequence=\(recorded.sequence, privacy: .public) model=\(recorded.model ?? "unknown", privacy: .public) effort=\(recorded.reasoningEffort ?? "unknown", privacy: .public)"
+        )
+        Self.traceHandoff("conversation_event", fields: [
+            "agent": sourceAgent,
+            "role": rawRole,
+            "sequence": recorded.sequence,
+            "model": recorded.model ?? "unknown",
+            "effort": recorded.reasoningEffort ?? "unknown",
+        ])
+        return SoyehtAutomationResult(agentConversationReported: .init(
+            conversationID: source.conversation.id.uuidString,
+            handle: source.conversation.handle,
+            sourceAgent: sourceAgent,
+            kind: "message",
+            sequence: recorded.sequence,
+            nativeSessionID: recorded.nativeSessionID
+        ))
+    }
+
+    /// Returns only canonical user/assistant events for the calling pane.
+    /// Pagination defaults to the current agent's acknowledged cursor, so a
+    /// resumed native session receives just the delta while a first-time
+    /// target receives the complete conversation.
+    private func handleGetConversationContext(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        guard let source = try resolveAutomationSource(payload: request.payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        guard let conversation = conversationStore.conversation(source.conversation.id) else {
+            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        }
+        let state = conversation.agentConversation
+        let agent = conversation.agent.displayName.lowercased()
+        let acknowledged = state.bindings[agent]?.lastImportedSequence ?? 0
+        let requestedAfter = max(0, request.payload.afterSequence ?? acknowledged)
+        let afterSequence = max(acknowledged, requestedAfter)
+        let requestedMaxEvents = request.payload.maxEvents ?? 20
+        let effectiveLimit = min(50, max(1, requestedMaxEvents))
+        let page = state.contextPage(
+            afterSequence: afterSequence,
+            maxEvents: requestedMaxEvents
+        )
+        let firstSequence = page.events.first?.sequence ?? 0
+        let finalSequence = page.events.last?.sequence ?? 0
+        Self.logger.info(
+            "context_page agent=\(agent, privacy: .public) requestedAfter=\(requestedAfter, privacy: .public) acknowledged=\(acknowledged, privacy: .public) after=\(page.afterSequence, privacy: .public) first=\(firstSequence, privacy: .public) final=\(finalSequence, privacy: .public) count=\(page.events.count, privacy: .public) through=\(page.throughSequence, privacy: .public) last=\(page.lastSequence, privacy: .public) hasMore=\(page.hasMore, privacy: .public) next=\(page.nextCursor ?? 0, privacy: .public)"
+        )
+        Self.traceHandoff("context_page", fields: [
+            "agent": agent,
+            "requestedAfter": requestedAfter,
+            "acknowledged": acknowledged,
+            "after": page.afterSequence,
+            "first": firstSequence,
+            "final": finalSequence,
+            "count": page.events.count,
+            "requestedMaxEvents": requestedMaxEvents,
+            "effectiveLimit": effectiveLimit,
+            "through": page.throughSequence,
+            "last": page.lastSequence,
+            "hasMore": page.hasMore,
+            "next": page.nextCursor ?? 0,
+        ])
+
+        return SoyehtAutomationResult(agentConversationContext: .init(
+            conversationID: conversation.id.uuidString,
+            handle: conversation.handle,
+            agent: agent,
+            protocolVersion: state.protocolVersion,
+            afterSequence: page.afterSequence,
+            throughSequence: page.throughSequence,
+            lastSequence: page.lastSequence,
+            hasMore: page.hasMore,
+            nextCursor: page.nextCursor,
+            events: page.events
+        ))
+    }
+
+    /// Advances the calling agent's cursor only after it confirms successful
+    /// context retrieval. Acknowledging beyond the canonical tail is rejected.
+    private func handleAckConversationContext(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        guard let source = try resolveAutomationSource(payload: request.payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        guard let conversation = conversationStore.conversation(source.conversation.id) else {
+            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        }
+        let requested = max(0, request.payload.throughSequence ?? 0)
+        let lastSequence = conversation.agentConversation.lastSequence
+        guard requested <= lastSequence else {
+            throw AutomationError.invalidConversationSequence(requested, lastSequence)
+        }
+        let throughSequence = requested
+        let agent = conversation.agent.displayName.lowercased()
+        let previousSequence = conversation.agentConversation.bindings[agent]?.lastImportedSequence ?? 0
+        conversationStore.markAgentConversationImported(
+            conversation.id,
+            through: throughSequence,
+            by: agent
+        )
+        Self.logger.info(
+            "context_ack agent=\(agent, privacy: .public) previous=\(previousSequence, privacy: .public) through=\(throughSequence, privacy: .public) last=\(lastSequence, privacy: .public)"
+        )
+        Self.traceHandoff("context_ack", fields: [
+            "agent": agent,
+            "previous": previousSequence,
+            "through": throughSequence,
+            "last": lastSequence,
+        ])
+        return SoyehtAutomationResult(agentConversationContextAcknowledged: .init(
+            conversationID: conversation.id.uuidString,
+            handle: conversation.handle,
+            agent: agent,
+            throughSequence: throughSequence
+        ))
+    }
+
+    private func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let rawState = payload.state?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard Self.validAgentStates.contains(rawState) else {
+            throw AutomationError.invalidAgentState(rawState)
+        }
+        let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
+        let reportSource = payload.reportSource?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedSource = (reportSource?.isEmpty ?? true) ? "self_report" : reportSource!
+        let outcome: (accepted: Bool, reason: String?)
+        if AgentStateReportAttribution.accepts(
+            reportSource: resolvedSource,
+            currentAgent: source.conversation.agent.rawValue
+        ) {
+            outcome = PaneStatusTracker.shared.recordAgentStateReport(
+                paneID: source.conversation.id,
+                state: rawState,
+                message: message,
+                seq: payload.seq,
+                source: resolvedSource,
+                nonce: payload.nonce
+            )
+        } else {
+            outcome = (false, "agent_mismatch")
+        }
+        if outcome.accepted {
+            notifyAttentionIfNeeded(
+                conversationID: source.conversation.id,
+                handle: source.conversation.handle,
+                state: rawState,
+                message: message
+            )
+        }
+        return SoyehtAutomationResult(agentStateReported: SoyehtAutomationResponse.AgentStateReported(
+            conversationID: source.conversation.id.uuidString,
+            workspaceID: source.conversation.workspaceID.uuidString,
+            handle: source.conversation.handle,
+            state: rawState,
+            message: message,
+            seq: payload.seq,
+            accepted: outcome.accepted,
+            reason: outcome.reason
+        ))
+    }
+
+    private func handleRequestAttention(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload) else {
+            throw AutomationError.sourceIdentityUnavailable
+        }
+        let kind = payload.attentionKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "question"
+        let state: String
+        switch kind {
+        case "blocked", "question", "error":
+            state = "blocked"
+        case "done":
+            state = "done"
+        default:
+            throw AutomationError.invalidAgentState(kind)
+        }
+        let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
+        let outcome = PaneStatusTracker.shared.recordAgentStateReport(
+            paneID: source.conversation.id,
+            state: state,
+            message: message,
+            seq: payload.seq,
+            source: "mcp_attention"
+        )
+        if outcome.accepted {
+            let title = state == "done"
+                ? "\(source.conversation.handle) terminou"
+                : "\(source.conversation.handle) precisa de atenção"
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: source.conversation.id,
+                handle: source.conversation.handle,
+                title: title,
+                message: message
+            )
+        }
+        return SoyehtAutomationResult(agentStateReported: SoyehtAutomationResponse.AgentStateReported(
+            conversationID: source.conversation.id.uuidString,
+            workspaceID: source.conversation.workspaceID.uuidString,
+            handle: source.conversation.handle,
+            state: state,
+            message: message,
+            seq: payload.seq,
+            accepted: outcome.accepted,
+            reason: outcome.reason
+        ))
+    }
+
+    /// Hook/harness-reported `blocked` always notifies; `done` notifies only
+    /// when it carries a message; plain working/idle transitions stay silent.
+    private func notifyAttentionIfNeeded(
+        conversationID: Conversation.ID,
+        handle: String,
+        state: String,
+        message: String?
+    ) {
+        switch state {
+        case "blocked":
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: conversationID,
+                handle: handle,
+                title: "\(handle) precisa de atenção",
+                message: message
+            )
+        case "done":
+            guard message != nil else { return }
+            AgentAttentionNotifier.shared.notifyAgentAttention(
+                conversationID: conversationID,
+                handle: handle,
+                title: "\(handle) terminou",
+                message: message
+            )
+        default:
+            return
+        }
+    }
+
+    /// Switches the agent driving target panes while keeping each pane's
+    /// structured conversation. Targets resolve like send_pane_input:
+    /// explicit conversationIDs/handles, else the source pane, else the
+    /// active pane.
+    private func handleSwitchAgent(_ request: SoyehtAutomationRequest) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let agentName = payload.agent?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !agentName.isEmpty else {
+            throw AutomationError.emptyPaneInput
+        }
+        guard LocalAgentCatalog.agent(named: agentName) != nil else {
+            throw AutomationError.unknownAgent(agentName)
+        }
+        let target = try automationTargetWindow(payload: payload)
+        let conversationIDStrings = payload.conversationIDs ?? []
+        let handles = payload.handles ?? []
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            if let source = try resolveAutomationSource(payload: payload) {
+                return try await performAgentSwitch(
+                    on: target,
+                    conversationIDs: [source.conversation.id.uuidString],
+                    agentName: agentName,
+                    payload: payload
+                )
+            }
+            guard let activePaneID = target.activePaneConversationID() else {
+                throw AutomationError.emptyPaneInputTargets
+            }
+            return try await performAgentSwitch(
+                on: target,
+                conversationIDs: [activePaneID.uuidString],
+                agentName: agentName,
+                payload: payload
+            )
+        }
+        return try await performAgentSwitch(
+            on: target,
+            conversationIDs: conversationIDStrings,
+            handles: handles,
+            agentName: agentName,
+            payload: payload
+        )
+    }
+
+    private func performAgentSwitch(
+        on target: SoyehtMainWindowController,
+        conversationIDs: [String],
+        handles: [String] = [],
+        agentName: String,
+        payload: SoyehtAutomationRequest.Payload
+    ) async throws -> SoyehtAutomationResult {
+        let results = try await target.switchAgents(
+            conversationIDStrings: conversationIDs,
+            handles: handles,
+            to: agentName,
+            command: payload.command,
+            handoffPrompt: payload.prompt,
+            promptDelayMs: payload.promptDelayMs
+        )
+        let switched = results.map { result in
+            SoyehtAutomationResponse.SwitchedAgent(
+                conversationID: result.conversationID.uuidString,
+                workspaceID: result.workspaceID.uuidString,
+                handle: result.handle,
+                previousAgent: result.previousAgent,
+                newAgent: result.newAgent,
+                transcriptLineCount: result.transcriptLineCount,
+                importedEventCount: result.importedEventCount,
+                historySource: result.historySource,
+                resumedNativeSession: result.resumedNativeSession,
+                sourceModel: result.sourceModel,
+                sourceReasoningEffort: result.sourceReasoningEffort
+            )
+        }
+        return SoyehtAutomationResult(switchedAgents: switched)
+    }
+
     private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
@@ -1394,7 +1869,12 @@ final class SoyehtAutomationRequestRouter {
                 handle: $0.handle,
                 agent: $0.agent,
                 status: $0.status,
-                exitCode: $0.exitCode
+                exitCode: $0.exitCode,
+                agentState: $0.agentState,
+                agentStateMessage: $0.agentStateMessage,
+                agentStateSource: $0.agentStateSource,
+                agentHandshake: $0.agentHandshake,
+                lastMcpActivityAt: $0.lastMcpActivityAt
             )
         })
     }

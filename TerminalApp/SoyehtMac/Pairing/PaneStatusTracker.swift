@@ -24,6 +24,103 @@ final class PaneStatusTracker {
 
     private var idleTimer: Timer?
 
+    // MARK: - Agent semantic state (PoC: MCP self-report + MCP liveness)
+
+    struct AgentStateReport {
+        let state: String
+        let message: String?
+        let seq: Int?
+        let source: String
+        let reportedAt: Date
+
+        /// Harness-side reports (agent hooks/plugins, `hook:*`) outrank
+        /// cooperative self-reports: an agent suspended in a permission
+        /// prompt cannot self-report, so harness evidence wins.
+        var authority: Int {
+            source.hasPrefix("hook") ? 2 : 1
+        }
+    }
+
+    /// Self-reported agent states older than this are treated as stale and no
+    /// longer surfaced (the reporter may have exited silently).
+    private static let agentStateStaleThreshold: TimeInterval = 10 * 60
+
+    private var agentStateReports: [Conversation.ID: AgentStateReport] = [:]
+    private var lastAcceptedReportAtBySource: [Conversation.ID: [String: Date]] = [:]
+    private var lastAcceptedWorkingReportAtBySource: [Conversation.ID: [String: Date]] = [:]
+    private var lastMcpActivityAt: [Conversation.ID: Date] = [:]
+
+    // MARK: - Launch handshake
+    //
+    // Agent panes get a per-launch nonce in their environment
+    // (`SOYEHT_LAUNCH_NONCE`). The installed reporters echo it back on every
+    // report; the first matching report is the handshake proving the agent
+    // process booted and its integration is live. The initial prompt is only
+    // delivered after the handshake (no more fixed sleeps / leaked prompts).
+
+    enum HandshakeState: String {
+        case notExpected = "not_expected"
+        case pending
+        case satisfied
+        case timeout
+        case delivered
+    }
+
+    private var expectedHandshakeNonce: [Conversation.ID: String] = [:]
+    private var handshakeStates: [Conversation.ID: HandshakeState] = [:]
+
+    /// Clears runtime evidence that belongs to the previous process before a
+    /// pane launches another agent in place. Without this reset, switching
+    /// from a handshake-gated agent to a turn-bound one can surface the old
+    /// launch as `delivered`, and the old agent's semantic state remains
+    /// visible until the replacement emits its first report.
+    func prepareForAgentLaunch(paneID: Conversation.ID) {
+        expectedHandshakeNonce[paneID] = nil
+        handshakeStates[paneID] = nil
+        agentStateReports[paneID] = nil
+        lastAcceptedReportAtBySource[paneID] = nil
+        lastAcceptedWorkingReportAtBySource[paneID] = nil
+        lastMcpActivityAt[paneID] = nil
+    }
+
+    func expectHandshake(paneID: Conversation.ID, nonce: String) {
+        expectedHandshakeNonce[paneID] = nonce
+        handshakeStates[paneID] = .pending
+    }
+
+    func handshakeState(for paneID: Conversation.ID) -> HandshakeState {
+        handshakeStates[paneID] ?? .notExpected
+    }
+
+    func markHandshakeTimeout(paneID: Conversation.ID) {
+        guard handshakeStates[paneID] == .pending else { return }
+        handshakeStates[paneID] = .timeout
+    }
+
+    func markHandshakeDelivered(paneID: Conversation.ID) {
+        guard handshakeStates[paneID] == .satisfied else { return }
+        handshakeStates[paneID] = .delivered
+    }
+
+    func markHandshakeDeliveryFailed(paneID: Conversation.ID) {
+        guard handshakeStates[paneID] == .satisfied else { return }
+        handshakeStates[paneID] = .timeout
+    }
+
+    /// Timestamp of the most recent accepted state report from one integration.
+    /// Prompt delivery must not be acknowledged by a different agent's global
+    /// hook when multiple Claude-compatible tools coexist on the machine.
+    func lastReportAt(for paneID: Conversation.ID, source: String) -> Date? {
+        lastAcceptedReportAtBySource[paneID]?[source]
+    }
+
+    /// Timestamp of the most recent accepted `working` report. SessionStart
+    /// emits `idle`, so it must never be mistaken for proof that the initial
+    /// prompt was actually submitted by the target TUI.
+    func lastWorkingReportAt(for paneID: Conversation.ID, source: String) -> Date? {
+        lastAcceptedWorkingReportAtBySource[paneID]?[source]
+    }
+
     /// Last known wire fingerprint of each pane, used to emit deltas only on
     /// actual change.
     private var lastSnapshotByID: [String: [String: Any]] = [:]
@@ -140,6 +237,76 @@ final class PaneStatusTracker {
         recomputeAndBroadcast()
     }
 
+    /// Records an agent semantic state report. Authority rules:
+    /// * a lower-authority report cannot override a fresh higher-authority one;
+    /// * within the same authority, reports whose `seq` is not newer than the
+    ///   last accepted seq are ignored (out-of-order protection, herdr-style).
+    @discardableResult
+    func recordAgentStateReport(
+        paneID: Conversation.ID,
+        state: String,
+        message: String?,
+        seq: Int?,
+        source: String,
+        nonce: String? = nil
+    ) -> (accepted: Bool, reason: String?) {
+        if let nonce, !nonce.isEmpty,
+           let expected = expectedHandshakeNonce[paneID],
+           nonce == expected,
+           handshakeStates[paneID] == .pending {
+            handshakeStates[paneID] = .satisfied
+        }
+        let incoming = AgentStateReport(
+            state: state,
+            message: message,
+            seq: seq,
+            source: source,
+            reportedAt: Date()
+        )
+        if let existing = agentStateReports[paneID] {
+            let existingFresh = Date().timeIntervalSince(existing.reportedAt) <= AgentAttentionNotifier.higherAuthorityWindow
+            if incoming.authority < existing.authority, existingFresh {
+                return (false, "lower_authority")
+            }
+            if incoming.authority == existing.authority,
+               let seq, let existingSeq = existing.seq, seq <= existingSeq {
+                return (false, "stale_seq")
+            }
+        }
+        agentStateReports[paneID] = incoming
+        lastAcceptedReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
+        if state == "working" {
+            lastAcceptedWorkingReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
+        }
+        return (true, nil)
+    }
+
+    /// Stamps any MCP request that resolved to this pane. A fresh stamp is
+    /// evidence the agent process is alive and executing.
+    func recordMcpActivity(paneID: Conversation.ID) {
+        lastMcpActivityAt[paneID] = Date()
+    }
+
+    func agentStateReport(for paneID: Conversation.ID) -> AgentStateReport? {
+        guard let report = agentStateReports[paneID] else { return nil }
+        guard Date().timeIntervalSince(report.reportedAt) <= Self.agentStateStaleThreshold else {
+            agentStateReports[paneID] = nil
+            return nil
+        }
+        return report
+    }
+
+    func lastMcpActivity(for paneID: Conversation.ID) -> Date? {
+        lastMcpActivityAt[paneID]
+    }
+
+    private func forgetAutomationState(paneID: Conversation.ID) {
+        agentStateReports[paneID] = nil
+        lastAcceptedReportAtBySource[paneID] = nil
+        lastAcceptedWorkingReportAtBySource[paneID] = nil
+        lastMcpActivityAt[paneID] = nil
+    }
+
     func paneDictForWire(
         id: Conversation.ID,
         conversation: Conversation,
@@ -242,6 +409,18 @@ final class PaneStatusTracker {
         // Diff by id.
         let added = fresh.filter { prev[$0.key] == nil }
         let removed = prev.keys.filter { fresh[$0] == nil }
+        for idString in removed {
+            if let uuid = UUID(uuidString: idString) {
+                forgetAutomationState(paneID: uuid)
+                // Handshake entries survive transient live-registry dips
+                // (engine attach); they are only dropped once the
+                // conversation itself is gone.
+                if AppEnvironment.conversationStore?.conversation(uuid) == nil {
+                    expectedHandshakeNonce[uuid] = nil
+                    handshakeStates[uuid] = nil
+                }
+            }
+        }
         let updated = fresh.compactMap { key, value -> (String, [String: Any])? in
             guard let old = prev[key] else { return nil }
             return Self.wireEqual(old, value) ? nil : (key, value)
