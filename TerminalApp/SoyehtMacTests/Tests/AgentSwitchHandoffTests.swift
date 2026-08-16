@@ -2,6 +2,31 @@ import XCTest
 @testable import SoyehtMacDomain
 
 final class AgentSwitchHandoffTests: XCTestCase {
+    func testOnlyLocalCommandersSupportInPlaceAgentSwitch() {
+        XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(commander: .native(pid: 42)))
+        XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: .engineLocal(conversationID: "local-example")
+        ))
+        XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: .mirror(instanceID: "remote-example")
+        ))
+    }
+
+    func testMousePacketClassifierDoesNotDropFocusReports() {
+        XCTAssertTrue(AgentTerminalPacketClassifier.isMouseReport(
+            Array("\u{001B}[<32;10;20M".utf8)
+        ))
+        XCTAssertTrue(AgentTerminalPacketClassifier.isMouseReport(
+            Array("\u{001B}[32;10;20M".utf8)
+        ))
+        XCTAssertTrue(AgentTerminalPacketClassifier.isMouseReport(
+            [0x1B, 0x5B, 0x4D, 0x20, 0x21, 0x22]
+        ))
+        XCTAssertFalse(AgentTerminalPacketClassifier.isMouseReport(Array("\u{001B}[I".utf8)))
+        XCTAssertFalse(AgentTerminalPacketClassifier.isMouseReport(Array("\u{001B}[O".utf8)))
+        XCTAssertFalse(AgentTerminalPacketClassifier.isMouseReport(Array("\u{001B}[6n".utf8)))
+    }
+
     func testCodexDoesNotWaitForTurnBoundSessionStartHook() {
         XCTAssertFalse(AgentStartupHandshakePolicy.supportsStartupHandshake(agentName: "codex"))
         XCTAssertFalse(AgentStartupHandshakePolicy.supportsStartupHandshake(agentName: "Copilot"))

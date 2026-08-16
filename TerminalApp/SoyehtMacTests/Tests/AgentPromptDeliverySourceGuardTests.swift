@@ -28,19 +28,23 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
         XCTAssertTrue(helper.contains("source: expectedReportSource"))
         XCTAssertTrue(helper.contains("lastWorkingReportAt"))
         XCTAssertTrue(helper.contains("last > baseline"))
+        XCTAssertTrue(helper.contains("guard !Task.isCancelled"))
+        XCTAssertEqual(
+            helper.components(separatedBy: "text: payload,").count - 1,
+            1
+        )
         XCTAssertFalse(helper.contains("lastReportAt("))
     }
 
-    func testKimiRetrySubmitsBufferedPromptWithoutPastingItTwice() throws {
+    func testRetrySubmitsBufferedPromptWithoutPastingItTwice() throws {
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let helper = try slice(
             source,
             from: "private static func deliverAgentPromptWithAcknowledgement(",
             to: "/// Attempts to spawn/reattach the pane's shell"
         )
-        XCTAssertTrue(helper.contains("attempt == 2"))
-        XCTAssertTrue(helper.contains("expectedReportSource == \"hook:kimi\""))
         XCTAssertTrue(helper.contains("terminalView.brokerSend(text: \"\\r\")"))
+        XCTAssertFalse(helper.contains("expectedReportSource == \"hook:kimi\""))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

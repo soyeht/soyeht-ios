@@ -7,11 +7,33 @@ final class AgentIntegrationInstallRetrySourceGuardTests: XCTestCase {
         let helper = try slice(
             source,
             from: "private static func persistInstalledHash(",
-            to: "@MainActor\n    static func installAll()"
+            to: "static func installAll()"
         )
         XCTAssertTrue(helper.contains("summary.installed.contains(agent)"))
         XCTAssertTrue(helper.contains("defaults.set(hash, forKey: key)"))
         XCTAssertTrue(helper.contains("defaults.removeObject(forKey: key)"))
+    }
+
+    func testAgentIntegrationInstallDoesNotRunOnMainActor() throws {
+        let source = try macSource("Installer/AgentStateIntegrationInstaller.swift")
+        let install = try slice(
+            source,
+            from: "static func installAllIfNeeded()",
+            to: "private static func persistInstalledHash("
+        )
+        XCTAssertFalse(install.contains("@MainActor"))
+        XCTAssertFalse(source.contains("@MainActor\n    static func installAll()"))
+    }
+
+    func testCodexLaunchNeverAddsDangerousHookTrustBypass() throws {
+        let source = try macSource("Installer/AgentStateIntegrationInstaller.swift")
+        let builder = try slice(
+            source,
+            from: "enum AgentLaunchCommandBuilder",
+            to: "private static func exitSafeAgentCommand"
+        )
+        XCTAssertFalse(builder.contains("dangerously-bypass-hook-trust"))
+        XCTAssertFalse(source.contains("enum CodexHookAudit"))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

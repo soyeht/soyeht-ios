@@ -894,6 +894,10 @@ final class SoyehtAutomationService {
                 .appendingPathComponent(response.id)
                 .appendingPathExtension("json")
             try data.write(to: destination, options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600 as Int16)],
+                ofItemAtPath: destination.path
+            )
         } catch {
             Self.logger.error("automation_response_failed error=\(error.localizedDescription, privacy: .public)")
         }

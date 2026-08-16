@@ -570,6 +570,7 @@ def write_request(root, request):
     tmp = requests_dir / f".{request['id']}.tmp"
     dest = requests_dir / f"{request['id']}.json"
     tmp.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    os.chmod(tmp, 0o600)
     os.replace(tmp, dest)
     return dest
 

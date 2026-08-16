@@ -240,6 +240,49 @@ enum AgentNativeSessionCommand {
     }
 }
 
+enum AgentSwitchEligibility {
+    static func supportsInPlaceSwitch(commander: CommanderState) -> Bool {
+        switch commander {
+        case .native, .engineLocal:
+            return true
+        case .mirror:
+            return false
+        }
+    }
+}
+
+enum AgentTerminalPacketClassifier {
+    /// Recognizes the mouse encodings emitted by SwiftTerm. Focus reports
+    /// (`CSI I`/`CSI O`) and parser responses must continue to the agent even
+    /// when interactive mouse reporting is disabled for its pane.
+    static func isMouseReport(_ bytes: [UInt8]) -> Bool {
+        guard bytes.count >= 3, bytes[0] == 0x1B, bytes[1] == 0x5B else {
+            return false
+        }
+
+        // X10 and UTF-8 protocols: CSI M followed by three encoded fields.
+        if bytes[2] == 0x4D {
+            return bytes.count >= 6
+        }
+
+        guard let text = String(bytes: bytes.dropFirst(2), encoding: .utf8) else {
+            return false
+        }
+        if text.first == "<" {
+            // SGR / SGR-pixel: <button;x;yM or ...m.
+            return text.range(
+                of: #"^<[0-9]+;[0-9]+;[0-9]+[Mm]$"#,
+                options: .regularExpression
+            ) != nil
+        }
+        // URXVT: button;x;yM.
+        return text.range(
+            of: #"^[0-9]+;[0-9]+;[0-9]+M$"#,
+            options: .regularExpression
+        ) != nil
+    }
+}
+
 enum AgentPaneInputPlanner {
     enum InitialPromptMode: String {
         case auto

@@ -243,18 +243,38 @@ enum AIAgentIntegrator {
             throw CocoaError(.fileWriteUnknown)
         }
         // `claude mcp add-json` rejects an existing server instead of updating
-        // it. Remove only the Soyeht-owned entry first so stale bundle paths
-        // are repaired while every other user/plugin MCP entry is preserved.
+        // it. Keep a rollback snapshot because remove + add-json is not an
+        // atomic CLI operation: a failed add must never leave the user's
+        // previously working Soyeht entry deleted.
+        let userConfigURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude.json")
+        let originalConfig = try? Data(contentsOf: userConfigURL)
+        let originalPermissions = (try? FileManager.default.attributesOfItem(
+            atPath: userConfigURL.path
+        )[.posixPermissions]) as? NSNumber
         try? runAgentCommand(
             .claudeCode,
             executableURL: claudeURL,
             arguments: ["mcp", "remove", "--scope", "user", launcherKey]
         )
-        try runAgentCommand(
-            .claudeCode,
-            executableURL: claudeURL,
-            arguments: ["mcp", "add-json", "--scope", "user", launcherKey, serverJSON]
-        )
+        do {
+            try runAgentCommand(
+                .claudeCode,
+                executableURL: claudeURL,
+                arguments: ["mcp", "add-json", "--scope", "user", launcherKey, serverJSON]
+            )
+        } catch {
+            if let originalConfig {
+                try? originalConfig.write(to: userConfigURL, options: .atomic)
+                if let originalPermissions {
+                    try? FileManager.default.setAttributes(
+                        [.posixPermissions: originalPermissions],
+                        ofItemAtPath: userConfigURL.path
+                    )
+                }
+            }
+            throw error
+        }
     }
 
     // MARK: - Codex: [mcp_servers.soyeht] command = "...", args = []
@@ -273,7 +293,7 @@ enum AIAgentIntegrator {
         command = "\(launcherURL.path)"
         args = []
         enabled = true
-        required = true
+        required = false
 
         [mcp_servers.\(launcherKey).tools.get_conversation_context]
         approval_mode = "approve"

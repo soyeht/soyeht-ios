@@ -19,6 +19,10 @@ final class AgentSwitcherPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("controller.switchAgent(in: paneID, to: agentName)"))
         XCTAssertTrue(source.contains("selectableAgents.isEmpty"))
         XCTAssertTrue(source.contains("header.isAgentSwitchEnabled = false"))
+        XCTAssertTrue(source.contains("header.isAgentSwitchAvailable = AgentSwitchEligibility"))
+        XCTAssertTrue(source.contains(
+            "guard AgentSwitchEligibility.supportsInPlaceSwitch(commander: conv.commander)"
+        ))
         XCTAssertTrue(source.contains("Couldn't switch agent"))
     }
 

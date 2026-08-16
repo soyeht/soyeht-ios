@@ -630,13 +630,14 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(brokerSend.contains("isLongPrompt"))
         XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
-        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey()"))
+        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)"))
         XCTAssertFalse(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
         let brokerSendEnterKey = try slice(
             terminalViewSource,
-            from: "func brokerSendEnterKey()",
+            from: "func brokerSendEnterKey(focusBeforeSubmit:",
             to: "/// Inserts text produced by macOS voice input"
         )
+        XCTAssertTrue(brokerSendEnterKey.contains("if focusBeforeSubmit"))
         XCTAssertTrue(brokerSendEnterKey.contains("window?.makeFirstResponder(self)"))
         XCTAssertTrue(brokerSendEnterKey.contains("insertNewline"))
 
@@ -784,9 +785,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(claudeConfig.contains("\"env\""))
         XCTAssertTrue(claudeConfig.contains("\"mcp\", \"remove\", \"--scope\", \"user\", launcherKey"))
         XCTAssertTrue(claudeConfig.contains("\"mcp\", \"add-json\", \"--scope\", \"user\", launcherKey"))
+        XCTAssertTrue(claudeConfig.contains("let originalConfig = try? Data(contentsOf: userConfigURL)"))
+        XCTAssertTrue(claudeConfig.contains("try? originalConfig.write(to: userConfigURL, options: .atomic)"))
         XCTAssertTrue(claudeConfig.contains("runAgentCommand("))
         XCTAssertTrue(codexConfig.contains("command = \"\\(launcherURL.path)\""))
-        XCTAssertTrue(codexConfig.contains("required = true"))
+        XCTAssertTrue(codexConfig.contains("required = false"))
         XCTAssertTrue(codexConfig.contains("tools.get_conversation_context"))
         XCTAssertTrue(codexConfig.contains("tools.ack_conversation_context"))
         XCTAssertTrue(codexConfig.contains("approval_mode = \"approve\""))
@@ -809,11 +812,26 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(switchAgent.contains("AgentConversationMCPHandoff.prompt("))
         XCTAssertTrue(switchAgent.contains("AgentConversationHandoff.prompt("))
         XCTAssertTrue(switchAgent.contains("using structured fallback"))
+        XCTAssertTrue(switchAgent.contains("convStore.mutateAgentConversation"))
+        XCTAssertTrue(switchAgent.contains("agentSwitchSourceChanged"))
+        XCTAssertTrue(switchAgent.contains("AgentSwitchEligibility.supportsInPlaceSwitch"))
+        XCTAssertFalse(switchAgent.contains("updateAgentConversation(paneID, state:"))
         XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
         XCTAssertTrue(switchAgent.contains("let usesCustomCommand = customCommand != nil"))
-        XCTAssertTrue(switchAgent.contains("conversationState.resetForFreshSession(agent: target.name)"))
+        XCTAssertTrue(switchAgent.contains("state.resetForFreshSession(agent: target.name)"))
         XCTAssertTrue(switchAgent.contains("let nativeResumeBinding = !usesCustomCommand"))
         XCTAssertTrue(switchAgent.contains("resumedNativeSession: didResumeNativeSession"))
+    }
+
+    func testSwitchAgentResolvesExplicitHandlesInsteadOfReturningSilentSuccess() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let handler = try slice(
+            source,
+            from: "private func handleSwitchAgent(",
+            to: "private func handleListAgents("
+        )
+        XCTAssertTrue(handler.contains("handles: handles"))
+        XCTAssertTrue(handler.contains("target.switchAgents("))
     }
 
     func testAgentHandoffLogsPaginationAcknowledgementAndModelWithoutMessageText() throws {

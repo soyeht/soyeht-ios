@@ -1316,6 +1316,7 @@ final class SoyehtAutomationRequestRouter {
         return try await performAgentSwitch(
             on: target,
             conversationIDs: conversationIDStrings,
+            handles: handles,
             agentName: agentName,
             payload: payload
         )
@@ -1324,22 +1325,20 @@ final class SoyehtAutomationRequestRouter {
     private func performAgentSwitch(
         on target: SoyehtMainWindowController,
         conversationIDs: [String],
+        handles: [String] = [],
         agentName: String,
         payload: SoyehtAutomationRequest.Payload
     ) async throws -> SoyehtAutomationResult {
-        var switched: [SoyehtAutomationResponse.SwitchedAgent] = []
-        for idString in conversationIDs {
-            guard let paneID = UUID(uuidString: idString) else {
-                throw AutomationError.invalidConversationIDFormat(idString)
-            }
-            let result = try await target.switchAgent(
-                in: paneID,
-                to: agentName,
-                command: payload.command,
-                handoffPrompt: payload.prompt,
-                promptDelayMs: payload.promptDelayMs
-            )
-            switched.append(SoyehtAutomationResponse.SwitchedAgent(
+        let results = try await target.switchAgents(
+            conversationIDStrings: conversationIDs,
+            handles: handles,
+            to: agentName,
+            command: payload.command,
+            handoffPrompt: payload.prompt,
+            promptDelayMs: payload.promptDelayMs
+        )
+        let switched = results.map { result in
+            SoyehtAutomationResponse.SwitchedAgent(
                 conversationID: result.conversationID.uuidString,
                 workspaceID: result.workspaceID.uuidString,
                 handle: result.handle,
@@ -1351,12 +1350,13 @@ final class SoyehtAutomationRequestRouter {
                 resumedNativeSession: result.resumedNativeSession,
                 sourceModel: result.sourceModel,
                 sourceReasoningEffort: result.sourceReasoningEffort
-            ))
+            )
         }
         return SoyehtAutomationResult(switchedAgents: switched)
     }
 
-    private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
+    private func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         let panes: [SoyehtMainWindowController.ListedPaneResult]
         if let target {

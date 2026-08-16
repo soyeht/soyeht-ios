@@ -15,10 +15,8 @@ import os
 /// * Codex hooks are synchronous (async hooks are skipped by codex 0.147).
 /// * Hook timeouts are agent-specific units: claude/codex use seconds,
 ///   qwen uses milliseconds.
-/// * `CodexHookAudit` decides whether the codex launch may add
-///   `--dangerously-bypass-hook-trust`: only when EVERY discovered hook is
-///   Soyeht-owned and the installed script matches the bundled hash
-///   (fail closed otherwise).
+/// * Codex hook trust remains under Codex's native review flow. Soyeht never
+///   adds `--dangerously-bypass-hook-trust` automatically.
 enum AgentStateIntegrationInstaller {
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "agent-integrations")
     static let markerScriptName = "soyeht-agent-state"
@@ -44,7 +42,6 @@ enum AgentStateIntegrationInstaller {
         var failed: [String] = []
     }
 
-    @MainActor
     static func installAllIfNeeded() -> Summary {
         let defaults = UserDefaults.standard
         let installedVersion = defaults.integer(forKey: versionDefaultsKey)
@@ -100,7 +97,6 @@ enum AgentStateIntegrationInstaller {
         }
     }
 
-    @MainActor
     static func installAll() -> Summary {
         var summary = Summary()
         do {
@@ -925,60 +921,6 @@ enum AgentStateIntegrationInstaller {
     }
 }
 
-/// Codex hook trust gate. `--dangerously-bypass-hook-trust` applies to the
-/// whole invocation, so it is only safe when every hook codex would discover
-/// is Soyeht-owned and byte-identical to what the installer wrote. Anything
-/// else (user hooks, project hooks, modified reporter) fails closed: no
-/// bypass, hooks follow codex's normal trust review.
-enum CodexHookAudit {
-    static func bypassAllowed() -> Bool {
-        guard let expectedHash = UserDefaults.standard.string(
-            forKey: "soyeht.agentStateIntegration.codexScriptHash"
-        ), let actualHash = AgentStateIntegrationInstaller.sha256(
-            AgentStateIntegrationInstaller.codexScriptPath()
-        ), expectedHash == actualHash else {
-            return false
-        }
-
-        // Inline `[hooks]`/`[[hooks.*]]` tables in config.toml are hooks we do
-        // not manage here: fail closed. (`[hooks.state]` is trust storage, not
-        // a hook definition, and is allowed.)
-        let configPath = AgentStateIntegrationInstaller.codexHome()
-            .appendingPathComponent("config.toml")
-        if let configText = try? String(contentsOf: configPath, encoding: .utf8) {
-            if configText.contains("[[hooks.") || configText.range(
-                of: #"(?m)^\s*\[hooks\]\s*$"#,
-                options: .regularExpression
-            ) != nil {
-                return false
-            }
-        }
-
-        let hooksPath = AgentStateIntegrationInstaller.codexHome()
-            .appendingPathComponent("hooks.json")
-        guard let data = try? Data(contentsOf: hooksPath),
-              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let hooks = root["hooks"] as? [String: Any] else {
-            return false
-        }
-        var foundSoyehtHook = false
-        for (_, groupsValue) in hooks {
-            guard let groups = groupsValue as? [[String: Any]] else { return false }
-            for group in groups {
-                guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
-                for handler in handlers {
-                    let command = handler["command"] as? String ?? ""
-                    guard command.contains(AgentStateIntegrationInstaller.markerScriptName) else {
-                        return false
-                    }
-                    foundSoyehtHook = true
-                }
-            }
-        }
-        return foundSoyehtHook
-    }
-}
-
 /// Prepares agent launch commands typed into Soyeht panes.
 enum AgentLaunchCommandBuilder {
     /// Agents whose startup hook is emitted only after their first prompt.
@@ -1012,15 +954,6 @@ enum AgentLaunchCommandBuilder {
                 ? trimmed
                 : "\(trimmed) --export \"$SOYEHT_AGENT_TRANSCRIPT_PATH\""
             return exitSafeAgentCommand(withExport, executable: executable)
-        }
-        if executable == "codex",
-           !trimmed.contains("--dangerously-bypass-hook-trust"),
-           CodexHookAudit.bypassAllowed() {
-            let remainder = pieces.count > 1 ? String(pieces[1]) : ""
-            let withBypass = remainder.isEmpty
-                ? "\(executableToken) --dangerously-bypass-hook-trust"
-                : "\(executableToken) --dangerously-bypass-hook-trust \(remainder)"
-            return exitSafeAgentCommand(withBypass, executable: executable)
         }
         return exitSafeAgentCommand(trimmed, executable: executable)
     }

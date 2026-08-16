@@ -52,6 +52,12 @@ across locally authored events only while they are contiguous with its
 acknowledged cursor; an unacknowledged MCP gap therefore survives a switch away
 and can be retried.
 
+Codex hook execution always follows Codex's native trust review. Soyeht does
+not add `--dangerously-bypass-hook-trust`; a newly installed or changed hook
+may therefore require one explicit approval in Codex. The managed Soyeht MCP
+server is optional (`required = false`) so an unavailable launcher cannot
+prevent unrelated Codex sessions from starting.
+
 MCP pagination is event-based (20 messages by default, up to 50) and therefore
 scales independently of terminal paste limits. A single message remains one
 atomic event even when it is very large; future protocol versions may add

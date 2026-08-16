@@ -119,6 +119,21 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Applies a synchronous mutation to the latest canonical conversation
+    /// state. Callers that crossed an `await` must use this instead of writing
+    /// a stale snapshot back over hook events recorded during suspension.
+    @discardableResult
+    func mutateAgentConversation(
+        _ id: Conversation.ID,
+        _ mutation: (inout AgentConversationState) -> Void
+    ) -> AgentConversationState? {
+        guard var conv = conversations[id] else { return nil }
+        mutation(&conv.agentConversation)
+        conversations[id] = conv
+        postChange()
+        return conv.agentConversation
+    }
+
     /// Advances a handoff cursor against the latest store value so hook events
     /// arriving while a replacement process boots cannot be overwritten by a
     /// stale pre-launch snapshot.

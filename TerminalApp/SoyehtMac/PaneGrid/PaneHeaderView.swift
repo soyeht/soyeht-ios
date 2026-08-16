@@ -48,12 +48,24 @@ final class PaneHeaderView: NSView, NSDraggingSource {
                 ? agentName.trimmingCharacters(in: .whitespacesAndNewlines)
                 : ""
             agentNameLabel.isHidden = !showable
-            agentSwitchButton.isHidden = !showable
+            updateAgentSwitchVisibility()
         }
+    }
+
+    /// Remote mirror panes must never expose an action that replaces their
+    /// remote session with a local process.
+    var isAgentSwitchAvailable: Bool = true {
+        didSet { updateAgentSwitchVisibility() }
     }
 
     var isAgentSwitchEnabled: Bool = true {
         didSet { agentSwitchButton.isEnabled = isAgentSwitchEnabled }
+    }
+
+    private func updateAgentSwitchVisibility() {
+        let trimmed = agentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let hasAgent = !trimmed.isEmpty && trimmed != "shell"
+        agentSwitchButton.isHidden = !hasAgent || !isAgentSwitchAvailable
     }
 
     /// Fired when the user clicks the agent switch button. Receives the button so

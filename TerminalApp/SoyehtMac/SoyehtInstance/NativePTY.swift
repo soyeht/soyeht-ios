@@ -444,9 +444,12 @@ final class NativePTY {
         allPIDs: [pid_t],
         parentPID: (pid_t) -> pid_t?
     ) -> [pid_t] {
-        let parentByPID = Dictionary(uniqueKeysWithValues: allPIDs.compactMap { processID in
-            parentPID(processID).map { (processID, $0) }
-        })
+        let parentByPID = Dictionary(
+            allPIDs.compactMap { processID in
+                parentPID(processID).map { (processID, $0) }
+            },
+            uniquingKeysWith: { _, latest in latest }
+        )
         var descendants: Set<pid_t> = []
         var frontier = [leaderPID]
         while let parent = frontier.popLast() {

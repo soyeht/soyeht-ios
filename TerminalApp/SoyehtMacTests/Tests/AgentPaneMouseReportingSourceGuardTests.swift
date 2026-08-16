@@ -12,7 +12,7 @@ final class AgentPaneMouseReportingSourceGuardTests: XCTestCase {
     func testMouseMoveHonorsReportingPreference() throws {
         let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         XCTAssertTrue(source.contains(
-            "guard allowMouseReporting || isFeedingServerData else { return }"
+            "AgentTerminalPacketClassifier.isMouseReport(Array(data))"
         ))
     }
 

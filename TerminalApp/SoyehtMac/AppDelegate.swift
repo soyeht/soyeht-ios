@@ -138,7 +138,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // Install/update agent-state reporters (claude hooks, codex hooks,
         // opencode plugin). Env-gated: inert outside Soyeht panes.
         Task.detached {
-            let summary = await AgentStateIntegrationInstaller.installAllIfNeeded()
+            let summary = AgentStateIntegrationInstaller.installAllIfNeeded()
             if !summary.failed.isEmpty {
                 NSLog("Soyeht agent integrations partial: \(summary.failed.joined(separator: " | "))")
             }

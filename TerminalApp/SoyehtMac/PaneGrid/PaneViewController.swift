@@ -662,6 +662,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // and never let random mouse movement/clicks corrupt a user prompt.
         // Plain shell panes retain opt-in terminal mouse support for tmux/vim.
         terminalView.allowMouseReporting = conv.content.isTerminal && conv.agent.isShell
+        header.isAgentSwitchAvailable = AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: conv.commander
+        )
         configureContent(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
@@ -980,6 +983,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard let convStore = AppEnvironment.conversationStore,
               let conv = convStore.conversation(conversationID),
               conv.content.isTerminal else { return }
+        guard AgentSwitchEligibility.supportsInPlaceSwitch(commander: conv.commander) else {
+            return
+        }
 
         let available = LocalAgentCatalog.availableAgents()
 

@@ -293,6 +293,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case noActiveWorkspace
         case unknownLocalAgent(String)
         case agentSwitchRequiresTerminalPane(Conversation.ID)
+        case agentSwitchRequiresLocalPane(Conversation.ID)
+        case agentSwitchSourceChanged(Conversation.ID)
 
         var errorDescription: String? {
             switch self {
@@ -381,6 +383,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Unknown local agent: \(name)."
             case .agentSwitchRequiresTerminalPane(let id):
                 return "Only terminal panes can switch agents: \(id.uuidString)"
+            case .agentSwitchRequiresLocalPane(let id):
+                return "Remote mirror panes do not support in-place agent switching: \(id.uuidString)"
+            case .agentSwitchSourceChanged(let id):
+                return "Pane changed while the agent switch was being prepared: \(id.uuidString)"
             }
         }
     }
@@ -3498,6 +3504,36 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// provider events captured by hooks/plugins; terminal paint is never read
     /// or replayed as conversation history.
     @MainActor
+    func switchAgents(
+        conversationIDStrings: [String],
+        handles: [String],
+        to agentName: String,
+        command customCommand: String? = nil,
+        handoffPrompt customPrompt: String? = nil,
+        promptDelayMs: Int? = nil
+    ) async throws -> [SwitchedAgentResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        var results: [SwitchedAgentResult] = []
+        for target in targets {
+            results.append(try await switchAgent(
+                in: target.id,
+                to: agentName,
+                command: customCommand,
+                handoffPrompt: customPrompt,
+                promptDelayMs: promptDelayMs
+            ))
+        }
+        return results
+    }
+
+    @MainActor
     func switchAgent(
         in paneID: Conversation.ID,
         to agentName: String,
@@ -3508,43 +3544,25 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
-        guard let conv = convStore.conversation(paneID) else {
+        guard let initialConversation = convStore.conversation(paneID) else {
             throw LocalAgentWorkspaceError.conversationNotFound(paneID)
         }
-        guard conv.content.isTerminal else {
+        guard initialConversation.content.isTerminal else {
             throw LocalAgentWorkspaceError.agentSwitchRequiresTerminalPane(paneID)
+        }
+        guard AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: initialConversation.commander
+        ) else {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
         }
         guard let target = LocalAgentCatalog.agent(named: agentName) else {
             throw LocalAgentWorkspaceError.unknownLocalAgent(agentName)
         }
 
-        let previousAgent = conv.agent.isShell ? "shell" : conv.agent.displayName.lowercased()
-        let sourceBinding = conv.agentConversation.bindings[previousAgent]
+        let previousAgent = initialConversation.agent.isShell
+            ? "shell"
+            : initialConversation.agent.displayName.lowercased()
         let usesCustomCommand = customCommand != nil
-
-        // 1. Snapshot the canonical semantic history. Advance the source only
-        // across a contiguous run of its own events. If an earlier MCP import
-        // failed before ack, its cursor must stay before that gap so a future
-        // resume can retrieve the missing history again.
-        var conversationState = conv.agentConversation
-        conversationState.markContiguousLocalEventsImported(by: previousAgent)
-        if usesCustomCommand {
-            // A command override launches a fresh process. It may select a
-            // different model while keeping the same agent name, so neither a
-            // prior native session ID nor its import cursor can be reused.
-            conversationState.resetForFreshSession(agent: target.name)
-        }
-        if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !instruction.isEmpty {
-            _ = conversationState.recordEvent(
-                role: .user,
-                text: instruction,
-                sourceAgent: "soyeht"
-            )
-        }
-        let targetEvents = conversationState.eventsNotImported(by: target.name)
-        let throughSequence = conversationState.lastSequence
-        let targetBinding = conversationState.bindings[target.name]
         let targetCapabilities = AgentConversationAdapterCapabilities.capabilities(for: target.name)
         var mcpIntegrationAvailable = false
         if targetCapabilities.mcpContext {
@@ -3558,6 +3576,42 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 )
             }
         }
+
+        // 1. Prepare the canonical semantic history against the latest store
+        // value after MCP repair. Hooks can record final source events while
+        // the repair awaits; writing the pre-await snapshot would silently
+        // erase those events and regress nextSequence.
+        guard let conv = convStore.conversation(paneID) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        guard conv.agent == initialConversation.agent,
+              conv.commander == initialConversation.commander else {
+            throw LocalAgentWorkspaceError.agentSwitchSourceChanged(paneID)
+        }
+        guard let conversationState = convStore.mutateAgentConversation(paneID, { state in
+            // Advance the source only across a contiguous run of its own
+            // events. An unacknowledged MCP gap must survive for a retry.
+            state.markContiguousLocalEventsImported(by: previousAgent)
+            if usesCustomCommand {
+                // A command override launches a fresh process and must not
+                // reuse prior native session or import cursor metadata.
+                state.resetForFreshSession(agent: target.name)
+            }
+            if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !instruction.isEmpty {
+                _ = state.recordEvent(
+                    role: .user,
+                    text: instruction,
+                    sourceAgent: "soyeht"
+                )
+            }
+        }) else {
+            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        }
+        let sourceBinding = conversationState.bindings[previousAgent]
+        let targetEvents = conversationState.eventsNotImported(by: target.name)
+        let throughSequence = conversationState.lastSequence
+        let targetBinding = conversationState.bindings[target.name]
         let usesMCPContext = mcpIntegrationAvailable && !targetEvents.isEmpty
         let prompt = usesMCPContext
             ? AgentConversationMCPHandoff.prompt(
@@ -3574,7 +3628,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ? targetBinding
             : nil
         let didResumeNativeSession = nativeResumeBinding?.nativeSessionID != nil
-        convStore.updateAgentConversation(paneID, state: conversationState)
 
         // 2. Tear down the current process: engine sessions are reaped
         // immediately (the switch is deliberate — no undo window), local
@@ -3582,10 +3635,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         switch conv.commander {
         case .engineLocal(let engineConversationID):
             await DeferredEngineSessionReaper.reapNow(engineConversationID: engineConversationID)
-        default:
+        case .native:
             if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
                 pane.terminalView.disconnect(reapLocalProcessTree: true)
             }
+        case .mirror:
+            // Guarded before and after the MCP await. Keep this exhaustive so
+            // future commander cases cannot silently become local processes.
+            throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
         }
 
         // 3. Keep the conversation identity (same handle/pane); only the
@@ -3771,7 +3828,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                         let deadline = Date().addingTimeInterval(90)
                         var satisfied = false
                         while Date() < deadline {
-                            try? await Task.sleep(nanoseconds: 500_000_000)
+                            guard !Task.isCancelled,
+                                  LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                                return
+                            }
+                            do {
+                                try await Task.sleep(nanoseconds: 500_000_000)
+                            } catch {
+                                return
+                            }
                             if PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied {
                                 satisfied = true
                                 break
@@ -3787,7 +3852,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                             // keystrokes, so wait a base settle and let an
                             // explicit promptDelayMs extend it.
                             let settleMs = max(1500, promptDelayMs ?? 0)
-                            try? await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
+                            do {
+                                try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
+                            } catch {
+                                return
+                            }
                             let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
                                 paneID: paneID,
                                 expectedReportSource: expectedReportSource,
@@ -3854,29 +3923,36 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         shouldSendEnterKey: Bool
     ) async -> Bool {
         guard let expectedReportSource else { return false }
+        let baseline = PaneStatusTracker.shared.lastWorkingReportAt(
+            for: paneID,
+            source: expectedReportSource
+        ) ?? .distantPast
+
+        // Paste the semantic user turn at most once. Without an agent-level
+        // idempotency key, a missing/late hook acknowledgement cannot prove
+        // that the TUI did not receive the text. Retrying the payload would
+        // create duplicate real user turns; later attempts may only resubmit
+        // the already-buffered editor with a raw carriage return.
+        terminalView.brokerSend(
+            text: payload,
+            submitWithEnter: shouldSendEnterKey,
+            forceBracketedPaste: true,
+            focusBeforeSubmit: false
+        )
         for attempt in 1...3 {
-            let baseline = PaneStatusTracker.shared.lastWorkingReportAt(
-                for: paneID,
-                source: expectedReportSource
-            ) ?? .distantPast
-            if attempt == 2, shouldSendEnterKey, expectedReportSource == "hook:kimi" {
-                // Kimi can paint its resumed editor before its enhanced
-                // keyboard mode is ready. The first SwiftTerm Return may leave
-                // the complete prompt buffered; a raw CR submits that buffer
-                // without pasting the prompt a second time.
-                terminalView.brokerSend(text: "\r")
-            } else {
-                terminalView.brokerSend(
-                    text: payload,
-                    submitWithEnter: shouldSendEnterKey,
-                    forceBracketedPaste: true
-                )
-            }
             let deadline = Date().addingTimeInterval(
                 AgentPaneInputPlanner.promptAcknowledgementTimeoutSeconds(for: payload)
             )
             while Date() < deadline {
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard !Task.isCancelled,
+                      LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                    return false
+                }
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    return false
+                }
                 if let last = PaneStatusTracker.shared.lastWorkingReportAt(
                     for: paneID,
                     source: expectedReportSource
@@ -3886,9 +3962,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             if attempt < 3 {
                 logger.info(
-                    "agent_prompt_retry pane=\(paneID.uuidString, privacy: .public) attempt=\(attempt) no fresh report after delivery"
+                    "agent_prompt_resubmit pane=\(paneID.uuidString, privacy: .public) attempt=\(attempt) no fresh report after delivery"
                 )
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if shouldSendEnterKey {
+                    terminalView.brokerSend(text: "\r")
+                }
+                do {
+                    try await Task.sleep(nanoseconds: 2_000_000_000)
+                } catch {
+                    return false
+                }
             }
         }
         return false

@@ -846,11 +846,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - Terminal Response Routing
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
-        // SwiftTerm's mouseMoved path bypasses `allowMouseReporting` and
-        // reaches this TerminalDelegate callback. Parser replies are produced
-        // only while feeding server data, so suppress the remaining callback
-        // when reporting is disabled without modifying the vendored package.
-        guard allowMouseReporting || isFeedingServerData else { return }
+        // SwiftTerm's mouseMoved path bypasses `allowMouseReporting`. Suppress
+        // only actual mouse packets; focus tracking and parser replies share
+        // this delegate callback and must still reach the agent.
+        if !allowMouseReporting,
+           !isFeedingServerData,
+           AgentTerminalPacketClassifier.isMouseReport(Array(data)) {
+            return
+        }
         if isFeedingServerData {
             // Parser-generated replies to host queries (CPR/DSR, DA1/DA2,
             // DECRQM, OSC color reports). They must reach the program on the
@@ -957,7 +960,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     func brokerSend(
         text: String,
         submitWithEnter: Bool,
-        forceBracketedPaste: Bool = false
+        forceBracketedPaste: Bool = false,
+        focusBeforeSubmit: Bool = true
     ) {
         let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
             text,
@@ -968,7 +972,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         let isLongPrompt = text.count > 256 || text.contains("\n")
         let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.brokerSendEnterKey()
+            self?.brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)
         }
     }
 
@@ -980,8 +984,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active
     /// terminal modes such as Kitty keyboard enhancement decide the bytes.
-    func brokerSendEnterKey() {
-        window?.makeFirstResponder(self)
+    func brokerSendEnterKey(focusBeforeSubmit: Bool = true) {
+        if focusBeforeSubmit {
+            window?.makeFirstResponder(self)
+        }
         doCommand(by: #selector(insertNewline(_:)))
     }
 

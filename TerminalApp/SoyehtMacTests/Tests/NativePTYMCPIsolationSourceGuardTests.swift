@@ -245,6 +245,16 @@ final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
         XCTAssertEqual(Set(descendants), Set([11, 12, 13, 14]))
     }
 
+    func testDescendantDiscoveryToleratesDuplicateKernelPIDs() {
+        let descendants = NativePTY.descendantProcessPIDs(
+            of: 10,
+            allPIDs: [11, 11, 12],
+            parentPID: { pid in pid == 11 ? 10 : 11 }
+        )
+
+        XCTAssertEqual(Set(descendants), Set([11, 12]))
+    }
+
     func testPTYReaperTargetsTerminalJobsWithoutKillingPipeBackedMCPHelpers() throws {
         let source = try macSource("SoyehtInstance/NativePTY.swift")
 
