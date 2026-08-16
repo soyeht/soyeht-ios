@@ -11,6 +11,9 @@ final class AgentSwitchHandoffTests: XCTestCase {
             commander: AgentSwitchEligibility.pendingLocalBridge
         ))
         XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: .mirror(instanceID: "pending")
+        ))
+        XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
             commander: .mirror(instanceID: "remote-example")
         ))
     }

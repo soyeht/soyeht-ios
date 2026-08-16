@@ -241,7 +241,7 @@ enum AgentNativeSessionCommand {
 }
 
 enum AgentSwitchEligibility {
-    static let pendingLocalBridge = CommanderState.mirror(instanceID: "pending")
+    static let pendingLocalBridge = CommanderState.mirror(instanceID: "pending-local-switch")
 
     static func isPendingLocalBridge(_ commander: CommanderState) -> Bool {
         commander == pendingLocalBridge

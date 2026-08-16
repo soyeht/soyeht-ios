@@ -3640,8 +3640,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 pane.terminalView.disconnect(reapLocalProcessTree: true)
             }
         case .mirror:
-            // `pending` is the recoverable local bridge left by an earlier
-            // failed attach. Every real mirror remains protected.
+            // The switch-specific sentinel is the recoverable local bridge
+            // left by an earlier failed attach. Generic placeholders and
+            // every real mirror remain protected.
             guard AgentSwitchEligibility.isPendingLocalBridge(conv.commander) else {
                 throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
             }
