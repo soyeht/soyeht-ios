@@ -846,6 +846,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - Terminal Response Routing
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
+        // SwiftTerm's mouseMoved path bypasses `allowMouseReporting` and
+        // reaches this TerminalDelegate callback. Parser replies are produced
+        // only while feeding server data, so suppress the remaining callback
+        // when reporting is disabled without modifying the vendored package.
+        guard allowMouseReporting || isFeedingServerData else { return }
         if isFeedingServerData {
             // Parser-generated replies to host queries (CPR/DSR, DA1/DA2,
             // DECRQM, OSC color reports). They must reach the program on the

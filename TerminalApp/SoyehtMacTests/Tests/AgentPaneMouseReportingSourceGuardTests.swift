@@ -10,15 +10,9 @@ final class AgentPaneMouseReportingSourceGuardTests: XCTestCase {
     }
 
     func testMouseMoveHonorsReportingPreference() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let url = root.appendingPathComponent("Sources/SwiftTerm/Mac/MacTerminalView.swift")
-        let source = try String(contentsOf: url, encoding: .utf8)
+        let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         XCTAssertTrue(source.contains(
-            "if active, allowMouseReporting, terminal.mouseMode.sendMotionEvent()"
+            "guard allowMouseReporting || isFeedingServerData else { return }"
         ))
     }
 
