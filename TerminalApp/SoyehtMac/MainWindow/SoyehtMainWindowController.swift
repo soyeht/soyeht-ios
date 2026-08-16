@@ -1157,7 +1157,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handle: handle,
             agent: agent,
             workspaceID: added.id,
-            commander: .mirror(instanceID: "pending"),
+            commander: .placeholderMirror,
             workingDirectoryPath: projectURL.path
         ))
 
@@ -1213,7 +1213,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: agent,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending"),
+                commander: .placeholderMirror,
                 workingDirectoryPath: spec.projectURL.path
             ))
             store.setActivePane(workspaceID: workspaceID, paneID: paneID)
@@ -1381,7 +1381,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handle: desiredHandle,
             agent: .shell,
             workspaceID: workspaceID,
-            commander: .mirror(instanceID: "pending"),
+            commander: .placeholderMirror,
             content: content,
             workingDirectoryPath: workingDirectoryPath
         ))
@@ -1440,7 +1440,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: .shell,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending"),
+                commander: .placeholderMirror,
                 workingDirectoryPath: workingDirectoryPath
             ))
             terminalIDs.append(terminalID)
@@ -3401,7 +3401,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: agent,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending")
+                commander: .placeholderMirror
             )
             _ = convStore.add(conv)
         }
@@ -3459,7 +3459,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: .shell,
                 workspaceID: workspaceID,
-                commander: .mirror(instanceID: "pending")
+                commander: .placeholderMirror
             ))
         }
 

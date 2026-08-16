@@ -15,6 +15,18 @@ enum CommanderState: Codable, Hashable {
     case mirror(instanceID: String)
     case native(pid: Int32)
     case engineLocal(conversationID: String)
+
+    static let placeholderMirror = CommanderState.mirror(instanceID: "pending")
+    static let agentSwitchRecoveryMirror = CommanderState.mirror(
+        instanceID: "pending-local-switch"
+    )
+
+    /// True while the pane has no live process. The generic remote picker
+    /// placeholder and the agent-switch recovery bridge are distinct states,
+    /// but neither may be treated as a real remote instance.
+    var isPlaceholderMirror: Bool {
+        self == Self.placeholderMirror || self == Self.agentSwitchRecoveryMirror
+    }
 }
 
 /// Mutable stats displayed in the sidebar detail's 4 stat cards.

@@ -461,8 +461,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let hasLiveInstance: Bool
         if let conv = AppEnvironment.conversationStore?.conversation(conversationID) {
             switch conv.commander {
-            case .mirror(let instanceID):
-                hasLiveInstance = (instanceID != "pending")
+            case .mirror:
+                hasLiveInstance = !conv.commander.isPlaceholderMirror
             case .native(let pid):
                 // Any positive pid means NativePTY spawned successfully.
                 hasLiveInstance = (pid > 0)
@@ -1342,13 +1342,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
         // QR hand-off only makes sense for `.mirror` (remote tmux) — the
         // server is what generates the QR. `.native`/`.engineLocal` (local
-        // panes) and the `pending` placeholder all surface a friendly alert
+        // panes) and either placeholder mirror all surface a friendly alert
         // instead of calling the API with bogus args.
         let instanceID: String
-        switch conv.commander {
-        case .mirror(let id) where id != "pending":
+        switch AgentQRHandoffRoute.route(for: conv.commander) {
+        case .remote(let id):
             instanceID = id
-        case .native, .engineLocal:
+        case .local:
             Task { @MainActor in
                 do {
                     let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
@@ -1371,7 +1371,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 }
             }
             return
-        default:
+        case .unavailable:
             let alert = NSAlert()
             alert.messageText = String(localized: "pane.alert.noActiveSession.title", comment: "Alert title when generating QR hand-off but the pane isn't attached to a server-side session (e.g. pending placeholder).")
             alert.informativeText = String(localized: "pane.alert.noActiveSession.message", comment: "Alert body instructing the user to attach the conversation to an instance before generating the QR.")

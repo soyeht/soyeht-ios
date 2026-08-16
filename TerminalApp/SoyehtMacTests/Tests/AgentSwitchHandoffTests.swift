@@ -11,11 +11,36 @@ final class AgentSwitchHandoffTests: XCTestCase {
             commander: AgentSwitchEligibility.pendingLocalBridge
         ))
         XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
-            commander: .mirror(instanceID: "pending")
+            commander: .placeholderMirror
         ))
         XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
             commander: .mirror(instanceID: "remote-example")
         ))
+    }
+
+    func testPlaceholderMirrorsNeverRouteAsLiveRemoteSessions() {
+        let placeholders: [CommanderState] = [
+            .placeholderMirror,
+            .agentSwitchRecoveryMirror,
+        ]
+        for commander in placeholders {
+            XCTAssertTrue(commander.isPlaceholderMirror)
+            XCTAssertEqual(AgentQRHandoffRoute.route(for: commander), .unavailable)
+        }
+
+        let remote = CommanderState.mirror(instanceID: "remote-example")
+        XCTAssertFalse(remote.isPlaceholderMirror)
+        XCTAssertEqual(
+            AgentQRHandoffRoute.route(for: remote),
+            .remote(instanceID: "remote-example")
+        )
+
+        let native = CommanderState.native(pid: 42)
+        let engine = CommanderState.engineLocal(conversationID: "local-example")
+        XCTAssertFalse(native.isPlaceholderMirror)
+        XCTAssertFalse(engine.isPlaceholderMirror)
+        XCTAssertEqual(AgentQRHandoffRoute.route(for: native), .local)
+        XCTAssertEqual(AgentQRHandoffRoute.route(for: engine), .local)
     }
 
     func testFailedAttachBridgeIsRecoverableForBothLocalOrigins() {
@@ -388,7 +413,7 @@ final class AgentSwitchHandoffTests: XCTestCase {
             handle: "switch-e2e",
             agent: .claw("opencode"),
             workspaceID: UUID(),
-            commander: .mirror(instanceID: "pending"),
+            commander: .placeholderMirror,
             agentConversation: state
         )
         let decoded = try JSONDecoder().decode(

@@ -25,6 +25,8 @@ final class AgentSwitcherPresentationTests: XCTestCase {
         ))
         XCTAssertTrue(source.contains("let isRetryingPendingSwitch = AgentSwitchEligibility"))
         XCTAssertTrue(source.contains("item.isEnabled = isRetryingPendingSwitch"))
+        XCTAssertTrue(source.contains("hasLiveInstance = !conv.commander.isPlaceholderMirror"))
+        XCTAssertTrue(source.contains("switch AgentQRHandoffRoute.route(for: conv.commander)"))
         XCTAssertTrue(source.contains("Couldn't switch agent"))
     }
 

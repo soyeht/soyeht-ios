@@ -241,7 +241,7 @@ enum AgentNativeSessionCommand {
 }
 
 enum AgentSwitchEligibility {
-    static let pendingLocalBridge = CommanderState.mirror(instanceID: "pending-local-switch")
+    static let pendingLocalBridge = CommanderState.agentSwitchRecoveryMirror
 
     static func isPendingLocalBridge(_ commander: CommanderState) -> Bool {
         commander == pendingLocalBridge
@@ -256,6 +256,23 @@ enum AgentSwitchEligibility {
             // place. It is not a remote session: keeping it eligible lets the
             // user retry instead of stranding the pane with a hidden switcher.
             return isPendingLocalBridge(commander)
+        }
+    }
+}
+
+enum AgentQRHandoffRoute: Equatable {
+    case remote(instanceID: String)
+    case local
+    case unavailable
+
+    static func route(for commander: CommanderState) -> Self {
+        switch commander {
+        case .mirror(let instanceID) where !commander.isPlaceholderMirror:
+            return .remote(instanceID: instanceID)
+        case .native, .engineLocal:
+            return .local
+        case .mirror:
+            return .unavailable
         }
     }
 }
