@@ -3640,16 +3640,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 pane.terminalView.disconnect(reapLocalProcessTree: true)
             }
         case .mirror:
-            // Guarded before and after the MCP await. Keep this exhaustive so
-            // future commander cases cannot silently become local processes.
-            throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
+            // `pending` is the recoverable local bridge left by an earlier
+            // failed attach. Every real mirror remains protected.
+            guard AgentSwitchEligibility.isPendingLocalBridge(conv.commander) else {
+                throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
+            }
         }
 
         // 3. Keep the conversation identity (same handle/pane); only the
         // agent changes. Commander drops to the bridge value until the new
         // attach flips it to `.engineLocal`/`.native`.
         convStore.updateFields(paneID, handle: conv.handle, agent: .claw(target.name))
-        convStore.updateCommander(paneID, commander: .mirror(instanceID: "pending"))
+        convStore.updateCommander(
+            paneID,
+            commander: AgentSwitchEligibility.pendingLocalBridge
+        )
 
         // 4. Resume the target's exact native session when its adapter supports
         // it, then import only the canonical events after that session's

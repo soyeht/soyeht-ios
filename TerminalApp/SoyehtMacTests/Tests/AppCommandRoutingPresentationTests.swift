@@ -815,6 +815,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(switchAgent.contains("convStore.mutateAgentConversation"))
         XCTAssertTrue(switchAgent.contains("agentSwitchSourceChanged"))
         XCTAssertTrue(switchAgent.contains("AgentSwitchEligibility.supportsInPlaceSwitch"))
+        XCTAssertTrue(switchAgent.contains("AgentSwitchEligibility.isPendingLocalBridge"))
         XCTAssertFalse(switchAgent.contains("updateAgentConversation(paneID, state:"))
         XCTAssertTrue(switchAgent.contains("markContiguousLocalEventsImported(by: previousAgent)"))
         XCTAssertTrue(switchAgent.contains("let usesCustomCommand = customCommand != nil"))

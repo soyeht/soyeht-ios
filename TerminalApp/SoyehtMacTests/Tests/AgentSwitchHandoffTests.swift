@@ -7,9 +7,26 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(
             commander: .engineLocal(conversationID: "local-example")
         ))
+        XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(
+            commander: AgentSwitchEligibility.pendingLocalBridge
+        ))
         XCTAssertFalse(AgentSwitchEligibility.supportsInPlaceSwitch(
             commander: .mirror(instanceID: "remote-example")
         ))
+    }
+
+    func testFailedAttachBridgeIsRecoverableForBothLocalOrigins() {
+        let localOrigins: [CommanderState] = [
+            .native(pid: 42),
+            .engineLocal(conversationID: "local-example"),
+        ]
+
+        for origin in localOrigins {
+            XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(commander: origin))
+            XCTAssertTrue(AgentSwitchEligibility.supportsInPlaceSwitch(
+                commander: AgentSwitchEligibility.pendingLocalBridge
+            ))
+        }
     }
 
     func testMousePacketClassifierDoesNotDropFocusReports() {

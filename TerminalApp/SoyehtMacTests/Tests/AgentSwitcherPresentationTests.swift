@@ -23,6 +23,8 @@ final class AgentSwitcherPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains(
             "guard AgentSwitchEligibility.supportsInPlaceSwitch(commander: conv.commander)"
         ))
+        XCTAssertTrue(source.contains("let isRetryingPendingSwitch = AgentSwitchEligibility"))
+        XCTAssertTrue(source.contains("item.isEnabled = isRetryingPendingSwitch"))
         XCTAssertTrue(source.contains("Couldn't switch agent"))
     }
 

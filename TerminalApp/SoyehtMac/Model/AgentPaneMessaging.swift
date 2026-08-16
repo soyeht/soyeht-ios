@@ -241,12 +241,21 @@ enum AgentNativeSessionCommand {
 }
 
 enum AgentSwitchEligibility {
+    static let pendingLocalBridge = CommanderState.mirror(instanceID: "pending")
+
+    static func isPendingLocalBridge(_ commander: CommanderState) -> Bool {
+        commander == pendingLocalBridge
+    }
+
     static func supportsInPlaceSwitch(commander: CommanderState) -> Bool {
         switch commander {
         case .native, .engineLocal:
             return true
         case .mirror:
-            return false
+            // A failed local attach intentionally leaves this bridge value in
+            // place. It is not a remote session: keeping it eligible lets the
+            // user retry instead of stranding the pane with a hidden switcher.
+            return isPendingLocalBridge(commander)
         }
     }
 }

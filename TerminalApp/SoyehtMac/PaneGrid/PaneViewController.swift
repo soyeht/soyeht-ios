@@ -1001,7 +1001,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         menu.addItem(title)
 
         let currentEntry = LocalAgentCatalog.agent(forAgentType: conv.agent)
-        let selectableAgents = available.filter { $0.name != currentEntry?.name }
+        let isRetryingPendingSwitch = AgentSwitchEligibility.isPendingLocalBridge(
+            conv.commander
+        )
+        let selectableAgents = available.filter {
+            isRetryingPendingSwitch || $0.name != currentEntry?.name
+        }
         for agent in available {
             let item = NSMenuItem(
                 title: agent.displayName,
@@ -1012,7 +1017,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             item.representedObject = agent.name
             if agent.name == currentEntry?.name {
                 item.state = .on
-                item.isEnabled = false
+                // A checked item remains selectable only when the previous
+                // attach failed, allowing a retry of the same agent.
+                item.isEnabled = isRetryingPendingSwitch
             }
             menu.addItem(item)
         }
