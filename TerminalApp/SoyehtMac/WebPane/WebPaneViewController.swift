@@ -1,8 +1,10 @@
 import AppKit
 import WebKit
+import OSLog
 
 @MainActor
 final class WebPaneViewController: NSViewController, PaneContentViewControlling, WKNavigationDelegate, WKUIDelegate {
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "web-pane.navigation")
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .web
     private(set) var state: WebPaneState
@@ -215,6 +217,10 @@ final class WebPaneViewController: NSViewController, PaneContentViewControlling,
 
     // MARK: - WKNavigationDelegate
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        Self.logger.debug("navigation_started")
+    }
+
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
@@ -236,6 +242,7 @@ final class WebPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        Self.logger.debug("navigation_committed")
         if let url = webView.url, allowsNavigation(to: url) {
             urlField.stringValue = url.absoluteString
         }
@@ -243,6 +250,7 @@ final class WebPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Self.logger.debug("navigation_finished")
         // WKWebView invokes this for its main-document navigation. The URL is
         // checked again so `about:blank` and any failed policy edge cannot be
         // persisted as pane state.
@@ -251,11 +259,19 @@ final class WebPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        Self.logger.error("navigation_failed error=\(error.localizedDescription, privacy: .public)")
         updateNavigationControls()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        Self.logger.error("navigation_provisional_failed error=\(error.localizedDescription, privacy: .public)")
         updateNavigationControls()
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        Self.logger.error("web_content_process_terminated")
+        guard !isTornDown else { return }
+        load(state.url)
     }
 
     // MARK: - WKUIDelegate
