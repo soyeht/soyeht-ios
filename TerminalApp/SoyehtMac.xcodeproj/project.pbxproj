@@ -184,6 +184,7 @@
 		CB1000410000000000000001 /* CapabilityAuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000410000000000000002 /* CapabilityAuditLog.swift */; };
 		CB1000420000000000000001 /* CapabilityRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000420000000000000002 /* CapabilityRateLimiter.swift */; };
 		CB1000430000000000000001 /* AppCapabilityBridgeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000430000000000000002 /* AppCapabilityBridgeHandler.swift */; };
+		CB1000440000000000000001 /* AppBridgePrincipalValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000440000000000000002 /* AppBridgePrincipalValidator.swift */; };
 		D40C5B4B0AE69742892E2B58 /* UninstallWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */; };
 		DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8551E3005154C035BE2E191 /* HouseNamingView.swift */; };
 		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
@@ -379,6 +380,7 @@
 		CB1000410000000000000002 /* CapabilityAuditLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityAuditLog.swift; sourceTree = "<group>"; };
 		CB1000420000000000000002 /* CapabilityRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityRateLimiter.swift; sourceTree = "<group>"; };
 		CB1000430000000000000002 /* AppCapabilityBridgeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCapabilityBridgeHandler.swift; sourceTree = "<group>"; };
+		CB1000440000000000000002 /* AppBridgePrincipalValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBridgePrincipalValidator.swift; sourceTree = "<group>"; };
 		D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariOpener.swift; sourceTree = "<group>"; };
 		D8551E3005154C035BE2E191 /* HouseNamingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingView.swift; sourceTree = "<group>"; };
 		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
@@ -874,6 +876,7 @@
 				CB1000400000000000000002 /* AppCapabilityPolicy.swift */,
 				CB1000410000000000000002 /* CapabilityAuditLog.swift */,
 				CB1000420000000000000002 /* CapabilityRateLimiter.swift */,
+				CB1000440000000000000002 /* AppBridgePrincipalValidator.swift */,
 			);
 			path = AppPlatform;
 			sourceTree = "<group>";
@@ -1143,6 +1146,7 @@
 				CB1000410000000000000001 /* CapabilityAuditLog.swift in Sources */,
 				CB1000420000000000000001 /* CapabilityRateLimiter.swift in Sources */,
 				CB1000430000000000000001 /* AppCapabilityBridgeHandler.swift in Sources */,
+				CB1000440000000000000001 /* AppBridgePrincipalValidator.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
 				AA200008000000000000001 /* NativePTY.swift in Sources */,

@@ -34,9 +34,8 @@ import WebKit
 ///      origin's app.
 @MainActor
 final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithReply {
-    static let worldName = "soyeht-bridge"
+    static let worldName = AppBridgePrincipalValidator.worldName
     static let handlerName = "soyehtBridge"
-    static let bundleHost = "local"
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "app.bridge")
 
@@ -62,6 +61,21 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
     /// not policy: it forwards a CustomEvent detail to the native handler
     /// and dispatches the native reply back. All authorization is native.
     /// `forMainFrameOnly: true` is load-bearing — see the class doc.
+    ///
+    /// Injected at DOCUMENT START so installation strictly precedes any
+    /// script of the app — the 2b E2E measured that calls made during page
+    /// load raced a document-end relay and met silence. With document-start
+    /// injection the race cannot happen: once app code runs, the relay is
+    /// already listening, and EVERY request gets a response (grant, denial,
+    /// or error). Silence then has exactly one meaning — no bridge in this
+    /// frame — which is also the subframe semantics.
+    ///
+    /// Readiness signal follows the readyState pattern (property AND event,
+    /// never the event alone — a deferred script attaching after the event
+    /// fired would never see it): the relay marks
+    /// `document.documentElement[data-soyeht-bridge="ready"]` and dispatches
+    /// `soyeht.bridge.ready`; consumers check the attribute FIRST, then
+    /// listen.
     static let relayScript = WKUserScript(
         source: """
         (function () {
@@ -86,9 +100,19 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
               }));
             });
           });
+          function announceReady() {
+            var root = document.documentElement;
+            if (root) { root.setAttribute("data-soyeht-bridge", "ready"); }
+            window.dispatchEvent(new CustomEvent("soyeht.bridge.ready"));
+          }
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", announceReady, { once: true });
+          } else {
+            announceReady();
+          }
         })();
         """,
-        injectionTime: .atDocumentEnd,
+        injectionTime: .atDocumentStart,
         forMainFrameOnly: true,
         in: bridgeWorld
     )
@@ -114,6 +138,12 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
         didReceive message: WKScriptMessage,
         replyHandler: @escaping (Any?, String?) -> Void
     ) {
+        // Steps 1-4: principal validation, in contract order — the pure
+        // validator owns the order, and the order is the confused-deputy
+        // defense (domain-tested with synthetic fixtures, since the 2a CSP
+        // makes a real subframe E2E-impossible by blocking frame loads).
+        // Every failure here is a denial — and denials are audited, because
+        // a log that only records success cannot detect an attack.
         let origin = message.frameInfo.securityOrigin
         let observedOrigin = "\(origin.protocol)://\(origin.host)\(origin.port != 0 ? ":\(origin.port)" : "")"
 
@@ -127,28 +157,31 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
             )
         }
 
-        // Steps 1-4: principal validation, in contract order. Every failure
-        // here is a denial — and denials are audited, because a log that
-        // only records success cannot detect an attack.
-        guard message.world.name == Self.worldName else {
-            Self.logger.error("bridge_wrong_world pane=\(self.paneID.uuidString, privacy: .public)")
-            replyHandler(nil, "wrong world")
-            return
-        }
-        guard message.frameInfo.isMainFrame else {
-            // The iframe case — the acceptance test that defines the phase.
-            audit(.denied, command: "subframe")
-            Self.logger.log("bridge_deny_subframe pane=\(self.paneID.uuidString, privacy: .public)")
-            replyHandler(Self.wire(CapabilityResponse.failure(id: "", error: .notGranted)), nil)
-            return
-        }
-        guard origin.host == Self.bundleHost,
-              origin.protocol == AppBundleSchemeHandler.scheme(for: appID),
-              origin.port == 0,
-              !origin.host.isEmpty else {
-            Self.logger.error("bridge_wrong_origin pane=\(self.paneID.uuidString, privacy: .public) origin=\(observedOrigin, privacy: .public)")
-            audit(.denied, command: "foreign-origin")
-            replyHandler(Self.wire(CapabilityResponse.failure(id: "", error: .notGranted)), nil)
+        if let refusal = AppBridgePrincipalValidator.firstRefusal(
+            worldName: message.world.name,
+            isMainFrame: message.frameInfo.isMainFrame,
+            scheme: origin.protocol,
+            host: origin.host,
+            port: origin.port,
+            expectedWorldName: Self.worldName,
+            expectedScheme: AppBundleSchemeHandler.scheme(for: appID),
+            expectedHost: AppBundleSchemeHandler.host
+        ) {
+            switch refusal {
+            case .wrongWorld:
+                // Nothing about the message is trustworthy — log only.
+                Self.logger.error("bridge_wrong_world pane=\(self.paneID.uuidString, privacy: .public)")
+                replyHandler(nil, "wrong world")
+            case .subframe:
+                // The iframe case — the acceptance test that defines the phase.
+                audit(.denied, command: AppBridgePrincipalRefusal.subframe.rawValue)
+                Self.logger.log("bridge_deny_subframe pane=\(self.paneID.uuidString, privacy: .public)")
+                replyHandler(Self.wire(CapabilityResponse.failure(id: "", error: .notGranted)), nil)
+            case .foreignOrigin, .emptyHost:
+                Self.logger.error("bridge_wrong_origin pane=\(self.paneID.uuidString, privacy: .public) origin=\(observedOrigin, privacy: .public)")
+                audit(.denied, command: AppBridgePrincipalRefusal.foreignOrigin.rawValue)
+                replyHandler(Self.wire(CapabilityResponse.failure(id: "", error: .notGranted)), nil)
+            }
             return
         }
 
