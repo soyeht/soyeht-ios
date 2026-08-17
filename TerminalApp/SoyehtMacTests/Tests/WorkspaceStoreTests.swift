@@ -604,6 +604,125 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(delivered.map(\.id), [convID])
     }
 
+    // MARK: - Web-pane Phase 1 — snapshot forward-compatibility (R1)
+
+    /// A snapshot written by a FUTURE binary contains a pane `kind` raw
+    /// value this binary does not know (here: `app`, standing in for any
+    /// post-Phase-1 kind read after a downgrade). Built by encoding a valid
+    /// snapshot and poisoning the web conversation's kind token in the raw
+    /// JSON, so every other field keeps a byte-exact valid shape. The other
+    /// conversation and the workspace must survive the load; no
+    /// backup/reseed may happen.
+    func testLoadDropsUnknownKindConversationButPreservesOthers() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let wsID = UUID()
+        let keepID = UUID()
+        let poisonID = UUID()
+
+        let snapshot = OnDiskSnapshotV2(
+            version: WorkspaceStore.currentVersion,
+            order: [wsID],
+            workspaces: [
+                Workspace(id: wsID, name: "future", kind: .adhoc, layout: .leaf(keepID))
+            ],
+            conversations: [
+                Conversation(
+                    id: keepID,
+                    handle: "@keep",
+                    agent: .shell,
+                    workspaceID: wsID,
+                    commander: .mirror(instanceID: "pending")
+                ),
+                Conversation(
+                    id: poisonID,
+                    handle: "@future-kind",
+                    agent: .shell,
+                    workspaceID: wsID,
+                    commander: .mirror(instanceID: "pending"),
+                    content: .web(WebPaneState(anchorURL: "https://example.com"))
+                ),
+            ]
+        )
+        let encoder = JSONEncoder()
+        let validJSON = try encoder.encode(snapshot)
+        let poisoned = String(data: validJSON, encoding: .utf8)!
+            .replacingOccurrences(of: "\"kind\":\"web\"", with: "\"kind\":\"app\"")
+        XCTAssertTrue(poisoned.contains("\"kind\":\"app\""), "poisoning must produce an unknown kind")
+        try Data(poisoned.utf8).write(to: url, options: .atomic)
+
+        let store = WorkspaceStore(storageURL: url)
+
+        // Workspaces must load normally — no reseed happened.
+        XCTAssertEqual(store.orderedWorkspaces.count, 1)
+        XCTAssertEqual(store.workspace(wsID)?.name, "future")
+
+        // The decodable conversation survives; the unknown one is dropped.
+        var delivered: [Conversation] = []
+        store.bootstrap(bridge: .init(
+            snapshot: { [] },
+            bootstrap: { delivered = $0 },
+            reinsert: { _ in },
+            remove: { _ in }
+        ))
+        XCTAssertEqual(delivered.map(\.id), [keepID])
+
+        // No backup/reseed side-files: the snapshot was NOT treated as corrupt.
+        let dir = url.deletingLastPathComponent()
+        let name = url.lastPathComponent
+        let backups = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        XCTAssertFalse(
+            backups.contains { $0.lastPathComponent.hasPrefix("\(name).bak-") },
+            "lossy conversation decode must not trigger corrupt-file backup"
+        )
+    }
+
+    /// A web conversation written by the Phase 1 binary round-trips through
+    /// save + reload with the bridge delivering it intact.
+    func testWebConversationSurvivesStoreRoundTrip() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let wsID = UUID()
+        let paneID = UUID()
+        let webContent = PaneContent.web(WebPaneState(
+            anchorURL: "https://example.com/docs",
+            url: "https://example.com/docs/guide?page=2",
+            title: "Guide"
+        ))
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let conv = Conversation(
+                id: paneID,
+                handle: "@web",
+                agent: .shell,
+                workspaceID: wsID,
+                commander: .mirror(instanceID: "pending"),
+                content: webContent
+            )
+            store.bootstrap(bridge: .init(
+                snapshot: { [conv] },
+                bootstrap: { _ in },
+                reinsert: { _ in },
+                remove: { _ in }
+            ))
+            _ = store.add(Workspace(id: wsID, name: "web-ws", kind: .adhoc, layout: .leaf(paneID)))
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        var delivered: [Conversation] = []
+        reloaded.bootstrap(bridge: .init(
+            snapshot: { [] },
+            bootstrap: { delivered = $0 },
+            reinsert: { _ in },
+            remove: { _ in }
+        ))
+
+        XCTAssertEqual(delivered.count, 1)
+        XCTAssertEqual(delivered.first?.content, webContent)
+    }
+
     // MARK: - Fase 2.1 — reorder
 
     func testReorderMovesWorkspaceToNewIndex() {

@@ -1074,12 +1074,73 @@ final class WorkspaceStore {
         var version: Int
         var order: [Workspace.ID]
         var workspaces: [Workspace]
-        var conversations: [Conversation]?  // v2+
+        var conversations: LossyConversationArray?  // v2+
         var groups: [Group]?                // v3+
         var workspaceOrderByWindow: [String: [Workspace.ID]]? // v4+
         var activeWorkspaceByWindow: [String: Workspace.ID]?  // v4+
         var windowOrder: [String]?           // v4+
         var closedWindowSessions: [ClosedWindowSession]?      // v5+
+    }
+
+    /// Codable that successfully "decodes" any JSON value without reading
+    /// it. Used to advance an unkeyed container past an entry we chose to
+    /// drop after its typed decode failed. `init(from:)` touches no
+    /// container, so unboxing cannot throw and the index always advances.
+    private struct SkippedJSONValue: Codable {
+        init(from decoder: Decoder) throws {}
+        func encode(to encoder: Encoder) throws {}
+    }
+
+    /// Web-pane Phase 1 forward-compatibility guard (review R1): a `kind`
+    /// raw value this binary does not know (e.g. a future `app` kind read
+    /// after a downgrade) used to fail the WHOLE `Snapshot` decode and land
+    /// in `backupCorruptedFile` + reseed — one unknown pane reset every
+    /// workspace in the app. This container decodes conversations one entry
+    /// at a time: a single undecodable conversation is dropped (and logged)
+    /// while the rest of the snapshot, including every other conversation,
+    /// survives. The on-disk shape is unchanged (a plain JSON array).
+    ///
+    /// Dropped vs placeholder decision (measured, see contract
+    /// docs/web-pane-phase1.md §5): the layout tree is the canonical pane
+    /// registry — `Workspace.conversations` derives from `layout.leafIDs` —
+    /// and `PaneSplitFactory` builds a `PaneViewController` for a leaf even
+    /// when its conversation is missing; `rebindFromStore` then no-ops and
+    /// the pane degrades to its empty picker state. An orphan leaf therefore
+    /// renders as a clean, usable pane, so DISCARD is honest and safe;
+    /// fabricating a fake `.terminal` placeholder is the option the contract
+    /// forbids.
+    private struct LossyConversationArray: Codable, Sendable {
+        var items: [Conversation]
+
+        init(items: [Conversation]) {
+            self.items = items
+        }
+
+        init(from decoder: Decoder) throws {
+            var container = try decoder.unkeyedContainer()
+            var decoded: [Conversation] = []
+            decoded.reserveCapacity(container.count ?? 0)
+            while !container.isAtEnd {
+                do {
+                    decoded.append(try container.decode(Conversation.self))
+                } catch {
+                    // A failed decode does not advance the container index;
+                    // skip the entry explicitly so the loop always progresses.
+                    _ = try? container.decode(SkippedJSONValue.self)
+                    WorkspaceStore.logger.error(
+                        "snapshot_conversation_dropped error=\(String(describing: error), privacy: .public)"
+                    )
+                }
+            }
+            items = decoded
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.unkeyedContainer()
+            for item in items {
+                try container.encode(item)
+            }
+        }
     }
 
     func load() {
@@ -1188,7 +1249,7 @@ final class WorkspaceStore {
         // v2: deliver conversations to the ConversationStore if the bridge is
         // already wired (init-time bridge). Otherwise stash until
         // `bootstrap(bridge:)` runs from AppDelegate.
-        let loadedConversations = snap.conversations ?? []
+        let loadedConversations = snap.conversations?.items ?? []
         if let bridge = conversationBridge {
             bridge.bootstrap(loadedConversations)
         } else {
@@ -1270,7 +1331,7 @@ final class WorkspaceStore {
             version: Self.currentVersion,
             order: order,
             workspaces: order.compactMap { workspaces[$0] },
-            conversations: conversations,
+            conversations: LossyConversationArray(items: conversations),
             groups: orderedGroups,
             workspaceOrderByWindow: workspaceIDsByWindowSnapshot(),
             activeWorkspaceByWindow: activeWorkspaceIDsByWindowSnapshot(),
