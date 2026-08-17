@@ -179,6 +179,7 @@ extension AppCommand {
              .showAgentVisualPermissions,
              .showPairedDevices,
              .showConnectedServers,
+             .showConversationIntelligence,
              .uninstallSoyeht:
             return .enabled()
         case .newConversation:
@@ -314,6 +315,7 @@ protocol AppCommandApplicationActionPerforming: AnyObject {
     func performShowConnectedServersCommand(_ sender: Any?)
     func performUninstallSoyehtCommand(_ sender: Any?)
     func performShowClawStoreCommand(_ sender: Any?)
+    func performShowConversationIntelligenceCommand(_ sender: Any?)
 }
 
 @MainActor
@@ -390,6 +392,9 @@ final class AppCommandActionRouter: AppCommandPerforming {
             return applicationActions != nil
         case .showClawStore:
             applicationActions?.performShowClawStoreCommand(sender)
+            return applicationActions != nil
+        case .showConversationIntelligence:
+            applicationActions?.performShowConversationIntelligenceCommand(sender)
             return applicationActions != nil
         case .showConversationsSidebar:
             return windowActions?.performShowConversationsSidebarCommand(sender) ?? false

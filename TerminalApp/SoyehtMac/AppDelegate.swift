@@ -712,6 +712,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     /// SwiftUI view model stays alive for the full session. NSWindow holds
     /// its controller weakly.
     private var clawStoreWindowController: ClawStoreWindowController?
+    private var conversationIntelligenceWindowController: ConversationIntelligenceWindowController?
+    private var conversationIntelligenceCloseObserver: NSObjectProtocol?
 
     /// Token for the `NSWindow.willCloseNotification` observer wired when
     /// the Claw Store opens. Stored so we can remove it explicitly on close
@@ -748,6 +750,48 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return
         }
         showStandaloneClawStore(context: context)
+    }
+
+    @IBAction func showConversationIntelligence(_ sender: Any?) {
+        if let existing = conversationIntelligenceWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        do {
+            let directory = try AppSupportDirectory.subdirectory("ConversationIntelligence")
+            let database = try ConversationIntelligenceDatabase(
+                url: directory.appendingPathComponent("conversation-intelligence.sqlite")
+            )
+            let controller = ConversationIntelligenceWindowController(
+                service: ConversationIntelligenceService(database: database)
+            )
+            conversationIntelligenceWindowController = controller
+            if let window = controller.window {
+                conversationIntelligenceCloseObserver = NotificationCenter.default.addObserver(
+                    forName: NSWindow.willCloseNotification,
+                    object: window,
+                    queue: .main
+                ) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        if let token = self.conversationIntelligenceCloseObserver {
+                            NotificationCenter.default.removeObserver(token)
+                            self.conversationIntelligenceCloseObserver = nil
+                        }
+                        self.conversationIntelligenceWindowController = nil
+                    }
+                }
+            }
+            controller.showWindow(nil)
+            controller.window?.makeKeyAndOrderFront(nil)
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Conversation Intelligence is unavailable"
+            alert.informativeText = "Soyeht could not open its private local conversation index."
+            alert.runModal()
+        }
     }
 
     private func showStandaloneClawStore(context: ServerContext) {
@@ -1040,6 +1084,10 @@ extension AppDelegate: AppCommandApplicationActionPerforming {
 
     func performShowClawStoreCommand(_ sender: Any?) {
         showStandaloneClawStore(sender)
+    }
+
+    func performShowConversationIntelligenceCommand(_ sender: Any?) {
+        showConversationIntelligence(sender)
     }
 }
 
