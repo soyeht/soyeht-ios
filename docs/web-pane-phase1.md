@@ -34,7 +34,7 @@ enum PaneContentKind: String, Codable, Hashable {
 
 /// Identidade e estado corrente são campos SEPARADOS — ver "Por que anchorURL".
 struct WebPaneState: Codable, Hashable {
-    var anchorURL: String    // IMUTÁVEL após a criação. Define matchingKey.
+    var anchorURL: String    // Identidade da pane. Define matchingKey.
     var url: String          // página corrente. Write-back + restore.
     var title: String?       // último título conhecido (header da pane).
 
@@ -64,9 +64,16 @@ invalida e faz `rebindFromStore` → `configureContent` em todas as panes.
 Logo, se `matchingKey` derivasse da URL **corrente**, cada navegação faria:
 write-back → invalidação → keys divergentes → `removeSpecialContent`
 (**WKWebView destruída**) → VC novo → página recarrega do zero, perdendo
-scroll, formulário e histórico. Com `anchorURL` imutável a navegação cai no
+scroll, formulário e histórico. Com a identidade estável a navegação cai no
 branch same-key → `updateContent` in-place, exatamente como o `EditorPane`
 (cuja key vem de `rootPath`, estável em uso).
+
+O invariante exato é a **classe de equivalência canônica**, não a string: no
+caminho de reuse o state é substituído por inteiro, então a grafia do
+`anchorURL` converge para a do `open_web` mais recente. Isso é seguro por
+construção, porque o reuse só acontece quando as chaves canônicas já
+coincidem — muda a grafia, nunca a identidade. Quem editar aqui deve
+preservar a chave, não a string.
 
 **Loop-safety (obrigatório, os dois lados):**
 - `WebPaneViewController.updateContent` é **no-op** quando a URL recebida já
