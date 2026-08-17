@@ -29,47 +29,65 @@ struct SystemMetricsSnapshot: Codable, Hashable {
 
 /// Collects the system aggregate for `metrics.read`. New code — the repo
 /// had no metrics collector before this phase.
+///
+/// `snapshot()` THROWS on collection failure instead of publishing
+/// zero-filled numbers: a snapshot reading "0% CPU, 0 MiB used, 0s uptime"
+/// would be the wire lying with real-looking data (the phase's standing
+/// rule). The bridge maps a thrown collection to `.internalError`.
 enum SystemMetricsCollector {
 
-    static func snapshot() -> SystemMetricsSnapshot {
+    enum CollectionError: Error { case unavailable }
+
+    static func snapshot() throws -> SystemMetricsSnapshot {
         SystemMetricsSnapshot(
-            cpuLoadPercent: normalizedLoadPercent(),
-            memoryUsedMiB: usedMemoryMiB(),
-            memoryFreeMiB: freeMemoryMiB(),
-            uptimeSeconds: uptimeSeconds()
+            cpuLoadPercent: try normalizedLoadPercent(),
+            memoryUsedMiB: try usedMemoryMiB(),
+            memoryFreeMiB: try freeMemoryMiB(),
+            uptimeSeconds: try uptimeSeconds()
         )
     }
 
     // MARK: - CPU
 
-    private static func normalizedLoadPercent() -> Int {
+    private static func normalizedLoadPercent() throws -> Int {
         var load = [Double](repeating: 0, count: 3)
-        guard getloadavg(&load, 3) == 0, load[0] >= 0 else { return 0 }
-        let cores = Double(logicalCoreCount())
-        guard cores > 0 else { return 0 }
+        // getloadavg returns the number of samples retrieved (or -1 on
+        // failure) — NOT zero on success. An earlier `== 0` guard made
+        // this whole function silently return a 0% load forever; the
+        // throwing rewrite exposed it (zeros are how real bugs hide).
+        let samples = getloadavg(&load, 3)
+        guard samples > 0, load[0] >= 0 else {
+            throw CollectionError.unavailable
+        }
+        let cores = Double(try logicalCoreCount())
+        guard cores > 0 else {
+            throw CollectionError.unavailable
+        }
         let percent = (load[0] / cores) * 100.0
         return Int(percent.rounded())
     }
 
-    private static func logicalCoreCount() -> Int32 {
+    private static func logicalCoreCount() throws -> Int32 {
         var count: Int32 = 0
         var size = MemoryLayout<Int32>.size
         sysctlbyname("hw.ncpu", &count, &size, nil, 0)
-        return count > 0 ? count : 1
+        guard count > 0 else { throw CollectionError.unavailable }
+        return count
     }
 
     // MARK: - Memory
 
-    private static func totalMemoryBytes() -> UInt64 {
+    private static func totalMemoryBytes() throws -> UInt64 {
         var total: UInt64 = 0
         var size = MemoryLayout<UInt64>.size
         sysctlbyname("hw.memsize", &total, &size, nil, 0)
+        guard total > 0 else { throw CollectionError.unavailable }
         return total
     }
 
     /// free + inactive pages, in whole MiB. Inactive memory is reclaimable
     /// on demand — reporting it as "used" would be dishonest to the app.
-    private static func freeMemoryMiB() -> Int64 {
+    private static func freeMemoryMiB() throws -> Int64 {
         var vm = vm_statistics64_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.size / MemoryLayout<integer_t>.size)
         let result = withUnsafeMutablePointer(to: &vm) { ptr in
@@ -77,29 +95,28 @@ enum SystemMetricsCollector {
                 host_statistics64(mach_host_self(), HOST_VM_INFO64, intPtr, &count)
             }
         }
-        guard result == KERN_SUCCESS else { return 0 }
+        guard result == KERN_SUCCESS else { throw CollectionError.unavailable }
         let bytes = (UInt64(vm.free_count) + UInt64(vm.inactive_count)) * UInt64(vm_page_size)
         return Int64(bytes / (1024 * 1024))
     }
 
-    private static func usedMemoryMiB() -> Int64 {
-        let total = totalMemoryBytes()
-        guard total > 0 else { return 0 }
-        let totalMiB = Int64(total / (1024 * 1024))
-        let freeMiB = freeMemoryMiB()
-        guard freeMiB >= 0, freeMiB <= totalMiB else { return 0 }
+    private static func usedMemoryMiB() throws -> Int64 {
+        let totalMiB = Int64(try totalMemoryBytes() / (1024 * 1024))
+        let freeMiB = try freeMemoryMiB()
+        guard freeMiB >= 0, freeMiB <= totalMiB else { throw CollectionError.unavailable }
         return totalMiB - freeMiB
     }
 
     // MARK: - Uptime
 
-    private static func uptimeSeconds() -> Int64 {
+    private static func uptimeSeconds() throws -> Int64 {
         var boottime = timeval(tv_sec: 0, tv_usec: 0)
         var size = MemoryLayout<timeval>.size
         sysctlbyname("kern.boottime", &boottime, &size, nil, 0)
-        guard boottime.tv_sec > 0 else { return 0 }
+        guard boottime.tv_sec > 0 else { throw CollectionError.unavailable }
         let now = Date().timeIntervalSince1970
         let uptime = now - Double(boottime.tv_sec)
-        return uptime > 0 ? Int64(uptime) : 0
+        guard uptime > 0 else { throw CollectionError.unavailable }
+        return Int64(uptime)
     }
 }

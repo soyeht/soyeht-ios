@@ -150,11 +150,12 @@ final class CapabilityEnvelopeTests: XCTestCase {
 }
 
 /// Phase 2b contract §3 — the collector is system aggregate only, the
-/// schema is closed, and values are quantized.
+/// schema is closed, and values are quantized. The collector THROWS on
+/// failure rather than publishing zero-filled numbers (wire must not lie).
 final class SystemMetricsCollectorTests: XCTestCase {
 
-    func testSnapshotFieldsArePlausible() {
-        let snap = SystemMetricsCollector.snapshot()
+    func testSnapshotFieldsArePlausible() throws {
+        let snap = try SystemMetricsCollector.snapshot()
 
         XCTAssertTrue((0...100).contains(snap.cpuLoadPercent), "cpu load is a clamped percentage")
         XCTAssertGreaterThan(snap.memoryUsedMiB, 0, "a running system uses memory")
@@ -165,7 +166,7 @@ final class SystemMetricsCollectorTests: XCTestCase {
     /// The schema is closed: encode produces exactly the four contract
     /// fields, nothing the contract does not declare.
     func testEncodeShapeIsClosedSchema() throws {
-        let data = try JSONEncoder().encode(SystemMetricsCollector.snapshot())
+        let data = try JSONEncoder().encode(try SystemMetricsCollector.snapshot())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         XCTAssertEqual(Set(json.keys), [
@@ -176,18 +177,81 @@ final class SystemMetricsCollectorTests: XCTestCase {
     /// The app-facing vocabulary never gains process/host/path fields by
     /// accident: snapshot round-trips through its own type untouched.
     func testSnapshotRoundTrips() throws {
-        let snap = SystemMetricsCollector.snapshot()
+        let snap = try SystemMetricsCollector.snapshot()
         let decoded = try JSONDecoder().decode(SystemMetricsSnapshot.self, from: JSONEncoder().encode(snap))
         XCTAssertEqual(decoded, snap)
     }
 
-    /// Quantization contract: two immediate collections return integral
-    /// values (no sub-unit precision that could serve as a clock).
-    func testValuesAreQuantized() {
+    /// Quantization contract: collections return integral values (no
+    /// sub-unit precision that could serve as a clock).
+    func testValuesAreQuantized() throws {
         for _ in 0..<3 {
-            let snap = SystemMetricsCollector.snapshot()
+            let snap = try SystemMetricsCollector.snapshot()
             XCTAssertTrue((0...100).contains(snap.cpuLoadPercent))
-            _ = snap // integral by type: Int / Int64 — the type IS the quantization
         }
+    }
+}
+
+/// Frozen with the bridge slice: the response envelope resolves the app's
+/// Promise; rejection stays reserved for transport failure. Invariants are
+/// enforced by the factories, not by convention.
+final class CapabilityResponseTests: XCTestCase {
+
+    func testSuccessResponseRoundTrip() throws {
+        let request = CapabilityRequest(id: "corr-7", command: .metricsRead)
+        let response = CapabilityResponse.success(
+            for: request,
+            result: .metricsRead(SystemMetricsSnapshot(
+                cpuLoadPercent: 42, memoryUsedMiB: 8000, memoryFreeMiB: 4000, uptimeSeconds: 1234
+            ))
+        )
+
+        XCTAssertEqual(response.id, "corr-7", "id echoes the request's correlation id")
+        XCTAssertTrue(response.ok)
+        XCTAssertNotNil(response.result)
+        XCTAssertNil(response.error)
+
+        let decoded = try JSONDecoder().decode(
+            CapabilityResponse.self, from: JSONEncoder().encode(response)
+        )
+        XCTAssertEqual(decoded, response)
+    }
+
+    func testFailureResponseRoundTrip() throws {
+        let request = CapabilityRequest(id: "corr-8", command: .metricsRead)
+        let response = CapabilityResponse.failure(for: request, error: .notGranted)
+
+        XCTAssertEqual(response.id, "corr-8")
+        XCTAssertFalse(response.ok)
+        XCTAssertNil(response.result)
+        XCTAssertEqual(response.error?.code, .notGranted)
+
+        let decoded = try JSONDecoder().decode(
+            CapabilityResponse.self, from: JSONEncoder().encode(response)
+        )
+        XCTAssertEqual(decoded, response)
+    }
+
+    /// Undecodable bodies have no request to echo an id from — the
+    /// no-request factory exists for exactly that bridge path.
+    func testFailureWithoutRequestUsesProvidedID() {
+        let response = CapabilityResponse.failure(id: "", error: .tooLarge(limitBytes: 4096))
+        XCTAssertEqual(response.id, "")
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.error?.code, .tooLarge)
+    }
+
+    /// The result payload is TAGGED with the command key — self-describing
+    /// on the wire, closed by construction (one key per capability).
+    func testResultIsTaggedWithCommandKey() throws {
+        let result = CapabilityResult.metricsRead(SystemMetricsSnapshot(
+            cpuLoadPercent: 10, memoryUsedMiB: 1, memoryFreeMiB: 2, uptimeSeconds: 3
+        ))
+
+        let json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(result)) as? [String: Any]
+        )
+        XCTAssertEqual(json.count, 1, "result carries exactly one command key")
+        XCTAssertNotNil(json["metrics.read"], "payload is tagged with the command it answers")
     }
 }

@@ -196,3 +196,81 @@ struct AnyCodingKey: CodingKey {
         self.intValue = intValue
     }
 }
+
+/// The per-command result payload. One case per capability, 1:1 with
+/// `CapabilityCommand`: a future capability adds a case here AND there —
+/// one contract change, announced in the same commit. Encodes as a
+/// single-key tagged object (`{"metrics.read": {...}}`) so the wire is
+/// self-describing and the vocabulary stays closed.
+enum CapabilityResult: Codable, Hashable {
+    case metricsRead(SystemMetricsSnapshot)
+
+    private enum CodingKeys: String, CodingKey {
+        case metricsRead = "metrics.read"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let snapshot = try c.decodeIfPresent(SystemMetricsSnapshot.self, forKey: .metricsRead) {
+            self = .metricsRead(snapshot)
+            return
+        }
+        throw DecodingError.dataCorrupted(
+            DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "CapabilityResult carries no known command key"
+            )
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .metricsRead(let snapshot):
+            try c.encode(snapshot, forKey: .metricsRead)
+        }
+    }
+}
+
+/// The response envelope the bridge resolves the app's Promise with.
+/// Frozen with sia (bridge slice): `ok=false` + `error` for refusals and
+/// failures; `ok=true` + `result` for success. Promise REJECTION stays
+/// reserved for transport failure — an app must be able to observe a
+/// denial as data, not as a crash-shaped exception.
+///
+/// The invariants (`ok == true` iff `result != nil`, `ok == false` iff
+/// `error != nil`) are enforced by construction: the memberwise init is
+/// private and the two factories are the only producers.
+struct CapabilityResponse: Codable, Hashable {
+    let v: Int
+    /// Echoes the request's correlation id. For bodies that never decoded
+    /// into a request, the bridge passes the best id it has (possibly
+    /// empty) — correlation is the caller's concern, not authority.
+    let id: String
+    let ok: Bool
+    let result: CapabilityResult?
+    let error: CapabilityFailure?
+
+    private init(id: String, ok: Bool, result: CapabilityResult?, error: CapabilityFailure?) {
+        self.v = 1
+        self.id = id
+        self.ok = ok
+        self.result = result
+        self.error = error
+    }
+
+    static func success(for request: CapabilityRequest, result: CapabilityResult) -> CapabilityResponse {
+        CapabilityResponse(id: request.id, ok: true, result: result, error: nil)
+    }
+
+    /// For refusals where the request DID decode (policy denial, rate limit).
+    static func failure(for request: CapabilityRequest, error: CapabilityFailure) -> CapabilityResponse {
+        CapabilityResponse(id: request.id, ok: false, result: nil, error: error)
+    }
+
+    /// For refusals where the body never decoded (too large, malformed,
+    /// unknown key/command) — there is no request to echo an id from.
+    static func failure(id: String, error: CapabilityFailure) -> CapabilityResponse {
+        CapabilityResponse(id: id, ok: false, result: nil, error: error)
+    }
+}
