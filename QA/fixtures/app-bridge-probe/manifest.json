@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "bridge-probe",
+  "name": "Bridge Probe",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "publisher": {
+    "id": "soyeht-qa",
+    "displayName": "Soyeht QA"
+  },
+  "capabilities": ["metrics.read"],
+  "optionalCapabilities": []
+}
