@@ -191,6 +191,23 @@ final class SystemMetricsCollectorTests: XCTestCase {
         }
     }
 
+    /// The clamp is proven with SYNTHETIC fixtures, not whatever the host
+    /// happens to be doing — including the loads actually measured on this
+    /// machine during phase 2b (sia's finding): 70.92/20 = 355% raw, and
+    /// the milder 23.16/20 = 116%. Utilization saturates at 100; it never
+    /// reads "355%" on a gauge.
+    func testLoadClampsAtSaturation() {
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 70.92, logicalCores: 20), 100)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 23.16, logicalCores: 20), 100)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 20.0, logicalCores: 20), 100)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 10.1, logicalCores: 20), 51)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 5.65, logicalCores: 20), 28)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 0, logicalCores: 20), 0)
+        // Degenerate inputs fail closed to 0, never NaN/crash.
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: -1, logicalCores: 20), 0)
+        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 5, logicalCores: 0), 0)
+    }
+
     /// Permanent rule (celia, after the getloadavg sentinel bug): range
     /// tests are not functioning tests — for live metrics, proving the
     /// value MOVES beats proving it is plausible. A frozen collector was

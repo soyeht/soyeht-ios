@@ -59,12 +59,24 @@ enum SystemMetricsCollector {
         guard samples > 0, load[0] >= 0 else {
             throw CollectionError.unavailable
         }
-        let cores = Double(try logicalCoreCount())
-        guard cores > 0 else {
-            throw CollectionError.unavailable
-        }
-        let percent = (load[0] / cores) * 100.0
-        return Int(percent.rounded())
+        let cores = try logicalCoreCount()
+        return Self.clampedLoadPercent(oneMinuteLoad: load[0], logicalCores: cores)
+    }
+
+    /// Pure load math, extracted so the clamp is provable with synthetic
+    /// fixtures instead of whatever the host machine happens to be doing.
+    ///
+    /// getloadavg is a RUN-QUEUE average, not utilization: on a loaded
+    /// host it exceeds core count (measured on this machine during phase
+    /// 2b: 70.92 over 20 cores = 355% on the 1-minute average). The field
+    /// is a utilization percentage for a UI gauge, so it CLAMPS at 100 —
+    /// saturation reads as "100", never "355%". (An earlier version
+    /// documented "clamped" without clamping: documentation half a degree
+    /// above the mechanism, caught by sia when the host went busy.)
+    static func clampedLoadPercent(oneMinuteLoad: Double, logicalCores: Int32) -> Int {
+        guard logicalCores > 0, oneMinuteLoad >= 0 else { return 0 }
+        let percent = Int(((oneMinuteLoad / Double(logicalCores)) * 100.0).rounded())
+        return min(max(percent, 0), 100)
     }
 
     private static func logicalCoreCount() throws -> Int32 {
