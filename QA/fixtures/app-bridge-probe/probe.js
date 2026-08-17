@@ -66,13 +66,16 @@ const chamar = (corpo, { silencioEmMs = 3000 } = {}) =>
 const descreve = (d) =>
   d.silencio ? "silêncio" : d.ok ? "ok" : (d.error?.code || "erro") + ": " + (d.error?.message || "");
 
+// Mostra o que veio sem depender de nomes de campo: um rename no schema não
+// deve quebrar o probe, e listar tudo revela campo faltando ou inesperado.
+const resumo = (m) =>
+  Object.entries(m).map(([k, v]) => `${k}=${v}`).join(" · ");
+
 // 1 e 2 — o caminho feliz prova que o relay atende E que a capacidade vale.
 chamar({ v: 1, command: "metrics.read" }).then((d) => {
   marca(LINHAS[0][0], !d.silencio, d.silencio ? "SILÊNCIO — relay ausente" : "atende");
   const m = d.result?.["metrics.read"];
-  marca(LINHAS[1][0], !!m, m
-    ? `cpu ${m.cpuLoadPercent} · usada ${m.memoryUsedMiB}MiB · up ${m.uptimeSeconds}s`
-    : "sem resultado — " + descreve(d));
+  marca(LINHAS[1][0], !!m, m ? resumo(m) : "sem resultado — " + descreve(d));
 });
 
 // 3..6 — recusa é sucesso. Silêncio aqui seria falha: o pedido chegou a um
