@@ -1,7 +1,7 @@
 # Fase 1 — Pane `web` (Soyeht Apps) · CONTRATO CONGELADO
 
 Branch: `feat/mac-web-pane-phase1` · base `origin/main` @ 3b7182cf
-Worktree: `/Users/macstudio/soyeht-worktrees/apps-web-pane-phase1`
+Worktree: um clone/worktree local desta branch
 Revisão do plano: kairos, cassia, sia — 3/3 aprovaram (2026-08-17).
 
 Este documento é o **contrato de interfaces**. Ele existe para que as três
@@ -201,10 +201,10 @@ Regras de convivência na worktree:
   o app é a cassia; kairos usa o pacote SwiftPM de domínio
   (`TerminalApp/SoyehtMacTests`), sia testa o lado Python isolado;
 - ninguém toca em arquivo fora da sua fatia sem avisar a celia;
-- **nunca** tocar em `/Applications/Soyeht.app` (é o app real do Caio). Toda
+- **nunca** tocar em `/Applications/Soyeht.app` (é o app de trabalho real do usuário). Toda
   validação de app roda no **Soyeht Dev.app**.
 
-## Aceite (o E2E é obrigatório — pedido explícito do Caio)
+## Aceite (o E2E é obrigatório — pedido explícito do dono do produto)
 
 1. Build do SoyehtMac verde (com WebKit linkado).
 2. Testes de domínio **executados** (não só compilados): round-trip Codable

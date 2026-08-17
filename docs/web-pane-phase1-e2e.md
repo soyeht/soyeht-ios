@@ -1,12 +1,12 @@
 # Fase 1 — runbook de E2E no Soyeht Dev.app
 
 Complementa `docs/web-pane-phase1.md` (contrato). Aqui está **como** rodar o
-aceite sem encostar no app real do Caio. Tudo abaixo foi medido nesta
-máquina, não inferido.
+aceite sem encostar no app de trabalho real do usuário. Tudo abaixo foi
+medido numa máquina real, não inferido.
 
 ## Regras que não se negociam
 
-1. `/Applications/Soyeht.app` é o app de trabalho real do Caio e **está
+1. `/Applications/Soyeht.app` é o app de trabalho real do usuário e **está
    rodando**. Nunca sair dele, matar, reinstalar ou sobrescrever.
 2. **Nunca `killall Soyeht`** — o padrão casa com o app de produção. Para
    encerrar só o Dev:
@@ -55,7 +55,7 @@ foi corrigido junto desta fase.)
 ## Sequência
 
 ```sh
-cd /Users/macstudio/soyeht-worktrees/apps-web-pane-phase1
+cd <raiz da worktree>
 export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/SoyehtDev/Automation"
 export DD="$(mktemp -d "${TMPDIR:-/tmp}/soyeht-web-pane-dd.XXXXXX")"
 
@@ -151,7 +151,7 @@ Evidências que valem além do checklist:
 
 ### Sessão e login persistem entre reinícios (verificado)
 
-Pedido de produto do Caio: se ele fizer login num site, a sessão tem de
+Pedido de produto: se ele fizer login num site, a sessão tem de
 sobreviver ao fechamento do app. A decisão R3 (`WKWebsiteDataStore.default()`)
 entrega isso, e foi **medida**, não assumida:
 
@@ -174,7 +174,7 @@ navegador, mas provedores de OAuth — o Google em particular — costumam
 recusar autenticação dentro de webviews embarcadas por política de segurança.
 Se "Continue with Google" falhar, o problema é do provedor, não do nosso
 armazenamento, e a saída conhecida é abrir esse fluxo no navegador do
-sistema. Não foi exercitado aqui porque exigiria credenciais reais do Caio.
+sistema. Não foi exercitado aqui porque exigiria credenciais reais do usuário.
 
 Nuance registrada, sem defeito: o contrato diz que `anchorURL` é imutável, e
 no caminho de reuse ele é de fato reescrito pelo state novo (a pane de
