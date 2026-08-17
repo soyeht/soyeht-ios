@@ -104,7 +104,54 @@ struct AppManifest: Codable, Hashable {
     let capabilities: [String]      // 2a: DEVE ser vazio
     let optionalCapabilities: [String]  // pré-declaração; 2a: vazio
 }
+
+struct AppPublisher: Codable, Hashable {
+    let id: String           // identificador estável, opaco na 2a: [a-z0-9-], 3...64
+    let displayName: String  // DADO DE TERCEIRO — não-confiável na renderização
+}
 ```
+
+### Assinatura e proveniência (lacuna fechada 2026-08-17, achado da cassia)
+
+**O manifesto NÃO tem campo de assinatura.** Esta é a decisão, e o motivo
+importa mais que a regra:
+
+Um artefato **não declara a própria confiabilidade**. Se o manifesto
+carregasse `signature: String?`, a 2a teria um campo que ninguém verifica e
+que, três meses depois, alguém trata como verificado. É a forma mais comum
+de segurança de fachada. Além disso, uma assinatura *dentro* da estrutura que
+ela assina exige canonicalização para ser coerente — e o repo já resolve isso
+do jeito certo em outro lugar: `RelayStreamOfferContract` mantém o payload
+canônico e a assinatura **fora** dele.
+
+Portanto, proveniência é **derivada da instalação**, nunca declarada pelo
+bundle:
+
+```swift
+/// Como este app entrou na máquina. Derivado pelo instalador, nunca lido
+/// do manifesto. Desconhecido ⇒ não-verificado, por construção.
+enum AppProvenance: String, Codable, Hashable {
+    case localUnverified   // única aceita na 2a
+}
+```
+
+- **Na 2a: apenas `localUnverified`.** Instalação é manual, não há raiz de
+  confiança, não há verificação criptográfica. E isso fica **explícito no
+  modelo e na UI** ("instalado localmente, não verificado"), em vez de
+  implícito.
+- `AppPublisher` na 2a é **transportado e exibido**, nunca autoridade: não
+  concede nada, não é usado em decisão de acesso. Serve para o usuário saber
+  o que instalou, e para o campo já existir quando a Fase 3 precisar dele.
+- Quando a assinatura chegar (Fase 3), ela vem como **envelope externo** que
+  cobre os bytes canônicos do manifesto **mais** o fingerprint do bundle, com
+  a proveniência ganhando casos novos. O manifesto não muda de forma.
+- Segue a lei já escrita em `docs/local-workspace-trust-model.md`: estado
+  derivado de prova, nunca projeção gravável; ausente ⇒ fraco.
+
+Registro do que **fica de fora da 2a**, para ninguém supor o contrário:
+verificação criptográfica, raiz de confiança, revogação remota (kill switch)
+e identidade de publicador com accountability. Tudo isso é Fase 3, e é o que
+a decisão "qualquer usuário pagante publica" vai exigir.
 
 - **Decodificação estrita explícita** (cassia): `Codable` sintetizado
   **ignora** chaves desconhecidas. Rejeitar chave extra exige decoder
