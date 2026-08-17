@@ -1736,24 +1736,26 @@ final class SoyehtAutomationRequestRouter {
             forceNew: payload.newPane ?? false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
-            openedSpecialPane(opened, url: url.absoluteString, windowID: target.windowID)
+            openedSpecialPane(opened, windowID: target.windowID)
         ])
     }
 
     private func openedSpecialPane(
         _ result: SoyehtMainWindowController.OpenedSpecialPaneResult,
-        url: String? = nil,
         windowID: String
     ) -> SoyehtAutomationResponse.OpenedSpecialPane {
+        // Web panes carry their URL in `result.url` (from the stored state)
+        // and have an empty `path`: report the URL as path so the wire
+        // describes what the model stores instead of a meaningless string.
         SoyehtAutomationResponse.OpenedSpecialPane(
             kind: result.kind.rawValue,
-            path: url ?? result.path,
+            path: result.url ?? result.path,
             workspaceID: result.workspaceID.uuidString,
             conversationID: result.conversationID.uuidString,
             handle: result.handle,
             reused: result.reused,
             windowID: windowID,
-            url: url
+            url: result.url
         )
     }
 
