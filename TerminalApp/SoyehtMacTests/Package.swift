@@ -27,6 +27,10 @@ let package = Package(
                 // app tree; the isolated domain target intentionally lacks
                 // its window-controller and pane-grid dependencies.
                 "MainMenu/WindowCommandActionPerformer.swift",
+            ],
+            linkerSettings: [
+                .linkedLibrary("sqlite3"),
+                .linkedFramework("Security"),
             ]
         ),
         .testTarget(
@@ -36,7 +40,8 @@ let package = Package(
                 .product(name: "SoyehtCore", package: "SoyehtCore"),
             ],
             path: "Tests",
-            exclude: ["Fixtures"]
+            exclude: ["Fixtures"],
+            linkerSettings: [.linkedLibrary("sqlite3")]
         ),
     ]
 )

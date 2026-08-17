@@ -55,6 +55,12 @@
           "title" : "Connected Servers…"
         },
         {
+          "action" : "dispatchAppCommand:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Conversation Intelligence…"
+        },
+        {
           "kind" : "separator"
         },
         {
