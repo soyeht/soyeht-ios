@@ -219,4 +219,84 @@ final class PathScopeTests: XCTestCase {
             XCTAssertEqual(error as? PathScope.PathScopeError, .invalidRoot)
         }
     }
+
+    // MARK: - Directory listing (installer walk primitive)
+
+    /// The fingerprint-coverage fix depends on this: hidden files MUST
+    /// appear in a kernel listing, unlike `contentsOfDirectory` with
+    /// `.skipsHiddenFiles`. What's on disk is what gets measured.
+    func testListingIncludesHiddenFiles() throws {
+        try "hidden".write(to: root.appendingPathComponent(".payload.js"), atomically: true, encoding: .utf8)
+        let scope = try makeScope()
+
+        let entries = try scope.listDirectoryEntries(relativePath: ".")
+
+        let names = entries.map(\.name)
+        XCTAssertTrue(names.contains(".payload.js"), "hidden files must be listed — fingerprint coverage")
+        XCTAssertTrue(names.contains("file.txt"))
+        XCTAssertTrue(names.contains("sub"))
+        XCTAssertEqual(names, names.sorted(), "listing must be deterministic (sorted by name)")
+    }
+
+    func testListingReportsEntryKinds() throws {
+        let scope = try makeScope()
+
+        let entries = try scope.listDirectoryEntries(relativePath: ".")
+
+        XCTAssertEqual(entries.first(where: { $0.name == "file.txt" })?.kind, .file)
+        XCTAssertEqual(entries.first(where: { $0.name == "sub" })?.kind, .directory)
+    }
+
+    /// Symlink entries are visible as `.other` — naming them is required
+    /// so the walker can fail loudly on them, but they are never openable.
+    func testListingSurfacesSymlinkAsOtherKind() throws {
+        try link("lure.txt", to: outside.appendingPathComponent("secret.txt"))
+        let scope = try makeScope()
+
+        let entries = try scope.listDirectoryEntries(relativePath: ".")
+
+        XCTAssertEqual(entries.first(where: { $0.name == "lure.txt" })?.kind, .other)
+    }
+
+    func testListingSubdirectory() throws {
+        let scope = try makeScope()
+
+        let entries = try scope.listDirectoryEntries(relativePath: "sub")
+
+        XCTAssertEqual(entries.map(\.name), ["nested.txt"])
+        XCTAssertEqual(entries.first?.kind, .file)
+    }
+
+    func testOpenDirectoryForListingReturnsClosableDescriptor() throws {
+        let scope = try makeScope()
+        let fd = try scope.openDirectoryForListing(relativePath: "sub")
+        XCTAssertGreaterThanOrEqual(fd, 0)
+        Darwin.close(fd)
+    }
+
+    /// The walk primitive fails on the SAME escape vectors as file opens —
+    /// it is the path receiving externally-pointed directories, so `..`,
+    /// absolutes, and symlinked components must never become listable.
+    func testDirectoryListingEscapeVectorsFail() throws {
+        try link("sub-link", to: root.appendingPathComponent("sub"))
+        let scope = try makeScope()
+
+        XCTAssertThrowsError(try scope.openDirectoryForListing(relativePath: "../outside")) { error in
+            XCTAssertEqual(error as? PathScope.PathScopeError, .parentReference(".."))
+        }
+        XCTAssertThrowsError(try scope.openDirectoryForListing(relativePath: "/private/etc")) { error in
+            XCTAssertEqual(error as? PathScope.PathScopeError, .absolutePath("/private/etc"))
+        }
+        XCTAssertThrowsError(try scope.openDirectoryForListing(relativePath: "sub-link")) { error in
+            XCTAssertEqual(error as? PathScope.PathScopeError, .symlinkComponent("sub-link"))
+        }
+    }
+
+    func testClosedScopeRefusesListing() throws {
+        let scope = try makeScope()
+        scope.close()
+        XCTAssertThrowsError(try scope.listDirectoryEntries(relativePath: ".")) { error in
+            XCTAssertEqual(error as? PathScope.PathScopeError, .closed)
+        }
+    }
 }

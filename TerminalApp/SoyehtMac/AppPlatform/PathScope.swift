@@ -140,6 +140,79 @@ final class PathScope {
         return fd
     }
 
+    /// One directory entry as reported by the kernel. Symlinks surface as
+    /// `.other` (`DT_LNK`): they are *visible* as names, but never openable
+    /// — callers walking a tree must only recurse into `.directory` and
+    /// only read `.file`, treating `.other` (and anything unexpected) as
+    /// an error per the fail-closed rule.
+    struct Entry: Equatable {
+        enum Kind: Equatable { case file, directory, other }
+        let name: String
+        let kind: Kind
+    }
+
+    /// Opens a directory **beneath the root** and returns its descriptor,
+    /// compatible with `fdopendir`. Ownership of the fd transfers to the
+    /// caller. Use `"."` to re-open the scope root itself.
+    ///
+    /// Same imposition and same distinguishable errors as
+    /// `openFileForReading(relativePath:)` — this is the walk primitive the
+    /// installer uses on externally-pointed directories, so the escape
+    /// vectors fail identically here.
+    func openDirectoryForListing(relativePath: String) throws -> Int32 {
+        try validate(relativePath)
+
+        lock.lock()
+        defer { lock.unlock() }
+        guard rootFD >= 0 else {
+            throw PathScopeError.closed
+        }
+
+        let fd = openat(
+            rootFD,
+            relativePath,
+            O_RDONLY | O_DIRECTORY | O_RESOLVE_BENEATH | O_NOFOLLOW_ANY | O_CLOEXEC
+        )
+        guard fd >= 0 else {
+            throw Self.from(errno: errno, path: relativePath, rootFD: rootFD)
+        }
+        return fd
+    }
+
+    /// Lists a directory beneath the root (use `"."` for the root itself),
+    /// sorted by name for deterministic fingerprints. Does NOT skip hidden
+    /// files — the kernel listing is the truth on disk, so a `.payload.js`
+    /// is enumerated exactly like any other entry (see the fingerprint
+    /// coverage fix). Symlink entries appear with kind `.other`.
+    ///
+    /// Throws `PathScopeError` for the same vectors as every other open.
+    func listDirectoryEntries(relativePath: String) throws -> [Entry] {
+        let dirFD = try openDirectoryForListing(relativePath: relativePath)
+        // fdopendir consumes the descriptor; closedir releases it.
+        guard let dir = fdopendir(dirFD) else {
+            Darwin.close(dirFD)
+            throw PathScopeError.systemError(relativePath, errno: errno)
+        }
+        defer { closedir(dir) }
+
+        var entries: [Entry] = []
+        while let dp = readdir(dir) {
+            let name = withUnsafeBytes(of: dp.pointee.d_name) { raw -> String? in
+                guard let base = raw.baseAddress else { return nil }
+                return String(validatingUTF8: base.assumingMemoryBound(to: CChar.self))
+            }
+            guard let name, name != ".", name != ".." else { continue }
+            let kind: Entry.Kind
+            switch dp.pointee.d_type {
+            case UInt8(DT_REG): kind = .file
+            case UInt8(DT_DIR): kind = .directory
+            default: kind = .other
+            }
+            entries.append(Entry(name: name, kind: kind))
+        }
+        return entries.sorted { $0.name < $1.name }
+    }
+
     /// Releases the root descriptor. Idempotent. After this call every
     /// further open throws `.closed`; the fd number is never touched
     /// again, so a recycled number cannot be closed or used twice.
