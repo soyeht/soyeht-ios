@@ -31,4 +31,15 @@ final class AppManifestTests: XCTestCase {
             XCTAssertEqual(error as? AppManifestError, .fileTooLarge)
         }
     }
+
+    func testKnownCapabilityIsAccepted() throws {
+        let raw = valid.replacingOccurrences(of: #"\"capabilities\":[]"#, with: #"\"capabilities\":[\"metrics.read\"]"#)
+        let manifest = try AppManifest.decode(Data(raw.utf8))
+        XCTAssertEqual(manifest.capabilities, [AppCapability.metricsRead.rawValue])
+    }
+
+    func testUnknownCapabilityIsRejected() {
+        let raw = valid.replacingOccurrences(of: #"\"capabilities\":[]"#, with: #"\"capabilities\":[\"network.read\"]"#)
+        XCTAssertThrowsError(try AppManifest.decode(Data(raw.utf8)))
+    }
 }

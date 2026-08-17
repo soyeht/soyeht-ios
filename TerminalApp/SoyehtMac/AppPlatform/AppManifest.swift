@@ -32,7 +32,7 @@ enum AppProvenance: String, Codable, Hashable { case localUnverified }
 
 enum AppManifestError: Error, Equatable {
     case unknownKey(String), unsupportedSchemaVersion, invalidIdentifier, invalidPublisherID
-    case invalidEntry, capabilitiesNotAllowed, fileTooLarge
+    case invalidEntry, capabilitiesNotAllowed, unknownCapability, fileTooLarge
 }
 
 private struct AnyKey: CodingKey { let stringValue: String; init?(stringValue: String) { self.stringValue = stringValue }; let intValue: Int? = nil; init?(intValue: Int) { nil } }
@@ -52,7 +52,8 @@ struct AppManifest: Codable, Hashable {
         guard schemaVersion == 1 else { throw AppManifestError.unsupportedSchemaVersion }
         guard Self.isValidIdentifier(id) else { throw AppManifestError.invalidIdentifier }
         guard Self.isValidRelativePath(entry) else { throw AppManifestError.invalidEntry }
-        guard capabilities.isEmpty, optionalCapabilities.isEmpty else { throw AppManifestError.capabilitiesNotAllowed }
+        try AppCapabilityPolicy.validate(capabilities)
+        guard optionalCapabilities.isEmpty else { throw AppManifestError.capabilitiesNotAllowed }
         self.schemaVersion = schemaVersion; self.id = id; self.name = name; self.version = version
         self.entry = entry; self.publisher = publisher; self.capabilities = capabilities; self.optionalCapabilities = optionalCapabilities
     }
