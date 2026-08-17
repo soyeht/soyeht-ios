@@ -105,4 +105,23 @@ final class AppPaneStateTests: XCTestCase {
         }
         XCTAssertNil(state.name)
     }
+
+    /// The wire `path` field has ONE producer (contract rule born of the
+    /// path-empty defect): every automation consumer reads
+    /// `automationReportPath`, so no site can diverge by omission.
+    func testAutomationReportPathIsTheSingleWireProducer() {
+        let app = PaneContent.app(AppPaneState(installID: "inst-01", appID: "sys-monitor"))
+        XCTAssertEqual(app.automationReportPath, "app:sys-monitor")
+
+        let web = PaneContent.web(WebPaneState(
+            anchorURL: "https://example.com",
+            url: "https://example.com/navigated"
+        ))
+        XCTAssertEqual(web.automationReportPath, "https://example.com/navigated")
+
+        let editor = PaneContent.editor(EditorPaneState(rootPath: "/tmp/project"))
+        XCTAssertEqual(editor.automationReportPath, "/tmp/project")
+
+        XCTAssertNil(PaneContent.terminal(TerminalPaneState()).automationReportPath)
+    }
 }

@@ -1422,7 +1422,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             return OpenedSpecialPaneResult(
                 kind: content.kind,
-                path: content.primaryPath ?? workingDirectoryPath ?? "",
+                path: content.automationReportPath ?? workingDirectoryPath ?? "",
                 url: Self.webURL(in: content),
                 workspaceID: existing.workspaceID,
                 conversationID: existing.id,
@@ -1459,7 +1459,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         PaneStatusTracker.shared.nudgeRecompute()
         return OpenedSpecialPaneResult(
             kind: content.kind,
-            path: content.primaryPath ?? workingDirectoryPath ?? "",
+            path: content.automationReportPath ?? workingDirectoryPath ?? "",
             url: Self.webURL(in: content),
             workspaceID: workspaceID,
             conversationID: paneID,
@@ -2197,7 +2197,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
-                path: conv.content.primaryPath ?? conv.workingDirectoryPath ?? "",
+                path: conv.content.automationReportPath ?? conv.workingDirectoryPath ?? "",
                 declaredAgent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 isActive: activePaneInWS == conv.id,
                 isActiveWorkspace: conv.workspaceID == activeWorkspaceID,

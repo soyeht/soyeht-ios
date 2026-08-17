@@ -1437,19 +1437,10 @@ final class SoyehtAutomationRequestRouter {
         }
     }
 
-    /// Web panes have no file path: `primaryPath` is nil and the conversation
-    /// working directory is only a process cwd, so report the current URL
-    /// instead of leaking the home directory onto the wire.
+    /// Thin fallback wrapper: the report token itself lives on PaneContent
+    /// (`automationReportPath`) so EVERY wire producer shares one source.
     private func automationReportPath(for content: PaneContent, workingDirectoryPath: String?) -> String {
-        if case .web(let state) = content {
-            return state.url
-        }
-        if case .app(let state) = content {
-            // Not a filesystem path (never leak install layout); the app id
-            // is the useful, honest token for a pane that renders an app.
-            return "app:\(state.appID)"
-        }
-        return content.primaryPath ?? workingDirectoryPath ?? ""
+        content.automationReportPath ?? workingDirectoryPath ?? ""
     }
 
     private struct AutomationSourceResolution {

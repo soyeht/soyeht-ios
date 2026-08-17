@@ -219,6 +219,28 @@ enum PaneContent: Codable, Hashable {
         }
     }
 
+    /// The single producer for the `path` field reported to automation
+    /// consumers (list_panes, list_agents, identify_agent, open_* results).
+    /// Contract rule born of the path-empty defect: EVERY producer of that
+    /// wire field goes through here — a helper that is only a convention
+    /// grows exceptions, and each exception reports wrong data.
+    ///
+    /// Web panes report the current URL; app panes report `app:<appID>`
+    /// (never the install layout); file-backed panes report `primaryPath`.
+    /// nil means the pane has no path-like token (terminal).
+    var automationReportPath: String? {
+        switch self {
+        case .terminal:
+            return nil
+        case .editor, .git:
+            return primaryPath
+        case .web(let state):
+            return state.url
+        case .app(let state):
+            return "app:\(state.appID)"
+        }
+    }
+
     var matchingKey: String {
         switch self {
         case .terminal:

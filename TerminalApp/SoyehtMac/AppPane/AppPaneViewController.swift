@@ -1,4 +1,5 @@
 import AppKit
+import os
 import WebKit
 
 /// Renders an installed app (Phase 2a): a local HTML/JS/CSS bundle served
@@ -16,6 +17,15 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .app
     private(set) var state: AppPaneState
+
+    /// Navigation-lifecycle instrumentation (Phase 2a intermittent-render
+    /// hunt): the next time a runtime-created pane paints black, these logs
+    /// say whether the load completed (process alive, compositing fault) or
+    /// never did (load/process fault) — mechanism instead of symptom.
+    /// `webContentProcessDidTerminate` additionally reloads, which is both
+    /// the standard recovery AND the remedy if the mechanism is WebContent
+    /// death in long-lived processes.
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "app.pane")
 
     private let record: AppInstallRecord
     private let schemeHandler: AppBundleSchemeHandler
@@ -127,6 +137,7 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         components.host = AppBundleSchemeHandler.host
         components.path = "/" + record.manifest.entry
         guard let url = components.url else { return }
+        Self.logger.log("app_pane_load pane=\(self.paneID.uuidString, privacy: .public) url=\(url.absoluteString, privacy: .public) inWindow=\(self.webView.window != nil, privacy: .public) bounds=\(NSStringFromRect(self.webView.bounds), privacy: .public)")
         webView.load(URLRequest(url: url))
     }
 
@@ -139,6 +150,39 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     // MARK: - WKNavigationDelegate
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        Self.logger.log("app_pane_nav_start pane=\(self.paneID.uuidString, privacy: .public)")
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        Self.logger.log("app_pane_nav_commit pane=\(self.paneID.uuidString, privacy: .public)")
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Self.logger.log("app_pane_nav_finish pane=\(self.paneID.uuidString, privacy: .public) bounds=\(NSStringFromRect(webView.bounds), privacy: .public)")
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        Self.logger.error("app_pane_nav_fail pane=\(self.paneID.uuidString, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        Self.logger.error("app_pane_nav_fail_provisional pane=\(self.paneID.uuidString, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        Self.logger.error("app_pane_webcontent_terminated pane=\(self.paneID.uuidString, privacy: .public) — reloading")
+        // Guarded against teardown: reloading a closed pane would reopen its
+        // PathScope'd bundle behind the user's back.
+        guard !isTornDown else { return }
+        if webView.url != nil {
+            webView.reload()
+        } else {
+            // Termination before the first commit leaves nothing to reload.
+            loadEntry()
+        }
+    }
 
     func webView(
         _ webView: WKWebView,
