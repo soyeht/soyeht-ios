@@ -65,7 +65,7 @@ final class ClawSiteURLSchemeHandlerTests: XCTestCase {
         }
 
         let task = FakeURLSchemeTask(request: makeRequest())
-        handler.webView(WKWebView(), start: task)
+        handler.start(task)
 
         wait(for: [expectation], timeout: 2)
 
@@ -96,7 +96,7 @@ final class ClawSiteURLSchemeHandlerTests: XCTestCase {
         }
 
         let task = FakeURLSchemeTask(request: makeRequest())
-        handler.webView(WKWebView(), start: task)
+        handler.start(task)
 
         wait(for: [expectation], timeout: 2)
     }
