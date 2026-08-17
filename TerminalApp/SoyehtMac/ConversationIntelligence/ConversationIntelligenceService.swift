@@ -23,6 +23,7 @@ struct ConversationIntelligenceScanReport: Equatable, Sendable {
         let discoveredConversations: Int
         let changedTurns: Int
         let unknownEvents: Int
+        let failedSources: Int
         let remainingConversations: Int
         let error: String?
 
@@ -44,6 +45,10 @@ struct ConversationIntelligenceScanReport: Equatable, Sendable {
 
     var remainingConversations: Int {
         sources.reduce(0) { $0 + $1.remainingConversations }
+    }
+
+    var failedSources: Int {
+        sources.reduce(0) { $0 + $1.failedSources }
     }
 }
 
@@ -115,6 +120,7 @@ actor ConversationIntelligenceService {
                     discoveredConversations: descriptors.count,
                     changedTurns: counts.changed,
                     unknownEvents: counts.unknown,
+                    failedSources: counts.failed,
                     remainingConversations: 0,
                     error: nil
                 ))
@@ -124,6 +130,7 @@ actor ConversationIntelligenceService {
                     discoveredConversations: 0,
                     changedTurns: 0,
                     unknownEvents: 0,
+                    failedSources: 0,
                     remainingConversations: 0,
                     error: Self.safeSourceError(error, agent: adapter.agent)
                 ))
@@ -182,6 +189,7 @@ actor ConversationIntelligenceService {
                 discoveredConversations: selected.count,
                 changedTurns: counts.changed,
                 unknownEvents: counts.unknown,
+                failedSources: counts.failed,
                 remainingConversations: queue.remaining,
                 error: backfillErrors[adapter.agent]
             ))
@@ -361,9 +369,10 @@ actor ConversationIntelligenceService {
     private func ingestDescriptors(
         _ descriptors: [NativeConversationDescriptor],
         with adapter: any ConversationSourceAdapter
-    ) -> (changed: Int, unknown: Int) {
+    ) -> (changed: Int, unknown: Int, failed: Int) {
         var changed = 0
         var unknown = 0
+        var failed = 0
         for descriptor in descriptors {
             do {
                 let cursor = try database.cursor(for: descriptor.sourceURL)
@@ -399,10 +408,10 @@ actor ConversationIntelligenceService {
                     offset = batch.nextByteOffset
                 }
             } catch {
-                unknown += 1
+                failed += 1
             }
         }
-        return (changed, unknown)
+        return (changed, unknown, failed)
     }
 
     private static func safeSourceError(

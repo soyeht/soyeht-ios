@@ -42,6 +42,8 @@ history** discovers the older corpus once and processes at most 100 sessions
 per provider per batch with utility priority. It can be stopped without losing
 cursor progress. If any subtree cannot be enumerated, the whole provider is
 reported unavailable rather than presenting a partial index as complete.
+Per-conversation read failures are counted separately from unknown schema
+events, so transport or permission failures cannot masquerade as schema drift.
 
 Cursor identity combines a salted source key, provider source revision, byte
 or time high-water mark, and a parser revision. A rewritten source replaces its

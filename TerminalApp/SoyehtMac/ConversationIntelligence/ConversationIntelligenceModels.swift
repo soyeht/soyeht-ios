@@ -63,7 +63,7 @@ struct NativeConversationDescriptor: Hashable, Sendable {
     /// Bump when adapter classification semantics change. This makes a parser
     /// upgrade replace the derived rows even when the provider file itself is
     /// byte-for-byte unchanged.
-    var ingestRevision: String { "\(sourceRevision):ci-parser-v1" }
+    var ingestRevision: String { "\(sourceRevision):ci-parser-v2" }
 }
 
 struct NativeConversationTurn: Hashable, Sendable {
@@ -104,6 +104,7 @@ enum ConversationSchemaManifest {
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "record:turn_context"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "record:compacted"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "record:world_state"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "record:inter_agent_communication_metadata"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:input_text"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:input_text+input_image"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:environment-context"),
@@ -116,6 +117,9 @@ enum ConversationSchemaManifest {
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:function_call_output"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:custom_tool_call"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:custom_tool_call_output"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:tool_search_call"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:tool_search_output"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "payload:agent_message"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:user"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:assistant"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:system"),
@@ -129,9 +133,17 @@ enum ConversationSchemaManifest {
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:last-prompt"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:mode"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:permission-mode"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:agent-name"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:frame-link"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:pr-link"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:relocated"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:result"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:started"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "record:worktree-state"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:string:human-candidate"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:text-array:human-candidate"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:tool-result"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:sidechain"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:envelope"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:meta"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:compacted"),
@@ -140,6 +152,8 @@ enum ConversationSchemaManifest {
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:task-notification"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:handoff-transport"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:legacy-unattributed-text"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:sdk-input"),
+        .init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:typed-unattributed"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "assistant:text"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "assistant:sidechain"),
         .init(store: "claude", schemaVersion: "jsonl-v2", shape: "assistant:meta"),

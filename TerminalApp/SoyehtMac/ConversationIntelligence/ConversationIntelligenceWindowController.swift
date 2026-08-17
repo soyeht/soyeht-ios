@@ -133,11 +133,11 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         errorMessage = nil
         startMonitoringIfNeeded()
         backfillTask = Task(priority: .utility) { [weak self] in
-            await service.restartBackfillDiscovery()
+            guard let self else { return }
+            await self.service.restartBackfillDiscovery()
             var batches = 0
             while !Task.isCancelled {
-                guard let self else { return }
-                let report = await service.scanBackfillBatch(perAgentLimit: 100)
+                let report = await self.service.scanBackfillBatch(perAgentLimit: 100)
                 guard !Task.isCancelled else { return }
                 scanReport = report
                 batches += 1
@@ -332,6 +332,14 @@ private struct ConversationIntelligenceRootView: View {
         if let report = model.scanReport, report.undeclaredSchemaShapes > 0 {
             Label(
                 "\(report.undeclaredSchemaShapes) unsupported transcript shape(s) were excluded",
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+        }
+        if let report = model.scanReport, report.failedSources > 0 {
+            Label(
+                "\(report.failedSources) conversation source(s) could not be read",
                 systemImage: "exclamationmark.triangle"
             )
             .font(.caption)

@@ -271,10 +271,12 @@ struct CodexConversationAdapter: ConversationSourceAdapter {
                 let knownToolTypes: Set<String> = [
                     "function_call", "function_call_output",
                     "custom_tool_call", "custom_tool_call_output",
+                    "tool_search_call", "tool_search_output",
                 ]
                 let isReasoning = payloadType == "reasoning"
+                let isAgentMessage = payloadType == "agent_message"
                 let isKnownTool = knownToolTypes.contains(payloadType)
-                let shape = isReasoning || isKnownTool
+                let shape = isReasoning || isAgentMessage || isKnownTool
                     ? "payload:\(payloadType)"
                     : "payload:unknown"
                 let observation = ConversationSchemaObservation(
@@ -283,7 +285,7 @@ struct CodexConversationAdapter: ConversationSourceAdapter {
                     shape: shape
                 )
                 observations.insert(observation)
-                let evidence: NativeConversationTurnEvidence = isReasoning
+                let evidence: NativeConversationTurnEvidence = isReasoning || isAgentMessage
                     ? .system
                     : (isKnownTool ? .tool : .unknown)
                 if evidence == .unknown { unknown += 1 }
@@ -291,9 +293,11 @@ struct CodexConversationAdapter: ConversationSourceAdapter {
                     ?? (payload["call_id"] as? String)
                 turns.append(NativeConversationTurn(
                     ordinal: Int(clamping: line.absoluteByteOffset),
-                    nativeRole: isReasoning ? "reasoning" : "tool",
+                    nativeRole: isReasoning || isAgentMessage ? "system" : "tool",
                     evidence: evidence,
-                    text: isReasoning ? "[reasoning event]" : "[tool event]",
+                    text: isReasoning
+                        ? "[reasoning event]"
+                        : (isAgentMessage ? "[agent message]" : "[tool event]"),
                     timestamp: ConversationTimestampParser.parse(object["timestamp"]),
                     sourceEventID: nativeEventID.map { "\(payloadType):\($0)" },
                     model: nil,
@@ -560,6 +564,7 @@ struct ClaudeConversationAdapter: ConversationSourceAdapter {
         case ("assistant", .tool): shape = "assistant:tool-use"
         case ("assistant", .compacted): shape = "assistant:control"
         case ("user", .tool): shape = "user:tool-result"
+        case ("user", .sidechain): shape = "user:sidechain"
         case ("user", .soyehtEnvelope): shape = "user:envelope"
         case ("user", .handoffTransport): shape = "user:handoff-transport"
         case ("user", .compacted): shape = "user:compacted"
@@ -578,6 +583,24 @@ struct ClaudeConversationAdapter: ConversationSourceAdapter {
             shape = content is String
                 ? "user:string:human-candidate"
                 : "user:text-array:human-candidate"
+        case ("user", .unknown):
+            let promptSource = object["promptSource"] as? String
+            let originKind = (object["origin"] as? [String: Any])?["kind"] as? String
+            if promptSource == "sdk" {
+                // SDK-originated text is a known input channel but lacks
+                // proof of human authorship, so it remains excluded.
+                shape = "user:sdk-input"
+            } else if promptSource == "typed", originKind == nil {
+                shape = "user:typed-unattributed"
+            } else {
+                let noAttribution = promptSource == nil && originKind == nil
+                let textOnly = content is String || ((content as? [[String: Any]])?.allSatisfy {
+                    ($0["type"] as? String) == "text"
+                } == true)
+                shape = noAttribution && textOnly
+                    ? "user:legacy-unattributed-text"
+                    : "user:unknown-shape"
+            }
         case ("assistant", _): shape = "assistant:unknown-shape"
         default:
             let noAttribution = object["promptSource"] == nil && object["origin"] == nil

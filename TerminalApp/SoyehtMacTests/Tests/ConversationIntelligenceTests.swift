@@ -19,6 +19,14 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
             origin: "human"
         )
         explicitlyNotMeta["isMeta"] = false
+        var sidechainUser = claudeUser(
+            "subagent notification",
+            uuid: "u10",
+            promptSource: nil,
+            origin: "task-notification"
+        )
+        sidechainUser["isMeta"] = true
+        sidechainUser["isSidechain"] = true
         try writeJSONL([
             claudeUser("real human prompt", uuid: "u1", promptSource: "typed", origin: "human"),
             claudeUser(envelope, uuid: "u2", promptSource: "typed", origin: "human"),
@@ -28,6 +36,8 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
             meta,
             claudeUser("task notification", uuid: "u7", promptSource: "queued", origin: "task-notification"),
             explicitlyNotMeta,
+            claudeUser("sdk supplied input", uuid: "u9", promptSource: "sdk", origin: "human"),
+            sidechainUser,
             claudeAssistant("assistant answer", uuid: "a1", sidechain: false),
             claudeAssistant("subagent answer", uuid: "a2", sidechain: true),
         ], to: file)
@@ -47,9 +57,11 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         XCTAssertEqual(roles["u6"], .system)
         XCTAssertEqual(roles["u7"], .system)
         XCTAssertEqual(roles["u8"], .humanCandidate)
+        XCTAssertEqual(roles["u9"], .unknown, "SDK input has no proof of human authorship")
+        XCTAssertEqual(roles["u10"], .subagent)
         XCTAssertEqual(roles["a1"], .assistant)
         XCTAssertEqual(roles["a2"], .subagent)
-        XCTAssertEqual(result.unknownEventCount, 1)
+        XCTAssertEqual(result.unknownEventCount, 2)
         XCTAssertEqual(
             ConversationSchemaManifest.undeclared(in: result.observedSchemaShapes),
             [.init(store: "claude", schemaVersion: "jsonl-v2", shape: "user:unknown-shape")],
@@ -96,6 +108,16 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
                 ]],
             ],
         ])
+        let agentMessage = jsonData([
+            "timestamp": "2026-08-16T10:00:00Z",
+            "type": "response_item",
+            "payload": ["type": "agent_message", "id": "agent-message-neutral"],
+        ])
+        let toolSearch = jsonData([
+            "timestamp": "2026-08-16T10:00:00Z",
+            "type": "response_item",
+            "payload": ["type": "tool_search_call", "id": "tool-search-neutral"],
+        ])
         let duplicateDisplay = jsonData([
             "timestamp": "2026-08-16T10:00:01Z",
             "type": "event_msg",
@@ -109,11 +131,14 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
                 "content": [["type": "output_text", "text": "neutral answer"]],
             ],
         ]), encoding: .utf8)!
-        var data = meta + Data([0x0A])
-            + environmentContext + Data([0x0A])
-            + userInstructions + Data([0x0A])
-            + user + Data([0x0A])
-            + duplicateDisplay + Data([0x0A])
+        var data = Data()
+        for record in [
+            meta, environmentContext, userInstructions,
+            agentMessage, toolSearch, user, duplicateDisplay,
+        ] {
+            data.append(record)
+            data.append(0x0A)
+        }
         data.append(Data(partial.dropLast().utf8))
         try data.write(to: file)
 
@@ -125,6 +150,8 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         })
         XCTAssertEqual(firstRoles["environment-neutral"], .system)
         XCTAssertEqual(firstRoles["instructions-neutral"], .system)
+        XCTAssertEqual(firstRoles["agent_message:agent-message-neutral"], .system)
+        XCTAssertEqual(firstRoles["tool_search_call:tool-search-neutral"], .tool)
         XCTAssertEqual(firstRoles["user-neutral"], .humanCandidate)
         XCTAssertTrue(ConversationSchemaManifest.undeclared(in: first.observedSchemaShapes).isEmpty)
 
@@ -648,6 +675,37 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
         XCTAssertTrue(report.sources.allSatisfy { !($0.error?.contains(root.path) ?? false) })
     }
 
+    func testPerConversationReadFailuresDoNotMasqueradeAsSchemaDrift() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let descriptor = NativeConversationDescriptor(
+            agent: .codex,
+            nativeSessionID: "unreadable-neutral",
+            sourceURL: root.appendingPathComponent("unreadable-neutral.jsonl"),
+            projectPath: nil,
+            startedAt: nil,
+            updatedAt: Date(),
+            sourceRevision: "unreadable-neutral-revision"
+        )
+        let service = ConversationIntelligenceService(
+            database: try ConversationIntelligenceDatabase(
+                url: root.appendingPathComponent("private-index.sqlite"),
+                identitySalt: Data(repeating: 9, count: 32)
+            ),
+            adapters: [FailingReadConversationSourceAdapter(descriptor: descriptor)],
+            embedder: OllamaQwenEmbeddingClient()
+        )
+
+        let report = await service.scanRecent(days: 90)
+        let source = try XCTUnwrap(report.sources.first)
+        XCTAssertEqual(source.discoveredConversations, 1)
+        XCTAssertEqual(source.changedTurns, 0)
+        XCTAssertEqual(source.unknownEvents, 0)
+        XCTAssertEqual(source.failedSources, 1)
+        XCTAssertEqual(report.failedSources, 1)
+        XCTAssertNil(source.error)
+    }
+
     func testMidWalkPermissionFailureRejectsPartialDiscovery() throws {
         guard geteuid() != 0 else {
             throw XCTSkip("permission denial cannot be simulated as root")
@@ -774,6 +832,38 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
                 - (stats.searchableTurns + stats.excludedTurns),
             second.changedTurns,
             "a concurrently active provider may append, but a rescan must not create more rows than changed native events"
+        )
+    }
+
+    func testDeclaredManifestCoversBroadRecentRealCorpusFrame() throws {
+        guard ProcessInfo.processInfo.environment["SOYEHT_INTELLIGENCE_REAL_E2E"] == "1" else {
+            throw XCTSkip("set SOYEHT_INTELLIGENCE_REAL_E2E=1 for the real manifest coverage test")
+        }
+        let roots = ConversationHistoryRoots.standard()
+        let adapters: [any ConversationSourceAdapter] = [
+            CodexConversationAdapter(rootURL: roots.codexSessions),
+            ClaudeConversationAdapter(rootURL: roots.claudeProjects),
+            OpenCodeConversationAdapter(databaseURL: roots.openCodeDatabase),
+        ]
+        let cutoff = Calendar.current.date(byAdding: .day, value: -90, to: Date())
+        var observed: Set<ConversationSchemaObservation> = []
+
+        for adapter in adapters {
+            let descriptors = try adapter.discover(updatedSince: cutoff, limit: 200)
+            XCTAssertFalse(descriptors.isEmpty, "each real provider must contribute to the coverage frame")
+            for descriptor in descriptors {
+                // One bounded adapter batch per conversation is enough to
+                // widen the schema frame without turning this drift gate into
+                // a multi-gigabyte full-history import.
+                let batch = try adapter.read(descriptor, fromByteOffset: 0)
+                observed.formUnion(batch.observedSchemaShapes)
+            }
+        }
+
+        XCTAssertEqual(
+            ConversationSchemaManifest.undeclared(in: observed),
+            [],
+            "every shape observed across 200 recent conversations per provider must be declared"
         )
     }
 
@@ -975,6 +1065,23 @@ private struct PinnedConversationSourceAdapter: ConversationSourceAdapter {
         fromByteOffset: Int64
     ) throws -> NativeConversationReadResult {
         try base.read(descriptor, fromByteOffset: fromByteOffset)
+    }
+}
+
+private struct FailingReadConversationSourceAdapter: ConversationSourceAdapter {
+    let descriptor: NativeConversationDescriptor
+
+    var agent: ConversationIntelligenceAgent { descriptor.agent }
+
+    func discover(updatedSince: Date?, limit: Int?) throws -> [NativeConversationDescriptor] {
+        [descriptor]
+    }
+
+    func read(
+        _ descriptor: NativeConversationDescriptor,
+        fromByteOffset: Int64
+    ) throws -> NativeConversationReadResult {
+        throw ConversationSourceAdapterError.unreadableSource("neutral")
     }
 }
 
