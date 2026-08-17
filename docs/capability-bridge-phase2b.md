@@ -48,6 +48,30 @@ um `nonce` para o nosso script, o que precisa ser decidido com o dado na mão.
 
 Registrar o resultado com versão do sistema, como a 2a fez com storage.
 
+### RESULTADO (2026-08-17): a CSP **não** alcança a injeção
+
+Medido em macOS 26.4 / WebKit 21624.1.16.11.4, com a CSP real da 2a servida
+como cabeçalho pelo handler de esquema. A ponte fica **sem nonce**.
+
+O que sustenta a conclusão não é o caso positivo, é o **controle**: o script
+**inline da página não executou**, provando que a CSP estava ativa e valendo
+no momento do teste. Sem esse controle, "a injeção funcionou" seria
+indistinguível de "a CSP não estava ligada" — que é exatamente o erro que a
+literatura cometeu sobre a flag de confinamento.
+
+Dois dados que o Contrato 2 passa a usar como fato, não suposição:
+
+- **A tripla exata da origem** num esquema próprio chega como
+  `("soyehtapp-<id>", "local", 0)` — protocolo, host `local`, porta zero.
+  A comparação do passo 3 é contra estes três valores.
+- **`message.world.name` é observável no handler**, então o passo 1 é uma
+  comparação de verdade e não um ato de fé.
+
+Nota de API medida no caminho: no macOS a forma disponível é a de **bloco**
+(`userContentController(_:didReceive:replyHandler:)` registrada via
+`addScriptMessageHandler(_:contentWorld:name:)`). A variante async não existe
+no SDK. Sem impacto no desenho, apenas na assinatura.
+
 ## Contrato 1 — o envelope
 
 Tipos puros, sem AppKit, no pacote de domínio para serem testáveis.
