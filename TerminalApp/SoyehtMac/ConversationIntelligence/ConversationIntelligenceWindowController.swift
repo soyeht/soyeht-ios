@@ -49,6 +49,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     private var monitor: ConversationHistoryMonitor?
     private var scanRequestedWhileBusy = false
     private var lastProgressStatsRefresh = Date.distantPast
+    private var scanTask: Task<Void, Never>?
     private var backfillTask: Task<Void, Never>?
     private var embeddingTask: Task<Void, Never>?
 
@@ -59,6 +60,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     }
 
     deinit {
+        scanTask?.cancel()
         backfillTask?.cancel()
         embeddingTask?.cancel()
         monitor?.stop()
@@ -73,16 +75,21 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         errorMessage = nil
         scanProgress = nil
         lastProgressStatsRefresh = .distantPast
-        Task {
-            scanReport = await service.scanRecent(
+        let service = service
+        scanTask = Task { [weak self] in
+            let report = await service.scanRecent(
                 days: 90,
                 perAgentLimit: 250
             ) { [weak self] progress in
+                guard !Task.isCancelled else { return }
                 await self?.applyScanProgress(progress)
             }
+            guard !Task.isCancelled, let self else { return }
+            scanReport = report
             await reloadStats()
             isScanning = false
             scanProgress = nil
+            scanTask = nil
             if enableLiveUpdates { startMonitoringIfNeeded() }
             if scanRequestedWhileBusy {
                 scanRequestedWhileBusy = false
@@ -195,6 +202,11 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         backfillTask?.cancel()
         backfillTask = nil
         isBackfilling = false
+        scanTask?.cancel()
+        scanTask = nil
+        isScanning = false
+        scanProgress = nil
+        scanRequestedWhileBusy = false
         embeddingTask?.cancel()
         embeddingTask = nil
         isEmbedding = false
@@ -225,6 +237,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     }
 
     private func applyScanProgress(_ progress: ConversationIntelligenceScanProgress) async {
+        guard !Task.isCancelled else { return }
         scanProgress = progress
         scanReport = progress.report
 
@@ -368,9 +381,13 @@ private struct ConversationIntelligenceRootView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        if let report = model.scanReport, report.undeclaredSchemaShapes > 0 {
+        if model.isScanning, model.scanProgress != nil {
+            Label("Checking transcript compatibility…", systemImage: "checkmark.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if let drift = model.scanReport?.undeclaredSchemaShapes, drift > 0 {
             Label(
-                "\(report.undeclaredSchemaShapes) unsupported transcript shape(s) were excluded",
+                "\(drift) unsupported transcript shape(s) were excluded",
                 systemImage: "exclamationmark.triangle"
             )
             .font(.caption)

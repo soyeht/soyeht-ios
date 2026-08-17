@@ -33,7 +33,9 @@ struct ConversationIntelligenceScanReport: Equatable, Sendable {
     let startedAt: Date
     let finishedAt: Date
     let sources: [Source]
-    let undeclaredSchemaShapes: Int
+    /// Nil while an incremental scan is still in progress. A partial scan
+    /// must not claim that schema drift is zero before the final query runs.
+    let undeclaredSchemaShapes: Int?
 
     var discoveredConversations: Int {
         sources.reduce(0) { $0 + $1.discoveredConversations }
@@ -94,6 +96,11 @@ actor ConversationIntelligenceService {
         }
     }
 
+    private struct IngestOutcome: Sendable {
+        var counts = IngestCounts()
+        var interrupted = false
+    }
+
     private struct BackfillQueue {
         let descriptors: [NativeConversationDescriptor]
         var nextIndex: Int
@@ -106,6 +113,9 @@ actor ConversationIntelligenceService {
     private let embedder: OllamaQwenEmbeddingClient
     private var backfillQueues: [ConversationIntelligenceAgent: BackfillQueue]?
     private var backfillErrors: [ConversationIntelligenceAgent: String] = [:]
+    /// Invalidates offsets retained across an actor suspension. Clearing the
+    /// database increments this value before deleting cursors and derived rows.
+    private var indexGeneration: UInt64 = 0
 
     init(
         database: ConversationIntelligenceDatabase,
@@ -139,10 +149,15 @@ actor ConversationIntelligenceService {
         onProgress: (@Sendable (ConversationIntelligenceScanProgress) async -> Void)? = nil
     ) async -> ConversationIntelligenceScanReport {
         let startedAt = Date()
+        let scanGeneration = indexGeneration
         let cutoff = Calendar.current.date(byAdding: .day, value: -max(1, days), to: startedAt)
         var sourceReports: [ConversationIntelligenceScanReport.Source] = []
 
-        for (sourceOffset, adapter) in adapters.enumerated() {
+        scanSources: for (sourceOffset, adapter) in adapters.enumerated() {
+            guard scanMayContinue(generation: scanGeneration) else {
+                if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                break
+            }
             do {
                 let descriptors = try adapter.discover(updatedSince: cutoff, limit: perAgentLimit)
                 var counts = IngestCounts()
@@ -156,13 +171,18 @@ actor ConversationIntelligenceService {
                     counts: counts,
                     onProgress: onProgress
                 )
+                guard scanMayContinue(generation: scanGeneration) else {
+                    if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                    break scanSources
+                }
 
                 for (descriptorOffset, descriptor) in descriptors.enumerated() {
                     let countsBeforeDescriptor = counts
                     let completedSources = sourceReports
                     let descriptorCounts = await ingestDescriptor(
                         descriptor,
-                        with: adapter
+                        with: adapter,
+                        generation: scanGeneration
                     ) { [self] partialCounts in
                         await emitRecentScanProgress(
                             startedAt: startedAt,
@@ -175,7 +195,11 @@ actor ConversationIntelligenceService {
                             onProgress: onProgress
                         )
                     }
-                    counts += descriptorCounts
+                    guard !descriptorCounts.interrupted else {
+                        if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                        break scanSources
+                    }
+                    counts += descriptorCounts.counts
                     await emitRecentScanProgress(
                         startedAt: startedAt,
                         completedSources: sourceReports,
@@ -186,6 +210,10 @@ actor ConversationIntelligenceService {
                         counts: counts,
                         onProgress: onProgress
                     )
+                    guard scanMayContinue(generation: scanGeneration) else {
+                        if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                        break scanSources
+                    }
                 }
 
                 sourceReports.append(sourceReport(
@@ -194,6 +222,10 @@ actor ConversationIntelligenceService {
                     counts: counts
                 ))
             } catch {
+                guard scanMayContinue(generation: scanGeneration) else {
+                    if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                    break scanSources
+                }
                 sourceReports.append(.init(
                     agent: adapter.agent.rawValue,
                     discoveredConversations: 0,
@@ -232,6 +264,7 @@ actor ConversationIntelligenceService {
     /// skipped; recent/live ingestion remains idempotent with this backfill.
     func scanBackfillBatch(perAgentLimit: Int = 100) async -> ConversationIntelligenceScanReport {
         let startedAt = Date()
+        let scanGeneration = indexGeneration
         if backfillQueues == nil {
             var queues: [ConversationIntelligenceAgent: BackfillQueue] = [:]
             for adapter in adapters {
@@ -255,6 +288,7 @@ actor ConversationIntelligenceService {
         var reports: [ConversationIntelligenceScanReport.Source] = []
         let batchLimit = max(1, perAgentLimit)
         for adapter in adapters {
+            guard scanMayContinue(generation: scanGeneration) else { break }
             guard var queue = backfillQueues?[adapter.agent] else { continue }
             let end = min(queue.descriptors.count, queue.nextIndex + batchLimit)
             let selected = queue.nextIndex < end
@@ -263,7 +297,12 @@ actor ConversationIntelligenceService {
             queue.nextIndex = end
             backfillQueues?[adapter.agent] = queue
 
-            let counts = await ingestDescriptors(selected, with: adapter)
+            let outcome = await ingestDescriptors(
+                selected,
+                with: adapter,
+                generation: scanGeneration
+            )
+            let counts = outcome.counts
             reports.append(.init(
                 agent: adapter.agent.rawValue,
                 discoveredConversations: selected.count,
@@ -273,6 +312,7 @@ actor ConversationIntelligenceService {
                 remainingConversations: queue.remaining,
                 error: backfillErrors[adapter.agent]
             ))
+            if outcome.interrupted { break }
         }
 
         let driftCount = (try? database.undeclaredSchemaObservations().count) ?? 0
@@ -293,6 +333,7 @@ actor ConversationIntelligenceService {
     }
 
     func clearIndex() throws {
+        indexGeneration &+= 1
         try database.clearAll()
         backfillQueues = nil
         backfillErrors = [:]
@@ -460,7 +501,7 @@ actor ConversationIntelligenceService {
         guard let onProgress else { return }
         let currentSource = ConversationIntelligenceScanReport.Source(
             agent: adapter.agent.rawValue,
-            discoveredConversations: processedConversations,
+            discoveredConversations: discoveredConversations,
             changedTurns: counts.changed,
             unknownEvents: counts.unknown,
             failedSources: counts.failed,
@@ -471,7 +512,7 @@ actor ConversationIntelligenceService {
             startedAt: startedAt,
             finishedAt: Date(),
             sources: completedSources + [currentSource],
-            undeclaredSchemaShapes: 0
+            undeclaredSchemaShapes: nil
         )
         await onProgress(.init(
             report: report,
@@ -501,21 +542,40 @@ actor ConversationIntelligenceService {
 
     private func ingestDescriptors(
         _ descriptors: [NativeConversationDescriptor],
-        with adapter: any ConversationSourceAdapter
-    ) async -> IngestCounts {
-        var counts = IngestCounts()
+        with adapter: any ConversationSourceAdapter,
+        generation: UInt64
+    ) async -> IngestOutcome {
+        var outcome = IngestOutcome()
         for descriptor in descriptors {
-            counts += await ingestDescriptor(descriptor, with: adapter)
+            guard scanMayContinue(generation: generation) else {
+                outcome.interrupted = true
+                break
+            }
+            let descriptorOutcome = await ingestDescriptor(
+                descriptor,
+                with: adapter,
+                generation: generation
+            )
+            outcome.counts += descriptorOutcome.counts
+            if descriptorOutcome.interrupted {
+                outcome.interrupted = true
+                break
+            }
         }
-        return counts
+        return outcome
     }
 
     private func ingestDescriptor(
         _ descriptor: NativeConversationDescriptor,
         with adapter: any ConversationSourceAdapter,
+        generation: UInt64,
         onBatch: (@Sendable (IngestCounts) async -> Void)? = nil
-    ) async -> IngestCounts {
-        var counts = IngestCounts()
+    ) async -> IngestOutcome {
+        var outcome = IngestOutcome()
+        guard scanMayContinue(generation: generation) else {
+            outcome.interrupted = true
+            return outcome
+        }
         do {
             let cursor = try database.cursor(for: descriptor.sourceURL)
             let hasMatchingRevision = cursor?.sourceRevision == descriptor.ingestRevision
@@ -539,22 +599,42 @@ actor ConversationIntelligenceService {
             // SQLite adapters naturally stop when their high-water mark
             // no longer advances.
             for _ in 0..<256 {
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
                 let batch = try adapter.read(descriptor, fromByteOffset: offset)
                 guard batch.nextByteOffset > offset else { break }
-                counts.changed += try database.ingest(
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
+                outcome.counts.changed += try database.ingest(
                     batch,
                     replacingExistingSource: replaceOnNextBatch
                 )
                 replaceOnNextBatch = false
-                counts.unknown += batch.unknownEventCount
+                outcome.counts.unknown += batch.unknownEventCount
                 offset = batch.nextByteOffset
-                await onBatch?(counts)
+                await onBatch?(outcome.counts)
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
             }
         } catch {
-            counts.failed += 1
-            await onBatch?(counts)
+            guard scanMayContinue(generation: generation) else {
+                outcome.interrupted = true
+                return outcome
+            }
+            outcome.counts.failed += 1
+            await onBatch?(outcome.counts)
         }
-        return counts
+        return outcome
+    }
+
+    private func scanMayContinue(generation: UInt64) -> Bool {
+        !Task.isCancelled && generation == indexGeneration
     }
 
     private static func safeSourceError(
