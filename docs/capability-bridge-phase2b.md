@@ -105,7 +105,15 @@ reverter para `String` achando que segue o esboço.
   extra. Rejeitar exige container aberto comparado ao conjunto conhecido do
   próprio tipo — a receita que a 2a já aplicou no manifesto, e que só
   funciona com container aberto (medido).
-- **Limite de tamanho do corpo antes do parser**, não depois.
+- **Limite de tamanho do corpo antes do parser** — com a precisão que a
+  revisão exigiu: o limite protege o **decodificador tipado**, e há uma
+  serialização do corpo que acontece **antes** dele. A frase original dizia
+  "antes do parser" como se cobrisse tudo, e não cobre.
+  A exposição real é estreita — só o frame principal no mundo da ponte
+  consegue postar, e o relay normaliza o valor antes de atravessar — mas
+  quem for aumentar o limite ou abrir a ponte a mais frames precisa saber
+  que **existe trabalho de serialização antes da fronteira de tamanho**, e
+  não herdar a leitura otimista da frase.
 - Mensagem de erro **não vaza** caminho, host, nome de usuário nem existência
   de arquivo. Um app malicioso não deve conseguir usar erros como oráculo.
 
