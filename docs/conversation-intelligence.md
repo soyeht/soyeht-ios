@@ -40,7 +40,8 @@ roots while the window is open. Events are coalesced, paths are neither logged
 nor persisted, and a five-minute poll covers dropped events. **Backfill all
 history** discovers the older corpus once and processes at most 100 sessions
 per provider per batch with utility priority. It can be stopped without losing
-cursor progress.
+cursor progress. If any subtree cannot be enumerated, the whole provider is
+reported unavailable rather than presenting a partial index as complete.
 
 Cursor identity combines a salted source key, provider source revision, byte
 or time high-water mark, and a parser revision. A rewritten source replaces its
@@ -91,6 +92,9 @@ separate local daemon outside Soyeht's security boundary.
 Passages and queries use separate formatting. Queries receive the Qwen
 retrieval instruction; passages do not. Long turns are split into bounded,
 paragraph-aware chunks, and search keeps the best cosine score for each turn.
+The brute-force local scorer streams every stored vector, so older conversations
+do not disappear behind a recency cutoff and the full vector corpus is not
+materialized in memory at once.
 Model digest and dimensionality are part of every vector key, so rankings never
 mix embedding spaces after a model update. Old vectors remain until the new
 digest is backfilled. **Update semantic index** drains the restartable queue in

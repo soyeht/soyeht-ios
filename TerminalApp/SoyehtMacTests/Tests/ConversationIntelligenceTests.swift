@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import SQLite3
 import XCTest
@@ -11,6 +12,13 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         let envelope = "Sent via Soyeht. From: @agent-a (conversationID: 00000000-0000-0000-0000-000000000001). To: @agent-b (conversationID: 00000000-0000-0000-0000-000000000002). Reply via Soyeht MCP message_agent. Request: delegate neutral task"
         var meta = claudeUser("meta control", uuid: "u6", promptSource: "system", origin: "human")
         meta["isMeta"] = true
+        var explicitlyNotMeta = claudeUser(
+            "explicit false remains human",
+            uuid: "u8",
+            promptSource: "typed",
+            origin: "human"
+        )
+        explicitlyNotMeta["isMeta"] = false
         try writeJSONL([
             claudeUser("real human prompt", uuid: "u1", promptSource: "typed", origin: "human"),
             claudeUser(envelope, uuid: "u2", promptSource: "typed", origin: "human"),
@@ -19,6 +27,7 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
             claudeToolResult(uuid: "u5"),
             meta,
             claudeUser("task notification", uuid: "u7", promptSource: "queued", origin: "task-notification"),
+            explicitlyNotMeta,
             claudeAssistant("assistant answer", uuid: "a1", sidechain: false),
             claudeAssistant("subagent answer", uuid: "a2", sidechain: true),
         ], to: file)
@@ -37,6 +46,7 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         XCTAssertEqual(roles["u5"], .tool)
         XCTAssertEqual(roles["u6"], .system)
         XCTAssertEqual(roles["u7"], .system)
+        XCTAssertEqual(roles["u8"], .humanCandidate)
         XCTAssertEqual(roles["a1"], .assistant)
         XCTAssertEqual(roles["a2"], .subagent)
         XCTAssertEqual(result.unknownEventCount, 1)
@@ -64,6 +74,28 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
                 "content": [["type": "input_text", "text": "build neutral feature"]],
             ],
         ])
+        let environmentContext = jsonData([
+            "timestamp": "2026-08-16T10:00:00Z",
+            "type": "response_item",
+            "payload": [
+                "type": "message", "role": "user", "id": "environment-neutral",
+                "content": [[
+                    "type": "input_text",
+                    "text": "<environment_context>\n  <cwd>/neutral/project</cwd>\n</environment_context>",
+                ]],
+            ],
+        ])
+        let userInstructions = jsonData([
+            "timestamp": "2026-08-16T10:00:00Z",
+            "type": "response_item",
+            "payload": [
+                "type": "message", "role": "user", "id": "instructions-neutral",
+                "content": [[
+                    "type": "input_text",
+                    "text": "<user_instructions>\nNeutral harness rule.\n</user_instructions>",
+                ]],
+            ],
+        ])
         let duplicateDisplay = jsonData([
             "timestamp": "2026-08-16T10:00:01Z",
             "type": "event_msg",
@@ -77,14 +109,24 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
                 "content": [["type": "output_text", "text": "neutral answer"]],
             ],
         ]), encoding: .utf8)!
-        var data = meta + Data([0x0A]) + user + Data([0x0A]) + duplicateDisplay + Data([0x0A])
+        var data = meta + Data([0x0A])
+            + environmentContext + Data([0x0A])
+            + userInstructions + Data([0x0A])
+            + user + Data([0x0A])
+            + duplicateDisplay + Data([0x0A])
         data.append(Data(partial.dropLast().utf8))
         try data.write(to: file)
 
         let adapter = CodexConversationAdapter(rootURL: root)
         let descriptor = try XCTUnwrap(adapter.discover(updatedSince: nil, limit: nil).first)
         let first = try adapter.read(descriptor, fromByteOffset: 0)
-        XCTAssertEqual(first.turns.map(\.sourceEventID), ["user-neutral"])
+        let firstRoles = Dictionary(uniqueKeysWithValues: first.turns.map {
+            ($0.sourceEventID ?? "", ConversationTurnClassifier.classify($0))
+        })
+        XCTAssertEqual(firstRoles["environment-neutral"], .system)
+        XCTAssertEqual(firstRoles["instructions-neutral"], .system)
+        XCTAssertEqual(firstRoles["user-neutral"], .humanCandidate)
+        XCTAssertTrue(ConversationSchemaManifest.undeclared(in: first.observedSchemaShapes).isEmpty)
 
         let writer = try FileHandle(forWritingTo: file)
         try writer.seekToEnd()
@@ -265,6 +307,11 @@ final class ConversationIntelligenceDatabaseTests: XCTestCase {
             dimensions: 2,
             limit: 10
         )
+        XCTAssertEqual(try database.pendingEmbeddingCount(
+            model: "qwen3-embedding:4b",
+            modelDigest: "digest-neutral",
+            dimensions: 2
+        ), 1)
         try database.storeEmbeddings(
             [.init(
                 turnID: try XCTUnwrap(pending.first?.turnID),
@@ -276,6 +323,22 @@ final class ConversationIntelligenceDatabaseTests: XCTestCase {
             dimensions: 2
         )
         XCTAssertEqual(try database.stats().embeddedTurns, 1)
+        XCTAssertEqual(try database.pendingEmbeddingCount(
+            model: "qwen3-embedding:4b",
+            modelDigest: "digest-neutral",
+            dimensions: 2
+        ), 0)
+        let semanticScores = try database.semanticBestScores(
+            queryVector: [1, 0],
+            model: "qwen3-embedding:4b",
+            modelDigest: "digest-neutral",
+            dimensions: 2
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(semanticScores[try XCTUnwrap(pending.first?.turnID)]),
+            1,
+            accuracy: 0.0001
+        )
 
         try database.removeSource(descriptor.sourceURL)
         XCTAssertEqual(try database.stats().conversations, 0)
@@ -583,6 +646,36 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
         XCTAssertEqual(report.sources.count, 3)
         XCTAssertTrue(report.sources.allSatisfy { $0.error != nil })
         XCTAssertTrue(report.sources.allSatisfy { !($0.error?.contains(root.path) ?? false) })
+    }
+
+    func testMidWalkPermissionFailureRejectsPartialDiscovery() throws {
+        guard geteuid() != 0 else {
+            throw XCTSkip("permission denial cannot be simulated as root")
+        }
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try writeJSONL([
+            ["type": "session_meta", "payload": ["id": "visible-neutral"]],
+        ], to: root.appendingPathComponent("visible.jsonl"))
+        let denied = root.appendingPathComponent("denied", isDirectory: true)
+        try FileManager.default.createDirectory(at: denied, withIntermediateDirectories: true)
+        try writeJSONL([
+            ["type": "session_meta", "payload": ["id": "hidden-neutral"]],
+        ], to: denied.appendingPathComponent("hidden.jsonl"))
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o000 as Int16)],
+            ofItemAtPath: denied.path
+        )
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o700 as Int16)],
+                ofItemAtPath: denied.path
+            )
+        }
+
+        XCTAssertThrowsError(
+            try CodexConversationAdapter(rootURL: root).discover(updatedSince: nil, limit: nil)
+        )
     }
 
     func testAllHistoryBackfillIsBoundedAndEventuallyExhaustive() async throws {

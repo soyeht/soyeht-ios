@@ -106,6 +106,8 @@ enum ConversationSchemaManifest {
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "record:world_state"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:input_text"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:input_text+input_image"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:environment-context"),
+        .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:user:user-instructions"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:assistant:output_text"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:system:input_text"),
         .init(store: "codex", schemaVersion: "response-item-v1", shape: "message:developer:input_text"),

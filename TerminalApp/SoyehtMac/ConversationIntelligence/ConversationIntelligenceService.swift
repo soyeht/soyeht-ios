@@ -59,7 +59,6 @@ struct ConversationHybridSearchConfiguration: Equatable, Sendable {
     var lexicalWeight: Double = 1.0
     var semanticWeight: Double = 1.0
     var reciprocalRankConstant: Double = 60
-    var candidateLimit: Int = 50_000
 }
 
 actor ConversationIntelligenceService {
@@ -211,6 +210,11 @@ actor ConversationIntelligenceService {
         backfillErrors = [:]
     }
 
+    func restartBackfillDiscovery() {
+        backfillQueues = nil
+        backfillErrors = [:]
+    }
+
     /// Embedding is a separate, restartable pipeline. Ingestion and lexical
     /// search remain healthy while Ollama is unavailable.
     func fillEmbeddingQueue(maxTurns: Int = 128, batchSize: Int = 16) async -> ConversationEmbeddingReport {
@@ -263,12 +267,11 @@ actor ConversationIntelligenceService {
                 )
                 embedded += batch.count
             }
-            let pending = try database.pendingEmbeddings(
+            let pending = try database.pendingEmbeddingCount(
                 model: configuration.model,
                 modelDigest: configuration.digest,
-                dimensions: configuration.dimensions,
-                limit: 1_000_000
-            ).count
+                dimensions: configuration.dimensions
+            )
             return .init(
                 embeddedTurns: embedded,
                 pendingTurns: pending,
@@ -298,19 +301,12 @@ actor ConversationIntelligenceService {
 
         do {
             let (configuration, queryVector) = try await embedder.embedQuery(query)
-            let candidates = try database.semanticCandidates(
+            let bestSimilarityByTurn = try database.semanticBestScores(
+                queryVector: queryVector,
                 model: configuration.model,
                 modelDigest: configuration.digest,
-                dimensions: configuration.dimensions,
-                limit: searchConfiguration.candidateLimit
+                dimensions: configuration.dimensions
             )
-            var bestSimilarityByTurn: [String: Double] = [:]
-            for candidate in candidates {
-                bestSimilarityByTurn[candidate.turnID] = max(
-                    bestSimilarityByTurn[candidate.turnID] ?? -.infinity,
-                    Self.cosine(queryVector, candidate.vector)
-                )
-            }
             semanticIDs = bestSimilarityByTurn
                 .map { ($0.key, $0.value) }
                 .sorted { lhs, rhs in
@@ -360,22 +356,6 @@ actor ConversationIntelligenceService {
             if lhs.score == rhs.score { return lhs.turnID < rhs.turnID }
             return lhs.score > rhs.score
         }.prefix(max(1, limit)).map { $0 }
-    }
-
-    private static func cosine(_ lhs: [Float], _ rhs: [Float]) -> Double {
-        guard lhs.count == rhs.count, !lhs.isEmpty else { return -.infinity }
-        var dot: Double = 0
-        var leftMagnitude: Double = 0
-        var rightMagnitude: Double = 0
-        for index in lhs.indices {
-            let left = Double(lhs[index])
-            let right = Double(rhs[index])
-            dot += left * right
-            leftMagnitude += left * left
-            rightMagnitude += right * right
-        }
-        guard leftMagnitude > 0, rightMagnitude > 0 else { return -.infinity }
-        return dot / sqrt(leftMagnitude * rightMagnitude)
     }
 
     private func ingestDescriptors(

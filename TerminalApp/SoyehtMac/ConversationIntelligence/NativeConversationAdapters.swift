@@ -346,19 +346,28 @@ struct CodexConversationAdapter: ConversationSourceAdapter {
                 && contentTypes.isSubset(of: accepted.union(allowedNonTextTypes))
             let evidence = hasOnlyAllowedContent ? initialEvidence : .unknown
             let text = JSONLConversationReader.textContent(payload["content"], acceptedTypes: accepted)
+            let refinedEvidence = refinedEvidence(evidence, text: text)
+            let shape: String
+            if role.lowercased() == "user", text.hasPrefix("<environment_context>") {
+                shape = "message:user:environment-context"
+            } else if role.lowercased() == "user", text.hasPrefix("<user_instructions>") {
+                shape = "message:user:user-instructions"
+            } else {
+                shape = hasOnlyAllowedContent
+                    ? "message:\(role.lowercased()):\(contentTypes.contains("input_image") ? "input_text+input_image" : primaryContentType)"
+                    : "message:\(role.lowercased()):unsupported-content"
+            }
             observations.insert(.init(
                 store: agent.rawValue,
                 schemaVersion: "response-item-v1",
-                shape: hasOnlyAllowedContent
-                    ? "message:\(role.lowercased()):\(contentTypes.contains("input_image") ? "input_text+input_image" : primaryContentType)"
-                    : "message:\(role.lowercased()):unsupported-content"
+                shape: shape
             ))
             if evidence == .unknown { unknown += 1 }
             guard !text.isEmpty else { continue }
             turns.append(NativeConversationTurn(
                 ordinal: Int(clamping: line.absoluteByteOffset),
                 nativeRole: role,
-                evidence: refinedEvidence(evidence, text: text),
+                evidence: refinedEvidence,
                 text: text,
                 timestamp: ConversationTimestampParser.parse(object["timestamp"]),
                 sourceEventID: payload["id"] as? String,
@@ -387,6 +396,11 @@ struct CodexConversationAdapter: ConversationSourceAdapter {
         text: String
     ) -> NativeConversationTurnEvidence {
         guard evidence == .explicitHumanText else { return evidence }
+        if text.hasPrefix("<environment_context>") || text.hasPrefix("<user_instructions>") {
+            // Codex serializes harness metadata through a user-role message.
+            // It is machine-authored context, never a candidate human prompt.
+            return .system
+        }
         if text.hasPrefix("SOYEHT_AGENT_HANDOFF_") { return .handoffTransport }
         if ConversationTurnClassifier.isSoyehtEnvelope(text) { return .soyehtEnvelope }
         if text.hasPrefix("<command-") || text.hasPrefix("/") { return .slashCommand }
@@ -626,7 +640,7 @@ struct ClaudeConversationAdapter: ConversationSourceAdapter {
             let originKind = (object["origin"] as? [String: Any])?["kind"] as? String
             let structurallyHuman = ["typed", "queued"].contains(promptSource)
                 && originKind == "human"
-                && object["isMeta"] == nil
+                && object["isMeta"] as? Bool != true
 
             // `origin.kind == human` means the prompt entered through the
             // human-input path, not that a person authored it. Soyeht agent

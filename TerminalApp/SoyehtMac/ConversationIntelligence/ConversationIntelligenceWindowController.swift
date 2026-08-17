@@ -133,6 +133,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         errorMessage = nil
         startMonitoringIfNeeded()
         backfillTask = Task(priority: .utility) { [weak self] in
+            await service.restartBackfillDiscovery()
             var batches = 0
             while !Task.isCancelled {
                 guard let self else { return }

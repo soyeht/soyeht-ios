@@ -317,6 +317,33 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
         }
     }
 
+    func pendingEmbeddingCount(
+        model: String,
+        modelDigest: String,
+        dimensions: Int
+    ) throws -> Int {
+        try withLock {
+            let statement = try prepare("""
+                SELECT COUNT(*)
+                FROM turns t
+                WHERE t.role IN ('human_candidate','assistant')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM embeddings e
+                      WHERE e.turn_id = t.id
+                        AND e.model = ?
+                        AND e.model_digest = ?
+                        AND e.dimensions = ?
+                  )
+                """)
+            defer { sqlite3_finalize(statement) }
+            bind(model, at: 1, in: statement)
+            bind(modelDigest, at: 2, in: statement)
+            sqlite3_bind_int(statement, 3, Int32(dimensions))
+            guard sqlite3_step(statement) == SQLITE_ROW else { return 0 }
+            return Int(sqlite3_column_int64(statement, 0))
+        }
+    }
+
     func storeEmbeddings(
         _ embeddings: [StoredEmbedding],
         model: String,
@@ -384,6 +411,36 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
                 items.append(SemanticCandidate(turnID: id, vector: vector))
             }
             return items
+        }
+    }
+
+    /// Streams the complete vector space and keeps only one score per turn.
+    /// This avoids both the old 50k recency cutoff (which made old history
+    /// semantically invisible) and materializing every 512-float vector in a
+    /// single Swift array.
+    func semanticBestScores(
+        queryVector: [Float],
+        model: String,
+        modelDigest: String,
+        dimensions: Int
+    ) throws -> [String: Double] {
+        try withLock {
+            let statement = try prepare("""
+                SELECT turn_id, vector FROM embeddings
+                WHERE model = ? AND model_digest = ? AND dimensions = ?
+                """)
+            defer { sqlite3_finalize(statement) }
+            bind(model, at: 1, in: statement)
+            bind(modelDigest, at: 2, in: statement)
+            sqlite3_bind_int(statement, 3, Int32(dimensions))
+            var best: [String: Double] = [:]
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let turnID = text(statement, 0),
+                      let vector = blob(statement, 1).flatMap(Self.decode) else { continue }
+                let score = Self.cosine(queryVector, vector)
+                best[turnID] = max(best[turnID] ?? -.infinity, score)
+            }
+            return best
         }
     }
 
@@ -750,6 +807,22 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
         return data.withUnsafeBytes { raw in
             Array(raw.bindMemory(to: Float.self))
         }
+    }
+
+    private static func cosine(_ lhs: [Float], _ rhs: [Float]) -> Double {
+        guard lhs.count == rhs.count, !lhs.isEmpty else { return -.infinity }
+        var dot: Double = 0
+        var leftMagnitude: Double = 0
+        var rightMagnitude: Double = 0
+        for index in lhs.indices {
+            let left = Double(lhs[index])
+            let right = Double(rhs[index])
+            dot += left * right
+            leftMagnitude += left * left
+            rightMagnitude += right * right
+        }
+        guard leftMagnitude > 0, rightMagnitude > 0 else { return -.infinity }
+        return dot / sqrt(leftMagnitude * rightMagnitude)
     }
 
     private func withLock<T>(_ body: () throws -> T) rethrows -> T {
