@@ -111,6 +111,14 @@ final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
                 // Confinement refusals are 403 and keep their distinguishable
                 // reason — the app must be able to explain them to the user.
                 fail(task, status: 403, reason: error.errorDescription ?? "forbidden")
+            case .undecodableEntryName:
+                // NOT a confinement refusal: the bundle itself is anomalous
+                // (a directory entry whose name is not valid UTF-8), so this
+                // is a server-side 500, not a hostile-request 403. Thrown by
+                // listDirectoryEntries — unreachable via openFileForReading
+                // today; the arm exists so a future use can never fall
+                // through silently.
+                fail(task, status: 500, reason: error.errorDescription ?? "bundle entry is not decodable")
             case .invalidRoot, .closed, .permissionDenied, .systemError:
                 fail(task, status: 500, reason: error.errorDescription ?? "bundle error")
             }
