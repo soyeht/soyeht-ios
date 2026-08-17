@@ -148,10 +148,17 @@ struct JSONLConversationReader: Sendable {
             throw ConversationSourceAdapterError.unreadableSource(sourceName)
         }
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
+        var enumerationFailed = false
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: Array(keys),
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+            errorHandler: { _, _ in
+                // The URL/error may contain a private project path. Preserve
+                // only the fact that discovery was incomplete.
+                enumerationFailed = true
+                return false
+            }
         ) else {
             throw ConversationSourceAdapterError.unreadableSource(sourceName)
         }
@@ -163,6 +170,9 @@ struct JSONLConversationReader: Sendable {
             let modified = values?.contentModificationDate
             if let updatedSince, let modified, modified < updatedSince { continue }
             files.append((url, modified))
+        }
+        guard !enumerationFailed else {
+            throw ConversationSourceAdapterError.unreadableSource(sourceName)
         }
         files.sort { ($0.1 ?? .distantPast) > ($1.1 ?? .distantPast) }
         if let limit, limit >= 0 { return Array(files.prefix(limit)) }
