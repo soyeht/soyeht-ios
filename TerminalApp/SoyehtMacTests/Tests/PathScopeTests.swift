@@ -299,4 +299,49 @@ final class PathScopeTests: XCTestCase {
             XCTAssertEqual(error as? PathScope.PathScopeError, .closed)
         }
     }
+
+    /// Fingerprint invariant (servable set == measured set): an entry whose
+    /// name is not valid UTF-8 must FAIL the listing, not vanish from it.
+    /// A skipped entry would be disk content outside every fingerprint
+    /// taken through this walk — hidden files by another door.
+    func testUndecodableEntryNameFailsListingLoudly() throws {
+        try createFileWithInvalidUTF8Name(in: root, name: [0x62, 0x61, 0x64, 0xFF, 0x6E, 0x61, 0x6D, 0x65])
+        let scope = try makeScope()
+
+        XCTAssertThrowsError(try scope.listDirectoryEntries(relativePath: ".")) { error in
+            guard case .undecodableEntryName = error as! PathScope.PathScopeError else {
+                return XCTFail("expected undecodableEntryName, got \(error)")
+            }
+        }
+    }
+
+    /// Same rule one level deeper: the walk into a subdirectory also
+    /// refuses rather than partially measuring.
+    func testUndecodableNameInSubdirectoryFailsListingLoudly() throws {
+        try createFileWithInvalidUTF8Name(in: root.appendingPathComponent("sub"), name: [0xFF])
+        let scope = try makeScope()
+
+        XCTAssertThrowsError(try scope.listDirectoryEntries(relativePath: "sub")) { error in
+            guard case .undecodableEntryName = error as! PathScope.PathScopeError else {
+                return XCTFail("expected undecodableEntryName, got \(error)")
+            }
+        }
+    }
+
+    /// FileManager cannot create these (Swift String paths are Unicode);
+    /// go through `open(2)` with raw bytes. APFS accepts any byte sequence
+    /// except NUL and `/` in a name.
+    private func createFileWithInvalidUTF8Name(in directory: URL, name: [UInt8]) throws {
+        let dirBytes = Array(directory.path.utf8)
+        let pathBytes = dirBytes + [UInt8(ascii: "/")] + name + [0]
+        let fd = pathBytes.withUnsafeBufferPointer { buf -> Int32 in
+            buf.baseAddress!.withMemoryRebound(to: CChar.self, capacity: pathBytes.count) { cstr in
+                Darwin.open(cstr, O_CREAT | O_WRONLY, 0o644)
+            }
+        }
+        guard fd >= 0 else {
+            throw XCTSkip("filesystem refused non-UTF-8 name (errno \(errno)); invariant test not runnable here")
+        }
+        Darwin.close(fd)
+    }
 }

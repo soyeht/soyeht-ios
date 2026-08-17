@@ -62,6 +62,11 @@ final class PathScope {
         case escapesScope(String)
         case notFound(String)
         case permissionDenied(String)
+        /// A directory entry whose name is not valid UTF-8. The listing
+        /// refuses instead of skipping: a skipped entry would be disk
+        /// content outside every fingerprint measured through this walk —
+        /// the same defect shape as hidden files, by another door.
+        case undecodableEntryName(context: String)
         case systemError(String, errno: Int32)
 
         var errorDescription: String? {
@@ -87,6 +92,8 @@ final class PathScope {
                 return "File not found: \(quote(p))."
             case .permissionDenied(let p):
                 return "Permission denied: \(quote(p))."
+            case .undecodableEntryName(let context):
+                return "Directory contains an entry name that is not valid UTF-8 (in \(quote(context))). The bundle is refused rather than measured partially."
             case .systemError(let p, let errno):
                 return "System error \(errno) for \(quote(p))."
             }
@@ -201,7 +208,15 @@ final class PathScope {
                 guard let base = raw.baseAddress else { return nil }
                 return String(validatingUTF8: base.assumingMemoryBound(to: CChar.self))
             }
-            guard let name, name != ".", name != ".." else { continue }
+            // Fail loud, never skip: an undecodable name is disk content
+            // that would fall outside every measurement taken through this
+            // walk (fingerprint coverage invariant: servable set == measured
+            // set). "." and ".." are the only intentional skips — they are
+            // kernel artifacts, not content.
+            guard let name else {
+                throw PathScopeError.undecodableEntryName(context: relativePath)
+            }
+            guard name != ".", name != ".." else { continue }
             let kind: Entry.Kind
             switch dp.pointee.d_type {
             case UInt8(DT_REG): kind = .file
