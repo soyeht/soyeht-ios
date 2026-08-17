@@ -90,6 +90,13 @@ final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
             fail(task, status: 404, reason: "no entry path")
             return
         }
+        // Dotfile components are inert by policy (defense in depth with the
+        // installer, whose fingerprint covers hidden files): bundle metadata
+        // is never servable content.
+        if relativePath.split(separator: "/").contains(where: { $0.hasPrefix(".") }) {
+            fail(task, status: 403, reason: "hidden path components are not served")
+            return
+        }
 
         do {
             let fd = try scope.openFileForReading(relativePath: relativePath)

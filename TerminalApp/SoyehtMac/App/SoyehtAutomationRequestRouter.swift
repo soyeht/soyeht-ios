@@ -114,6 +114,7 @@ final class SoyehtAutomationRequestRouter {
         case invalidConversationIDFormat(String)
         case invalidConversationSequence(Int, Int)
         case missingWebURL
+        case missingAppInstallID
 
         var errorDescription: String? {
             switch self {
@@ -169,6 +170,8 @@ final class SoyehtAutomationRequestRouter {
                 return "Conversation sequence \(requested) is beyond the canonical tail \(last)."
             case .missingWebURL:
                 return "Automation open_web request requires a non-empty url."
+            case .missingAppInstallID:
+                return "Automation open_app request requires a non-empty installID."
             }
         }
     }
@@ -245,6 +248,10 @@ final class SoyehtAutomationRequestRouter {
             return try handleOpenDiff(request)
         case .openWeb:
             return try handleOpenWeb(request)
+        case .installApp:
+            return try handleInstallApp(request)
+        case .openApp:
+            return try handleOpenApp(request)
         }
     }
 
@@ -1437,6 +1444,11 @@ final class SoyehtAutomationRequestRouter {
         if case .web(let state) = content {
             return state.url
         }
+        if case .app(let state) = content {
+            // Not a filesystem path (never leak install layout); the app id
+            // is the useful, honest token for a pane that renders an app.
+            return "app:\(state.appID)"
+        }
         return content.primaryPath ?? workingDirectoryPath ?? ""
     }
 
@@ -1734,6 +1746,52 @@ final class SoyehtAutomationRequestRouter {
             url: url,
             workspaceID: try automationWorkspaceID(payload: payload, in: target),
             forceNew: payload.newPane ?? false
+        )
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, windowID: target.windowID)
+        ])
+    }
+
+    private func handleInstallApp(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let rawPath = payload.path?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawPath.isEmpty else {
+            throw AutomationError.invalidDirectory("")
+        }
+        // The bundle path arrives from outside (MCP script, agent), so it
+        // gets the same fail-closed treatment the open_web URL got: the
+        // Python script is not a trust boundary. PathScope gives the source
+        // directory the same kernel-imposed confinement the scheme handler
+        // will apply when serving it — a symlinked manifest is refused with
+        // a distinguishable reason instead of being silently dereferenced.
+        let bundleURL = try existingDirectoryURL(rawPath)
+        let scope = try PathScope(rootDirectory: bundleURL)
+        let manifestFD = try scope.openFileForReading(relativePath: "manifest.json")
+        Darwin.close(manifestFD)
+        scope.close()
+
+        let record = try AppInstallStore.install(bundleAt: bundleURL)
+        return SoyehtAutomationResult(installedApps: [
+            SoyehtAutomationResponse.InstalledApp(
+                installID: record.installID,
+                appID: record.manifest.id,
+                name: record.manifest.name,
+                version: record.manifest.version,
+                fingerprint: record.fingerprint
+            )
+        ])
+    }
+
+    private func handleOpenApp(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let installID = payload.installID?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !installID.isEmpty else {
+            throw AutomationError.missingAppInstallID
+        }
+        let target = try automationTargetWindow(payload: payload)
+        let opened = try target.openAppPane(
+            installID: installID,
+            workspaceID: try automationWorkspaceID(payload: payload, in: target)
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)

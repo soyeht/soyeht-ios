@@ -1019,6 +1019,43 @@ def tool_open_web(args):
     )
 
 
+def tool_install_app(args):
+    raw_path = str(args.get("path") or args.get("root") or args.get("directory") or "").strip()
+    if not raw_path:
+        raise RuntimeError("install_app requires a bundle directory path.")
+
+    # The bundle directory must exist and be visible, but the security
+    # validation (manifest shape, symlink confinement, capabilities) happens
+    # in the macOS app — this script is not a trust boundary.
+    bundle = require_visible_directory(raw_path)
+    payload = with_source_context({"path": str(bundle)}, args)
+    return submit_request(
+        "install_app",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
+    )
+
+
+def tool_open_app(args):
+    install_id = str(first_present(args.get("installID"), args.get("install_id"), "") or "").strip()
+    if not install_id:
+        raise RuntimeError("open_app requires an installID (returned by install_app).")
+
+    args = dict(args)
+    if args.get("workspace_id") and not args.get("workspaceID"):
+        args["workspaceID"] = args["workspace_id"]
+    if args.get("window_id") and not args.get("windowID"):
+        args["windowID"] = args["window_id"]
+    payload = with_source_context(with_window_target({"installID": install_id}, args), args)
+    return submit_request(
+        "open_app",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
+    )
+
+
 def tool_create_worktree_panes(args):
     names = args.get("names") or []
     if not names:
@@ -1765,6 +1802,43 @@ TOOLS = [
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
             "required": ["url"],
+        },
+    },
+    {
+        "name": "install_app",
+        "description": (
+            "Install a local Soyeht app bundle (a directory with a manifest.json) so it can be opened in app panes. "
+            "Returns the install record, including the installID that open_app needs and the bundle fingerprint. "
+            "The app validates the bundle fail-closed (manifest shape, symlink confinement, no capabilities in phase 2a)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path to the app bundle directory (must contain manifest.json)."},
+                "root": {"type": "string", "description": "Alias for path."},
+                "directory": {"type": "string", "description": "Alias for path."},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "open_app",
+        "description": (
+            "Open or focus the app pane for an installed Soyeht app. Use the installID returned by install_app. "
+            "Snake_case aliases install_id, workspace_id and window_id are also accepted."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "installID": {"type": "string", "description": "Installer-issued installation ID, as returned by install_app."},
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+            },
+            "required": ["installID"],
         },
     },
     {
@@ -2599,6 +2673,8 @@ TOOL_HANDLERS = {
     "open_git": tool_open_git,
     "open_diff": tool_open_diff,
     "open_web": tool_open_web,
+    "install_app": tool_install_app,
+    "open_app": tool_open_app,
     "open_workspace": tool_open_workspace,
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,
