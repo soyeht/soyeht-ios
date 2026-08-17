@@ -62,7 +62,7 @@
 		</dict>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Owner Salgado. Based on SwiftTerm © 2019-2022 Miguel de Icaza (MIT).</string>
+	<string>Copyright © 2026 Caio Salgado. Based on SwiftTerm © 2019-2022 Miguel de Icaza (MIT).</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone is used for voice-to-text input in terminal panes.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
