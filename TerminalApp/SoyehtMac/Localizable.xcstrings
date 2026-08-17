@@ -532,6 +532,28 @@
         }
       }
     },
+    "appMenu.conversationIntelligence": {
+      "comment": "App menu item that opens local conversation analytics and search.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Conversation Intelligence…"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Inteligencia de conversaciones…"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Intelligence des conversations…"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Inteligência de Conversas…"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Inteligência de Conversas…"}},
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Conversation Intelligence…"}}
+      }
+    },
     "appMenu.goToPane": {
       "comment": "View menu item that opens the command palette.",
       "extractionState": "stale",

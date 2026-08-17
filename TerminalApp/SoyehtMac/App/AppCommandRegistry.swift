@@ -15,6 +15,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case showConnectedServers
     case uninstallSoyeht
     case showClawStore
+    case showConversationIntelligence
     case showConversationsSidebar
     case undoWindowAction
     case redoWindowAction
@@ -49,6 +50,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .showConnectedServers: return "showConnectedServers"
         case .uninstallSoyeht: return "uninstallSoyeht"
         case .showClawStore: return "showClawStore"
+        case .showConversationIntelligence: return "showConversationIntelligence"
         case .showConversationsSidebar: return "showConversationsSidebar"
         case .undoWindowAction: return "undoWindowAction"
         case .redoWindowAction: return "redoWindowAction"
@@ -85,6 +87,7 @@ enum AppCommandAction: String, Hashable {
     case showConnectedServers = "showConnectedServers:"
     case uninstallSoyeht = "uninstallSoyeht:"
     case showClawStore = "showClawStore:"
+    case showConversationIntelligence = "showConversationIntelligence:"
     case showConversationsSidebar = "showConversationsSidebar:"
     case undoWindowAction = "undoWindowAction:"
     case redoWindowAction = "redoWindowAction:"
@@ -633,6 +636,17 @@ enum AppCommandRegistry {
                 ),
                 action: .showClawStore,
                 shortcut: AppCommandShortcut(.character("s"), modifiers: [.command, .option]),
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .showConversationIntelligence,
+                title: String(
+                    localized: "appMenu.conversationIntelligence",
+                    defaultValue: "Conversation Intelligence…",
+                    comment: "App menu item that opens local conversation analytics and search."
+                ),
+                action: .showConversationIntelligence,
+                shortcut: nil,
                 menuPlacement: .appMenu
             ),
             AppCommand(

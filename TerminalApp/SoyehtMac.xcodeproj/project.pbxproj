@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CE1100010000000000000001 /* ConversationIntelligenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100010000000000000002 /* ConversationIntelligenceModels.swift */; };
+		CE1100020000000000000001 /* NativeConversationAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100020000000000000002 /* NativeConversationAdapters.swift */; };
+		CE1100030000000000000001 /* ConversationIntelligenceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100030000000000000002 /* ConversationIntelligenceDatabase.swift */; };
+		CE1100040000000000000001 /* ConversationIntelligencePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100040000000000000002 /* ConversationIntelligencePrivacy.swift */; };
+		CE1100050000000000000001 /* OpenCodeConversationAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100050000000000000002 /* OpenCodeConversationAdapter.swift */; };
+		CE1100060000000000000001 /* OllamaQwenEmbeddingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100060000000000000002 /* OllamaQwenEmbeddingClient.swift */; };
+		CE1100070000000000000001 /* ConversationIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100070000000000000002 /* ConversationIntelligenceService.swift */; };
+		CE1100080000000000000001 /* ConversationIntelligenceWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100080000000000000002 /* ConversationIntelligenceWindowController.swift */; };
+		CE1100090000000000000001 /* ConversationHistoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100090000000000000002 /* ConversationHistoryMonitor.swift */; };
 		00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */; };
 		07B100565C6622900C62064E /* RecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F754D982E57083C214517782 /* RecoverView.swift */; };
 		0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */; };
@@ -174,6 +183,15 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		CE1100010000000000000002 /* ConversationIntelligenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIntelligenceModels.swift; sourceTree = "<group>"; };
+		CE1100020000000000000002 /* NativeConversationAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeConversationAdapters.swift; sourceTree = "<group>"; };
+		CE1100030000000000000002 /* ConversationIntelligenceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIntelligenceDatabase.swift; sourceTree = "<group>"; };
+		CE1100040000000000000002 /* ConversationIntelligencePrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIntelligencePrivacy.swift; sourceTree = "<group>"; };
+		CE1100050000000000000002 /* OpenCodeConversationAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeConversationAdapter.swift; sourceTree = "<group>"; };
+		CE1100060000000000000002 /* OllamaQwenEmbeddingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaQwenEmbeddingClient.swift; sourceTree = "<group>"; };
+		CE1100070000000000000002 /* ConversationIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIntelligenceService.swift; sourceTree = "<group>"; };
+		CE1100080000000000000002 /* ConversationIntelligenceWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationIntelligenceWindowController.swift; sourceTree = "<group>"; };
+		CE1100090000000000000002 /* ConversationHistoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationHistoryMonitor.swift; sourceTree = "<group>"; };
 		0A5BD276DA6118D5839E594D /* InstallPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InstallPreviewView.swift; sourceTree = "<group>"; };
 		0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BootstrapWelcomeView.swift; sourceTree = "<group>"; };
 		156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraView.swift; sourceTree = "<group>"; };
@@ -360,6 +378,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CE1100100000000000000001 /* ConversationIntelligence */ = {
+			isa = PBXGroup;
+			children = (
+				CE1100010000000000000002 /* ConversationIntelligenceModels.swift */,
+				CE1100020000000000000002 /* NativeConversationAdapters.swift */,
+				CE1100030000000000000002 /* ConversationIntelligenceDatabase.swift */,
+				CE1100040000000000000002 /* ConversationIntelligencePrivacy.swift */,
+				CE1100050000000000000002 /* OpenCodeConversationAdapter.swift */,
+				CE1100060000000000000002 /* OllamaQwenEmbeddingClient.swift */,
+				CE1100070000000000000002 /* ConversationIntelligenceService.swift */,
+				CE1100080000000000000002 /* ConversationIntelligenceWindowController.swift */,
+				CE1100090000000000000002 /* ConversationHistoryMonitor.swift */,
+			);
+			path = ConversationIntelligence;
+			sourceTree = "<group>";
+		};
 		111EA94651947E57A17854B9 /* Continuity */ = {
 			isa = PBXGroup;
 			children = (
@@ -429,6 +463,7 @@
 			isa = PBXGroup;
 			children = (
 				49F8A83F24390F5200EF9C97 /* AppDelegate.swift */,
+				CE1100100000000000000001 /* ConversationIntelligence */,
 				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
 				C0F0A00000000000000000E2 /* MacTheme.swift */,
 				C0F0A00000000000000000F6 /* MacTypography.swift */,
@@ -932,6 +967,15 @@
 			files = (
 				9A27157C2F9D69B600861097 /* main.swift in Sources */,
 				49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */,
+				CE1100010000000000000001 /* ConversationIntelligenceModels.swift in Sources */,
+				CE1100020000000000000001 /* NativeConversationAdapters.swift in Sources */,
+				CE1100030000000000000001 /* ConversationIntelligenceDatabase.swift in Sources */,
+				CE1100040000000000000001 /* ConversationIntelligencePrivacy.swift in Sources */,
+				CE1100050000000000000001 /* OpenCodeConversationAdapter.swift in Sources */,
+				CE1100060000000000000001 /* OllamaQwenEmbeddingClient.swift in Sources */,
+				CE1100070000000000000001 /* ConversationIntelligenceService.swift in Sources */,
+				CE1100080000000000000001 /* ConversationIntelligenceWindowController.swift in Sources */,
+				CE1100090000000000000001 /* ConversationHistoryMonitor.swift in Sources */,
 				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
 				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
 				C0F0A00000000000000000F5 /* MacTypography.swift in Sources */,

@@ -20,6 +20,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             .showConnectedServers,
             .uninstallSoyeht,
             .showClawStore,
+            .showConversationIntelligence,
         ]
 
         for command in AppCommandRegistry.allCommands {
@@ -1068,6 +1069,7 @@ private final class AppCommandApplicationActionSpy: AppCommandApplicationActionP
     func performShowConnectedServersCommand(_ sender: Any?) { calls.append("showConnectedServers") }
     func performUninstallSoyehtCommand(_ sender: Any?) { calls.append("uninstallSoyeht") }
     func performShowClawStoreCommand(_ sender: Any?) { calls.append("showClawStore") }
+    func performShowConversationIntelligenceCommand(_ sender: Any?) { calls.append("showConversationIntelligence") }
 }
 
 @MainActor

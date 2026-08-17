@@ -326,6 +326,7 @@ extension MenuModel {
         if clawStoreEnabled {
             items.append(.command(.showClawStore))
         }
+        items.append(.command(.showConversationIntelligence))
         items.append(contentsOf: [
             .separator,
             .system(.hideSoyeht),
