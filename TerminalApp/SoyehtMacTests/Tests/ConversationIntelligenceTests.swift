@@ -216,6 +216,10 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
                     batch.nextByteOffset,
                     Int64(JSONLConversationReader.preferredBatchBytes)
                 )
+                XCTAssertEqual(
+                    batch.loadedByteCount,
+                    JSONLConversationReader.preferredBatchBytes
+                )
                 XCTAssertLessThan(batch.lines.count, recordCount)
             }
             recoveredLines += batch.lines.count
@@ -249,6 +253,7 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
             first.nextByteOffset,
             Int64(JSONLConversationReader.preferredBatchBytes)
         )
+        XCTAssertEqual(first.loadedByteCount, contents.count)
 
         let second = try JSONLConversationReader.read(
             url: file,
@@ -300,6 +305,97 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
 }
 
 final class ConversationIntelligenceDatabaseTests: XCTestCase {
+    func testPopulatedV1FTSMigrationPreservesSearchAndRepairsLegacyAnomalies() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("legacy-intelligence.sqlite")
+        let descriptor = NativeConversationDescriptor(
+            agent: .codex,
+            nativeSessionID: "legacy-fts-session",
+            sourceURL: root.appendingPathComponent("legacy-fts.jsonl"),
+            projectPath: nil,
+            startedAt: nil,
+            updatedAt: nil,
+            sourceRevision: "legacy-fts-v1"
+        )
+        do {
+            let database = try ConversationIntelligenceDatabase(
+                url: databaseURL,
+                identitySalt: Data(repeating: 2, count: 32)
+            )
+            XCTAssertEqual(try database.ingest(.init(
+                descriptor: descriptor,
+                turns: [.init(
+                    ordinal: 1,
+                    nativeRole: "assistant",
+                    evidence: .explicitAssistantText,
+                    text: "legacy amber cedar",
+                    timestamp: nil,
+                    sourceEventID: "legacy-event",
+                    model: nil,
+                    metadata: [:]
+                )],
+                nextByteOffset: 1,
+                lastCompleteLineHash: "legacy-line",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )), 1)
+            XCTAssertEqual(try database.lexicalSearch("cedar", limit: 5).count, 1)
+        }
+
+        var legacy: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &legacy, SQLITE_OPEN_READWRITE, nil),
+            SQLITE_OK
+        )
+        XCTAssertEqual(sqlite3_exec(legacy, """
+            DROP TABLE turn_fts_rows;
+            PRAGMA user_version=0;
+            INSERT INTO turn_fts(turn_id, content_text)
+                SELECT turn_id, 'duplicate legacy cedar' FROM turn_fts LIMIT 1;
+            INSERT INTO turn_fts(turn_id, content_text)
+                VALUES('orphan-legacy-turn', 'orphan legacy cedar');
+            """, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(legacy)
+
+        let migrated = try ConversationIntelligenceDatabase(
+            url: databaseURL,
+            identitySalt: Data(repeating: 2, count: 32)
+        )
+        XCTAssertEqual(try migrated.lexicalSearch("cedar", limit: 5).count, 1)
+
+        var verification: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &verification, SQLITE_OPEN_READONLY, nil),
+            SQLITE_OK
+        )
+        defer { if let verification { sqlite3_close(verification) } }
+        var statement: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(
+            verification,
+            """
+            SELECT
+                (SELECT user_version FROM pragma_user_version),
+                (SELECT COUNT(*) FROM turns),
+                (SELECT COUNT(*) FROM turn_fts),
+                (SELECT COUNT(*) FROM turn_fts_rows),
+                (SELECT COUNT(*) FROM turn_fts f
+                    JOIN turn_fts_rows r ON r.turn_id = f.turn_id
+                    WHERE r.fts_rowid != f.rowid)
+            """,
+            -1,
+            &statement,
+            nil
+        ), SQLITE_OK)
+        defer { if let statement { sqlite3_finalize(statement) } }
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int64(statement, 0), 2)
+        XCTAssertEqual(sqlite3_column_int64(statement, 1), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 2), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 3), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 4), 0)
+    }
+
     func testFTSUpdatesUseStableMappedRowIDs() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

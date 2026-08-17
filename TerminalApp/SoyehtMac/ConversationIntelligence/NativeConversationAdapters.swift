@@ -40,6 +40,9 @@ struct JSONLConversationReader: Sendable {
         let lines: [Line]
         let nextByteOffset: Int64
         let lastCompleteLineHash: String?
+        /// Bytes actually loaded from disk for this batch. Kept internal so
+        /// tests can prevent read amplification from regressing silently.
+        let loadedByteCount: Int
     }
 
     static func read(url: URL, fromByteOffset requestedOffset: Int64) throws -> Batch {
@@ -48,7 +51,22 @@ struct JSONLConversationReader: Sendable {
         let size = try handle.seekToEnd()
         let safeOffset = UInt64(max(0, requestedOffset)) <= size ? UInt64(max(0, requestedOffset)) : 0
         try handle.seek(toOffset: safeOffset)
-        let tail = try handle.read(upToCount: maximumBatchBytes) ?? Data()
+        var tail = try handle.read(upToCount: preferredBatchBytes) ?? Data()
+        var containsNewline = tail.contains(0x0A)
+        while !containsNewline, tail.count < maximumBatchBytes {
+            // Ordinary JSONL records stop after the preferred read. Only a
+            // single oversized record expands the I/O window incrementally
+            // toward the hard safety cap, avoiding a speculative 16 MB read.
+            let overflow = try handle.read(
+                upToCount: min(
+                    preferredBatchBytes,
+                    maximumBatchBytes - tail.count
+                )
+            ) ?? Data()
+            guard !overflow.isEmpty else { break }
+            containsNewline = overflow.contains(0x0A)
+            tail.append(overflow)
+        }
 
         let preferredEnd = tail.index(
             tail.startIndex,
@@ -64,7 +82,12 @@ struct JSONLConversationReader: Sendable {
         }
 
         guard let finalNewline else {
-            return Batch(lines: [], nextByteOffset: Int64(safeOffset), lastCompleteLineHash: nil)
+            return Batch(
+                lines: [],
+                nextByteOffset: Int64(safeOffset),
+                lastCompleteLineHash: nil,
+                loadedByteCount: tail.count
+            )
         }
 
         let complete = tail.prefix(through: finalNewline)
@@ -90,7 +113,8 @@ struct JSONLConversationReader: Sendable {
         return Batch(
             lines: lines,
             nextByteOffset: Int64(safeOffset) + Int64(complete.count),
-            lastCompleteLineHash: lastHash
+            lastCompleteLineHash: lastHash,
+            loadedByteCount: tail.count
         )
     }
 

@@ -578,11 +578,20 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
         try transaction {
             try execute("DELETE FROM turn_fts_rows")
             try execute("""
-                INSERT INTO turn_fts_rows(fts_rowid, turn_id)
-                SELECT rowid, turn_id FROM turn_fts
+                INSERT OR IGNORE INTO turn_fts_rows(fts_rowid, turn_id)
+                SELECT f.rowid, f.turn_id
+                FROM turn_fts f
+                WHERE EXISTS (SELECT 1 FROM turns t WHERE t.id = f.turn_id)
                 """)
+            // A v1 database should not contain either shape, but user data
+            // must remain openable if a prior crash or external repair left
+            // orphaned or duplicate FTS payload rows behind.
+            try execute("""
+                DELETE FROM turn_fts
+                WHERE rowid NOT IN (SELECT fts_rowid FROM turn_fts_rows)
+                """)
+            try execute("PRAGMA user_version=2")
         }
-        try execute("PRAGMA user_version=2")
     }
 
     private func migrateEmbeddingChunksIfNeeded() throws {
