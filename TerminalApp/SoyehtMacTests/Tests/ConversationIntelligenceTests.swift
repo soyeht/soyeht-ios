@@ -193,6 +193,71 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         ))
     }
 
+    func testJSONLReaderUsesResponsiveBatchesWithoutLosingLines() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("responsive-batches.jsonl")
+        let recordCount = 200
+        let payload = String(repeating: "x", count: 2_048)
+        var contents = Data()
+        for ordinal in 0..<recordCount {
+            contents.append(Data("{\"ordinal\":\(ordinal),\"text\":\"\(payload)\"}\n".utf8))
+        }
+        try contents.write(to: file)
+
+        var offset: Int64 = 0
+        var recoveredLines = 0
+        var batchCount = 0
+        while true {
+            let batch = try JSONLConversationReader.read(url: file, fromByteOffset: offset)
+            guard batch.nextByteOffset > offset else { break }
+            if batchCount == 0 {
+                XCTAssertLessThanOrEqual(
+                    batch.nextByteOffset,
+                    Int64(JSONLConversationReader.preferredBatchBytes)
+                )
+                XCTAssertLessThan(batch.lines.count, recordCount)
+            }
+            recoveredLines += batch.lines.count
+            batchCount += 1
+            offset = batch.nextByteOffset
+        }
+
+        XCTAssertGreaterThan(batchCount, 1)
+        XCTAssertEqual(recoveredLines, recordCount)
+        XCTAssertEqual(offset, Int64(contents.count))
+    }
+
+    func testJSONLReaderExtendsOneBatchThroughAnOversizedRecord() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("oversized-record.jsonl")
+        let payload = String(
+            repeating: "y",
+            count: JSONLConversationReader.preferredBatchBytes + 1_024
+        )
+        let oversized = Data("{\"text\":\"\(payload)\"}\n".utf8)
+        let trailing = Data("{\"text\":\"neutral trailing record\"}\n".utf8)
+        var contents = oversized
+        contents.append(trailing)
+        try contents.write(to: file)
+
+        let first = try JSONLConversationReader.read(url: file, fromByteOffset: 0)
+        XCTAssertEqual(first.lines.count, 1)
+        XCTAssertEqual(first.nextByteOffset, Int64(oversized.count))
+        XCTAssertGreaterThan(
+            first.nextByteOffset,
+            Int64(JSONLConversationReader.preferredBatchBytes)
+        )
+
+        let second = try JSONLConversationReader.read(
+            url: file,
+            fromByteOffset: first.nextByteOffset
+        )
+        XCTAssertEqual(second.lines.count, 1)
+        XCTAssertEqual(second.nextByteOffset, Int64(contents.count))
+    }
+
     func testManifestDetectsObservedButUndeclaredStratum() {
         let newShape = ConversationSchemaObservation(
             store: "claude",
@@ -235,6 +300,71 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
 }
 
 final class ConversationIntelligenceDatabaseTests: XCTestCase {
+    func testFTSUpdatesUseStableMappedRowIDs() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("intelligence.sqlite")
+        let database = try ConversationIntelligenceDatabase(
+            url: databaseURL,
+            identitySalt: Data(repeating: 3, count: 32)
+        )
+        let descriptor = NativeConversationDescriptor(
+            agent: .codex,
+            nativeSessionID: "fts-rowid-session",
+            sourceURL: root.appendingPathComponent("fts-rowid.jsonl"),
+            projectPath: nil,
+            startedAt: nil,
+            updatedAt: nil,
+            sourceRevision: "fts-rowid-v1"
+        )
+        func batch(text: String, offset: Int64) -> NativeConversationReadResult {
+            .init(
+                descriptor: descriptor,
+                turns: [.init(
+                    ordinal: 1,
+                    nativeRole: "assistant",
+                    evidence: .explicitAssistantText,
+                    text: text,
+                    timestamp: nil,
+                    sourceEventID: "stable-event",
+                    model: nil,
+                    metadata: [:]
+                )],
+                nextByteOffset: offset,
+                lastCompleteLineHash: "line-\(offset)",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )
+        }
+
+        XCTAssertEqual(try database.ingest(batch(text: "violet orchid", offset: 1)), 1)
+        XCTAssertEqual(try database.ingest(batch(text: "amber cedar", offset: 2)), 1)
+        XCTAssertTrue(try database.lexicalSearch("orchid", limit: 5).isEmpty)
+        XCTAssertEqual(try database.lexicalSearch("cedar", limit: 5).count, 1)
+
+        var rawDatabase: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &rawDatabase, SQLITE_OPEN_READONLY, nil),
+            SQLITE_OK
+        )
+        defer { if let rawDatabase { sqlite3_close(rawDatabase) } }
+        var statement: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(
+            rawDatabase,
+            """
+            SELECT COUNT(*), SUM(CASE WHEN r.fts_rowid = f.rowid THEN 0 ELSE 1 END)
+            FROM turn_fts f JOIN turn_fts_rows r ON r.turn_id = f.turn_id
+            """,
+            -1,
+            &statement,
+            nil
+        ), SQLITE_OK)
+        defer { if let statement { sqlite3_finalize(statement) } }
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int64(statement, 0), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 1), 0)
+    }
+
     func testIngestIsIdempotentPathsAreSaltedAndRemovalCascadesEverySurface() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -636,6 +766,7 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
             $0.currentAgent == "codex"
                 && $0.processedConversations == 0
                 && $0.discoveredConversations == 2
+                && $0.currentConversationBatch == 1
                 && $0.report.sources.last?.discoveredConversations == 2
                 && $0.report.changedTurns > 0
         }, "a long conversation must publish changed-turn progress before it completes")

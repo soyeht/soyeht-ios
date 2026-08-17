@@ -238,13 +238,15 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
 
     private func applyScanProgress(_ progress: ConversationIntelligenceScanProgress) async {
         guard !Task.isCancelled else { return }
-        scanProgress = progress
-        scanReport = progress.report
-
         let now = Date()
         let sourceFinished = progress.processedConversations == progress.discoveredConversations
-        guard sourceFinished || now.timeIntervalSince(lastProgressStatsRefresh) >= 1 else { return }
+        guard sourceFinished || now.timeIntervalSince(lastProgressStatsRefresh) >= 0.5 else { return }
         lastProgressStatsRefresh = now
+        // Small ingest transactions can produce many callbacks. Publish a
+        // coherent UI snapshot at a human-readable cadence while retaining an
+        // await point between every batch for cancellation and clear-index.
+        scanProgress = progress
+        scanReport = progress.report
         await reloadStats()
     }
 
@@ -424,7 +426,8 @@ private struct ConversationIntelligenceRootView: View {
         let source = "Source \(progress.sourceIndex) of \(progress.sourceCount)"
         let conversations = "\(progress.processedConversations) of \(progress.discoveredConversations) conversations"
         let turns = "\(progress.report.changedTurns) changed turns so far"
-        return "\(progress.currentAgent.capitalized) · \(source) · \(conversations) · \(turns)"
+        let batch = progress.currentConversationBatch.map { " · chunk \($0)" } ?? ""
+        return "\(progress.currentAgent.capitalized) · \(source) · \(conversations)\(batch) · \(turns)"
     }
 
     @ViewBuilder

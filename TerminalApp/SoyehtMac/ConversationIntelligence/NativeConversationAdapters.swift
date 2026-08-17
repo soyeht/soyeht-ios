@@ -25,6 +25,11 @@ enum ConversationSourceAdapterError: LocalizedError {
 }
 
 struct JSONLConversationReader: Sendable {
+    /// Keep ordinary SQLite ingest transactions small enough that scans can
+    /// publish progress and observe cancellation between commits. A single
+    /// JSONL record may legitimately be much larger, so `read` extends one
+    /// batch through that record's newline instead of stalling at this target.
+    static let preferredBatchBytes = 256 * 1_024
     private static let maximumBatchBytes = 16 * 1_024 * 1_024
     struct Line: Sendable {
         let absoluteByteOffset: Int64
@@ -45,7 +50,20 @@ struct JSONLConversationReader: Sendable {
         try handle.seek(toOffset: safeOffset)
         let tail = try handle.read(upToCount: maximumBatchBytes) ?? Data()
 
-        guard let finalNewline = tail.lastIndex(of: 0x0A) else {
+        let preferredEnd = tail.index(
+            tail.startIndex,
+            offsetBy: min(preferredBatchBytes, tail.count)
+        )
+        let finalNewline: Data.Index?
+        if let newlineWithinTarget = tail[..<preferredEnd].lastIndex(of: 0x0A) {
+            finalNewline = newlineWithinTarget
+        } else {
+            // The first record is larger than the preferred transaction size.
+            // Preserve JSONL atomicity by extending through exactly that line.
+            finalNewline = tail[preferredEnd...].firstIndex(of: 0x0A)
+        }
+
+        guard let finalNewline else {
             return Batch(lines: [], nextByteOffset: Int64(safeOffset), lastCompleteLineHash: nil)
         }
 

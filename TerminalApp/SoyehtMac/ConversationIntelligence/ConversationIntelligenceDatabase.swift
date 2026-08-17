@@ -223,7 +223,15 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
             try transaction {
                 let key = sourceKey(sourceURL)
                 try execute(
-                    "DELETE FROM turn_fts WHERE turn_id IN (SELECT t.id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE c.source_key=?)",
+                    """
+                    DELETE FROM turn_fts WHERE rowid IN (
+                        SELECT r.fts_rowid
+                        FROM turn_fts_rows r
+                        JOIN turns t ON t.id = r.turn_id
+                        JOIN conversations c ON c.id = t.conversation_id
+                        WHERE c.source_key = ?
+                    )
+                    """,
                     bindings: [key]
                 )
                 try execute("DELETE FROM conversations WHERE source_key=?", bindings: [key])
@@ -514,6 +522,11 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
                 tokenize='unicode61 remove_diacritics 2'
             );
 
+            CREATE TABLE IF NOT EXISTS turn_fts_rows(
+                fts_rowid INTEGER PRIMARY KEY,
+                turn_id TEXT NOT NULL UNIQUE REFERENCES turns(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS ingest_state(
                 source_key TEXT PRIMARY KEY,
                 source_revision TEXT NOT NULL,
@@ -546,7 +559,30 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
                 PRIMARY KEY(store, schema_version, shape)
             );
             """)
+        try migrateFTSRowIDsIfNeeded()
         try migrateEmbeddingChunksIfNeeded()
+    }
+
+    /// `turn_id` is an UNINDEXED FTS5 payload column. Deleting with
+    /// `WHERE turn_id = ?` therefore scans the complete full-text table for
+    /// every changed turn. Persist the virtual table rowid once and use its
+    /// native lookup path for all subsequent updates and removals.
+    private func migrateFTSRowIDsIfNeeded() throws {
+        let statement = try prepare("PRAGMA user_version")
+        let version = sqlite3_step(statement) == SQLITE_ROW
+            ? Int(sqlite3_column_int(statement, 0))
+            : 0
+        sqlite3_finalize(statement)
+        guard version < 2 else { return }
+
+        try transaction {
+            try execute("DELETE FROM turn_fts_rows")
+            try execute("""
+                INSERT INTO turn_fts_rows(fts_rowid, turn_id)
+                SELECT rowid, turn_id FROM turn_fts
+                """)
+        }
+        try execute("PRAGMA user_version=2")
     }
 
     private func migrateEmbeddingChunksIfNeeded() throws {
@@ -658,12 +694,22 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
         bind(turn.model, at: 10, in: statement)
         try stepDone(statement)
 
-        try execute("DELETE FROM turn_fts WHERE turn_id = ?", bindings: [id])
+        try execute(
+            "DELETE FROM turn_fts WHERE rowid = (SELECT fts_rowid FROM turn_fts_rows WHERE turn_id = ?)",
+            bindings: [id]
+        )
         try execute("DELETE FROM envelope_edges WHERE turn_id = ?", bindings: [id])
         if role.isDefaultSearchContent {
             try execute(
-                "INSERT INTO turn_fts(turn_id, content_text) VALUES(?, ?)",
-                bindings: [id, normalized]
+                "INSERT INTO turn_fts_rows(turn_id) VALUES(?) ON CONFLICT(turn_id) DO NOTHING",
+                bindings: [id]
+            )
+            try execute(
+                """
+                INSERT INTO turn_fts(rowid, turn_id, content_text)
+                SELECT fts_rowid, ?, ? FROM turn_fts_rows WHERE turn_id = ?
+                """,
+                bindings: [id, normalized, id]
             )
         }
         if role == .envelope, let envelope = SoyehtEnvelopeMetadata.parse(normalized) {
@@ -687,7 +733,13 @@ final class ConversationIntelligenceDatabase: @unchecked Sendable {
 
     private func deleteTurns(conversationID: String) throws {
         try execute(
-            "DELETE FROM turn_fts WHERE turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
+            """
+            DELETE FROM turn_fts WHERE rowid IN (
+                SELECT r.fts_rowid
+                FROM turn_fts_rows r JOIN turns t ON t.id = r.turn_id
+                WHERE t.conversation_id = ?
+            )
+            """,
             bindings: [conversationID]
         )
         try execute("DELETE FROM turns WHERE conversation_id = ?", bindings: [conversationID])

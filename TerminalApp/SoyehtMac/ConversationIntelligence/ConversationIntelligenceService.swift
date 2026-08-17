@@ -61,6 +61,7 @@ struct ConversationIntelligenceScanProgress: Equatable, Sendable {
     let sourceCount: Int
     let processedConversations: Int
     let discoveredConversations: Int
+    let currentConversationBatch: Int?
 }
 
 struct ConversationEmbeddingReport: Equatable, Sendable {
@@ -183,7 +184,7 @@ actor ConversationIntelligenceService {
                         descriptor,
                         with: adapter,
                         generation: scanGeneration
-                    ) { [self] partialCounts in
+                    ) { [self] partialCounts, batchNumber in
                         await emitRecentScanProgress(
                             startedAt: startedAt,
                             completedSources: completedSources,
@@ -191,6 +192,7 @@ actor ConversationIntelligenceService {
                             sourceIndex: sourceOffset + 1,
                             processedConversations: descriptorOffset,
                             discoveredConversations: descriptors.count,
+                            currentConversationBatch: batchNumber,
                             counts: countsBeforeDescriptor + partialCounts,
                             onProgress: onProgress
                         )
@@ -494,6 +496,7 @@ actor ConversationIntelligenceService {
         sourceIndex: Int,
         processedConversations: Int,
         discoveredConversations: Int,
+        currentConversationBatch: Int? = nil,
         counts: IngestCounts,
         error: String? = nil,
         onProgress: (@Sendable (ConversationIntelligenceScanProgress) async -> Void)?
@@ -520,7 +523,8 @@ actor ConversationIntelligenceService {
             sourceIndex: sourceIndex,
             sourceCount: adapters.count,
             processedConversations: processedConversations,
-            discoveredConversations: discoveredConversations
+            discoveredConversations: discoveredConversations,
+            currentConversationBatch: currentConversationBatch
         ))
     }
 
@@ -569,9 +573,10 @@ actor ConversationIntelligenceService {
         _ descriptor: NativeConversationDescriptor,
         with adapter: any ConversationSourceAdapter,
         generation: UInt64,
-        onBatch: (@Sendable (IngestCounts) async -> Void)? = nil
+        onBatch: (@Sendable (IngestCounts, Int) async -> Void)? = nil
     ) async -> IngestOutcome {
         var outcome = IngestOutcome()
+        var batchNumber = 0
         guard scanMayContinue(generation: generation) else {
             outcome.interrupted = true
             return outcome
@@ -594,11 +599,12 @@ actor ConversationIntelligenceService {
                 : 0
             var replaceOnNextBatch = cursor != nil
                 && (!hasMatchingRevision || !hasValidJSONLCursor)
-            // JSONL is parsed in bounded byte batches so a very long
-            // session cannot make the app mirror the whole file in RAM.
-            // SQLite adapters naturally stop when their high-water mark
-            // no longer advances.
-            for _ in 0..<256 {
+            // JSONL is parsed in bounded byte batches so each SQLite commit
+            // yields often enough for progress and cancellation. Do not cap
+            // the number of batches: multi-GB sessions must reach EOF rather
+            // than becoming permanently partial. Every adapter terminates by
+            // returning a non-advancing cursor.
+            while true {
                 guard scanMayContinue(generation: generation) else {
                     outcome.interrupted = true
                     return outcome
@@ -616,7 +622,8 @@ actor ConversationIntelligenceService {
                 replaceOnNextBatch = false
                 outcome.counts.unknown += batch.unknownEventCount
                 offset = batch.nextByteOffset
-                await onBatch?(outcome.counts)
+                batchNumber += 1
+                await onBatch?(outcome.counts, batchNumber)
                 guard scanMayContinue(generation: generation) else {
                     outcome.interrupted = true
                     return outcome
@@ -628,7 +635,7 @@ actor ConversationIntelligenceService {
                 return outcome
             }
             outcome.counts.failed += 1
-            await onBatch?(outcome.counts)
+            await onBatch?(outcome.counts, batchNumber)
         }
         return outcome
     }
