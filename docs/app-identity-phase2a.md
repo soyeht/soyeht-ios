@@ -44,10 +44,19 @@ caminho **controlado pela página**; resolvê-lo com comparação de string
 criaria a quinta reimplementação da regra frágil que já existe no repo, e a
 primeira cujo input não vem do usuário.
 
+**Desvio aprovado (2026-08-17): `final class`, não `struct`.** O esboço
+abaixo dizia `struct`; o tipo é de referência, e a razão é de correção, não
+de estilo. Um `struct` copyable **fecharia o fd duas vezes** — a cópia e o
+original — e um double-close é precisamente o modo de falha por reuso de
+número que este desenho existe para evitar: fecha-se um descritor que outro
+código já passou a usar. `deinit` num `struct` exigiria `~Copyable`, que não
+aceita armazenamento comum no handler de esquema. **Posse única de descritor
+é semântica de referência.** Assinaturas públicas permanecem idênticas.
+
 ```swift
 /// Confinamento de acesso a um diretório, imposto pelo kernel.
 /// Nunca compara caminhos como string para decidir acesso.
-struct PathScope {
+final class PathScope {
     /// fd do diretório raiz, aberto com O_DIRECTORY. Vive enquanto o escopo vive.
     private let rootFD: Int32
 
