@@ -190,6 +190,29 @@ final class SystemMetricsCollectorTests: XCTestCase {
             XCTAssertTrue((0...100).contains(snap.cpuLoadPercent))
         }
     }
+
+    /// Permanent rule (celia, after the getloadavg sentinel bug): range
+    /// tests are not functioning tests — for live metrics, proving the
+    /// value MOVES beats proving it is plausible. A frozen collector was
+    /// green for a whole day because its failure value (0) sat inside the
+    /// plausible range.
+    ///
+    /// The monotone canary is uptime: CPU load and free memory may
+    /// legitimately repeat between adjacent samples, but uptime can never
+    /// stand still. Poll until it strictly advances (it ticks every
+    /// second); a timeout means the metric is frozen — the exact bug
+    /// class this test exists to make impossible to ship green again.
+    func testUptimeAdvancesProvingItVaries() throws {
+        let first = try SystemMetricsCollector.snapshot().uptimeSeconds
+        let deadline = Date().addingTimeInterval(2.5)
+        while Date() < deadline {
+            if try SystemMetricsCollector.snapshot().uptimeSeconds > first {
+                return
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        XCTFail("uptime metric did not advance in 2.5s — collector is frozen (sentinel-value bug class)")
+    }
 }
 
 /// Frozen with the bridge slice: the response envelope resolves the app's
