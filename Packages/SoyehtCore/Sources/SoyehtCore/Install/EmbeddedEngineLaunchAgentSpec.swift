@@ -34,11 +34,10 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
         execCommand = #"exec "$ENGINE_DIR/theyos-engine""#
         standardOutPath = profile.engineLogPath
         standardErrorPath = profile.engineLogPath
-        opaqueExportedEnvironmentKeys = [
-            "THEYOS_APNS_KEY_ID",
-            "THEYOS_APNS_TEAM_ID",
-            "THEYOS_APNS_TOPIC",
-        ]
+        // Provider credentials never belong in the shipped client. With no
+        // APNs provider environment the embedded engine deliberately starts
+        // without push transport and keeps the Bonjour/foreground path alive.
+        opaqueExportedEnvironmentKeys = []
         launchdEnvironmentKeys = opaqueExportedEnvironmentKeys
 
         var environment = Self.commonExportedEnvironment(for: profile)
@@ -112,7 +111,6 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
             "THEYOS_STORE_RS_BIN": "$ENGINE_DIR/store-ipc",
             "THEYOS_TERMINAL_RS_BIN": "$ENGINE_DIR/terminal-ipc",
             "THEYOS_SSH_CTL": "$ENGINE_DIR/theyos-ssh",
-            "THEYOS_APNS_KEY_PATH": "$SOYEHT_DIR/apns.p8",
         ]
     }
 }

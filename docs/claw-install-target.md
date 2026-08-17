@@ -113,7 +113,7 @@ grep -rn "ClawAPITarget\.household\|target:\s*\.household" \
 
 # Engine pin for the current release train:
 cat scripts/theyos-engine.version
-# Expected: 0.1.21
+# Expected: 0.1.27
 ```
 
 Run `ClawRouteUsageTests` to enforce the first two as part of CI.

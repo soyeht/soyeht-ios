@@ -47,14 +47,42 @@ APPLE_ID_APP_PASSWORD="${APPLE_ID_APP_PASSWORD:-}"
 TEMP_EXPORT_OPTIONS=""
 STAGING_DIR=""
 SCRATCH_DIR=""
+DMG_MOUNT_DIR=""
+DMG_MOUNTED=0
 
 cleanup() {
+    if [[ "${DMG_MOUNTED}" == "1" && -n "${DMG_MOUNT_DIR}" ]]; then
+        hdiutil detach "${DMG_MOUNT_DIR}" >/dev/null 2>&1 || true
+    fi
+    [[ -n "${DMG_MOUNT_DIR}" ]] && rmdir "${DMG_MOUNT_DIR}" >/dev/null 2>&1 || true
     [[ -n "${TEMP_EXPORT_OPTIONS}" ]] && rm -f "${TEMP_EXPORT_OPTIONS}"
     [[ -n "${STAGING_DIR}" ]] && rm -rf "${STAGING_DIR}"
     [[ -n "${SCRATCH_DIR}" ]] && rm -rf "${SCRATCH_DIR}"
 }
 
 trap cleanup EXIT
+
+scan_product_root() {
+    local product_root="$1"
+    python3 "${REPO_ROOT}/scripts/ci/check-governed-macos-release.py" \
+        --scan-product "${product_root}"
+}
+
+scan_dmg_contents() {
+    local dmg_path="$1"
+    DMG_MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/soyeht-dmg-scan.XXXXXX")"
+    hdiutil attach \
+        -readonly \
+        -nobrowse \
+        -mountpoint "${DMG_MOUNT_DIR}" \
+        "${dmg_path}" >/dev/null
+    DMG_MOUNTED=1
+    scan_product_root "${DMG_MOUNT_DIR}"
+    hdiutil detach "${DMG_MOUNT_DIR}" >/dev/null
+    DMG_MOUNTED=0
+    rmdir "${DMG_MOUNT_DIR}"
+    DMG_MOUNT_DIR=""
+}
 
 sign_outer_app() {
     local app_path="$1"
@@ -119,6 +147,15 @@ sign_engine_helpers() {
 }
 
 # ── Guards ────────────────────────────────────────────────────────────────────
+
+# A provider signing key is server-side authority. A public client build must
+# fail closed if a legacy local/CI variable tries to reintroduce that authority.
+for forbidden_provider_variable in APNS_KEY_SOURCE APNS_KEY_PATH SOYEHT_APNS_P8_BASE64; do
+    if [[ -n "${!forbidden_provider_variable:-}" ]]; then
+        echo "error: ${forbidden_provider_variable} must not be supplied to a public client build." >&2
+        exit 1
+    fi
+done
 
 if [[ -z "${DEVELOPER_ID_APPLICATION}" ]]; then
     echo "error: DEVELOPER_ID_APPLICATION not set. Export from .env.release or environment." >&2
@@ -202,37 +239,11 @@ STAGING_DIR="$(mktemp -d)"
 SCRATCH_DIR="$(mktemp -d)"
 
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
-
-# ── Step 3a: Bundle APNs key into staged app ─────────────────────────────────
-# The Xcode build phase (bundle-apns-key.sh) is the canonical path; this is
-# a fallback for archives produced without it (e.g. CI without the key).
-# Modifying the bundle requires a re-sign to keep Gatekeeper happy.
-
-APNS_KEY_SOURCE="${APNS_KEY_SOURCE:-${HOME}/.soyeht/apns.p8}"
 STAGED_APP="${STAGING_DIR}/${APP_NAME}.app"
-APNS_KEY_DEST="${STAGED_APP}/Contents/Resources/apns.p8"
 COMPANION_APP="${STAGING_DIR}/Uninstall ${APP_NAME}.app"
-
-if [[ -f "${APNS_KEY_DEST}" ]]; then
-    echo "→ APNs key already present in export (build phase ran); skipping."
-elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
-    mkdir -p "${STAGED_APP}/Contents/Resources"
-    cp "${APNS_KEY_SOURCE}" "${APNS_KEY_DEST}"
-    chmod 0600 "${APNS_KEY_DEST}"
-    echo "✓ APNs key bundled at ${APNS_KEY_DEST}"
-    # Re-sign the outer .app after adding a resource. Do NOT use --deep: nested
-    # helpers were already signed by embed-engine.sh with their own entitlements
-    # (including Virtualization for vmrunner_macos_ipc); --deep would strip or
-    # overwrite that scope. Apple inside-out signing: helpers first, outer last.
-    echo "→ Re-signing staged app (outer only) after adding resource..."
-    sign_outer_app "${STAGED_APP}"
-else
-    echo "APNs key not found at ${APNS_KEY_SOURCE}; Caso B push will degrade to Bonjour-only" >&2
-fi
 
 echo "→ Creating graphical uninstaller companion..."
 ditto "${STAGED_APP}" "${COMPANION_APP}"
-rm -f "${COMPANION_APP}/Contents/Resources/apns.p8"
 MAIN_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${STAGED_APP}/Contents/Info.plist")"
 /usr/bin/plutil -replace CFBundleName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
 /usr/bin/plutil -replace CFBundleDisplayName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
@@ -248,6 +259,9 @@ codesign --verify --deep --strict --verbose=2 "${COMPANION_APP}"
 
 # Applications symlink for drag-to-install UX.
 ln -s /Applications "${STAGING_DIR}/Applications"
+
+echo "→ Verifying staged public product contains no provider private key..."
+scan_product_root "${STAGING_DIR}"
 
 # rw.dmg goes to SCRATCH_DIR (separate from -srcfolder) to avoid ENOSPC:
 # hdiutil sizes the image from the source dir before writing — output inside
@@ -273,6 +287,9 @@ echo "→ Signing DMG..."
 codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
     --timestamp \
     "${DMG_PATH}"
+
+echo "→ Verifying signed DMG contains no provider private key before notarization..."
+scan_dmg_contents "${DMG_PATH}"
 
 # ── Step 5: Notarize ─────────────────────────────────────────────────────────
 
@@ -317,6 +334,9 @@ fi
 echo "→ Stapling notarization ticket..."
 xcrun stapler staple "${DMG_PATH}"
 xcrun stapler validate "${DMG_PATH}"
+
+echo "→ Verifying final stapled DMG contains no provider private key..."
+scan_dmg_contents "${DMG_PATH}"
 
 # ── Step 7: Final verification ────────────────────────────────────────────────
 

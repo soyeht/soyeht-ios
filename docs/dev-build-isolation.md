@@ -16,7 +16,7 @@ state** lived at fixed, literal paths shared by both builds:
 
 - `~/Library/Application Support/Soyeht/` — engine binaries, **identity**,
   **household**, **VMs**, **snapshots**, **conversations**, all databases,
-  bootstrap token, APNs key
+  bootstrap token, and, historically, a locally installed APNs provider key
 - `~/.theyos`
 - the single LaunchAgent `com.soyeht.engine` (one launchd job, fixed ports
   8892 admin / 8091 household)
@@ -50,6 +50,12 @@ only `.dev` (bundle id ending in `.dev`) diverges:
 
 The invariant — `dev` and `release` share **no** namespaced value — is enforced
 by `SoyehtInstallProfileTests` in `SoyehtCoreTests`.
+
+APNs provider signing keys are not client state and are never installed by
+either profile. Both embedded LaunchAgents omit provider credentials, so the
+engine skips APNs transport and retains the Bonjour/foreground path. The
+uninstaller still removes a legacy `apns.p8` from Application Support when one
+exists; the client never reads or recreates it.
 
 ### How the engine is namespaced
 

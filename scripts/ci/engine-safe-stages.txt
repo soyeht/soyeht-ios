@@ -8,8 +8,9 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@eb1da5184b4422d956f592e0b85358626ddd83eb (refs/tags/v0.1.25, the source
-# the shipped 0.1.25 engine asset is attested to). Every token below was
+# theyos@c1e5455adb9b4cbc4ce430a6c6303c09b1f508d3 (refs/tags/v0.1.27, the source
+# the shipped 0.1.27 engine asset is attested to; tree
+# 999a82bbabc3a1a900f31cfc08d0caab5413d000). Every token below was
 # verified present as a compile-time literal in that tree. Scope: the
 # initialize/bootstrap/bonjour/long-poll path that carries the initialize
 # failure, plus the progress markers needed to locate where it fell. Regenerate

@@ -3,6 +3,13 @@ import XCTest
 
 final class EmbeddedEngineLaunchAgentTests: XCTestCase {
 
+    private let forbiddenProviderCredentialKeys: Set<String> = [
+        "THEYOS_APNS_KEY_PATH",
+        "THEYOS_APNS_KEY_ID",
+        "THEYOS_APNS_TEAM_ID",
+        "THEYOS_APNS_TOPIC",
+    ]
+
     // MARK: - Helpers
 
     private struct ParsedCommand {
@@ -209,6 +216,28 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID"], "W7677A5BK2")
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID"], "com.soyeht.app.dev")
         XCTAssertEqual(devExports["THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT"], "development")
+    }
+
+    func test_launchAgentsNeverExportAPNsProviderCredentials() throws {
+        for profile in [SoyehtInstallProfile.release, .dev] {
+            let spec = EmbeddedEngineLaunchAgentSpec(profile: profile)
+            let plist = try plist(named: spec.plistName)
+            let command = try parseShellCommand(try XCTUnwrap(programArguments(from: plist).last))
+            let launchdEnvironment = try launchdEnvironment(from: plist)
+
+            XCTAssertTrue(
+                Set(command.exports.keys).isDisjoint(with: forbiddenProviderCredentialKeys),
+                "provider credential exported by \(profile.kind) shell command"
+            )
+            XCTAssertTrue(
+                Set(launchdEnvironment.keys).isDisjoint(with: forbiddenProviderCredentialKeys),
+                "provider credential exported by \(profile.kind) LaunchAgent environment"
+            )
+            XCTAssertTrue(
+                spec.expectedExportedEnvironmentKeys.isDisjoint(with: forbiddenProviderCredentialKeys),
+                "provider credential admitted by \(profile.kind) executable spec"
+            )
+        }
     }
 
     func test_releaseLaunchAgent_doesNotExportDevOnlyRuntimeOverrides() throws {

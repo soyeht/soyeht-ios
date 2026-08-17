@@ -38,7 +38,6 @@ on a `/bootstrap/*` route.
 - DMG/notarization helper: `scripts/build-dmg.sh`.
 - Release docs and secret inventory: `docs/macos-updates.md`.
 - Local Developer ID certificate export: `~/Documents/theyos-developer-id.p12`.
-- Local APNs key for the macOS engine: `~/.soyeht/apns.p8`.
 - Local App Store Connect notary API key: `~/.soyeht/notary/AuthKey_6MFCQ8AWV5.p8`.
 - Local notarytool profile: `soyeht-notary`.
 - Team ID: `W7677A5BK2`.
@@ -48,6 +47,12 @@ Do not print, commit, or paste secret values. The required GitHub Actions
 secrets live on `soyeht/soyeht-ios`. CI notarization uses the
 `APPLE_NOTARY_*` App Store Connect Team API key secrets, not
 `APPLE_ID_APP_PASSWORD`.
+
+An APNs provider signing key is server-side authority and must never enter a
+client archive, app bundle, installer, DMG, or public release asset. The
+embedded engine starts without APNs provider configuration and preserves the
+Bonjour/foreground path. The App Store Connect notarization key is separate:
+it may exist in runner temporary storage but never inside a product root.
 
 GitHub secrets are write-only: agents can verify that a secret exists, but
 cannot read it back. If the notary API key is lost or compromised, revoke it in
@@ -64,7 +69,7 @@ Release checklist for agents:
    `SOYEHT_SPARKLE_PUBLIC_ED_KEY`, `APPLE_DEVELOPER_ID_P12_BASE64`,
    `APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_NOTARY_KEY_P8_BASE64`,
    `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, `APPLE_TEAM_ID`,
-   `APPLE_CODESIGN_IDENTITY`, and `SOYEHT_APNS_P8_BASE64`.
+   and `APPLE_CODESIGN_IDENTITY`.
 2. Do not use or recreate `APPLE_ID_APP_PASSWORD`; CI notarization should use
    the App Store Connect API key path only.
 3. Preserve the governed A-then-B order: first land the reviewed adapter and

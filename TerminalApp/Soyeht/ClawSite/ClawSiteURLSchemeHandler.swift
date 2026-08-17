@@ -79,7 +79,17 @@ final class ClawSiteURLSchemeHandler: NSObject, WKURLSchemeHandler {
         lock.unlock()
     }
 
-    func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+    func webView(_: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        start(urlSchemeTask)
+    }
+
+    /// Starts one scheme task without requiring a live WebKit process.
+    ///
+    /// `WKWebView` is only the protocol callback carrier; none of the request
+    /// handling depends on it. Keeping the work in this method lets focused
+    /// tests exercise the real task lifecycle without launching WebKit's GPU
+    /// process, whose startup latency is unrelated to this contract.
+    func start(_ urlSchemeTask: any WKURLSchemeTask) {
         let key = ObjectIdentifier(urlSchemeTask)
         lock.lock()
         liveTasks[key] = urlSchemeTask
