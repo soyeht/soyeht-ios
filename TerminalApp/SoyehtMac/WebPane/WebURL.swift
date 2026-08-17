@@ -21,11 +21,29 @@ enum WebURLError: Error, LocalizedError {
 }
 
 enum WebURL {
+    private static let bareHostExpression = try! NSRegularExpression(pattern: #"^(?:(?:localhost)|(?:\d{1,3}(?:\.\d{1,3}){3})|(?:\[[0-9A-Fa-f:.]+\])|(?:(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9][A-Za-z0-9-]*))(?:\:[0-9]{1,5})?(?:[/?#][^\s]*)?$"#)
+
+    /// Normalizes a human-entered bare host before it reaches `validate`.
+    /// This is intentionally narrower than URL parsing: only a conventional
+    /// domain, localhost, or IPv4/IPv6 literal (with an optional numeric
+    /// port) receives an HTTPS prefix. Scheme-like strings therefore cannot
+    /// turn into an alternative entry point around the fail-closed validator.
+    static func normalizeUserInput(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return trimmed }
+
+        if let scheme = URLComponents(string: trimmed)?.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            return trimmed
+        }
+
+        return isBareHostInput(trimmed) ? "https://\(trimmed)" : trimmed
+    }
+
     /// The single fail-closed entry point for URLs loaded by a web pane.
     static func validate(_ raw: String) throws -> URL {
         guard !raw.isEmpty,
               let components = URLComponents(string: raw),
-              let url = components.url,
               let scheme = components.scheme else {
             throw WebURLError.malformed(raw)
         }
@@ -43,6 +61,12 @@ enum WebURL {
             throw WebURLError.credentialsInURL(raw)
         }
 
+        var normalized = components
+        normalized.scheme = scheme.lowercased()
+        normalized.host = host.lowercased()
+        guard let url = normalized.url else {
+            throw WebURLError.malformed(raw)
+        }
         return url
     }
 
@@ -72,5 +96,13 @@ enum WebURL {
         }
 
         return components.string ?? raw
+    }
+
+    private static func isBareHostInput(_ raw: String) -> Bool {
+        // Match only complete input. The final component admits an optional
+        // path, query, or fragment, while the authority remains a hostname
+        // shape rather than an arbitrary URI scheme.
+        let range = NSRange(raw.startIndex..., in: raw)
+        return bareHostExpression.firstMatch(in: raw, range: range) != nil
     }
 }

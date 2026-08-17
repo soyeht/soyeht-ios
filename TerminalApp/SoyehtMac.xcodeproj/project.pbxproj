@@ -170,6 +170,9 @@
 		CB1000260000000000000001 /* GitSidebarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000260000000000000002 /* GitSidebarModels.swift */; };
 		CB1000270000000000000001 /* GitDiffRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000270000000000000002 /* GitDiffRenderer.swift */; };
 		CB1000280000000000000001 /* EditorTabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000280000000000000002 /* EditorTabBarView.swift */; };
+		CB1000300000000000000001 /* WebURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000300000000000000002 /* WebURL.swift */; };
+		CB1000310000000000000001 /* WebPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000310000000000000002 /* WebPaneViewController.swift */; };
+		CB1000320000000000000001 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1000320000000000000002 /* WebKit.framework */; };
 		D40C5B4B0AE69742892E2B58 /* UninstallWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */; };
 		DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8551E3005154C035BE2E191 /* HouseNamingView.swift */; };
 		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
@@ -351,6 +354,9 @@
 		CB1000260000000000000002 /* GitSidebarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitSidebarModels.swift; sourceTree = "<group>"; };
 		CB1000270000000000000002 /* GitDiffRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitDiffRenderer.swift; sourceTree = "<group>"; };
 		CB1000280000000000000002 /* EditorTabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabBarView.swift; sourceTree = "<group>"; };
+		CB1000300000000000000002 /* WebURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebURL.swift; sourceTree = "<group>"; };
+		CB1000310000000000000002 /* WebPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPaneViewController.swift; sourceTree = "<group>"; };
+		CB1000320000000000000002 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariOpener.swift; sourceTree = "<group>"; };
 		D8551E3005154C035BE2E191 /* HouseNamingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingView.swift; sourceTree = "<group>"; };
 		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
@@ -372,6 +378,7 @@
 				AA0000000000000000000A01 /* AppIntents.framework in Frameworks */,
 				CA0800300000000000000001 /* Sparkle in Frameworks */,
 				AA000002000000000000001 /* SoyehtCore in Frameworks */,
+				CB1000320000000000000001 /* WebKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -433,6 +440,7 @@
 				AA0000000000000000000A02 /* AppIntents.framework */,
 				4936D22E2451386F005CEE27 /* SwiftSH.framework */,
 				4936D21C24512A98005CEE27 /* SwiftSH.framework */,
+				CB1000320000000000000002 /* WebKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -494,6 +502,7 @@
 				AA20000A000000000000001 /* PaneGrid */,
 				CB1000100000000000000001 /* EditorPane */,
 				CB1000110000000000000001 /* GitPane */,
+				CB1000120000000000000001 /* WebPane */,
 				AA30000A000000000000001 /* MainWindow */,
 				AA51000A000000000000001 /* MainMenu */,
 				AA40000A000000000000001 /* NewConversation */,
@@ -820,6 +829,15 @@
 			path = GitPane;
 			sourceTree = "<group>";
 		};
+		CB1000120000000000000001 /* WebPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000300000000000000002 /* WebURL.swift */,
+				CB1000310000000000000002 /* WebPaneViewController.swift */,
+			);
+			path = WebPane;
+			sourceTree = "<group>";
+		};
 		D78E390C8AD7D1D2BA82CD76 /* Uninstall */ = {
 			isa = PBXGroup;
 			children = (
@@ -1063,6 +1081,8 @@
 				CB1000260000000000000001 /* GitSidebarModels.swift in Sources */,
 				CB1000270000000000000001 /* GitDiffRenderer.swift in Sources */,
 				CB1000070000000000000001 /* GitPaneViewController.swift in Sources */,
+				CB1000300000000000000001 /* WebURL.swift in Sources */,
+				CB1000310000000000000001 /* WebPaneViewController.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
 				AA200008000000000000001 /* NativePTY.swift in Sources */,
