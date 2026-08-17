@@ -1,0 +1,1 @@
+../../../SoyehtMac/AppPlatform/AppManifest.swift

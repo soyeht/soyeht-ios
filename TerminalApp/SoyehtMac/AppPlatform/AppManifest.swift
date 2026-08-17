@@ -12,10 +12,18 @@ struct AppPublisher: Codable, Hashable {
     }
 
     init(from decoder: Decoder) throws {
+        try Self.rejectUnknownKeys(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        try AppManifest.rejectUnknownKeys(container)
-        self.init(id: try container.decode(String.self, forKey: .id),
-                  displayName: try container.decode(String.self, forKey: .displayName))
+        try self.init(id: try container.decode(String.self, forKey: .id),
+                      displayName: try container.decode(String.self, forKey: .displayName))
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable { case id, displayName }
+
+    private static func rejectUnknownKeys(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        let permitted = Set(CodingKeys.allCases.map(\.rawValue))
+        if let key = c.allKeys.first(where: { !permitted.contains($0.stringValue) }) { throw AppManifestError.unknownKey(key.stringValue) }
     }
 }
 
@@ -24,8 +32,10 @@ enum AppProvenance: String, Codable, Hashable { case localUnverified }
 
 enum AppManifestError: Error, Equatable {
     case unknownKey(String), unsupportedSchemaVersion, invalidIdentifier, invalidPublisherID
-    case invalidEntry, capabilitiesNotAllowed
+    case invalidEntry, capabilitiesNotAllowed, fileTooLarge
 }
+
+private struct AnyKey: CodingKey { let stringValue: String; init?(stringValue: String) { self.stringValue = stringValue }; let intValue: Int? = nil; init?(intValue: Int) { nil } }
 
 struct AppManifest: Codable, Hashable {
     static let maximumByteCount = 64 * 1024
@@ -48,13 +58,13 @@ struct AppManifest: Codable, Hashable {
     }
 
     init(from decoder: Decoder) throws {
+        try Self.rejectUnknownKeys(from: decoder)
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        try Self.rejectUnknownKeys(c)
         try self.init(schemaVersion: c.decode(Int.self, forKey: .schemaVersion), id: c.decode(String.self, forKey: .id), name: c.decode(String.self, forKey: .name), version: c.decode(String.self, forKey: .version), entry: c.decode(String.self, forKey: .entry), publisher: c.decode(AppPublisher.self, forKey: .publisher), capabilities: c.decode([String].self, forKey: .capabilities), optionalCapabilities: c.decode([String].self, forKey: .optionalCapabilities))
     }
 
     static func decode(_ data: Data) throws -> AppManifest {
-        guard data.count <= maximumByteCount else { throw AppManifestError.invalidEntry }
+        guard data.count <= maximumByteCount else { throw AppManifestError.fileTooLarge }
         return try JSONDecoder().decode(AppManifest.self, from: data)
     }
 
@@ -65,8 +75,10 @@ struct AppManifest: Codable, Hashable {
     static func isValidRelativePath(_ value: String) -> Bool {
         !value.isEmpty && !value.hasPrefix("/") && value.split(separator: "/", omittingEmptySubsequences: false).allSatisfy { !$0.isEmpty && !$0.hasPrefix("..") }
     }
-    static func rejectUnknownKeys<K: CodingKey>(_ container: KeyedDecodingContainer<K>) throws {
-        for key in container.allKeys where CodingKeys(stringValue: key.stringValue) == nil { throw AppManifestError.unknownKey(key.stringValue) }
+    static func rejectUnknownKeys(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        let permitted = Set(CodingKeys.allCases.map(\.rawValue))
+        if let key = c.allKeys.first(where: { !permitted.contains($0.stringValue) }) { throw AppManifestError.unknownKey(key.stringValue) }
     }
     enum CodingKeys: String, CodingKey, CaseIterable { case schemaVersion, id, name, version, entry, publisher, capabilities, optionalCapabilities }
 }
