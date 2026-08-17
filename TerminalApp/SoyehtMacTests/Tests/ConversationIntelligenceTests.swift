@@ -599,6 +599,61 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
         XCTAssertNotNil(lexical.first?.lexicalRank)
     }
 
+    func testRecentScanPublishesPerProviderAndInFlightProgress() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try ConversationIntelligenceDatabase(
+            url: root.appendingPathComponent("index.sqlite"),
+            identitySalt: Data(repeating: 7, count: 32)
+        )
+        let service = ConversationIntelligenceService(
+            database: database,
+            adapters: [
+                ProgressFixtureConversationSourceAdapter(agent: .codex, count: 2, root: root),
+                ProgressFixtureConversationSourceAdapter(agent: .claude, count: 1, root: root),
+                ProgressFixtureConversationSourceAdapter(agent: .opencode, count: 1, root: root),
+            ],
+            embedder: OllamaQwenEmbeddingClient()
+        )
+        let recorder = ConversationScanProgressRecorder()
+
+        let report = await service.scanRecent(days: 90) { progress in
+            await recorder.append(progress)
+        }
+        let events = await recorder.events
+
+        XCTAssertEqual(report.discoveredConversations, 4)
+        XCTAssertEqual(report.sources.map(\.agent), ["codex", "claude", "opencode"])
+        XCTAssertEqual(
+            events.reduce(into: [String]()) { order, progress in
+                if order.last != progress.currentAgent { order.append(progress.currentAgent) }
+            },
+            ["codex", "claude", "opencode"]
+        )
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "codex"
+                && $0.processedConversations == 0
+                && $0.discoveredConversations == 2
+                && $0.report.changedTurns > 0
+        }, "a long conversation must publish changed-turn progress before it completes")
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "codex"
+                && $0.processedConversations == 2
+                && $0.sourceIndex == 1
+                && $0.sourceCount == 3
+        })
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "claude"
+                && $0.processedConversations == 0
+                && $0.report.sources.first?.discoveredConversations == 2
+        }, "the completed Codex source must remain visible while Claude starts")
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "opencode"
+                && $0.processedConversations == 1
+                && $0.sourceIndex == 3
+        })
+    }
+
     func testLongAnswerTailRemainsSemanticallyRetrievable() async throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -1082,6 +1137,71 @@ private struct FailingReadConversationSourceAdapter: ConversationSourceAdapter {
         fromByteOffset: Int64
     ) throws -> NativeConversationReadResult {
         throw ConversationSourceAdapterError.unreadableSource("neutral")
+    }
+}
+
+private actor ConversationScanProgressRecorder {
+    private(set) var events: [ConversationIntelligenceScanProgress] = []
+
+    func append(_ progress: ConversationIntelligenceScanProgress) {
+        events.append(progress)
+    }
+}
+
+private struct ProgressFixtureConversationSourceAdapter: ConversationSourceAdapter {
+    let agent: ConversationIntelligenceAgent
+    let descriptors: [NativeConversationDescriptor]
+
+    init(agent: ConversationIntelligenceAgent, count: Int, root: URL) {
+        self.agent = agent
+        descriptors = (0..<count).map { offset in
+            NativeConversationDescriptor(
+                agent: agent,
+                nativeSessionID: "\(agent.rawValue)-progress-\(offset)",
+                sourceURL: root.appendingPathComponent("\(agent.rawValue)-progress-\(offset).fixture"),
+                projectPath: nil,
+                startedAt: Date(timeIntervalSince1970: TimeInterval(offset + 1)),
+                updatedAt: Date(timeIntervalSince1970: TimeInterval(offset + 2)),
+                sourceRevision: "progress-v1"
+            )
+        }
+    }
+
+    func discover(updatedSince: Date?, limit: Int?) throws -> [NativeConversationDescriptor] {
+        limit.map { Array(descriptors.prefix($0)) } ?? descriptors
+    }
+
+    func read(
+        _ descriptor: NativeConversationDescriptor,
+        fromByteOffset: Int64
+    ) throws -> NativeConversationReadResult {
+        guard fromByteOffset == 0 else {
+            return .init(
+                descriptor: descriptor,
+                turns: [],
+                nextByteOffset: fromByteOffset,
+                lastCompleteLineHash: "progress-line",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )
+        }
+        return .init(
+            descriptor: descriptor,
+            turns: [.init(
+                ordinal: 1,
+                nativeRole: "assistant",
+                evidence: .explicitAssistantText,
+                text: "neutral progress fixture",
+                timestamp: descriptor.updatedAt,
+                sourceEventID: "\(descriptor.nativeSessionID)-event",
+                model: nil,
+                metadata: [:]
+            )],
+            nextByteOffset: 1,
+            lastCompleteLineHash: "progress-line",
+            unknownEventCount: 0,
+            observedSchemaShapes: []
+        )
     }
 }
 
