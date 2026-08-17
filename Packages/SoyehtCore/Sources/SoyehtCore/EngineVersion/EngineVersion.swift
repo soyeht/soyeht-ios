@@ -27,7 +27,7 @@ public enum EngineCompat {
     /// GitHub (`soyeht/theyos` releases) before bumping here, and
     /// `scripts/theyos-engine.version` should land in the same commit.
     ///
-    /// Set to `"0.1.21"` as the **minimum functional** version, not
+    /// Set to `"0.1.27"` as the **minimum functional** version, not
     /// just the minimum protocol version:
     ///
     ///   - `0.1.17` shipped the household-namespaced Claw Store routes
@@ -50,11 +50,19 @@ public enum EngineCompat {
     ///     Store UX: installability fields, macOS VM admission/failure-code
     ///     recovery, reboot-scoped host-limit reconciliation, and refreshed
     ///     OpenClaw artifacts.
+    ///   - `0.1.26` fixes first-owner initialization so its pairing window,
+    ///     token, persisted snapshot, and recovery URI remain bound to the
+    ///     installed lifecycle generation. Earlier releases can time out with
+    ///     an empty QR and cannot reliably serve `pair-device-uri` recovery.
+    ///   - `0.1.27` installs the Phase 3 owner-events surface after a cold-start
+    ///     first-owner initialization. `0.1.26` can reach `ready` while leaving
+    ///     that surface absent until restart, so the owner-events long poll
+    ///     falls through to the generic unauthenticated response.
     ///
     /// Bumping the compat floor here forces users of a Mac running an
     /// older engine to upgrade SoyehtMac before pairing — which is the
     /// right policy when "older" includes a known-broken release.
-    public static let minSupportedEngineVersion = "0.1.21"
+    public static let minSupportedEngineVersion = "0.1.27"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to

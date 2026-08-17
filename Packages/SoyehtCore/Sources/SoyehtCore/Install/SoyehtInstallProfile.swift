@@ -27,7 +27,8 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
 
     /// `~/Library/Application Support/<name>/` — root of all engine state
     /// (engine binaries, identity, household, VMs, snapshots, conversations,
-    /// databases, bootstrap token, APNs key).
+    /// databases, and bootstrap token). APNs provider signing keys are
+    /// server-side authority and are never installed by the client.
     public let supportDirectoryName: String
 
     /// Hidden home directory, e.g. `~/.theyos` — legacy/bootstrap `.env` state.

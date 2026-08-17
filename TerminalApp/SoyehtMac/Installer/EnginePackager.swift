@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import SoyehtCore
 
-/// Installs the engine binary and credentials into Application Support,
+/// Installs the engine binary and bootstrap credential into Application Support,
 /// and keeps everything up to date on subsequent launches.
 ///
 /// Call order (before SMAppServiceInstaller.register()):
@@ -17,7 +17,7 @@ enum EnginePackager {
             in: .userDomainMask
         )[0]
         // "Soyeht" for the shipping app, "SoyehtDev" for the developer build —
-        // the dev engine binaries/token/APNs key live in a separate tree.
+        // the dev engine binaries/token live in a separate tree.
         return appSupport.appendingPathComponent(
             SoyehtInstallProfile.current.supportDirectoryName,
             isDirectory: true
@@ -32,9 +32,6 @@ enum EnginePackager {
 
     private static let supportBinaryNames = EmbeddedEngineSupportBundleSpec.supportBinaryNames
 
-    static let apnsKeyDestinationURL: URL =
-        soyehtSupportDirectory.appendingPathComponent("apns.p8")
-
     static let bootstrapTokenURL: URL =
         soyehtSupportDirectory.appendingPathComponent("bootstrap-token")
 
@@ -43,7 +40,7 @@ enum EnginePackager {
 
     // MARK: - Public API
 
-    /// Installs the engine binary and APNs key.
+    /// Installs the engine binaries and bootstrap credential.
     ///
     /// The LaunchAgent plist is intentionally not copied into
     /// `~/Library/LaunchAgents`; `SMAppService.agent(plistName:)` registers
@@ -53,7 +50,6 @@ enum EnginePackager {
     static func install() throws {
         try installSupportBinaries()
         try installBootstrapToken()
-        installApnsKey()
     }
 
     // MARK: - Private
@@ -109,31 +105,6 @@ enum EnginePackager {
         try FileManager.default.setAttributes(attrs, ofItemAtPath: tempURL.path)
 
         _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: tempURL)
-    }
-
-    private static func installApnsKey() {
-        let sourceURL = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Resources/apns.p8")
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            // Key absent — engine degrades to Bonjour-only pairing (non-fatal).
-            return
-        }
-        guard !FileManager.default.fileExists(atPath: apnsKeyDestinationURL.path) else {
-            return  // already installed; key is static, no update needed
-        }
-        do {
-            try FileManager.default.createDirectory(
-                at: soyehtSupportDirectory,
-                withIntermediateDirectories: true
-            )
-            try FileManager.default.copyItem(at: sourceURL, to: apnsKeyDestinationURL)
-            var attrs = try FileManager.default.attributesOfItem(atPath: apnsKeyDestinationURL.path)
-            attrs[.posixPermissions] = NSNumber(value: 0o600 as Int16)
-            try FileManager.default.setAttributes(attrs, ofItemAtPath: apnsKeyDestinationURL.path)
-        } catch {
-            // Non-fatal: log and continue with Bonjour-only.
-            NSLog("[EnginePackager] APNs key install failed: %@", error.localizedDescription)
-        }
     }
 
     private static func setPrivateFilePermissions(_ url: URL) throws {

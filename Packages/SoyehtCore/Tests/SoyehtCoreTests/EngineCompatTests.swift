@@ -79,6 +79,12 @@ final class EngineCompatTests: XCTestCase {
         XCTAssertFalse(EngineCompat.isCompatible("0.0.99"))
     }
 
+    func test_currentReleaseRequiresFirstOwnerPhase3Engine() {
+        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.27")
+        XCTAssertFalse(EngineCompat.isCompatible("0.1.26"))
+        XCTAssertTrue(EngineCompat.isCompatible("0.1.27"))
+    }
+
     func test_isCompatible_rejectsUnparseableVersion() {
         // Unknown engines are refused on purpose — we cannot prove they
         // implement the routes we depend on.

@@ -50,7 +50,6 @@ Required GitHub Actions secrets:
 | `APPLE_NOTARY_ISSUER_ID` | App Store Connect Team API issuer ID. |
 | `APPLE_TEAM_ID` | `W7677A5BK2`. |
 | `APPLE_CODESIGN_IDENTITY` | `Developer ID Application: Gilberto Filho (W7677A5BK2)`. |
-| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |
 
 The `theyos` repo already uses the same Apple secret names. GitHub does not
 let Actions read secrets across repositories, so they also need to exist on
@@ -62,6 +61,16 @@ back. CI notarization uses the App Store Connect Team API key, not an Apple ID
 app-specific password. If the private key is lost or compromised, revoke it in
 App Store Connect, generate a new Team API key, update the three
 `APPLE_NOTARY_*` secrets, and replace the local `.p8` file.
+
+An APNs provider signing key is server-side authority and must never enter a
+client archive, app bundle, installer, DMG, or public release asset. Public
+macOS builds deliberately omit APNs provider configuration; the embedded
+engine keeps the Bonjour/foreground path available. The release gate scans the
+entire staged product before image creation, mounts the signed DMG read-only
+before notarization, and scans the final stapled DMG again. Any `.p8`, PKCS8
+private-key marker, or unsafe symlink in those product roots fails the build.
+The App Store Connect notarization key remains outside every scanned product
+root in runner temporary storage.
 
 Useful local checks:
 
