@@ -52,7 +52,10 @@ enum AppInstallStore {
     /// Stable over enumeration order; includes every regular file's relative name and bytes.
     private static func fingerprint(of root: URL) throws -> String {
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey]
-        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles])
+        // Never skip hidden entries: anything the scheme handler can serve must
+        // participate in the identity hash. Filtering non-content metadata is
+        // performed at installation, not by silently omitting it here.
+        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: Array(keys), options: [])
         var digest = SHA256()
         for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
             let values = try file.resourceValues(forKeys: keys)
