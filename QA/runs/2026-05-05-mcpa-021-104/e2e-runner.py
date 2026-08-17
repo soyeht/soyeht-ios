@@ -12,9 +12,9 @@ agent_race_panes → worktrees existem no disco + panes retornados
 import json, os, subprocess, time, uuid, shutil
 from pathlib import Path
 
-MCP    = "/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments/scripts/soyeht-mcp"
+MCP    = "/Users/dev/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments/scripts/soyeht-mcp"
 IPC    = "/tmp/soyeht-qa-ipc"
-REPO   = "/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments"
+REPO   = "/Users/dev/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments"
 WTROOT = str(Path.home() / "soyeht-worktrees" / "qa-e2e")
 
 _results = []

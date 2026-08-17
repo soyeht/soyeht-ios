@@ -4,7 +4,7 @@ import Testing
 
 @Suite("LocalAnchorClient")
 struct LocalAnchorClientTests {
-    private static let address = "100.82.47.115:8091"
+    private static let address = "100.64.0.22:8091"
     private static let secret = Data(repeating: 0xAA, count: 32)
     private static let hhId = "hh_eeit7s5ak64oy4cr"
     private static let hhPub = HouseholdTestFixtures.publicKey(byte: 0x42)
@@ -31,8 +31,8 @@ struct LocalAnchorClientTests {
     }
 
     @Test func endpointBuilderProducesPlainHTTPURLWithCorrectPath() {
-        let url = LocalAnchorClient.endpointURL(candidateAddress: "100.82.47.115:8091")
-        #expect(url?.absoluteString == "http://100.82.47.115:8091/pair-machine/local/anchor")
+        let url = LocalAnchorClient.endpointURL(candidateAddress: "100.64.0.22:8091")
+        #expect(url?.absoluteString == "http://100.64.0.22:8091/pair-machine/local/anchor")
     }
 
     @Test func endpointBuilderHandlesAddressWithoutPort() {

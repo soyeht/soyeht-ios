@@ -37,7 +37,7 @@ and live VM/VZ smoke on real machines.
 
 ## 0a. Execution progress (live, 2026-06-24)
 
-User (Caio) gave GO to implement the full plan; @julia commands the agents, each
+User (Owner) gave GO to implement the full plan; @julia commands the agents, each
 slice = STOP-POINT -> review -> small PR -> @code-reviewer review -> local merge
 (no push). @code-reviewer has caught a real defect in over a dozen of the slices (task-ownership
 races, a privacy leak in the QA JSON, a stuck loading flag, a stale service-cache key,

@@ -4,7 +4,7 @@
 **Tester**: Automated via Appium + backend helpers
 **Device**: iPhone <qa-device> (iOS 26.4.1)
 **App**: com.soyeht.app
-**Backend**: https://<host>.<tailnet>.ts.net (zeroclaw-qa-caio-0415/31b0b16356b43cf0)
+**Backend**: https://<host>.<tailnet>.ts.net (zeroclaw-qa-owner-0415/31b0b16356b43cf0)
 **Plan Reference**: QA/domains/file-browser.md + QA/domains/live-watch.md
 
 ## Executive Summary

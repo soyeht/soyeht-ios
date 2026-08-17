@@ -54,7 +54,7 @@ shortfalls.
 - `TerminalApp/Soyeht/Onboarding/...` — add "Recover existing home" path in
   Welcome carousel beside "Create new home" / "Join existing".
 - New view `RecoverFromBonjourView` browses `_soyeht-household._tcp` candidates
-  on the LAN/Tailnet, lists matching households (or the single one Caio has).
+  on the LAN/Tailnet, lists matching households (or the single one Owner has).
 - On select, iPhone POSTs `/household/recovery-request` to the chosen Mac,
   including a fresh iPhone public key (new SE-backed owner identity).
 - Polls for `recovery.approved` → receives quorum-reconstructed `HH_priv`
@@ -66,7 +66,7 @@ shortfalls.
 - `SetupInvitationListener`-style background listener for incoming recovery
   requests on the household-rs HTTP surface.
 - On request: show notification + sheet "iPhone novo quer recuperar acesso à
-  Home Caio. Aprovar?" with the new iPhone's BIP-39 6-word fingerprint for
+  Home Owner. Aprovar?" with the new iPhone's BIP-39 6-word fingerprint for
   out-of-band verification.
 - Touch ID gate via `LAContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)`.
 - On approve: Mac contributes its shard, broadcasts `recovery.approval`
@@ -79,14 +79,14 @@ shortfalls.
   `POST /household/recovery-approve`, `GET /household/recovery-status`.
 - Quorum collection: similar to `JoinRequestQueue` but for recovery envelopes.
 - Audit log: every recovery request + approval persisted (`recovery_audit.cbor`)
-  so a stolen Mac can't silently recover an attacker's iPhone — Caio sees the
+  so a stolen Mac can't silently recover an attacker's iPhone — Owner sees the
   audit trail next time he opens any device.
 
 **UX safety net:**
 - Recovery requests visible in iPhone Settings → About Home → "Recent activity"
-  (so the legit Caio sees suspicious recoveries if a stolen Mac is used).
+  (so the legit Owner sees suspicious recoveries if a stolen Mac is used).
 - Recovery requests on Linux (no UI) surface via local mDNS broadcast to all
-  household devices so Caio's iPhone (if still owned) can deny remotely.
+  household devices so Owner's iPhone (if still owned) can deny remotely.
 
 ### Phase R2 — BIP-39 6-word recovery code (#2)
 
@@ -148,7 +148,7 @@ product surface area. Any PR touching `HouseholdPairingService`,
 ## Open questions for the implementing agent
 
 1. **Audit trail visibility** — recovery approvals on Mac without iPhone
-   present mean Caio's legit iPhone (if rediscovered) has no chance to
+   present mean Owner's legit iPhone (if rediscovered) has no chance to
    reject. Acceptable, or require dual-approval (Mac + delayed reject window)?
 2. **Paper shard storage location** — Apple Notes (iCloud) is convenient but
    syncs to all Apple ID devices. Passwords app (System Settings → Passwords)

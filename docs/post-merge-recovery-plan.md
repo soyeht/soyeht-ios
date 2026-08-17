@@ -16,7 +16,7 @@ did not cover.
 Symptom: `AwaitingMacView` reports
 `"Mac unreachable (retry N) — URLError.-1022 The resource could not be
 loaded because the App Transport Security policy requires the use of a
-secure connection."` against `http://100.103.149.48:8091/bootstrap/status`,
+secure connection."` against `http://100.64.0.21:8091/bootstrap/status`,
 even though:
 
 - The installed bundle Info.plist contains both `NSAllowsArbitraryLoads=1`
@@ -30,7 +30,7 @@ even though:
   http://<tailnet-ipv4>:<port>` correctly
   (`theyos@4abb72a admin/rust/server-rs/src/tailnet_address.rs::build_mac_engine_url`).
 
-Approach: instrument first, then patch (per Caio's choice 2026-05-21).
+Approach: instrument first, then patch (per Owner's choice 2026-05-21).
 
 ### Step 1 — Instrumentation (commit A)
 
@@ -49,7 +49,7 @@ Add structured os_log + on-screen URL details. Three sites:
 ### Step 2 — Capture (no commit yet)
 
 `xcodebuild` + `xcrun devicectl device install app`, then capture iPhone
-logs with `idevicesyslog -u 00008110-001A48190231801E` (devicectl 518.31
+logs with `idevicesyslog -u 00008110-000000000000001E` (devicectl 518.31
 has no `device logs` subcommand). Walk iPhone Welcome → My Mac → Yes I am
 at Mac while Mac.app shows ExistingSoyehtView.
 
@@ -101,7 +101,7 @@ iPhone publishing setup-invitation at that moment is missed silently.
 
 Engine code is correct (`tailnet_address.rs::build_mac_engine_url`
 formats `http://{ipv4}:{port}`). theyos worktree at
-`/Users/macstudio/Documents/theyos-recovery-fix` is created defensively
+`/Users/dev/Documents/theyos-recovery-fix` is created defensively
 and removed pre-commit if not used.
 
 ## Build hygiene + validation

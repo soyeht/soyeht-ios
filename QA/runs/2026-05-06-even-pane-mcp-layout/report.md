@@ -1,7 +1,7 @@
 # Even Pane MCP Layout CQA
 
 **Date:** 2026-05-06 03:11 -03
-**Worktree:** `/Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout`
+**Worktree:** `/Users/dev/Documents/SwiftProjects/even-pane-auto-layout`
 **Target:** macOS app (`Soyeht Dev.app`) built from this worktree
 
 ## Verdict

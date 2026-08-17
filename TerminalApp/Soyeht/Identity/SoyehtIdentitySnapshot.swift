@@ -31,7 +31,7 @@ struct SoyehtIdentitySnapshot: Equatable, Sendable {
     /// an opaque string.
     var id: String { raw.householdId }
 
-    /// User-facing label (e.g. "Caio's Home"). Maps to `householdName`
+    /// User-facing label (e.g. "Owner's Home"). Maps to `householdName`
     /// on the wire. Empty string is technically valid; views that need
     /// a fallback should provide one at the call site.
     var displayName: String { raw.householdName }

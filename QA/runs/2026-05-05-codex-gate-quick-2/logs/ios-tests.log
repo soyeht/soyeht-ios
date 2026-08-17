@@ -1082,9 +1082,9 @@ Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'Soyeht
 [Soyeht] Linking Soyeht.debug.dylib
 note: Using stub executor library with Swift entry point. (in target 'Soyeht' from project 'Soyeht')
 [Soyeht] Linking Soyeht
-note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon60x60@2x.png (in target 'Soyeht' from project 'Soyeht')
-note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/Assets.car (in target 'Soyeht' from project 'Soyeht')
-note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon76x76@2x~ipad.png (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/dev/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon60x60@2x.png (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/dev/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/Assets.car (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/dev/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon76x76@2x~ipad.png (in target 'Soyeht' from project 'Soyeht')
 [Soyeht] Running script Copy Secrets (Debug)
 [Soyeht] Copy SoyehtLiveActivity.appex -> SoyehtLiveActivity.appex
 [Soyeht] Processing Info.plist
@@ -1099,10 +1099,10 @@ Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'Soyeht
 [SoyehtTests] Compiling ClawViewModelTests.swift
 [SoyehtTests] Compiling I18nSmokeTests.swift
 [SoyehtTests] Compiling MacPresenceClientTests.swift
-[!]  /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:301:34: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
+[!]  /Users/dev/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:301:34: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
         let hello = try #require(try fake.lastMessageJSON() as [String: Any])
                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[!]  /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:312:37: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
+[!]  /Users/dev/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:312:37: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
         let response = try #require(try fake.lastMessageJSON() as [String: Any])
                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 [SoyehtTests] Compiling ClipboardWriterTests.swift

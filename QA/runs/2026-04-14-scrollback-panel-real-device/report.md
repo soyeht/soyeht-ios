@@ -3,7 +3,7 @@
 **Tester:** Automated via Appium on real device
 **Device:** iPhone <qa-device> (iOS 26.4.1, UDID: <ios-udid>)
 **App:** `com.soyeht.app` (Debug build)
-**Instance:** `caio` `[hermes-agent]`
+**Instance:** `owner` `[hermes-agent]`
 **Scope:** `ST-Q-SCRL-001..003` and smoke check for `ST-Q-TMUX-009`
 
 ---

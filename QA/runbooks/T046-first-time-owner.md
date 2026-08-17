@@ -6,7 +6,7 @@
 ## Pre-flight
 
 - [ ] Mac with `theyOS` installed via the macOS app (no terminal commands during setup).
-- [ ] iPhone Devs (UDID `00008110-001A48190231801E` per `reference_caio_devices.md`) running the current Soyeht build.
+- [ ] iPhone Devs (UDID `00008110-000000000000001E` per `reference_owner_devices.md`) running the current Soyeht build.
 - [ ] iPhone is **factory-clean for Soyeht**: delete app, reinstall, no `HouseholdSession` keychain residue (`xcrun simctl keychain` is irrelevant — this is a real device).
 - [ ] Both devices on the same Wi-Fi (Bonjour discovery requires same broadcast domain).
 - [ ] Stopwatch ready — SC-006 implicitly says "trivial"; we record the actual scan-to-paired window so future regressions show.

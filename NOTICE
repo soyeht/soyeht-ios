@@ -1,5 +1,5 @@
 Soyeht
-Copyright 2026 Caio Salgado
+Copyright 2026 Owner Salgado
 
 This repository is a fork of SwiftTerm (https://github.com/migueldeicaza/SwiftTerm),
 licensed under the MIT License.
@@ -35,7 +35,7 @@ SwiftTerm itself incorporates portions of:
   - Christopher Jeffrey (https://github.com/chjj/) — MIT
 
 All other files in this repository (including, without limitation, the Soyeht
-iOS app files originally authored by Caio Salgado under TerminalApp/Soyeht/,
+iOS app files originally authored by Owner Salgado under TerminalApp/Soyeht/,
 the TerminalApp/SoyehtMac/ macOS app, Packages/SoyehtCore/, the QA/ tooling,
 and documentation under docs/) are licensed under Apache License, Version 2.0,
 as set forth in the LICENSE file at the root of this repository.

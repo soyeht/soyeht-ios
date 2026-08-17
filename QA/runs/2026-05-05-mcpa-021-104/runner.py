@@ -8,9 +8,9 @@ import json, os, subprocess, sys, shutil, time, tempfile, uuid
 from pathlib import Path
 
 # ── config ──────────────────────────────────────────────────────────────────
-MCP      = "/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments/scripts/soyeht-mcp"
+MCP      = "/Users/dev/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments/scripts/soyeht-mcp"
 IPC      = "/tmp/soyeht-qa-ipc"       # test app's IPC dir
-REPO     = "/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments"
+REPO     = "/Users/dev/Documents/SwiftProjects/iSoyehtTerm-mcp-adjustments"
 WTROOT   = str(Path.home() / "soyeht-worktrees" / "qa2-mcpa")
 
 # ── helpers ──────────────────────────────────────────────────────────────────
