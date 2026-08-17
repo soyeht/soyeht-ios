@@ -65,10 +65,17 @@ struct CapabilityRequest: Codable, Hashable {
 }
 
 struct CapabilityFailure: Codable, Hashable {
-    let code: String           // vocabulário fechado
-    let message: String        // seguro para exibir; NUNCA caminho ou host
+    let code: CapabilityFailureCode   // ver desvio aprovado abaixo
+    let message: String               // seguro para exibir; NUNCA caminho ou host
 }
 ```
+
+**Desvio aprovado (2026-08-17): `code` é enum, não `String`.** O esboço dizia
+`String`. Medido no commit: o wire sai **idêntico** —
+`{"code":"not_granted","message":"…"}` — mas nenhum produtor consegue cunhar
+um código fora do vocabulário. Mesma forma do `PathScope` e do produtor único
+de path: impossível por construção em vez de proibido por convenção. Não
+reverter para `String` achando que segue o esboço.
 
 - **Decodificação estrita explícita**: `Codable` sintetizado ignora chave
   extra. Rejeitar exige container aberto comparado ao conjunto conhecido do
