@@ -113,6 +113,7 @@ final class SoyehtAutomationRequestRouter {
         case emptyPaneInputTargets
         case invalidConversationIDFormat(String)
         case invalidConversationSequence(Int, Int)
+        case missingWebURL
 
         var errorDescription: String? {
             switch self {
@@ -166,6 +167,8 @@ final class SoyehtAutomationRequestRouter {
                 return "Conversation ID is not a valid UUID: \(value)."
             case .invalidConversationSequence(let requested, let last):
                 return "Conversation sequence \(requested) is beyond the canonical tail \(last)."
+            case .missingWebURL:
+                return "Automation open_web request requires a non-empty url."
             }
         }
     }
@@ -240,6 +243,8 @@ final class SoyehtAutomationRequestRouter {
             return try handleOpenGit(request)
         case .openDiff:
             return try handleOpenDiff(request)
+        case .openWeb:
+            return try handleOpenWeb(request)
         }
     }
 
@@ -1416,13 +1421,23 @@ final class SoyehtAutomationRequestRouter {
                 conversationID: $0.id,
                 workspaceID: $0.workspaceID,
                 handle: $0.handle,
-                path: $0.content.primaryPath ?? $0.workingDirectoryPath ?? "",
+                path: automationReportPath(for: $0.content, workingDirectoryPath: $0.workingDirectoryPath),
                 declaredAgent: $0.content.isTerminal ? $0.agent.rawValue : $0.content.displayKind,
                 isActive: false,
                 isActiveWorkspace: false,
                 windowID: windowByWorkspace[$0.workspaceID]
             )
         }
+    }
+
+    /// Web panes have no file path: `primaryPath` is nil and the conversation
+    /// working directory is only a process cwd, so report the current URL
+    /// instead of leaking the home directory onto the wire.
+    private func automationReportPath(for content: PaneContent, workingDirectoryPath: String?) -> String {
+        if case .web(let state) = content {
+            return state.url
+        }
+        return content.primaryPath ?? workingDirectoryPath ?? ""
     }
 
     private struct AutomationSourceResolution {
@@ -1509,7 +1524,7 @@ final class SoyehtAutomationRequestRouter {
             workspaceID: conversation.workspaceID.uuidString,
             workspaceName: workspaceName,
             handle: conversation.handle,
-            path: conversation.content.primaryPath ?? conversation.workingDirectoryPath ?? "",
+            path: automationReportPath(for: conversation.content, workingDirectoryPath: conversation.workingDirectoryPath),
             declaredAgent: conversation.content.isTerminal ? conversation.agent.rawValue : conversation.content.displayKind,
             windowID: windowID,
             resolution: source.resolution,
@@ -1703,18 +1718,42 @@ final class SoyehtAutomationRequestRouter {
         ])
     }
 
+    private func handleOpenWeb(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        // The Python MCP script is not a trust boundary: validation lives
+        // here, fail-closed in WebURL.validate. normalizeUserInput is the
+        // shared convenience pass (trim + https:// prefix for strict host
+        // patterns) so the MCP entry and the pane URL bar behave the same.
+        guard let rawURL = payload.url?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawURL.isEmpty else {
+            throw AutomationError.missingWebURL
+        }
+        let url = try WebURL.validate(WebURL.normalizeUserInput(rawURL))
+        let target = try automationTargetWindow(payload: payload)
+        let opened = try target.openWebPane(
+            url: url,
+            workspaceID: try automationWorkspaceID(payload: payload, in: target),
+            forceNew: payload.newPane ?? false
+        )
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, url: url.absoluteString, windowID: target.windowID)
+        ])
+    }
+
     private func openedSpecialPane(
         _ result: SoyehtMainWindowController.OpenedSpecialPaneResult,
+        url: String? = nil,
         windowID: String
     ) -> SoyehtAutomationResponse.OpenedSpecialPane {
         SoyehtAutomationResponse.OpenedSpecialPane(
             kind: result.kind.rawValue,
-            path: result.path,
+            path: url ?? result.path,
             workspaceID: result.workspaceID.uuidString,
             conversationID: result.conversationID.uuidString,
             handle: result.handle,
             reused: result.reused,
-            windowID: windowID
+            windowID: windowID,
+            url: url
         )
     }
 

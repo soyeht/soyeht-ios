@@ -38,6 +38,7 @@ struct SoyehtAutomationRequest: Decodable {
         case openExplorer = "open_explorer"
         case openGit = "open_git"
         case openDiff = "open_diff"
+        case openWeb = "open_web"
     }
 
     struct Payload: Decodable {
@@ -114,6 +115,8 @@ struct SoyehtAutomationRequest: Decodable {
         let branch: String?
         let compareBase: String?
         let selectedFile: String?
+        let url: String?
+        let newPane: Bool?
         let state: String?
         let message: String?
         let seq: Int?
@@ -552,8 +555,12 @@ struct SoyehtAutomationResponse: Encodable {
         let handle: String
         let reused: Bool
         let windowID: String?
+        /// Set for web panes, whose `primaryPath` is nil: without it `path`
+        /// would fall back to the home directory and report wrong data on
+        /// the wire. Optional so existing consumers keep decoding.
+        let url: String?
 
-        init(kind: String, path: String, workspaceID: String, conversationID: String, handle: String, reused: Bool, windowID: String? = nil) {
+        init(kind: String, path: String, workspaceID: String, conversationID: String, handle: String, reused: Bool, windowID: String? = nil, url: String? = nil) {
             self.kind = kind
             self.path = path
             self.workspaceID = workspaceID
@@ -561,6 +568,7 @@ struct SoyehtAutomationResponse: Encodable {
             self.handle = handle
             self.reused = reused
             self.windowID = windowID
+            self.url = url
         }
     }
 
