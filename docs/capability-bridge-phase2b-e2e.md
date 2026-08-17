@@ -74,6 +74,38 @@ Erros exibidos ao app **não podem** conter caminho, host, nome de usuário ou
 existência de recurso — um app malicioso não deve conseguir usar a mensagem
 de erro como oráculo. Conferir isso ao ler a tabela, não só o veredito.
 
+## Resultado da execução — 2026-08-17
+
+Build Debug assinado, app de produção intacto durante toda a execução.
+**Todas as linhas com resposta explícita; nenhum silêncio.**
+
+| linha | app COM `metrics.read` | app SEM a capacidade |
+|---|---|---|
+| relay atende | atende | atende |
+| capacidade | **concedido**, com dados reais | **`not_granted`** |
+| comando desconhecido | `unknown_command` | idem |
+| chave injetada | `malformed` | idem |
+| corpo acima do limite | `too_large` (4096 bytes) | idem |
+| corpo malformado | `malformed` | idem |
+| limite de taxa | 3 atendidas, 37 recusadas | 0 atendidas, 40 recusadas |
+
+A prova da política é a **diferença controlada**: o mesmo probe, o mesmo
+código, o mesmo momento — só o manifesto difere, e o resultado inverte. E o
+relay atende nos dois casos, o que separa "não tenho ponte" de "não tenho
+permissão", que eram indistinguíveis antes.
+
+Nenhuma mensagem de erro vaza caminho, host ou existência de recurso.
+
+**A única linha sem resposta é o iframe**, e a razão está no contrato: a CSP
+o barra antes da ponte. A checagem de frame da ponte é coberta por teste do
+validador puro, incluindo o subframe de origem **idêntica** — o vetor real —
+e a ordem das verificações.
+
+Nota para quem repetir: o atributo de prontidão é escrito no
+`DOMContentLoaded`, então **na carga do script do app ele ainda não existe**.
+Isso é o esperado, não anomalia: o que o app deve observar na carga é
+*resposta em vez de silêncio*. O atributo serve a quem chega depois.
+
 ## O que esta fase NÃO prova
 
 Não há acesso a arquivos, consentimento do usuário, revogação de concessão
