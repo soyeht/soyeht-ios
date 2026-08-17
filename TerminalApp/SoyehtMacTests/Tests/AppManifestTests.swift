@@ -13,7 +13,22 @@ final class AppManifestTests: XCTestCase {
     }
 
     func testUnknownPublisherKeyIsRejected() {
+        let invalid = #"{"schemaVersion":1,"id":"notes-app","name":"Notes","version":"1.0","entry":"index.html","publisher":{"id":"acme","displayName":"Acme","INJETADA":"bad"},"capabilities":[],"optionalCapabilities":[]}"#
+        XCTAssertThrowsError(try AppManifest.decode(Data(invalid.utf8)))
+    }
+
+    func testParentKeyInjectedIntoPublisherIsRejected() {
         let invalid = #"{"schemaVersion":1,"id":"notes-app","name":"Notes","version":"1.0","entry":"index.html","publisher":{"id":"acme","displayName":"Acme","entry":"bad"},"capabilities":[],"optionalCapabilities":[]}"#
         XCTAssertThrowsError(try AppManifest.decode(Data(invalid.utf8)))
+    }
+
+    func testEntryContainingParentReferenceIsRejected() {
+        XCTAssertThrowsError(try AppManifest.decode(Data(valid.replacingOccurrences(of: "index.html", with: "../index.html").utf8)))
+    }
+
+    func testManifestOverMaximumSizeIsRejectedBeforeDecoding() {
+        XCTAssertThrowsError(try AppManifest.decode(Data(repeating: 0x20, count: AppManifest.maximumByteCount + 1))) { error in
+            XCTAssertEqual(error as? AppManifestError, .fileTooLarge)
+        }
     }
 }
