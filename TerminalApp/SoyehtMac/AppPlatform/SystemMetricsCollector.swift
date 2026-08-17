@@ -10,15 +10,22 @@ import Foundation
 /// disclosure, not machine measurement.
 ///
 /// Values are QUANTIZED to whole units on purpose: the result must not let
-/// an app infer other apps' activity with clock precision. Percentages are
-/// integers, memory is whole MiB, uptime is whole seconds — combined with
-/// the bridge's per-pane rate limit, there is no high-resolution timeline
-/// to reconstruct.
+/// an app infer other apps' activity with clock precision. Memory is whole
+/// MiB, uptime is whole seconds — combined with the bridge's per-pane rate
+/// limit, there is no high-resolution timeline to reconstruct.
+///
+/// `cpuLoadPerCorePercent` may legitimately EXCEED 100: it is the 1-minute
+/// load average divided by logical cores, ×100 — a per-core saturation
+/// ratio (k8s-style "CPU 355%"), not a utilization gauge. Oversubscription
+/// is real information and a monitor must show it; clamping it would turn
+/// "severe contention" into "at the ceiling, normal" (decision reversed
+/// after celia's review of the first clamp attempt — the field now names
+/// what the mechanism actually measures).
 struct SystemMetricsSnapshot: Codable, Hashable {
-    /// Normalized system load (0–100): load average over logical cores,
-    /// clamped. NOT instantaneous CPU usage — a load average is a smoother
-    /// system aggregate and needs no sampling state.
-    let cpuLoadPercent: Int
+    /// 1-minute load average ÷ logical cores × 100. 0 = idle, 100 = exactly
+    /// saturated, values above 100 = oversubscribed per core (queue depth
+    /// exceeds what the cores can drain). Unbounded upward by nature.
+    let cpuLoadPerCorePercent: Int
     /// Used memory in whole MiB (total − free − inactive).
     let memoryUsedMiB: Int64
     /// Available memory in whole MiB (free + inactive).
@@ -40,7 +47,7 @@ enum SystemMetricsCollector {
 
     static func snapshot() throws -> SystemMetricsSnapshot {
         SystemMetricsSnapshot(
-            cpuLoadPercent: try normalizedLoadPercent(),
+            cpuLoadPerCorePercent: try perCoreLoadPercent(),
             memoryUsedMiB: try usedMemoryMiB(),
             memoryFreeMiB: try freeMemoryMiB(),
             uptimeSeconds: try uptimeSeconds()
@@ -49,7 +56,7 @@ enum SystemMetricsCollector {
 
     // MARK: - CPU
 
-    private static func normalizedLoadPercent() throws -> Int {
+    private static func perCoreLoadPercent() throws -> Int {
         var load = [Double](repeating: 0, count: 3)
         // getloadavg returns the number of samples retrieved (or -1 on
         // failure) — NOT zero on success. An earlier `== 0` guard made
@@ -59,24 +66,20 @@ enum SystemMetricsCollector {
         guard samples > 0, load[0] >= 0 else {
             throw CollectionError.unavailable
         }
-        let cores = try logicalCoreCount()
-        return Self.clampedLoadPercent(oneMinuteLoad: load[0], logicalCores: cores)
+        return try Self.perCoreLoadPercent(oneMinuteLoad: load[0], logicalCores: logicalCoreCount())
     }
 
-    /// Pure load math, extracted so the clamp is provable with synthetic
-    /// fixtures instead of whatever the host machine happens to be doing.
-    ///
-    /// getloadavg is a RUN-QUEUE average, not utilization: on a loaded
-    /// host it exceeds core count (measured on this machine during phase
-    /// 2b: 70.92 over 20 cores = 355% on the 1-minute average). The field
-    /// is a utilization percentage for a UI gauge, so it CLAMPS at 100 —
-    /// saturation reads as "100", never "355%". (An earlier version
-    /// documented "clamped" without clamping: documentation half a degree
-    /// above the mechanism, caught by sia when the host went busy.)
-    static func clampedLoadPercent(oneMinuteLoad: Double, logicalCores: Int32) -> Int {
+    /// Pure load math, extracted so the normalization is provable with
+    /// synthetic fixtures instead of whatever the host machine happens to
+    /// be doing. NO clamp: load average is a run-queue ratio, not
+    /// utilization — measured on this machine during phase 2b, 70.92 over
+    /// 20 cores = 355% on the 1-minute average. Oversubscription above
+    /// 100 is real signal a monitor must surface (k8s-style per-core
+    /// percentage). Degenerate inputs (negative load, zero cores) fail
+    /// closed to 0.
+    static func perCoreLoadPercent(oneMinuteLoad: Double, logicalCores: Int32) -> Int {
         guard logicalCores > 0, oneMinuteLoad >= 0 else { return 0 }
-        let percent = Int(((oneMinuteLoad / Double(logicalCores)) * 100.0).rounded())
-        return min(max(percent, 0), 100)
+        return Int(((oneMinuteLoad / Double(logicalCores)) * 100.0).rounded())
     }
 
     private static func logicalCoreCount() throws -> Int32 {

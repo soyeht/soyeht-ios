@@ -157,7 +157,11 @@ final class SystemMetricsCollectorTests: XCTestCase {
     func testSnapshotFieldsArePlausible() throws {
         let snap = try SystemMetricsCollector.snapshot()
 
-        XCTAssertTrue((0...100).contains(snap.cpuLoadPercent), "cpu load is a clamped percentage")
+        // No upper bound on load: per-core saturation above 100 is real
+        // (measured 355% on this machine). Requiring 0...100 here was a
+        // quiet-machine flake (sia's finding); the field now names what it
+        // measures and the test accepts exactly that.
+        XCTAssertGreaterThanOrEqual(snap.cpuLoadPerCorePercent, 0)
         XCTAssertGreaterThan(snap.memoryUsedMiB, 0, "a running system uses memory")
         XCTAssertGreaterThan(snap.memoryFreeMiB, 0, "a healthy system has reclaimable memory")
         XCTAssertGreaterThan(snap.uptimeSeconds, 0, "boot time predates now")
@@ -170,7 +174,7 @@ final class SystemMetricsCollectorTests: XCTestCase {
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         XCTAssertEqual(Set(json.keys), [
-            "cpuLoadPercent", "memoryUsedMiB", "memoryFreeMiB", "uptimeSeconds",
+            "cpuLoadPerCorePercent", "memoryUsedMiB", "memoryFreeMiB", "uptimeSeconds",
         ])
     }
 
@@ -187,25 +191,26 @@ final class SystemMetricsCollectorTests: XCTestCase {
     func testValuesAreQuantized() throws {
         for _ in 0..<3 {
             let snap = try SystemMetricsCollector.snapshot()
-            XCTAssertTrue((0...100).contains(snap.cpuLoadPercent))
+            XCTAssertGreaterThanOrEqual(snap.cpuLoadPerCorePercent, 0)
         }
     }
 
-    /// The clamp is proven with SYNTHETIC fixtures, not whatever the host
-    /// happens to be doing — including the loads actually measured on this
-    /// machine during phase 2b (sia's finding): 70.92/20 = 355% raw, and
-    /// the milder 23.16/20 = 116%. Utilization saturates at 100; it never
-    /// reads "355%" on a gauge.
-    func testLoadClampsAtSaturation() {
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 70.92, logicalCores: 20), 100)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 23.16, logicalCores: 20), 100)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 20.0, logicalCores: 20), 100)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 10.1, logicalCores: 20), 51)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 5.65, logicalCores: 20), 28)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 0, logicalCores: 20), 0)
-        // Degenerate inputs fail closed to 0, never NaN/crash.
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: -1, logicalCores: 20), 0)
-        XCTAssertEqual(SystemMetricsCollector.clampedLoadPercent(oneMinuteLoad: 5, logicalCores: 0), 0)
+    /// Normalization proven with SYNTHETIC fixtures — including both loads
+    /// actually measured on this machine during phase 2b (sia's finding):
+    /// 70.92/20 = 355% and 23.16/20 = 116%. NO clamp, by decision after
+    /// review: oversubscription above 100 is real signal a monitor must
+    /// show; clamping would turn severe contention into "at the ceiling,
+    /// normal". Degenerate inputs (negative load, zero cores) fail closed
+    /// to 0.
+    func testPerCoreLoadIsUnclamped() {
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 70.92, logicalCores: 20), 355)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 23.16, logicalCores: 20), 116)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 20.0, logicalCores: 20), 100)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 10.1, logicalCores: 20), 51)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 5.65, logicalCores: 20), 28)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 0, logicalCores: 20), 0)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: -1, logicalCores: 20), 0)
+        XCTAssertEqual(SystemMetricsCollector.perCoreLoadPercent(oneMinuteLoad: 5, logicalCores: 0), 0)
     }
 
     /// Permanent rule (celia, after the getloadavg sentinel bug): range
@@ -242,7 +247,7 @@ final class CapabilityResponseTests: XCTestCase {
         let response = CapabilityResponse.success(
             for: request,
             result: .metricsRead(SystemMetricsSnapshot(
-                cpuLoadPercent: 42, memoryUsedMiB: 8000, memoryFreeMiB: 4000, uptimeSeconds: 1234
+                cpuLoadPerCorePercent: 42, memoryUsedMiB: 8000, memoryFreeMiB: 4000, uptimeSeconds: 1234
             ))
         )
 
@@ -285,7 +290,7 @@ final class CapabilityResponseTests: XCTestCase {
     /// on the wire, closed by construction (one key per capability).
     func testResultIsTaggedWithCommandKey() throws {
         let result = CapabilityResult.metricsRead(SystemMetricsSnapshot(
-            cpuLoadPercent: 10, memoryUsedMiB: 1, memoryFreeMiB: 2, uptimeSeconds: 3
+            cpuLoadPerCorePercent: 10, memoryUsedMiB: 1, memoryFreeMiB: 2, uptimeSeconds: 3
         ))
 
         let json = try XCTUnwrap(
