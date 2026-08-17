@@ -24,6 +24,23 @@ para outra origem, tenta navegar para fora, tenta abrir janela, e pede uma
 fonte do próprio bundle. Cada linha reporta *bloqueado* ou **PASSOU** — e
 `PASSOU` é falha do produto, não do teste.
 
+## Gate obrigatório antes de instalar (aprendido do jeito caro)
+
+Build e instalação **nunca** no mesmo comando encadeado. O passo destrutivo
+não sabe nada sobre o anterior, e um `grep "BUILD SUCCEEDED"` que não casa
+**não é erro** — o script segue e apaga o app assim mesmo. Foi o que
+aconteceu aqui: o build falhou, o `rm -rf` executou, o `ditto` copiou de um
+caminho vazio, e o Dev app ficou sem executável.
+
+Verificar o **artefato**, não a saída do filtro:
+
+```sh
+test -x "$APP/Contents/MacOS/Soyeht Dev" || { echo "abortado"; exit 1; }
+```
+
+Só depois disso encerrar o Dev, remover e copiar. A regra já estava neste
+runbook em prosa; o que faltava era ela ser executável.
+
 ## Instalação do app de teste
 
 O caminho de instalação é o da fatia B (`AppInstallStore`), manual nesta
