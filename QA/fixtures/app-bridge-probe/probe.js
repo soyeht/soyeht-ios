@@ -1,12 +1,18 @@
-// Cada linha é uma promessa da Fase 2b. O resultado esperado está ao lado.
+// O app NÃO fala com o handler nativo diretamente: o handler vive num mundo
+// isolado que o JS da página não enxerga. Quem atravessa é o relay, injetado
+// pelo nativo nesse mundo e apenas no frame principal. O contrato de ida e
+// volta é por evento de DOM.
+const PEDIDO = "soyeht.bridge.request";
+const RESPOSTA = "soyeht.bridge.response";
+
 const LINHAS = [
-  ["a ponte existe nesta pane", "existe"],
+  ["o relay atende neste frame", "atende"],
   ["metrics.read declarado → concedido", "concedido"],
   ["comando desconhecido", "recusado"],
   ["chave injetada no corpo", "recusado"],
   ["corpo acima do limite", "recusado"],
   ["corpo malformado", "recusado"],
-  ["limite de taxa dispara", "recusado após N"],
+  ["limite de taxa dispara", "recusado após rajada"],
   ["iframe chamando a ponte", "NEGADO"],
 ];
 
@@ -27,54 +33,76 @@ const marca = (nome, ok, texto) => {
   c.textContent = texto;
 };
 
-// O nome do handler vem do contrato; se a ponte não estiver registrada
-// neste mundo, `bridge` é undefined — que é o comportamento correto para a
-// pane web da Fase 1 e para qualquer subframe.
-const ponte = window.webkit?.messageHandlers?.soyehtBridge;
+// Correlação por id. Quem não responde em 3s conta como silêncio — que é
+// um desfecho legítimo (relay ausente), distinto de recusa.
+const pendentes = new Map();
+window.addEventListener(RESPOSTA, (ev) => {
+  const d = ev.detail || {};
+  const p = pendentes.get(d.id);
+  if (!p) return;
+  pendentes.delete(d.id);
+  p(d);
+});
 
-marca(LINHAS[0][0], !!ponte, ponte ? "existe" : "AUSENTE");
+let n = 0;
+const chamar = (corpo, { silencioEmMs = 3000 } = {}) =>
+  new Promise((resolve) => {
+    const id = "p" + ++n;
+    // corpo pode ser propositalmente malformado; só injeta id se for objeto
+    const detail = typeof corpo === "object" && corpo !== null ? { ...corpo, id } : corpo;
+    const chave = typeof detail === "object" && detail !== null ? id : null;
+    if (chave) {
+      pendentes.set(chave, resolve);
+      setTimeout(() => {
+        if (pendentes.delete(chave)) resolve({ silencio: true });
+      }, silencioEmMs);
+    } else {
+      // sem id não há correlação possível: espera o silêncio
+      setTimeout(() => resolve({ silencio: true }), silencioEmMs);
+    }
+    window.dispatchEvent(new CustomEvent(PEDIDO, { detail }));
+  });
 
-const chamar = (corpo) => {
-  if (!ponte) return Promise.reject(new Error("ponte ausente"));
-  return ponte.postMessage(corpo);
-};
+const descreve = (d) =>
+  d.silencio ? "silêncio" : d.ok ? "ok" : (d.error?.code || "erro") + ": " + (d.error?.message || "");
 
-// 1. o caminho feliz: capacidade declarada, comando conhecido.
-chamar({ v: 1, id: "m1", command: "metrics.read" })
-  .then((r) => {
-    const m = r?.result?.["metrics.read"];
-    marca(LINHAS[1][0], !!m, m ? `cpu ${m.cpuLoadPercent}% · up ${m.uptimeSeconds}s` : "sem resultado");
-  })
-  .catch((e) => marca(LINHAS[1][0], false, "RECUSOU: " + e.message));
+// 1 e 2 — o caminho feliz prova que o relay atende E que a capacidade vale.
+chamar({ v: 1, command: "metrics.read" }).then((d) => {
+  marca(LINHAS[0][0], !d.silencio, d.silencio ? "SILÊNCIO — relay ausente" : "atende");
+  const m = d.result?.["metrics.read"];
+  marca(LINHAS[1][0], !!m, m
+    ? `cpu ${m.cpuLoadPercent} · usada ${m.memoryUsedMiB}MiB · up ${m.uptimeSeconds}s`
+    : "sem resultado — " + descreve(d));
+});
 
-// 2..5 — o que tem de ser recusado. Recusa é sucesso aqui.
+// 3..6 — recusa é sucesso. Silêncio aqui seria falha: o pedido chegou a um
+// relay vivo (linha 1) e merece resposta explícita.
 const recusaEsperada = (i, corpo) =>
-  chamar(corpo)
-    .then(() => marca(LINHAS[i][0], false, "PASSOU"))
-    .catch((e) => marca(LINHAS[i][0], true, "recusado: " + e.message));
+  chamar(corpo).then((d) =>
+    marca(LINHAS[i][0], !d.silencio && d.ok === false, d.ok ? "PASSOU" : descreve(d))
+  );
 
-recusaEsperada(2, { v: 1, id: "m2", command: "fs.read" });
-recusaEsperada(3, { v: 1, id: "m3", command: "metrics.read", INJETADA: 1 });
-recusaEsperada(4, { v: 1, id: "m4", command: "metrics.read", pad: "x".repeat(8192) });
-recusaEsperada(5, "isto não é um objeto");
+recusaEsperada(2, { v: 1, command: "fs.read" });
+recusaEsperada(3, { v: 1, command: "metrics.read", INJETADA: 1 });
+recusaEsperada(4, { v: 1, command: "metrics.read", pad: "x".repeat(8192) });
+recusaEsperada(5, { naoTemVersaoNemComando: true });
 
-// 6. limite de taxa: dispara em rajada e espera que alguma seja recusada.
+// 7 — rajada até o limite de taxa reagir.
 (async () => {
-  let recusadas = 0;
+  let recusadas = 0, atendidas = 0;
   for (let i = 0; i < 40; i++) {
-    try { await chamar({ v: 1, id: "r" + i, command: "metrics.read" }); }
-    catch { recusadas++; }
+    const d = await chamar({ v: 1, command: "metrics.read" }, { silencioEmMs: 1500 });
+    if (d.ok) atendidas++;
+    else if (!d.silencio) recusadas++;
   }
-  marca(LINHAS[6][0], recusadas > 0, recusadas > 0
-    ? `recusou ${recusadas} de 40`
-    : "NENHUMA recusada em 40");
+  marca(LINHAS[6][0], recusadas > 0,
+    recusadas > 0 ? `${atendidas} atendidas, ${recusadas} recusadas` : `40 atendidas, NENHUMA recusada`);
 })();
 
-// 7. o resultado do iframe chega por postMessage. Se ele conseguir falar
-// com o nativo, a fase falhou — mesmo sendo de mesma origem que este
-// documento, porque o direito é do frame principal, não da origem.
+// 8 — o subframe relata o próprio desfecho.
 window.addEventListener("message", (ev) => {
   if (ev.data?.tipo !== "resultado-iframe") return;
   const conseguiu = ev.data.conseguiu;
-  marca(LINHAS[7][0], !conseguiu, conseguiu ? "PASSOU — iframe falou com o nativo" : "negado: " + ev.data.motivo);
+  marca(LINHAS[7][0], !conseguiu,
+    conseguiu ? "PASSOU — subframe falou com o nativo" : "negado: " + ev.data.motivo);
 });
