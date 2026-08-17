@@ -173,6 +173,37 @@ a decisão "qualquer usuário pagante publica" vai exigir.
   isso, uma atualização silenciosa herdaria permissões concedidas a outro
   código.
 
+### O fingerprint cobre TUDO que é servível (correção de 2026-08-17)
+
+Achado medido na fronteira entre as fatias, e é a classe de defeito que não
+mora dentro de nenhuma delas:
+
+O cálculo pulava arquivos ocultos (`.skipsHiddenFiles`), e nem o handler de
+esquema nem o `PathScope` recusam nome começando com ponto — o confinamento
+só barra componente que comece com `..`. Somadas, as duas decisões — cada uma
+razoável isolada — deixavam um `.payload.js` **servível para a webview e fora
+do fingerprint**. Troca-se o conteúdo dele, o fingerprint não muda, a
+concessão da 2c permanece válida, e o código executado é outro. Isso desmente
+a defesa que justificamos por escrito contra o ataque "publica benigno,
+atualiza malicioso".
+
+Política, em três camadas baratas:
+1. **O fingerprint cobre todo o conteúdo**, sem pular ocultos.
+2. **A instalação recusa ou remove metadados que não são conteúdo de app**,
+   com `.DS_Store` nomeado — senão o Finder tocando a pasta faz o app "mudar"
+   sozinho.
+3. **O handler recusa servir componente começando com ponto**, para que
+   qualquer resíduo seja inerte mesmo se escapar das duas primeiras.
+
+Invariante a preservar em qualquer mudança futura: **o conjunto servível e o
+conjunto medido têm de ser o mesmo conjunto.** Divergência entre eles é o
+buraco, independentemente de qual dos dois lados "está certo".
+
+O percurso da árvore na instalação passa a usar o `PathScope`
+(`openDirectoryForListing`) em vez de `FileManager` — é o caminho que recebe
+um diretório apontado de fora e, portanto, o pior lugar do sistema para não
+ter confinamento.
+
 ## Contrato 3 — origem própria e serviço do bundle
 
 Cada app instalado recebe **esquema próprio**: `soyehtapp-<id>://local/…`.
