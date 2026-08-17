@@ -137,6 +137,32 @@ O relay é injetado com `forMainFrameOnly: true`. Assim um subframe não tem
 código algum no mundo onde o handler vive, e a checagem de frame vira segunda
 camada em vez de única.
 
+### Medido no E2E: hoje o subframe nem existe, e isso esconde a checagem
+
+A CSP servida pelo handler de esquema é `default-src 'none'` **sem declarar
+`frame-src` nem `child-src`**. Iframes caem no `default-src` e são
+**bloqueados antes de qualquer coisa** — foi por isso que o subframe do probe
+apareceu vazio, e não porque a ponte o tenha recusado.
+
+Três consequências que precisam estar escritas:
+
+1. **A defesa contra subframe está hoje na CSP**, não na validação de
+   principal. É defesa em profundidade legítima, mas significa que a checagem
+   de frame da ponte **nunca foi exercitada contra um frame real**.
+2. **Nenhum app pode usar iframe.** Isso não foi decidido — é efeito colateral
+   de `default-src 'none'`. Se for para manter, é decisão de produto e deve
+   estar declarada; hoje é acidente com aparência de política.
+3. **Se alguém acrescentar `frame-src 'self'`** para permitir iframes de app,
+   a proteção passa a depender **apenas** da ponte — a camada não testada. A
+   mudança pareceria inofensiva e removeria a defesa efetiva em silêncio.
+
+Por isso a validação de principal precisa ser coberta por teste que não
+dependa de a CSP estar bloqueando: extrair a decisão para um tipo puro
+(frame principal + tripla de origem), porque `WKFrameInfo` não é construível
+de forma confiável em teste, e cobrir subframe, origem divergente e host
+vazio no CI. O adaptador WebKit produz o contexto; a política pura é o objeto
+testado.
+
 **A pane web da Fase 1 não muda.** Ela continua sendo uma configuração que
 **nunca chama `add(...)`** — a ausência do handler é o controle, não uma
 condição que possa estar errada.
