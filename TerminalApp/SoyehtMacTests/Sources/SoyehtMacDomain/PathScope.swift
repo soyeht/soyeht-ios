@@ -1,0 +1,1 @@
+../../../SoyehtMac/AppPlatform/PathScope.swift
