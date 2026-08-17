@@ -4,6 +4,7 @@ enum PaneContentKind: String, Codable, Hashable {
     case terminal
     case editor
     case git
+    case web
 }
 
 struct TerminalPaneState: Codable, Hashable {
@@ -73,16 +74,51 @@ struct GitPaneState: Codable, Hashable {
     }
 }
 
+/// Web-pane Phase 1 state. Identity and current page are SEPARATE fields
+/// (review correction, docs/web-pane-phase1.md §"Por que anchorURL"):
+/// `installSpecialContent` only reuses an existing view controller when
+/// `matchingKey` matches, and `matchingKey` derives from `anchorURL` —
+/// which is immutable after creation. The current `url` may drift on every
+/// main-frame navigation; that must NOT change identity, or each navigation
+/// would tear down and reload the WKWebView (losing scroll/form/history).
+struct WebPaneState: Codable, Hashable {
+    /// Immutable after creation. Defines `matchingKey` (pane dedupe/reuse).
+    var anchorURL: String
+    /// Current page. Written back on main-frame navigation; drives restore.
+    var url: String
+    /// Last known page title (pane header).
+    var title: String?
+
+    init(anchorURL: String, url: String? = nil, title: String? = nil) {
+        self.anchorURL = anchorURL
+        self.url = url ?? anchorURL
+        self.title = title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case anchorURL, url, title
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        anchorURL = try container.decode(String.self, forKey: .anchorURL)
+        url = try container.decodeIfPresent(String.self, forKey: .url) ?? anchorURL
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+    }
+}
+
 enum PaneContent: Codable, Hashable {
     case terminal(TerminalPaneState)
     case editor(EditorPaneState)
     case git(GitPaneState)
+    case web(WebPaneState)
 
     private enum CodingKeys: String, CodingKey {
         case kind
         case terminal
         case editor
         case git
+        case web
     }
 
     var kind: PaneContentKind {
@@ -93,6 +129,8 @@ enum PaneContent: Codable, Hashable {
             return .editor
         case .git:
             return .git
+        case .web:
+            return .web
         }
     }
 
@@ -108,6 +146,8 @@ enum PaneContent: Codable, Hashable {
             return "editor"
         case .git:
             return "git"
+        case .web:
+            return "web"
         }
     }
 
@@ -119,6 +159,10 @@ enum PaneContent: Codable, Hashable {
             return state.selectedFilePath ?? state.rootPath
         case .git(let state):
             return state.repoPath
+        case .web:
+            // A URL is not a file path; `primaryPath` feeds reporting fields
+            // (e.g. `working_directory`) where a URL would be wrong data.
+            return nil
         }
     }
 
@@ -132,6 +176,8 @@ enum PaneContent: Codable, Hashable {
             let branch = state.branch ?? ""
             let base = state.compareBase ?? ""
             return "git:\(Self.canonicalPath(state.repoPath)):\(branch):\(base)"
+        case .web(let state):
+            return "web:\(WebURL.canonical(state.anchorURL))"
         }
     }
 
@@ -145,6 +191,8 @@ enum PaneContent: Codable, Hashable {
             self = .editor(try container.decode(EditorPaneState.self, forKey: .editor))
         case .git:
             self = .git(try container.decode(GitPaneState.self, forKey: .git))
+        case .web:
+            self = .web(try container.decode(WebPaneState.self, forKey: .web))
         }
     }
 
@@ -158,6 +206,8 @@ enum PaneContent: Codable, Hashable {
             try container.encode(state, forKey: .editor)
         case .git(let state):
             try container.encode(state, forKey: .git)
+        case .web(let state):
+            try container.encode(state, forKey: .web)
         }
     }
 
