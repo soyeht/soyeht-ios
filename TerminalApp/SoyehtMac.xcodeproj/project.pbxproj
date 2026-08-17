@@ -173,6 +173,11 @@
 		CB1000300000000000000001 /* WebURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000300000000000000002 /* WebURL.swift */; };
 		CB1000310000000000000001 /* WebPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000310000000000000002 /* WebPaneViewController.swift */; };
 		CB1000320000000000000001 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1000320000000000000002 /* WebKit.framework */; };
+		CB1000330000000000000001 /* PathScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000330000000000000002 /* PathScope.swift */; };
+		CB1000340000000000000001 /* AppManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000340000000000000002 /* AppManifest.swift */; };
+		CB1000350000000000000001 /* AppBundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000350000000000000002 /* AppBundleSchemeHandler.swift */; };
+		CB1000360000000000000001 /* AppPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000360000000000000002 /* AppPaneViewController.swift */; };
+		CB1000370000000000000001 /* AppInstallStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000370000000000000002 /* AppInstallStore.swift */; };
 		D40C5B4B0AE69742892E2B58 /* UninstallWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */; };
 		DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8551E3005154C035BE2E191 /* HouseNamingView.swift */; };
 		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
@@ -357,6 +362,11 @@
 		CB1000300000000000000002 /* WebURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebURL.swift; sourceTree = "<group>"; };
 		CB1000310000000000000002 /* WebPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPaneViewController.swift; sourceTree = "<group>"; };
 		CB1000320000000000000002 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		CB1000330000000000000002 /* PathScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathScope.swift; sourceTree = "<group>"; };
+		CB1000340000000000000002 /* AppManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppManifest.swift; sourceTree = "<group>"; };
+		CB1000350000000000000002 /* AppBundleSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBundleSchemeHandler.swift; sourceTree = "<group>"; };
+		CB1000360000000000000002 /* AppPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaneViewController.swift; sourceTree = "<group>"; };
+		CB1000370000000000000002 /* AppInstallStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInstallStore.swift; sourceTree = "<group>"; };
 		D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariOpener.swift; sourceTree = "<group>"; };
 		D8551E3005154C035BE2E191 /* HouseNamingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingView.swift; sourceTree = "<group>"; };
 		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
@@ -503,6 +513,8 @@
 				CB1000100000000000000001 /* EditorPane */,
 				CB1000110000000000000001 /* GitPane */,
 				CB1000120000000000000001 /* WebPane */,
+				CB1000130000000000000001 /* AppPlatform */,
+				CB1000140000000000000001 /* AppPane */,
 				AA30000A000000000000001 /* MainWindow */,
 				AA51000A000000000000001 /* MainMenu */,
 				AA40000A000000000000001 /* NewConversation */,
@@ -838,6 +850,25 @@
 			path = WebPane;
 			sourceTree = "<group>";
 		};
+		CB1000130000000000000001 /* AppPlatform */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000330000000000000002 /* PathScope.swift */,
+				CB1000340000000000000002 /* AppManifest.swift */,
+				CB1000350000000000000002 /* AppBundleSchemeHandler.swift */,
+				CB1000370000000000000002 /* AppInstallStore.swift */,
+			);
+			path = AppPlatform;
+			sourceTree = "<group>";
+		};
+		CB1000140000000000000001 /* AppPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000360000000000000002 /* AppPaneViewController.swift */,
+			);
+			path = AppPane;
+			sourceTree = "<group>";
+		};
 		D78E390C8AD7D1D2BA82CD76 /* Uninstall */ = {
 			isa = PBXGroup;
 			children = (
@@ -1083,6 +1114,11 @@
 				CB1000070000000000000001 /* GitPaneViewController.swift in Sources */,
 				CB1000300000000000000001 /* WebURL.swift in Sources */,
 				CB1000310000000000000001 /* WebPaneViewController.swift in Sources */,
+				CB1000330000000000000001 /* PathScope.swift in Sources */,
+				CB1000340000000000000001 /* AppManifest.swift in Sources */,
+				CB1000350000000000000001 /* AppBundleSchemeHandler.swift in Sources */,
+				CB1000360000000000000001 /* AppPaneViewController.swift in Sources */,
+				CB1000370000000000000001 /* AppInstallStore.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
 				AA200008000000000000001 /* NativePTY.swift in Sources */,

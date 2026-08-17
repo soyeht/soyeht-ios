@@ -296,6 +296,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case agentSwitchRequiresTerminalPane(Conversation.ID)
         case agentSwitchRequiresLocalPane(Conversation.ID)
         case agentSwitchSourceChanged(Conversation.ID)
+        case appInstallNotFound(String)
 
         var errorDescription: String? {
             switch self {
@@ -388,6 +389,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Remote mirror panes do not support in-place agent switching: \(id.uuidString)"
             case .agentSwitchSourceChanged(let id):
                 return "Pane changed while the agent switch was being prepared: \(id.uuidString)"
+            case .appInstallNotFound(let id):
+                return "App installation not found: \(id)"
             }
         }
     }
@@ -1333,6 +1336,34 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             workspaceID: workspaceID,
             attachTerminalStack: false,
             forceNew: forceNew,
+            dedupeWithinTargetWorkspace: true
+        )
+    }
+
+    /// Phase 2a: opens (or focuses) the pane for an installed app. Manual
+    /// install only — there is deliberately NO MCP/automation entry point in
+    /// this phase; when one arrives it gets its own slice with the same
+    /// validation discipline `open_web` had.
+    @MainActor
+    func openAppPane(
+        installID: String,
+        workspaceID: Workspace.ID? = nil
+    ) throws -> OpenedSpecialPaneResult {
+        guard let record = AppInstallStore.record(installID: installID) else {
+            throw LocalAgentWorkspaceError.appInstallNotFound(installID)
+        }
+        let state = AppPaneState(
+            installID: record.installID,
+            appID: record.manifest.id,
+            name: record.manifest.name
+        )
+        return try createOrFocusSpecialPane(
+            content: .app(state),
+            desiredHandle: "app-\(record.manifest.id)",
+            workingDirectoryPath: nil,
+            workspaceID: workspaceID,
+            attachTerminalStack: false,
+            forceNew: false,
             dedupeWithinTargetWorkspace: true
         )
     }

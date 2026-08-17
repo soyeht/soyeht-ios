@@ -5,6 +5,7 @@ enum PaneContentKind: String, Codable, Hashable {
     case editor
     case git
     case web
+    case app
 }
 
 struct TerminalPaneState: Codable, Hashable {
@@ -107,11 +108,54 @@ struct WebPaneState: Codable, Hashable {
     }
 }
 
+/// App-pane Phase 2a state. Identity is the INSTALLATION id, never the app
+/// id: reinstalling an app must produce a NEW pane identity, so that grants
+/// made in Phase 2c are keyed to one installation's code (via the bundle
+/// fingerprint) and are never silently inherited by a reinstall that could
+/// be different code. Do not "simplify" installID away — it looks redundant
+/// with appID until the day someone reinstalls.
+///
+/// `name` is third-party data (any paying user can publish): render as plain
+/// text, never markup, and cap at 128 Unicode SCALARS on entry — precedent
+/// `ShareableAppPresentation.nameMaxChars` in SoyehtCore. Scalars, not
+/// `String.count` (grapheme clusters), so combining-mark padding cannot
+/// smuggle an over-long name past the limit.
+struct AppPaneState: Codable, Hashable {
+    /// Identity of THIS installation. Defines `matchingKey`.
+    var installID: String
+    /// The app's manifest id (scheme `soyehtapp-<appID>`). Not identity.
+    var appID: String
+    /// Last known display name (untrusted, header only).
+    var name: String?
+
+    /// Maximum display-name length in Unicode scalars (see type doc).
+    static let nameMaxScalars = 128
+
+    init(installID: String, appID: String, name: String? = nil) {
+        self.installID = installID
+        self.appID = appID
+        self.name = name.map { String($0.unicodeScalars.prefix(Self.nameMaxScalars)) }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case installID, appID, name
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        installID = try container.decode(String.self, forKey: .installID)
+        appID = try container.decode(String.self, forKey: .appID)
+        let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
+        name = decodedName.map { String($0.unicodeScalars.prefix(Self.nameMaxScalars)) }
+    }
+}
+
 enum PaneContent: Codable, Hashable {
     case terminal(TerminalPaneState)
     case editor(EditorPaneState)
     case git(GitPaneState)
     case web(WebPaneState)
+    case app(AppPaneState)
 
     private enum CodingKeys: String, CodingKey {
         case kind
@@ -119,6 +163,7 @@ enum PaneContent: Codable, Hashable {
         case editor
         case git
         case web
+        case app
     }
 
     var kind: PaneContentKind {
@@ -131,6 +176,8 @@ enum PaneContent: Codable, Hashable {
             return .git
         case .web:
             return .web
+        case .app:
+            return .app
         }
     }
 
@@ -148,6 +195,8 @@ enum PaneContent: Codable, Hashable {
             return "git"
         case .web:
             return "web"
+        case .app:
+            return "app"
         }
     }
 
@@ -162,6 +211,10 @@ enum PaneContent: Codable, Hashable {
         case .web:
             // A URL is not a file path; `primaryPath` feeds reporting fields
             // (e.g. `working_directory`) where a URL would be wrong data.
+            return nil
+        case .app:
+            // Same: an app bundle location is install metadata, not a path
+            // the pane works in. Reporting it would leak install layout.
             return nil
         }
     }
@@ -178,6 +231,9 @@ enum PaneContent: Codable, Hashable {
             return "git:\(Self.canonicalPath(state.repoPath)):\(branch):\(base)"
         case .web(let state):
             return "web:\(WebURL.canonical(state.anchorURL))"
+        case .app(let state):
+            // Installation identity, not app identity — see AppPaneState.
+            return "app:\(state.installID)"
         }
     }
 
@@ -193,6 +249,8 @@ enum PaneContent: Codable, Hashable {
             self = .git(try container.decode(GitPaneState.self, forKey: .git))
         case .web:
             self = .web(try container.decode(WebPaneState.self, forKey: .web))
+        case .app:
+            self = .app(try container.decode(AppPaneState.self, forKey: .app))
         }
     }
 
@@ -208,6 +266,8 @@ enum PaneContent: Codable, Hashable {
             try container.encode(state, forKey: .git)
         case .web(let state):
             try container.encode(state, forKey: .web)
+        case .app(let state):
+            try container.encode(state, forKey: .app)
         }
     }
 
