@@ -11,6 +11,7 @@ struct AppInstallRecord: Codable, Hashable {
 }
 
 enum AppInstallStore {
+    enum InstallError: Error { case unsupportedBundleEntry(String) }
     private static let defaultsKey = "app-platform.install-records.v1"
 
     static func record(installID: String) -> AppInstallRecord? {
@@ -22,13 +23,15 @@ enum AppInstallStore {
     /// Copies a manually selected bundle into App Support and records its derived provenance.
     @discardableResult
     static func install(bundleAt source: URL) throws -> AppInstallRecord {
-        let manifestURL = source.appendingPathComponent("manifest.json")
-        let manifest = try AppManifest.decode(Data(contentsOf: manifestURL))
+        let sourceScope = try PathScope(rootDirectory: source)
+        defer { sourceScope.close() }
+        let manifest = try AppManifest.decode(try read("manifest.json", from: sourceScope))
         let installID = UUID().uuidString.lowercased()
         let apps = try AppSupportDirectory.subdirectory("Apps")
         let destination = apps.appendingPathComponent(installID, isDirectory: true)
-        try FileManager.default.copyItem(at: source, to: destination)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
         do {
+            try copyDirectory(".", from: sourceScope, to: destination)
             let fingerprint = try fingerprint(of: destination)
             let record = AppInstallRecord(installID: installID, manifest: manifest, bundleRoot: destination, fingerprint: fingerprint, provenance: .localUnverified)
             var records = loadRecords()
@@ -39,6 +42,27 @@ enum AppInstallStore {
             try? FileManager.default.removeItem(at: destination)
             throw error
         }
+    }
+
+    private static func copyDirectory(_ relativePath: String, from scope: PathScope, to destination: URL) throws {
+        for entry in try scope.listDirectoryEntries(relativePath: relativePath) {
+            let child = relativePath == "." ? entry.name : relativePath + "/" + entry.name
+            let target = destination.appendingPathComponent(entry.name, isDirectory: entry.kind == .directory)
+            switch entry.kind {
+            case .directory:
+                try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
+                try copyDirectory(child, from: scope, to: target)
+            case .file:
+                try read(child, from: scope).write(to: target, options: .atomic)
+            case .other:
+                throw InstallError.unsupportedBundleEntry(child)
+            }
+        }
+    }
+
+    private static func read(_ relativePath: String, from scope: PathScope) throws -> Data {
+        let fd = try scope.openFileForReading(relativePath: relativePath)
+        return try FileHandle(fileDescriptor: fd, closeOnDealloc: true).readToEnd() ?? Data()
     }
 
     private static func loadRecords() -> [AppInstallRecord] {
