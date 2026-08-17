@@ -182,3 +182,11 @@ no caminho de reuse ele é de fato reescrito pelo state novo (a pane de
 por construção, porque o reuse só ocorre quando as chaves canônicas coincidem
 — o que muda é a grafia, nunca a identidade. Quem mexer aqui depois deve
 tratar a *classe de equivalência canônica* como imutável, não a string.
+
+O mecanismo é o `createOrFocusSpecialPane`, que no caminho de reuse substitui
+o state inteiro pelo content novo; a grafia do `anchorURL` converge para a do
+`open_web` mais recente dentro da mesma chave. Se algum dia se quiser
+imutabilidade estrita da string, o ponto único é gravar
+`WebURL.canonical(anchorURL)` já na criação, dentro de `openWebPane` — uma
+linha, sem migração de snapshot, porque as chaves não mudam. Nota de
+extensão, não pendência.
