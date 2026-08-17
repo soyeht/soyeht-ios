@@ -29,6 +29,7 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
 
     private let record: AppInstallRecord
     private let schemeHandler: AppBundleSchemeHandler
+    private let bridgeHandler: AppCapabilityBridgeHandler
     private var webView: WKWebView!
     private var isTornDown = false
 
@@ -61,6 +62,11 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         self.state = state
         self.record = record
         schemeHandler = try AppBundleSchemeHandler(bundleRoot: record.bundleRoot, appID: record.manifest.id)
+        bridgeHandler = AppCapabilityBridgeHandler(
+            paneID: paneID,
+            installID: record.installID,
+            appID: record.manifest.id
+        )
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -68,8 +74,8 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
 
     /// App-pane configuration factory. Kept deliberately separate from the
     /// Phase 1 web-pane configuration: different trust posture, different
-    /// navigation policy, and — the control that matters — no message
-    /// handler is ever added here.
+    /// navigation policy, and — the control that matters — the capability
+    /// bridge exists HERE and only here. The web pane never gains a handler.
     private func makeConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         // Persistent store: the Phase 2a storage spike measured that
@@ -81,6 +87,9 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
             schemeHandler,
             forURLScheme: AppBundleSchemeHandler.scheme(for: record.manifest.id)
         )
+        // Phase 2b: the capability bridge — isolated world, relay, principal
+        // validation and rate limiting all live in the handler.
+        bridgeHandler.install(on: configuration)
         return configuration
     }
 
@@ -127,7 +136,10 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         webView?.stopLoading()
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
-        // Closing the pane revokes the bundle's file descriptor.
+        // Structural teardown: the bridge handler is REMOVED (a closed pane
+        // cannot keep serving capability calls) and the bundle's file
+        // descriptor is closed.
+        bridgeHandler.tearDown()
         schemeHandler.close()
     }
 
