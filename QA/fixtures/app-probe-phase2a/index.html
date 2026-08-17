@@ -34,6 +34,7 @@ const linhas = [
   ["window.open externo", "bloqueado"],
   ["localStorage persiste", "spike"],
   ["IndexedDB persiste", "spike"],
+  ["fonte do próprio bundle", "medir"],
 ];
 const t = document.getElementById("t");
 const cel = {};
@@ -104,6 +105,22 @@ try {
 } catch (err) {
   marca(linhas[5][0], false, "indisponível: " + err.name);
 }
+
+// 7. Fonte servida pelo PRÓPRIO bundle. A CSP do contrato não declara
+// font-src, então ela cai em default-src 'none' e o pedido deve ser
+// bloqueado. O arquivo NÃO é uma fonte válida de propósito: o que se mede
+// aqui é se o pedido chega a sair, não se ela renderiza. Para distinguir os
+// dois casos, olhe o console — violação de CSP é reportada explicitamente,
+// falha de parsing não.
+(async () => {
+  try {
+    const f = new FontFace("ProbeFonte", "url(probe-font.woff2)");
+    await f.load();
+    marca(linhas[6][0], true, "carregou (font-src permitiria)");
+  } catch (err) {
+    marca(linhas[6][0], true, "recusada: " + err.name + " — ver console p/ CSP vs parsing");
+  }
+})();
 
 document.getElementById("env").textContent =
   "origem: " + location.origin + " · isSecureContext: " + window.isSecureContext;
