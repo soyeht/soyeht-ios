@@ -3294,6 +3294,42 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         refreshClawStoreTint()
     }
 
+    /// Apps and Claws share the one right-hand drawer slot, so opening either
+    /// closes the other. They are different concepts — a Claw is an agent, an
+    /// app is local HTML — but only one panel fits, and two panels fighting
+    /// over the same edge would be worse than the exclusivity.
+    func toggleAppsDrawerOverlay() {
+        if appsDrawerOverlay == nil { openAppsDrawerOverlay() } else { closeAppsDrawerOverlay() }
+    }
+
+    func openAppsDrawerOverlay() {
+        if let existing = appsDrawerOverlay { existing.refresh(); return }
+        if clawDrawerOverlay != nil { closeClawDrawerOverlay() }
+        if sidebarOverlay != nil { closeSidebarOverlay() }
+        let overlay = AppsDrawerViewController()
+        overlay.onDismiss = { [weak self] in self?.closeAppsDrawerOverlay() }
+        overlay.onOpenApp = { [weak self] record in
+            guard let self else { return }
+            do {
+                _ = try self.openAppPane(installID: record.installID)
+            } catch {
+                NSSound.beep()
+            }
+        }
+        chromeVC.setClawDrawerOverlay(overlay)
+    }
+
+    private func closeAppsDrawerOverlay() {
+        chromeVC.setClawDrawerOverlay(nil)
+    }
+
+    /// Derived from the shared slot rather than stored: with one slot and two
+    /// possible occupants, a second stored flag could disagree with what is
+    /// actually on screen, and the failure would be silent.
+    private var appsDrawerOverlay: AppsDrawerViewController? {
+        chromeVC.clawDrawerOverlay as? AppsDrawerViewController
+    }
+
     private func showClawStoreComingSoonAlert() {
         let alert = NSAlert()
         alert.messageText = String(localized: "clawStore.comingSoon.title", comment: "Alert title shown while Claw Store is disabled for launch.")

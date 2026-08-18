@@ -14,9 +14,37 @@ struct AppInstallRecord: Codable, Hashable {
     var origin: AppOrigin { AppOrigin(installID: installID) }
 }
 
+/// What the installer learned by reading a candidate bundle, before anything
+/// was copied anywhere.
+///
+/// Every field here except `source` is **declared by the bundle**. The install
+/// sheet exists to show the person those declarations and let them decide, so
+/// the type deliberately reads as a claim rather than a fact.
+struct AppBundleInspection: Hashable, Identifiable {
+    /// Where the candidate was read from. Chosen by the person, not declared.
+    let source: URL
+    var id: URL { source }
+    /// What `manifest.json` says. Validated as well-formed, never as truthful.
+    let manifest: AppManifest
+
+    /// Decided by HOW the bundle arrived, never by what it says about itself.
+    /// A bundle cannot declare itself verified: there is no signature and no
+    /// review anywhere in this path, and the UI says so because this says so.
+    var provenance: AppProvenance { .localUnverified }
+}
+
 enum AppInstallStore {
-    enum InstallError: Error { case unsupportedBundleEntry(String) }
+    enum InstallError: Error, Equatable {
+        case unsupportedBundleEntry(String)
+        /// The folder changed between the person being shown what it declared
+        /// and the person accepting it.
+        case bundleChangedSinceInspection
+    }
     private static let defaultsKey = "app-platform.install-records.v1"
+
+    /// Every installed app, in install order. The drawer lists these; there
+    /// is no other source of truth about what is installed.
+    static var installed: [AppInstallRecord] { loadRecords() }
 
     static func record(installID: String) -> AppInstallRecord? {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey),
@@ -24,12 +52,48 @@ enum AppInstallStore {
         return records.first { $0.installID == installID }
     }
 
+    /// Reads and validates a candidate bundle's manifest and copies **nothing**.
+    ///
+    /// Inspection is separate from installation because the person has to see
+    /// what a bundle declares before accepting it. A single-shot install cannot
+    /// offer that: by the time there is anything to show, the decision has
+    /// already been made.
+    static func inspect(bundleAt source: URL) throws -> AppBundleInspection {
+        let scope = try PathScope(rootDirectory: source)
+        defer { scope.close() }
+        return AppBundleInspection(source: source,
+                                   manifest: try AppManifest.decode(try read("manifest.json", from: scope)))
+    }
+
+    /// Fails unless the manifest read at commit time is the one that was shown.
+    ///
+    /// Splitting inspection from commit opens a window: the folder is chosen by
+    /// the person and stays writable, so between the sheet appearing and the
+    /// button being pressed its contents can change. Consent was given to a
+    /// specific set of declarations — a different set is not covered by it, and
+    /// the capability list is exactly the part an attacker would want to swap.
+    static func requireUnchanged(inspected: AppManifest, atCommit: AppManifest) throws {
+        guard inspected == atCommit else { throw InstallError.bundleChangedSinceInspection }
+    }
+
+    /// Commits a bundle the person has seen and accepted.
+    @discardableResult
+    static func install(_ inspection: AppBundleInspection) throws -> AppInstallRecord {
+        try install(bundleAt: inspection.source, accepted: inspection.manifest)
+    }
+
     /// Copies a manually selected bundle into App Support and records its derived provenance.
     @discardableResult
     static func install(bundleAt source: URL) throws -> AppInstallRecord {
+        try install(bundleAt: source, accepted: nil)
+    }
+
+    @discardableResult
+    private static func install(bundleAt source: URL, accepted: AppManifest?) throws -> AppInstallRecord {
         let sourceScope = try PathScope(rootDirectory: source)
         defer { sourceScope.close() }
         let manifest = try AppManifest.decode(try read("manifest.json", from: sourceScope))
+        if let accepted { try requireUnchanged(inspected: accepted, atCommit: manifest) }
         let installID = UUID().uuidString.lowercased()
         let apps = try AppSupportDirectory.subdirectory("Apps")
         let destination = apps.appendingPathComponent(installID, isDirectory: true)

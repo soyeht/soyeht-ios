@@ -985,6 +985,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         windowCommandPerformer.performShowConversationsSidebarCommand(sender)
     }
 
+    /// The apps drawer is a WINDOW surface, not an application one: it is an
+    /// overlay inside the main window, so it routes the same way the sidebar
+    /// does. The routing-boundary test is what told me this — I had wired it
+    /// application-scoped by copying the Claw Store, which can open a window
+    /// of its own and therefore belongs in the other lane.
+    @IBAction func showApps(_ sender: Any?) {
+        windowCommandPerformer.performShowAppsCommand(sender)
+    }
+
     @IBAction func logout(_ sender: Any) {
         let store = SessionStore.shared
         guard !store.credentialedCanonicalServers().isEmpty else { return }

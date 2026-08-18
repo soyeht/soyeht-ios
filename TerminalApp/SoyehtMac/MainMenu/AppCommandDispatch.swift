@@ -188,6 +188,8 @@ extension AppCommand {
             return CommandUIValidation(isEnabled: context.canCheckForUpdates)
         case .showClawStore:
             return CommandUIValidation(isEnabled: context.clawStoreEnabled)
+        case .showApps:
+            return CommandUIValidation(isEnabled: context.frontmostWindow != nil)
         case .showConversationsSidebar:
             return CommandUIValidation(isEnabled: context.frontmostWindow != nil)
         case .undoWindowAction:
@@ -322,6 +324,7 @@ protocol AppCommandApplicationActionPerforming: AnyObject {
 protocol AppCommandWindowActionPerforming: AnyObject {
     @discardableResult func performNewConversationCommand(_ sender: Any?) -> Bool
     @discardableResult func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool
+    @discardableResult func performShowAppsCommand(_ sender: Any?) -> Bool
     @discardableResult func performUndoWindowActionCommand(_ sender: Any?) -> Bool
     @discardableResult func performRedoWindowActionCommand(_ sender: Any?) -> Bool
     @discardableResult func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool
@@ -398,6 +401,8 @@ final class AppCommandActionRouter: AppCommandPerforming {
             return applicationActions != nil
         case .showConversationsSidebar:
             return windowActions?.performShowConversationsSidebarCommand(sender) ?? false
+        case .showApps:
+            return windowActions?.performShowAppsCommand(sender) ?? false
         case .undoWindowAction:
             return windowActions?.performUndoWindowActionCommand(sender) ?? false
         case .redoWindowAction:
