@@ -15,6 +15,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case showConnectedServers
     case uninstallSoyeht
     case showClawStore
+    case showApps
     case showConversationIntelligence
     case showConversationsSidebar
     case undoWindowAction
@@ -50,6 +51,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .showConnectedServers: return "showConnectedServers"
         case .uninstallSoyeht: return "uninstallSoyeht"
         case .showClawStore: return "showClawStore"
+        case .showApps: return "showApps"
         case .showConversationIntelligence: return "showConversationIntelligence"
         case .showConversationsSidebar: return "showConversationsSidebar"
         case .undoWindowAction: return "undoWindowAction"
@@ -87,6 +89,7 @@ enum AppCommandAction: String, Hashable {
     case showConnectedServers = "showConnectedServers:"
     case uninstallSoyeht = "uninstallSoyeht:"
     case showClawStore = "showClawStore:"
+    case showApps = "showApps:"
     case showConversationIntelligence = "showConversationIntelligence:"
     case showConversationsSidebar = "showConversationsSidebar:"
     case undoWindowAction = "undoWindowAction:"
@@ -636,6 +639,17 @@ enum AppCommandRegistry {
                 ),
                 action: .showClawStore,
                 shortcut: AppCommandShortcut(.character("s"), modifiers: [.command, .option]),
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .showApps,
+                title: String(
+                    localized: "appMenu.apps",
+                    defaultValue: "Apps…",
+                    comment: "App menu item that opens the drawer listing installed local HTML apps."
+                ),
+                action: .showApps,
+                shortcut: AppCommandShortcut(.character("a"), modifiers: [.command, .option]),
                 menuPlacement: .appMenu
             ),
             AppCommand(

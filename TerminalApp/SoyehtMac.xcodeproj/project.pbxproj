@@ -177,6 +177,7 @@
 		CB1000340000000000000001 /* AppManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000340000000000000002 /* AppManifest.swift */; };
 		CB1000350000000000000001 /* AppBundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000350000000000000002 /* AppBundleSchemeHandler.swift */; };
 		CB10003A0000000000000001 /* AppOrigin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003A0000000000000002 /* AppOrigin.swift */; };
+		CB10003B0000000000000001 /* AppsDrawerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003B0000000000000002 /* AppsDrawerViewController.swift */; };
 		CB1000360000000000000001 /* AppPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000360000000000000002 /* AppPaneViewController.swift */; };
 		CB1000370000000000000001 /* AppInstallStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000370000000000000002 /* AppInstallStore.swift */; };
 		CB1000380000000000000001 /* CapabilityEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000380000000000000002 /* CapabilityEnvelope.swift */; };
@@ -374,6 +375,7 @@
 		CB1000340000000000000002 /* AppManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppManifest.swift; sourceTree = "<group>"; };
 		CB1000350000000000000002 /* AppBundleSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBundleSchemeHandler.swift; sourceTree = "<group>"; };
 		CB10003A0000000000000002 /* AppOrigin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOrigin.swift; sourceTree = "<group>"; };
+		CB10003B0000000000000002 /* AppsDrawerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppsDrawerViewController.swift; sourceTree = "<group>"; };
 		CB1000360000000000000002 /* AppPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaneViewController.swift; sourceTree = "<group>"; };
 		CB1000370000000000000002 /* AppInstallStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInstallStore.swift; sourceTree = "<group>"; };
 		CB1000380000000000000002 /* CapabilityEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityEnvelope.swift; sourceTree = "<group>"; };
@@ -888,6 +890,7 @@
 			isa = PBXGroup;
 			children = (
 				CB1000360000000000000002 /* AppPaneViewController.swift */,
+				CB10003B0000000000000002 /* AppsDrawerViewController.swift */,
 				CB1000430000000000000002 /* AppCapabilityBridgeHandler.swift */,
 			);
 			path = AppPane;
@@ -1142,6 +1145,7 @@
 				CB1000340000000000000001 /* AppManifest.swift in Sources */,
 				CB1000350000000000000001 /* AppBundleSchemeHandler.swift in Sources */,
 				CB10003A0000000000000001 /* AppOrigin.swift in Sources */,
+				CB10003B0000000000000001 /* AppsDrawerViewController.swift in Sources */,
 				CB1000360000000000000001 /* AppPaneViewController.swift in Sources */,
 				CB1000370000000000000001 /* AppInstallStore.swift in Sources */,
 				CB1000380000000000000001 /* CapabilityEnvelope.swift in Sources */,

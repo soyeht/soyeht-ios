@@ -92,6 +92,9 @@ final class WindowChromeViewController: NSViewController {
         if let sidebar = sidebarOverlay as? FloatingSidebarViewController {
             sidebar.applyTheme()
         }
+        if let appsDrawer = clawDrawerOverlay as? AppsDrawerViewController {
+            appsDrawer.applyTheme()
+        }
         if let clawDrawer = clawDrawerOverlay as? ClawDrawerViewController {
             clawDrawer.applyTheme()
         }

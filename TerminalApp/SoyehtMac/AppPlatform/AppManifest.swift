@@ -28,7 +28,7 @@ struct AppPublisher: Codable, Hashable {
 }
 
 /// Provenance is established by the installer, never declared by a bundle.
-enum AppProvenance: String, Codable, Hashable { case localUnverified }
+enum AppProvenance: String, Codable, Hashable, CaseIterable { case localUnverified }
 
 enum AppManifestError: Error, Equatable {
     case unknownKey(String), unsupportedSchemaVersion, invalidIdentifier, invalidPublisherID

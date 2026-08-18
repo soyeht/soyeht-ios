@@ -61,6 +61,19 @@
           "title" : "Conversation Intelligence…"
         },
         {
+          "action" : "dispatchAppCommand:",
+          "kind" : "item",
+          "shortcut" : {
+            "key" : "a",
+            "modifiers" : [
+              "command",
+              "option"
+            ]
+          },
+          "targetPolicy" : "explicitTarget",
+          "title" : "Apps…"
+        },
+        {
           "kind" : "separator"
         },
         {

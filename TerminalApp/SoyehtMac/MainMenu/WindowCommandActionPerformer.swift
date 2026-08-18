@@ -26,6 +26,13 @@ final class UICommandWindowActionPerformer: AppCommandWindowActionPerforming {
     }
 
     @discardableResult
+    func performShowAppsCommand(_ sender: Any?) -> Bool {
+        guard let target = targetProvider() else { return false }
+        target.toggleAppsDrawerOverlay()
+        return true
+    }
+
+    @discardableResult
     func performUndoWindowActionCommand(_ sender: Any?) -> Bool {
         guard let target = targetProvider() else { return false }
         target.window?.undoManager?.undo()

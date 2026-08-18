@@ -1078,6 +1078,7 @@ private final class AppCommandWindowActionSpy: AppCommandWindowActionPerforming 
 
     func performNewConversationCommand(_ sender: Any?) -> Bool { record("newConversation") }
     func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool { record("showConversationsSidebar") }
+    func performShowAppsCommand(_ sender: Any?) -> Bool { record("showApps") }
     func performUndoWindowActionCommand(_ sender: Any?) -> Bool { record("undoWindowAction") }
     func performRedoWindowActionCommand(_ sender: Any?) -> Bool { record("redoWindowAction") }
     func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool { record("splitPaneVertical") }
@@ -1136,6 +1137,7 @@ private final class WindowScopedPaneCommandSpy: AppCommandWindowActionPerforming
 
     func performNewConversationCommand(_ sender: Any?) -> Bool { false }
     func performShowConversationsSidebarCommand(_ sender: Any?) -> Bool { false }
+    func performShowAppsCommand(_ sender: Any?) -> Bool { false }
     func performUndoWindowActionCommand(_ sender: Any?) -> Bool { false }
     func performRedoWindowActionCommand(_ sender: Any?) -> Bool { false }
     func performSplitPaneVerticalCommand(_ sender: Any?) -> Bool { false }
