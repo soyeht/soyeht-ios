@@ -28,10 +28,11 @@ import WebKit
 ///   2. `frameInfo.isMainFrame`;
 ///   3. `frameInfo.securityOrigin` equals, by EXACT triple
 ///      (scheme, host, port) — measured on custom schemes as
-///      (soyehtapp-<installID>, local, 0) — the pane's origin. Written
-///      without quotes on purpose: the source guard in AppOriginTests
-///      looks for the scheme prefix as a string LITERAL, so quoting it
-///      in prose here would report this comment as a second producer;
+///      (the app scheme from `AppOrigin`, local, 0) — the pane's origin.
+///      The scheme is named in `AppOrigin` and nowhere else, prose
+///      included: a source guard requires that single mention, and
+///      restating a format here is how 2b kept saying `<id>` long after
+///      2a had moved to the install identity;
 ///   4. the origin has a non-empty host;
 ///   5. only then is the capability looked up, keyed by the OBSERVED
 ///      origin's app.

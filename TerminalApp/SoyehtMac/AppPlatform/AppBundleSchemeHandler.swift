@@ -1,8 +1,8 @@
 import Foundation
 import WebKit
 
-/// Serves an installed app's bundle to its pane over the app's own scheme
-/// (`soyehtapp-<installID>://local/…`).
+/// Serves an installed app's bundle to its pane over the app's own scheme,
+/// which is minted per install by `AppOrigin` — the only place that names it.
 ///
 /// Phase 2a contract (`docs/app-identity-phase2a.md` §3): a per-INSTALL scheme
 /// gives the app its own origin, so same-origin policy isolates apps from

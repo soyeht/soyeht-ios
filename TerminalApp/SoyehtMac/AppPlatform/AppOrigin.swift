@@ -21,14 +21,23 @@ import Foundation
 /// this type fixes was written in the first place. **That deletion is the
 /// defence**; what follows is depth on top of it.
 ///
-/// `AppOriginTests` sweeps production source for the scheme prefix used as a
-/// string literal, which is what interpolation, concatenation, `String(format:)`
-/// and `joined()` all need, and requires exactly one file to carry it. It does
-/// not detect a prefix assembled from pieces — that is someone working around
-/// the guard, and a source guard is for the refactor nobody reviewed. Stated
-/// precisely because an earlier version of this comment claimed a second
-/// producer "cannot appear", while the sweep behind it only looked for
-/// interpolation and stayed green against a concatenated one.
+/// `AppOriginTests` sweeps production source for the scheme prefix and
+/// requires **this file to be the only one that contains it at all** — in code
+/// or in prose. Earlier versions searched for one spelling at a time, first the
+/// interpolation and then the quoted literal, and each was killed by a producer
+/// written in the next spelling: `+` for the first, a multi-line string for the
+/// second. Chasing spellings is a losing shape, because Swift keeps having more
+/// of them; the bare prefix is contained by every producer regardless.
+///
+/// Hence the rule that this file is the sole place that may even mention the
+/// prefix: other files point here instead of restating the format. That is the
+/// single-producer rule applied to documentation, and it is not cosmetic —
+/// restating the format in prose is how phase 2b kept describing the origin as
+/// `<id>` long after phase 2a had moved to the install identity.
+///
+/// One limit survives, pinned by a failing expectation in the tests rather than
+/// left to a reader's optimism: a prefix assembled from pieces escapes. That is
+/// someone working around the guard, not the refactor nobody reviewed.
 struct AppOrigin: Hashable {
     /// Custom-scheme origins report host `local` and port 0. The bridge's
     /// principal check compares this exact triple, never a prefix.

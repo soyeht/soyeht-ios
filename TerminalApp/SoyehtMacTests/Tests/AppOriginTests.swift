@@ -56,69 +56,86 @@ final class AppOriginTests: XCTestCase {
     // yet: the defect was one call site handing a declared field to a producer
     // that accepted any String.
 
-    /// Every way of building the scheme needs the prefix as a **string
-    /// literal**, so the needle is the literal *including its opening quote*.
-    /// That catches interpolation, concatenation, `String(format:)` and
-    /// `joined()` alike, and ignores the prose `soyehtapp-<installID>` in doc
-    /// comments, which carries no quote.
+    /// The scheme prefix may appear in production source in **this one file**,
+    /// and nowhere else — not in code, not in prose.
     ///
-    /// An earlier version searched for the interpolation `soyehtapp-\(` and
-    /// therefore proved something narrower than it claimed: kairos killed it by
-    /// adding a second producer built with `+`, and the guard stayed green.
+    /// Two earlier versions each promised more than they measured, and each was
+    /// killed by kairos with a mutant rather than by argument:
     ///
-    /// It still does not catch a prefix assembled from pieces
-    /// (`"soyeht" + "app-"`). That is adversarial rather than accidental, and a
-    /// source guard is for the refactor nobody reviewed — not for someone
-    /// working around the guard on purpose.
-    private static let schemeLiteral = #""soyehtapp-"#
+    /// 1. Searching the interpolation `soyehtapp-\(` missed a producer built
+    ///    with `+`. The suite stayed green with two live producers.
+    /// 2. Searching the literal *with its opening quote* missed a producer
+    ///    written as a multi-line string, where the quote is not adjacent to
+    ///    the prefix. Green again.
+    ///
+    /// Each fix chased one more syntax, which is a losing shape: the needle has
+    /// to enumerate the ways Swift can spell a literal, and Swift keeps having
+    /// more. Matching the **bare prefix** stops enumerating. Any producer, in
+    /// any spelling, contains it.
+    ///
+    /// The price is that doc comments elsewhere may not name the prefix either.
+    /// That is not collateral damage, it is the same single-producer rule
+    /// applied to prose: `AppOrigin` defines the scheme and everything else
+    /// points at `AppOrigin`. Restating a format in prose is how the phase 2b
+    /// contract kept saying `<id>` after 2a had moved to `<installID>`.
+    ///
+    /// One limit survives and is pinned by a test below rather than left to a
+    /// reader's optimism: a prefix assembled from pieces escapes. That is
+    /// someone working around the guard, not the refactor nobody reviewed.
+    private static let schemePrefix = "soyehtapp-"
+
+    private static let sweptRoots = ["TerminalApp/SoyehtMac", "Packages/SoyehtCore/Sources"]
 
     func testTheAppSchemeHasExactlyOneProducerInProductionSource() throws {
-        let files = try productionSwiftFiles()
-        XCTAssertGreaterThan(files.count, 50,
-                             "a varredura não encontrou fontes; um guarda que não lê nada passa sempre")
+        var producers: [String] = []
 
-        let producers = try files
-            .filter { try String(contentsOf: $0, encoding: .utf8).contains(Self.schemeLiteral) }
-            .map(\.lastPathComponent)
-            .sorted()
+        for root in Self.sweptRoots {
+            let files = try swiftFiles(under: root)
+            // Per root, deliberately. Aggregated, a root that stops resolving
+            // returns [] and vanishes into the other root's total: the guard
+            // stays green while sweeping half of what its message promises.
+            XCTAssertGreaterThan(files.count, 50,
+                                 "a raiz \(root) não devolveu fontes; um guarda que não lê nada passa sempre")
+            producers += try files
+                .filter { try String(contentsOf: $0, encoding: .utf8).contains(Self.schemePrefix) }
+                .map(\.lastPathComponent)
+        }
 
-        XCTAssertEqual(producers, ["AppOrigin.swift"],
-                       "o esquema de um app tem de ter um único produtor. Um segundo produtor é como o defeito nasceu: aceitava qualquer String e alguém passou-lhe manifest.id")
+        XCTAssertEqual(producers.sorted(), ["AppOrigin.swift"],
+                       "o esquema de um app tem de ter um único produtor, e um único sítio que o nomeie. Um segundo produtor é como o defeito nasceu: aceitava qualquer String e alguém passou-lhe manifest.id")
     }
 
-    /// The guard is only worth its message if its needle catches the forms a
-    /// second producer would actually take. Proving that by mutating production
-    /// source costs a build per form, so the predicate is exercised directly.
+    /// Proving the needle by mutating production source costs a build per form,
+    /// so the predicate is exercised directly — including the limit it does NOT
+    /// cover, so that limit is a failing expectation someone can read rather
+    /// than a sentence someone can skip.
     func testTheGuardsNeedleCatchesEveryFormThatBuildsAScheme() {
-        let needle = Self.schemeLiteral
+        let needle = Self.schemePrefix
         // Raw strings: inside #"…"# a `\(` is literal, so these are the source
         // text a producer would have, not interpolations evaluated here.
         XCTAssertTrue(#"return "soyehtapp-\(installID)""#.contains(needle), "interpolação")
         XCTAssertTrue(##"return "soyehtapp-" + appID"##.contains(needle), "concatenação")
         XCTAssertTrue(##"String(format: "soyehtapp-%@", appID)"##.contains(needle), "formatação")
         XCTAssertTrue(##"["soyehtapp-", appID].joined()"##.contains(needle), "junção")
+        XCTAssertTrue("\"\"\"\n    soyehtapp-\\(appID)\n    \"\"\"".contains(needle), "string multilinha")
+        XCTAssertTrue("/// served from soyehtapp-<installID>://local/".contains(needle), "prosa")
 
-        XCTAssertFalse("/// served from soyehtapp-<installID>://local/".contains(needle),
-                       "prosa em comentário não é um produtor e não pode disparar o guarda")
+        XCTAssertFalse(##"return "soyeht" + "app-" + appID"##.contains(needle),
+                       "limite conhecido: prefixo montado aos bocados escapa. Esta assercão existe para o limite ser visível, não para ser aceitável")
     }
 
     /// The app target compiles more than `SoyehtMac/`, so a producer living in
     /// the shared package would have slipped past a sweep of one directory.
-    private func productionSwiftFiles() throws -> [URL] {
+    private func swiftFiles(under relativePath: String) throws -> [URL] {
         let repository = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // Tests
             .deletingLastPathComponent()   // SoyehtMacTests
             .deletingLastPathComponent()   // TerminalApp
             .deletingLastPathComponent()   // <repositório>
-        let roots = [
-            repository.appendingPathComponent("TerminalApp/SoyehtMac"),
-            repository.appendingPathComponent("Packages/SoyehtCore/Sources"),
-        ]
-        return roots.flatMap { root -> [URL] in
-            guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
-                return []
-            }
-            return walker.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        let root = repository.appendingPathComponent(relativePath)
+        guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+            return []
         }
+        return walker.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
     }
 }
