@@ -85,7 +85,7 @@ run_case() { # name expected_rc roster identity team [expect_substring]
   leaks() { # value label
     # Whole value, then every contiguous multi-token RUN at every position --
     # not only prefixes. A prefix-only check cannot see an internal fragment:
-    # "Gilberto Filho" starts at token four of the identity, so a prefix walk
+    # "Test Signer" starts at token four of the identity, so a prefix walk
     # never forms it. An earlier version had exactly that hole, and the mutant
     # meant to expose it went red for a third wrong reason: it replaced the
     # message the case asserts on, so the run failed on the missing expected
@@ -125,34 +125,34 @@ run_case() { # name expected_rc roster identity team [expect_substring]
   fi
 }
 
-ONE='  1) 95D53BFDFF81DF1D44E176CFC8EB44E430885609 "Developer ID Application: Gilberto Filho (W7677A5BK2)"
+ONE='  1) 1A2B3C4D5E6F708192A3B4C5D6E7F80912345678 "Developer ID Application: Test Signer (ABCDE12345)"
      1 valid identities found
 '
-TWO='  1) 95D53BFDFF81DF1D44E176CFC8EB44E430885609 "Developer ID Application: Gilberto Filho (W7677A5BK2)"
+TWO='  1) 1A2B3C4D5E6F708192A3B4C5D6E7F80912345678 "Developer ID Application: Test Signer (ABCDE12345)"
   2) 11111111111111111111111111111111111111AA "Developer ID Application: Other Person (ZZZZZZZZZZ)"
      2 valid identities found
 '
 NONE='     0 valid identities found
 '
-NOCOUNT='  1) 95D53BFDFF81DF1D44E176CFC8EB44E430885609 "Developer ID Application: Gilberto Filho (W7677A5BK2)"
+NOCOUNT='  1) 1A2B3C4D5E6F708192A3B4C5D6E7F80912345678 "Developer ID Application: Test Signer (ABCDE12345)"
 '
-NOTEAM='  1) 95D53BFDFF81DF1D44E176CFC8EB44E430885609 "Developer ID Application: No Team Suffix"
+NOTEAM='  1) 1A2B3C4D5E6F708192A3B4C5D6E7F80912345678 "Developer ID Application: No Team Suffix"
      1 valid identities found
 '
-GOOD_ID='Developer ID Application: Gilberto Filho (W7677A5BK2)'
+GOOD_ID='Developer ID Application: Test Signer (ABCDE12345)'
 
 # The only green. Everything else must be red.
-run_case "green: identity and team match"  0 "${ONE}"     "${GOOD_ID}"          "W7677A5BK2"
-run_case "zero identities"                 1 "${NONE}"    "${GOOD_ID}"          "W7677A5BK2"  "no codesigning identity"
-run_case "two identities"                  1 "${TWO}"     "${GOOD_ID}"          "W7677A5BK2"  "cannot choose"
-run_case "roster count absent"             1 "${NOCOUNT}" "${GOOD_ID}"          "W7677A5BK2"  "not understood"
-run_case "team unparseable"                1 "${NOTEAM}"  "Developer ID Application: No Team Suffix" "W7677A5BK2" "could not read a team"
-run_case "identity differs"                1 "${ONE}"     "Developer ID Application: Someone Else (W7677A5BK2)" "W7677A5BK2" "APPLE_CODESIGN_IDENTITY does not match"
+run_case "green: identity and team match"  0 "${ONE}"     "${GOOD_ID}"          "ABCDE12345"
+run_case "zero identities"                 1 "${NONE}"    "${GOOD_ID}"          "ABCDE12345"  "no codesigning identity"
+run_case "two identities"                  1 "${TWO}"     "${GOOD_ID}"          "ABCDE12345"  "cannot choose"
+run_case "roster count absent"             1 "${NOCOUNT}" "${GOOD_ID}"          "ABCDE12345"  "not understood"
+run_case "team unparseable"                1 "${NOTEAM}"  "Developer ID Application: No Team Suffix" "ABCDE12345" "could not read a team"
+run_case "identity differs"                1 "${ONE}"     "Developer ID Application: Someone Else (ABCDE12345)" "ABCDE12345" "APPLE_CODESIGN_IDENTITY does not match"
 run_case "team differs"                    1 "${ONE}"     "${GOOD_ID}"          "AAAAAAAAAA"  "APPLE_TEAM_ID does not match"
 # The reason this whole lane exists: a stored value with a trailing newline.
 run_case "identity trailing newline"       1 "${ONE}"     "${GOOD_ID}
-"                                                                                "W7677A5BK2"  "ONLY by surrounding whitespace"
-run_case "team trailing space"             1 "${ONE}"     "${GOOD_ID}"          "W7677A5BK2 " "ONLY by surrounding whitespace"
+"                                                                                "ABCDE12345"  "ONLY by surrounding whitespace"
+run_case "team trailing space"             1 "${ONE}"     "${GOOD_ID}"          "ABCDE12345 " "ONLY by surrounding whitespace"
 
 printf '\n  %s passed, %s failed\n' "${pass}" "${fail}"
 [[ "${fail}" -eq 0 ]]
