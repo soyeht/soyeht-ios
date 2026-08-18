@@ -327,6 +327,7 @@ extension MenuModel {
             items.append(.command(.showClawStore))
         }
         items.append(.command(.showConversationIntelligence))
+        items.append(.command(.showApps))
         items.append(contentsOf: [
             .separator,
             .system(.hideSoyeht),

@@ -181,7 +181,7 @@ struct AppsDrawerRootView: View {
                     .foregroundStyle(AppsDrawerTokens.textMuted).frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            .overlay(Circle().stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline))
+            .overlay(circleOutline)
         }
     }
 
@@ -223,12 +223,23 @@ struct AppsDrawerRootView: View {
                     .foregroundStyle(AppsDrawerTokens.accent).frame(width: 34, height: 34)
             }
             .buttonStyle(.plain)
-            .overlay(Circle().stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline))
+            .overlay(circleOutline)
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: MacSurface.Radius.card).fill(AppsDrawerTokens.panel))
         .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.card)
             .stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline))
+    }
+
+    /// Decoration only, and it MUST NOT take hits. A stroked shape in an
+    /// `.overlay` sits on top of the button and swallows the click. Measured
+    /// in the E2E: "Install app…" (which draws its shape with `.background`)
+    /// worked, while both icon buttons did nothing at all — same code, one
+    /// modifier apart.
+    private var circleOutline: some View {
+        Circle()
+            .stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline)
+            .allowsHitTesting(false)
     }
 
     private func chip(_ text: String, tint: Color) -> some View {
