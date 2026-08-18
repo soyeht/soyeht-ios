@@ -1,0 +1,1 @@
+../../../SoyehtMac/AppPlatform/AppBridgePrincipalValidator.swift

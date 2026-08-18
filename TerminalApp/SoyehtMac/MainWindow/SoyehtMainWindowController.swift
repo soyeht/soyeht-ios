@@ -296,6 +296,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case agentSwitchRequiresTerminalPane(Conversation.ID)
         case agentSwitchRequiresLocalPane(Conversation.ID)
         case agentSwitchSourceChanged(Conversation.ID)
+        case appInstallNotFound(String)
 
         var errorDescription: String? {
             switch self {
@@ -388,6 +389,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Remote mirror panes do not support in-place agent switching: \(id.uuidString)"
             case .agentSwitchSourceChanged(let id):
                 return "Pane changed while the agent switch was being prepared: \(id.uuidString)"
+            case .appInstallNotFound(let id):
+                return "App installation not found: \(id)"
             }
         }
     }
@@ -1337,6 +1340,34 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
     }
 
+    /// Phase 2a: opens (or focuses) the pane for an installed app. Manual
+    /// install only — there is deliberately NO MCP/automation entry point in
+    /// this phase; when one arrives it gets its own slice with the same
+    /// validation discipline `open_web` had.
+    @MainActor
+    func openAppPane(
+        installID: String,
+        workspaceID: Workspace.ID? = nil
+    ) throws -> OpenedSpecialPaneResult {
+        guard let record = AppInstallStore.record(installID: installID) else {
+            throw LocalAgentWorkspaceError.appInstallNotFound(installID)
+        }
+        let state = AppPaneState(
+            installID: record.installID,
+            appID: record.manifest.id,
+            name: record.manifest.name
+        )
+        return try createOrFocusSpecialPane(
+            content: .app(state),
+            desiredHandle: "app-\(record.manifest.id)",
+            workingDirectoryPath: nil,
+            workspaceID: workspaceID,
+            attachTerminalStack: false,
+            forceNew: false,
+            dedupeWithinTargetWorkspace: true
+        )
+    }
+
     private static func relativeGitPath(_ path: String, repoRoot: URL) -> String {
         let expanded = NSString(string: path).expandingTildeInPath
         guard expanded.hasPrefix("/") else { return path }
@@ -1391,7 +1422,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             return OpenedSpecialPaneResult(
                 kind: content.kind,
-                path: content.primaryPath ?? workingDirectoryPath ?? "",
+                path: content.automationReportPath ?? workingDirectoryPath ?? "",
                 url: Self.webURL(in: content),
                 workspaceID: existing.workspaceID,
                 conversationID: existing.id,
@@ -1428,7 +1459,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         PaneStatusTracker.shared.nudgeRecompute()
         return OpenedSpecialPaneResult(
             kind: content.kind,
-            path: content.primaryPath ?? workingDirectoryPath ?? "",
+            path: content.automationReportPath ?? workingDirectoryPath ?? "",
             url: Self.webURL(in: content),
             workspaceID: workspaceID,
             conversationID: paneID,
@@ -2166,7 +2197,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
-                path: conv.content.primaryPath ?? conv.workingDirectoryPath ?? "",
+                path: conv.content.automationReportPath ?? conv.workingDirectoryPath ?? "",
                 declaredAgent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 isActive: activePaneInWS == conv.id,
                 isActiveWorkspace: conv.workspaceID == activeWorkspaceID,

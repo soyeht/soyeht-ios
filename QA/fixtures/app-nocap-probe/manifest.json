@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "nocap-probe",
+  "name": "No-Capability Probe",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "publisher": {
+    "id": "soyeht-qa",
+    "displayName": "Soyeht QA"
+  },
+  "capabilities": [],
+  "optionalCapabilities": []
+}

@@ -39,6 +39,8 @@ struct SoyehtAutomationRequest: Decodable {
         case openGit = "open_git"
         case openDiff = "open_diff"
         case openWeb = "open_web"
+        case installApp = "install_app"
+        case openApp = "open_app"
     }
 
     struct Payload: Decodable {
@@ -117,6 +119,7 @@ struct SoyehtAutomationRequest: Decodable {
         let selectedFile: String?
         let url: String?
         let newPane: Bool?
+        let installID: String?
         let state: String?
         let message: String?
         let seq: Int?
@@ -547,6 +550,18 @@ struct SoyehtAutomationResponse: Encodable {
         }
     }
 
+    /// Result of `install_app` (Phase 2a). Carries the installer-issued
+    /// installID — the identity everything else (open_app, future grants)
+    /// references — plus the fingerprint that ties that identity to the
+    /// exact code that was reviewed at install time.
+    struct InstalledApp: Encodable {
+        let installID: String
+        let appID: String
+        let name: String
+        let version: String
+        let fingerprint: String
+    }
+
     struct OpenedSpecialPane: Encodable {
         let kind: String
         let path: String
@@ -594,6 +609,7 @@ struct SoyehtAutomationResponse: Encodable {
     let paneStatuses: [PaneStatus]
     let capturedPanes: [CapturedPane]
     let openedSpecialPanes: [OpenedSpecialPane]
+    let installedApps: [InstalledApp]
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
@@ -624,6 +640,7 @@ struct SoyehtAutomationResult {
     var paneStatuses: [SoyehtAutomationResponse.PaneStatus] = []
     var capturedPanes: [SoyehtAutomationResponse.CapturedPane] = []
     var openedSpecialPanes: [SoyehtAutomationResponse.OpenedSpecialPane] = []
+    var installedApps: [SoyehtAutomationResponse.InstalledApp] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
@@ -845,6 +862,7 @@ final class SoyehtAutomationService {
                 paneStatuses: result.paneStatuses,
                 capturedPanes: result.capturedPanes,
                 openedSpecialPanes: result.openedSpecialPanes,
+                installedApps: result.installedApps,
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
                 listedAgents: result.listedAgents,
@@ -881,6 +899,7 @@ final class SoyehtAutomationService {
                 paneStatuses: [],
                 capturedPanes: [],
                 openedSpecialPanes: [],
+                installedApps: [],
                 activeContext: nil,
                 sourceIdentity: nil,
                 listedAgents: [],

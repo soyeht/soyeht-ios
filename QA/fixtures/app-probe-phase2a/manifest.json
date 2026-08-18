@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "probe-phase2a",
+  "name": "Probe 2a",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "publisher": {
+    "id": "soyeht-qa",
+    "displayName": "Soyeht QA"
+  },
+  "capabilities": [],
+  "optionalCapabilities": []
+}

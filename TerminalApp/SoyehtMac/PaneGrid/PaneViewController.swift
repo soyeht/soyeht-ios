@@ -689,6 +689,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             installSpecialContent(for: conv.content) {
                 WebPaneViewController(paneID: conv.id, state: state)
             }
+        case .app(let state):
+            installSpecialContent(for: conv.content) {
+                try AppPaneViewController(paneID: conv.id, state: state)
+            }
         }
     }
 

@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Probe 2a</title>
+<style>
+  body { font: 13px -apple-system, system-ui, sans-serif; margin: 16px; }
+  h1 { font-size: 15px; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 4px 8px; border-bottom: 1px solid rgba(128,128,128,.25); }
+  td:first-child { white-space: nowrap; }
+  .r { font-weight: 600; }
+  .pass { color: #1a7f37; }
+  .fail { color: #b3261e; }
+  .wait { opacity: .55; }
+  p.note { opacity: .7; margin-top: 14px; }
+</style>
+
+<h1>Probe 2a — defesas da pane de app</h1>
+<p class="note">
+  Cada linha é uma defesa que a Fase 2a promete. <span class="pass">bloqueado</span>
+  é o resultado esperado nas quatro primeiras: se alguma virar
+  <span class="fail">PASSOU</span>, a defesa não está lá.
+</p>
+<table id="t"></table>
+<p class="note" id="env"></p>
+
+<!-- Deve ser bloqueado por CSP script-src 'self'. Se executar, a CSP não está sendo aplicada. -->
+<script src="https://example.com/nao-deve-carregar.js"></script>
+
+<script>
+const linhas = [
+  ["script externo (CSP script-src)", "bloqueado"],
+  ["fetch externo (CSP connect-src)", "bloqueado"],
+  ["navegar para https externo", "bloqueado"],
+  ["window.open externo", "bloqueado"],
+  ["localStorage persiste", "spike"],
+  ["IndexedDB persiste", "spike"],
+  ["fonte do próprio bundle", "medir"],
+];
+const t = document.getElementById("t");
+const cel = {};
+for (const [nome] of linhas) {
+  const tr = t.insertRow();
+  tr.insertCell().textContent = nome;
+  const c = tr.insertCell();
+  c.className = "r wait";
+  c.textContent = "…";
+  cel[nome] = c;
+}
+function marca(nome, ok, texto) {
+  const c = cel[nome];
+  c.className = "r " + (ok ? "pass" : "fail");
+  c.textContent = texto;
+}
+
+// 1. script externo: a variável só existe se o script tiver executado.
+marca(linhas[0][0], typeof window.PROBE_SCRIPT_EXTERNO === "undefined",
+      typeof window.PROBE_SCRIPT_EXTERNO === "undefined" ? "bloqueado" : "PASSOU");
+
+// 2. fetch externo.
+fetch("https://example.com/", { mode: "no-cors" })
+  .then(() => marca(linhas[1][0], false, "PASSOU"))
+  .catch(() => marca(linhas[1][0], true, "bloqueado"));
+
+// 3 e 4 são acionados por gesto, para não disparar durante o carregamento.
+document.addEventListener("click", (e) => {
+  if (e.target.id === "nav") location.href = "https://example.com/";
+  if (e.target.id === "pop") {
+    const w = window.open("https://example.com/", "_blank");
+    marca(linhas[3][0], w === null, w === null ? "bloqueado" : "PASSOU");
+  }
+});
+
+// 5. localStorage: grava na primeira visita, confere nas seguintes.
+try {
+  const antes = localStorage.getItem("probe");
+  if (antes) {
+    marca(linhas[4][0], true, "persistiu (" + antes + ")");
+  } else {
+    localStorage.setItem("probe", new Date().toISOString().slice(11, 19));
+    marca(linhas[4][0], true, "gravado — reabra a pane para conferir");
+  }
+} catch (err) {
+  marca(linhas[4][0], false, "indisponível: " + err.name);
+}
+
+// 6. IndexedDB: idem.
+try {
+  const req = indexedDB.open("probe", 1);
+  req.onupgradeneeded = () => req.result.createObjectStore("kv");
+  req.onerror = () => marca(linhas[5][0], false, "indisponível: " + req.error?.name);
+  req.onsuccess = () => {
+    const db = req.result;
+    const ler = db.transaction("kv", "readonly").objectStore("kv").get("marca");
+    ler.onsuccess = () => {
+      if (ler.result) {
+        marca(linhas[5][0], true, "persistiu (" + ler.result + ")");
+      } else {
+        const v = new Date().toISOString().slice(11, 19);
+        db.transaction("kv", "readwrite").objectStore("kv").put(v, "marca");
+        marca(linhas[5][0], true, "gravado — reabra a pane para conferir");
+      }
+    };
+    ler.onerror = () => marca(linhas[5][0], false, "erro de leitura");
+  };
+} catch (err) {
+  marca(linhas[5][0], false, "indisponível: " + err.name);
+}
+
+// 7. Fonte servida pelo PRÓPRIO bundle. A CSP do contrato não declara
+// font-src, então ela cai em default-src 'none' e o pedido deve ser
+// bloqueado. O arquivo NÃO é uma fonte válida de propósito: o que se mede
+// aqui é se o pedido chega a sair, não se ela renderiza. Para distinguir os
+// dois casos, olhe o console — violação de CSP é reportada explicitamente,
+// falha de parsing não.
+(async () => {
+  try {
+    const f = new FontFace("ProbeFonte", "url(probe-font.woff2)");
+    await f.load();
+    marca(linhas[6][0], true, "carregou (font-src permitiria)");
+  } catch (err) {
+    marca(linhas[6][0], true, "recusada: " + err.name + " — ver console p/ CSP vs parsing");
+  }
+})();
+
+document.getElementById("env").textContent =
+  "origem: " + location.origin + " · isSecureContext: " + window.isSecureContext;
+
+const p = document.createElement("p");
+p.innerHTML = '<button id="nav">testar navegação externa</button> ' +
+              '<button id="pop">testar window.open</button>';
+document.body.appendChild(p);
+</script>
