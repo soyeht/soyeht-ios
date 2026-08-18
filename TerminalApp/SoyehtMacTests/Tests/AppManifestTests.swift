@@ -101,4 +101,112 @@ final class AppManifestTests: XCTestCase {
             XCTAssertEqual(error as? AppManifestError, .fileTooLarge)
         }
     }
+
+    // MARK: - Guardas que estavam MUDAS
+    //
+    // Medido antes de escrever estes testes: remover cada uma das quatro guardas
+    // abaixo deixava os 694 testes do pacote VERDES. Estavam aplicadas
+    // corretamente pelo produto e provadas por nada, o que num repositório sem
+    // CI é onde a próxima regressão vive.
+
+    func testUnsupportedSchemaVersionIsRejected() {
+        assertRejected(variant(of: valid,
+                               replacing: #""schemaVersion":1"#,
+                               with: #""schemaVersion":2"#),
+                       with: .unsupportedSchemaVersion)
+    }
+
+    /// `isValidIdentifier` tem DUAS sub-guardas, comprimento e alfabeto, e ambas
+    /// devolvem o mesmo erro. Um teste só deixaria metade por provar.
+    func testIdentifierOutsideAllowedAlphabetIsRejected() {
+        assertRejected(variant(of: valid,
+                               replacing: #""id":"notes-app""#,
+                               with: #""id":"Notes-App""#),
+                       with: .invalidIdentifier)
+    }
+
+    func testIdentifierBelowMinimumLengthIsRejected() {
+        assertRejected(variant(of: valid,
+                               replacing: #""id":"notes-app""#,
+                               with: #""id":"ab""#),
+                       with: .invalidIdentifier)
+    }
+
+    func testInvalidPublisherIdentifierIsRejected() {
+        assertRejected(variant(of: valid,
+                               replacing: #""id":"acme""#,
+                               with: #""id":"ac""#),
+                       with: .invalidPublisherID)
+    }
+
+    /// O valor declarado é uma capacidade **conhecida**: o que se prova é que o
+    /// campo é recusado por existir, não por conter algo inválido.
+    func testDeclaredOptionalCapabilitiesAreRejected() {
+        assertRejected(variant(of: valid,
+                               replacing: #""optionalCapabilities":[]"#,
+                               with: #""optionalCapabilities":["metrics.read"]"#),
+                       with: .capabilitiesNotAllowed)
+    }
+
+    // MARK: - Vocabulário e constantes fixados
+    //
+    // Sem isto, o teste de capacidade desconhecida prova apenas que UMA string
+    // é recusada, e não que o vocabulário é fechado: acrescentar um caso novo ao
+    // enum passava sem nenhum teste ficar vermelho.
+
+    func testCapabilityVocabularyIsClosedToExactlyTheseValues() {
+        XCTAssertEqual(Set(AppCapability.allCases.map(\.rawValue)), ["metrics.read"],
+                       "o vocabulário de capacidades mudou; alargá-lo é mudança de contrato e precisa de decisão explícita, não de um caso novo no enum")
+    }
+
+    /// O teste do portão de tamanho usa `maximumByteCount + 1`, logo é
+    /// auto-referencial: aumentar o limite mantinha-o verde. Fixar o valor faz a
+    /// mudança do limite ficar visível.
+    func testManifestSizeLimitIsPinned() {
+        XCTAssertEqual(AppManifest.maximumByteCount, 64 * 1024)
+    }
+
+    // MARK: - Ordem das verificações
+    //
+    // Uma entrada que falha duas guardas tem de ser recusada pela PRIMEIRA. É a
+    // ordem que impede que um refactor mova uma verificação para depois de outra
+    // que já aceitou o valor.
+
+    func testUnknownKeyIsRejectedBeforeAnyValueIsValidated() {
+        let bothWrong = variant(of: String(valid.dropLast()) + #","injected":true}"#,
+                                replacing: #""schemaVersion":1"#,
+                                with: #""schemaVersion":2"#)
+        assertRejected(bothWrong, with: .unknownKey("injected"))
+    }
+
+    /// Ordem NÃO óbvia, e é por isso que está fixada: o publisher é decodificado
+    /// nos **argumentos** do inicializador, então a validação dele corre antes de
+    /// qualquer `guard` do corpo. Mover essa decodificação para dentro do corpo
+    /// inverteria isto sem quebrar mais nada.
+    func testPublisherIsValidatedBeforeTheManifestBodyGuards() {
+        let bothWrong = variant(of: variant(of: valid,
+                                            replacing: #""id":"acme""#,
+                                            with: #""id":"ac""#),
+                                replacing: #""schemaVersion":1"#,
+                                with: #""schemaVersion":2"#)
+        assertRejected(bothWrong, with: .invalidPublisherID)
+    }
+
+    func testSchemaVersionIsCheckedBeforeTheIdentifier() {
+        let bothWrong = variant(of: variant(of: valid,
+                                            replacing: #""schemaVersion":1"#,
+                                            with: #""schemaVersion":2"#),
+                                replacing: #""id":"notes-app""#,
+                                with: #""id":"Notes-App""#)
+        assertRejected(bothWrong, with: .unsupportedSchemaVersion)
+    }
+
+    func testCapabilitiesAreValidatedBeforeOptionalCapabilitiesAreRefused() {
+        let bothWrong = variant(of: variant(of: valid,
+                                            replacing: #""capabilities":[]"#,
+                                            with: #""capabilities":["network.read"]"#),
+                                replacing: #""optionalCapabilities":[]"#,
+                                with: #""optionalCapabilities":["metrics.read"]"#)
+        assertRejected(bothWrong, with: .unknownCapability)
+    }
 }
