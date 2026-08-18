@@ -193,6 +193,97 @@ jobs:
           rm -f "${certificate_path}"
           echo "APPLE_SIGNING_KEYCHAIN=${keychain_path}" >> "${GITHUB_ENV}"
 
+      - name: Verify signing identity matches release metadata
+        # The keychain and the two signing metadata secrets are both known here,
+        # seconds apart, and nothing compared them. `Archive` discovered the
+        # divergence ~50s later as `No certificate for team '***' matching
+        # '***' found`, with BOTH sides masked, so the log could not say which
+        # one was wrong. This step asks the question while the answer is still
+        # cheap and still nameable.
+        #
+        # Fail-closed on every branch that is not a proven match: zero
+        # identities, more than one, output that does not parse, an identity
+        # the metadata does not name, or a team that differs. "Could not
+        # decide" is a failure here, never a pass -- an unparsed roster and a
+        # correct one must not produce the same verdict.
+        #
+        # No secret value is printed. Comparisons are made, outcomes are
+        # reported. The whitespace probe reports only WHETHER trimming would
+        # change the answer, because a stored value with a trailing newline is
+        # the most common cause of this exact divergence and the operator
+        # cannot see it any other way.
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          keychain_path="${APPLE_SIGNING_KEYCHAIN:?signing keychain was not exported by the import step}"
+
+          roster="$(security find-identity -v -p codesigning "${keychain_path}")"
+
+          # One identity, and the roster's own count must corroborate it. Two
+          # readings of the same output that can disagree; if they do, the
+          # parse is not trusted.
+          # bash 3.2 on the macOS runner: array-reading builtins from bash 4 are
+          # unavailable. One identity per line, and an identity cannot contain a
+          # newline, so counting lines counts identities -- the unit is right.
+          entries="$(printf '%s\n' "${roster}" \
+            | sed -n 's/^[[:space:]]*[0-9][0-9]*)[[:space:]]*[0-9A-F]\{40\}[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p')"
+          found="$(printf '%s' "${entries}" | grep -c . || true)"
+          declared="$(printf '%s\n' "${roster}" \
+            | sed -n 's/^[[:space:]]*\([0-9][0-9]*\) valid identities found[[:space:]]*$/\1/p')"
+
+          if [[ "${found}" -eq 0 ]]; then
+            echo "::error::signing preflight: the keychain exposes no codesigning identity. Not a pass." >&2
+            exit 1
+          fi
+          if [[ "${found}" -ne 1 ]]; then
+            echo "::error::signing preflight: ${found} codesigning identities present; the release recipe names exactly one and cannot choose. Not a pass." >&2
+            exit 1
+          fi
+          if [[ -z "${declared}" || "${declared}" != "1" ]]; then
+            echo "::error::signing preflight: parsed 1 identity but the roster does not declare 1. The output was not understood, which is inconclusive, never a pass." >&2
+            exit 1
+          fi
+
+          identity="$(printf '%s\n' "${entries}" | head -1)"
+          team="$(printf '%s' "${identity}" | sed -n 's/.*(\([A-Z0-9]\{10\}\))[[:space:]]*$/\1/p')"
+          if [[ -z "${team}" ]]; then
+            echo "::error::signing preflight: could not read a team from the installed identity. Inconclusive, never a pass." >&2
+            exit 1
+          fi
+
+          # Reported without disclosing either side: whether they agree, and
+          # whether surrounding whitespace is the only thing between them.
+          report_mismatch() {
+            local label="$1" stored="$2" observed="$3"
+            local trimmed="${stored#"${stored%%[![:space:]]*}"}"
+            trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+            if [[ "${trimmed}" == "${observed}" ]]; then
+              echo "::error::signing preflight: ${label} differs from the installed certificate ONLY by surrounding whitespace. Re-store the value without a trailing newline." >&2
+            else
+              echo "::error::signing preflight: ${label} does not match the installed certificate." >&2
+            fi
+          }
+
+          failed=0
+          if [[ "${APPLE_CODESIGN_IDENTITY}" != "${identity}" ]]; then
+            report_mismatch "APPLE_CODESIGN_IDENTITY" "${APPLE_CODESIGN_IDENTITY}" "${identity}"
+            failed=1
+          fi
+          if [[ "${APPLE_TEAM_ID}" != "${team}" ]]; then
+            report_mismatch "APPLE_TEAM_ID" "${APPLE_TEAM_ID}" "${team}"
+            failed=1
+          fi
+          if [[ "${failed}" -ne 0 ]]; then
+            echo "::error::signing preflight: release metadata does not describe the installed certificate; the archive would fail opaquely later." >&2
+            exit 1
+          fi
+
+          echo "signing preflight: 1 identity installed; codesign identity and team both match the release metadata."
+
       - name: Prepare notary API key
         env:
           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
