@@ -3,7 +3,7 @@ import os
 import WebKit
 
 /// Renders an installed app (Phase 2a): a local HTML/JS/CSS bundle served
-/// from its own origin (`soyehtapp-<appID>://local/`) with ZERO
+/// from its own origin (`soyehtapp-<installID>://local/`) with ZERO
 /// capabilities — no bridge, no network (`connect-src 'none'` on every
 /// response). An app pane can do *less* than a website.
 ///
@@ -61,12 +61,8 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         self.paneID = paneID
         self.state = state
         self.record = record
-        schemeHandler = try AppBundleSchemeHandler(bundleRoot: record.bundleRoot, appID: record.manifest.id)
-        bridgeHandler = AppCapabilityBridgeHandler(
-            paneID: paneID,
-            installID: record.installID,
-            appID: record.manifest.id
-        )
+        schemeHandler = try AppBundleSchemeHandler(bundleRoot: record.bundleRoot, origin: record.origin)
+        bridgeHandler = AppCapabilityBridgeHandler(paneID: paneID, record: record)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -85,7 +81,7 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         configuration.websiteDataStore = .default()
         configuration.setURLSchemeHandler(
             schemeHandler,
-            forURLScheme: AppBundleSchemeHandler.scheme(for: record.manifest.id)
+            forURLScheme: record.origin.scheme
         )
         // Phase 2b: the capability bridge — isolated world, relay, principal
         // validation and rate limiting all live in the handler.
@@ -145,8 +141,8 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
 
     private func loadEntry() {
         var components = URLComponents()
-        components.scheme = AppBundleSchemeHandler.scheme(for: record.manifest.id)
-        components.host = AppBundleSchemeHandler.host
+        components.scheme = record.origin.scheme
+        components.host = AppOrigin.host
         components.path = "/" + record.manifest.entry
         guard let url = components.url else { return }
         Self.logger.log("app_pane_load pane=\(self.paneID.uuidString, privacy: .public) url=\(url.absoluteString, privacy: .public) inWindow=\(self.webView.window != nil, privacy: .public) bounds=\(NSStringFromRect(self.webView.bounds), privacy: .public)")
@@ -158,7 +154,7 @@ final class AppPaneViewController: NSViewController, PaneContentViewControlling,
         if url.absoluteString == "about:blank" { return true }
         // Stricter than the Phase 1 web pane (sia's contract amendment): an
         // app pane is locked to its OWN scheme — it cannot become a browser.
-        return url.scheme == AppBundleSchemeHandler.scheme(for: record.manifest.id)
+        return url.scheme == record.origin.scheme
     }
 
     // MARK: - WKNavigationDelegate

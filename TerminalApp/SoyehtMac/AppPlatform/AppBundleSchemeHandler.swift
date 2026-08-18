@@ -2,11 +2,15 @@ import Foundation
 import WebKit
 
 /// Serves an installed app's bundle to its pane over the app's own scheme
-/// (`soyehtapp-<appID>://local/…`).
+/// (`soyehtapp-<installID>://local/…`).
 ///
-/// Phase 2a contract (`docs/app-identity-phase2a.md` §3): a per-app scheme
+/// Phase 2a contract (`docs/app-identity-phase2a.md` §3): a per-INSTALL scheme
 /// gives the app its own origin, so same-origin policy isolates apps from
 /// each other for free, and lets us synthesize response headers (CSP).
+///
+/// The origin arrives as an `AppOrigin` built by the install record. This
+/// handler deliberately cannot mint one: when it could, it was handed
+/// `manifest.id` and two bundles declaring the same id shared an origin.
 ///
 /// Every requested path is **page-controlled input**, so resolution goes
 /// exclusively through `PathScope` (kernel-imposed confinement) — never
@@ -18,8 +22,6 @@ import WebKit
 /// tasks are tracked under a lock and every callback is gated on the task
 /// still being live.
 final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
-    static func scheme(for appID: String) -> String { "soyehtapp-\(appID)" }
-    static let host = "local"
 
     /// Phase 2a CSP (contract §3): `connect-src 'none'` is the control that
     /// makes an app structurally unable to exfiltrate — the frontier is what
@@ -28,14 +30,14 @@ final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
     static let contentSecurityPolicy =
         "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
 
-    private let appID: String
+    private let origin: AppOrigin
     private let scope: PathScope
     private let lock = NSLock()
     private var liveTasks: [ObjectIdentifier: any WKURLSchemeTask] = [:]
     private var isClosed = false
 
-    init(bundleRoot: URL, appID: String) throws {
-        self.appID = appID
+    init(bundleRoot: URL, origin: AppOrigin) throws {
+        self.origin = origin
         scope = try PathScope(rootDirectory: bundleRoot)
     }
 
@@ -77,8 +79,8 @@ final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
 
     private func serve(_ task: any WKURLSchemeTask) {
         guard let url = task.request.url,
-              url.scheme == Self.scheme(for: appID),
-              url.host == Self.host else {
+              url.scheme == origin.scheme,
+              url.host == AppOrigin.host else {
             fail(task, status: 400, reason: "malformed app bundle URL")
             return
         }

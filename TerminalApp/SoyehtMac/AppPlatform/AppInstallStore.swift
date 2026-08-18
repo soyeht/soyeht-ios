@@ -8,6 +8,10 @@ struct AppInstallRecord: Codable, Hashable {
     let bundleRoot: URL
     let fingerprint: String
     let provenance: AppProvenance
+
+    /// The origin this install's content runs under. Derived from the
+    /// installer-issued `installID`, never from `manifest.id`: see `AppOrigin`.
+    var origin: AppOrigin { AppOrigin(installID: installID) }
 }
 
 enum AppInstallStore {

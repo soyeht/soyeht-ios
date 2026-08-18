@@ -123,7 +123,9 @@ struct WebPaneState: Codable, Hashable {
 struct AppPaneState: Codable, Hashable {
     /// Identity of THIS installation. Defines `matchingKey`.
     var installID: String
-    /// The app's manifest id (scheme `soyehtapp-<appID>`). Not identity.
+    /// The app's manifest id. Display and reporting only — it selects
+    /// nothing. The origin comes from `installID` (see `AppOrigin`), because
+    /// a field the bundle declares must never pick the origin it runs under.
     var appID: String
     /// Last known display name (untrusted, header only).
     var name: String?

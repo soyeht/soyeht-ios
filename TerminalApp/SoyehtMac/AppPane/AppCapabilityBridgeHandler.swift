@@ -28,7 +28,10 @@ import WebKit
 ///   2. `frameInfo.isMainFrame`;
 ///   3. `frameInfo.securityOrigin` equals, by EXACT triple
 ///      (scheme, host, port) — measured on custom schemes as
-///      ("soyehtapp-<id>", "local", 0) — the pane's origin;
+///      (soyehtapp-<installID>, local, 0) — the pane's origin. Written
+///      without quotes on purpose: the source guard in AppOriginTests
+///      looks for the scheme prefix as a string LITERAL, so quoting it
+///      in prose here would report this comment as a second producer;
 ///   4. the origin has a non-empty host;
 ///   5. only then is the capability looked up, keyed by the OBSERVED
 ///      origin's app.
@@ -41,14 +44,23 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
 
     private let paneID: Conversation.ID
     private let installID: String
-    private let appID: String
+    /// Named `appOrigin`, never `origin`: the validation scope below binds a
+    /// local `origin` for the OBSERVED WKSecurityOrigin, and a member called
+    /// `origin` would be shadowed by it — comparing the observed origin with
+    /// itself, which passes always. The compiler caught it once; the name
+    /// keeps it from being reintroduced.
+    private let appOrigin: AppOrigin
+    /// Audit metadata only. The declared id names the app for a human reading
+    /// the log; it never selects an origin and never grants anything.
+    private let declaredAppID: String
     private var rateLimiter = CapabilityRateLimiter.metricsDefault
     private weak var userContentController: WKUserContentController?
 
-    init(paneID: Conversation.ID, installID: String, appID: String) {
+    init(paneID: Conversation.ID, record: AppInstallRecord) {
         self.paneID = paneID
-        self.installID = installID
-        self.appID = appID
+        self.installID = record.installID
+        self.appOrigin = record.origin
+        self.declaredAppID = record.manifest.id
     }
 
     // MARK: - Installation
@@ -134,7 +146,11 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
     // MARK: - WKScriptMessageHandlerWithReply
 
     func userContentController(
-        _ userContentController: WKUserContentController,
+        // Renamed from `userContentController`: the member of the same name
+        // would be shadowed here, which is the shape that nearly disabled the
+        // principal check via `origin`. Inert today only because the member is
+        // unused in this method.
+        _ controller: WKUserContentController,
         didReceive message: WKScriptMessage,
         replyHandler: @escaping (Any?, String?) -> Void
     ) {
@@ -151,7 +167,7 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
             CapabilityAuditLog.record(
                 paneID: paneID.uuidString,
                 origin: observedOrigin,
-                appID: appID,
+                appID: declaredAppID,
                 command: command,
                 result: result
             )
@@ -164,8 +180,8 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
             host: origin.host,
             port: origin.port,
             expectedWorldName: Self.worldName,
-            expectedScheme: AppBundleSchemeHandler.scheme(for: appID),
-            expectedHost: AppBundleSchemeHandler.host
+            expectedScheme: appOrigin.scheme,
+            expectedHost: AppOrigin.host
         ) {
             switch refusal {
             case .wrongWorld:

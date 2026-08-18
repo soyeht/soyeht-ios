@@ -62,7 +62,9 @@ literatura cometeu sobre a flag de confinamento.
 Dois dados que o Contrato 2 passa a usar como fato, não suposição:
 
 - **A tripla exata da origem** num esquema próprio chega como
-  `("soyehtapp-<id>", "local", 0)` — protocolo, host `local`, porta zero.
+  `("soyehtapp-<installID>", "local", 0)` — protocolo, host `local`, porta zero.
+  (Era `<id>`, do manifesto. Ver a correção no contrato da 2a: campo
+  declarado pelo bundle não pode escolher a origem.)
   A comparação do passo 3 é contra estes três valores.
 - **`message.world.name` é observável no handler**, então o passo 1 é uma
   comparação de verdade e não um ato de fé.
