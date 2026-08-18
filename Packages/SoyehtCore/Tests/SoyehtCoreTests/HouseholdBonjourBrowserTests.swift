@@ -122,7 +122,7 @@ struct HouseholdBonjourBrowserTests {
             "bootstrap_state": "named_awaiting_pair",
             "host": "macStudio.local",
             "port": "8101",
-            "tailnet_addr": "100.103.149.48",
+            "tailnet_addr": "100.64.0.21",
         ]
         let url = HouseholdBonjourBrowser.endpointURL(
             serviceName: "Soyeht-macStudio-local-exh6kwat",
@@ -130,7 +130,7 @@ struct HouseholdBonjourBrowserTests {
             txt: txt,
             isOnTailnet: { true }
         )
-        #expect(url == URL(string: "http://100.103.149.48:8101"))
+        #expect(url == URL(string: "http://100.64.0.21:8101"))
     }
 
     @Test func endpointURLFallsBackToLANHostWhenNotOnTailnet() throws {
@@ -138,7 +138,7 @@ struct HouseholdBonjourBrowserTests {
             "bootstrap_state": "named_awaiting_pair",
             "host": "macStudio.local",
             "port": "8101",
-            "tailnet_addr": "100.103.149.48",
+            "tailnet_addr": "100.64.0.21",
         ]
         let url = HouseholdBonjourBrowser.endpointURL(
             serviceName: "Soyeht-macStudio-local-exh6kwat",

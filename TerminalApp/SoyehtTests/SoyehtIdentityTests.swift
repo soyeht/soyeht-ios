@@ -155,9 +155,9 @@ final class SoyehtIdentityTests: XCTestCase {
     }
 
     func testSnapshot_displayName_isHouseholdName() throws {
-        let household = try Self.makeHousehold(name: "Caio's Home")
+        let household = try Self.makeHousehold(name: "Owner's Home")
         let snapshot = SoyehtIdentitySnapshot(raw: household)
-        XCTAssertEqual(snapshot.displayName, "Caio's Home")
+        XCTAssertEqual(snapshot.displayName, "Owner's Home")
     }
 
     func testSnapshot_endpoint_isStoreEndpoint() throws {

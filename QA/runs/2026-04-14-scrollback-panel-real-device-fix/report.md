@@ -3,7 +3,7 @@
 **Tester:** Automated via Appium on real device
 **Device:** iPhone <qa-device> (iOS 26.4.1, UDID: <ios-udid>)
 **App:** `com.soyeht.app` (Debug build installed after active-pane sync fix)
-**Instance:** `caio` `[hermes-agent]`
+**Instance:** `owner` `[hermes-agent]`
 **Scope:** Re-test `ST-Q-SCRL-002`, `ST-Q-SCRL-003`, plus smoke for legacy `ST-Q-TMUX-009`
 
 > Update 2026-04-14 16:50 - superseded by a clean-build rerun after explicit

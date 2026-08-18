@@ -96,7 +96,7 @@ Atualiza em layout E em `NSSplitView.didResizeSubviewsNotification`.
    vizinhos). Degrau > ~8 unidades dentro de canvas = emenda visível = reprovado.
    Borda de card com degrau é correto (objeto real).
 4. Comparar com o RENDER do Pencil (`get_screenshot` do node), não só com os
-   números dele — e medir o render também (o Caio mede!).
+   números dele — e medir o render também (o Owner mede!).
 5. Regressão classic a cada mudança: `defaults write com.soyeht.mac.dev
    soyeht.design.style classic` + tema `soyehtDark` → deve ficar pixel-idêntico
    ao app de hoje (tokens classic = valores históricos).

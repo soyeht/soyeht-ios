@@ -41,7 +41,7 @@ The current protocol requires every pair-machine candidate to be approved by a r
 - Adding any further **machine** (Mac/Linux) requires at least one owner already in the household.
 - Therefore the literal orderings *Mac → Linux without iPhone*, *Mac → Linux → iPhone*, *Linux → Mac without iPhone*, and *Linux → Mac → iPhone* are unreachable. Each collapses to the equivalent flow with iPhone present early enough to approve.
 
-Caio confirmed (2026-05-20) that iPhone-as-only-owner is the desired security posture: "iPhone tem esse poder, faz sentido." Mac/Linux owner promotion is explicitly out of scope — owners stay biometric-iPhone-only.
+Owner confirmed (2026-05-20) that iPhone-as-only-owner is the desired security posture: "iPhone tem esse poder, faz sentido." Mac/Linux owner promotion is explicitly out of scope — owners stay biometric-iPhone-only.
 
 2026-06-29 clarification: a Mac founder can be a **Local Workspace** without an
 iPhone, but it must remain local-only until it is secured by an iPhone owner.
@@ -66,6 +66,6 @@ attach. See
 
 Promoting Mac/Linux to `owner` would unlock the literal orderings (#6/#8/#11/#3-strict) but
 weakens the household security floor (no biometric-on-device, no Face ID equivalent on
-Mac without Touch ID, no built-in equivalent on Linux). Caio rejected this direction
+Mac without Touch ID, no built-in equivalent on Linux). Owner rejected this direction
 (2026-05-20). Owner identity stays iPhone-only — the 8 reachable flows above are the
 intended product surface.

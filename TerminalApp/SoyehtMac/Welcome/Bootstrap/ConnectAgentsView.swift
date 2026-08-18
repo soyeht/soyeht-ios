@@ -144,7 +144,7 @@ struct ConnectAgentsView: View {
         let result = await MainActor.run { AIAgentIntegrator.detectAll() }
         await MainActor.run {
             detected = result
-            // Default selection: every detected agent. Caio's preference is
+            // Default selection: every detected agent. Owner's preference is
             // "if you have it installed, connect it" — opt-out, not opt-in.
             selection = Set(result.compactMap { $0.value ? $0.key : nil })
         }

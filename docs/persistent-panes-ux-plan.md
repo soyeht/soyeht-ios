@@ -13,7 +13,7 @@ Há duas mecânicas MUITO diferentes escondidas na ideia de "recuperar":
 - **Reconectar (reattach)** — o processo **continua vivo** no engine; o app só religa o pane nele. **100% confiável**, sem token, sem replay. É o que o persistent-panes já faz no restart.
 - **Ressuscitar (respawn `--resume`)** — o processo **morreu**; tenta-se trazer de volta relendo o `.jsonl`. **Não-confiável por construção:** é por-agente (`claude --resume` é por-projeto e falha em cwd errado; shell/droid não têm resume), custa token e replay. "Às vezes funciona, às vezes não."
 
-**Decisão (Caio, 2026-07-22):** o produto só entrega o que é **reconectar**. Nada de auto-ressuscitar — é onde mora a experiência quebrada. Hierarquia enxuta:
+**Decisão (Owner, 2026-07-22):** o produto só entrega o que é **reconectar**. Nada de auto-ressuscitar — é onde mora a experiência quebrada. Hierarquia enxuta:
 
 | Estado | Quando | Processo | Recupera |
 |---|---|---|---|
@@ -88,7 +88,7 @@ Ações do usuário: **fechar janela/minimizar = esconder** (estaciona, processo
 ### W-honestidade / História 4 — reboot = agente fresco (modelo-navegador), não shell zumbi  ·  esforço **M**  ·  dobra no PR1
 **O que é o `reconnected:false` de verdade** (PaneViewController.swift:763-768): o engine é idempotente por `conversation_id`; se a sessão **não existe mais** no engine, `create` devolve um **shell vazio** no mesmo id. Isso só acontece quando o engine **morreu e voltou** — i.e. **reboot do Mac / update / crash do engine** (aí *todos* os PTYs somem de uma vez; não há o que reatacar). Ou seja, esse caminho é "o que acontece depois de reiniciar o Mac", não um edge raro.
 **Problema:** hoje o app deixa o shell vazio de pé **fingindo** que restaurou — mentira silenciosa (parece a conversa, é um bash em branco).
-**Abordagem (modelo-navegador, decisão Caio 2026-07-22):** tratar reboot como o browser trata "reabrir abas" — cada pane de agente sobe um **agente fresco no mesmo cwd** (não um bash vazio, não um erro). O transcript antigo continua no `.jsonl`; um controle **discreto e opt-in** ("retomar conversa anterior") oferece o resume — que é o único caminho flaky, então **nunca roda sozinho**, só no clique, e degrada pra fresco se falhar ("relê a conversa, pode demorar; se não der, começa fresco").
+**Abordagem (modelo-navegador, decisão Owner 2026-07-22):** tratar reboot como o browser trata "reabrir abas" — cada pane de agente sobe um **agente fresco no mesmo cwd** (não um bash vazio, não um erro). O transcript antigo continua no `.jsonl`; um controle **discreto e opt-in** ("retomar conversa anterior") oferece o resume — que é o único caminho flaky, então **nunca roda sozinho**, só no clique, e degrada pra fresco se falhar ("relê a conversa, pode demorar; se não der, começa fresco").
 - Implementação: no branch `reconnected:false`, em vez de aceitar o shell vazio, **relançar o comando do agente** daquele pane (mesmo caminho da criação normal de pane) no cwd certo. Shell puro (`.shell`) permanece bash fresco no cwd (comportamento esperado de terminal).
 - O "retomar anterior" resolve o resume-id via o mesmo método da migração (claude: `~/.claude/projects/<proj>/<id>.jsonl`; codex: rollout) e roda `--resume`; per-agente (claude/codex sim; shell/droid não mostram o controle).
 **Testes:** forçar sessão morta (matar engine) → reabrir → pane sobe agente fresco na pasta certa (não bash vazio, não erro); clicar "retomar anterior" → volta a conversa; agente sem resume → controle não aparece.

@@ -1,7 +1,7 @@
 # QA Gate Report — Quick
 **Date:** 2026-05-05 23:57:08
 **Level:** quick
-**Repository:** `/Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout`
+**Repository:** `/Users/dev/Documents/SwiftProjects/even-pane-auto-layout`
 **Git:** `even-pane-auto-layout` @ `9ed9ffe`
 
 **Scope note:** This quick-gate report was captured before the PR branch was
@@ -16,7 +16,7 @@ rebased onto `origin/main`; current post-rebase validation is recorded in
 | --- | --- | --- | --- | --- | --- |
 | iOS Unit Tests | PASS | yes | `make test` | logs/ios-tests.log |  |
 | SwiftPM Tests | PASS | yes | `make test-spm` | logs/spm-tests.log |  |
-| Contract Smoke | PASS | yes | `bash /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/QA/contract-smoke.sh http://localhost:8892` | logs/contract-smoke.log |  |
+| Contract Smoke | PASS | yes | `bash /Users/dev/Documents/SwiftProjects/even-pane-auto-layout/QA/contract-smoke.sh http://localhost:8892` | logs/contract-smoke.log |  |
 
 ## Domain Coverage
 

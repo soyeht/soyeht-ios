@@ -228,7 +228,7 @@ All 10 endpoints tested and passing:
 | ID | Test | Result |
 |----|------|--------|
 | ST-Q-ATCH-001 | Menu shows 5 options | **PASS** |
-| ST-Q-ATCH-002 | Document upload | **PASS** — `CaioSalgado-CV-2025.pdf` |
+| ST-Q-ATCH-002 | Document upload | **PASS** — `OwnerSalgado-CV-2025.pdf` |
 | ST-Q-ATCH-003 | File upload | **PASS** — `VRTools.key` |
 | ST-Q-ATCH-004 | Location upload | **PASS** — GPS JSON |
 | ST-Q-ATCH-005 | Location denied | SKIP (manual) |

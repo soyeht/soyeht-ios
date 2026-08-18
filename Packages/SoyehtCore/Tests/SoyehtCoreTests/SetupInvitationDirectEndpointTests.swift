@@ -219,7 +219,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
             ownerDisplayName: nil,
             iphoneApnsToken: nil,
             iphoneEndpoint: endpoint,
-            iphoneAddresses: ["100.66.202.16"],
+            iphoneAddresses: ["100.64.0.23"],
             expiresAt: 1_778_559_686
         )
 
@@ -229,7 +229,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
         XCTAssertEqual(map["token"], .bytes(token.bytes))
         XCTAssertEqual(map["iphone_endpoint"], .text(endpoint.absoluteString))
-        XCTAssertEqual(map["iphone_addrs"], .array([.text("100.66.202.16")]))
+        XCTAssertEqual(map["iphone_addrs"], .array([.text("100.64.0.23")]))
         XCTAssertEqual(map["expires_at"], .unsigned(1_778_559_686))
     }
 
