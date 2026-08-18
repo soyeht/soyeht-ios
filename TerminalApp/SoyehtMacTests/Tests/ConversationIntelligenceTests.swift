@@ -193,6 +193,76 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
         ))
     }
 
+    func testJSONLReaderUsesResponsiveBatchesWithoutLosingLines() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("responsive-batches.jsonl")
+        let recordCount = 200
+        let payload = String(repeating: "x", count: 2_048)
+        var contents = Data()
+        for ordinal in 0..<recordCount {
+            contents.append(Data("{\"ordinal\":\(ordinal),\"text\":\"\(payload)\"}\n".utf8))
+        }
+        try contents.write(to: file)
+
+        var offset: Int64 = 0
+        var recoveredLines = 0
+        var batchCount = 0
+        while true {
+            let batch = try JSONLConversationReader.read(url: file, fromByteOffset: offset)
+            guard batch.nextByteOffset > offset else { break }
+            if batchCount == 0 {
+                XCTAssertLessThanOrEqual(
+                    batch.nextByteOffset,
+                    Int64(JSONLConversationReader.preferredBatchBytes)
+                )
+                XCTAssertEqual(
+                    batch.loadedByteCount,
+                    JSONLConversationReader.preferredBatchBytes
+                )
+                XCTAssertLessThan(batch.lines.count, recordCount)
+            }
+            recoveredLines += batch.lines.count
+            batchCount += 1
+            offset = batch.nextByteOffset
+        }
+
+        XCTAssertGreaterThan(batchCount, 1)
+        XCTAssertEqual(recoveredLines, recordCount)
+        XCTAssertEqual(offset, Int64(contents.count))
+    }
+
+    func testJSONLReaderExtendsOneBatchThroughAnOversizedRecord() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("oversized-record.jsonl")
+        let payload = String(
+            repeating: "y",
+            count: JSONLConversationReader.preferredBatchBytes + 1_024
+        )
+        let oversized = Data("{\"text\":\"\(payload)\"}\n".utf8)
+        let trailing = Data("{\"text\":\"neutral trailing record\"}\n".utf8)
+        var contents = oversized
+        contents.append(trailing)
+        try contents.write(to: file)
+
+        let first = try JSONLConversationReader.read(url: file, fromByteOffset: 0)
+        XCTAssertEqual(first.lines.count, 1)
+        XCTAssertEqual(first.nextByteOffset, Int64(oversized.count))
+        XCTAssertGreaterThan(
+            first.nextByteOffset,
+            Int64(JSONLConversationReader.preferredBatchBytes)
+        )
+        XCTAssertEqual(first.loadedByteCount, contents.count)
+
+        let second = try JSONLConversationReader.read(
+            url: file,
+            fromByteOffset: first.nextByteOffset
+        )
+        XCTAssertEqual(second.lines.count, 1)
+        XCTAssertEqual(second.nextByteOffset, Int64(contents.count))
+    }
+
     func testManifestDetectsObservedButUndeclaredStratum() {
         let newShape = ConversationSchemaObservation(
             store: "claude",
@@ -235,6 +305,162 @@ final class ConversationIntelligenceClassifierTests: XCTestCase {
 }
 
 final class ConversationIntelligenceDatabaseTests: XCTestCase {
+    func testPopulatedV1FTSMigrationPreservesSearchAndRepairsLegacyAnomalies() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("legacy-intelligence.sqlite")
+        let descriptor = NativeConversationDescriptor(
+            agent: .codex,
+            nativeSessionID: "legacy-fts-session",
+            sourceURL: root.appendingPathComponent("legacy-fts.jsonl"),
+            projectPath: nil,
+            startedAt: nil,
+            updatedAt: nil,
+            sourceRevision: "legacy-fts-v1"
+        )
+        do {
+            let database = try ConversationIntelligenceDatabase(
+                url: databaseURL,
+                identitySalt: Data(repeating: 2, count: 32)
+            )
+            XCTAssertEqual(try database.ingest(.init(
+                descriptor: descriptor,
+                turns: [.init(
+                    ordinal: 1,
+                    nativeRole: "assistant",
+                    evidence: .explicitAssistantText,
+                    text: "legacy amber cedar",
+                    timestamp: nil,
+                    sourceEventID: "legacy-event",
+                    model: nil,
+                    metadata: [:]
+                )],
+                nextByteOffset: 1,
+                lastCompleteLineHash: "legacy-line",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )), 1)
+            XCTAssertEqual(try database.lexicalSearch("cedar", limit: 5).count, 1)
+        }
+
+        var legacy: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &legacy, SQLITE_OPEN_READWRITE, nil),
+            SQLITE_OK
+        )
+        XCTAssertEqual(sqlite3_exec(legacy, """
+            DROP TABLE turn_fts_rows;
+            PRAGMA user_version=0;
+            INSERT INTO turn_fts(turn_id, content_text)
+                SELECT turn_id, 'duplicate legacy cedar' FROM turn_fts LIMIT 1;
+            INSERT INTO turn_fts(turn_id, content_text)
+                VALUES('orphan-legacy-turn', 'orphan legacy cedar');
+            """, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(legacy)
+
+        let migrated = try ConversationIntelligenceDatabase(
+            url: databaseURL,
+            identitySalt: Data(repeating: 2, count: 32)
+        )
+        XCTAssertEqual(try migrated.lexicalSearch("cedar", limit: 5).count, 1)
+
+        var verification: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &verification, SQLITE_OPEN_READONLY, nil),
+            SQLITE_OK
+        )
+        defer { if let verification { sqlite3_close(verification) } }
+        var statement: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(
+            verification,
+            """
+            SELECT
+                (SELECT user_version FROM pragma_user_version),
+                (SELECT COUNT(*) FROM turns),
+                (SELECT COUNT(*) FROM turn_fts),
+                (SELECT COUNT(*) FROM turn_fts_rows),
+                (SELECT COUNT(*) FROM turn_fts f
+                    JOIN turn_fts_rows r ON r.turn_id = f.turn_id
+                    WHERE r.fts_rowid != f.rowid)
+            """,
+            -1,
+            &statement,
+            nil
+        ), SQLITE_OK)
+        defer { if let statement { sqlite3_finalize(statement) } }
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int64(statement, 0), 2)
+        XCTAssertEqual(sqlite3_column_int64(statement, 1), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 2), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 3), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 4), 0)
+    }
+
+    func testFTSUpdatesUseStableMappedRowIDs() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("intelligence.sqlite")
+        let database = try ConversationIntelligenceDatabase(
+            url: databaseURL,
+            identitySalt: Data(repeating: 3, count: 32)
+        )
+        let descriptor = NativeConversationDescriptor(
+            agent: .codex,
+            nativeSessionID: "fts-rowid-session",
+            sourceURL: root.appendingPathComponent("fts-rowid.jsonl"),
+            projectPath: nil,
+            startedAt: nil,
+            updatedAt: nil,
+            sourceRevision: "fts-rowid-v1"
+        )
+        func batch(text: String, offset: Int64) -> NativeConversationReadResult {
+            .init(
+                descriptor: descriptor,
+                turns: [.init(
+                    ordinal: 1,
+                    nativeRole: "assistant",
+                    evidence: .explicitAssistantText,
+                    text: text,
+                    timestamp: nil,
+                    sourceEventID: "stable-event",
+                    model: nil,
+                    metadata: [:]
+                )],
+                nextByteOffset: offset,
+                lastCompleteLineHash: "line-\(offset)",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )
+        }
+
+        XCTAssertEqual(try database.ingest(batch(text: "violet orchid", offset: 1)), 1)
+        XCTAssertEqual(try database.ingest(batch(text: "amber cedar", offset: 2)), 1)
+        XCTAssertTrue(try database.lexicalSearch("orchid", limit: 5).isEmpty)
+        XCTAssertEqual(try database.lexicalSearch("cedar", limit: 5).count, 1)
+
+        var rawDatabase: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(databaseURL.path, &rawDatabase, SQLITE_OPEN_READONLY, nil),
+            SQLITE_OK
+        )
+        defer { if let rawDatabase { sqlite3_close(rawDatabase) } }
+        var statement: OpaquePointer?
+        XCTAssertEqual(sqlite3_prepare_v2(
+            rawDatabase,
+            """
+            SELECT COUNT(*), SUM(CASE WHEN r.fts_rowid = f.rowid THEN 0 ELSE 1 END)
+            FROM turn_fts f JOIN turn_fts_rows r ON r.turn_id = f.turn_id
+            """,
+            -1,
+            &statement,
+            nil
+        ), SQLITE_OK)
+        defer { if let statement { sqlite3_finalize(statement) } }
+        XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
+        XCTAssertEqual(sqlite3_column_int64(statement, 0), 1)
+        XCTAssertEqual(sqlite3_column_int64(statement, 1), 0)
+    }
+
     func testIngestIsIdempotentPathsAreSaltedAndRemovalCascadesEverySurface() throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -597,6 +823,140 @@ final class ConversationIntelligenceE2ETests: XCTestCase {
         let lexical = try await fallbackService.search("violetcanary", limit: 5)
         XCTAssertEqual(lexical.first?.agent, "codex")
         XCTAssertNotNil(lexical.first?.lexicalRank)
+    }
+
+    func testRecentScanPublishesPerProviderAndInFlightProgress() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try ConversationIntelligenceDatabase(
+            url: root.appendingPathComponent("index.sqlite"),
+            identitySalt: Data(repeating: 7, count: 32)
+        )
+        let service = ConversationIntelligenceService(
+            database: database,
+            adapters: [
+                ProgressFixtureConversationSourceAdapter(agent: .codex, count: 2, root: root),
+                ProgressFixtureConversationSourceAdapter(agent: .claude, count: 1, root: root),
+                ProgressFixtureConversationSourceAdapter(agent: .opencode, count: 1, root: root),
+            ],
+            embedder: OllamaQwenEmbeddingClient()
+        )
+        let recorder = ConversationScanProgressRecorder()
+
+        let report = await service.scanRecent(days: 90) { progress in
+            await recorder.append(progress)
+        }
+        let events = await recorder.events
+
+        XCTAssertEqual(report.discoveredConversations, 4)
+        XCTAssertEqual(report.undeclaredSchemaShapes, 0)
+        XCTAssertEqual(report.sources.map(\.agent), ["codex", "claude", "opencode"])
+        XCTAssertTrue(events.allSatisfy { $0.report.undeclaredSchemaShapes == nil })
+        XCTAssertEqual(
+            events.reduce(into: [String]()) { order, progress in
+                if order.last != progress.currentAgent { order.append(progress.currentAgent) }
+            },
+            ["codex", "claude", "opencode"]
+        )
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "codex"
+                && $0.processedConversations == 0
+                && $0.discoveredConversations == 2
+                && $0.currentConversationBatch == 1
+                && $0.report.sources.last?.discoveredConversations == 2
+                && $0.report.changedTurns > 0
+        }, "a long conversation must publish changed-turn progress before it completes")
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "codex"
+                && $0.processedConversations == 2
+                && $0.sourceIndex == 1
+                && $0.sourceCount == 3
+        })
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "claude"
+                && $0.processedConversations == 0
+                && $0.report.sources.first?.discoveredConversations == 2
+        }, "the completed Codex source must remain visible while Claude starts")
+        XCTAssertTrue(events.contains {
+            $0.currentAgent == "opencode"
+                && $0.processedConversations == 1
+                && $0.sourceIndex == 3
+        })
+    }
+
+    func testClearDuringSuspendedScanInvalidatesInFlightOffsetAndAllowsFullRescan() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try ConversationIntelligenceDatabase(
+            url: root.appendingPathComponent("index.sqlite"),
+            identitySalt: Data(repeating: 8, count: 32)
+        )
+        let adapter = TwoBatchProgressConversationSourceAdapter(root: root)
+        let service = ConversationIntelligenceService(
+            database: database,
+            adapters: [adapter],
+            embedder: OllamaQwenEmbeddingClient()
+        )
+        let gate = ConversationScanSuspensionGate()
+
+        let scan = Task {
+            await service.scanRecent(days: 90) { progress in
+                if progress.report.changedTurns == 1 {
+                    await gate.suspendOnce()
+                }
+            }
+        }
+        await gate.waitUntilSuspended()
+        try await service.clearIndex()
+        await gate.release()
+        _ = await scan.value
+
+        let clearedStats = try await service.stats()
+        XCTAssertEqual(clearedStats.conversations, 0)
+        XCTAssertEqual(clearedStats.searchableTurns + clearedStats.excludedTurns, 0)
+        XCTAssertNil(try database.cursor(for: adapter.descriptor.sourceURL))
+
+        let rescan = await service.scanRecent(days: 90)
+        XCTAssertEqual(rescan.changedTurns, 2)
+        let restoredStats = try await service.stats()
+        XCTAssertEqual(restoredStats.conversations, 1)
+        XCTAssertEqual(restoredStats.agents.first?.assistantTurns, 2)
+    }
+
+    func testCancelledScanStopsAfterSuspendedBatchAndResumesFromDurableCursor() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try ConversationIntelligenceDatabase(
+            url: root.appendingPathComponent("index.sqlite"),
+            identitySalt: Data(repeating: 6, count: 32)
+        )
+        let adapter = TwoBatchProgressConversationSourceAdapter(root: root)
+        let service = ConversationIntelligenceService(
+            database: database,
+            adapters: [adapter],
+            embedder: OllamaQwenEmbeddingClient()
+        )
+        let gate = ConversationScanSuspensionGate()
+
+        let scan = Task {
+            await service.scanRecent(days: 90) { progress in
+                if progress.report.changedTurns == 1 {
+                    await gate.suspendOnce()
+                }
+            }
+        }
+        await gate.waitUntilSuspended()
+        scan.cancel()
+        await gate.release()
+        _ = await scan.value
+
+        let partialStats = try await service.stats()
+        XCTAssertEqual(partialStats.agents.first?.assistantTurns, 1)
+
+        let rescan = await service.scanRecent(days: 90)
+        XCTAssertEqual(rescan.changedTurns, 1)
+        let completeStats = try await service.stats()
+        XCTAssertEqual(completeStats.agents.first?.assistantTurns, 2)
     }
 
     func testLongAnswerTailRemainsSemanticallyRetrievable() async throws {
@@ -1082,6 +1442,158 @@ private struct FailingReadConversationSourceAdapter: ConversationSourceAdapter {
         fromByteOffset: Int64
     ) throws -> NativeConversationReadResult {
         throw ConversationSourceAdapterError.unreadableSource("neutral")
+    }
+}
+
+private actor ConversationScanProgressRecorder {
+    private(set) var events: [ConversationIntelligenceScanProgress] = []
+
+    func append(_ progress: ConversationIntelligenceScanProgress) {
+        events.append(progress)
+    }
+}
+
+private actor ConversationScanSuspensionGate {
+    private var didSuspend = false
+    private var suspensionWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func suspendOnce() async {
+        guard !didSuspend else { return }
+        didSuspend = true
+        let waiters = suspensionWaiters
+        suspensionWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation { continuation in
+            releaseContinuation = continuation
+        }
+    }
+
+    func waitUntilSuspended() async {
+        guard !didSuspend else { return }
+        await withCheckedContinuation { continuation in
+            suspensionWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
+private struct ProgressFixtureConversationSourceAdapter: ConversationSourceAdapter {
+    let agent: ConversationIntelligenceAgent
+    let descriptors: [NativeConversationDescriptor]
+
+    init(agent: ConversationIntelligenceAgent, count: Int, root: URL) {
+        self.agent = agent
+        descriptors = (0..<count).map { offset in
+            NativeConversationDescriptor(
+                agent: agent,
+                nativeSessionID: "\(agent.rawValue)-progress-\(offset)",
+                sourceURL: root.appendingPathComponent("\(agent.rawValue)-progress-\(offset).fixture"),
+                projectPath: nil,
+                startedAt: Date(timeIntervalSince1970: TimeInterval(offset + 1)),
+                updatedAt: Date(timeIntervalSince1970: TimeInterval(offset + 2)),
+                sourceRevision: "progress-v1"
+            )
+        }
+    }
+
+    func discover(updatedSince: Date?, limit: Int?) throws -> [NativeConversationDescriptor] {
+        limit.map { Array(descriptors.prefix($0)) } ?? descriptors
+    }
+
+    func read(
+        _ descriptor: NativeConversationDescriptor,
+        fromByteOffset: Int64
+    ) throws -> NativeConversationReadResult {
+        guard fromByteOffset == 0 else {
+            return .init(
+                descriptor: descriptor,
+                turns: [],
+                nextByteOffset: fromByteOffset,
+                lastCompleteLineHash: "progress-line",
+                unknownEventCount: 0,
+                observedSchemaShapes: []
+            )
+        }
+        return .init(
+            descriptor: descriptor,
+            turns: [.init(
+                ordinal: 1,
+                nativeRole: "assistant",
+                evidence: .explicitAssistantText,
+                text: "neutral progress fixture",
+                timestamp: descriptor.updatedAt,
+                sourceEventID: "\(descriptor.nativeSessionID)-event",
+                model: nil,
+                metadata: [:]
+            )],
+            nextByteOffset: 1,
+            lastCompleteLineHash: "progress-line",
+            unknownEventCount: 0,
+            observedSchemaShapes: []
+        )
+    }
+}
+
+private struct TwoBatchProgressConversationSourceAdapter: ConversationSourceAdapter {
+    let descriptor: NativeConversationDescriptor
+
+    var agent: ConversationIntelligenceAgent { .opencode }
+
+    init(root: URL) {
+        descriptor = .init(
+            agent: .opencode,
+            nativeSessionID: "two-batch-progress",
+            sourceURL: root.appendingPathComponent("two-batch-progress.fixture"),
+            projectPath: nil,
+            startedAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 3),
+            sourceRevision: "two-batch-v1"
+        )
+    }
+
+    func discover(updatedSince: Date?, limit: Int?) throws -> [NativeConversationDescriptor] {
+        [descriptor]
+    }
+
+    func read(
+        _ descriptor: NativeConversationDescriptor,
+        fromByteOffset: Int64
+    ) throws -> NativeConversationReadResult {
+        guard fromByteOffset < 2 else {
+            return result(descriptor: descriptor, offset: fromByteOffset, turns: [])
+        }
+        let ordinal = Int(fromByteOffset) + 1
+        let turn = NativeConversationTurn(
+            ordinal: ordinal,
+            nativeRole: "assistant",
+            evidence: .explicitAssistantText,
+            text: "neutral batch \(ordinal)",
+            timestamp: Date(timeIntervalSince1970: TimeInterval(ordinal)),
+            sourceEventID: "two-batch-event-\(ordinal)",
+            model: nil,
+            metadata: [:]
+        )
+        return result(descriptor: descriptor, offset: fromByteOffset + 1, turns: [turn])
+    }
+
+    private func result(
+        descriptor: NativeConversationDescriptor,
+        offset: Int64,
+        turns: [NativeConversationTurn]
+    ) -> NativeConversationReadResult {
+        .init(
+            descriptor: descriptor,
+            turns: turns,
+            nextByteOffset: offset,
+            lastCompleteLineHash: "two-batch-line-\(offset)",
+            unknownEventCount: 0,
+            observedSchemaShapes: []
+        )
     }
 }
 

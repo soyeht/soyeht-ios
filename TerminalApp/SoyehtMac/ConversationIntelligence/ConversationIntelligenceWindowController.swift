@@ -33,6 +33,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     @Published var stats: ConversationIntelligenceStats?
     @Published var collaborationEdges: [ConversationCollaborationEdge] = []
     @Published var scanReport: ConversationIntelligenceScanReport?
+    @Published var scanProgress: ConversationIntelligenceScanProgress?
     @Published var embeddingReport: ConversationEmbeddingReport?
     @Published var results: [ConversationIntelligenceSearchResult] = []
     @Published var query = ""
@@ -47,6 +48,8 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     private let roots: ConversationHistoryRoots
     private var monitor: ConversationHistoryMonitor?
     private var scanRequestedWhileBusy = false
+    private var lastProgressStatsRefresh = Date.distantPast
+    private var scanTask: Task<Void, Never>?
     private var backfillTask: Task<Void, Never>?
     private var embeddingTask: Task<Void, Never>?
 
@@ -57,6 +60,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
     }
 
     deinit {
+        scanTask?.cancel()
         backfillTask?.cancel()
         embeddingTask?.cancel()
         monitor?.stop()
@@ -69,10 +73,23 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         }
         isScanning = true
         errorMessage = nil
-        Task {
-            scanReport = await service.scanRecent(days: 90, perAgentLimit: 250)
+        scanProgress = nil
+        lastProgressStatsRefresh = .distantPast
+        let service = service
+        scanTask = Task { [weak self] in
+            let report = await service.scanRecent(
+                days: 90,
+                perAgentLimit: 250
+            ) { [weak self] progress in
+                guard !Task.isCancelled else { return }
+                await self?.applyScanProgress(progress)
+            }
+            guard !Task.isCancelled, let self else { return }
+            scanReport = report
             await reloadStats()
             isScanning = false
+            scanProgress = nil
+            scanTask = nil
             if enableLiveUpdates { startMonitoringIfNeeded() }
             if scanRequestedWhileBusy {
                 scanRequestedWhileBusy = false
@@ -185,6 +202,11 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         backfillTask?.cancel()
         backfillTask = nil
         isBackfilling = false
+        scanTask?.cancel()
+        scanTask = nil
+        isScanning = false
+        scanProgress = nil
+        scanRequestedWhileBusy = false
         embeddingTask?.cancel()
         embeddingTask = nil
         isEmbedding = false
@@ -196,6 +218,7 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
                 try await service.clearIndex()
                 results = []
                 scanReport = nil
+                scanProgress = nil
                 embeddingReport = nil
                 await reloadStats()
             } catch {
@@ -211,6 +234,20 @@ private final class ConversationIntelligenceViewModel: ObservableObject {
         } catch {
             errorMessage = "Conversation index is unavailable."
         }
+    }
+
+    private func applyScanProgress(_ progress: ConversationIntelligenceScanProgress) async {
+        guard !Task.isCancelled else { return }
+        let now = Date()
+        let sourceFinished = progress.processedConversations == progress.discoveredConversations
+        guard sourceFinished || now.timeIntervalSince(lastProgressStatsRefresh) >= 0.5 else { return }
+        lastProgressStatsRefresh = now
+        // Small ingest transactions can produce many callbacks. Publish a
+        // coherent UI snapshot at a human-readable cadence while retaining an
+        // await point between every batch for cancellation and clear-index.
+        scanProgress = progress
+        scanReport = progress.report
+        await reloadStats()
     }
 
     private func startMonitoringIfNeeded() {
@@ -285,7 +322,7 @@ private struct ConversationIntelligenceRootView: View {
             Button {
                 model.scan()
             } label: {
-                Label(model.isScanning ? "Scanning…" : "Scan last 90 days", systemImage: "arrow.triangle.2.circlepath")
+                Label(scanButtonTitle, systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(model.isScanning)
 
@@ -324,14 +361,35 @@ private struct ConversationIntelligenceRootView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        if model.isScanning, let progress = model.scanProgress {
+            VStack(alignment: .leading, spacing: 5) {
+                if progress.discoveredConversations > 0 {
+                    ProgressView(
+                        value: Double(progress.processedConversations),
+                        total: Double(progress.discoveredConversations)
+                    )
+                } else {
+                    ProgressView()
+                }
+                Text(verbatim: scanProgressDescription(progress))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(scanProgressDescription(progress))
+        }
         if let report = model.scanReport, report.remainingConversations > 0 {
             Text(verbatim: "\(report.remainingConversations) older conversations remain in the background queue")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        if let report = model.scanReport, report.undeclaredSchemaShapes > 0 {
+        if model.isScanning, model.scanProgress != nil {
+            Label("Checking transcript compatibility…", systemImage: "checkmark.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if let drift = model.scanReport?.undeclaredSchemaShapes, drift > 0 {
             Label(
-                "\(report.undeclaredSchemaShapes) unsupported transcript shape(s) were excluded",
+                "\(drift) unsupported transcript shape(s) were excluded",
                 systemImage: "exclamationmark.triangle"
             )
             .font(.caption)
@@ -356,6 +414,20 @@ private struct ConversationIntelligenceRootView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var scanButtonTitle: String {
+        guard model.isScanning else { return "Scan last 90 days" }
+        guard let agent = model.scanProgress?.currentAgent else { return "Scanning…" }
+        return "Scanning \(agent.capitalized)…"
+    }
+
+    private func scanProgressDescription(_ progress: ConversationIntelligenceScanProgress) -> String {
+        let source = "Source \(progress.sourceIndex) of \(progress.sourceCount)"
+        let conversations = "\(progress.processedConversations) of \(progress.discoveredConversations) conversations"
+        let turns = "\(progress.report.changedTurns) changed turns so far"
+        let batch = progress.currentConversationBatch.map { " · chunk \($0)" } ?? ""
+        return "\(progress.currentAgent.capitalized) · \(source) · \(conversations)\(batch) · \(turns)"
     }
 
     @ViewBuilder
