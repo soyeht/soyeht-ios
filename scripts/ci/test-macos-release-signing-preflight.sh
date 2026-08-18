@@ -75,12 +75,13 @@ run_case() { # name expected_rc roster identity team [expect_substring]
   local n_ident n_team
   n_ident="${ident#"${ident%%[![:space:]]*}"}"; n_ident="${n_ident%"${n_ident##*[![:space:]]}"}"
   n_team="${team#"${team%%[![:space:]]*}"}";    n_team="${n_team%"${n_team##*[![:space:]]}"}"
-  # Whole value AND every multi-token prefix of it. Asserting only the whole
-  # value cannot see a PARTIAL disclosure: a message that prints the identity up
-  # to the team suffix discloses the operator's name and leaves the full-string
-  # needle unmatched. That mutant went red here only because the sibling team
-  # needle happened to fire on a different case -- red for the wrong reason,
-  # which is worth no more than green for the wrong reason.
+  # Whole value AND every contiguous multi-token run of it, at every position.
+  # Asserting only the whole value cannot see a PARTIAL disclosure: a message
+  # printing the identity up to the team suffix discloses the operator's name and
+  # leaves the full-string needle unmatched. Asserting prefixes only cannot see
+  # an INTERNAL fragment, which starts at no first token. Both holes existed here
+  # in turn, and each was "proved" closed by a mutant that reddened for a reason
+  # other than the assertion under test.
   leaks() { # value label
     # Whole value, then every contiguous multi-token RUN at every position --
     # not only prefixes. A prefix-only check cannot see an internal fragment:
