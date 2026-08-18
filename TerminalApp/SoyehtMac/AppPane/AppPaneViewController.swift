@@ -3,7 +3,7 @@ import os
 import WebKit
 
 /// Renders an installed app (Phase 2a): a local HTML/JS/CSS bundle served
-/// from its own origin (`soyehtapp-<installID>://local/`) with ZERO
+/// from its own origin (minted per install by `AppOrigin`) with ZERO
 /// capabilities — no bridge, no network (`connect-src 'none'` on every
 /// response). An app pane can do *less* than a website.
 ///
