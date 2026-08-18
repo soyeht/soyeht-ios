@@ -82,18 +82,33 @@ run_case() { # name expected_rc roster identity team [expect_substring]
   # needle happened to fire on a different case -- red for the wrong reason,
   # which is worth no more than green for the wrong reason.
   leaks() { # value label
-    local value="$1" label="$2" acc="" tok n=0
+    # Whole value, then every contiguous multi-token RUN at every position --
+    # not only prefixes. A prefix-only check cannot see an internal fragment:
+    # "Gilberto Filho" starts at token four of the identity, so a prefix walk
+    # never forms it. An earlier version had exactly that hole, and the mutant
+    # meant to expose it went red for a third wrong reason: it replaced the
+    # message the case asserts on, so the run failed on the missing expected
+    # substring rather than on the leak. A red whose cause is not the assertion
+    # under test proves nothing about that assertion.
+    local value="$1" label="$2"
     [[ -z "${value}" ]] && return 0
     if printf '%s' "${out}" | grep -Fq "${value}"; then
       printf '    (leak) output contains the stored %s\n' "${label}"; return 1
     fi
-    for tok in ${value}; do
-      acc="${acc:+${acc} }${tok}"; n=$((n+1))
-      [[ "${n}" -lt 2 ]] && continue
-      if printf '%s' "${out}" | grep -Fq "${acc}"; then
-        printf '    (leak) output contains a %s-token prefix of the stored %s\n' "${n}" "${label}"
-        return 1
-      fi
+    local -a toks=()
+    local t
+    for t in ${value}; do toks+=("${t}"); done
+    local n="${#toks[@]}" i j win
+    for (( i = 0; i < n; i++ )); do
+      win="${toks[i]}"
+      for (( j = i + 1; j < n; j++ )); do
+        win="${win} ${toks[j]}"
+        if printf '%s' "${out}" | grep -Fq "${win}"; then
+          printf '    (leak) output contains a %s-token run of the stored %s\n' \
+            "$(( j - i + 1 ))" "${label}"
+          return 1
+        fi
+      done
     done
     return 0
   }
