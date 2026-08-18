@@ -291,6 +291,9 @@ enum MacTypography {
         static var drawerRowTitle: Font { Cards.rowTitle }
         static var drawerRowSubtitle: Font { Cards.rowSubtitle }
         static var drawerRowBadge: Font { Cards.rowBadge }
+        /// Section header inside a drawer sheet. Sans on purpose: `rowBadge`
+        /// is MONO, and a header set in the data face reads as data.
+        static var drawerSectionLabel: Font { Text.sectionLabelSmall }
         static var drawerStoreLanguage: Font { Cards.rowBadge }
         static var drawerStoreStatus: Font { Status.storeStatus }
         static var drawerStoreInstall: Font { Status.storeInstall }

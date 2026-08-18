@@ -348,7 +348,7 @@ struct AppInstallSheet: View {
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(MacTypography.Fonts.drawerRowBadge).foregroundStyle(AppsDrawerTokens.textMuted)
+            Text(title).font(MacTypography.Fonts.drawerSectionLabel).foregroundStyle(AppsDrawerTokens.textMuted)
             content()
         }
         .padding(12)
