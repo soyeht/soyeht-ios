@@ -9,10 +9,15 @@ import SoyehtCore
 /// Claws are different concepts that share one drawer slot, so they must look
 /// like siblings rather than like two people's ideas.
 ///
-/// **Style**: nothing here paints a neomorphic shadow. Panel elevation comes
-/// from `MacSurface.Shadows.drawerPanelSet`, which is empty in the classic
-/// style, and the SwiftUI content uses semantic radii plus a hairline stroke —
-/// so classic renders flat and neomorphic renders raised from one code path.
+/// **Style**: nothing here paints a shadow by hand. Elevation, radii and fonts
+/// all come from tokens, so one code path serves every design style.
+///
+/// An earlier version of this comment said `drawerPanelSet` is "empty in the
+/// classic style". It is not — classic gets `[drawerPanel]`, the same real
+/// shadow the Claw drawer casts. I had read `raisedSmallSet` (which IS empty
+/// in classic) and generalised to a token I never opened. The code was right
+/// because it consumes the token either way; the sentence was wrong, and a
+/// sentence in a doc comment is what the next person will believe.
 @MainActor
 final class AppsDrawerViewController: NSViewController {
     var onDismiss: (() -> Void)?
@@ -147,7 +152,7 @@ struct AppsDrawerRootView: View {
         VStack(alignment: .leading, spacing: 13) {
             header
             Text("Local HTML apps. Each runs in its own origin, with no network access.")
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.Fonts.drawerBody)
                 .foregroundStyle(AppsDrawerTokens.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -174,10 +179,10 @@ struct AppsDrawerRootView: View {
 
     private var header: some View {
         HStack(spacing: 9) {
-            Text("Your Apps").font(.system(size: 20, weight: .bold)).foregroundStyle(AppsDrawerTokens.textPrimary)
+            Text("Your Apps").font(MacTypography.Fonts.drawerTitle).foregroundStyle(AppsDrawerTokens.textPrimary)
             Spacer()
             Button(action: onDismiss) {
-                Image(systemName: "xmark").font(.system(size: 11, weight: .bold))
+                Image(systemName: "xmark").font(MacTypography.Fonts.drawerToolbarIcon)
                     .foregroundStyle(AppsDrawerTokens.textMuted).frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
@@ -187,10 +192,10 @@ struct AppsDrawerRootView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("No apps installed").font(.system(size: 13, weight: .semibold))
+            Text("No apps installed").font(MacTypography.Fonts.drawerEmptyTitle)
                 .foregroundStyle(AppsDrawerTokens.textPrimary)
             Text("An app is a folder with manifest.json and its HTML. Nothing is downloaded — you pick the folder.")
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.Fonts.drawerRowSubtitle)
                 .foregroundStyle(AppsDrawerTokens.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -204,11 +209,11 @@ struct AppsDrawerRootView: View {
     private func row(_ record: AppInstallRecord) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.manifest.name).font(.system(size: 14, weight: .semibold))
+                Text(record.manifest.name).font(MacTypography.Fonts.drawerRowTitle)
                     .foregroundStyle(AppsDrawerTokens.textPrimary).lineLimit(1)
                 HStack(spacing: 6) {
                     Text("\(record.manifest.version) · local")
-                        .font(.system(size: 11, weight: .medium)).foregroundStyle(AppsDrawerTokens.textMuted)
+                        .font(MacTypography.Fonts.drawerRowSubtitle).foregroundStyle(AppsDrawerTokens.textMuted)
                     ForEach(record.manifest.capabilities, id: \.self) { capability in
                         chip(capability.uppercased(), tint: AppsDrawerTokens.accent)
                     }
@@ -219,7 +224,7 @@ struct AppsDrawerRootView: View {
             }
             Spacer(minLength: 0)
             Button { onOpenApp(record) } label: {
-                Image(systemName: "play.fill").font(.system(size: 11, weight: .bold))
+                Image(systemName: "play.fill").font(MacTypography.Fonts.drawerToolbarIcon)
                     .foregroundStyle(AppsDrawerTokens.accent).frame(width: 34, height: 34)
             }
             .buttonStyle(.plain)
@@ -243,14 +248,14 @@ struct AppsDrawerRootView: View {
     }
 
     private func chip(_ text: String, tint: Color) -> some View {
-        Text(text).font(.system(size: 10, weight: .bold)).foregroundStyle(tint)
+        Text(text).font(MacTypography.Fonts.drawerRowBadge).foregroundStyle(tint)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.chip)
                 .stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline))
     }
 
     private func failureBanner(_ message: String) -> some View {
-        Text(message).font(.system(size: 11, weight: .medium))
+        Text(message).font(MacTypography.Fonts.drawerError)
             .foregroundStyle(AppsDrawerTokens.warning)
             .fixedSize(horizontal: false, vertical: true)
             .padding(10)
@@ -262,8 +267,8 @@ struct AppsDrawerRootView: View {
     private var installButton: some View {
         Button { viewModel.chooseBundle() } label: {
             HStack(spacing: 8) {
-                Image(systemName: "folder.badge.plus").font(.system(size: 12, weight: .bold))
-                Text("Install app…").font(.system(size: 15, weight: .bold))
+                Image(systemName: "folder.badge.plus").font(MacTypography.Fonts.drawerCTAIcon)
+                Text("Install app…").font(MacTypography.Fonts.drawerCTA)
             }
             .foregroundStyle(AppsDrawerTokens.buttonTextOnAccent)
             .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -285,20 +290,20 @@ struct AppInstallSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Install app").font(.system(size: 20, weight: .bold))
+            Text("Install app").font(MacTypography.Fonts.drawerTitle)
                 .foregroundStyle(AppsDrawerTokens.textPrimary)
 
             HStack(spacing: 8) {
-                Text(inspection.manifest.name).font(.system(size: 15, weight: .semibold))
+                Text(inspection.manifest.name).font(MacTypography.Fonts.drawerRowTitle)
                     .foregroundStyle(AppsDrawerTokens.textPrimary)
-                Text("NOT VERIFIED").font(.system(size: 10, weight: .bold))
+                Text("NOT VERIFIED").font(MacTypography.Fonts.drawerRowBadge)
                     .foregroundStyle(AppsDrawerTokens.warning)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .overlay(RoundedRectangle(cornerRadius: MacSurface.Radius.chip)
                         .stroke(AppsDrawerTokens.stroke, lineWidth: MacSurface.Border.hairline))
             }
             Text("No signature, no review. You are trusting this folder.")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(AppsDrawerTokens.textMuted)
+                .font(MacTypography.Fonts.drawerRowSubtitle).foregroundStyle(AppsDrawerTokens.textMuted)
 
             section("MANIFEST DECLARES") {
                 field("Name", inspection.manifest.name)
@@ -310,18 +315,18 @@ struct AppInstallSheet: View {
             section("DECLARED CAPABILITIES") {
                 if inspection.manifest.capabilities.isEmpty {
                     Text("None. It can render, and nothing else.")
-                        .font(.system(size: 12, weight: .medium)).foregroundStyle(AppsDrawerTokens.textMuted)
+                        .font(MacTypography.Fonts.drawerBody).foregroundStyle(AppsDrawerTokens.textMuted)
                 } else {
                     ForEach(inspection.manifest.capabilities, id: \.self) { capability in
                         Text(AppInstallSheet.describe(capability))
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.Fonts.drawerBody)
                             .foregroundStyle(AppsDrawerTokens.textPrimary)
                     }
                 }
             }
 
             Text("Runs in its own origin. No network access.")
-                .font(.system(size: 12, weight: .medium)).foregroundStyle(AppsDrawerTokens.textMuted)
+                .font(MacTypography.Fonts.drawerBody).foregroundStyle(AppsDrawerTokens.textMuted)
 
             HStack {
                 Spacer()
@@ -337,13 +342,13 @@ struct AppInstallSheet: View {
     /// "metrics.read" tells the person nothing about what they are agreeing to.
     static func describe(_ capability: String) -> String {
         capability == AppCapability.metricsRead.rawValue
-            ? "System metrics — CPU load per core, memory used and free, uptime"
+            ? "System metrics — 1-minute CPU load average on a per-core basis, memory used and free, uptime"
             : capability
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 11, weight: .bold)).foregroundStyle(AppsDrawerTokens.textMuted)
+            Text(title).font(MacTypography.Fonts.drawerRowBadge).foregroundStyle(AppsDrawerTokens.textMuted)
             content()
         }
         .padding(12)
@@ -354,9 +359,9 @@ struct AppInstallSheet: View {
 
     private func field(_ key: String, _ value: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(key).font(.system(size: 12, weight: .medium))
+            Text(key).font(MacTypography.Fonts.drawerBody)
                 .foregroundStyle(AppsDrawerTokens.textMuted).frame(width: 88, alignment: .leading)
-            Text(value).font(.system(size: 12, weight: .semibold))
+            Text(value).font(MacTypography.Fonts.drawerRowTitle)
                 .foregroundStyle(AppsDrawerTokens.textPrimary)
         }
     }

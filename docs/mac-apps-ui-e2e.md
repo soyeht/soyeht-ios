@@ -77,6 +77,13 @@ Todos os passos verdes, nos dois estilos.
 | estilo `classic` | plano, sem sombras |
 | estilo `neomorphic` | painel arredondado, panes em cartão |
 
+**Convenção que sai desta corrida**: toda decoração em `.overlay` sobre um
+elemento interativo declara `.allowsHitTesting(false)`. Uma forma com `.stroke`
+tem região de hit subtil e o modo de falha não é degradado — os botões medidos
+estavam **totalmente** mortos, não parcialmente. Desenhar a forma com
+`.background` é a outra saída, e é a razão por que o botão de instalar nunca
+teve o problema.
+
 **Um defeito real encontrado e corrigido pelo E2E**: os botões de ícone da
 gaveta não respondiam a clique. Causa: um `Circle().stroke()` decorativo em
 `.overlay` fica **por cima** do botão e engole o clique. O botão "Install app…"
