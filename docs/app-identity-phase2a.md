@@ -206,9 +206,28 @@ ter confinamento.
 
 ## Contrato 3 — origem própria e serviço do bundle
 
-Cada app instalado recebe **esquema próprio**: `soyehtapp-<id>://local/…`.
-Consequências desejadas: a política de mesma origem isola apps entre si sem
-código nosso, e o handler pode sintetizar cabeçalhos por resposta.
+Cada app instalado recebe **esquema próprio**:
+`soyehtapp-<installID>://local/…`. Consequências desejadas: a política de mesma
+origem isola apps entre si sem código nosso, e o handler pode sintetizar
+cabeçalhos por resposta.
+
+> **Correção (2026-08-18).** Esta secção dizia `soyehtapp-<id>` e o código
+> passava `manifest.id` — um campo **declarado pelo próprio bundle**. Com
+> `websiteDataStore` persistente e partilhado, dois bundles que declarassem o
+> mesmo `id` obtinham a **mesma origem** e liam o armazenamento um do outro: a
+> política de mesma origem deixava de ser o que separa apps e passava a ser algo
+> que o manifesto escolhe. A origem passa a vir do `installID` cunhado pelo
+> instalador, produzido por `AppOrigin` e exposto por `AppInstallRecord.origin`.
+>
+> A colisão deixa de existir **por construção** em vez de ser detetada: dois
+> installs têm UUIDs distintos, logo não há caminho de colisão para verificar.
+> Um guarda de fonte fixa que `AppOrigin` é o **único** produtor do esquema,
+> porque a convenção não alcança o sítio que ainda ninguém escreveu — e foi
+> exatamente um sítio a passar um campo declarado que criou o defeito.
+>
+> O `manifest.id` continua a existir para **exibição e relatório**, e não
+> seleciona nada. A concessão de capacidade nunca esteve exposta: já era
+> resolvida por `installID`.
 
 `AppBundleSchemeHandler: WKURLSchemeHandler`:
 - resolve o caminho pedido **exclusivamente** por `PathScope`;
