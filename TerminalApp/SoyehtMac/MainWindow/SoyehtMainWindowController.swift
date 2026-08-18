@@ -96,6 +96,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     struct OpenedSpecialPaneResult {
         let kind: PaneContentKind
         let path: String
+        let url: String?
         let workspaceID: Workspace.ID
         let conversationID: Conversation.ID
         let handle: String
@@ -1316,6 +1317,26 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
     }
 
+    @MainActor
+    func openWebPane(
+        url: URL,
+        workspaceID: Workspace.ID? = nil,
+        forceNew: Bool = false
+    ) throws -> OpenedSpecialPaneResult {
+        let validatedURL = try WebURL.validate(url.absoluteString)
+        let state = WebPaneState(anchorURL: validatedURL.absoluteString)
+        let host = validatedURL.host ?? "browser"
+        return try createOrFocusSpecialPane(
+            content: .web(state),
+            desiredHandle: "web-\(host)",
+            workingDirectoryPath: nil,
+            workspaceID: workspaceID,
+            attachTerminalStack: false,
+            forceNew: forceNew,
+            dedupeWithinTargetWorkspace: true
+        )
+    }
+
     private static func relativeGitPath(_ path: String, repoRoot: URL) -> String {
         let expanded = NSString(string: path).expandingTildeInPath
         guard expanded.hasPrefix("/") else { return path }
@@ -1331,9 +1352,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func createOrFocusSpecialPane(
         content: PaneContent,
         desiredHandle: String,
-        workingDirectoryPath: String,
+        workingDirectoryPath: String?,
         workspaceID requestedWorkspaceID: Workspace.ID? = nil,
-        attachTerminalStack: Bool = true
+        attachTerminalStack: Bool = true,
+        forceNew: Bool = false,
+        dedupeWithinTargetWorkspace: Bool = false
     ) throws -> OpenedSpecialPaneResult {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -1344,8 +1367,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
-        if let existing = convStore.all
-            .filter({ visibleWorkspaceIDs.contains($0.workspaceID) })
+        let eligibleConversations = convStore.all.filter { conversation in
+            dedupeWithinTargetWorkspace
+                ? conversation.workspaceID == targetWorkspaceID
+                : visibleWorkspaceIDs.contains(conversation.workspaceID)
+        }
+        if !forceNew,
+           let existing = eligibleConversations
             .first(where: { $0.content.matchingKey == content.matchingKey }) {
             convStore.updateContent(existing.id, content: content, workingDirectoryPath: workingDirectoryPath)
             window?.makeKeyAndOrderFront(nil)
@@ -1353,7 +1381,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             if let pane = LivePaneRegistry.shared.pane(for: existing.id) as? PaneViewController {
                 pane.updateSpecialContent(content)
             }
-            if attachTerminalStack {
+            if attachTerminalStack, let workingDirectoryPath {
                 applySpecialPaneWorkspaceLayout(
                     workspaceID: existing.workspaceID,
                     specialPaneID: existing.id,
@@ -1363,7 +1391,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             return OpenedSpecialPaneResult(
                 kind: content.kind,
-                path: content.primaryPath ?? workingDirectoryPath,
+                path: content.primaryPath ?? workingDirectoryPath ?? "",
+                url: Self.webURL(in: content),
                 workspaceID: existing.workspaceID,
                 conversationID: existing.id,
                 handle: existing.handle,
@@ -1386,7 +1415,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             workingDirectoryPath: workingDirectoryPath
         ))
         store.setActivePane(workspaceID: workspaceID, paneID: paneID)
-        if attachTerminalStack {
+        if attachTerminalStack, let workingDirectoryPath {
             applySpecialPaneWorkspaceLayout(
                 workspaceID: workspaceID,
                 specialPaneID: paneID,
@@ -1399,12 +1428,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         PaneStatusTracker.shared.nudgeRecompute()
         return OpenedSpecialPaneResult(
             kind: content.kind,
-            path: content.primaryPath ?? workingDirectoryPath,
+            path: content.primaryPath ?? workingDirectoryPath ?? "",
+            url: Self.webURL(in: content),
             workspaceID: workspaceID,
             conversationID: paneID,
             handle: stored.handle,
             reused: false
         )
+    }
+
+    private static func webURL(in content: PaneContent) -> String? {
+        guard case .web(let state) = content else { return nil }
+        return state.url
     }
 
     private func applySpecialPaneWorkspaceLayout(

@@ -113,7 +113,7 @@ export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht/Automatio
 For `Soyeht Dev.app`, use:
 
 ```bash
-export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht Dev/Automation"
+export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/SoyehtDev/Automation"
 ```
 
 ### Claude Code

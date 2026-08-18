@@ -993,6 +993,32 @@ def tool_open_diff(args):
     )
 
 
+def tool_open_web(args):
+    raw_url = str(args.get("url") or "").strip()
+    if not raw_url:
+        raise RuntimeError("open_web requires a non-empty url.")
+
+    # URL validation is NOT done here: this script is not a trust boundary.
+    # The macOS app validates fail-closed (http/https only) in the request
+    # router before any pane is created.
+    args = dict(args)
+    if args.get("workspace_id") and not args.get("workspaceID"):
+        args["workspaceID"] = args["workspace_id"]
+    if args.get("window_id") and not args.get("windowID"):
+        args["windowID"] = args["window_id"]
+    new_pane = bool(first_present(args.get("newPane"), args.get("new_pane"), False))
+    payload = with_source_context(with_window_target({
+        "url": raw_url,
+        "newPane": new_pane,
+    }, args), args)
+    return submit_request(
+        "open_web",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
+    )
+
+
 def tool_create_worktree_panes(args):
     names = args.get("names") or []
     if not names:
@@ -1717,6 +1743,28 @@ TOOLS = [
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
+        },
+    },
+    {
+        "name": "open_web",
+        "description": (
+            "Open or focus a native Soyeht web pane (browser) for a URL. Use this when the user asks to open a website or web app in a pane. "
+            "Only http/https URLs are accepted; the app validates fail-closed. "
+            "By default, opening the same URL focuses the existing web pane for it and navigates it back to that URL (tab-like reuse). "
+            "Set newPane=true to always create a separate pane. "
+            "Snake_case aliases workspace_id, window_id and new_pane are also accepted."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "http(s) URL to open. A bare host (e.g. example.com) is accepted and https:// is assumed."},
+                "newPane": {"type": "boolean", "default": False, "description": "When true, always create a new web pane instead of reusing the existing pane for this URL."},
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "workspaceID": WORKSPACE_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+            },
+            "required": ["url"],
         },
     },
     {
@@ -2550,6 +2598,7 @@ TOOL_HANDLERS = {
     "open_explorer": tool_open_explorer,
     "open_git": tool_open_git,
     "open_diff": tool_open_diff,
+    "open_web": tool_open_web,
     "open_workspace": tool_open_workspace,
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,
