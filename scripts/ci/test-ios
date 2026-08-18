@@ -30,6 +30,7 @@ cd "$REPO_ROOT"
 PHASES=(
   env
   governed-release-contract
+  signing-preflight-battery
   corpus-integrity
   vpn-e2e-tooling
   rust-toolchain
@@ -61,6 +62,16 @@ phase_env() {
 
 phase_governed_release_contract() {
   python3 scripts/ci/check-governed-macos-release.py --self-test
+}
+
+# Separate phase, not a second line inside the one above: the governed contract
+# pins that function byte-for-byte, and a battery hidden inside it would also be
+# a battery nobody can see in the phase roster. As its own phase it is bound by
+# the contract's 1:1 roster assertion -- drop the phase, or drop the workflow
+# step that calls it, and the contract goes red. That is what makes the call
+# mandatory rather than merely present.
+phase_signing_preflight_battery() {
+  scripts/ci/test-macos-release-signing-preflight.sh
 }
 
 phase_corpus_integrity() {

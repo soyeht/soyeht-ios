@@ -28,6 +28,9 @@ jobs:
     - name: Verify governed macOS release contract
       run: scripts/ci/test-ios governed-release-contract
 
+    - name: Verify macOS release signing preflight battery
+      run: scripts/ci/test-ios signing-preflight-battery
+
     - name: Verify frozen owner-site A2-R1 corpus integrity
       run: scripts/ci/test-ios corpus-integrity
 

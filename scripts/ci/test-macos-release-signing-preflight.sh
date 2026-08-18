@@ -60,19 +60,45 @@ run_case() { # name expected_rc roster identity team [expect_substring]
   # metadata about a secret -- it narrows the search space for anyone reading
   # the log -- so a message that carries it is a regression even though it
   # never prints the value.
-  # Needles are trimmed before use. A value carrying a newline would otherwise
-  # reach grep -F as TWO patterns, the second empty, and an empty pattern
-  # matches every line -- a leak reported where none exists. The whitespace
-  # cases are exactly the ones that would trip it.
+  # Needles are EDGE-trimmed before use, with the same idiom the step itself
+  # uses. A value carrying a newline would otherwise reach grep -F as TWO
+  # patterns, the second empty, and an empty pattern matches every line -- a
+  # leak reported where none exists.
+  #
+  # An earlier version deleted ALL whitespace (`tr -d '[:space:]'`). That
+  # diagnosis was right and the predicate was wrong: it also removed the spaces
+  # INSIDE the identity, producing a needle that can never appear in output that
+  # has spaces. The identity assertion was dead, and only the team one -- which
+  # happens to contain no internal spaces -- was doing any work. Both earlier
+  # mutants passed through it by accident, because the identity string contains
+  # the team string.
   local n_ident n_team
-  n_ident="$(printf '%s' "${ident}" | tr -d '[:space:]')"
-  n_team="$(printf '%s' "${team}" | tr -d '[:space:]')"
-  if [[ -n "${n_ident}" ]] && printf '%s' "${out}" | grep -Fq "${n_ident}"; then
-    ok=0; printf '    (leak) output contains the stored identity\n'
-  fi
-  if [[ -n "${n_team}" ]] && printf '%s' "${out}" | grep -Fq "${n_team}"; then
-    ok=0; printf '    (leak) output contains the stored team\n'
-  fi
+  n_ident="${ident#"${ident%%[![:space:]]*}"}"; n_ident="${n_ident%"${n_ident##*[![:space:]]}"}"
+  n_team="${team#"${team%%[![:space:]]*}"}";    n_team="${n_team%"${n_team##*[![:space:]]}"}"
+  # Whole value AND every multi-token prefix of it. Asserting only the whole
+  # value cannot see a PARTIAL disclosure: a message that prints the identity up
+  # to the team suffix discloses the operator's name and leaves the full-string
+  # needle unmatched. That mutant went red here only because the sibling team
+  # needle happened to fire on a different case -- red for the wrong reason,
+  # which is worth no more than green for the wrong reason.
+  leaks() { # value label
+    local value="$1" label="$2" acc="" tok n=0
+    [[ -z "${value}" ]] && return 0
+    if printf '%s' "${out}" | grep -Fq "${value}"; then
+      printf '    (leak) output contains the stored %s\n' "${label}"; return 1
+    fi
+    for tok in ${value}; do
+      acc="${acc:+${acc} }${tok}"; n=$((n+1))
+      [[ "${n}" -lt 2 ]] && continue
+      if printf '%s' "${out}" | grep -Fq "${acc}"; then
+        printf '    (leak) output contains a %s-token prefix of the stored %s\n' "${n}" "${label}"
+        return 1
+      fi
+    done
+    return 0
+  }
+  leaks "${n_ident}" identity || ok=0
+  leaks "${n_team}" team || ok=0
   if printf '%s' "${out}" | grep -qi 'length'; then
     ok=0; printf '    (leak) output discloses a length\n'
   fi

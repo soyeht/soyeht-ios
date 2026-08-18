@@ -80,6 +80,7 @@ CONTRACT_PATHS = (
 
 PRODUCT_PHASES = (
     "env",
+    "signing-preflight-battery",
     "corpus-integrity",
     "vpn-e2e-tooling",
     "rust-toolchain",
@@ -433,6 +434,18 @@ def validate_required_build(workflow: str, dispatcher: str) -> None:
 }
 """
     require_once(dispatcher, function, "dispatcher checker function is missing or masked")
+
+    # The roster proves the phase is CALLED. It does not prove the phase runs
+    # anything: a body replaced by `true` keeps the roster, keeps the workflow
+    # step, and silently stops invoking the battery while everything stays
+    # green. Measured, not supposed. So the body is pinned too, exactly as the
+    # checker function above is.
+    battery = """phase_signing_preflight_battery() {
+  scripts/ci/test-macos-release-signing-preflight.sh
+}
+"""
+    require_once(dispatcher, battery,
+                 "dispatcher signing-preflight battery function is missing or masked")
     require_once(dispatcher, 'set -Eeuo pipefail\n', "dispatcher must remain fail-loud")
     require_once(dispatcher, '"$fn"\n', "dispatcher must execute the selected phase directly")
     require_once(
