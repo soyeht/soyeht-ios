@@ -56,17 +56,29 @@ final class AppOriginTests: XCTestCase {
     // yet: the defect was one call site handing a declared field to a producer
     // that accepted any String.
 
-    func testTheAppSchemeHasExactlyOneProducerInProductionSource() throws {
-        // Raw string on purpose: inside #"…"# the `\(` is literal, so this
-        // matches the interpolation that BUILDS a scheme and not the prose
-        // `soyehtapp-<installID>` written in doc comments.
-        let producer = #"soyehtapp-\("#
+    /// Every way of building the scheme needs the prefix as a **string
+    /// literal**, so the needle is the literal *including its opening quote*.
+    /// That catches interpolation, concatenation, `String(format:)` and
+    /// `joined()` alike, and ignores the prose `soyehtapp-<installID>` in doc
+    /// comments, which carries no quote.
+    ///
+    /// An earlier version searched for the interpolation `soyehtapp-\(` and
+    /// therefore proved something narrower than it claimed: kairos killed it by
+    /// adding a second producer built with `+`, and the guard stayed green.
+    ///
+    /// It still does not catch a prefix assembled from pieces
+    /// (`"soyeht" + "app-"`). That is adversarial rather than accidental, and a
+    /// source guard is for the refactor nobody reviewed — not for someone
+    /// working around the guard on purpose.
+    private static let schemeLiteral = #""soyehtapp-"#
 
+    func testTheAppSchemeHasExactlyOneProducerInProductionSource() throws {
         let files = try productionSwiftFiles()
         XCTAssertGreaterThan(files.count, 50,
                              "a varredura não encontrou fontes; um guarda que não lê nada passa sempre")
 
-        let producers = try files.filter { try String(contentsOf: $0, encoding: .utf8).contains(producer) }
+        let producers = try files
+            .filter { try String(contentsOf: $0, encoding: .utf8).contains(Self.schemeLiteral) }
             .map(\.lastPathComponent)
             .sorted()
 
@@ -74,15 +86,39 @@ final class AppOriginTests: XCTestCase {
                        "o esquema de um app tem de ter um único produtor. Um segundo produtor é como o defeito nasceu: aceitava qualquer String e alguém passou-lhe manifest.id")
     }
 
+    /// The guard is only worth its message if its needle catches the forms a
+    /// second producer would actually take. Proving that by mutating production
+    /// source costs a build per form, so the predicate is exercised directly.
+    func testTheGuardsNeedleCatchesEveryFormThatBuildsAScheme() {
+        let needle = Self.schemeLiteral
+        // Raw strings: inside #"…"# a `\(` is literal, so these are the source
+        // text a producer would have, not interpolations evaluated here.
+        XCTAssertTrue(#"return "soyehtapp-\(installID)""#.contains(needle), "interpolação")
+        XCTAssertTrue(##"return "soyehtapp-" + appID"##.contains(needle), "concatenação")
+        XCTAssertTrue(##"String(format: "soyehtapp-%@", appID)"##.contains(needle), "formatação")
+        XCTAssertTrue(##"["soyehtapp-", appID].joined()"##.contains(needle), "junção")
+
+        XCTAssertFalse("/// served from soyehtapp-<installID>://local/".contains(needle),
+                       "prosa em comentário não é um produtor e não pode disparar o guarda")
+    }
+
+    /// The app target compiles more than `SoyehtMac/`, so a producer living in
+    /// the shared package would have slipped past a sweep of one directory.
     private func productionSwiftFiles() throws -> [URL] {
-        let mac = URL(fileURLWithPath: #filePath)
+        let repository = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // Tests
             .deletingLastPathComponent()   // SoyehtMacTests
             .deletingLastPathComponent()   // TerminalApp
-            .appendingPathComponent("SoyehtMac")
-        guard let walker = FileManager.default.enumerator(at: mac, includingPropertiesForKeys: nil) else {
-            return []
+            .deletingLastPathComponent()   // <repositório>
+        let roots = [
+            repository.appendingPathComponent("TerminalApp/SoyehtMac"),
+            repository.appendingPathComponent("Packages/SoyehtCore/Sources"),
+        ]
+        return roots.flatMap { root -> [URL] in
+            guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+                return []
+            }
+            return walker.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
         }
-        return walker.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
     }
 }

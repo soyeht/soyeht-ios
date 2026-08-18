@@ -28,7 +28,10 @@ import WebKit
 ///   2. `frameInfo.isMainFrame`;
 ///   3. `frameInfo.securityOrigin` equals, by EXACT triple
 ///      (scheme, host, port) — measured on custom schemes as
-///      ("soyehtapp-<id>", "local", 0) — the pane's origin;
+///      (soyehtapp-<installID>, local, 0) — the pane's origin. Written
+///      without quotes on purpose: the source guard in AppOriginTests
+///      looks for the scheme prefix as a string LITERAL, so quoting it
+///      in prose here would report this comment as a second producer;
 ///   4. the origin has a non-empty host;
 ///   5. only then is the capability looked up, keyed by the OBSERVED
 ///      origin's app.
@@ -143,7 +146,11 @@ final class AppCapabilityBridgeHandler: NSObject, WKScriptMessageHandlerWithRepl
     // MARK: - WKScriptMessageHandlerWithReply
 
     func userContentController(
-        _ userContentController: WKUserContentController,
+        // Renamed from `userContentController`: the member of the same name
+        // would be shadowed here, which is the shape that nearly disabled the
+        // principal check via `origin`. Inert today only because the member is
+        // unused in this method.
+        _ controller: WKUserContentController,
         didReceive message: WKScriptMessage,
         replyHandler: @escaping (Any?, String?) -> Void
     ) {

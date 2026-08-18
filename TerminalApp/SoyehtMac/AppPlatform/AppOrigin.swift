@@ -18,9 +18,17 @@ import Foundation
 /// This type is the **only** producer of an app scheme. There is deliberately
 /// no `scheme(for:)` taking a loose `String`, because such a parameter is an
 /// invitation to hand it a declared field — which is exactly how the defect
-/// this type fixes was written in the first place.
-/// `AppOriginSourceGuardTests` pins that uniqueness, so a second producer
-/// cannot appear in a file nobody thought to review.
+/// this type fixes was written in the first place. **That deletion is the
+/// defence**; what follows is depth on top of it.
+///
+/// `AppOriginTests` sweeps production source for the scheme prefix used as a
+/// string literal, which is what interpolation, concatenation, `String(format:)`
+/// and `joined()` all need, and requires exactly one file to carry it. It does
+/// not detect a prefix assembled from pieces — that is someone working around
+/// the guard, and a source guard is for the refactor nobody reviewed. Stated
+/// precisely because an earlier version of this comment claimed a second
+/// producer "cannot appear", while the sweep behind it only looked for
+/// interpolation and stayed green against a concatenated one.
 struct AppOrigin: Hashable {
     /// Custom-scheme origins report host `local` and port 0. The bridge's
     /// principal check compares this exact triple, never a prefix.

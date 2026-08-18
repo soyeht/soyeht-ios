@@ -228,6 +228,14 @@ cabeçalhos por resposta.
 > O `manifest.id` continua a existir para **exibição e relatório**, e não
 > seleciona nada. A concessão de capacidade nunca esteve exposta: já era
 > resolvida por `installID`.
+>
+> **Consequência permanente, não pontual** (levantada pelo kairos): como cada
+> install tem origem própria, **o armazenamento nunca sobrevive a uma
+> reinstalação**. Hoje não há utilizadores reais e não é devida migração, mas
+> isto é decisão estrutural e não um efeito de uma vez: quem desenhar
+> atualização de apps tem de tratar disto explicitamente. Os dados da origem
+> antiga ficam órfãos no data store partilhado sem limpeza — higiene devida:
+> `WKWebsiteDataStore.removeData` para a origem que deixou de existir.
 
 `AppBundleSchemeHandler: WKURLSchemeHandler`:
 - resolve o caminho pedido **exclusivamente** por `PathScope`;
