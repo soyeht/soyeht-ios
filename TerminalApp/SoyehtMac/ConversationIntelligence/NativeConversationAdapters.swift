@@ -25,6 +25,11 @@ enum ConversationSourceAdapterError: LocalizedError {
 }
 
 struct JSONLConversationReader: Sendable {
+    /// Keep ordinary SQLite ingest transactions small enough that scans can
+    /// publish progress and observe cancellation between commits. A single
+    /// JSONL record may legitimately be much larger, so `read` extends one
+    /// batch through that record's newline instead of stalling at this target.
+    static let preferredBatchBytes = 256 * 1_024
     private static let maximumBatchBytes = 16 * 1_024 * 1_024
     struct Line: Sendable {
         let absoluteByteOffset: Int64
@@ -35,6 +40,9 @@ struct JSONLConversationReader: Sendable {
         let lines: [Line]
         let nextByteOffset: Int64
         let lastCompleteLineHash: String?
+        /// Bytes actually loaded from disk for this batch. Kept internal so
+        /// tests can prevent read amplification from regressing silently.
+        let loadedByteCount: Int
     }
 
     static func read(url: URL, fromByteOffset requestedOffset: Int64) throws -> Batch {
@@ -43,10 +51,43 @@ struct JSONLConversationReader: Sendable {
         let size = try handle.seekToEnd()
         let safeOffset = UInt64(max(0, requestedOffset)) <= size ? UInt64(max(0, requestedOffset)) : 0
         try handle.seek(toOffset: safeOffset)
-        let tail = try handle.read(upToCount: maximumBatchBytes) ?? Data()
+        var tail = try handle.read(upToCount: preferredBatchBytes) ?? Data()
+        var containsNewline = tail.contains(0x0A)
+        while !containsNewline, tail.count < maximumBatchBytes {
+            // Ordinary JSONL records stop after the preferred read. Only a
+            // single oversized record expands the I/O window incrementally
+            // toward the hard safety cap, avoiding a speculative 16 MB read.
+            let overflow = try handle.read(
+                upToCount: min(
+                    preferredBatchBytes,
+                    maximumBatchBytes - tail.count
+                )
+            ) ?? Data()
+            guard !overflow.isEmpty else { break }
+            containsNewline = overflow.contains(0x0A)
+            tail.append(overflow)
+        }
 
-        guard let finalNewline = tail.lastIndex(of: 0x0A) else {
-            return Batch(lines: [], nextByteOffset: Int64(safeOffset), lastCompleteLineHash: nil)
+        let preferredEnd = tail.index(
+            tail.startIndex,
+            offsetBy: min(preferredBatchBytes, tail.count)
+        )
+        let finalNewline: Data.Index?
+        if let newlineWithinTarget = tail[..<preferredEnd].lastIndex(of: 0x0A) {
+            finalNewline = newlineWithinTarget
+        } else {
+            // The first record is larger than the preferred transaction size.
+            // Preserve JSONL atomicity by extending through exactly that line.
+            finalNewline = tail[preferredEnd...].firstIndex(of: 0x0A)
+        }
+
+        guard let finalNewline else {
+            return Batch(
+                lines: [],
+                nextByteOffset: Int64(safeOffset),
+                lastCompleteLineHash: nil,
+                loadedByteCount: tail.count
+            )
         }
 
         let complete = tail.prefix(through: finalNewline)
@@ -72,7 +113,8 @@ struct JSONLConversationReader: Sendable {
         return Batch(
             lines: lines,
             nextByteOffset: Int64(safeOffset) + Int64(complete.count),
-            lastCompleteLineHash: lastHash
+            lastCompleteLineHash: lastHash,
+            loadedByteCount: tail.count
         )
     }
 

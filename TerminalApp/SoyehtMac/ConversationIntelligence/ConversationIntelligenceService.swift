@@ -33,7 +33,9 @@ struct ConversationIntelligenceScanReport: Equatable, Sendable {
     let startedAt: Date
     let finishedAt: Date
     let sources: [Source]
-    let undeclaredSchemaShapes: Int
+    /// Nil while an incremental scan is still in progress. A partial scan
+    /// must not claim that schema drift is zero before the final query runs.
+    let undeclaredSchemaShapes: Int?
 
     var discoveredConversations: Int {
         sources.reduce(0) { $0 + $1.discoveredConversations }
@@ -52,6 +54,16 @@ struct ConversationIntelligenceScanReport: Equatable, Sendable {
     }
 }
 
+struct ConversationIntelligenceScanProgress: Equatable, Sendable {
+    let report: ConversationIntelligenceScanReport
+    let currentAgent: String
+    let sourceIndex: Int
+    let sourceCount: Int
+    let processedConversations: Int
+    let discoveredConversations: Int
+    let currentConversationBatch: Int?
+}
+
 struct ConversationEmbeddingReport: Equatable, Sendable {
     let embeddedTurns: Int
     let pendingTurns: Int
@@ -67,6 +79,29 @@ struct ConversationHybridSearchConfiguration: Equatable, Sendable {
 }
 
 actor ConversationIntelligenceService {
+    private struct IngestCounts: Sendable {
+        var changed = 0
+        var unknown = 0
+        var failed = 0
+
+        static func + (lhs: Self, rhs: Self) -> Self {
+            .init(
+                changed: lhs.changed + rhs.changed,
+                unknown: lhs.unknown + rhs.unknown,
+                failed: lhs.failed + rhs.failed
+            )
+        }
+
+        static func += (lhs: inout Self, rhs: Self) {
+            lhs = lhs + rhs
+        }
+    }
+
+    private struct IngestOutcome: Sendable {
+        var counts = IngestCounts()
+        var interrupted = false
+    }
+
     private struct BackfillQueue {
         let descriptors: [NativeConversationDescriptor]
         var nextIndex: Int
@@ -79,6 +114,9 @@ actor ConversationIntelligenceService {
     private let embedder: OllamaQwenEmbeddingClient
     private var backfillQueues: [ConversationIntelligenceAgent: BackfillQueue]?
     private var backfillErrors: [ConversationIntelligenceAgent: String] = [:]
+    /// Invalidates offsets retained across an actor suspension. Clearing the
+    /// database increments this value before deleting cursors and derived rows.
+    private var indexGeneration: UInt64 = 0
 
     init(
         database: ConversationIntelligenceDatabase,
@@ -106,25 +144,90 @@ actor ConversationIntelligenceService {
 
     /// Scans recent sessions first. Calling the method again resumes each
     /// source from its durable cursor; unchanged turns do not create rows.
-    func scanRecent(days: Int = 90, perAgentLimit: Int? = nil) async -> ConversationIntelligenceScanReport {
+    func scanRecent(
+        days: Int = 90,
+        perAgentLimit: Int? = nil,
+        onProgress: (@Sendable (ConversationIntelligenceScanProgress) async -> Void)? = nil
+    ) async -> ConversationIntelligenceScanReport {
         let startedAt = Date()
+        let scanGeneration = indexGeneration
         let cutoff = Calendar.current.date(byAdding: .day, value: -max(1, days), to: startedAt)
         var sourceReports: [ConversationIntelligenceScanReport.Source] = []
 
-        for adapter in adapters {
+        scanSources: for (sourceOffset, adapter) in adapters.enumerated() {
+            guard scanMayContinue(generation: scanGeneration) else {
+                if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                break
+            }
             do {
                 let descriptors = try adapter.discover(updatedSince: cutoff, limit: perAgentLimit)
-                let counts = ingestDescriptors(descriptors, with: adapter)
-                sourceReports.append(.init(
-                    agent: adapter.agent.rawValue,
+                var counts = IngestCounts()
+                await emitRecentScanProgress(
+                    startedAt: startedAt,
+                    completedSources: sourceReports,
+                    adapter: adapter,
+                    sourceIndex: sourceOffset + 1,
+                    processedConversations: 0,
                     discoveredConversations: descriptors.count,
-                    changedTurns: counts.changed,
-                    unknownEvents: counts.unknown,
-                    failedSources: counts.failed,
-                    remainingConversations: 0,
-                    error: nil
+                    counts: counts,
+                    onProgress: onProgress
+                )
+                guard scanMayContinue(generation: scanGeneration) else {
+                    if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                    break scanSources
+                }
+
+                for (descriptorOffset, descriptor) in descriptors.enumerated() {
+                    let countsBeforeDescriptor = counts
+                    let completedSources = sourceReports
+                    let descriptorCounts = await ingestDescriptor(
+                        descriptor,
+                        with: adapter,
+                        generation: scanGeneration
+                    ) { [self] partialCounts, batchNumber in
+                        await emitRecentScanProgress(
+                            startedAt: startedAt,
+                            completedSources: completedSources,
+                            adapter: adapter,
+                            sourceIndex: sourceOffset + 1,
+                            processedConversations: descriptorOffset,
+                            discoveredConversations: descriptors.count,
+                            currentConversationBatch: batchNumber,
+                            counts: countsBeforeDescriptor + partialCounts,
+                            onProgress: onProgress
+                        )
+                    }
+                    guard !descriptorCounts.interrupted else {
+                        if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                        break scanSources
+                    }
+                    counts += descriptorCounts.counts
+                    await emitRecentScanProgress(
+                        startedAt: startedAt,
+                        completedSources: sourceReports,
+                        adapter: adapter,
+                        sourceIndex: sourceOffset + 1,
+                        processedConversations: descriptorOffset + 1,
+                        discoveredConversations: descriptors.count,
+                        counts: counts,
+                        onProgress: onProgress
+                    )
+                    guard scanMayContinue(generation: scanGeneration) else {
+                        if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                        break scanSources
+                    }
+                }
+
+                sourceReports.append(sourceReport(
+                    adapter: adapter,
+                    discoveredConversations: descriptors.count,
+                    counts: counts
                 ))
             } catch {
+                guard scanMayContinue(generation: scanGeneration) else {
+                    if scanGeneration != indexGeneration { sourceReports.removeAll() }
+                    break scanSources
+                }
                 sourceReports.append(.init(
                     agent: adapter.agent.rawValue,
                     discoveredConversations: 0,
@@ -134,6 +237,17 @@ actor ConversationIntelligenceService {
                     remainingConversations: 0,
                     error: Self.safeSourceError(error, agent: adapter.agent)
                 ))
+                await emitRecentScanProgress(
+                    startedAt: startedAt,
+                    completedSources: Array(sourceReports.dropLast()),
+                    adapter: adapter,
+                    sourceIndex: sourceOffset + 1,
+                    processedConversations: 0,
+                    discoveredConversations: 0,
+                    counts: .init(),
+                    error: sourceReports.last?.error,
+                    onProgress: onProgress
+                )
             }
         }
 
@@ -152,6 +266,7 @@ actor ConversationIntelligenceService {
     /// skipped; recent/live ingestion remains idempotent with this backfill.
     func scanBackfillBatch(perAgentLimit: Int = 100) async -> ConversationIntelligenceScanReport {
         let startedAt = Date()
+        let scanGeneration = indexGeneration
         if backfillQueues == nil {
             var queues: [ConversationIntelligenceAgent: BackfillQueue] = [:]
             for adapter in adapters {
@@ -175,6 +290,7 @@ actor ConversationIntelligenceService {
         var reports: [ConversationIntelligenceScanReport.Source] = []
         let batchLimit = max(1, perAgentLimit)
         for adapter in adapters {
+            guard scanMayContinue(generation: scanGeneration) else { break }
             guard var queue = backfillQueues?[adapter.agent] else { continue }
             let end = min(queue.descriptors.count, queue.nextIndex + batchLimit)
             let selected = queue.nextIndex < end
@@ -183,7 +299,12 @@ actor ConversationIntelligenceService {
             queue.nextIndex = end
             backfillQueues?[adapter.agent] = queue
 
-            let counts = ingestDescriptors(selected, with: adapter)
+            let outcome = await ingestDescriptors(
+                selected,
+                with: adapter,
+                generation: scanGeneration
+            )
+            let counts = outcome.counts
             reports.append(.init(
                 agent: adapter.agent.rawValue,
                 discoveredConversations: selected.count,
@@ -193,6 +314,7 @@ actor ConversationIntelligenceService {
                 remainingConversations: queue.remaining,
                 error: backfillErrors[adapter.agent]
             ))
+            if outcome.interrupted { break }
         }
 
         let driftCount = (try? database.undeclaredSchemaObservations().count) ?? 0
@@ -213,6 +335,7 @@ actor ConversationIntelligenceService {
     }
 
     func clearIndex() throws {
+        indexGeneration &+= 1
         try database.clearAll()
         backfillQueues = nil
         backfillErrors = [:]
@@ -366,52 +489,159 @@ actor ConversationIntelligenceService {
         }.prefix(max(1, limit)).map { $0 }
     }
 
+    private func emitRecentScanProgress(
+        startedAt: Date,
+        completedSources: [ConversationIntelligenceScanReport.Source],
+        adapter: any ConversationSourceAdapter,
+        sourceIndex: Int,
+        processedConversations: Int,
+        discoveredConversations: Int,
+        currentConversationBatch: Int? = nil,
+        counts: IngestCounts,
+        error: String? = nil,
+        onProgress: (@Sendable (ConversationIntelligenceScanProgress) async -> Void)?
+    ) async {
+        guard let onProgress else { return }
+        let currentSource = ConversationIntelligenceScanReport.Source(
+            agent: adapter.agent.rawValue,
+            discoveredConversations: discoveredConversations,
+            changedTurns: counts.changed,
+            unknownEvents: counts.unknown,
+            failedSources: counts.failed,
+            remainingConversations: 0,
+            error: error
+        )
+        let report = ConversationIntelligenceScanReport(
+            startedAt: startedAt,
+            finishedAt: Date(),
+            sources: completedSources + [currentSource],
+            undeclaredSchemaShapes: nil
+        )
+        await onProgress(.init(
+            report: report,
+            currentAgent: adapter.agent.rawValue,
+            sourceIndex: sourceIndex,
+            sourceCount: adapters.count,
+            processedConversations: processedConversations,
+            discoveredConversations: discoveredConversations,
+            currentConversationBatch: currentConversationBatch
+        ))
+    }
+
+    private func sourceReport(
+        adapter: any ConversationSourceAdapter,
+        discoveredConversations: Int,
+        counts: IngestCounts
+    ) -> ConversationIntelligenceScanReport.Source {
+        .init(
+            agent: adapter.agent.rawValue,
+            discoveredConversations: discoveredConversations,
+            changedTurns: counts.changed,
+            unknownEvents: counts.unknown,
+            failedSources: counts.failed,
+            remainingConversations: 0,
+            error: nil
+        )
+    }
+
     private func ingestDescriptors(
         _ descriptors: [NativeConversationDescriptor],
-        with adapter: any ConversationSourceAdapter
-    ) -> (changed: Int, unknown: Int, failed: Int) {
-        var changed = 0
-        var unknown = 0
-        var failed = 0
+        with adapter: any ConversationSourceAdapter,
+        generation: UInt64
+    ) async -> IngestOutcome {
+        var outcome = IngestOutcome()
         for descriptor in descriptors {
-            do {
-                let cursor = try database.cursor(for: descriptor.sourceURL)
-                let hasMatchingRevision = cursor?.sourceRevision == descriptor.ingestRevision
-                let hasValidJSONLCursor: Bool
-                if let cursor, [.codex, .claude].contains(descriptor.agent) {
-                    hasValidJSONLCursor = try JSONLConversationReader.cursorMatches(
-                        url: descriptor.sourceURL,
-                        byteOffset: cursor.byteOffset,
-                        lastCompleteLineHash: cursor.lastCompleteLineHash
-                    )
-                } else {
-                    hasValidJSONLCursor = true
-                }
-                var offset = hasMatchingRevision && hasValidJSONLCursor
-                    ? cursor?.byteOffset ?? 0
-                    : 0
-                var replaceOnNextBatch = cursor != nil
-                    && (!hasMatchingRevision || !hasValidJSONLCursor)
-                // JSONL is parsed in bounded byte batches so a very long
-                // session cannot make the app mirror the whole file in RAM.
-                // SQLite adapters naturally stop when their high-water mark
-                // no longer advances.
-                for _ in 0..<256 {
-                    let batch = try adapter.read(descriptor, fromByteOffset: offset)
-                    guard batch.nextByteOffset > offset else { break }
-                    changed += try database.ingest(
-                        batch,
-                        replacingExistingSource: replaceOnNextBatch
-                    )
-                    replaceOnNextBatch = false
-                    unknown += batch.unknownEventCount
-                    offset = batch.nextByteOffset
-                }
-            } catch {
-                failed += 1
+            guard scanMayContinue(generation: generation) else {
+                outcome.interrupted = true
+                break
+            }
+            let descriptorOutcome = await ingestDescriptor(
+                descriptor,
+                with: adapter,
+                generation: generation
+            )
+            outcome.counts += descriptorOutcome.counts
+            if descriptorOutcome.interrupted {
+                outcome.interrupted = true
+                break
             }
         }
-        return (changed, unknown, failed)
+        return outcome
+    }
+
+    private func ingestDescriptor(
+        _ descriptor: NativeConversationDescriptor,
+        with adapter: any ConversationSourceAdapter,
+        generation: UInt64,
+        onBatch: (@Sendable (IngestCounts, Int) async -> Void)? = nil
+    ) async -> IngestOutcome {
+        var outcome = IngestOutcome()
+        var batchNumber = 0
+        guard scanMayContinue(generation: generation) else {
+            outcome.interrupted = true
+            return outcome
+        }
+        do {
+            let cursor = try database.cursor(for: descriptor.sourceURL)
+            let hasMatchingRevision = cursor?.sourceRevision == descriptor.ingestRevision
+            let hasValidJSONLCursor: Bool
+            if let cursor, [.codex, .claude].contains(descriptor.agent) {
+                hasValidJSONLCursor = try JSONLConversationReader.cursorMatches(
+                    url: descriptor.sourceURL,
+                    byteOffset: cursor.byteOffset,
+                    lastCompleteLineHash: cursor.lastCompleteLineHash
+                )
+            } else {
+                hasValidJSONLCursor = true
+            }
+            var offset = hasMatchingRevision && hasValidJSONLCursor
+                ? cursor?.byteOffset ?? 0
+                : 0
+            var replaceOnNextBatch = cursor != nil
+                && (!hasMatchingRevision || !hasValidJSONLCursor)
+            // JSONL is parsed in bounded byte batches so each SQLite commit
+            // yields often enough for progress and cancellation. Do not cap
+            // the number of batches: multi-GB sessions must reach EOF rather
+            // than becoming permanently partial. Every adapter terminates by
+            // returning a non-advancing cursor.
+            while true {
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
+                let batch = try adapter.read(descriptor, fromByteOffset: offset)
+                guard batch.nextByteOffset > offset else { break }
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
+                outcome.counts.changed += try database.ingest(
+                    batch,
+                    replacingExistingSource: replaceOnNextBatch
+                )
+                replaceOnNextBatch = false
+                outcome.counts.unknown += batch.unknownEventCount
+                offset = batch.nextByteOffset
+                batchNumber += 1
+                await onBatch?(outcome.counts, batchNumber)
+                guard scanMayContinue(generation: generation) else {
+                    outcome.interrupted = true
+                    return outcome
+                }
+            }
+        } catch {
+            guard scanMayContinue(generation: generation) else {
+                outcome.interrupted = true
+                return outcome
+            }
+            outcome.counts.failed += 1
+            await onBatch?(outcome.counts, batchNumber)
+        }
+        return outcome
+    }
+
+    private func scanMayContinue(generation: UInt64) -> Bool {
+        !Task.isCancelled && generation == indexGeneration
     }
 
     private static func safeSourceError(
