@@ -166,6 +166,27 @@ final class EngineServiceReconcilerTests: XCTestCase {
                     || code == "return decision"
                 XCTAssertTrue(benign,
                               "um ramo que não consulta a segunda testemunha só pode registar e sair; encontrei '\(code.prefix(60))'")
+
+                // SECOND LEVEL. The rule above governs STATEMENTS, and a log
+                // call is a statement — but Swift interpolation carries
+                // arbitrary EXPRESSIONS inside it. cassia measured the escape:
+                // a `reconcileLog.error` line whose interpolation runs
+                // `try? unregister()` passes, because the line begins with an
+                // allowed prefix. The most destructive call in the file, hidden
+                // one level below where the grammar was looking.
+                //
+                // So the interpolations get a grammar of their own, taken from
+                // what the real logs measurably contain: a bare identifier, or
+                // `String(describing: identifier)`, each with `privacy:`.
+                // After removing those two forms, no call may remain.
+                guard code.hasPrefix("reconcileLog.") else { continue }
+                for piece in code.components(separatedBy: "\\(").dropFirst() {
+                    let inner = piece.components(separatedBy: ")")[0]
+                        .replacingOccurrences(of: "String(describing: ", with: "")
+                        .replacingOccurrences(of: ", privacy: .public", with: "")
+                    XCTAssertFalse(inner.contains("("),
+                                   "interpolação de log num ramo que não consulta a testemunha não pode chamar nada: '\(inner.prefix(60))'")
+                }
             }
         }
         XCTAssertTrue(body.contains("guard !liveEngineProcessExists else {"),
