@@ -156,6 +156,40 @@ final class EngineServiceReconcilerTests: XCTestCase {
             for line in branch.split(separator: "\n").dropFirst() {
                 let code = line.trimmingCharacters(in: .whitespaces)
                 guard !code.isEmpty, !code.hasPrefix("//") else { continue }
+
+                // The PRECONDITION this whole analysis rests on: one line is
+                // one statement. Everything below classifies lines, so where
+                // that stops being true the classification stops meaning
+                // anything — and a semicolon is exactly where it stops being
+                // true. cassia measured it: `reconcileLog.error("n"); try?
+                // unregister()` passes every rule below, because the line
+                // begins with an allowed prefix and the second statement is
+                // never looked at.
+                //
+                // This is not one more forbidden spelling. It is the assumption
+                // the guard was already making without saying so. (The other
+                // direction — one statement across several lines — already
+                // fails closed, because the continuation lines match nothing.)
+                // Counted OUTSIDE string literals only: the real log messages
+                // carry a semicolon in their prose ("...unclaimed by
+                // SMAppService; left running"), and a separator inside a
+                // literal separates nothing. Splitting on the quote and keeping
+                // the even segments is the whole of it.
+                //
+                // The escaped quote is neutralised FIRST, and an earlier version
+                // of this comment got that exactly backwards: it claimed an
+                // escaped quote would flip the parity and make the guard fail,
+                // "the safe direction". cassia measured the opposite —
+                // `reconcileLog.error("x\""); try? unregister()` puts the REAL
+                // semicolon in an odd segment, where this never looks. Masked,
+                // not detected. Parity is a hypothesis about the text, so it is
+                // made true here rather than assumed and described wrongly.
+                let deEscaped = code.replacingOccurrences(of: "\\\"", with: "··")
+                let outsideLiterals = deEscaped.components(separatedBy: "\"")
+                    .enumerated().filter { $0.offset.isMultiple(of: 2) }
+                    .map(\.element).joined()
+                XCTAssertFalse(outsideLiterals.contains(";"),
+                               "uma linha tem de ser uma instrução para esta guarda significar alguma coisa; '\(code.prefix(60))' tem ponto e vírgula fora de literal")
                 // A deliberately NARROW allowlist. Unrecognised content fails
                 // closed: a multi-line log or a reformat trips this and forces
                 // someone to look, which is the correct outcome for a guard
