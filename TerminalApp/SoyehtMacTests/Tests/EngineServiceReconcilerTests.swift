@@ -173,19 +173,32 @@ final class EngineServiceReconcilerTests: XCTestCase {
                 // Counted OUTSIDE string literals only: the real log messages
                 // carry a semicolon in their prose ("...unclaimed by
                 // SMAppService; left running"), and a separator inside a
-                // literal separates nothing. Splitting on the quote and keeping
-                // the even segments is the whole of it.
+                // literal separates nothing.
                 //
-                // The escaped quote is neutralised FIRST, and an earlier version
-                // of this comment got that exactly backwards: it claimed an
-                // escaped quote would flip the parity and make the guard fail,
-                // "the safe direction". cassia measured the opposite —
-                // `reconcileLog.error("x\""); try? unregister()` puts the REAL
-                // semicolon in an odd segment, where this never looks. Masked,
-                // not detected. Parity is a hypothesis about the text, so it is
-                // made true here rather than assumed and described wrongly.
-                let deEscaped = code.replacingOccurrences(of: "\\\"", with: "··")
-                let outsideLiterals = deEscaped.components(separatedBy: "\"")
+                // The escape model is GONE, not extended. v1 assumed the parity
+                // held and described its failure backwards; v2 neutralised `\"`,
+                // a PARTIAL model, and cassia measured Q4 straight through it —
+                // in `"x\\"` the escaped backslash is followed by a REAL quote,
+                // and a two-character needle eats it. Swift's actual rule is
+                // that a quote is escaped iff preceded by an ODD run of
+                // backslashes, which no substitution expresses; and a
+                // run-counting scan would still be wrong inside `#"..."#`,
+                // which seven files of this module use.
+                //
+                // There is no principled place to stop extending it, so it is
+                // not extended. The guard REFUSES the input it cannot model:
+                // here the only backslash allowed is the one that opens an
+                // interpolation. Measured: the real lines contain `\(` and
+                // nothing else. Q3 and Q4 fail now — not because they were
+                // anticipated, but because they need an escape model and this
+                // declines to have one. Anything needing one gets human eyes.
+                let chars = Array(code)
+                for k in chars.indices where chars[k] == "\\" {
+                    let opensInterpolation = k + 1 < chars.count && chars[k + 1] == "("
+                    XCTAssertTrue(opensInterpolation,
+                                  "só é permitida a barra que abre interpolação; '\(code.prefix(60))' tem escape que esta guarda não sabe modelar")
+                }
+                let outsideLiterals = code.components(separatedBy: "\"")
                     .enumerated().filter { $0.offset.isMultiple(of: 2) }
                     .map(\.element).joined()
                 XCTAssertFalse(outsideLiterals.contains(";"),
