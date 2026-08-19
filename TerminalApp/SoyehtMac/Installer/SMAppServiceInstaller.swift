@@ -57,6 +57,16 @@ enum SMAppServiceInstaller {
         case .leaveToOnboarding, .healthy:
             break
         case .register:
+            // Symmetry with the branch below. `decide` only answers `.register`
+            // with the job absent, so reaching here with a live engine needs a
+            // false negative from launchctl — no evidence it can, and that is
+            // precisely the assumption not worth carrying. One rule, stated
+            // once: launch does not write while an engine of this profile is
+            // alive, whichever branch is asking.
+            guard !liveEngineProcessExists else {
+                reconcileLog.error("engine LaunchAgent reads as unregistered but a live engine process of this profile exists; refusing to register: \(launchdLabel, privacy: .public)")
+                break
+            }
             let service = SMAppService.agent(plistName: plistName)
             do {
                 try service.register()
@@ -210,19 +220,31 @@ enum SMAppServiceInstaller {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
+        var ran = true
         do {
             try process.run()
         } catch {
-            return true
+            ran = false
         }
-        // Drained BEFORE waiting: `ps -A` overruns the 64 KB pipe buffer on a
-        // busy machine, and waiting first would deadlock the launch path.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        let profile = SoyehtInstallProfile.current
-        return String(decoding: data, as: UTF8.self)
-            .split(separator: "\n")
-            .contains { profile.ownsEngineCommand(String($0)) }
+        var output = ""
+        var status: Int32 = -1
+        if ran {
+            // Drained BEFORE waiting: `ps -A` overruns the 64 KB pipe buffer
+            // on a busy machine, and waiting first would deadlock the launch
+            // path.
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            output = String(decoding: data, as: UTF8.self)
+            status = process.terminationStatus
+        }
+        // The rules live in EngineServiceReconciler, where a test can reach
+        // them. This function only gathers the evidence.
+        return EngineServiceReconciler.engineIsRunning(
+            probeRan: ran,
+            exitStatus: status,
+            output: output,
+            ownsEngineCommand: SoyehtInstallProfile.current.ownsEngineCommand
+        )
     }
 
     private static func startWithoutRestarting() {

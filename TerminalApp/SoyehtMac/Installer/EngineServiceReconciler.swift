@@ -87,4 +87,34 @@ enum EngineServiceReconciler {
             return .reportMissingFromBundle
         }
     }
+
+    /// Reads a process-table probe into an answer about whether an engine of
+    /// this profile is running.
+    ///
+    /// Pure on purpose. The previous version lived in the installer, spawned
+    /// its own process, and claimed in its documentation to "fail closed" —
+    /// but it only closed on the throw. A probe that RAN and exited non-zero
+    /// with no output answered "nothing is running", which is fail-OPEN, and
+    /// the comment above it said otherwise. Found in review (cassia, PR #33).
+    /// Rules that decide whether destruction is allowed have to be reachable
+    /// by a test, not asserted by a comment.
+    ///
+    /// - Parameters:
+    ///   - probeRan: whether the process could be spawned at all.
+    ///   - exitStatus: its termination status; only meaningful if it ran.
+    ///   - output: everything the probe wrote, one command per line.
+    ///   - ownsEngineCommand: whether a command line belongs to this profile.
+    static func engineIsRunning(
+        probeRan: Bool,
+        exitStatus: Int32,
+        output: String,
+        ownsEngineCommand: (String) -> Bool
+    ) -> Bool {
+        // No answer means "yes". An empty output from a failed probe is
+        // indistinguishable from an empty output from a machine with no
+        // engine, so the two must not be allowed to mean the same thing.
+        guard probeRan, exitStatus == 0 else { return true }
+        return output.split(separator: "\n").contains { ownsEngineCommand(String($0)) }
+    }
+
 }

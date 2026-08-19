@@ -131,6 +131,13 @@ final class EngineServiceReconcilerTests: XCTestCase {
         let body = reconcile[1].components(separatedBy: "// MARK:")[0]
         XCTAssertTrue(body.contains("case .leaveToOnboarding, .healthy:\n            break"),
                       "um serviço saudável tem de sair sem ação: register() faz unregister antes e reiniciaria o engine, matando as panes que isto existe para proteger")
+        // BOTH writing branches consult the second witness, not just the one
+        // the review happened to look at. Counting is the assertion: a third
+        // writing branch added later without the check fails here.
+        XCTAssertEqual(body.components(separatedBy: "liveEngineProcessExists").count - 1, 2,
+                       "os dois ramos que escrevem (.register e .startStoppedService) têm de consultar a segunda testemunha")
+        XCTAssertTrue(body.contains("guard !liveEngineProcessExists else {"),
+                      "o ramo .register tem de recusar com um engine deste perfil vivo")
         XCTAssertTrue(body.contains("} else if liveEngineProcessExists {"),
                       "o re-bootstrap destrutivo precisa de DUAS testemunhas: launchctl a dizer que o job não está carregado E a tabela de processos a confirmar que nenhum engine deste perfil está vivo")
 
@@ -161,6 +168,47 @@ final class EngineServiceReconcilerTests: XCTestCase {
         let acting = [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown]
             .filter { EngineServiceReconciler.decide(isSetUp: true, state: $0, isLoaded: false) == .register }
         XCTAssertEqual(acting, [.notRegistered, .unknown])
+    }
+
+    // MARK: - The probe fails closed
+    //
+    // Reviewed finding (cassia, PR #33): the first version documented itself as
+    // failing closed and only closed on the spawn failure. A probe that RAN and
+    // exited non-zero with no output answered "nothing is running" — fail-OPEN,
+    // under a comment claiming the opposite. Moving the rules out of the
+    // process-spawning function is what makes them assertable at all.
+
+    private static let engineLine = "/Users/x/Library/Application Support/Soyeht/engine/theyos-engine serve"
+    private static func owns(_ command: String) -> Bool { command.contains("/Application Support/Soyeht/engine/") }
+
+    /// The probe could not be spawned: no answer is not permission to destroy.
+    func testAProbeThatCannotRunReportsAnEngineAlive() {
+        XCTAssertTrue(EngineServiceReconciler.engineIsRunning(
+            probeRan: false, exitStatus: -1, output: "", ownsEngineCommand: Self.owns))
+    }
+
+    /// The case that was fail-open: it ran, it failed, it said nothing.
+    func testAProbeThatFailsReportsAnEngineAliveEvenWithEmptyOutput() {
+        XCTAssertTrue(EngineServiceReconciler.engineIsRunning(
+            probeRan: true, exitStatus: 1, output: "", ownsEngineCommand: Self.owns),
+            "saída vazia de uma sonda que falhou é indistinguível de saída vazia de uma máquina sem engine; as duas não podem significar o mesmo")
+    }
+
+    /// A clean probe that finds the profile's engine.
+    func testACleanProbeThatSeesTheEngineReportsItAlive() {
+        XCTAssertTrue(EngineServiceReconciler.engineIsRunning(
+            probeRan: true, exitStatus: 0,
+            output: "/sbin/launchd\n\(Self.engineLine)\n/usr/sbin/cupsd",
+            ownsEngineCommand: Self.owns))
+    }
+
+    /// The only combination that may authorise the destructive path: the probe
+    /// ran, succeeded, and nothing of this profile is in the table.
+    func testOnlyACleanProbeWithNoMatchAllowsTheDestructivePath() {
+        XCTAssertFalse(EngineServiceReconciler.engineIsRunning(
+            probeRan: true, exitStatus: 0,
+            output: "/sbin/launchd\n/usr/sbin/cupsd\n/Applications/Other.app/Contents/MacOS/Other",
+            ownsEngineCommand: Self.owns))
     }
 
     // MARK: - The two builds must never claim each other's job
