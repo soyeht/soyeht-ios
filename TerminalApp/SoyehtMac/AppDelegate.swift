@@ -355,7 +355,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func openInitialWindow() async {
-        if !SessionStore.shared.credentialedCanonicalServers().isEmpty {
+        let isSetUp = !SessionStore.shared.credentialedCanonicalServers().isEmpty
+        // Repair the engine LaunchAgent before any pane is built. A pane asks
+        // for the broker at creation time and silently falls back to an
+        // in-process PTY when it is absent — and in-process panes die with the
+        // app, so a missing job turns every future session into something an
+        // update destroys. Same `isSetUp` signal that chooses the window below,
+        // so the two cannot disagree about which phase the app is in.
+        SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
+
+        if isSetUp {
             restoreMainWindowsOrOpenDefault()
             return
         }
