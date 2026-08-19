@@ -42,6 +42,13 @@ final class SwiftTermMouseTracking {
 
     // MARK: - Motion is reported per cell, not per host event
 
+    // A note on the expected literals below.  A no-button hover carries flags
+    // 3 (no button) + 32 (motion), and SwiftTerm's SGR branch rewrites that
+    // low-bit pattern into a *release*: `CSI < 48 ; col ; row m` rather than
+    // xterm's `CSI < 51 ; col ; row M`.  That predates this filter and these
+    // tests only pin it incidentally - they are about how *many* reports are
+    // emitted, not about that encoding.
+
     @Test func motionInsideTheSameCellIsReportedOnce() {
         let (terminal, delegate) = makeTerminal()
         enableAnyEventSgr(terminal)
@@ -129,6 +136,49 @@ final class SwiftTermMouseTracking {
         #expect(delegate.text == "\u{1b}[<48;30;20m")
     }
 
+    @Test func trackingOffSilencesTheTerminalEvenOnDirectCalls() {
+        let (terminal, delegate) = makeTerminal()
+        #expect(terminal.mouseMode == .off)
+
+        terminal.sendEvent(buttonFlags: 0, x: 10, y: 10, pixelX: 100, pixelY: 100)
+        terminal.sendEvent(buttonFlags: 3, x: 10, y: 10, pixelX: 100, pixelY: 100)
+        terminal.sendMotion(buttonFlags: 19, x: 11, y: 10, pixelX: 110, pixelY: 100)
+
+        // The views gate on `mouseMode`, but a gate every caller has to
+        // remember is not a gate: with tracking off the emulator itself stays
+        // silent, whoever asks.
+        #expect(delegate.sent.isEmpty)
+    }
+
+    @Test func reassertingAnAlreadyActiveModeKeepsTheFilter() {
+        let (terminal, delegate) = makeTerminal()
+        enableAnyEventSgr(terminal)
+        terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 300, pixelY: 200)
+        delegate.reset()
+
+        // Applications re-assert their modes on redraw, resize or SIGCONT.
+        // `didSet` fires on those no-op assignments too, and clearing the memo
+        // there would hand the duplicates straight back.
+        feed(terminal, "\u{1b}[?1003h")
+        terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 300, pixelY: 200)
+
+        #expect(delegate.sent.isEmpty)
+    }
+
+    @Test func aButtonEventWithoutPixelsDoesNotPoisonThePixelMemo() {
+        let (terminal, delegate) = makeTerminal()
+        feed(terminal, "\u{1b}[?1003h\u{1b}[?1016h")
+
+        // The three-argument overload has no pixel resolution to give - it
+        // repeats the cell coordinates - so it must not leave a fabricated
+        // pixel position behind for the pixel protocol to compare against.
+        terminal.sendEvent(buttonFlags: 0, x: 50, y: 50)
+        delegate.reset()
+        terminal.sendMotion(buttonFlags: 19, x: 5, y: 5, pixelX: 50, pixelY: 50)
+
+        #expect(delegate.text == "\u{1b}[<48;50;50m")
+    }
+
     // MARK: - The application teardown sequence really turns tracking off
 
     /// Byte-for-byte what opencode 1.18 writes when it is killed with Ctrl+C,
@@ -148,9 +198,10 @@ final class SwiftTermMouseTracking {
 
         delegate.reset()
         terminal.sendMotion(buttonFlags: 19, x: 40, y: 10, pixelX: 400, pixelY: 100)
-        // `mouseMode == .off` is what the views gate on; nothing may be queued
-        // behind the teardown either.
-        #expect(delegate.sent.isEmpty || terminal.mouseMode == .off)
+        // Not `isEmpty || mouseMode == .off`: the right half was asserted five
+        // lines above and can no longer be false here, which would make the
+        // whole expectation vacuous.
+        #expect(delegate.sent.isEmpty)
     }
 
     /// The teardown arrives from a pty in whatever slices the kernel hands over.

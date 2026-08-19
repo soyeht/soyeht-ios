@@ -626,10 +626,15 @@ open class Terminal {
     
     public private(set) var mouseMode: MouseMode = .off {
         didSet {
-            // A new application turning tracking on must see the first motion
-            // report, even if the pointer never left the cell the previous
-            // application last saw.
-            lastMouseReport = nil
+            if oldValue != mouseMode {
+                // A new application turning tracking on must see the first
+                // motion report, even if the pointer never left the cell the
+                // previous application last saw.  Only an actual change counts:
+                // applications that re-assert `?1003h` on every frame would
+                // otherwise clear the memo every frame and get the duplicates
+                // back.
+                lastMouseReport = nil
+            }
             tdel?.mouseModeChanged (source: self)
         }
     }
@@ -639,7 +644,7 @@ open class Terminal {
     /// xterm only reports motion when the pointer enters a *different* character
     /// cell (a different pixel under the SGR-Pixels protocol).  Without this,
     /// sub-cell pointer jitter floods the child with duplicate reports.
-    var lastMouseReport: (cell: Position, pixel: Position)? = nil
+    var lastMouseReport: (cell: Position, pixel: Position?)? = nil
 
     // The next four variables determine whether setting/querying should be done using utf8 or latin1
     // and whether the values should be set or queried using hex digits, rather than actual byte streams
@@ -5604,7 +5609,7 @@ open class Terminal {
     }
     
     public func sendEvent (buttonFlags: Int, x: Int, y: Int) {
-      sendEvent(buttonFlags: buttonFlags, x: x, y: y, pixelX: x, pixelY: y)
+      sendEvent(buttonFlags: buttonFlags, x: x, y: y, pixelX: x, pixelY: y, hasPixels: false)
     }
     
     /**
@@ -5615,8 +5620,25 @@ open class Terminal {
      */
     public func sendEvent (buttonFlags: Int, x: Int, y: Int, pixelX: Int, pixelY: Int)
     {
+        sendEvent (buttonFlags: buttonFlags, x: x, y: y, pixelX: pixelX, pixelY: pixelY, hasPixels: true)
+    }
+
+    /// - Parameter hasPixels: false when the caller had no pixel resolution to
+    ///   give and `pixelX`/`pixelY` are just the cell coordinates repeated.  The
+    ///   memo then records no pixel position, so a later motion report under the
+    ///   SGR-Pixels protocol is never compared against a fabricated one.
+    private func sendEvent (buttonFlags: Int, x: Int, y: Int, pixelX: Int, pixelY: Int, hasPixels: Bool)
+    {
         //print ("got \(mouseProtocol)")
-        lastMouseReport = (cell: Position (col: x, row: y), pixel: Position (col: pixelX, row: pixelY))
+        guard mouseMode != .off else {
+            // Tracking is off: the application asked not to hear about the
+            // mouse, and a report escaping here is what lands as junk on the
+            // next shell prompt.  The views gate on `mouseMode` too, but a gate
+            // each caller has to remember is not a gate.
+            return
+        }
+        lastMouseReport = (cell: Position (col: x, row: y),
+                           pixel: hasPixels ? Position (col: pixelX, row: pixelY) : nil)
         switch mouseProtocol {
         case .x10:
             sendResponse(cc.CSI, "M", [UInt8(buttonFlags+32), min (UInt8(255), UInt8(32 + x+1)), min (UInt8(255), UInt8(32+y+1))])
@@ -5667,7 +5689,8 @@ open class Terminal {
     {
         guard let last = lastMouseReport else { return true }
         if mouseProtocol == .sgrPixel {
-            return last.pixel != Position (col: pixelX, row: pixelY)
+            guard let lastPixel = last.pixel else { return true }
+            return lastPixel != Position (col: pixelX, row: pixelY)
         }
         return last.cell != Position (col: x, row: y)
     }

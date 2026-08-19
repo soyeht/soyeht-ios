@@ -846,9 +846,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - Terminal Response Routing
 
     override func send(source: Terminal, data: ArraySlice<UInt8>) {
-        // SwiftTerm's mouseMoved path bypasses `allowMouseReporting`. Suppress
-        // only actual mouse packets; focus tracking and parser replies share
-        // this delegate callback and must still reach the agent.
+        // Belt and braces: SwiftTerm's own paths all honour
+        // `allowMouseReporting` now (`mouseMoved` used to be the exception),
+        // so this drops nothing the emulator would still send. It stays as the
+        // last line of defence for this transport, and because a source guard
+        // pins it. Suppress only actual mouse packets; focus tracking and
+        // parser replies share this delegate callback and must still reach the
+        // agent.
         if !allowMouseReporting,
            !isFeedingServerData,
            AgentTerminalPacketClassifier.isMouseReport(Array(data)) {
