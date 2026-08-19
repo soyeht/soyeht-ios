@@ -50,6 +50,15 @@ enum EngineServiceReconciler {
         /// registration status alone calls a dead broker healthy. Started
         /// without `-k`, which would restart a LIVE engine and kill the PTYs.
         case startStoppedService
+        /// launchd has the job and it is serving, but `SMAppService` does not
+        /// claim it — the signature of a manual/legacy `launchctl bootstrap`,
+        /// which this codebase knows exists (the uninstaller carries a
+        /// fallback for exactly that). Registering would hand the job to
+        /// `SMAppService`, but every path that does so can bounce it, and a
+        /// bounce here takes a LIVE engine and every brokered PTY with it.
+        /// Launch is not the moment to win an ownership argument: report it
+        /// and leave the working engine alone.
+        case adoptLoadedService
     }
 
     /// - Parameters:
@@ -65,7 +74,13 @@ enum EngineServiceReconciler {
         case .enabled:
             return isLoaded ? .healthy : .startStoppedService
         case .notRegistered, .unknown:
-            return .register
+            // `isLoaded` matters here too, and leaving it out was a real hole:
+            // `.notRegistered` with the job LOADED is a manually bootstrapped
+            // engine, and the register path would restart it. The rule for
+            // this whole type is that launch may create a missing job and may
+            // never recycle a serving one — that rule has to survive the case
+            // where the two status sources disagree, not just the easy ones.
+            return isLoaded ? .adoptLoadedService : .register
         case .requiresApproval:
             return .reportApprovalNeeded
         case .notFound:

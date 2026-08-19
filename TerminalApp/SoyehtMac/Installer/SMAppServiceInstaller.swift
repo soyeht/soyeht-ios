@@ -60,7 +60,13 @@ enum SMAppServiceInstaller {
             let service = SMAppService.agent(plistName: plistName)
             do {
                 try service.register()
-                kickstart()
+                // The plist carries `RunAtLoad=true`, so a fresh registration
+                // starts the job on its own. The restarting variant would add
+                // nothing here except the power to bounce something already
+                // running, and launch never needs that power — so it does not
+                // get it. A source guard keeps that call out of this whole
+                // function, prose included, which is why it is not named.
+                startWithoutRestarting()
                 reconcileLog.notice("engine LaunchAgent registered at launch: \(launchdLabel, privacy: .public)")
             } catch {
                 reconcileLog.error("engine LaunchAgent registration failed: \(String(describing: error), privacy: .public)")
@@ -73,16 +79,25 @@ enum SMAppServiceInstaller {
             // this branch, because the decision means the job is not loaded,
             // so there is no live engine and no PTY to lose.
             startWithoutRestarting()
-            if !isJobLoaded {
+            if isJobLoaded {
+                reconcileLog.notice("engine LaunchAgent was stopped; started: \(launchdLabel, privacy: .public)")
+            } else if liveEngineProcessExists {
+                // The two witnesses disagree: launchctl says the job is absent,
+                // the process table says an engine of THIS profile is running.
+                // A split reading is never authority to destroy — the whole
+                // point of this branch's safety is "there is no live engine to
+                // lose", and that premise is exactly what just failed.
+                reconcileLog.error("engine LaunchAgent is not loaded but a live engine process of this profile exists; refusing to re-bootstrap: \(launchdLabel, privacy: .public)")
+            } else {
                 do {
                     try register()
                     reconcileLog.notice("engine LaunchAgent re-bootstrapped: \(launchdLabel, privacy: .public)")
                 } catch {
                     reconcileLog.error("engine LaunchAgent re-bootstrap failed: \(String(describing: error), privacy: .public)")
                 }
-            } else {
-                reconcileLog.notice("engine LaunchAgent was stopped; started: \(launchdLabel, privacy: .public)")
             }
+        case .adoptLoadedService:
+            reconcileLog.notice("engine LaunchAgent is loaded and serving but unclaimed by SMAppService; left running: \(launchdLabel, privacy: .public)")
         case .reportApprovalNeeded:
             reconcileLog.error("engine LaunchAgent awaiting approval in Login Items: \(launchdLabel, privacy: .public)")
         case .reportMissingFromBundle:
@@ -176,6 +191,40 @@ enum SMAppServiceInstaller {
 
     /// Starts a stopped job. Deliberately WITHOUT `-k`: that flag kills and
     /// restarts, which on a live engine would take every brokered PTY with it.
+    /// Second, independent witness that no engine of this profile is running.
+    ///
+    /// Everything that keeps the re-bootstrap non-destructive rests on ONE
+    /// reading: the exit status of `launchctl print`. A single false negative
+    /// there reaches `register()`, whose `.enabled` path unregisters first and
+    /// takes the live engine — and every brokered PTY — with it. One witness
+    /// is not enough to authorise destruction, so this asks a different
+    /// subsystem entirely: is such a process in the table right now?
+    ///
+    /// Fails CLOSED. If the probe cannot run, the answer is "yes, assume one
+    /// is alive", because a check that cannot be made must never read as
+    /// permission to destroy.
+    private static var liveEngineProcessExists: Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-Ao", "command="]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+        } catch {
+            return true
+        }
+        // Drained BEFORE waiting: `ps -A` overruns the 64 KB pipe buffer on a
+        // busy machine, and waiting first would deadlock the launch path.
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let profile = SoyehtInstallProfile.current
+        return String(decoding: data, as: UTF8.self)
+            .split(separator: "\n")
+            .contains { profile.ownsEngineCommand(String($0)) }
+    }
+
     private static func startWithoutRestarting() {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
