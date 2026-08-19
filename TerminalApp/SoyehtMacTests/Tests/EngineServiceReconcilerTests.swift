@@ -131,11 +131,28 @@ final class EngineServiceReconcilerTests: XCTestCase {
         let body = reconcile[1].components(separatedBy: "// MARK:")[0]
         XCTAssertTrue(body.contains("case .leaveToOnboarding, .healthy:\n            break"),
                       "um serviço saudável tem de sair sem ação: register() faz unregister antes e reiniciaria o engine, matando as panes que isto existe para proteger")
-        // BOTH writing branches consult the second witness, not just the one
-        // the review happened to look at. Counting is the assertion: a third
-        // writing branch added later without the check fails here.
-        XCTAssertEqual(body.components(separatedBy: "liveEngineProcessExists").count - 1, 2,
-                       "os dois ramos que escrevem (.register e .startStoppedService) têm de consultar a segunda testemunha")
+        // Every branch that WRITES consults the second witness — and the thing
+        // measured has to be the WRITE, not the consultation.
+        //
+        // The first version of this guard counted occurrences of the witness
+        // and asserted 2. That counts the wrong side: a branch that writes
+        // WITHOUT consulting leaves the count at 2 and passes silently, which
+        // is precisely the case the guard exists for. Found in review (cassia,
+        // PR #36) — the assertion claimed more than it measured, which is the
+        // same defect class as a comment claiming a property the code lacks.
+        //
+        // So: enumerate the branches, find the ones that write, and require
+        // the consultation of each. A report-only branch that later grows a
+        // write is caught even though nobody adds a new decision case.
+        let branches = body.components(separatedBy: "\n        case ").dropFirst()
+        let writes = ["service.register()", "try register()", "startWithoutRestarting()"]
+        let writingBranches = branches.filter { branch in writes.contains { branch.contains($0) } }
+        XCTAssertEqual(writingBranches.count, 2,
+                       "o arranque tem exatamente dois ramos que escrevem; um terceiro obriga a reavaliar esta guarda em vez de a herdar em silêncio")
+        for branch in writingBranches {
+            XCTAssertTrue(branch.contains("liveEngineProcessExists"),
+                          "o ramo '\(branch.prefix(28).trimmingCharacters(in: .whitespacesAndNewlines))' escreve sem consultar a segunda testemunha")
+        }
         XCTAssertTrue(body.contains("guard !liveEngineProcessExists else {"),
                       "o ramo .register tem de recusar com um engine deste perfil vivo")
         XCTAssertTrue(body.contains("} else if liveEngineProcessExists {"),
