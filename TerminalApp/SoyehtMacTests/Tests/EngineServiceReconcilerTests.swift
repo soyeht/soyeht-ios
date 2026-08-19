@@ -171,13 +171,21 @@ final class EngineServiceReconcilerTests: XCTestCase {
                 // direction — one statement across several lines — already
                 // fails closed, because the continuation lines match nothing.)
                 // Counted OUTSIDE string literals only: the real log messages
-                // contain a semicolon in their prose ("...unclaimed by
+                // carry a semicolon in their prose ("...unclaimed by
                 // SMAppService; left running"), and a separator inside a
                 // literal separates nothing. Splitting on the quote and keeping
-                // the even segments is the whole of it. An escaped quote would
-                // flip the parity and make this fail — the safe direction, and
-                // there are none here.
-                let outsideLiterals = code.components(separatedBy: "\"")
+                // the even segments is the whole of it.
+                //
+                // The escaped quote is neutralised FIRST, and an earlier version
+                // of this comment got that exactly backwards: it claimed an
+                // escaped quote would flip the parity and make the guard fail,
+                // "the safe direction". cassia measured the opposite —
+                // `reconcileLog.error("x\""); try? unregister()` puts the REAL
+                // semicolon in an odd segment, where this never looks. Masked,
+                // not detected. Parity is a hypothesis about the text, so it is
+                // made true here rather than assumed and described wrongly.
+                let deEscaped = code.replacingOccurrences(of: "\\\"", with: "··")
+                let outsideLiterals = deEscaped.components(separatedBy: "\"")
                     .enumerated().filter { $0.offset.isMultiple(of: 2) }
                     .map(\.element).joined()
                 XCTAssertFalse(outsideLiterals.contains(";"),
