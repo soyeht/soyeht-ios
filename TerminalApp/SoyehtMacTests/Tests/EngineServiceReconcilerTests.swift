@@ -131,27 +131,42 @@ final class EngineServiceReconcilerTests: XCTestCase {
         let body = reconcile[1].components(separatedBy: "// MARK:")[0]
         XCTAssertTrue(body.contains("case .leaveToOnboarding, .healthy:\n            break"),
                       "um serviço saudável tem de sair sem ação: register() faz unregister antes e reiniciaria o engine, matando as panes que isto existe para proteger")
-        // Every branch that WRITES consults the second witness — and the thing
-        // measured has to be the WRITE, not the consultation.
+        // INVERTED, and the inversion is the point.
         //
-        // The first version of this guard counted occurrences of the witness
-        // and asserted 2. That counts the wrong side: a branch that writes
-        // WITHOUT consulting leaves the count at 2 and passes silently, which
-        // is precisely the case the guard exists for. Found in review (cassia,
-        // PR #36) — the assertion claimed more than it measured, which is the
-        // same defect class as a comment claiming a property the code lacks.
+        // v1 counted consultations — blind to a branch that writes without
+        // consulting. v2 listed the dangerous calls and demanded a
+        // consultation beside them. cassia then MEASURED two escapes from v2:
+        // `try? register()` (same write, swallowed error, not in the list) and
+        // `unregister(`, which was never listed at all despite being the most
+        // destructive write in the file. Two strings would close those two.
         //
-        // So: enumerate the branches, find the ones that write, and require
-        // the consultation of each. A report-only branch that later grows a
-        // write is caught even though nobody adds a new decision case.
+        // But a list of dangerous spellings is a lexer modelled by hand, and it
+        // loses to the next spelling — the third escape is only a matter of who
+        // writes the next line. So there is no list. A branch either consults
+        // the witness, or it may contain NOTHING but logging and control flow.
+        // Any statement that is not one of those fails, whatever it is called,
+        // whether or not anyone anticipated it.
         let branches = body.components(separatedBy: "\n        case ").dropFirst()
-        let writes = ["service.register()", "try register()", "startWithoutRestarting()"]
-        let writingBranches = branches.filter { branch in writes.contains { branch.contains($0) } }
-        XCTAssertEqual(writingBranches.count, 2,
-                       "o arranque tem exatamente dois ramos que escrevem; um terceiro obriga a reavaliar esta guarda em vez de a herdar em silêncio")
-        for branch in writingBranches {
-            XCTAssertTrue(branch.contains("liveEngineProcessExists"),
-                          "o ramo '\(branch.prefix(28).trimmingCharacters(in: .whitespacesAndNewlines))' escreve sem consultar a segunda testemunha")
+        let consulting = branches.filter { $0.contains("liveEngineProcessExists") }
+        XCTAssertEqual(consulting.count, 2,
+                       "exatamente dois ramos consultam a testemunha; um terceiro obriga a reavaliar esta guarda em vez de a herdar em silêncio")
+        for branch in branches where !branch.contains("liveEngineProcessExists") {
+            // `dropFirst` discards the case label itself: the split consumed
+            // "case ", so the head of every chunk is the label, not a statement.
+            for line in branch.split(separator: "\n").dropFirst() {
+                let code = line.trimmingCharacters(in: .whitespaces)
+                guard !code.isEmpty, !code.hasPrefix("//") else { continue }
+                // A deliberately NARROW allowlist. Unrecognised content fails
+                // closed: a multi-line log or a reformat trips this and forces
+                // someone to look, which is the correct outcome for a guard
+                // that decides whether destruction is reachable.
+                let benign = code.hasPrefix("reconcileLog.")
+                    || code == "break"
+                    || code == "}"
+                    || code == "return decision"
+                XCTAssertTrue(benign,
+                              "um ramo que não consulta a segunda testemunha só pode registar e sair; encontrei '\(code.prefix(60))'")
+            }
         }
         XCTAssertTrue(body.contains("guard !liveEngineProcessExists else {"),
                       "o ramo .register tem de recusar com um engine deste perfil vivo")
