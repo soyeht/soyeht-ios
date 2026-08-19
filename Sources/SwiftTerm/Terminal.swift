@@ -626,9 +626,20 @@ open class Terminal {
     
     public private(set) var mouseMode: MouseMode = .off {
         didSet {
+            // A new application turning tracking on must see the first motion
+            // report, even if the pointer never left the cell the previous
+            // application last saw.
+            lastMouseReport = nil
             tdel?.mouseModeChanged (source: self)
         }
     }
+
+    /// Cell and pixel position of the last mouse report handed to the application.
+    ///
+    /// xterm only reports motion when the pointer enters a *different* character
+    /// cell (a different pixel under the SGR-Pixels protocol).  Without this,
+    /// sub-cell pointer jitter floods the child with duplicate reports.
+    var lastMouseReport: (cell: Position, pixel: Position)? = nil
 
     // The next four variables determine whether setting/querying should be done using utf8 or latin1
     // and whether the values should be set or queried using hex digits, rather than actual byte streams
@@ -5605,6 +5616,7 @@ open class Terminal {
     public func sendEvent (buttonFlags: Int, x: Int, y: Int, pixelX: Int, pixelY: Int)
     {
         //print ("got \(mouseProtocol)")
+        lastMouseReport = (cell: Position (col: x, row: y), pixel: Position (col: pixelX, row: pixelY))
         switch mouseProtocol {
         case .x10:
             sendResponse(cc.CSI, "M", [UInt8(buttonFlags+32), min (UInt8(255), UInt8(32 + x+1)), min (UInt8(255), UInt8(32+y+1))])
@@ -5615,7 +5627,6 @@ open class Terminal {
         case .sgrPixel:
             let bflags : Int = ((buttonFlags & 3) == 3) ? (buttonFlags & ~3) : buttonFlags
             let m = ((buttonFlags & 3) == 3) ? "m" : "M"
-            print ("\(pixelX);\(pixelY)")
             sendResponse(cc.CSI, "<\(bflags);\(pixelX);\(pixelY)\(m)")
             
         case .urxvt:
@@ -5637,7 +5648,28 @@ open class Terminal {
      */
     public func sendMotion (buttonFlags: Int, x: Int, y: Int, pixelX: Int, pixelY: Int)
     {
+        if !shouldReportMotion (x: x, y: y, pixelX: pixelX, pixelY: pixelY) {
+            return
+        }
         sendEvent(buttonFlags: buttonFlags+32, x: x, y: y, pixelX: pixelX, pixelY: pixelY)
+    }
+
+    /// Motion is only reported when the pointer enters a different character cell,
+    /// matching xterm's "Cell Motion" (1002) and "All Motion" (1003) tracking.  Under
+    /// the SGR-Pixels protocol (1016) the application asked for pixel resolution, so
+    /// the comparison is made on pixels instead.
+    ///
+    /// Reporting every host motion event instead would emit dozens of identical
+    /// reports per second while the pointer sits still inside one cell, and any of
+    /// them that lands in the tty after the application stopped reading is echoed as
+    /// junk on the next shell prompt.
+    func shouldReportMotion (x: Int, y: Int, pixelX: Int, pixelY: Int) -> Bool
+    {
+        guard let last = lastMouseReport else { return true }
+        if mouseProtocol == .sgrPixel {
+            return last.pixel != Position (col: pixelX, row: pixelY)
+        }
+        return last.cell != Position (col: x, row: y)
     }
     
     static var matchColorCache : [Int:Int] = [:]
