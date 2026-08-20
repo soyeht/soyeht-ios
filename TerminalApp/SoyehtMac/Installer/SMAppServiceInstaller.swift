@@ -47,12 +47,13 @@ enum SMAppServiceInstaller {
     static func reconcileAtLaunch(isSetUp: Bool) -> EngineServiceReconciler.Decision {
         let state = currentState
         let loaded = isJobLoaded
-        let decision = EngineServiceReconciler.decide(isSetUp: isSetUp, state: state, isLoaded: loaded)
+        let decision = EngineServiceReconciler.decide(isSetUp: isSetUp, state: state, isLoaded: loaded,
+                                                      bundledPlistExists: bundledLaunchAgentExists)
         // Log EVERY decision, including the ones that do nothing. A reconciler
         // that is silent when it acts correctly and silent when it never ran
         // cannot be diagnosed from a log — measured the hard way when this
         // failed to fire and the absence of a line meant three things at once.
-        reconcileLog.notice("engine LaunchAgent reconcile: setUp=\(isSetUp, privacy: .public) state=\(String(describing: state), privacy: .public) loaded=\(loaded, privacy: .public) decision=\(String(describing: decision), privacy: .public)")
+        reconcileLog.notice("engine LaunchAgent reconcile: setUp=\(isSetUp, privacy: .public) state=\(String(describing: state), privacy: .public) loaded=\(loaded, privacy: .public) decision=\(String(describing: decision), privacy: .public) bundledPlist=\(bundledLaunchAgentExists, privacy: .public)")
         switch decision {
         case .leaveToOnboarding, .healthy:
             break
