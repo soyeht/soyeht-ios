@@ -117,4 +117,68 @@ final class LocalEngineContextTests: XCTestCase {
         XCTAssertEqual(context?.server.kind, .engine)
         XCTAssertEqual(context?.server.id, "self-tailnet")
     }
+    // MARK: - "Nothing answered yet" is not "there is nothing"
+    //
+    // MEASURED on a cold boot, 2026-08-20. The app started at 11:27:08 and
+    // asked for the engine at 11:27:14; launchd started the engine at 11:27:45
+    // — 31 seconds later. `resolve()` could only answer `nil`, the caller read
+    // that as permanent, and every restored pane fell back to an in-process
+    // PTY and stayed fragile for the whole session. The retry machinery
+    // downstream was already correct; it was never armed.
+
+    /// The exact error a cold boot produces: nothing is listening yet.
+    func testAnEngineThatIsNotListeningYetIsWorthWaitingFor() async {
+        let store = makeIsolatedSessionStore()
+        let notListening = NSError(domain: NSURLErrorDomain, code: -1004,
+                                   userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."])
+        let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw notListening }
+        guard case .engineNotAnsweringYet = resolution else {
+            return XCTFail("um engine que ainda não está a escutar tem de valer a pena esperar; veio \(resolution)")
+        }
+    }
+
+    /// Every code that means "nothing answered", not just the measured one.
+    func testEveryNotAnsweringCodeIsWorthWaitingFor() async {
+        for code in LocalEngineContext.notAnsweringURLErrorCodes {
+            let store = makeIsolatedSessionStore()
+            let error = NSError(domain: NSURLErrorDomain, code: code)
+            let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw error }
+            guard case .engineNotAnsweringYet = resolution else {
+                return XCTFail("código \(code) devia valer a pena esperar; veio \(resolution)")
+            }
+        }
+    }
+
+    /// And a refusal is still a refusal: the engine answered, so waiting
+    /// changes nothing. Without this the fix would turn every permanent
+    /// failure into a 35-second stall before the same fallback.
+    func testAnEngineThatAnswersAndRefusesIsNotWaitedFor() async {
+        let store = makeIsolatedSessionStore()
+        // 401: answered, rejected. Not a transport failure.
+        let refused = NSError(domain: NSURLErrorDomain, code: 401)
+        let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw refused }
+        guard case .unavailable = resolution else {
+            return XCTFail("uma recusa não se resolve esperando; veio \(resolution)")
+        }
+    }
+
+    /// The retry budget has to cover what was actually measured. A budget that
+    /// expires before the engine exists classifies correctly and still loses
+    /// the pane — which is the state this whole fix exists to leave behind.
+    func testTheRetryBudgetCoversAColdBoot() throws {
+        let file = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("SoyehtMac/PaneGrid/PaneViewController.swift")
+        let source = try String(contentsOf: file, encoding: .utf8)
+        let parts = source.components(separatedBy: "restoreRetryDelaysNanoseconds: [UInt64] = [")
+        XCTAssertEqual(parts.count, 2, "a declaração do orçamento mudou de forma")
+        let literal = parts[1].components(separatedBy: "]")[0]
+        let total = literal.components(separatedBy: ",")
+            .compactMap { UInt64($0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "_", with: "")) }
+            .reduce(0, +)
+        let seconds = Double(total) / 1_000_000_000
+        XCTAssertGreaterThanOrEqual(seconds, 31,
+                                    "o orçamento é \(seconds)s; o arranque a frio medido demorou 31s a ter engine")
+    }
+
 }

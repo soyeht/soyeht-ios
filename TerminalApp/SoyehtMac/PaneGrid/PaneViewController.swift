@@ -805,7 +805,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// blip shouldn't permanently downgrade the pane. First-attach (A1)
     /// doesn't retry: a brand-new pane was never expected to already have
     /// a live session, so there's nothing worth waiting to confirm.
-    private static let restoreRetryDelaysNanoseconds: [UInt64] = [500_000_000, 1_000_000_000, 2_000_000_000]
+    /// MEASURED on a cold boot, 2026-08-20: the engine came up **31 seconds**
+    /// after the app asked for it. The previous budget was 0.5s + 1s + 2s —
+    /// three and a half seconds — so even a correctly classified transient
+    /// failure would have exhausted its retries long before the engine
+    /// existed, and the pane would still have ended up in-process and fragile
+    /// for the whole session.
+    ///
+    /// 35.5s across seven attempts covers that with margin. The cost is a
+    /// restored pane that is not interactive for as long as it takes; the
+    /// alternative is one that works instantly and can never survive a quit.
+    /// On a warm launch the first attempt succeeds and none of this runs.
+    private static let restoreRetryDelaysNanoseconds: [UInt64] = [
+        500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000,
+        8_000_000_000, 10_000_000_000, 10_000_000_000,
+    ]
 
     /// `.engineLocal` survives undo/relaunch in the model exactly like
     /// `.native` does, but the WebSocket attachment does not. Mirrors
