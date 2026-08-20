@@ -1,4 +1,5 @@
 import XCTest
+import SoyehtCore
 @testable import SoyehtMacDomain
 
 final class TheyOSUninstallPlanTests: XCTestCase {
@@ -173,7 +174,10 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         args = ["run"]
         """
 
-        let output = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: input)
+        let output = SoyehtMCPConfigCleaner.removingCodexBlocks(
+            from: input,
+            keys: SoyehtInstallProfile.allMCPConfigKeys
+        )
 
         XCTAssertFalse(output.contains("[mcp_servers.soyeht]"))
         XCTAssertFalse(output.contains("[mcp_servers.soyeht.tools.shell]"))
@@ -191,6 +195,12 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         args = []
         """
 
-        XCTAssertEqual(SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: input), input)
+        XCTAssertEqual(
+            SoyehtMCPConfigCleaner.removingCodexBlocks(
+                from: input,
+                keys: SoyehtInstallProfile.allMCPConfigKeys
+            ),
+            input
+        )
     }
 }

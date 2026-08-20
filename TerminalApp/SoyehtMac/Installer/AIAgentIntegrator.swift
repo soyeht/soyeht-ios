@@ -1,11 +1,12 @@
 import Foundation
+import SoyehtCore
 
 /// Wires the Soyeht MCP server into the user-installed AI agent CLIs
 /// (Claude Code, Codex, OpenCode, Droid). Apple-grade install path: the
 /// user picks which agents during onboarding and the integrator writes the
 /// MCP entry into each agent's config plus the global launcher in
 /// `~/.local/bin` — no terminal commands required from the user. The exact
-/// launcher name depends on the build; see `MCPLauncherIdentity`.
+/// launcher name depends on the build; see `SoyehtInstallProfile`.
 enum AIAgentIntegrator {
 
     enum Agent: String, CaseIterable, Identifiable, Hashable {
@@ -102,15 +103,16 @@ enum AIAgentIntegrator {
     /// setting: the release bundle is `com.soyeht.mac`, the development bundle
     /// is `com.soyeht.mac.dev`.
     /// Release and development builds own separate MCP launchers; see
-    /// `MCPLauncherIdentity` for why that separation is load-bearing.
-    static var launcherKey: String { MCPLauncherIdentity.current.configKey }
+    /// `SoyehtInstallProfile.mcpLauncherFilename` for why that separation is
+    /// load-bearing.
+    static var launcherKey: String { SoyehtInstallProfile.current.mcpConfigKey }
 
     static var launcherURL: URL {
         FileManager.default
             .homeDirectoryForCurrentUser
             .appendingPathComponent(".local", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
-            .appendingPathComponent(MCPLauncherIdentity.current.launcherFilename)
+            .appendingPathComponent(SoyehtInstallProfile.current.mcpLauncherFilename)
     }
 
     // MARK: - Detection
@@ -175,7 +177,7 @@ enum AIAgentIntegrator {
     // MARK: - Install
 
     /// Copies the bundled MCP server script into the launcher this build
-    /// owns under `~/.local/bin` (see `MCPLauncherIdentity`)
+    /// owns under `~/.local/bin` (see `SoyehtInstallProfile`)
     /// and writes the MCP entry into each selected agent's config. The
     /// launcher always reinstalls (idempotent), and each config write
     /// preserves existing entries — the only key Soyeht owns is its own.
@@ -322,8 +324,13 @@ enum AIAgentIntegrator {
         approval_mode = "approve"
         """
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-        let stripped = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: existing)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // Only this build's own key. Passing every key here would make the
+        // development build delete the release build's server entry on each
+        // agent switch — the interference this namespacing exists to prevent.
+        let stripped = SoyehtMCPConfigCleaner.removingCodexBlocks(
+            from: existing,
+            keys: [launcherKey]
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
         let combined: String
         if stripped.isEmpty {
             combined = block + "\n"

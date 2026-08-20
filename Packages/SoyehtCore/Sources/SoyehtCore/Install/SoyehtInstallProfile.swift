@@ -65,6 +65,19 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
     /// Engine stdout/stderr log path (LaunchAgent `StandardOutPath`).
     public let engineLogPath: String
 
+    /// The MCP launcher this build installs into `~/.local/bin`. The two
+    /// builds must never share it: a shared name means whichever app installed
+    /// last silently repoints every one of the person's agents at that bundle,
+    /// and a development build is rebuilt and relaunched all day, so each
+    /// relaunch kills the stdio server their real agents are talking to.
+    public let mcpLauncherFilename: String
+
+    /// The server name this build claims inside each agent's configuration.
+    /// Separate for the same reason as `mcpLauncherFilename` — and separately
+    /// necessary, because a shared key overwrites the person's entry even when
+    /// the launcher paths already differ.
+    public let mcpConfigKey: String
+
     /// `localhost:<adminPort>` — matches the engine's `ADMIN_PORT`.
     public var adminHost: String { "localhost:\(adminPort)" }
 
@@ -98,7 +111,9 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
         householdOwnerKeyPrefix: "com.soyeht.household.owner",
         adminPort: 8892,
         bootstrapPort: 8091,
-        engineLogPath: "/tmp/soyeht-engine.log"
+        engineLogPath: "/tmp/soyeht-engine.log",
+        mcpLauncherFilename: "soyeht-mcp",
+        mcpConfigKey: "soyeht"
     )
 
     /// The developer build (`Soyeht Dev.app`, `com.soyeht.mac.dev`). A fully
@@ -117,7 +132,9 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
         householdOwnerKeyPrefix: "com.soyeht.household.dev.owner",
         adminPort: 8902,
         bootstrapPort: 8101,
-        engineLogPath: "/tmp/soyehtdev-engine.log"
+        engineLogPath: "/tmp/soyehtdev-engine.log",
+        mcpLauncherFilename: "soyeht-dev-mcp",
+        mcpConfigKey: "soyeht-dev"
     )
 
     // MARK: - Resolution
@@ -159,6 +176,23 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
             engineLogPath,
             adminHost,
             bootstrapHost,
+            mcpLauncherFilename,
+            mcpConfigKey,
         ]
+    }
+
+    /// Every MCP launcher filename the product has ever owned, across builds.
+    /// A teardown removes all of them, so uninstalling from either bundle
+    /// leaves no orphan and never deletes only the other bundle's launcher.
+    public static var allMCPLauncherFilenames: [String] {
+        [release, dev].map(\.mcpLauncherFilename)
+    }
+
+    /// Every MCP config key the product has ever owned, across builds. Use this
+    /// for teardown only. An *install* must remove just its own key: stripping
+    /// both would delete the other build's entry from the person's config,
+    /// which is the very interference this namespacing exists to prevent.
+    public static var allMCPConfigKeys: [String] {
+        [release, dev].map(\.mcpConfigKey)
     }
 }

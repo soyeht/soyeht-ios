@@ -1,1 +1,0 @@
-../../../SoyehtMac/Installer/MCPLauncherIdentity.swift
