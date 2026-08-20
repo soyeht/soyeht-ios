@@ -167,6 +167,14 @@ final class EngineServiceReconcilerTests: XCTestCase {
         guard let reconcileAt = launchBody.range(of: "SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)") else {
             return XCTFail("o arranque tem de reconciliar o LaunchAgent")
         }
+        // The outcome has to REACH someone. A reconciler that decides correctly
+        // and tells only the log is the state this whole feature was in while
+        // the owner's Mac reported a missing engine on every launch for weeks.
+        XCTAssertTrue(launchBody.contains("let attention = SMAppServiceInstaller.reconcileAtLaunch"),
+                      "o desfecho da reconciliação tem de ser CAPTURADO; descartá-lo devolve-nos ao estado em que só o log sabia")
+        XCTAssertTrue(launchBody.contains("EngineRepairWindowController.present(attention)"),
+                      "o desfecho tem de ser apresentado à pessoa, não só registado")
+
         for opener in ["restoreMainWindowsOrOpenDefault()", "openWelcomeWindow()"] {
             guard let openAt = launchBody.range(of: opener) else {
                 return XCTFail("\(opener) desapareceu do arranque — o teste ficou a medir outra coisa")
@@ -260,7 +268,7 @@ final class EngineServiceReconcilerTests: XCTestCase {
                 let benign = code.hasPrefix("reconcileLog.")
                     || code == "break"
                     || code == "}"
-                    || code == "return decision"
+                    || code == "return attention"
                 XCTAssertTrue(benign,
                               "um ramo que não consulta a segunda testemunha só pode registar e sair; encontrei '\(code.prefix(60))'")
 
@@ -359,6 +367,63 @@ final class EngineServiceReconcilerTests: XCTestCase {
             probeRan: true, exitStatus: 0,
             output: "/sbin/launchd\n/usr/sbin/cupsd\n/Applications/Other.app/Contents/MacOS/Other",
             ownsEngineCommand: Self.owns))
+    }
+
+    // MARK: - The person is told, not just the log
+    //
+    // The reconciler wrote every bad outcome to the log and stopped there.
+    // Measured on the owner's machine: it reported a missing engine on every
+    // launch for weeks, and the person found out by losing sessions. A log is
+    // where a developer looks AFTER being told; it is not how someone learns.
+
+    /// Every decision states which side it is on. A case added later cannot
+    /// default to silence just by nobody thinking about it.
+    func testEveryDecisionDeclaresWhetherThePersonMustBeTold() {
+        let expected: [EngineServiceReconciler.Decision: EngineServiceReconciler.Attention?] = [
+            .leaveToOnboarding: nil,
+            .healthy: nil,
+            .register: nil,
+            .startStoppedService: nil,
+            .adoptLoadedService: nil,
+            .reportApprovalNeeded: .approvalNeeded,
+            .reportMissingFromBundle: .missingFromBundle,
+        ]
+        // Reached through `decide`, so the map cannot drift from what launch
+        // can actually produce.
+        var produced = Set<EngineServiceReconciler.Decision>()
+        for setUp in [true, false] {
+            for state in [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown] {
+                for loaded in [true, false] {
+                    for plist in [true, false] {
+                        produced.insert(EngineServiceReconciler.decide(
+                            isSetUp: setUp, state: state, isLoaded: loaded, bundledPlistExists: plist))
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(produced, Set(expected.keys),
+                       "o conjunto de decisões alcançáveis mudou; esta tabela tem de ser reavaliada")
+        for (decision, want) in expected {
+            XCTAssertEqual(EngineServiceReconciler.attention(for: decision), want,
+                           "decisão \(decision)")
+        }
+    }
+
+    /// Both reporting decisions must reach the person. They are the only two
+    /// that end launch with the engine unrepaired and nothing else happening.
+    func testEveryReportingDecisionReachesThePerson() {
+        for decision in [EngineServiceReconciler.Decision.reportApprovalNeeded, .reportMissingFromBundle] {
+            XCTAssertNotNil(EngineServiceReconciler.attention(for: decision),
+                            "\(decision) termina o arranque sem reparar e sem dizer nada a ninguém")
+        }
+    }
+
+    /// And a healthy or self-repairing launch never interrupts anyone.
+    func testASuccessfulLaunchNeverInterrupts() {
+        for decision in [EngineServiceReconciler.Decision.healthy, .leaveToOnboarding,
+                         .register, .startStoppedService, .adoptLoadedService] {
+            XCTAssertNil(EngineServiceReconciler.attention(for: decision), "\(decision)")
+        }
     }
 
     // MARK: - The two builds must never claim each other's job

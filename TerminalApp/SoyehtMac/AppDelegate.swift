@@ -362,10 +362,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // app, so a missing job turns every future session into something an
         // update destroys. Same `isSetUp` signal that chooses the window below,
         // so the two cannot disagree about which phase the app is in.
-        SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
+        let attention = SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
 
         if isSetUp {
             restoreMainWindowsOrOpenDefault()
+            // Shown AFTER the windows, so it lands on top of the work rather
+            // than in front of an empty screen. Reconciliation still ran first:
+            // a pane created before the broker exists is born in-process and
+            // cannot be migrated afterwards.
+            //
+            // Before this, every one of these outcomes went to the unified log
+            // and nowhere else — which is how the owner's Mac reported a
+            // missing engine on every launch for weeks while he found out by
+            // losing sessions.
+            EngineRepairWindowController.present(attention) {
+                SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
+            }
             return
         }
 

@@ -43,8 +43,13 @@ enum SMAppServiceInstaller {
     /// restarts the engine and would kill the very PTYs this exists to
     /// protect. Launch may create a missing job; it may never recycle a
     /// healthy one.
+    /// - Returns: what the person has to be told, or `nil` when launch left the
+    ///   engine in a state that protects their terminals. Returning it instead
+    ///   of only logging is the difference between a diagnosis and a fix: the
+    ///   log said "engine LaunchAgent plist missing from bundle" on every launch
+    ///   for weeks, and the person found out by losing sessions.
     @discardableResult
-    static func reconcileAtLaunch(isSetUp: Bool) -> EngineServiceReconciler.Decision {
+    static func reconcileAtLaunch(isSetUp: Bool) -> EngineServiceReconciler.Attention? {
         let state = currentState
         let loaded = isJobLoaded
         let decision = EngineServiceReconciler.decide(isSetUp: isSetUp, state: state, isLoaded: loaded,
@@ -54,6 +59,7 @@ enum SMAppServiceInstaller {
         // cannot be diagnosed from a log — measured the hard way when this
         // failed to fire and the absence of a line meant three things at once.
         reconcileLog.notice("engine LaunchAgent reconcile: setUp=\(isSetUp, privacy: .public) state=\(String(describing: state), privacy: .public) loaded=\(loaded, privacy: .public) decision=\(String(describing: decision), privacy: .public) bundledPlist=\(bundledLaunchAgentExists, privacy: .public)")
+        var attention = EngineServiceReconciler.attention(for: decision)
         switch decision {
         case .leaveToOnboarding, .healthy:
             break
@@ -66,6 +72,7 @@ enum SMAppServiceInstaller {
             // alive, whichever branch is asking.
             guard !liveEngineProcessExists else {
                 reconcileLog.error("engine LaunchAgent reads as unregistered but a live engine process of this profile exists; refusing to register: \(launchdLabel, privacy: .public)")
+                attention = .repairFailed
                 break
             }
             let service = SMAppService.agent(plistName: plistName)
@@ -81,6 +88,7 @@ enum SMAppServiceInstaller {
                 reconcileLog.notice("engine LaunchAgent registered at launch: \(launchdLabel, privacy: .public)")
             } catch {
                 reconcileLog.error("engine LaunchAgent registration failed: \(String(describing: error), privacy: .public)")
+                attention = .repairFailed
             }
         case .startStoppedService:
             // `kickstart` only reaches a job launchd already has; a booted-out
@@ -99,12 +107,14 @@ enum SMAppServiceInstaller {
                 // point of this branch's safety is "there is no live engine to
                 // lose", and that premise is exactly what just failed.
                 reconcileLog.error("engine LaunchAgent is not loaded but a live engine process of this profile exists; refusing to re-bootstrap: \(launchdLabel, privacy: .public)")
+                attention = .repairFailed
             } else {
                 do {
                     try register()
                     reconcileLog.notice("engine LaunchAgent re-bootstrapped: \(launchdLabel, privacy: .public)")
                 } catch {
                     reconcileLog.error("engine LaunchAgent re-bootstrap failed: \(String(describing: error), privacy: .public)")
+                    attention = .repairFailed
                 }
             }
         case .adoptLoadedService:
@@ -114,7 +124,7 @@ enum SMAppServiceInstaller {
         case .reportMissingFromBundle:
             reconcileLog.error("engine LaunchAgent plist missing from bundle: \(plistName, privacy: .public)")
         }
-        return decision
+        return attention
     }
 
     // MARK: - API
