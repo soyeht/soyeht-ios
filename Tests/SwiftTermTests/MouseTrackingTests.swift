@@ -43,11 +43,9 @@ final class SwiftTermMouseTracking {
     // MARK: - Motion is reported per cell, not per host event
 
     // A note on the expected literals below.  A no-button hover carries flags
-    // 3 (no button) + 32 (motion), and SwiftTerm's SGR branch rewrites that
-    // low-bit pattern into a *release*: `CSI < 48 ; col ; row m` rather than
-    // xterm's `CSI < 51 ; col ; row M`.  That predates this filter and these
-    // tests only pin it incidentally - they are about how *many* reports are
-    // emitted, not about that encoding.
+    // 3 (no button) + 32 (motion), and with Control held that is 51.  These
+    // tests are about how *many* reports are emitted; the encoding itself is
+    // pinned by `SwiftTermSgrMouseEncoding`.
 
     @Test func motionInsideTheSameCellIsReportedOnce() {
         let (terminal, delegate) = makeTerminal()
@@ -62,10 +60,10 @@ final class SwiftTermMouseTracking {
             terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 300, pixelY: 200)
         }
 
-        // One report, and it is the `ESC [ < 48 ; 30 ; 20 m` whose tail bash
-        // echoes as `48;30;20m` when it lands on the prompt after the
-        // application that asked for tracking is already gone.
-        #expect(delegate.text == "\u{1b}[<48;30;20m")
+        // One report: `ESC [ < 51 ; 30 ; 20 M`, whose tail bash echoes when it
+        // lands on the prompt after the application that asked for tracking is
+        // already gone.
+        #expect(delegate.text == "\u{1b}[<51;30;20M")
     }
 
     @Test func motionIntoADifferentCellIsReported() {
@@ -77,7 +75,7 @@ final class SwiftTermMouseTracking {
         terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 305, pixelY: 201)
         terminal.sendMotion(buttonFlags: 19, x: 30, y: 19, pixelX: 310, pixelY: 201)
 
-        #expect(delegate.text == "\u{1b}[<48;30;20m\u{1b}[<48;31;20m")
+        #expect(delegate.text == "\u{1b}[<51;30;20M\u{1b}[<51;31;20M")
     }
 
     @Test func buttonEventsAreNeverSuppressed() {
@@ -117,7 +115,7 @@ final class SwiftTermMouseTracking {
         terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 300, pixelY: 200)
         terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 302, pixelY: 200)
 
-        #expect(delegate.text == "\u{1b}[<48;300;200m\u{1b}[<48;302;200m")
+        #expect(delegate.text == "\u{1b}[<51;300;200M\u{1b}[<51;302;200M")
     }
 
     @Test func enablingTrackingAgainReportsTheFirstMotion() {
@@ -133,7 +131,7 @@ final class SwiftTermMouseTracking {
 
         terminal.sendMotion(buttonFlags: 19, x: 29, y: 19, pixelX: 300, pixelY: 200)
 
-        #expect(delegate.text == "\u{1b}[<48;30;20m")
+        #expect(delegate.text == "\u{1b}[<51;30;20M")
     }
 
     @Test func trackingOffSilencesTheTerminalEvenOnDirectCalls() {
@@ -176,7 +174,7 @@ final class SwiftTermMouseTracking {
         delegate.reset()
         terminal.sendMotion(buttonFlags: 19, x: 5, y: 5, pixelX: 50, pixelY: 50)
 
-        #expect(delegate.text == "\u{1b}[<48;50;50m")
+        #expect(delegate.text == "\u{1b}[<51;50;50M")
     }
 
     // MARK: - The application teardown sequence really turns tracking off
