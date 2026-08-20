@@ -5608,6 +5608,18 @@ open class Terminal {
         return value
     }
     
+    /// Whether an SGR-encoded report describes a button *release*.
+    ///
+    /// Under SGR encoding (`?1006`/`?1016`) the final byte carries that news -
+    /// `M` for press, `m` for release - so the low button bits are free to mean
+    /// what they say.  Low bits of 3 mean "no button": on a motion report that
+    /// is a hover, which xterm sends as `CSI < 35 ; col ; row M` (35 = 3 + 32,
+    /// plus modifiers), and which applications decode as "moved".  Only a
+    /// report that is *not* motion can be a release.
+    static func isSgrRelease (_ buttonFlags: Int) -> Bool {
+        (buttonFlags & 32) == 0 && (buttonFlags & 3) == 3
+    }
+
     public func sendEvent (buttonFlags: Int, x: Int, y: Int) {
       sendEvent(buttonFlags: buttonFlags, x: x, y: y, pixelX: x, pixelY: y, hasPixels: false)
     }
@@ -5643,12 +5655,14 @@ open class Terminal {
         case .x10:
             sendResponse(cc.CSI, "M", [UInt8(buttonFlags+32), min (UInt8(255), UInt8(32 + x+1)), min (UInt8(255), UInt8(32+y+1))])
         case .sgr:
-            let bflags : Int = ((buttonFlags & 3) == 3) ? (buttonFlags & ~3) : buttonFlags
-            let m = ((buttonFlags & 3) == 3) ? "m" : "M"
+            let release = Terminal.isSgrRelease (buttonFlags)
+            let bflags : Int = release ? (buttonFlags & ~3) : buttonFlags
+            let m = release ? "m" : "M"
             sendResponse(cc.CSI, "<\(bflags);\(x+1);\(y+1)\(m)")
         case .sgrPixel:
-            let bflags : Int = ((buttonFlags & 3) == 3) ? (buttonFlags & ~3) : buttonFlags
-            let m = ((buttonFlags & 3) == 3) ? "m" : "M"
+            let release = Terminal.isSgrRelease (buttonFlags)
+            let bflags : Int = release ? (buttonFlags & ~3) : buttonFlags
+            let m = release ? "m" : "M"
             sendResponse(cc.CSI, "<\(bflags);\(pixelX);\(pixelY)\(m)")
             
         case .urxvt:
