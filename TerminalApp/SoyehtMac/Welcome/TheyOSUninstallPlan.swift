@@ -186,11 +186,16 @@ enum TheyOSUninstallPlan {
                 prefixes: ["com.soyeht."],
                 displayDirectory: "~/Library/Application\\ Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments"
             ))
-            items.append(contentsOf: matchingDescendants(
-                in: library.appendingPathComponent("Caches/claude-cli-nodejs", isDirectory: true),
-                named: "mcp-logs-soyeht",
-                displayRoot: "~/Library/Caches/claude-cli-nodejs"
-            ))
+            // One log directory per MCP config key, named after it. Derived
+            // from the profile so a teardown started from either build removes
+            // both, and so adding a build variant cannot forget this list.
+            for mcpKey in SoyehtInstallProfile.allMCPConfigKeys {
+                items.append(contentsOf: matchingDescendants(
+                    in: library.appendingPathComponent("Caches/claude-cli-nodejs", isDirectory: true),
+                    named: "mcp-logs-\(mcpKey)",
+                    displayRoot: "~/Library/Caches/claude-cli-nodejs"
+                ))
+            }
             items.append(contentsOf: matchingDescendants(
                 in: library.appendingPathComponent("Caches/Sparkle_generate_appcast", isDirectory: true),
                 named: "Soyeht.app",

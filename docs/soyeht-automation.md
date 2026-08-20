@@ -226,10 +226,16 @@ From this repository:
 scripts/install-soyeht-mcp
 ```
 
-This installs `~/.local/bin/soyeht-mcp`. The launcher uses the current
-checkout's `scripts/soyeht-mcp` when it is started inside a Soyeht git
-checkout or worktree, and falls back to the main checkout for this clone
-otherwise.
+This installs `~/.local/bin/soyeht-dev-mcp` and prints the MCP server name to
+configure: `soyeht-dev`. Running the server from a checkout is a development
+setup, so it claims the development identity rather than the release one —
+otherwise it would repoint every agent, including ones talking to the shipping
+app, at working-tree code. Set `SOYEHT_MCP_IDENTITY=release` to install
+`~/.local/bin/soyeht-mcp` under the `soyeht` name instead.
+
+The launcher uses the current checkout's `scripts/soyeht-mcp` when it is
+started inside a Soyeht git checkout or worktree, and falls back to the main
+checkout for this clone otherwise.
 
 Do not pin `SOYEHT_AUTOMATION_DIR` in a global agent MCP configuration.
 Soyeht exports the correct profile directory to every pane, and the launcher

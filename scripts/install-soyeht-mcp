@@ -9,7 +9,28 @@ else
   source_mcp="$repo_root/scripts/soyeht-mcp"
 fi
 install_dir="${SOYEHT_MCP_BIN_DIR:-$HOME/.local/bin}"
-launcher="$install_dir/soyeht-mcp"
+
+# Which build's MCP identity this launcher claims. Running the server from a
+# git checkout is a development activity, so `dev` is the default: writing the
+# release launcher from here would repoint every one of the person's agents at
+# working-tree code — the same cross-build capture the app itself no longer
+# does. Set SOYEHT_MCP_IDENTITY=release to deliberately own the release name.
+identity="${SOYEHT_MCP_IDENTITY:-dev}"
+case "$identity" in
+  dev)
+    launcher_name="soyeht-dev-mcp"
+    config_key="soyeht-dev"
+    ;;
+  release)
+    launcher_name="soyeht-mcp"
+    config_key="soyeht"
+    ;;
+  *)
+    echo "error: SOYEHT_MCP_IDENTITY must be 'dev' or 'release' (got '$identity')" >&2
+    exit 2
+    ;;
+esac
+launcher="$install_dir/$launcher_name"
 
 if [[ ! -x "$source_mcp" ]]; then
   echo "error: $source_mcp is missing or not executable" >&2
@@ -45,3 +66,4 @@ LAUNCHER
 
 chmod +x "$launcher"
 echo "Installed Soyeht MCP launcher at $launcher"
+echo "Configure your agents with the MCP server name \"$config_key\"."

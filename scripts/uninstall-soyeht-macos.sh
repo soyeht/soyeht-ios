@@ -8,6 +8,20 @@ KEEP_APP=false
 APP_PATHS=()
 FAILURES=()
 
+# Release and development builds own separate MCP launchers and separate log
+# directories (the log directory is named after the MCP config key). A teardown
+# removes both: matching only one leaves an orphan, and the omission is easy to
+# repeat, so both lists are defined once here and reused everywhere below.
+SOYEHT_MCP_LAUNCHERS=(
+    "$HOME/.local/bin/soyeht-mcp"
+    "$HOME/.local/bin/soyeht-dev-mcp"
+)
+# Exact names, never a `mcp-logs-soyeht*` glob: a glob would also claim
+# somebody else's server whose name merely starts with ours.
+SOYEHT_MCP_LOG_DIR_MATCH=(
+    '(' -name mcp-logs-soyeht -o -name mcp-logs-soyeht-dev ')'
+)
+
 usage() {
     cat <<'EOF'
 Usage: scripts/uninstall-soyeht-macos.sh [--yes] [--dry-run] [--keep-app] [--app PATH]
@@ -271,7 +285,7 @@ remove_files() {
         "$HOME/Library/LaunchAgents/com.soyeht.caddy.plist"
         "$HOME/Library/LaunchAgents/com.theyos.cloudflared.plist"
         "$HOME/Library/LaunchAgents/homebrew.mxcl.theyos.plist"
-        "$HOME/.local/bin/soyeht-mcp"
+        "${SOYEHT_MCP_LAUNCHERS[@]}"
         "$HOME/.theyos"
         "/opt/homebrew/opt/theyos"
         "/opt/homebrew/Cellar/theyos"
@@ -311,7 +325,8 @@ remove_files() {
     remove_glob "$HOME/Library/Logs/DiagnosticReports/Soyeht Dev"*
     remove_glob "$HOME/Library/Logs/DiagnosticReports/ExcUserFault_Soyeht"*
     remove_glob "$HOME/Library/Logs/DiagnosticReports/theyos-engine"*
-    remove_find_matches "$HOME/Library/Caches/claude-cli-nodejs" -type d -name mcp-logs-soyeht -prune
+    remove_find_matches "$HOME/Library/Caches/claude-cli-nodejs" -type d \
+        "${SOYEHT_MCP_LOG_DIR_MATCH[@]}" -prune
     remove_find_matches "$HOME/Library/Caches/Sparkle_generate_appcast" -type d -name Soyeht.app -prune
 }
 
@@ -331,7 +346,7 @@ verify_no_residuals() {
         "$HOME/Library/LaunchAgents/com.soyeht.caddy.plist"
         "$HOME/Library/LaunchAgents/com.theyos.cloudflared.plist"
         "$HOME/Library/LaunchAgents/homebrew.mxcl.theyos.plist"
-        "$HOME/.local/bin/soyeht-mcp"
+        "${SOYEHT_MCP_LAUNCHERS[@]}"
         "$HOME/.theyos"
         "/opt/homebrew/opt/theyos"
         "/opt/homebrew/Cellar/theyos"
@@ -351,7 +366,8 @@ verify_no_residuals() {
 
     while IFS= read -r -d '' path; do
         residuals+=("$path")
-    done < <(find "$HOME/Library/Caches/claude-cli-nodejs" -type d -name mcp-logs-soyeht -print0 2>/dev/null || true)
+    done < <(find "$HOME/Library/Caches/claude-cli-nodejs" -type d \
+        "${SOYEHT_MCP_LOG_DIR_MATCH[@]}" -print0 2>/dev/null || true)
     while IFS= read -r -d '' path; do
         residuals+=("$path")
     done < <(find "$HOME/Library/Caches/Sparkle_generate_appcast" -type d -name Soyeht.app -print0 2>/dev/null || true)

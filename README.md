@@ -97,7 +97,9 @@ Install the stable launcher once from this repository:
 scripts/install-soyeht-mcp
 ```
 
-This creates `~/.local/bin/soyeht-mcp` outside any git worktree. When launched from a Soyeht checkout or worktree, it uses that checkout's `scripts/soyeht-mcp`; otherwise it falls back to the main checkout for the clone where you ran the installer.
+This creates `~/.local/bin/soyeht-dev-mcp` outside any git worktree, and tells you to configure your agents with the MCP server name `soyeht-dev`. Running the server from a checkout is a development setup, so it claims the development identity: writing the release launcher from here would repoint every agent — including ones talking to the shipping app — at working-tree code. Set `SOYEHT_MCP_IDENTITY=release` to deliberately install `~/.local/bin/soyeht-mcp` instead.
+
+When launched from a Soyeht checkout or worktree, the launcher uses that checkout's `scripts/soyeht-mcp`; otherwise it falls back to the main checkout for the clone where you ran the installer.
 
 The macOS onboarding does the same setup automatically. It looks for agent CLIs
 through the login shell and common GUI-missing paths such as `~/.local/bin`,
