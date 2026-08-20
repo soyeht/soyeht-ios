@@ -50,7 +50,14 @@ enum TheyOSUninstallPlan {
         }
 
         if includeMCPArtifacts {
-            items.append(item(localBin.appendingPathComponent("soyeht-mcp"), "~/.local/bin/soyeht-mcp"))
+            // Release and development builds own separate launchers. This is a
+            // full teardown of Soyeht — like the preference plists below, it
+            // removes both, so a teardown started from either bundle leaves no
+            // orphan and never deletes only the other bundle's launcher. The
+            // list is derived, so adding a build variant cannot forget one.
+            for filename in MCPLauncherIdentity.allLauncherFilenames {
+                items.append(item(localBin.appendingPathComponent(filename), "~/.local/bin/\(filename)"))
+            }
         }
 
         if includePreferences {
@@ -343,7 +350,12 @@ enum TheyOSUninstallPlan {
 
 enum SoyehtMCPConfigCleaner {
     static func removingSoyehtCodexBlocks(from text: String) -> String {
-        let pattern = #"(?m)^\s*\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?"#
+        // Both the release key (`soyeht`) and the development key
+        // (`soyeht-dev`) — see `MCPLauncherIdentity`. A full teardown removes
+        // both; matching only one leaves the other bundle's block orphaned in
+        // the person's config. The optional `-dev` sits before the optional
+        // sub-table so `[mcp_servers.soyehtfoo]` still does not match.
+        let pattern = #"(?m)^\s*\[mcp_servers\.soyeht(?:-dev)?(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         guard regex.numberOfMatches(in: text, range: range) > 0 else { return text }
