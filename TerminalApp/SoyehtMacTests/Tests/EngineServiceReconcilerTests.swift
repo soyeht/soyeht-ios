@@ -15,7 +15,7 @@ final class EngineServiceReconcilerTests: XCTestCase {
     /// Welcome window for a service the person has not agreed to install.
     func testBeforeOnboardingEveryStateIsLeftToTheInstaller() {
         for state in [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown] {
-            XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: false, state: state, isLoaded: true),
+            XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: false, state: state, isLoaded: true, bundledPlistExists: true),
                            .leaveToOnboarding,
                            "estado \(state) antes do onboarding")
         }
@@ -28,24 +28,24 @@ final class EngineServiceReconcilerTests: XCTestCase {
     /// alone therefore calls a DEAD broker healthy — which is the state that
     /// silently drops every new pane back to an in-process PTY.
     func testARegisteredButUnloadedServiceIsStartedRatherThanCalledHealthy() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .enabled, isLoaded: false),
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .enabled, isLoaded: false, bundledPlistExists: true),
                        .startStoppedService)
     }
 
     func testAnEnabledServiceIsLeftAlone() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .enabled, isLoaded: true), .healthy)
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .enabled, isLoaded: true, bundledPlistExists: true), .healthy)
     }
 
     /// The case that actually cost sessions: set up, and the job is gone from
     /// launchd as well — nothing is serving, so creating it destroys nothing.
     func testAMissingServiceIsRegistered() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notRegistered, isLoaded: false), .register)
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notRegistered, isLoaded: false, bundledPlistExists: true), .register)
     }
 
     /// An unknown status is treated as missing rather than as healthy: assuming
     /// health leaves panes in-process, and that failure is silent and permanent.
     func testAnUnknownStatusIsTreatedAsMissingRatherThanHealthy() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .unknown, isLoaded: false), .register)
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .unknown, isLoaded: false, bundledPlistExists: true), .register)
     }
 
     // MARK: - The two status sources disagree
@@ -63,7 +63,7 @@ final class EngineServiceReconcilerTests: XCTestCase {
     /// A serving engine is never restarted to settle an ownership question.
     func testALoadedButUnregisteredServiceIsLeftRunning() {
         for state in [State.notRegistered, .unknown] {
-            XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: state, isLoaded: true),
+            XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: state, isLoaded: true, bundledPlistExists: true),
                            .adoptLoadedService,
                            "estado \(state) com o job carregado")
         }
@@ -76,7 +76,7 @@ final class EngineServiceReconcilerTests: XCTestCase {
     func testNoDecisionWritesWhileTheJobIsLoaded() {
         let writing: Set<EngineServiceReconciler.Decision> = [.register, .startStoppedService]
         for state in [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown] {
-            let decision = EngineServiceReconciler.decide(isSetUp: true, state: state, isLoaded: true)
+            let decision = EngineServiceReconciler.decide(isSetUp: true, state: state, isLoaded: true, bundledPlistExists: true)
             XCTAssertFalse(writing.contains(decision),
                            "com o job carregado, \(state) decidiu \(decision) — escrever aqui reinicia um engine vivo")
         }
@@ -84,15 +84,65 @@ final class EngineServiceReconcilerTests: XCTestCase {
 
     /// Retrying an approval-gated service in a loop only reproduces the prompt.
     func testApprovalIsReportedRatherThanRetried() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .requiresApproval, isLoaded: true),
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .requiresApproval, isLoaded: true, bundledPlistExists: true),
                        .reportApprovalNeeded)
     }
 
     /// Registering cannot fix a plist missing from the bundle, and treating it
     /// as registrable would hide a packaging fault behind a retry.
     func testAMissingBundledPlistIsReportedRatherThanRegistered() {
-        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notFound, isLoaded: true),
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notFound, isLoaded: false, bundledPlistExists: false),
                        .reportMissingFromBundle)
+    }
+
+    // MARK: - `.notFound` does not mean the file is missing
+    //
+    // MEASURED on the owner's machine after shipping 0.1.34, from macOS's log:
+    // `backgroundtaskmanagementd: record not found` for the shipping agent, and
+    // `smd: [SMAppService] Unable to get disposition of item: … Code=3`. The
+    // ENOENT is a missing Background Task Management RECORD — the service was
+    // never registered on that machine — not a missing file. The BTM dump held
+    // a record for the developer agent and none for the shipping one, and the
+    // plist was present, valid, and sealed into the code signature.
+    //
+    // The first version read the status name as its cause and reported a
+    // packaging fault, so the machine that most needed repair was the one it
+    // refused to repair. These pin the distinction.
+
+    /// Never registered, nothing loaded: this is the case the type exists for.
+    func testNotFoundWithThePlistPresentIsRegisteredRatherThanReported() {
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notFound, isLoaded: false, bundledPlistExists: true),
+                       .register,
+                       "com o plist no pacote, .notFound significa nunca registado — e registar é exatamente a reparação que falta")
+    }
+
+    /// The write invariant survives the new branch: a serving job is left alone
+    /// even when SMAppService cannot find its record.
+    func testNotFoundWithAServingJobIsLeftAlone() {
+        XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notFound, isLoaded: true, bundledPlistExists: true),
+                       .adoptLoadedService)
+    }
+
+    /// And the packaging fault is still reported, on the only evidence that
+    /// actually supports the claim: the file is not there.
+    func testOnlyAnAbsentPlistIsCalledAPackagingFault() {
+        for loaded in [true, false] {
+            XCTAssertEqual(EngineServiceReconciler.decide(isSetUp: true, state: .notFound, isLoaded: loaded, bundledPlistExists: false),
+                           .reportMissingFromBundle,
+                           "loaded=\(loaded)")
+        }
+    }
+
+    /// The report is only ever reachable with the plist absent. A future branch
+    /// that claims a packaging fault without that evidence fails here.
+    func testAPackagingFaultIsNeverClaimedWithThePlistPresent() {
+        for state in [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown] {
+            for loaded in [true, false] {
+                XCTAssertNotEqual(EngineServiceReconciler.decide(isSetUp: true, state: state, isLoaded: loaded, bundledPlistExists: true),
+                                  .reportMissingFromBundle,
+                                  "\(state) loaded=\(loaded) alegou defeito de empacotamento com o plist presente")
+            }
+        }
     }
 
     // MARK: - The decision is reached from launch
@@ -266,8 +316,8 @@ final class EngineServiceReconcilerTests: XCTestCase {
     /// the acting side.
     func testRegistrationIsTheOnlyAutomaticAction() {
         let acting = [State.enabled, .requiresApproval, .notRegistered, .notFound, .unknown]
-            .filter { EngineServiceReconciler.decide(isSetUp: true, state: $0, isLoaded: false) == .register }
-        XCTAssertEqual(acting, [.notRegistered, .unknown])
+            .filter { EngineServiceReconciler.decide(isSetUp: true, state: $0, isLoaded: false, bundledPlistExists: true) == .register }
+        XCTAssertEqual(acting, [.notRegistered, .notFound, .unknown])
     }
 
     // MARK: - The probe fails closed

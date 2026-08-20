@@ -68,7 +68,11 @@ enum EngineServiceReconciler {
     ///   - isLoaded: whether launchd currently has the job. Separate from
     ///     registration on purpose — they disagree, and treating "registered"
     ///     as "running" is what let a dead broker read as healthy.
-    static func decide(isSetUp: Bool, state: ServiceState, isLoaded: Bool) -> Decision {
+    ///   - bundledPlistExists: whether the LaunchAgent plist is actually in the
+    ///     app bundle. Required because `.notFound` does NOT mean what its name
+    ///     suggests — see the `.notFound` branch below.
+    static func decide(isSetUp: Bool, state: ServiceState, isLoaded: Bool,
+                       bundledPlistExists: Bool) -> Decision {
         guard isSetUp else { return .leaveToOnboarding }
         switch state {
         case .enabled:
@@ -84,7 +88,29 @@ enum EngineServiceReconciler {
         case .requiresApproval:
             return .reportApprovalNeeded
         case .notFound:
-            return .reportMissingFromBundle
+            // MEASURED on the owner's machine, 2026-08-20, from macOS's own log:
+            //
+            //   backgroundtaskmanagementd: record not found:
+            //     appURL=/Applications/Soyeht.app,
+            //     url=/Contents/Library/LaunchAgents/com.soyeht.engine.plist
+            //   smd: [SMAppService] Unable to get disposition of item:
+            //     NSPOSIXErrorDomain Code=3
+            //
+            // `ENOENT` there is the absence of a Background Task Management
+            // RECORD, not of the file. `SMAppService` surfaces it as
+            // `.notFound`, and the first version of this type read that name as
+            // "the plist is missing from the bundle" and refused to register.
+            //
+            // So on the one machine that had never registered — the exact case
+            // this whole type exists to repair — it reported a packaging fault
+            // that did not exist and left the engine unregistered forever. The
+            // plist was present, valid, and sealed into the code signature; the
+            // BTM dump showed a record for the developer build and none for the
+            // shipping one.
+            //
+            // The name of a status is not evidence of its cause. Check.
+            guard bundledPlistExists else { return .reportMissingFromBundle }
+            return isLoaded ? .adoptLoadedService : .register
         }
     }
 
