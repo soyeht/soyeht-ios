@@ -779,6 +779,34 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             defer { self?.isRestoringLocalShell = false }
             let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
             guard let self else { return }
+
+            // UPGRADE ON RESTORE.
+            //
+            // A pane recorded `.native` used to be recreated `.native` forever,
+            // however healthy the broker was — the comment on
+            // `restoreEnginePaneIfNeeded` even said so: "stays `.native` until
+            // the user recreates it". MEASURED on the owner's Mac: 30 panes in
+            // that state, every relaunch faithfully recreating every one of
+            // them in-process, so every quit and every update killed them all
+            // again. One downgrade, months of consequences.
+            //
+            // What makes this free: at restore the old shell is ALREADY DEAD —
+            // it lived in the app process that just exited. Nothing is being
+            // migrated, so rebuilding it in the broker instead costs nothing
+            // and ends the fragility. A `.native` pane can never be upgraded
+            // while it is running; this is the one moment when it can.
+            //
+            // Fails open exactly like every other path here: any failure falls
+            // through to `NativePTY` below, so the pane never comes up dead.
+            // A machine with no local engine gets `.failed(transient: false)`
+            // on the first attempt and never waits.
+            if SoyehtFeatureFlags.persistentLocalPanesEnabled,
+               await self.upgradedRestoredPaneToEngine(
+                   conversationID: conversationID, cwd: url, loginPath: loginPath, cols: cols, rows: rows
+               ) {
+                return
+            }
+
             do {
                 let pty = try NativePTY(
                     shellPath: nil,
@@ -962,6 +990,65 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// the pane/workspace closing mid-flight (`endEngineSessionIfNeeded`
     /// already DELETEd the engine session by then) — a stale continuation
     /// must abort rather than act on state that moved on without it.
+    /// Tries to rebuild a dead `.native` pane inside the broker.
+    ///
+    /// - Returns: `true` when the pane is now broker-backed and configured —
+    ///   the caller must not also build a `NativePTY`. `false` means nothing
+    ///   was changed and the caller falls back.
+    private func upgradedRestoredPaneToEngine(
+        conversationID: Conversation.ID,
+        cwd: URL,
+        loginPath: String?,
+        cols: Int,
+        rows: Int
+    ) async -> Bool {
+        guard let convStore = AppEnvironment.conversationStore,
+              var liveConversation = stillRestorableNativeConversation(conversationID, convStore: convStore) else {
+            return false
+        }
+        var outcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
+        for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
+            outcome = await EnginePaneAttacher.attach(
+                conversation: liveConversation,
+                cwd: cwd,
+                loginPath: loginPath,
+                cols: cols,
+                rows: rows,
+                terminalView: terminalView,
+                convStore: convStore
+            )
+            guard case .failed(transient: true) = outcome,
+                  attempt < Self.restoreRetryDelaysNanoseconds.count else {
+                break
+            }
+            try? await Task.sleep(nanoseconds: Self.restoreRetryDelaysNanoseconds[attempt])
+            guard let revalidated = stillRestorableNativeConversation(conversationID, convStore: convStore) else {
+                return false
+            }
+            liveConversation = revalidated
+        }
+        guard case .attached = outcome else { return false }
+        Self.logger.notice(
+            "native pane rebuilt in the broker on restore pane=\(conversationID.uuidString, privacy: .public)"
+        )
+        return true
+    }
+
+    /// Same freshness check as `stillRestorableEngineConversation`, for the
+    /// pane that is still recorded `.native`. Kept separate rather than
+    /// parameterised so neither can silently start matching the other's kind.
+    private func stillRestorableNativeConversation(
+        _ conversationID: Conversation.ID,
+        convStore: ConversationStore
+    ) -> Conversation? {
+        guard LivePaneRegistry.shared.pane(for: conversationID) === self,
+              let conversation = convStore.conversation(conversationID),
+              case .native = conversation.commander else {
+            return nil
+        }
+        return conversation
+    }
+
     private func stillRestorableEngineConversation(
         _ conversationID: Conversation.ID,
         convStore: ConversationStore
