@@ -1377,8 +1377,8 @@
 				PRODUCT_MODULE_NAME = Soyeht;
 				PRODUCT_NAME = "Soyeht Dev";
 				SDKROOT = macosx;
-				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "";
-				SOYEHT_UPDATE_FEED_URL = "";
+				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "d++D6Udo/XSUt92YcFAI4nbxGW/juB3L0pWPHRlG+Gw=";
+				SOYEHT_UPDATE_FEED_URL = "https://github.com/soyeht/soyeht-ios/releases/latest/download/appcast.xml";
 				SWIFT_MODULE_NAME = Soyeht;
 				SWIFT_VERSION = 5.0;
 			};
@@ -1406,8 +1406,8 @@
 				PRODUCT_MODULE_NAME = Soyeht;
 				PRODUCT_NAME = Soyeht;
 				SDKROOT = macosx;
-				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "";
-				SOYEHT_UPDATE_FEED_URL = "";
+				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "d++D6Udo/XSUt92YcFAI4nbxGW/juB3L0pWPHRlG+Gw=";
+				SOYEHT_UPDATE_FEED_URL = "https://github.com/soyeht/soyeht-ios/releases/latest/download/appcast.xml";
 				SWIFT_MODULE_NAME = Soyeht;
 				SWIFT_VERSION = 5.0;
 			};
