@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 struct TheyOSRemovalItem: Equatable {
     let url: URL
@@ -50,7 +51,16 @@ enum TheyOSUninstallPlan {
         }
 
         if includeMCPArtifacts {
-            items.append(item(localBin.appendingPathComponent("soyeht-mcp"), "~/.local/bin/soyeht-mcp"))
+            // Release and development builds own separate launchers. This is a
+            // full teardown of Soyeht — like the preference plists below, it
+            // removes both, so a teardown started from either bundle leaves no
+            // orphan and never deletes only the other bundle's launcher. The
+            // list comes from SoyehtInstallProfile, the single source of truth
+            // for every identifier that must differ between builds, so adding
+            // a variant there cannot forget this one.
+            for filename in SoyehtInstallProfile.allMCPLauncherFilenames {
+                items.append(item(localBin.appendingPathComponent(filename), "~/.local/bin/\(filename)"))
+            }
         }
 
         if includePreferences {
@@ -342,8 +352,25 @@ enum TheyOSUninstallPlan {
 }
 
 enum SoyehtMCPConfigCleaner {
-    static func removingSoyehtCodexBlocks(from text: String) -> String {
-        let pattern = #"(?m)^\s*\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?"#
+    /// Removes Soyeht's Codex `[mcp_servers.<key>]` blocks — for exactly the
+    /// keys given, and no others.
+    ///
+    /// The caller MUST choose, and there is deliberately no default, because
+    /// this parameter is the whole defect: an **install** passes only the key
+    /// it is about to rewrite, since stripping both would make a development
+    /// build delete the release build's entry from the person's config — the
+    /// same cross-build interference that separate namespaces exist to
+    /// prevent. A **teardown** passes `SoyehtInstallProfile.allMCPConfigKeys`.
+    static func removingCodexBlocks(from text: String, keys: [String]) -> String {
+        guard !keys.isEmpty else { return text }
+        // Longest first so `soyeht-dev` is tried before `soyeht`; the trailing
+        // `\.` or `\]` still rejects lookalikes such as `soyeht-device` or
+        // `soyehtfoo`, which belong to somebody else.
+        let alternatives = keys
+            .sorted { $0.count > $1.count }
+            .map { NSRegularExpression.escapedPattern(for: $0) }
+            .joined(separator: "|")
+        let pattern = "(?m)^\\s*\\[mcp_servers\\.(?:\(alternatives))(?:\\.[^\\]]*)?\\][^\\r\\n]*(?:\\r?\\n(?!\\s*\\[).*)*\\r?\\n?"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         guard regex.numberOfMatches(in: text, range: range) > 0 else { return text }
@@ -351,6 +378,7 @@ enum SoyehtMCPConfigCleaner {
             .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
     }
 }
+
 
 private extension Array where Element == TheyOSRemovalItem {
     func deduplicatedByPath() -> [TheyOSRemovalItem] {

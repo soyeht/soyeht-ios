@@ -534,12 +534,17 @@ final class TheyOSUninstaller: ObservableObject {
               let data = try? Data(contentsOf: url),
               var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
 
+        // Every key the product has ever owned, across builds. Removing only
+        // the release key left `soyeht-dev` orphaned in the person's config,
+        // pointing at a launcher this same teardown had just deleted.
         var changed = false
         for key in containerKeys {
-            guard var container = root[key] as? [String: Any], container["soyeht"] != nil else { continue }
-            container.removeValue(forKey: "soyeht")
+            guard var container = root[key] as? [String: Any] else { continue }
+            for mcpKey in SoyehtInstallProfile.allMCPConfigKeys where container[mcpKey] != nil {
+                container.removeValue(forKey: mcpKey)
+                changed = true
+            }
             root[key] = container
-            changed = true
         }
         guard changed,
               var output = try? JSONSerialization.data(withJSONObject: root, options: []) else { return }
@@ -555,7 +560,10 @@ final class TheyOSUninstaller: ObservableObject {
     private func removeSoyehtCodexMCPEntry(from url: URL) {
         guard filesystemEntryExists(at: url),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        let updated = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: text)
+        let updated = SoyehtMCPConfigCleaner.removingCodexBlocks(
+            from: text,
+            keys: SoyehtInstallProfile.allMCPConfigKeys
+        )
         guard updated != text else { return }
         do {
             try updated.write(to: url, atomically: true, encoding: .utf8)
