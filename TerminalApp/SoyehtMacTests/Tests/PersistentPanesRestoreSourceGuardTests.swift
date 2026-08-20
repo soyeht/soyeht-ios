@@ -138,7 +138,16 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             from: "static func attach(",
             to: "}\n}"
         )
-        XCTAssertTrue(attach.contains("LocalEngineContext.resolve()"))
+        // `resolveDetailed`, not `resolve()`: the plain form collapses "nothing
+        // answered yet" and "there is nothing" into one `nil`, and the caller
+        // then has to guess. It guessed wrong — measured on a cold boot, the
+        // engine arrived 31s after the app asked, and every restored pane was
+        // downgraded to an in-process PTY for the session.
+        XCTAssertTrue(attach.contains("LocalEngineContext.resolveDetailed()"))
+        XCTAssertTrue(attach.contains("case .engineNotAnsweringYet:"),
+                      "o attacher tem de distinguir 'ainda não respondeu' de 'não há'")
+        XCTAssertTrue(attach.contains("return .failed(transient: true)"),
+                      "'ainda não respondeu' tem de armar a repetição a jusante, que já existe e estava correta")
         XCTAssertTrue(attach.contains("EnginePaneSpawnRequestBuilder.makeCreateRequest("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.createLocalTerminal("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment("))

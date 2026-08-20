@@ -25,23 +25,66 @@ enum LocalEngineContext {
     /// when a remote server is paired first. Returns `nil` if self-pairing
     /// also fails (e.g. the one-time bootstrap token was already consumed);
     /// callers should fall back to `NativePTY` rather than block the pane.
+    /// Why resolution failed, when it did.
+    ///
+    /// MEASURED on a cold boot, 2026-08-20: the app started at 11:27:08 and
+    /// asked for the engine at 11:27:14; launchd did not start the engine
+    /// until 11:27:45 — **31 seconds later**. `resolve()` could only say
+    /// "nil", the caller read that as permanent, and every restored pane fell
+    /// back to an in-process PTY and stayed fragile for the whole session.
+    ///
+    /// The distinction this carries is the whole fix: "nothing answered yet"
+    /// is worth waiting for, "there is nothing to answer with" is not.
+    enum Resolution {
+        case resolved(ServerContext)
+        /// Nothing answered on the loopback admin port. The engine is a
+        /// launchd job with `RunAtLoad`, so at login it is coming — just not
+        /// yet.
+        case engineNotAnsweringYet
+        /// The engine answered and could not pair us, or there is no context
+        /// to build. Waiting changes nothing.
+        case unavailable
+    }
+
+    /// Transport-level codes that mean "nothing answered", as opposed to
+    /// "answered and refused". Mirrors `MacOSWebSocketTerminalView`'s set and
+    /// `EnginePaneAttacher`'s, so the app has one vocabulary for this.
+    static let notAnsweringURLErrorCodes: Set<Int> = [-1001, -1004, -1005, -1009]
+
+    /// - Returns: `true` when the failure means nothing answered yet.
+    ///   `Could not connect to the server` (-1004) is the one measured on a
+    ///   cold boot.
+    static func isNotAnsweringYet(_ error: Error) -> Bool {
+        notAnsweringURLErrorCodes.contains((error as NSError).code)
+    }
+
+    static func resolveDetailed(
+        store: SessionStore = .shared,
+        autoPair: () async throws -> PairedServer = { try await TheyOSAutoPairService().autoPair() }
+    ) async -> Resolution {
+        let localHost = SoyehtInstallProfile.current.adminHost
+        if let existing = store.pairedServers.first(where: { $0.kind == .engine && $0.host == localHost }),
+           let context = store.context(for: existing.id) {
+            return .resolved(context)
+        }
+        do {
+            let paired = try await autoPair()
+            guard let context = store.context(for: paired.id) else { return .unavailable }
+            return .resolved(pinnedToLocalHost(context, localHost: localHost))
+        } catch {
+            logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
+            return isNotAnsweringYet(error) ? .engineNotAnsweringYet : .unavailable
+        }
+    }
+
     static func resolve(
         store: SessionStore = .shared,
         autoPair: () async throws -> PairedServer = { try await TheyOSAutoPairService().autoPair() }
     ) async -> ServerContext? {
-        let localHost = SoyehtInstallProfile.current.adminHost
-        if let existing = store.pairedServers.first(where: { $0.kind == .engine && $0.host == localHost }),
-           let context = store.context(for: existing.id) {
+        if case .resolved(let context) = await resolveDetailed(store: store, autoPair: autoPair) {
             return context
         }
-        do {
-            let paired = try await autoPair()
-            guard let context = store.context(for: paired.id) else { return nil }
-            return pinnedToLocalHost(context, localHost: localHost)
-        } catch {
-            logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
+        return nil
     }
 
     /// The real self-pair (`TheyOSAutoPairService`) records this Mac's engine

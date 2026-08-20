@@ -43,17 +43,13 @@ enum EnginePaneAttacher {
     /// the request itself was rejected and retrying it verbatim won't help.
     private static let transientHTTPStatusCodes = 500...599
 
-    /// Mirrors `MacOSWebSocketTerminalView.transientCodes` — the same
-    /// transport-level error codes already treated as retry-worthy
-    /// elsewhere in this app (timeout, cannotConnectToHost,
-    /// networkConnectionLost, notConnectedToInternet).
-    private static let transientURLErrorCodes: Set<Int> = [-1001, -1004, -1005, -1009]
-
     private static func isTransient(_ error: Error) -> Bool {
         if case SoyehtAPIClient.APIError.httpError(let status, _) = error {
             return transientHTTPStatusCodes.contains(status)
         }
-        return transientURLErrorCodes.contains((error as NSError).code)
+        // One vocabulary for "nothing answered", shared with
+        // `LocalEngineContext`, so the two cannot drift apart.
+        return LocalEngineContext.isNotAnsweringYet(error)
     }
 
     static func attach(
@@ -66,9 +62,22 @@ enum EnginePaneAttacher {
         terminalView: MacOSWebSocketTerminalView,
         convStore: ConversationStore
     ) async -> AttachOutcome {
-        guard let context = await LocalEngineContext.resolve() else {
+        let context: ServerContext
+        switch await LocalEngineContext.resolveDetailed() {
+        case .resolved(let resolved):
+            context = resolved
+        case .engineNotAnsweringYet:
+            // MEASURED on a cold boot: the app asked 31 seconds before launchd
+            // started the engine. The previous version returned
+            // `transient: false` here, under a comment claiming "we don't even
+            // have credentials to retry with" — a cause it never checked. The
+            // retry machinery downstream was correct and complete; it was
+            // simply never armed, because the one failure that actually
+            // happens at login was classified as permanent.
+            logger.warning("local engine not answering yet; worth waiting for")
+            return .failed(transient: true)
+        case .unavailable:
             logger.warning("no local engine context resolvable")
-            // Not transient: we don't even have credentials to retry with.
             return .failed(transient: false)
         }
         let request = EnginePaneSpawnRequestBuilder.makeCreateRequest(
