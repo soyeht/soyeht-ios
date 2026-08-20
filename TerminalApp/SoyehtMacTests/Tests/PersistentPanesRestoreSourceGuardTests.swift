@@ -193,4 +193,89 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         let end = try XCTUnwrap(tail.range(of: endMarker))
         return String(tail[..<end.lowerBound])
     }
+    // MARK: - Uma pane native morta é reconstruída no broker
+    //
+    // MEDIDO na máquina do dono, 2026-08-20: 30 panes gravadas `.native`, e
+    // cada relançamento recriava fielmente todas elas dentro do processo da
+    // app — por isso cada fecho e cada atualização voltava a matá-las. Uma
+    // única despromoção, meses de consequências. O comentário do restauro do
+    // engine já dizia "stays `.native` until the user recreates it": o
+    // comportamento estava documentado, só não estava reconhecido como o que
+    // mantinha as pessoas frágeis para sempre.
+    //
+    // O que torna a promoção gratuita: no restauro o shell antigo JÁ MORREU
+    // com o processo da app. Não se migra nada.
+
+    func testRestoringANativePaneTriesTheBrokerBeforeRebuildingItInProcess() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let restore = try slice(
+            source,
+            from: "private func restoreLocalShellIfNeeded(",
+            to: "private static let restoreRetryDelaysNanoseconds"
+        )
+        guard let attemptAt = restore.range(of: "upgradedRestoredPaneToEngine("),
+              let nativeAt = restore.range(of: "let pty = try NativePTY(") else {
+            return XCTFail("o restauro de uma pane native deixou de ter uma das duas metades")
+        }
+        XCTAssertLessThan(attemptAt.lowerBound, nativeAt.lowerBound,
+                          "a tentativa no broker tem de PRECEDER a reconstrução em processo; a seguir a ela não serve de nada")
+
+        // A CONDIÇÃO, não só a chamada. A primeira versão desta guarda exigia
+        // apenas que a chamada existisse — e um mutante que trocasse a guarda
+        // por `if false` passava verde com o comportamento morto. Presença não
+        // é efeito.
+        XCTAssertTrue(restore.contains("if SoyehtFeatureFlags.persistentLocalPanesEnabled,"),
+                      "a promoção só pode estar atrás da flag de panes persistentes; qualquer outra condição desliga-a em silêncio")
+        // E quando resulta, o caminho nativo não pode correr também: tem de
+        // haver um `return` ENTRE a tentativa e a construção da PTY.
+        let between = String(restore[attemptAt.upperBound..<nativeAt.lowerBound])
+        XCTAssertTrue(between.contains("return"),
+                      "sem um return entre as duas, uma promoção bem-sucedida seria seguida de uma PTY nativa por cima")
+    }
+
+    /// Fail-open: qualquer falha tem de cair na PTY nativa. Uma promoção que
+    /// deixasse a pane morta seria pior do que a fragilidade que corrige.
+    func testTheUpgradeNeverLeavesThePaneDead() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let attempt = try slice(
+            source,
+            from: "private func upgradedRestoredPaneToEngine(",
+            to: "private func stillRestorableNativeConversation("
+        )
+        XCTAssertEqual(attempt.components(separatedBy: "return false").count - 1, 3,
+                       "as três saídas de falha (sem store, sem pane viva, attach falhado) têm de devolver false para o chamador reconstruir")
+        guard let attachedAt = attempt.range(of: "guard case .attached = outcome else { return false }"),
+              let successAt = attempt.range(of: "return true") else {
+            return XCTFail("a promoção deixou de exigir um attach bem-sucedido antes de reclamar sucesso")
+        }
+        // ORDEM, não presença. Um `return true` colocado ANTES do guard deixa
+        // a asserção de presença verde e promove uma pane que nunca ligou —
+        // medido com mutante na primeira versão desta guarda.
+        XCTAssertLessThan(attachedAt.lowerBound, successAt.lowerBound,
+                          "o único `return true` tem de vir DEPOIS do guard; antes dele reclama sucesso sem attach")
+        XCTAssertEqual(attempt.components(separatedBy: "return true").count - 1, 1,
+                       "um só caminho pode reclamar sucesso")
+    }
+
+    /// A promoção só olha para panes `.native`, e o restauro do engine só para
+    /// `.engineLocal`. Se um dos dois passar a aceitar o tipo do outro, os dois
+    /// caminhos correm sobre a mesma pane.
+    func testTheTwoRestorePathsNeverClaimTheSameKind() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let native = try slice(
+            source,
+            from: "private func stillRestorableNativeConversation(",
+            to: "private func stillRestorableEngineConversation("
+        )
+        let engine = try slice(
+            source,
+            from: "private func stillRestorableEngineConversation(",
+            to: "/// Best-effort cleanup"
+        )
+        XCTAssertTrue(native.contains("case .native = conversation.commander"))
+        XCTAssertFalse(native.contains("case .engineLocal"))
+        XCTAssertTrue(engine.contains("case .engineLocal = conversation.commander"))
+        XCTAssertFalse(engine.contains("case .native"))
+    }
+
 }
