@@ -2409,9 +2409,15 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             updateCursor(for: hit.grid, event: event)
         }
 
-        if active, terminal.mouseMode.sendMotionEvent() {
+        // `allowMouseReporting` gates every other reporting path (mouseDown,
+        // mouseUp, mouseDragged); hover motion has to honor it as well.
+        // The row coming out of `calculateMouseHit` is a *buffer* row, so it has
+        // to be rebased onto the visible screen like `sharedMouseEvent` does.
+        if active, allowMouseReporting, terminal.mouseMode.sendMotionEvent() {
+            let displayBuffer = terminal.displayBuffer
             let flags = encodeMouseEvent(with: event, overwriteRelease: true)
-            terminal.sendMotion(buttonFlags: flags, x: hit.grid.col, y: hit.grid.row, pixelX: hit.pixels.col, pixelY: hit.pixels.row)
+            let screenRow = max (0, min (displayBuffer.rows - 1, hit.grid.row - displayBuffer.yDisp))
+            terminal.sendMotion(buttonFlags: flags, x: hit.grid.col, y: screenRow, pixelX: hit.pixels.col, pixelY: hit.pixels.row)
         }
     }
 
