@@ -114,6 +114,42 @@ enum EngineServiceReconciler {
         }
     }
 
+    /// What the person has to be told, when launch could not leave the engine
+    /// in a state that protects their terminals.
+    ///
+    /// The reconciler used to write every one of these to the log and stop
+    /// there. A log is where a developer looks after being told something is
+    /// wrong; it is not how someone finds out. Measured on the owner's machine:
+    /// the app reported a missing engine on every launch for weeks and the
+    /// person only learned of it by losing sessions.
+    enum Attention: Equatable {
+        /// macOS is holding the registration until it is approved in
+        /// System Settings › General › Login Items.
+        case approvalNeeded
+        /// The LaunchAgent plist is genuinely absent from the app bundle. Not
+        /// repairable from inside the app — the app itself is incomplete.
+        case missingFromBundle
+        /// Launch tried to register and could not.
+        case repairFailed
+    }
+
+    /// Which outcomes leave the person with unprotected terminals.
+    ///
+    /// Swept by a test over every `Decision`, so a case added later has to
+    /// state which side it is on instead of defaulting to silence.
+    static func attention(for decision: Decision) -> Attention? {
+        switch decision {
+        case .leaveToOnboarding, .healthy, .register, .startStoppedService, .adoptLoadedService:
+            // Either the engine is serving, or launch is repairing it, or
+            // onboarding owns the first registration. Nothing to interrupt for.
+            return nil
+        case .reportApprovalNeeded:
+            return .approvalNeeded
+        case .reportMissingFromBundle:
+            return .missingFromBundle
+        }
+    }
+
     /// Reads a process-table probe into an answer about whether an engine of
     /// this profile is running.
     ///
