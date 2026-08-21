@@ -632,7 +632,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(brokerSend.contains("isLongPrompt"))
         XCTAssertTrue(brokerSend.contains(".milliseconds(2_000)"))
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
-        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)"))
+        XCTAssertTrue(brokerSend.contains("activeBrokerSubmission"))
+        XCTAssertTrue(brokerSend.contains("queuedBrokerSubmissions"))
+        XCTAssertTrue(brokerSend.contains("bufferedUserInputDuringBrokerSubmission"))
+        XCTAssertTrue(brokerSend.contains("brokerSendEnterKey(focusBeforeSubmit: submission.focusBeforeSubmit)"))
         XCTAssertFalse(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
         let brokerSendEnterKey = try slice(
             terminalViewSource,
@@ -699,7 +702,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sourceResolution.contains("sourceConversationNotFound"))
         XCTAssertTrue(sourceResolution.contains("sourceHandleNotFound"))
 
-        XCTAssertTrue(sendResolvedInput.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
+        XCTAssertTrue(sendResolvedInput.contains("pane.sendAutomationInputForDeferredDeliverySafety"))
+        XCTAssertTrue(sendResolvedInput.contains("text: prepared.payload"))
         XCTAssertTrue(sendResolvedInput.contains("prepared.shouldSendEnterKey"))
 
         XCTAssertTrue(attachLocalPTY.contains("promptMode"))

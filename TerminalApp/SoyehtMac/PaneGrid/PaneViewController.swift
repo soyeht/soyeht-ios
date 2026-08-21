@@ -146,7 +146,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let prepared: AgentPaneInputPlanner.Prepared
     }
     private var deferredAgentDeliveries: [DeferredAgentDelivery] = []
-    private var humanDraftByteCount = 0
+    private var agentMessageDraftGate = AgentMessageDraftGate()
     private var deferredDeliveryWorkItem: DispatchWorkItem?
     private static let deferredDeliveryGrace: TimeInterval = 0.75
 
@@ -327,23 +327,26 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func recordHumanInputForDeferredDelivery(_ data: Data) {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
-        for byte in data {
-            switch byte {
-            case 0x0A, 0x0D, 0x03, 0x15: // LF/CR, Ctrl-C, Ctrl-U
-                humanDraftByteCount = 0
-            case 0x08, 0x7F: // backspace/delete
-                humanDraftByteCount = max(0, humanDraftByteCount - 1)
-            case 0x20...0xFF:
-                humanDraftByteCount += 1
-            default:
-                break
-            }
-        }
+        agentMessageDraftGate.record(data)
+        scheduleDeferredAgentDeliveryIfSafe()
+    }
+
+    /// Automation can also leave an unfinished line in a TUI. Route it
+    /// through the same draft gate as physical keyboard input before writing
+    /// to the PTY, which makes the no-splice guarantee observable in E2E.
+    func sendAutomationInputForDeferredDeliverySafety(
+        text: String,
+        submitWithEnter: Bool
+    ) {
+        deferredDeliveryWorkItem?.cancel()
+        deferredDeliveryWorkItem = nil
+        agentMessageDraftGate.record(text: text, submitsWithEnter: submitWithEnter)
+        terminalView.brokerSend(text: text, submitWithEnter: submitWithEnter)
         scheduleDeferredAgentDeliveryIfSafe()
     }
 
     private func scheduleDeferredAgentDeliveryIfSafe() {
-        guard humanDraftByteCount == 0, !deferredAgentDeliveries.isEmpty else { return }
+        guard agentMessageDraftGate.isClear, !deferredAgentDeliveries.isEmpty else { return }
         deferredDeliveryWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             self?.flushOneDeferredAgentDelivery()
@@ -357,16 +360,18 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private func flushOneDeferredAgentDelivery() {
         deferredDeliveryWorkItem = nil
-        guard humanDraftByteCount == 0, !deferredAgentDeliveries.isEmpty else { return }
+        guard agentMessageDraftGate.isClear, !deferredAgentDeliveries.isEmpty else { return }
         let delivery = deferredAgentDeliveries.removeFirst()
         terminalView.brokerSend(
             text: delivery.prepared.payload,
             submitWithEnter: delivery.prepared.shouldSendEnterKey
-        )
-        try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(conversationID) { inbox in
-            try inbox.markDeferredTerminalDelivered(delivery.messageID)
+        ) { [weak self] in
+            guard let self else { return }
+            try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(conversationID) { inbox in
+                try inbox.markDeferredTerminalDelivered(delivery.messageID)
+            }
+            self.scheduleDeferredAgentDeliveryIfSafe()
         }
-        scheduleDeferredAgentDeliveryIfSafe()
     }
 
     /// Programmatically claim focus — used by the parent grid when activation

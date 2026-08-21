@@ -145,6 +145,37 @@ struct AgentMessageDeliveryPlan: Equatable {
     }
 }
 
+/// Tracks whether terminal input contains an unfinished draft. Both real
+/// keyboard input and automation input pass through this state machine, so an
+/// agent relay cannot splice itself into either kind of partially typed line.
+struct AgentMessageDraftGate: Equatable {
+    private(set) var pendingByteCount = 0
+
+    var isClear: Bool { pendingByteCount == 0 }
+
+    mutating func record(_ data: Data) {
+        for byte in data {
+            switch byte {
+            case 0x0A, 0x0D, 0x03, 0x15: // LF/CR, Ctrl-C, Ctrl-U
+                pendingByteCount = 0
+            case 0x08, 0x7F: // backspace/delete
+                pendingByteCount = max(0, pendingByteCount - 1)
+            case 0x20...0xFF:
+                pendingByteCount += 1
+            default:
+                break
+            }
+        }
+    }
+
+    mutating func record(text: String, submitsWithEnter: Bool) {
+        record(Data(text.utf8))
+        if submitsWithEnter {
+            record(Data([0x0D]))
+        }
+    }
+}
+
 /// One durable semantic message. Read and acknowledgement are deliberately
 /// distinct: reading exposes content; acknowledgement tells the sender that
 /// the recipient accepted responsibility for it.

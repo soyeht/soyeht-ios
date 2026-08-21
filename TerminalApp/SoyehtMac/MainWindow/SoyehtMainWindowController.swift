@@ -1642,8 +1642,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return nil
             }
             let prepared = try textForTarget(conv)
-            let terminalView = pane.terminalView
-            terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+            pane.sendAutomationInputForDeferredDeliverySafety(
+                text: prepared.payload,
+                submitWithEnter: prepared.shouldSendEnterKey
+            )
             return SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,

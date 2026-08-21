@@ -93,6 +93,34 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(plan.unavailableReason, .semanticInboxAdapterMissing)
     }
 
+    func testDraftGateStaysClosedUntilEnterOrCancel() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("unfinished question".utf8))
+        XCTAssertFalse(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 19)
+
+        gate.record(Data([0x7F]))
+        XCTAssertEqual(gate.pendingByteCount, 18)
+
+        gate.record(Data([0x0D]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("another draft".utf8))
+        gate.record(Data([0x03]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testAutomationSubmissionUsesTheSameDraftGate() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(text: "partial", submitsWithEnter: false)
+        XCTAssertFalse(gate.isClear)
+
+        gate.record(text: " rest", submitsWithEnter: true)
+        XCTAssertTrue(gate.isClear)
+    }
+
     func testInboxInsertIsDurableIdempotentAndNormalizesBody() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(sender: endpoint(handle: "caia"), recipient: recipient)

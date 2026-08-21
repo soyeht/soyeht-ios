@@ -191,6 +191,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
     var onUserInputData: ((Data) -> Void)?
+    private struct BrokerSubmission {
+        let text: String
+        let submitWithEnter: Bool
+        let forceBracketedPaste: Bool
+        let focusBeforeSubmit: Bool
+        let completion: (() -> Void)?
+    }
+    private var activeBrokerSubmission: BrokerSubmission?
+    private var queuedBrokerSubmissions: [BrokerSubmission] = []
+    private var pendingBrokerEnterWorkItem: DispatchWorkItem?
+    private var isDispatchingBrokerEnterKey = false
+    private var bufferedUserInputDuringBrokerSubmission = Data()
     private var showsGroupInputCursor = false
     var onSelectionCopied: (() -> Void)?
     var onScrollToBottomVisibilityChanged: ((Bool) -> Void)?
@@ -877,6 +889,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
         let bytes = Data(data)
+        if activeBrokerSubmission != nil, !isDispatchingBrokerEnterKey {
+            // Long bracketed pastes deliberately wait before Return so TUIs
+            // have time to consume the payload. Keep real keystrokes out of
+            // that interval: otherwise a character typed after the paste can
+            // become part of the agent message, or the delayed Return can
+            // submit the human's new draft. The bytes are replayed in order
+            // immediately after the broker submission completes.
+            bufferedUserInputDuringBrokerSubmission.append(bytes)
+            return
+        }
+        if isDispatchingBrokerEnterKey {
+            // This callback came from brokerSendEnterKey(), not the person at
+            // the keyboard. Do not report it as human input to the draft gate.
+            sendInputData(bytes)
+            return
+        }
         onUserInputData?(bytes)
         sendInputData(bytes)
     }
@@ -965,19 +993,68 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         text: String,
         submitWithEnter: Bool,
         forceBracketedPaste: Bool = false,
-        focusBeforeSubmit: Bool = true
+        focusBeforeSubmit: Bool = true,
+        completion: (() -> Void)? = nil
     ) {
+        let submission = BrokerSubmission(
+            text: text,
+            submitWithEnter: submitWithEnter,
+            forceBracketedPaste: forceBracketedPaste,
+            focusBeforeSubmit: focusBeforeSubmit,
+            completion: completion
+        )
+        guard activeBrokerSubmission == nil else {
+            queuedBrokerSubmissions.append(submission)
+            return
+        }
+        startBrokerSubmission(submission)
+    }
+
+    private func startBrokerSubmission(_ submission: BrokerSubmission) {
+        activeBrokerSubmission = submission
         let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
-            text,
-            bracketedPasteMode: forceBracketedPaste || getTerminal().bracketedPasteMode
+            submission.text,
+            bracketedPasteMode: submission.forceBracketedPaste || getTerminal().bracketedPasteMode
         )
         brokerSend(text: pastePayload)
-        guard submitWithEnter else { return }
-        let isLongPrompt = text.count > 256 || text.contains("\n")
-        let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.brokerSendEnterKey(focusBeforeSubmit: focusBeforeSubmit)
+        guard submission.submitWithEnter else {
+            finishBrokerSubmission(submitEnter: false)
+            return
         }
+        let isLongPrompt = submission.text.count > 256 || submission.text.contains("\n")
+        let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.finishBrokerSubmission(submitEnter: true)
+        }
+        pendingBrokerEnterWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func finishBrokerSubmission(submitEnter: Bool) {
+        guard let submission = activeBrokerSubmission else { return }
+        pendingBrokerEnterWorkItem = nil
+        if submitEnter {
+            isDispatchingBrokerEnterKey = true
+            brokerSendEnterKey(focusBeforeSubmit: submission.focusBeforeSubmit)
+            isDispatchingBrokerEnterKey = false
+        }
+        activeBrokerSubmission = nil
+
+        // Keyboard bytes arrived after the paste, so preserve that ordering
+        // while making the broker paste + Return atomic from the PTY's view.
+        if !bufferedUserInputDuringBrokerSubmission.isEmpty {
+            let buffered = bufferedUserInputDuringBrokerSubmission
+            bufferedUserInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+            onUserInputData?(buffered)
+            sendInputData(buffered)
+        }
+        submission.completion?()
+        startNextQueuedBrokerSubmissionIfNeeded()
+    }
+
+    private func startNextQueuedBrokerSubmissionIfNeeded() {
+        guard activeBrokerSubmission == nil, !queuedBrokerSubmissions.isEmpty else { return }
+        startBrokerSubmission(queuedBrokerSubmissions.removeFirst())
     }
 
     /// Public entry point for mirrored group input. Sends the already-encoded
