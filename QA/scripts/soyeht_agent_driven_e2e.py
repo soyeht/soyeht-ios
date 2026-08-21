@@ -265,6 +265,212 @@ def wait_for_transcript_token(mcp, pane, token, automation_dir, timeout):
     )
 
 
+def run_typing_collision(
+    mcp,
+    observer,
+    workspace_id,
+    repo_root,
+    automation_dir,
+    timeout,
+    run_id,
+    index,
+    sender_agent,
+    recipient_agent,
+    recipient_directory,
+):
+    collision_baseline = process_snapshot()
+    sender_name = f"e2e-draft-sender-{sender_agent}-{run_id}-{index}"
+    recipient_name = f"e2e-draft-target-{recipient_agent}-{run_id}-{index}"
+    ready_token = f"E2E_DRAFT_CHILD_READY_{run_id}_{index}"
+    draft_token = f"E2E_UNFINISHED_HUMAN_DRAFT_{run_id}_{index}"
+    draft_done_token = f"E2E_HUMAN_DRAFT_DONE_{run_id}_{index}"
+    relay_token = f"E2E_DEFERRED_REAL_AGENT_REPLY_{run_id}_{index}"
+    # Hyphens survive Markdown/TUI rendering. The MCP reply token itself stays
+    # underscore-exact and is validated from the durable inbox separately.
+    completion_prefix = f"E2E-DRAFT-COLLISION-OK-{run_id}-{index}"
+    sender_prompt = (
+        f"Teste E2E sem alterar arquivos. Use especificamente soyeht-dev.open_agent_pane "
+        f"para abrir um agente {recipient_agent} neste mesmo workspace, no diretório exato "
+        f"{recipient_directory}, com o nome exato {recipient_name}. Não envie mensagem ao agente "
+        f"ainda. Quando a pane existir, escreva exatamente {ready_token} e pare, aguardando "
+        f"a próxima instrução do usuário."
+    )
+    sender_opened = mcp.tool_open_agent_pane({
+        **source_args(observer, automation_dir, timeout),
+        "agentID": sender_agent,
+        "cwd": str(repo_root),
+        "workspaceID": workspace_id,
+        "name": sender_name,
+        "prompt": sender_prompt,
+        "activate": False,
+    })
+    sender = sender_opened.get("createdPanes", [])[0]
+    sender_process = observe_process(
+        collision_baseline,
+        sender_opened["launchContract"]["expectedArgv"],
+        repo_root,
+        timeout,
+    )
+    recipient, _ = wait_for_child_pane(
+        mcp,
+        observer,
+        workspace_id,
+        recipient_name,
+        automation_dir,
+        timeout,
+    )
+    recipient_contract = mcp.build_agent_launch(recipient_agent)
+    recipient_process = observe_process(
+        collision_baseline,
+        recipient_contract["expectedArgv"],
+        recipient_directory,
+        timeout,
+    )
+    wait_for_transcript_token(mcp, sender, ready_token, automation_dir, timeout)
+
+    # Put the real recipient in the same focused state as a pane where the
+    # user is actively composing. The text then enters without Enter through
+    # the same onUserInputData path used by keyboard input.
+    mcp.tool_emphasize_pane({
+        **source_args(observer, automation_dir, timeout),
+        "conversationIDs": [recipient["conversationID"]],
+        "mode": "spotlight",
+        "ratio": 0.72,
+    })
+    focused_inventory = mcp.tool_list_panes({
+        **source_args(observer, automation_dir, timeout),
+        "workspaceID": workspace_id,
+    }).get("listedPanes", [])
+    require(
+        any(
+            pane.get("conversationID") == recipient["conversationID"] and pane.get("isActive")
+            for pane in focused_inventory
+        ),
+        f"Real {recipient_agent} recipient was not focused before simulating human typing.",
+    )
+
+    unfinished_draft = (
+        f"{draft_token}. Este texto ainda não foi enviado. Quando eu concluir esta linha, "
+        f"responda apenas {draft_done_token}."
+    )
+    draft_input = mcp.tool_send_pane_input({
+        **source_args(observer, automation_dir, timeout),
+        "conversationIDs": [recipient["conversationID"]],
+        "text": unfinished_draft,
+        "lineEnding": "none",
+    })
+    require(
+        any(
+            pane.get("conversationID") == recipient["conversationID"]
+            for pane in draft_input.get("sentPanes", [])
+        ),
+        f"Synthetic human draft was not accepted by the real {recipient_agent} pane.",
+    )
+    sleep(0.75)
+    initial_draft_capture = capture_text(mcp, recipient, automation_dir, timeout)
+
+    follow_up = (
+        f"Agora use soyeht-dev.message_agent para enviar uma mensagem ao agente "
+        f"{recipient_name}, pedindo que ele responda a você pela mesma integração com exatamente "
+        f"o token {relay_token}. Espere a resposta real. Só depois escreva {completion_prefix}, "
+        f"um espaço e o token recebido."
+    )
+    mcp.tool_send_pane_input({
+        **source_args(observer, automation_dir, timeout),
+        "conversationIDs": [sender["conversationID"]],
+        "text": follow_up,
+        "lineEnding": "enter",
+    })
+    parent_request = wait_for_parent_request(
+        mcp,
+        sender,
+        recipient,
+        relay_token,
+        automation_dir,
+        timeout,
+    )
+    sleep(1.5)
+    held_capture = capture_text(mcp, recipient, automation_dir, timeout)
+    require(
+        relay_token not in held_capture,
+        f"MCP relay spliced into a real {recipient_agent} agent's unfinished draft.",
+    )
+    held_message = inbox_message(
+        mcp,
+        recipient,
+        parent_request["messageID"],
+        automation_dir,
+        timeout,
+    )
+    require(held_message is not None, "Durable real-agent relay disappeared from the inbox.")
+    require(
+        held_message.get("channel") == "deferredTerminal",
+        "Real-agent relay did not select deferred-terminal delivery.",
+    )
+    require(
+        held_message.get("deferredTerminalDeliveredAt") is None,
+        f"Real {recipient_agent} relay was marked terminal-delivered before the user's Enter.",
+    )
+
+    mcp.tool_send_pane_input({
+        **source_args(observer, automation_dir, timeout),
+        "conversationIDs": [recipient["conversationID"]],
+        "text": " ENVIAR_AGORA",
+        "lineEnding": "enter",
+    })
+    released_capture = wait_for_transcript_token(
+        mcp,
+        recipient,
+        relay_token,
+        automation_dir,
+        timeout,
+    )
+    delivered_message = wait_for_deferred_terminal_delivery(
+        mcp,
+        recipient,
+        parent_request["messageID"],
+        automation_dir,
+        timeout,
+    )
+    reply = wait_for_reply(
+        mcp,
+        sender,
+        recipient,
+        relay_token,
+        automation_dir,
+        timeout,
+    )
+    wait_for_transcript_token(
+        mcp,
+        sender,
+        completion_prefix,
+        automation_dir,
+        timeout,
+    )
+    return {
+        "status": "passed",
+        "senderAgent": sender_agent,
+        "recipientAgent": recipient_agent,
+        "senderPane": sender,
+        "recipientPane": recipient,
+        "senderProcess": sender_process,
+        "recipientProcess": recipient_process,
+        "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+        "recipientFocusedForHumanSimulation": True,
+        "unfinishedDraftInputAccepted": True,
+        "unfinishedDraftVisibleInDynamicCapture": draft_token in initial_draft_capture,
+        "relayAbsentBeforeEnter": relay_token not in held_capture,
+        "deliveryTimestampBeforeEnter": held_message.get("deferredTerminalDeliveredAt"),
+        "relayObservedAfterEnter": relay_token in released_capture,
+        "deliveryTimestampAfterEnter": delivered_message.get("deferredTerminalDeliveredAt"),
+        "requestContractVersion": parent_request.get("mcpClientContractVersion"),
+        "requestServerVersion": parent_request.get("mcpClientServerVersion"),
+        "replyContractVersion": reply.get("mcpClientContractVersion"),
+        "replyServerVersion": reply.get("mcpClientServerVersion"),
+        "completionObservedInSenderTranscript": True,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[2]))
@@ -425,197 +631,31 @@ def main() -> int:
                 "childStoleFocus": False,
             })
 
-        # Combine the two guarantees above in one behavioral scenario: a real
-        # model sends through MCP v2 while another real model has unfinished
-        # human input in its editor. The relay must be durably visible in the
-        # inbox, absent from the PTY until Enter, and actionable afterwards.
-        collision_baseline = process_snapshot()
-        sender_name = f"e2e-draft-sender-codex-{run_id}"
-        target_name = f"e2e-draft-target-opencode-{run_id}"
-        ready_token = f"E2E_DRAFT_CHILD_READY_{run_id}"
-        draft_token = f"E2E_UNFINISHED_HUMAN_DRAFT_{run_id}"
-        draft_done_token = f"E2E_HUMAN_DRAFT_DONE_{run_id}"
-        relay_token = f"E2E_DEFERRED_REAL_AGENT_REPLY_{run_id}"
-        completion_prefix = f"E2E_DRAFT_COLLISION_OK_{run_id}"
-        completion_marker = f"{completion_prefix} {relay_token}"
-        sender_prompt = (
-            f"Teste E2E sem alterar arquivos. Use especificamente soyeht-dev.open_agent_pane "
-            f"para abrir um agente opencode neste mesmo workspace, no diretório exato "
-            f"{repo_root / 'QA'}, com o nome exato {target_name}. Não envie mensagem ao agente "
-            f"ainda. Quando a pane existir, escreva exatamente {ready_token} e pare, aguardando "
-            f"a próxima instrução do usuário."
-        )
-        sender_opened = mcp.tool_open_agent_pane({
-            **source_args(observer, automation_dir, args.timeout),
-            "agentID": "codex",
-            "cwd": str(repo_root),
-            "workspaceID": workspace_id,
-            "name": sender_name,
-            "prompt": sender_prompt,
-            "activate": False,
-        })
-        sender = sender_opened.get("createdPanes", [])[0]
-        sender_process = observe_process(
-            collision_baseline,
-            sender_opened["launchContract"]["expectedArgv"],
-            repo_root,
-            args.timeout,
-        )
-        target, _ = wait_for_child_pane(
-            mcp,
-            observer,
-            workspace_id,
-            target_name,
-            automation_dir,
-            args.timeout,
-        )
-        target_contract = mcp.build_agent_launch("opencode")
-        target_process = observe_process(
-            collision_baseline,
-            target_contract["expectedArgv"],
-            repo_root / "QA",
-            args.timeout,
-        )
-        wait_for_transcript_token(mcp, sender, ready_token, automation_dir, args.timeout)
-
-        # Put the real recipient in the same focused state as a pane where the
-        # user is actively composing. The actual text is then injected without
-        # Enter through the same onUserInputData path used by keyboard input.
-        mcp.tool_emphasize_pane({
-            **source_args(observer, automation_dir, args.timeout),
-            "conversationIDs": [target["conversationID"]],
-            "mode": "spotlight",
-            "ratio": 0.72,
-        })
-        focused_inventory = mcp.tool_list_panes({
-            **source_args(observer, automation_dir, args.timeout),
-            "workspaceID": workspace_id,
-        }).get("listedPanes", [])
-        require(
-            any(
-                pane.get("conversationID") == target["conversationID"] and pane.get("isActive")
-                for pane in focused_inventory
-            ),
-            "Real recipient was not focused before simulating human typing.",
-        )
-
-        unfinished_draft = (
-            f"{draft_token}. Este texto ainda não foi enviado. Quando eu concluir esta linha, "
-            f"responda apenas {draft_done_token}."
-        )
-        draft_input = mcp.tool_send_pane_input({
-            **source_args(observer, automation_dir, args.timeout),
-            "conversationIDs": [target["conversationID"]],
-            "text": unfinished_draft,
-            "lineEnding": "none",
-        })
-        require(
-            any(
-                pane.get("conversationID") == target["conversationID"]
-                for pane in draft_input.get("sentPanes", [])
-            ),
-            "Synthetic human draft was not accepted by the real recipient pane.",
-        )
-        sleep(0.75)
-        initial_draft_capture = capture_text(mcp, target, automation_dir, args.timeout)
-
-        follow_up = (
-            f"Agora use soyeht-dev.message_agent para enviar uma mensagem ao agente "
-            f"{target_name}, pedindo que ele responda a você pela mesma integração com exatamente "
-            f"o token {relay_token}. Espere a resposta real. Só depois escreva {completion_prefix}, "
-            f"um espaço e o token recebido."
-        )
-        mcp.tool_send_pane_input({
-            **source_args(observer, automation_dir, args.timeout),
-            "conversationIDs": [sender["conversationID"]],
-            "text": follow_up,
-            "lineEnding": "enter",
-        })
-        parent_request = wait_for_parent_request(
-            mcp,
-            sender,
-            target,
-            relay_token,
-            automation_dir,
-            args.timeout,
-        )
-        sleep(1.5)
-        held_capture = capture_text(mcp, target, automation_dir, args.timeout)
-        require(relay_token not in held_capture, "MCP relay spliced into a real agent's unfinished draft.")
-        held_message = inbox_message(
-            mcp,
-            target,
-            parent_request["messageID"],
-            automation_dir,
-            args.timeout,
-        )
-        require(held_message is not None, "Durable real-agent relay disappeared from the inbox.")
-        require(
-            held_message.get("channel") == "deferredTerminal",
-            "Real-agent relay did not select deferred-terminal delivery.",
-        )
-        require(
-            held_message.get("deferredTerminalDeliveredAt") is None,
-            "Real-agent relay was marked terminal-delivered before the user's Enter.",
-        )
-
-        mcp.tool_send_pane_input({
-            **source_args(observer, automation_dir, args.timeout),
-            "conversationIDs": [target["conversationID"]],
-            "text": " ENVIAR_AGORA",
-            "lineEnding": "enter",
-        })
-        released_capture = wait_for_transcript_token(
-            mcp,
-            target,
-            relay_token,
-            automation_dir,
-            args.timeout,
-        )
-        delivered_message = wait_for_deferred_terminal_delivery(
-            mcp,
-            target,
-            parent_request["messageID"],
-            automation_dir,
-            args.timeout,
-        )
-        reply = wait_for_reply(
-            mcp,
-            sender,
-            target,
-            relay_token,
-            automation_dir,
-            args.timeout,
-        )
-        wait_for_parent_completion(
-            mcp,
-            sender,
-            completion_marker,
-            automation_dir,
-            args.timeout,
-        )
-        evidence["typingCollision"] = {
-            "status": "passed",
-            "senderAgent": "codex",
-            "recipientAgent": "opencode",
-            "senderPane": sender,
-            "recipientPane": target,
-            "senderProcess": sender_process,
-            "recipientProcess": target_process,
-            "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
-            "recipientFocusedForHumanSimulation": True,
-            "unfinishedDraftInputAccepted": True,
-            "unfinishedDraftVisibleInDynamicCapture": draft_token in initial_draft_capture,
-            "relayAbsentBeforeEnter": relay_token not in held_capture,
-            "deliveryTimestampBeforeEnter": held_message.get("deferredTerminalDeliveredAt"),
-            "relayObservedAfterEnter": relay_token in released_capture,
-            "deliveryTimestampAfterEnter": delivered_message.get("deferredTerminalDeliveredAt"),
-            "requestContractVersion": parent_request.get("mcpClientContractVersion"),
-            "requestServerVersion": parent_request.get("mcpClientServerVersion"),
-            "replyContractVersion": reply.get("mcpClientContractVersion"),
-            "replyServerVersion": reply.get("mcpClientServerVersion"),
-            "completionObservedInSenderTranscript": True,
-        }
+        # Exercise the unfinished-draft guarantee with every primary CLI as a
+        # sender and as a recipient, preserving the same ring as launch tests.
+        collision_flows = [
+            ("codex", "opencode", repo_root / "QA"),
+            ("opencode", "claude", repo_root / "docs"),
+            ("claude", "codex", repo_root / "TerminalApp"),
+        ]
+        evidence["typingCollisions"] = []
+        for index, (sender_agent, recipient_agent, recipient_directory) in enumerate(
+            collision_flows,
+            start=1,
+        ):
+            evidence["typingCollisions"].append(run_typing_collision(
+                mcp=mcp,
+                observer=observer,
+                workspace_id=workspace_id,
+                repo_root=repo_root,
+                automation_dir=automation_dir,
+                timeout=args.timeout,
+                run_id=run_id,
+                index=index,
+                sender_agent=sender_agent,
+                recipient_agent=recipient_agent,
+                recipient_directory=recipient_directory,
+            ))
 
         evidence["status"] = "passed"
         output = Path(args.output).resolve() if args.output else repo_root / "QA" / "runs" / f"agent-driven-e2e-{run_id}.json"

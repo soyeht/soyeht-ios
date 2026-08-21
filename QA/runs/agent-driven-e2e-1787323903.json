@@ -1,0 +1,153 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787323903",
+  "status": "passed",
+  "typingCollisions": [
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809016757.527912,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+      "recipientAgent": "opencode",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "98243FC3-8516-4566-A225-BA4117F4B04A",
+        "declaredAgent": "opencode",
+        "handle": "@e2e-draft-target-opencode-1787323903-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "pid": 33294,
+        "ppid": 33201
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "codex",
+      "senderPane": {
+        "conversationID": "E66125C9-0BDE-496F-95D8-7C55697CE1A4",
+        "handle": "@e2e-draft-sender-codex-1787323903-1",
+        "name": "e2e-draft-sender-codex-1787323903-1",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 31581,
+        "ppid": 3021
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": false
+    },
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809016871.636183,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+      "recipientAgent": "claude",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "B9E8D949-F943-4B94-B886-257C3065E5B1",
+        "declaredAgent": "claude",
+        "handle": "@e2e-draft-target-claude-1787323903-2",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "recipientProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "pid": 37402,
+        "ppid": 37294
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "opencode",
+      "senderPane": {
+        "conversationID": "95F5853F-FD9D-4DA0-BF50-AA5AA5C3F0F7",
+        "handle": "@e2e-draft-sender-opencode-1787323903-2",
+        "name": "e2e-draft-sender-opencode-1787323903-2",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 35678,
+        "ppid": 35576
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    },
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809017003.927883,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+      "recipientAgent": "codex",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "E3F07B7D-B9B4-4ADD-B3DE-A97FFF3439CB",
+        "declaredAgent": "codex",
+        "handle": "@e2e-draft-target-codex-1787323903-3",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "pid": 40847,
+        "ppid": 3021
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "claude",
+      "senderPane": {
+        "conversationID": "881625B5-4DCF-45FA-AA31-7159C1BA6A3C",
+        "handle": "@e2e-draft-sender-claude-1787323903-3",
+        "name": "e2e-draft-sender-claude-1787323903-3",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "A7DF4D61-840B-4FCF-8E9F-172485949AB8"
+      },
+      "senderProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 39429,
+        "ppid": 39346
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    }
+  ]
+}

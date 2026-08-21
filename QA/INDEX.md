@@ -178,7 +178,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
-| 2026-08-21 | **MCP 2.0 real-agent behavioral ring + typing collision** (three launch/round-trip routes plus Codex → OpenCode while an unfinished user draft is held) | 4/4 PASS | [report](runs/2026-08-21-mcp2-agent-driven-e2e/report.md) |
+| 2026-08-21 | **MCP 2.0 real-agent behavioral ring + typing-collision ring** (three launch/round-trip routes plus all three primary CLIs as sender and recipient while an unfinished user draft is held) | 6/6 PASS | [report](runs/2026-08-21-mcp2-agent-driven-e2e/report.md) |
 | 2026-08-21 | **Gate Quick** (iOS, SwiftPM, API contract smoke) | PASS WITH FOLLOW-UPS | [report](runs/2026-08-21-codex-gate-quick/gate-report.md) |
 | 2026-05-06 | **Even Pane MCP Layout** (2/4/6/8 MCP batch layouts plus Codex, Claude Code, OpenCode, Droid custom agent paths) | PASS | [report](runs/2026-05-06-even-pane-mcp-layout/report.md) |
 | 2026-05-05 | **MCP Direct Validation ST-Q-MCPA-021..104** (41/48 tested; 7 SKIP agent/manual; 3 code fixes: agent validation, repeated-agent suffix, JSON crash) | 41/41 PASS | [report](runs/2026-05-05-mcpa-021-104/report.md) |
