@@ -112,7 +112,10 @@ on run argv
     if length of payload is greater than 0 then
       keystroke payload
     end if
-    if shouldSubmit is "true" then key code 36
+    if shouldSubmit is "true" then
+      delay 0.25
+      key code 36
+    end if
   end tell
 end run
 '''
@@ -129,6 +132,56 @@ end run
         capture_output=True,
         text=True,
     )
+
+
+def paste_through_macos_keyboard(text, expected_window_id):
+    """Paste UTF-8 like a human and restore the user's text clipboard."""
+    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
+    previous = subprocess.run(
+        ["/usr/bin/pbpaste"],
+        capture_output=True,
+        check=False,
+    ).stdout
+    try:
+        subprocess.run(
+            ["/usr/bin/pbcopy"],
+            input=text.encode("utf-8"),
+            check=True,
+        )
+        script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  tell application "System Events"
+    set frontApp to name of first application process whose frontmost is true
+    if frontApp is not "Soyeht Dev" then error "Soyeht Dev did not become frontmost"
+    tell process "Soyeht Dev"
+      if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
+        error "Physical paste would target the wrong Soyeht Dev window"
+      end if
+    end tell
+    keystroke "v" using {command down}
+  end tell
+end run
+'''
+        latest_error = ""
+        for _ in range(8):
+            raise_soyeht_dev_window(expected_window_id)
+            completed = subprocess.run(
+                ["/usr/bin/osascript", "-e", script, expected_identifier],
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode == 0:
+                break
+            latest_error = completed.stderr.strip()
+            sleep(0.25)
+        else:
+            raise RuntimeError(
+                f"Could not paste into exact Soyeht Dev window {expected_window_id}: {latest_error}"
+            )
+        sleep(0.35)
+    finally:
+        subprocess.run(["/usr/bin/pbcopy"], input=previous, check=False)
 
 
 def release_physical_draft(action, draft_length, expected_window_id):
@@ -200,6 +253,7 @@ end run
 '''
     latest_error = ""
     for _ in range(8):
+        raise_soyeht_dev_window(expected_window_id)
         completed = subprocess.run(
             ["/usr/bin/osascript", "-e", script, expected_identifier],
             capture_output=True,
@@ -621,11 +675,7 @@ def run_typing_collision(
     # DraftGate defect while Backspace clears one visible character per key.
     unfinished_draft = f"{draft_token} café ação reply only OK"
     if input_mode == "physicalKeyboard":
-        type_through_macos_keyboard(
-            unfinished_draft,
-            recipient["windowID"],
-            submit_with_return=False,
-        )
+        paste_through_macos_keyboard(unfinished_draft, recipient["windowID"])
     else:
         draft_input = mcp.tool_send_pane_input({
             **source_args(observer, automation_dir, timeout),
@@ -674,7 +724,9 @@ def run_typing_collision(
         "mode": "zoom",
     })
     click_soyeht_dev_target(sender["windowID"])
-    type_through_macos_keyboard(follow_up, sender["windowID"], submit_with_return=True)
+    type_through_macos_keyboard(follow_up, sender["windowID"], submit_with_return=False)
+    sleep(1.0)
+    type_through_macos_keyboard("", sender["windowID"], submit_with_return=True)
     mcp.tool_emphasize_pane({
         **source_args(observer, automation_dir, timeout),
         "conversationIDs": [sender["conversationID"]],
@@ -793,7 +845,7 @@ def run_typing_collision(
         "senderProcess": sender_process,
         "recipientProcess": recipient_process,
         "inputSimulation": (
-            f"macOS Accessibility keystrokes plus physical {draft_release_action}"
+            f"macOS Accessibility UTF-8 paste plus physical {draft_release_action}"
             if input_mode == "physicalKeyboard"
             else "send_pane_input without Enter through the shared onUserInputData draft gate"
         ),

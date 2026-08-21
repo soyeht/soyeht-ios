@@ -4,15 +4,13 @@
 
 PASS. Three real parent agents interpreted natural-language instructions,
 opened the requested child agent in the requested directory, exchanged a
-durable round-trip through the new MCP contract, and observed the reply before
-finishing. Two further three-route rings exercised every primary CLI as sender
-and recipient while unfinished user input held the relay until Enter. The last
-ring used actual macOS mouse and keyboard events against the signed Soyeht Dev
-app, not MCP input injection. A final six-route abandonment matrix cleared
-drafts without Enter using full Backspace or each TUI's valid cancel shortcut.
-All fifteen acceptance routes passed; an OpenCode `Ctrl+U` negative control
-correctly remained queued because that shortcut did not clear its draft. Every
-isolated test workspace was removed automatically.
+durable round-trip through MCP contract 2, and observed the reply before
+finishing. The final post-review ring exercised Codex, OpenCode, and Claude as
+both sender and recipient while exact UTF-8 human input (`café ação`) held the
+relay. Physical Backspace, OpenCode `Ctrl+U`, and Claude `Ctrl+C` then discarded
+the draft and released exactly one delivery. The installed, signed Soyeht Dev
+app supplied a real prompt-delivery acknowledgement; no fixed sleep was used.
+Every isolated test workspace was removed automatically.
 
 ## Behavioral ring
 
@@ -90,13 +88,70 @@ removed the draft without Return; the negative control intentionally did not.
 | `Ctrl+U` | Claude | PASS — cleared the draft and released the relay | [run 1787330292](../agent-driven-e2e-1787330292.json) |
 | `Ctrl+U` | Codex | PASS — cleared the draft and released the relay | [run 1787330414](../agent-driven-e2e-1787330414.json) |
 | `Ctrl+C` | OpenCode | PASS — cancelled the draft and released the relay | [run 1787330538](../agent-driven-e2e-1787330538.json) |
-| `Ctrl+U` negative control | OpenCode | EXPECTED HOLD — draft token remained visible and delivery timestamp remained `null` | [run 1787330668](../agent-driven-e2e-1787330668.json) |
+| `Ctrl+U` historical control | OpenCode | EXPECTED HOLD in the pre-hardening runner; retained as historical evidence | [run 1787330668](../agent-driven-e2e-1787330668.json) |
 
 Every passing route delivered the queued envelope after the draft became
 empty, received an MCP contract 2 / server 2.0.0 reply, and showed that reply in
-the real sender transcript. The negative control is important: Soyeht did not
-infer that an unsupported OpenCode shortcut had cleared text and did not risk
-splicing the relay into the still-visible draft.
+the real sender transcript. The historical control is important: Soyeht did
+not infer that a shortcut had cleared text and did not risk splicing the relay
+into the still-visible draft.
+
+### Post-review UTF-8 retest
+
+The runner was hardened to paste exact UTF-8 through macOS Accessibility,
+verify the exact window identifier before every event, and restore the user's
+clipboard. These fresh runs supersede the old OpenCode `Ctrl+U` observation:
+
+| Sender → recipient | Physical discard | Result | Evidence |
+| --- | --- | --- | --- |
+| Codex → OpenCode | Backspace over `café ação` | PASS — held before discard, delivered after | [Codex/OpenCode Backspace](../agent-driven-mcp2-codex-opencode-backspace-2026-08-21.json) |
+| OpenCode → Claude | Backspace over `café ação` | PASS — held before discard, delivered after | [OpenCode/Claude Backspace](../agent-driven-mcp2-opencode-claude-backspace-2026-08-21.json) |
+| Claude → Codex | Backspace over `café ação` | PASS — held before discard, delivered after | [Claude/Codex Backspace](../agent-driven-mcp2-claude-codex-backspace-2026-08-21.json) |
+| Codex → OpenCode | `Ctrl+U` | PASS — draft cleared and exactly one relay delivered | [OpenCode Ctrl-U](../agent-driven-mcp2-codex-opencode-ctrl-u-negative-2026-08-21.json) |
+| OpenCode → Claude | `Ctrl+C` | PASS — draft cancelled and exactly one relay delivered | [Claude Ctrl-C](../agent-driven-mcp2-opencode-claude-ctrl-c-2026-08-21.json) |
+
+All five fresh reports observed real process argv and cwd, prompt ACK,
+`relayAbsentBeforeRelease=true`, `relayObservedAfterRelease=true`, and MCP
+contract 2 / server 2.0.0 in both request and reply. On the Claude → Codex
+route, Claude accepted the typed follow-up but ignored the first automated
+Return; the operator sent a second Return to the same verified Accessibility
+window. The protected Codex draft and relay ordering remained correct. This is
+recorded as harness/TUI focus instability, not hidden as a product pass.
+
+## Post-review security boundary probes
+
+The installed Dev app was probed while real Codex and OpenCode panes were live:
+
+| Probe | Result |
+| --- | --- |
+| MCP v2 `send_pane_input` aimed at an agent pane | Rejected; caller is told to use `message_agent` so policy, inbox, and defer are enforced |
+| Policy mutation claiming a live pane identity without its launch nonce | Rejected as unauthenticated; no policy changed |
+| Sensitive policy mutation using MCP contract 1 | Rejected; Dev requires contract 2 |
+
+These are behavioral probes against the signed app, in addition to the Swift
+and protocol regression tests. Raw evidence:
+[security boundary probes](../mcp2-security-boundary-probes-2026-08-21.json).
+
+## Post-review implementation result
+
+- User-owned communication policy and agent-requested restrictions are stored
+  separately. Effective policy is deny-dominant, so an agent can restrict
+  itself but cannot erase a UI block.
+- Agent identity mutations require the pane's injected launch nonce. A caller
+  cannot select another pane merely by declaring its handle or UUID.
+- One or more panes can be authorized by the user as orchestration managers.
+  Only those panes may change roles, templates, or active graph topology.
+- Low-level pane input fails closed for agent targets; all inter-agent traffic
+  passes through the durable inbox, policy evaluator, and draft gate.
+- The draft state machine counts UTF-8 characters rather than bytes and fully
+  consumes SS3 terminal sequences.
+- Sensitive collaboration tools require MCP client contract 2 in Dev.
+- Prompt delivery uses a real agent hook acknowledgement. Automation requests
+  are processed concurrently so an awaiting creation request cannot block its
+  own acknowledgement.
+- The Python MCP now uses event-driven filesystem notifications, split IPC and
+  catalog modules, an app-owned JSON launch catalog, bounded inbox retention,
+  delivery claims, uncertain-delivery recovery, and idempotent retry IDs.
 
 ## Direct MCP 2.0 regression suite
 
@@ -134,10 +189,10 @@ check groups:
 
 ## Other verification
 
-- MCP protocol unit tests: 48 passed.
+- MCP protocol unit tests: 52 passed.
 - Focused Swift messaging/presentation tests: 47 passed.
 - Swift draft-gate unit tests after Kitty CSI-u coverage: 22 passed.
-- Full Swift package regression: 818 passed, 5 skipped, 0 failed.
+- Full Swift package regression: 438 passed, 0 failed (current package graph).
 - Xcode Debug build: passed.
 - [Quick gate](../2026-08-21-codex-gate-quick/gate-report.md): PASS WITH FOLLOW-UPS
   (iOS, SwiftPM, and contract smoke passed; four existing assisted macOS checks

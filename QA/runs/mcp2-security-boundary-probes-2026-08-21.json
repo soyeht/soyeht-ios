@@ -1,0 +1,33 @@
+{
+  "app": {
+    "bundleID": "com.soyeht.mac.dev",
+    "commit": "6b083427",
+    "installation": "/Applications/Soyeht Dev.app",
+    "signedTeamID": "W7677A5BK2"
+  },
+  "cases": [
+    {
+      "case": "legacy-agent-write",
+      "expected": "rejected",
+      "message": "Low-level send_pane_input cannot write to agent pane. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "result": "rejected"
+    },
+    {
+      "case": "spoof-policy-without-launch-nonce",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE was missing or did not belong to that pane.",
+      "result": "rejected"
+    },
+    {
+      "case": "old-contract-sensitive-write",
+      "expected": "rejected",
+      "message": "Soyeht Dev rejected MCP client contract 1; agent creation and messaging require contract 2.",
+      "result": "rejected"
+    }
+  ],
+  "liveAgents": {
+    "recipient": "/opt/homebrew/bin/opencode --auto",
+    "sender": "/opt/homebrew/bin/codex --yolo"
+  },
+  "status": "passed"
+}
