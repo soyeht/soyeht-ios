@@ -65,11 +65,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "mainwindow")
 
+    enum InitialPromptDeliveryStatus: String {
+        case notRequested = "not_requested"
+        case acknowledged
+        case submittedUnverified = "submitted_unverified"
+        case handshakeTimeout = "handshake_timeout"
+        case acknowledgementTimeout = "acknowledgement_timeout"
+        case paneUnavailable = "pane_unavailable"
+    }
+
     struct LocalAgentWorkspaceResult {
         let workspaceID: Workspace.ID
         let workspaceName: String
         let conversationID: Conversation.ID
         let handle: String
+        let promptDeliveryStatus: InitialPromptDeliveryStatus
     }
 
     struct LocalAgentPaneSpec {
@@ -91,6 +101,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let workspaceID: Workspace.ID
         let conversationID: Conversation.ID
         let handle: String
+        var promptDeliveryStatus: InitialPromptDeliveryStatus
     }
 
     struct OpenedSpecialPaneResult {
@@ -1166,7 +1177,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         ))
 
         activate(workspaceID: added.id)
-        try await attachLocalPTY(
+        let promptDeliveryStatus = try await attachLocalPTY(
             to: paneID,
             cwd: projectURL,
             initialCommand: initialCommand,
@@ -1183,7 +1194,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             workspaceID: added.id,
             workspaceName: added.name,
             conversationID: paneID,
-            handle: storedConversation.handle
+            handle: storedConversation.handle,
+            promptDeliveryStatus: promptDeliveryStatus
         )
     }
 
@@ -1257,14 +1269,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 projectURL: spec.projectURL,
                 workspaceID: workspaceID,
                 conversationID: paneID,
-                handle: storedConversation.handle
+                handle: storedConversation.handle,
+                promptDeliveryStatus: .notRequested
             ))
         }
 
         applyMCPBatchCreationLayout(workspaceID: workspaceID, paneIDs: batchPaneIDs)
         refreshWorkspaceChromeFromStore()
         for (paneID, spec) in attachJobs {
-            try await attachLocalPTY(
+            let promptDeliveryStatus = try await attachLocalPTY(
                 to: paneID,
                 cwd: spec.projectURL,
                 initialCommand: spec.initialCommand,
@@ -1275,6 +1288,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 promptSourceHandle: spec.promptSourceHandle,
                 promptSourceTTY: spec.promptSourceTTY
             )
+            if let index = results.firstIndex(where: { $0.conversationID == paneID }) {
+                results[index].promptDeliveryStatus = promptDeliveryStatus
+            }
         }
         return results
     }
@@ -3599,7 +3615,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await self.attachLocalPTY(
+                _ = try await self.attachLocalPTY(
                     to: paneID,
                     cwd: cwd,
                     initialCommand: nil,
@@ -3800,7 +3816,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             binding: nativeResumeBinding
         )
         let command = AgentLaunchCommandBuilder.prepare(baseCommand)
-        try await attachLocalPTY(
+        _ = try await attachLocalPTY(
             to: paneID,
             cwd: cwd,
             initialCommand: command,
@@ -3853,7 +3869,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         promptSourceHandle: String?,
         promptSourceTTY: String?,
         onPromptDelivered: (@MainActor () -> Void)? = nil
-    ) async throws {
+    ) async throws -> InitialPromptDeliveryStatus {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
@@ -3943,110 +3959,93 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             sourceTTY: promptSourceTTY,
             convStore: convStore
         )
-        if preparedInitialCommand != nil || !(prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
-            Task { @MainActor [weak pane] in
-                if let preparedInitialCommand {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    guard let terminalView = pane?.terminalView else { return }
-                    let prepared = AgentPaneInputPlanner.terminalPayload(
-                        text: preparedInitialCommand,
-                        appendNewline: true,
-                        lineEnding: "crlf"
-                    )
-                    terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)
+        if let preparedInitialCommand {
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            guard LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                return .paneUnavailable
+            }
+            let prepared = AgentPaneInputPlanner.terminalPayload(
+                text: preparedInitialCommand,
+                appendNewline: true,
+                lineEnding: "crlf"
+            )
+            pane.terminalView.brokerSend(
+                text: prepared.payload,
+                submitWithEnter: prepared.shouldSendEnterKey
+            )
+        }
+
+        guard let plannedPrompt else {
+            Self.logger.info(
+                "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
+            )
+            return .notRequested
+        }
+
+        if launchNonce != nil {
+            // Hold the automation response until the launch handshake and the
+            // prompt acknowledgement resolve. This is the real delivery ACK
+            // consumed by MCP; no client-side fixed sleep is required.
+            let deadline = Date().addingTimeInterval(90)
+            while Date() < deadline {
+                guard LivePaneRegistry.shared.pane(for: paneID) != nil else {
+                    return .paneUnavailable
                 }
-                if let plannedPrompt {
-                    guard let terminalView = pane?.terminalView else { return }
-                    if launchNonce != nil {
-                        // Handshake-gated delivery: wait until the agent's
-                        // reporter proves the agent booted, then send. On
-                        // timeout the prompt is NOT typed (nothing leaks into
-                        // a bare shell or half-booted TUI). Window is long:
-                        // engine spawn + login shell + agent boot can take a
-                        // while on cold starts.
-                        let deadline = Date().addingTimeInterval(90)
-                        var satisfied = false
-                        while Date() < deadline {
-                            guard !Task.isCancelled,
-                                  LivePaneRegistry.shared.pane(for: paneID) != nil else {
-                                return
-                            }
-                            do {
-                                try await Task.sleep(nanoseconds: 500_000_000)
-                            } catch {
-                                return
-                            }
-                            if PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied {
-                                satisfied = true
-                                break
-                            }
-                        }
-                        guard let liveTerminalView = pane?.terminalView else { return }
-                        if satisfied {
-                            // Settle after the handshake: the handshake only
-                            // proves the agent's hooks fired (process booted),
-                            // not that the TUI input box is interactive. Some
-                            // agents (qwen) keep streaming a banner for a few
-                            // seconds after SessionStart and swallow early
-                            // keystrokes, so wait a base settle and let an
-                            // explicit promptDelayMs extend it.
-                            let settleMs = max(1500, promptDelayMs ?? 0)
-                            do {
-                                try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
-                            } catch {
-                                return
-                            }
-                            let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
-                                paneID: paneID,
-                                expectedReportSource: expectedReportSource,
-                                terminalView: liveTerminalView,
-                                payload: plannedPrompt.payload,
-                                shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
-                            )
-                            if promptAcknowledged {
-                                PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
-                                onPromptDelivered?()
-                            } else {
-                                PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
-                                Self.logger.error(
-                                    "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
-                                )
-                            }
-                        } else {
-                            PaneStatusTracker.shared.markHandshakeTimeout(paneID: paneID)
-                            Self.logger.error(
-                                "agent_handshake_timeout pane=\(paneID.uuidString, privacy: .public) initial prompt withheld"
-                            )
-                        }
-                        _ = terminalView
-                    } else {
-                        let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
-                            initialCommand: preparedInitialCommand,
-                            explicitDelayMs: promptDelayMs
-                        )) * 1_000_000
-                        try? await Task.sleep(nanoseconds: delay)
-                        guard let liveTerminalView = pane?.terminalView else { return }
-                        let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
-                            paneID: paneID,
-                            expectedReportSource: expectedReportSource,
-                            terminalView: liveTerminalView,
-                            payload: plannedPrompt.payload,
-                            shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
-                        )
-                        if promptAcknowledged {
-                            onPromptDelivered?()
-                        } else {
-                            Self.logger.error(
-                                "turn_bound_agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
-                            )
-                        }
-                    }
+                try await Task.sleep(nanoseconds: 500_000_000)
+                if PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied {
+                    break
                 }
             }
+            guard PaneStatusTracker.shared.handshakeState(for: paneID) == .satisfied else {
+                PaneStatusTracker.shared.markHandshakeTimeout(paneID: paneID)
+                Self.logger.error(
+                    "agent_handshake_timeout pane=\(paneID.uuidString, privacy: .public) initial prompt withheld"
+                )
+                return .handshakeTimeout
+            }
+            let settleMs = max(1500, promptDelayMs ?? 0)
+            try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
+        } else {
+            let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
+                initialCommand: preparedInitialCommand,
+                explicitDelayMs: promptDelayMs
+            )) * 1_000_000
+            try await Task.sleep(nanoseconds: delay)
         }
-        Self.logger.info(
-            "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
+
+        guard LivePaneRegistry.shared.pane(for: paneID) != nil else {
+            return .paneUnavailable
+        }
+        if conversation?.agent.isShell == true {
+            pane.terminalView.brokerSend(
+                text: plannedPrompt.payload,
+                submitWithEnter: plannedPrompt.shouldSendEnterKey,
+                forceBracketedPaste: true,
+                focusBeforeSubmit: false
+            )
+            return .submittedUnverified
+        }
+        let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
+            paneID: paneID,
+            expectedReportSource: expectedReportSource,
+            terminalView: pane.terminalView,
+            payload: plannedPrompt.payload,
+            shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
         )
+        if promptAcknowledged {
+            if launchNonce != nil {
+                PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
+            }
+            onPromptDelivered?()
+            return .acknowledged
+        }
+        if launchNonce != nil {
+            PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
+        }
+        Self.logger.error(
+            "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
+        )
+        return .acknowledgementTimeout
     }
 
     /// A prompt-bound agent cannot emit SessionStart before its first user

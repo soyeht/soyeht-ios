@@ -9,9 +9,15 @@ import shutil
 import signal
 import subprocess
 import sys
-import time
 import uuid
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from soyeht_mcp_catalog import load_agent_catalog
+from soyeht_mcp_ipc import wait_response, write_request
 
 
 SERVER_NAME = "soyeht-automation"
@@ -20,30 +26,12 @@ MCP_CLIENT_CONTRACT_VERSION = 2
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
-AGENT_CATALOG = {
-    "claude": {"displayName": "Claude Code", "executable": "claude", "modelFlag": "--model"},
-    "codex": {"displayName": "Codex", "executable": "codex", "modelFlag": "--model"},
-    "opencode": {"displayName": "OpenCode", "executable": "opencode", "modelFlag": "--model"},
-    "qwen": {"displayName": "Qwen Code", "executable": "qwen", "modelFlag": "--model"},
-    "antigravity": {"displayName": "Antigravity", "executable": "agy", "modelFlag": "--model"},
-    "pi": {"displayName": "Pi", "executable": "pi", "modelFlag": "--model"},
-    "droid": {"displayName": "Droid", "executable": "droid", "modelFlag": "--model"},
-    "kilo": {"displayName": "Kilo Code", "executable": "kilo", "modelFlag": "--model"},
-    "cursor": {"displayName": "Cursor", "executable": "cursor-agent", "modelFlag": "--model"},
-    "copilot": {"displayName": "Copilot CLI", "executable": "copilot", "modelFlag": "--model"},
-    "grok": {"displayName": "Grok", "executable": "grok", "modelFlag": "--model"},
-    "kimi": {"displayName": "Kimi", "executable": "kimi", "modelFlag": "--model"},
-    "devin": {"displayName": "Devin", "executable": "devin", "modelFlag": "--model"},
-    "qoder": {"displayName": "Qoder", "executable": "qodercli", "modelFlag": "--model"},
-}
+AGENT_CATALOG, LAUNCH_PROFILES = load_agent_catalog(__file__)
 KNOWN_AGENTS = set(AGENT_CATALOG) | {"shell"}
-LAUNCH_PROFILES = {
-    "codex-yolo": {"agentID": "codex", "args": ["--yolo"]},
-    "opencode-auto": {"agentID": "opencode", "args": ["--auto"]},
-}
 DEFAULT_AGENT_PROFILES = {
-    "codex": "codex-yolo",
-    "opencode": "opencode-auto",
+    agent_id: entry["defaultProfile"]
+    for agent_id, entry in AGENT_CATALOG.items()
+    if entry.get("defaultProfile")
 }
 PROMPT_MODE_CHOICES = ["auto", "message", "raw"]
 DEFAULT_INITIAL_PROMPT_DELAYS_MS = {
@@ -90,6 +78,7 @@ FROM_HANDLE_PROPERTY = {
 }
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
+DEFAULT_AGENT_CREATE_TIMEOUT = 120.0
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
     "*.md",
@@ -586,30 +575,34 @@ def resolved_prompt_delay_ms(agent, command, prompt, explicit_delay_ms=None):
     return initial_prompt_delay_ms(agent, command)
 
 
-def prompt_delivery_wait_ms(payload):
-    waits = []
-    for spec in payload.get("panes") or []:
-        prompt = spec.get("prompt")
-        if prompt is None or str(prompt).strip() == "":
-            continue
-        delay = spec.get("promptDelayMs")
-        if delay is None:
-            delay = initial_prompt_delay_ms(spec.get("agent"), spec.get("command"))
-        command = spec.get("command")
-        if command is not None and str(command).strip() != "":
-            delay = int(delay) + INITIAL_COMMAND_START_DELAY_MS
-        waits.append(max(int(delay), 0))
-    return max(waits) if waits else 0
-
-
 def wait_for_initial_prompt_delivery(payload, response):
-    wait_ms = prompt_delivery_wait_ms(payload)
-    if wait_ms <= 0:
-        return response
-    time.sleep((wait_ms / 1000.0) + 0.5)
-    response["promptDeliveryWaitMs"] = wait_ms
-    response["promptDeliveryStatus"] = "waited"
+    # The app now holds the create response until every requested prompt has
+    # resolved against its real agent hook acknowledgement. Keep one summary
+    # for compatibility, but never invent readiness from a fixed sleep.
+    entries = (response.get("createdPanes") or []) + (response.get("createdWorkspaces") or [])
+    statuses = [entry.get("promptDeliveryStatus") for entry in entries if entry.get("promptDeliveryStatus")]
+    if statuses:
+        unique = sorted(set(statuses))
+        response["promptDeliveryStatus"] = unique[0] if len(unique) == 1 else "mixed"
+        response["promptDeliveryStatuses"] = statuses
     return response
+
+
+def creation_request_timeout(args, sessions, default=DEFAULT_BATCH_CREATE_TIMEOUT):
+    """Budget for the app's real prompt acknowledgement, never a fixed sleep."""
+    if args.get("timeout") is not None:
+        return float(args["timeout"])
+    prompt_sessions = [
+        session for session in sessions
+        if str(session.get("prompt") or "").strip()
+        and str(session.get("agent") or "shell").strip().lower() != "shell"
+    ]
+    if prompt_sessions:
+        # Creation is currently serialized by the app. Each startup-aware
+        # agent handshake may legitimately consume most of its 90-second
+        # window before the prompt acknowledgement arrives.
+        return max(default, DEFAULT_AGENT_CREATE_TIMEOUT * len(prompt_sessions))
+    return default
 
 
 def with_source_context(payload, args=None):
@@ -753,27 +746,6 @@ def editor_command(editor, file_path, line=None):
         except (TypeError, ValueError):
             pass
     return f"{editor}{line_arg} {shlex.quote(str(file_path))}"
-
-
-def write_request(root, request):
-    requests_dir = root / "Requests"
-    requests_dir.mkdir(parents=True, exist_ok=True)
-    tmp = requests_dir / f".{request['id']}.tmp"
-    dest = requests_dir / f"{request['id']}.json"
-    tmp.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, dest)
-    return dest
-
-
-def wait_response(root, request_id, timeout):
-    response = root / "Responses" / f"{request_id}.json"
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if response.exists():
-            return json.loads(response.read_text(encoding="utf-8"))
-        time.sleep(0.25)
-    return None
 
 
 def submit_request_to_root(root, request_type, payload, timeout=DEFAULT_REQUEST_TIMEOUT, check_status=True):
@@ -955,6 +927,17 @@ def tool_open_panes(args):
     if activate_created_pane is None:
         activate_created_pane = all(str(agent).strip().lower() == "shell" for agent in pane_agents)
 
+    requested_sessions = [
+        session_spec(
+            pane,
+            default_agent=default_agent,
+            default_command=default_command,
+            default_prompt=args.get("prompt"),
+            default_prompt_delay_ms=args.get("promptDelayMs"),
+            default_prompt_mode=default_prompt_mode,
+        )
+        for pane in panes
+    ]
     payload = with_source_context(with_window_target(with_name_styles({
         "activateCreatedPane": bool(activate_created_pane),
         "agent": default_agent,
@@ -967,23 +950,13 @@ def tool_open_panes(args):
             args.get("prompt"),
             args.get("promptDelayMs"),
         ),
-        "panes": [
-            session_spec(
-                pane,
-                default_agent=default_agent,
-                default_command=default_command,
-                default_prompt=args.get("prompt"),
-                default_prompt_delay_ms=args.get("promptDelayMs"),
-                default_prompt_mode=default_prompt_mode,
-            )
-            for pane in panes
-        ],
+        "panes": requested_sessions,
     }, args), args), args)
     return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
+        timeout=creation_request_timeout(args, requested_sessions),
     ))
 
 
@@ -997,6 +970,17 @@ def tool_open_workspace(args):
     default_command = explicit_default_command or default_agent_command(default_agent)
     default_prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
 
+    requested_sessions = [
+        session_spec(
+            pane,
+            default_agent=default_agent,
+            default_command=default_command,
+            default_prompt=args.get("prompt"),
+            default_prompt_delay_ms=args.get("promptDelayMs"),
+            default_prompt_mode=default_prompt_mode,
+        )
+        for pane in panes
+    ]
     payload = with_source_context(with_window_target(with_name_styles({
         "workspaceName": args.get("name") or panes[0].get("name") or "Workspace",
         "workspaceBranch": args.get("branch"),
@@ -1010,23 +994,13 @@ def tool_open_workspace(args):
             args.get("prompt"),
             args.get("promptDelayMs"),
         ),
-        "panes": [
-            session_spec(
-                pane,
-                default_agent=default_agent,
-                default_command=default_command,
-                default_prompt=args.get("prompt"),
-                default_prompt_delay_ms=args.get("promptDelayMs"),
-                default_prompt_mode=default_prompt_mode,
-            )
-            for pane in panes
-        ],
+        "panes": requested_sessions,
     }, args), args), args)
     return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_workspace_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
+        timeout=creation_request_timeout(args, requested_sessions),
     ))
 
 
@@ -1053,29 +1027,30 @@ def tool_open_shell(args):
     if activate_created_pane is None:
         activate_created_pane = str(agent).strip().lower() == "shell"
 
+    requested_sessions = [
+        session_spec(
+            spec,
+            default_agent=agent,
+            default_command=command,
+            default_prompt=args.get("prompt"),
+            default_prompt_delay_ms=args.get("promptDelayMs"),
+            default_prompt_mode=prompt_mode,
+            require_name=False,
+        )
+    ]
     payload = with_source_context(with_window_target(with_name_styles({
         "allowAutoPaneNames": True,
         "activateCreatedPane": bool(activate_created_pane),
         "agent": agent,
         "command": command,
         "promptMode": resolved_prompt_mode(agent, args.get("prompt"), prompt_mode),
-        "panes": [
-            session_spec(
-                spec,
-                default_agent=agent,
-                default_command=command,
-                default_prompt=args.get("prompt"),
-                default_prompt_delay_ms=args.get("promptDelayMs"),
-                default_prompt_mode=prompt_mode,
-                require_name=False,
-            )
-        ],
+        "panes": requested_sessions,
     }, args), args), args)
     return wait_for_initial_prompt_delivery(payload, submit_request(
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", 20.0),
+        timeout=creation_request_timeout(args, requested_sessions, default=DEFAULT_REQUEST_TIMEOUT),
     ))
 
 
@@ -1140,7 +1115,7 @@ def tool_open_agent_pane(args):
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
+        timeout=creation_request_timeout(args, [payload["panes"][0]], default=DEFAULT_AGENT_CREATE_TIMEOUT),
     ))
     result["launchContract"] = {
         **launch,
@@ -1412,7 +1387,7 @@ def tool_create_worktree_panes(args):
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
+        timeout=creation_request_timeout(args, panes),
     ))
 
 
@@ -1477,7 +1452,7 @@ def tool_agent_race_panes(args):
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
+        timeout=creation_request_timeout(args, panes),
     ))
 
 
@@ -2029,7 +2004,11 @@ TOOLS = [
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "workspaceID": WORKSPACE_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+                "timeout": {
+                    "type": "number",
+                    "default": DEFAULT_AGENT_CREATE_TIMEOUT,
+                    "description": "Maximum seconds to wait for process startup and the app-observed initial-prompt acknowledgement.",
+                },
             },
         },
     },
@@ -2097,7 +2076,11 @@ TOOLS = [
                 "paneNameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+                "timeout": {
+                    "type": "number",
+                    "default": DEFAULT_AGENT_CREATE_TIMEOUT,
+                    "description": "Maximum seconds to wait for process startup and the app-observed initial-prompt acknowledgement.",
+                },
             },
             "required": ["agentID"],
         },

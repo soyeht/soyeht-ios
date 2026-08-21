@@ -11,11 +11,6 @@ MODULE = runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts" / "s
 class SoyehtMCPProtocolTests(unittest.TestCase):
     def setUp(self):
         MODULE["handle_message"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
-        self.sleep_patch = patch.object(MODULE["time"], "sleep", lambda _seconds: None)
-        self.sleep_patch.start()
-
-    def tearDown(self):
-        self.sleep_patch.stop()
 
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
@@ -91,6 +86,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
             self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
+
+    def test_agent_catalog_is_loaded_from_the_app_owned_json(self):
+        document = __import__("json").loads(
+            (Path(__file__).resolve().parents[2] / "TerminalApp" / "SoyehtMac" / "LocalAgentCatalog.json")
+            .read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            list(MODULE["AGENT_CATALOG"]),
+            [entry["name"] for entry in document["agents"]],
+        )
+        self.assertEqual(MODULE["LAUNCH_PROFILES"], document["launchProfiles"])
 
     def test_message_agent_handler_is_registered_and_fail_closed_by_schema(self):
         self.assertIn("message_agent", MODULE["TOOL_HANDLERS"])
@@ -762,8 +769,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "message")
         self.assertEqual(captured["payload"]["panes"][0]["prompt"], "please review this")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
-        self.assertEqual(result["promptDeliveryStatus"], "waited")
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_open_shell_raw_prompt_mode_preserves_literal_agent_input(self):
         captured = {}
@@ -790,7 +796,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_open_shell_codex_prompt_waits_for_default_delivery_delay(self):
         captured = {}
@@ -815,7 +821,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["payload"]["promptMode"], "message")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 8_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 11_000)
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_shell_prompt_defaults_to_raw_mode(self):
         captured = {}
@@ -839,7 +845,48 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 1_500)
-        self.assertEqual(result["promptDeliveryWaitMs"], 1_500)
+        self.assertNotIn("promptDeliveryWaitMs", result)
+
+    def test_prompt_delivery_summary_uses_app_ack_without_sleeping(self):
+        response = {
+            "status": "ok",
+            "createdPanes": [
+                {"promptDeliveryStatus": "acknowledged"},
+                {"promptDeliveryStatus": "acknowledged"},
+            ],
+        }
+
+        result = MODULE["wait_for_initial_prompt_delivery"]({}, response)
+
+        self.assertEqual(result["promptDeliveryStatus"], "acknowledged")
+        self.assertEqual(
+            result["promptDeliveryStatuses"],
+            ["acknowledged", "acknowledged"],
+        )
+        self.assertNotIn("promptDeliveryWaitMs", result)
+
+    def test_agent_creation_timeout_scales_with_real_prompt_acknowledgements(self):
+        sessions = [
+            {"agent": "codex", "prompt": "review"},
+            {"agent": "opencode", "prompt": "review"},
+            {"agent": "shell", "prompt": "printf ok"},
+        ]
+
+        self.assertEqual(MODULE["creation_request_timeout"]({}, sessions), 240.0)
+        self.assertEqual(
+            MODULE["creation_request_timeout"]({"timeout": 17}, sessions),
+            17.0,
+        )
+        self.assertEqual(
+            MODULE["creation_request_timeout"]({}, [{"agent": "shell", "prompt": "ls"}]),
+            MODULE["DEFAULT_BATCH_CREATE_TIMEOUT"],
+        )
+
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "open_agent_pane")
+        self.assertEqual(
+            tool["inputSchema"]["properties"]["timeout"]["default"],
+            MODULE["DEFAULT_AGENT_CREATE_TIMEOUT"],
+        )
 
     def test_identify_agent_forwards_explicit_source(self):
         captured = {}

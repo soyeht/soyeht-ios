@@ -186,14 +186,16 @@ struct SoyehtAutomationResponse: Encodable {
         let conversationID: String
         let handle: String
         let windowID: String?
+        let promptDeliveryStatus: String?
 
-        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil) {
+        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil, promptDeliveryStatus: String? = nil) {
             self.name = name
             self.path = path
             self.workspaceID = workspaceID
             self.conversationID = conversationID
             self.handle = handle
             self.windowID = windowID
+            self.promptDeliveryStatus = promptDeliveryStatus
         }
     }
 
@@ -204,14 +206,16 @@ struct SoyehtAutomationResponse: Encodable {
         let conversationID: String
         let handle: String
         let windowID: String?
+        let promptDeliveryStatus: String?
 
-        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil) {
+        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil, promptDeliveryStatus: String? = nil) {
             self.name = name
             self.path = path
             self.workspaceID = workspaceID
             self.conversationID = conversationID
             self.handle = handle
             self.windowID = windowID
+            self.promptDeliveryStatus = promptDeliveryStatus
         }
     }
 
@@ -271,7 +275,9 @@ struct SoyehtAutomationResponse: Encodable {
         let createdAt: Date
         let readAt: Date?
         let acknowledgedAt: Date?
+        let deferredTerminalDeliveryStartedAt: Date?
         let deferredTerminalDeliveredAt: Date?
+        let terminalDeliveryState: String
         let mcpClientContractVersion: Int?
         let mcpClientServerVersion: String?
     }

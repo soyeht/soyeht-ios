@@ -322,6 +322,7 @@ struct AgentMessage: Codable, Identifiable, Hashable {
     var attentionPresentedAt: Date?
     var readAt: Date?
     var acknowledgedAt: Date?
+    var deferredTerminalDeliveryStartedAt: Date?
     var deferredTerminalDeliveredAt: Date?
     var mcpClientContractVersion: Int?
     var mcpClientServerVersion: String?
@@ -347,6 +348,7 @@ struct AgentMessage: Codable, Identifiable, Hashable {
         self.attentionPresentedAt = nil
         self.readAt = nil
         self.acknowledgedAt = nil
+        self.deferredTerminalDeliveryStartedAt = nil
         self.deferredTerminalDeliveredAt = nil
         self.mcpClientContractVersion = mcpClientContractVersion
         self.mcpClientServerVersion = mcpClientServerVersion
@@ -369,6 +371,8 @@ struct AgentMessage: Codable, Identifiable, Hashable {
 /// atomically with the existing workspace snapshot.
 struct AgentMessageInbox: Codable, Hashable {
     static let currentProtocolVersion = 1
+    static let completedRetentionLimit = 500
+    static let completedRetentionAge: TimeInterval = 30 * 24 * 60 * 60
 
     enum MutationError: Error, Equatable {
         case emptyBody
@@ -387,7 +391,18 @@ struct AgentMessageInbox: Codable, Hashable {
         messages.filter { $0.needsAttention && $0.attentionPresentedAt == nil }
     }
     var messagesAwaitingDeferredTerminalDelivery: [AgentMessage] {
-        messages.filter { $0.channel == .deferredTerminal && $0.deferredTerminalDeliveredAt == nil }
+        messages.filter {
+            $0.channel == .deferredTerminal
+                && $0.deferredTerminalDeliveryStartedAt == nil
+                && $0.deferredTerminalDeliveredAt == nil
+        }
+    }
+    var messagesWithUncertainDeferredTerminalDelivery: [AgentMessage] {
+        messages.filter {
+            $0.channel == .deferredTerminal
+                && $0.deferredTerminalDeliveryStartedAt != nil
+                && $0.deferredTerminalDeliveredAt == nil
+        }
     }
 
     func message(id: AgentMessage.ID) -> AgentMessage? {
@@ -414,6 +429,7 @@ struct AgentMessageInbox: Codable, Hashable {
         let index = try messageIndex(id)
         if messages[index].readAt == nil { messages[index].readAt = date }
         if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
+        _ = pruneCompleted(now: date)
     }
 
     mutating func markAttentionPresented(_ id: AgentMessage.ID, at date: Date = Date()) throws {
@@ -434,6 +450,46 @@ struct AgentMessageInbox: Codable, Hashable {
         if messages[index].deferredTerminalDeliveredAt == nil {
             messages[index].deferredTerminalDeliveredAt = date
         }
+        _ = pruneCompleted(now: date)
+    }
+
+    @discardableResult
+    mutating func markDeferredTerminalDeliveryStarted(
+        _ id: AgentMessage.ID,
+        at date: Date = Date()
+    ) throws -> Bool {
+        let index = try messageIndex(id)
+        guard messages[index].channel == .deferredTerminal else {
+            throw MutationError.wrongDeliveryChannel
+        }
+        guard messages[index].deferredTerminalDeliveryStartedAt == nil else { return false }
+        messages[index].deferredTerminalDeliveryStartedAt = date
+        return true
+    }
+
+    /// Bounds snapshot growth without ever deleting work that is unread,
+    /// unacknowledged, or not known to have reached the terminal.
+    @discardableResult
+    mutating func pruneCompleted(
+        retainingNewest limit: Int = completedRetentionLimit,
+        completedAfter cutoff: Date? = nil,
+        now: Date = Date()
+    ) -> Int {
+        let cutoff = cutoff ?? now.addingTimeInterval(-Self.completedRetentionAge)
+        let completed = messages.filter { message in
+            guard message.acknowledgedAt != nil else { return false }
+            return message.channel != .deferredTerminal
+                || message.deferredTerminalDeliveredAt != nil
+        }.sorted { $0.createdAt > $1.createdAt }
+        let retainedIDs = Set(completed.prefix(max(0, limit)).map(\.id))
+        let before = messages.count
+        messages.removeAll { message in
+            guard message.acknowledgedAt != nil,
+                  message.channel != .deferredTerminal
+                    || message.deferredTerminalDeliveredAt != nil else { return false }
+            return message.createdAt < cutoff || !retainedIDs.contains(message.id)
+        }
+        return before - messages.count
     }
 
     private func messageIndex(_ id: AgentMessage.ID) throws -> Int {

@@ -243,6 +243,68 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(decoded.messages[0].mcpClientServerVersion, "2.0.0")
     }
 
+    func testInboxPrunesOnlyCompletedMessagesAndKeepsNewestCompleted() throws {
+        let recipient = endpoint(handle: "delia")
+        let sender = endpoint(handle: "caia")
+        var inbox = AgentMessageInbox()
+        let oldCompleted = message(
+            sender: sender,
+            recipient: recipient,
+            createdAt: Date(timeIntervalSince1970: 10)
+        )
+        let newestCompleted = message(
+            sender: sender,
+            recipient: recipient,
+            createdAt: Date(timeIntervalSince1970: 20)
+        )
+        let oldIncomplete = message(
+            sender: sender,
+            recipient: recipient,
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        for item in [oldCompleted, newestCompleted, oldIncomplete] {
+            _ = try inbox.enqueue(item, recipientID: recipient.paneID)
+        }
+        try inbox.acknowledge(oldCompleted.id, at: Date(timeIntervalSince1970: 30))
+        try inbox.acknowledge(newestCompleted.id, at: Date(timeIntervalSince1970: 30))
+
+        let removed = inbox.pruneCompleted(
+            retainingNewest: 1,
+            completedAfter: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertEqual(removed, 1)
+        XCTAssertNil(inbox.message(id: oldCompleted.id))
+        XCTAssertNotNil(inbox.message(id: newestCompleted.id))
+        XCTAssertNotNil(inbox.message(id: oldIncomplete.id))
+    }
+
+    func testDeferredDeliveryAttemptIsPersistedBeforeCompletionAndNotRequeued() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            channel: .deferredTerminal
+        )
+        var inbox = AgentMessageInbox()
+        _ = try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        XCTAssertTrue(try inbox.markDeferredTerminalDeliveryStarted(
+            item.id,
+            at: Date(timeIntervalSince1970: 110)
+        ))
+        XCTAssertFalse(try inbox.markDeferredTerminalDeliveryStarted(
+            item.id,
+            at: Date(timeIntervalSince1970: 111)
+        ))
+
+        XCTAssertTrue(inbox.messagesAwaitingDeferredTerminalDelivery.isEmpty)
+        XCTAssertEqual(inbox.messagesWithUncertainDeferredTerminalDelivery.map(\.id), [item.id])
+
+        try inbox.markDeferredTerminalDelivered(item.id, at: Date(timeIntervalSince1970: 120))
+        XCTAssertTrue(inbox.messagesWithUncertainDeferredTerminalDelivery.isEmpty)
+    }
+
     func testReadAttentionAndAcknowledgementHaveSeparateDurableStates() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(sender: endpoint(handle: "caia"), recipient: recipient)

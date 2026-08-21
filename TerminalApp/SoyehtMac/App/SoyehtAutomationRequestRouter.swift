@@ -88,129 +88,6 @@ final class SoyehtAutomationRequestRouter {
         return try await handleAutomationRequest(request)
     }
 
-    private enum AutomationError: LocalizedError {
-        case emptyWorktreeWorkspaces
-        case emptyWorktreePanes
-        case emptyWorkspacePanes
-        case emptyPaneInput
-        case emptyAgentMessageTargets
-        case agentMessageSourceRequired
-        case invalidAgentMessageDeliveryPreference(String)
-        case invalidAgentMessageID(String)
-        case agentRoleTemplateNotFound(String)
-        case invalidOrchestrationPreset(String)
-        case orchestrationConversationOutsideWorkspace(String)
-        case emptyRenameName
-        case emptyRenameTargets
-        case invalidDirectory(String)
-        case invalidFile(String)
-        case invalidWorkspaceIDFormat(String)
-        case missingPaneName(String)
-        case workspaceNotFound(UUID)
-        case workspaceNotInWindow(UUID, String)
-        case missingConversationStore
-        case noActiveMainWindow
-        case windowNotFound(String)
-        case sourceConversationNotFound(String)
-        case sourceHandleNotFound(String)
-        case sourceIdentityUnavailable
-        case invalidAgentState(String)
-        case invalidConversationRole(String)
-        case emptyConversationEvent
-        case unknownAgent(String)
-        case emptyPaneInputTargets
-        case invalidConversationIDFormat(String)
-        case invalidConversationSequence(Int, Int)
-        case missingWebURL
-        case missingAppInstallID
-        case incompatibleMCPClientContract(expected: Int, received: Int?)
-        case unauthenticatedAgentSource
-        case orchestrationManagerAuthorizationRequired
-        case agentPaneRequiresMessageAgent(String)
-
-        var errorDescription: String? {
-            switch self {
-            case .emptyWorktreeWorkspaces:
-                return "Automation request did not include any worktree workspaces."
-            case .emptyWorktreePanes:
-                return "Automation request did not include any worktree panes."
-            case .emptyWorkspacePanes:
-                return "Automation request did not include any workspace panes."
-            case .emptyPaneInput:
-                return "Automation request did not include text to send."
-            case .emptyAgentMessageTargets:
-                return "Agent message did not resolve any existing target conversations."
-            case .agentMessageSourceRequired:
-                return "Agent messaging requires a resolved source conversation."
-            case .invalidAgentMessageDeliveryPreference(let value):
-                return "Unknown agent message delivery preference: \(value)."
-            case .invalidAgentMessageID(let value):
-                return "Agent message ID is not a valid UUID: \(value)."
-            case .agentRoleTemplateNotFound(let value):
-                return "Agent role template does not exist: \(value)."
-            case .invalidOrchestrationPreset(let value):
-                return "Unknown agent orchestration preset: \(value)."
-            case .orchestrationConversationOutsideWorkspace(let value):
-                return "Orchestration conversation is not in the source workspace: \(value)."
-            case .emptyRenameName:
-                return "Automation request did not include a new name."
-            case .emptyRenameTargets:
-                return "Automation request did not match anything to rename."
-            case .invalidDirectory(let path):
-                return "Automation worktree path is not a directory: \(path)"
-            case .invalidFile(let path):
-                return "Automation file path does not exist: \(path)"
-            case .invalidWorkspaceIDFormat(let value):
-                return "Workspace ID is not a valid UUID: \(value)"
-            case .missingPaneName(let path):
-                return "Automation pane is missing a name: \(path)"
-            case .workspaceNotFound(let id):
-                return "Workspace does not exist: \(id.uuidString)"
-            case .workspaceNotInWindow(let id, let windowID):
-                return "Workspace \(id.uuidString) is not in window \(windowID)."
-            case .missingConversationStore:
-                return "Conversation store is not available."
-            case .noActiveMainWindow:
-                return "No active Soyeht main window is available."
-            case .windowNotFound(let id):
-                return "Soyeht window does not exist: \(id)"
-            case .sourceConversationNotFound(let value):
-                return "Source conversation does not exist: \(value). Pass a valid fromConversationID/fromHandle or call identify_agent from inside a live Soyeht pane."
-            case .sourceHandleNotFound(let handle):
-                return "Source pane handle does not exist: \(handle). Run list_agents or list_panes to get current handles before messaging."
-            case .sourceIdentityUnavailable:
-                return "Could not identify the calling Soyeht agent. Pass fromHandle/fromConversationID or call this MCP tool from inside a live Soyeht pane."
-            case .invalidAgentState(let value):
-                return "Invalid agent state: \(value). Expected one of: working, idle, blocked, done, unknown."
-            case .invalidConversationRole(let value):
-                return "Invalid conversation role: \(value). Expected user or assistant."
-            case .emptyConversationEvent:
-                return "Conversation event did not include session metadata or user-visible message text."
-            case .unknownAgent(let value):
-                return "Unknown local agent: \(value). Run list_agents to see available agents."
-            case .emptyPaneInputTargets:
-                return "Automation request did not match any pane to act on."
-            case .invalidConversationIDFormat(let value):
-                return "Conversation ID is not a valid UUID: \(value)."
-            case .invalidConversationSequence(let requested, let last):
-                return "Conversation sequence \(requested) is beyond the canonical tail \(last)."
-            case .missingWebURL:
-                return "Automation open_web request requires a non-empty url."
-            case .missingAppInstallID:
-                return "Automation open_app request requires a non-empty installID."
-            case .incompatibleMCPClientContract(let expected, let received):
-                let observed = received.map(String.init) ?? "missing"
-                return "Soyeht Dev rejected MCP client contract \(observed); agent creation and messaging require contract \(expected). Use the soyeht-dev integration instead of the soyeht Release integration."
-            case .unauthenticatedAgentSource:
-                return "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment."
-            case .orchestrationManagerAuthorizationRequired:
-                return "This agent is not authorized to manage roles or orchestration. The user can grant that privilege in the pane's Role & Orchestration settings."
-            case .agentPaneRequiresMessageAgent(let handle):
-                return "Low-level send_pane_input cannot write to agent pane \(handle). Use message_agent so communication policy, durable inbox, and deferred delivery are enforced."
-            }
-        }
-    }
-
     /// Dev and Release intentionally coexist on the same Mac. A Release MCP
     /// process can inherit the Dev automation directory from a pane and appear
     /// to work against the wrong app, even though it exposes an older tool
@@ -224,7 +101,7 @@ final class SoyehtAutomationRequestRouter {
               request.payload.mcpClientContractVersion != currentContract else {
             return
         }
-        throw AutomationError.incompatibleMCPClientContract(
+        throw SoyehtAutomationError.incompatibleMCPClientContract(
             expected: currentContract,
             received: request.payload.mcpClientContractVersion
         )
@@ -354,14 +231,14 @@ final class SoyehtAutomationRequestRouter {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !trimmed.isEmpty else { return nil }
         guard let id = Workspace.ID(uuidString: trimmed) else {
-            throw AutomationError.invalidWorkspaceIDFormat(trimmed)
+            throw SoyehtAutomationError.invalidWorkspaceIDFormat(trimmed)
         }
         return id
     }
 
     private func automationWindow(id: String) throws -> SoyehtMainWindowController {
         guard let controller = mainWindowControllers().first(where: { $0.windowID == id }) else {
-            throw AutomationError.windowNotFound(id)
+            throw SoyehtAutomationError.windowNotFound(id)
         }
         return controller
     }
@@ -388,7 +265,7 @@ final class SoyehtAutomationRequestRouter {
         if createIfMissing {
             return openNewMainWindow()
         }
-        throw AutomationError.noActiveMainWindow
+        throw SoyehtAutomationError.noActiveMainWindow
     }
 
     private func automationWindowForWorkspace(
@@ -469,7 +346,7 @@ final class SoyehtAutomationRequestRouter {
     ) throws -> Workspace.ID? {
         if let explicitWorkspaceID = try requestedWorkspaceID(payload) {
             guard workspaceStore.workspace(explicitWorkspaceID, isInWindow: target.windowID) else {
-                throw AutomationError.workspaceNotInWindow(explicitWorkspaceID, target.windowID)
+                throw SoyehtAutomationError.workspaceNotInWindow(explicitWorkspaceID, target.windowID)
             }
             return explicitWorkspaceID
         }
@@ -516,7 +393,7 @@ final class SoyehtAutomationRequestRouter {
             return displayName
         }
         guard allowsAutomaticName else {
-            throw AutomationError.missingPaneName(path)
+            throw SoyehtAutomationError.missingPaneName(path)
         }
         return nil
     }
@@ -525,8 +402,9 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
         let payload = request.payload
+        try authenticateClaimedAutomationSource(payload)
         let workspaces = payload.requestedWorkspaces
-        guard !workspaces.isEmpty else { throw AutomationError.emptyWorktreeWorkspaces }
+        guard !workspaces.isEmpty else { throw SoyehtAutomationError.emptyWorktreeWorkspaces }
 
         let target = try automationTargetWindow(payload: payload)
         target.window?.makeKeyAndOrderFront(nil)
@@ -537,7 +415,7 @@ final class SoyehtAutomationRequestRouter {
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {
-                throw AutomationError.invalidDirectory(workspace.path)
+                throw SoyehtAutomationError.invalidDirectory(workspace.path)
             }
 
             let agent = workspace.agent ?? payload.agent ?? "codex"
@@ -575,7 +453,8 @@ final class SoyehtAutomationRequestRouter {
                 workspaceID: result.workspaceID.uuidString,
                 conversationID: result.conversationID.uuidString,
                 handle: result.handle,
-                windowID: target.windowID
+                windowID: target.windowID,
+                promptDeliveryStatus: result.promptDeliveryStatus.rawValue
             ))
         }
         return SoyehtAutomationResult(createdWorkspaces: created)
@@ -585,8 +464,9 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
         let payload = request.payload
+        try authenticateClaimedAutomationSource(payload)
         let panes = payload.requestedPanes
-        guard !panes.isEmpty else { throw AutomationError.emptyWorktreePanes }
+        guard !panes.isEmpty else { throw SoyehtAutomationError.emptyWorktreePanes }
 
         let target = try automationTargetWindow(payload: payload)
         let workspaceID = try automationWorkspaceID(payload: payload, in: target)
@@ -609,7 +489,7 @@ final class SoyehtAutomationRequestRouter {
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {
-                throw AutomationError.invalidDirectory(pane.path)
+                throw SoyehtAutomationError.invalidDirectory(pane.path)
             }
 
             let agent = pane.agent ?? payload.agent ?? "codex"
@@ -648,7 +528,8 @@ final class SoyehtAutomationRequestRouter {
                 workspaceID: $0.workspaceID.uuidString,
                 conversationID: $0.conversationID.uuidString,
                 handle: $0.handle,
-                windowID: target.windowID
+                windowID: target.windowID,
+                promptDeliveryStatus: $0.promptDeliveryStatus.rawValue
             )
         }
         return SoyehtAutomationResult(createdPanes: created)
@@ -658,8 +539,9 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
         let payload = request.payload
+        try authenticateClaimedAutomationSource(payload)
         let panes = payload.requestedPanes
-        guard !panes.isEmpty else { throw AutomationError.emptyWorkspacePanes }
+        guard !panes.isEmpty else { throw SoyehtAutomationError.emptyWorkspacePanes }
 
         let target = try automationTargetWindow(payload: payload)
         target.window?.makeKeyAndOrderFront(nil)
@@ -669,7 +551,7 @@ final class SoyehtAutomationRequestRouter {
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {
-                throw AutomationError.invalidDirectory(pane.path)
+                throw SoyehtAutomationError.invalidDirectory(pane.path)
             }
 
             let agent = pane.agent ?? payload.agent ?? "shell"
@@ -694,7 +576,7 @@ final class SoyehtAutomationRequestRouter {
             )
         }
 
-        guard let first = specs.first else { throw AutomationError.emptyWorkspacePanes }
+        guard let first = specs.first else { throw SoyehtAutomationError.emptyWorkspacePanes }
         let workspaceName = automationDisplayName(
             payload.workspaceName ?? first.name,
             fallback: first.projectURL.lastPathComponent,
@@ -726,7 +608,8 @@ final class SoyehtAutomationRequestRouter {
             workspaceID: firstResult.workspaceID.uuidString,
             conversationID: firstResult.conversationID.uuidString,
             handle: firstResult.handle,
-            windowID: target.windowID
+            windowID: target.windowID,
+            promptDeliveryStatus: firstResult.promptDeliveryStatus.rawValue
         )
         let firstPane = SoyehtAutomationResponse.CreatedPane(
             name: first.name ?? ConversationStore.normalize(firstResult.handle),
@@ -734,7 +617,8 @@ final class SoyehtAutomationRequestRouter {
             workspaceID: firstResult.workspaceID.uuidString,
             conversationID: firstResult.conversationID.uuidString,
             handle: firstResult.handle,
-            windowID: target.windowID
+            windowID: target.windowID,
+            promptDeliveryStatus: firstResult.promptDeliveryStatus.rawValue
         )
         let additionalPanes = additionalResults.map {
             SoyehtAutomationResponse.CreatedPane(
@@ -743,7 +627,8 @@ final class SoyehtAutomationRequestRouter {
                 workspaceID: $0.workspaceID.uuidString,
                 conversationID: $0.conversationID.uuidString,
                 handle: $0.handle,
-                windowID: target.windowID
+                windowID: target.windowID,
+                promptDeliveryStatus: $0.promptDeliveryStatus.rawValue
             )
         }
         return SoyehtAutomationResult(
@@ -755,11 +640,11 @@ final class SoyehtAutomationRequestRouter {
     private func handleSendPaneInput(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let text = payload.text, !text.isEmpty else {
-            throw AutomationError.emptyPaneInput
+            throw SoyehtAutomationError.emptyPaneInput
         }
         let resolvedTargets = try resolveAgentMessageTargets(payload)
         if let agentTarget = resolvedTargets.first(where: { !$0.agent.isShell }) {
-            throw AutomationError.agentPaneRequiresMessageAgent(agentTarget.handle)
+            throw SoyehtAutomationError.agentPaneRequiresMessageAgent(agentTarget.handle)
         }
         let target = try automationTargetWindow(payload: payload)
         let sent = try target.sendInputToPanes(
@@ -792,7 +677,7 @@ final class SoyehtAutomationRequestRouter {
         let payload = request.payload
         guard let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
-            throw AutomationError.emptyPaneInput
+            throw SoyehtAutomationError.emptyPaneInput
         }
         let source = try resolveAuthenticatedAutomationSource(payload: payload)
         let targets = try resolveAgentMessageTargets(payload)
@@ -800,7 +685,7 @@ final class SoyehtAutomationRequestRouter {
         let requestsAttention = payload.requestAttention ?? true
         let retryID = try payload.messageIDs?.first.map { raw -> AgentMessage.ID in
             guard let id = UUID(uuidString: raw) else {
-                throw AutomationError.invalidAgentMessageID(raw)
+                throw SoyehtAutomationError.invalidAgentMessageID(raw)
             }
             return id
         }
@@ -846,13 +731,27 @@ final class SoyehtAutomationRequestRouter {
                 continue
             }
             if source.workspaceID == target.workspaceID,
-               let graph = workspaceStore.workspace(source.workspaceID)?.orchestration?.activeGraph,
-               let flow = graph.flowPolicy(
+               let graph = workspaceStore.workspace(source.workspaceID)?.orchestration?.activeGraph {
+                let flow = graph.flowPolicy(
                     from: source.id,
                     to: target.id,
                     kind: .message
-               ),
-               flow.authorization != .allow {
+                )
+                guard let flow else {
+                    deliveries.append(.init(
+                        messageID: retryID?.uuidString ?? "",
+                        conversationID: target.id.uuidString,
+                        workspaceID: target.workspaceID.uuidString,
+                        displayReference: recipient.displayLabel,
+                        channel: nil,
+                        status: "orchestration_denied_unbound_pane",
+                        writesToPTY: false,
+                        attentionRequested: false,
+                        policyDenials: ["orchestration_graph_unbound_pane"]
+                    ))
+                    continue
+                }
+                if flow.authorization != .allow {
                 deliveries.append(.init(
                     messageID: retryID?.uuidString ?? "",
                     conversationID: target.id.uuidString,
@@ -867,6 +766,7 @@ final class SoyehtAutomationRequestRouter {
                     policyDenials: ["orchestration_graph_\(flow.authorization.rawValue)"]
                 ))
                 continue
+                }
             }
 
             // No shipped provider hook can wake a dormant TUI and make it
@@ -893,7 +793,33 @@ final class SoyehtAutomationRequestRouter {
                 mcpClientContractVersion: payload.mcpClientContractVersion,
                 mcpClientServerVersion: payload.mcpClientServerVersion
             )
-            _ = try conversationStore.enqueueAgentMessage(message, in: target.id)
+            let inserted = try conversationStore.enqueueAgentMessage(message, in: target.id)
+            if !inserted {
+                let existing = conversationStore.conversation(target.id)?
+                    .agentMessageInbox.message(id: message.id)
+                let status: String
+                if existing?.deferredTerminalDeliveredAt != nil {
+                    status = "already_delivered"
+                } else if existing?.deferredTerminalDeliveryStartedAt != nil {
+                    status = "delivery_uncertain_not_replayed"
+                } else if existing?.channel == .deferredTerminal {
+                    status = "already_queued"
+                } else {
+                    status = "already_stored"
+                }
+                deliveries.append(.init(
+                    messageID: message.id.uuidString,
+                    conversationID: target.id.uuidString,
+                    workspaceID: target.workspaceID.uuidString,
+                    displayReference: recipient.displayLabel,
+                    channel: existing?.channel.rawValue ?? storedChannel.rawValue,
+                    status: status,
+                    writesToPTY: false,
+                    attentionRequested: false,
+                    policyDenials: []
+                ))
+                continue
+            }
 
             var status: String
             if plan.channel == .deferredTerminal,
@@ -937,7 +863,7 @@ final class SoyehtAutomationRequestRouter {
                 policyDenials: []
             ))
         }
-        guard !deliveries.isEmpty else { throw AutomationError.emptyAgentMessageTargets }
+        guard !deliveries.isEmpty else { throw SoyehtAutomationError.emptyAgentMessageTargets }
         return SoyehtAutomationResult(agentMessageDeliveries: deliveries)
     }
 
@@ -963,7 +889,7 @@ final class SoyehtAutomationRequestRouter {
         let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
         let ids = try (request.payload.messageIDs ?? []).map { raw -> AgentMessage.ID in
             guard let id = UUID(uuidString: raw) else {
-                throw AutomationError.invalidAgentMessageID(raw)
+                throw SoyehtAutomationError.invalidAgentMessageID(raw)
             }
             return id
         }
@@ -991,7 +917,7 @@ final class SoyehtAutomationRequestRouter {
         if let values = request.payload.blockedPaneIDs {
             policy.incoming.blockedPaneIDs = try Set(values.map { raw in
                 guard let id = UUID(uuidString: raw) else {
-                    throw AutomationError.invalidConversationIDFormat(raw)
+                    throw SoyehtAutomationError.invalidConversationIDFormat(raw)
                 }
                 return id
             })
@@ -999,7 +925,7 @@ final class SoyehtAutomationRequestRouter {
         if let values = request.payload.blockedWorkspaceIDs {
             policy.incoming.blockedWorkspaceIDs = try Set(values.map { raw in
                 guard let id = UUID(uuidString: raw) else {
-                    throw AutomationError.invalidWorkspaceIDFormat(raw)
+                    throw SoyehtAutomationError.invalidWorkspaceIDFormat(raw)
                 }
                 return id
             })
@@ -1029,7 +955,7 @@ final class SoyehtAutomationRequestRouter {
         } else if let templateID, !templateID.isEmpty {
             guard let template = workspace?.orchestration?.roleTemplates.template(id: templateID)
                 ?? AgentRoleTemplateCatalog.template(id: templateID) else {
-                throw AutomationError.agentRoleTemplateNotFound(templateID)
+                throw SoyehtAutomationError.agentRoleTemplateNotFound(templateID)
             }
             assignment = AgentRoleAssignment(template: template)
         } else if let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1043,7 +969,7 @@ final class SoyehtAutomationRequestRouter {
         var states: [SoyehtAutomationResponse.AgentRoleState] = []
         for target in targets {
             guard target.workspaceID == source.workspaceID else {
-                throw AutomationError.orchestrationConversationOutsideWorkspace(target.id.uuidString)
+                throw SoyehtAutomationError.orchestrationConversationOutsideWorkspace(target.id.uuidString)
             }
             conversationStore.updateRoleAssignment(target.id, roleAssignment: assignment)
             let endpoint = AgentMessageEndpoint(
@@ -1111,8 +1037,8 @@ final class SoyehtAutomationRequestRouter {
             preset = .plannerExecutorReviewer
         case "executorreviewerloop", "execute-review", "executor-reviewer-loop":
             preset = .executorReviewerLoop
-        case .some(let value): throw AutomationError.invalidOrchestrationPreset(value)
-        case nil: throw AutomationError.invalidOrchestrationPreset("")
+        case .some(let value): throw SoyehtAutomationError.invalidOrchestrationPreset(value)
+        case nil: throw SoyehtAutomationError.invalidOrchestrationPreset("")
         }
 
         var graph = preset == .council
@@ -1122,7 +1048,7 @@ final class SoyehtAutomationRequestRouter {
             guard let conversationID = UUID(uuidString: rawConversationID),
                   let conversation = conversationStore.conversation(conversationID),
                   conversation.workspaceID == source.workspaceID else {
-                throw AutomationError.orchestrationConversationOutsideWorkspace(rawConversationID)
+                throw SoyehtAutomationError.orchestrationConversationOutsideWorkspace(rawConversationID)
             }
             try graph.bind(conversationID: conversationID, toNodeID: nodeID)
         }
@@ -1130,10 +1056,14 @@ final class SoyehtAutomationRequestRouter {
         var used = Set(graph.nodes.compactMap(\.conversationID))
         let workspaceConversations = conversationStore.conversations(in: source.workspaceID)
         for node in graph.nodes where node.conversationID == nil {
-            if let match = workspaceConversations.first(where: {
+            let matches = workspaceConversations.filter {
                 !used.contains($0.id)
                     && $0.roleAssignment?.roleName.caseInsensitiveCompare(node.role.roleName) == .orderedSame
-            }) {
+            }
+            if matches.count > 1 {
+                throw SoyehtAutomationError.ambiguousOrchestrationRoleBinding(node.role.roleName)
+            }
+            if let match = matches.first {
                 try graph.bind(conversationID: match.id, toNodeID: node.id)
                 used.insert(match.id)
             }
@@ -1153,7 +1083,7 @@ final class SoyehtAutomationRequestRouter {
         var seen = Set<Conversation.ID>()
         for raw in payload.conversationIDs ?? [] {
             guard let id = UUID(uuidString: raw) else {
-                throw AutomationError.invalidConversationIDFormat(raw)
+                throw SoyehtAutomationError.invalidConversationIDFormat(raw)
             }
             if let conversation = conversationStore.conversation(id), seen.insert(id).inserted {
                 result.append(conversation)
@@ -1167,7 +1097,7 @@ final class SoyehtAutomationRequestRouter {
                 result.append(conversation)
             }
         }
-        guard !result.isEmpty else { throw AutomationError.emptyAgentMessageTargets }
+        guard !result.isEmpty else { throw SoyehtAutomationError.emptyAgentMessageTargets }
         return result
     }
 
@@ -1182,12 +1112,22 @@ final class SoyehtAutomationRequestRouter {
         case "terminal", "deferred", "deferred_terminal", "deferredterminal":
             return .deferredTerminal
         case .some(let value):
-            throw AutomationError.invalidAgentMessageDeliveryPreference(value)
+            throw SoyehtAutomationError.invalidAgentMessageDeliveryPreference(value)
         }
     }
 
     private func agentInboxMessage(_ message: AgentMessage) -> SoyehtAutomationResponse.AgentInboxMessage {
-        .init(
+        let terminalDeliveryState: String
+        if message.channel != .deferredTerminal {
+            terminalDeliveryState = "not_applicable"
+        } else if message.deferredTerminalDeliveredAt != nil {
+            terminalDeliveryState = "delivered"
+        } else if message.deferredTerminalDeliveryStartedAt != nil {
+            terminalDeliveryState = "uncertain_not_replayed"
+        } else {
+            terminalDeliveryState = "awaiting_delivery"
+        }
+        return .init(
             messageID: message.id.uuidString,
             senderConversationID: message.sender.paneID.uuidString,
             senderWorkspaceID: message.sender.workspaceID.uuidString,
@@ -1200,7 +1140,9 @@ final class SoyehtAutomationRequestRouter {
             createdAt: message.createdAt,
             readAt: message.readAt,
             acknowledgedAt: message.acknowledgedAt,
+            deferredTerminalDeliveryStartedAt: message.deferredTerminalDeliveryStartedAt,
             deferredTerminalDeliveredAt: message.deferredTerminalDeliveredAt,
+            terminalDeliveryState: terminalDeliveryState,
             mcpClientContractVersion: message.mcpClientContractVersion,
             mcpClientServerVersion: message.mcpClientServerVersion
         )
@@ -1236,7 +1178,7 @@ final class SoyehtAutomationRequestRouter {
         let payload = request.payload
         let rawName = payload.newName ?? payload.workspaceName
         guard let rawName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw AutomationError.emptyRenameName
+            throw SoyehtAutomationError.emptyRenameName
         }
 
         let target = try automationTargetWindow(payload: payload)
@@ -1246,7 +1188,7 @@ final class SoyehtAutomationRequestRouter {
             newName: rawName,
             nameStyle: payload.workspaceNameStyle ?? payload.nameStyle
         )
-        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        guard !renamed.isEmpty else { throw SoyehtAutomationError.emptyRenameTargets }
         return SoyehtAutomationResult(renamedWorkspaces: renamed.map {
             SoyehtAutomationResponse.RenamedWorkspace(
                 workspaceID: $0.workspaceID.uuidString,
@@ -1260,7 +1202,7 @@ final class SoyehtAutomationRequestRouter {
     private func handleRenamePanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let rawName = payload.newName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw AutomationError.emptyRenameName
+            throw SoyehtAutomationError.emptyRenameName
         }
 
         let target = try automationTargetWindow(payload: payload)
@@ -1270,7 +1212,7 @@ final class SoyehtAutomationRequestRouter {
             newName: rawName,
             nameStyle: payload.paneNameStyle ?? payload.nameStyle
         )
-        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        guard !renamed.isEmpty else { throw SoyehtAutomationError.emptyRenameTargets }
         return SoyehtAutomationResult(renamedPanes: renamed.map {
             SoyehtAutomationResponse.RenamedPane(
                 conversationID: $0.conversationID.uuidString,
@@ -1516,7 +1458,7 @@ final class SoyehtAutomationRequestRouter {
 
     private func handleIdentifyAgent(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         guard let source = try resolveAutomationSource(payload: request.payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         return SoyehtAutomationResult(sourceIdentity: sourceIdentity(source))
     }
@@ -1531,7 +1473,7 @@ final class SoyehtAutomationRequestRouter {
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         let sourceAgent = source.conversation.agent.displayName.lowercased()
         let nativeSessionID = payload.nativeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1544,7 +1486,7 @@ final class SoyehtAutomationRequestRouter {
             guard [nativeSessionID, model, effort, variant].contains(where: {
                 !($0?.isEmpty ?? true)
             }) else {
-                throw AutomationError.emptyConversationEvent
+                throw SoyehtAutomationError.emptyConversationEvent
             }
             conversationStore.recordAgentSession(
                 source.conversation.id,
@@ -1565,10 +1507,10 @@ final class SoyehtAutomationRequestRouter {
         }
 
         guard let role = AgentConversationEvent.Role(rawValue: rawRole) else {
-            throw AutomationError.invalidConversationRole(rawRole)
+            throw SoyehtAutomationError.invalidConversationRole(rawRole)
         }
         let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !text.isEmpty else { throw AutomationError.emptyConversationEvent }
+        guard !text.isEmpty else { throw SoyehtAutomationError.emptyConversationEvent }
         // Imported SAHP envelopes are transport, not new user turns. Hooks see
         // them at the provider boundary, so filter them again in the app even
         // if an older reporter failed to do so.
@@ -1594,7 +1536,7 @@ final class SoyehtAutomationRequestRouter {
             reasoningEffort: effort,
             variant: variant
         )
-        guard let recorded else { throw AutomationError.emptyConversationEvent }
+        guard let recorded else { throw SoyehtAutomationError.emptyConversationEvent }
         Self.logger.info(
             "conversation_event agent=\(sourceAgent, privacy: .public) role=\(rawRole, privacy: .public) sequence=\(recorded.sequence, privacy: .public) model=\(recorded.model ?? "unknown", privacy: .public) effort=\(recorded.reasoningEffort ?? "unknown", privacy: .public)"
         )
@@ -1623,10 +1565,10 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         guard let source = try resolveAutomationSource(payload: request.payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         guard let conversation = conversationStore.conversation(source.conversation.id) else {
-            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+            throw SoyehtAutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
         }
         let state = conversation.agentConversation
         let agent = conversation.agent.displayName.lowercased()
@@ -1680,15 +1622,15 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         guard let source = try resolveAutomationSource(payload: request.payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         guard let conversation = conversationStore.conversation(source.conversation.id) else {
-            throw AutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+            throw SoyehtAutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
         }
         let requested = max(0, request.payload.throughSequence ?? 0)
         let lastSequence = conversation.agentConversation.lastSequence
         guard requested <= lastSequence else {
-            throw AutomationError.invalidConversationSequence(requested, lastSequence)
+            throw SoyehtAutomationError.invalidConversationSequence(requested, lastSequence)
         }
         let throughSequence = requested
         let agent = conversation.agent.displayName.lowercased()
@@ -1718,11 +1660,11 @@ final class SoyehtAutomationRequestRouter {
     private func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         let rawState = payload.state?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard Self.validAgentStates.contains(rawState) else {
-            throw AutomationError.invalidAgentState(rawState)
+            throw SoyehtAutomationError.invalidAgentState(rawState)
         }
         let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
@@ -1767,7 +1709,7 @@ final class SoyehtAutomationRequestRouter {
     private func handleRequestAttention(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload) else {
-            throw AutomationError.sourceIdentityUnavailable
+            throw SoyehtAutomationError.sourceIdentityUnavailable
         }
         let kind = payload.attentionKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "question"
         let state: String
@@ -1777,7 +1719,7 @@ final class SoyehtAutomationRequestRouter {
         case "done":
             state = "done"
         default:
-            throw AutomationError.invalidAgentState(kind)
+            throw SoyehtAutomationError.invalidAgentState(kind)
         }
         let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
@@ -1849,10 +1791,10 @@ final class SoyehtAutomationRequestRouter {
         let agentName = payload.agent?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !agentName.isEmpty else {
-            throw AutomationError.emptyPaneInput
+            throw SoyehtAutomationError.emptyPaneInput
         }
         guard LocalAgentCatalog.agent(named: agentName) != nil else {
-            throw AutomationError.unknownAgent(agentName)
+            throw SoyehtAutomationError.unknownAgent(agentName)
         }
         let target = try automationTargetWindow(payload: payload)
         let conversationIDStrings = payload.conversationIDs ?? []
@@ -1867,7 +1809,7 @@ final class SoyehtAutomationRequestRouter {
                 )
             }
             guard let activePaneID = target.activePaneConversationID() else {
-                throw AutomationError.emptyPaneInputTargets
+                throw SoyehtAutomationError.emptyPaneInputTargets
             }
             return try await performAgentSwitch(
                 on: target,
@@ -1992,10 +1934,10 @@ final class SoyehtAutomationRequestRouter {
         let all: [Conversation]
         if let idStr = workspaceIDString {
             guard let wsID = UUID(uuidString: idStr) else {
-                throw AutomationError.invalidWorkspaceIDFormat(idStr)
+                throw SoyehtAutomationError.invalidWorkspaceIDFormat(idStr)
             }
             guard workspaceStore.workspace(wsID) != nil else {
-                throw AutomationError.workspaceNotFound(wsID)
+                throw SoyehtAutomationError.workspaceNotFound(wsID)
             }
             guard visibleWorkspaceIDs.contains(wsID) else {
                 return []
@@ -2039,14 +1981,14 @@ final class SoyehtAutomationRequestRouter {
         payload: SoyehtAutomationRequest.Payload
     ) throws -> AutomationSourceResolution? {
         guard let convStore = AppEnvironment.conversationStore else {
-            throw AutomationError.missingConversationStore
+            throw SoyehtAutomationError.missingConversationStore
         }
 
         if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !rawID.isEmpty {
             guard let id = UUID(uuidString: rawID),
                   let conversation = convStore.conversation(id) else {
-                throw AutomationError.sourceConversationNotFound(rawID)
+                throw SoyehtAutomationError.sourceConversationNotFound(rawID)
             }
             return AutomationSourceResolution(conversation: conversation, resolution: "conversationID")
         }
@@ -2055,7 +1997,7 @@ final class SoyehtAutomationRequestRouter {
            !rawHandle.isEmpty {
             let normalized = ConversationStore.normalize(rawHandle)
             guard let conversation = convStore.all.first(where: { ConversationStore.normalize($0.handle) == normalized }) else {
-                throw AutomationError.sourceHandleNotFound(ConversationStore.canonicalHandle(rawHandle))
+                throw SoyehtAutomationError.sourceHandleNotFound(ConversationStore.canonicalHandle(rawHandle))
             }
             return AutomationSourceResolution(conversation: conversation, resolution: "handle")
         }
@@ -2101,15 +2043,33 @@ final class SoyehtAutomationRequestRouter {
         payload: SoyehtAutomationRequest.Payload
     ) throws -> Conversation {
         guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
+            throw SoyehtAutomationError.agentMessageSourceRequired
         }
         guard PaneStatusTracker.shared.validatesLaunchOwnership(
             paneID: source.id,
             nonce: payload.nonce
         ) else {
-            throw AutomationError.unauthenticatedAgentSource
+            throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         return source
+    }
+
+    /// Creation requests may be initiated by the UI with no agent identity.
+    /// Once a request claims a pane as its prompt sender, however, that claim
+    /// must carry the pane launch nonce just like message and policy writes.
+    /// Otherwise an untrusted peer could forge a trusted-looking prompt
+    /// envelope while opening a new pane.
+    private func authenticateClaimedAutomationSource(
+        _ payload: SoyehtAutomationRequest.Payload
+    ) throws {
+        let claimsSource = [payload.sourceConversationID, payload.sourceHandle, payload.sourceTTY]
+            .contains { value in
+                guard let value else { return false }
+                return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+        if claimsSource {
+            _ = try resolveAuthenticatedAutomationSource(payload: payload)
+        }
     }
 
     private func resolveAuthorizedOrchestrationManager(
@@ -2119,7 +2079,7 @@ final class SoyehtAutomationRequestRouter {
         guard workspaceStore.workspace(source.workspaceID)?
             .orchestration?
             .canManageRolesAndTopology(source.id) == true else {
-            throw AutomationError.orchestrationManagerAuthorizationRequired
+            throw SoyehtAutomationError.orchestrationManagerAuthorizationRequired
         }
         return source
     }
@@ -2291,7 +2251,7 @@ final class SoyehtAutomationRequestRouter {
     private func handleOpenExplorer(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let rawPath = payload.root ?? payload.path ?? payload.file else {
-            throw AutomationError.invalidDirectory("")
+            throw SoyehtAutomationError.invalidDirectory("")
         }
         let target = try automationTargetWindow(payload: payload)
         let opened = try target.openExplorerPane(
@@ -2306,7 +2266,7 @@ final class SoyehtAutomationRequestRouter {
     private func handleOpenGit(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let rawPath = payload.repo ?? payload.repoPath ?? payload.path ?? payload.root else {
-            throw AutomationError.invalidDirectory("")
+            throw SoyehtAutomationError.invalidDirectory("")
         }
         let target = try automationTargetWindow(payload: payload)
         let repoURL = try existingDirectoryURL(rawPath)
@@ -2333,7 +2293,7 @@ final class SoyehtAutomationRequestRouter {
         } else if let selected {
             repoCandidate = try existingFileURL(selected).deletingLastPathComponent()
         } else {
-            throw AutomationError.invalidDirectory("")
+            throw SoyehtAutomationError.invalidDirectory("")
         }
         let repoRoot = try GitRepositoryService.resolveRepoRoot(from: repoCandidate)
         let selectedPath = selected.map { relativeGitPath($0, repoRoot: repoRoot) }
@@ -2359,7 +2319,7 @@ final class SoyehtAutomationRequestRouter {
         // patterns) so the MCP entry and the pane URL bar behave the same.
         guard let rawURL = payload.url?.trimmingCharacters(in: .whitespacesAndNewlines),
               !rawURL.isEmpty else {
-            throw AutomationError.missingWebURL
+            throw SoyehtAutomationError.missingWebURL
         }
         let url = try WebURL.validate(WebURL.normalizeUserInput(rawURL))
         let target = try automationTargetWindow(payload: payload)
@@ -2377,7 +2337,7 @@ final class SoyehtAutomationRequestRouter {
         let payload = request.payload
         guard let rawPath = payload.path?.trimmingCharacters(in: .whitespacesAndNewlines),
               !rawPath.isEmpty else {
-            throw AutomationError.invalidDirectory("")
+            throw SoyehtAutomationError.invalidDirectory("")
         }
         // The bundle path arrives from outside (MCP script, agent), so it
         // gets the same fail-closed treatment the open_web URL got: the
@@ -2407,7 +2367,7 @@ final class SoyehtAutomationRequestRouter {
         let payload = request.payload
         guard let installID = payload.installID?.trimmingCharacters(in: .whitespacesAndNewlines),
               !installID.isEmpty else {
-            throw AutomationError.missingAppInstallID
+            throw SoyehtAutomationError.missingAppInstallID
         }
         let target = try automationTargetWindow(payload: payload)
         let opened = try target.openAppPane(
@@ -2447,7 +2407,7 @@ final class SoyehtAutomationRequestRouter {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
               !isDirectory.boolValue else {
-            throw AutomationError.invalidFile(path)
+            throw SoyehtAutomationError.invalidFile(path)
         }
         return url
     }
@@ -2457,7 +2417,7 @@ final class SoyehtAutomationRequestRouter {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
               isDirectory.boolValue else {
-            throw AutomationError.invalidDirectory(path)
+            throw SoyehtAutomationError.invalidDirectory(path)
         }
         return url
     }

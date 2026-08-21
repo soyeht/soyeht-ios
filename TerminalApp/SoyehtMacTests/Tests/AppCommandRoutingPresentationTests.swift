@@ -730,7 +730,9 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(attachLocalPTY.contains("AgentPaneInputPlanner.initialPromptDelayMilliseconds"))
         XCTAssertTrue(attachLocalPTY.contains("3_000_000_000"))
         XCTAssertTrue(attachLocalPTY.contains("lineEnding: \"crlf\""))
-        XCTAssertTrue(attachLocalPTY.contains("terminalView.brokerSend(text: prepared.payload, submitWithEnter: prepared.shouldSendEnterKey)"))
+        XCTAssertTrue(attachLocalPTY.contains("pane.terminalView.brokerSend("))
+        XCTAssertTrue(attachLocalPTY.contains("text: prepared.payload"))
+        XCTAssertTrue(attachLocalPTY.contains("submitWithEnter: prepared.shouldSendEnterKey"))
         XCTAssertFalse(attachLocalPTY.contains("initialCommand + \"\\n\""))
         XCTAssertFalse(attachLocalPTY.contains("prompt + \"\\r\""))
 
@@ -1009,6 +1011,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
     func testDevRejectsReleaseMCPForAgentCreationAndMessaging() throws {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let errors = try macSource("App/SoyehtAutomationError.swift")
         let validation = try slice(
             source,
             from: "private func validateMCPClientContract(",
@@ -1021,7 +1024,31 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(validation.contains(".setAgentCommunicationPolicy, .setAgentRole, .saveAgentRoleTemplate,"))
         XCTAssertTrue(validation.contains(".createWorktreePanes"))
         XCTAssertTrue(validation.contains(".createWorkspacePanes"))
-        XCTAssertTrue(source.contains("Use the soyeht-dev integration instead of the soyeht Release integration"))
+        XCTAssertTrue(errors.contains("Use the soyeht-dev integration instead of the soyeht Release integration"))
+    }
+
+    func testAgentCreationReturnsRealPromptAcknowledgementInsteadOfFixedSleep() throws {
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let attach = try slice(
+            controller,
+            from: "private func attachLocalPTY(",
+            to: "private static func deliverAgentPromptWithAcknowledgement("
+        )
+        let terminalApp = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let script = try String(
+            contentsOf: terminalApp.deletingLastPathComponent().appendingPathComponent("scripts/soyeht-mcp"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(attach.contains("async throws -> InitialPromptDeliveryStatus"))
+        XCTAssertTrue(attach.contains("return .acknowledged"))
+        XCTAssertTrue(attach.contains("return .handshakeTimeout"))
+        XCTAssertFalse(attach.contains("Task { @MainActor"))
+        XCTAssertFalse(script.contains("time.sleep((wait_ms"))
+        XCTAssertTrue(script.contains("promptDeliveryStatuses"))
     }
 
     func testAgentMutationsRequireLaunchOwnershipAndUserGrantedOrchestrationPrivilege() throws {
@@ -1041,6 +1068,29 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(authentication.contains("payload.nonce"))
         XCTAssertTrue(authentication.contains("canManageRolesAndTopology(source.id)"))
         XCTAssertTrue(roleHandler.contains("resolveAuthorizedOrchestrationManager"))
+    }
+
+    func testAgentCreationAuthenticatesAnyClaimedPromptSender() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let createHandlers = try slice(
+            source,
+            from: "private func handleCreateWorktreeWorkspaces(",
+            to: "private func handleSendPaneInput("
+        )
+        let authentication = try slice(
+            source,
+            from: "private func authenticateClaimedAutomationSource(",
+            to: "private func resolveAuthorizedOrchestrationManager("
+        )
+
+        XCTAssertEqual(
+            createHandlers.components(separatedBy: "try authenticateClaimedAutomationSource(payload)").count - 1,
+            3
+        )
+        XCTAssertTrue(authentication.contains("payload.sourceConversationID"))
+        XCTAssertTrue(authentication.contains("payload.sourceHandle"))
+        XCTAssertTrue(authentication.contains("payload.sourceTTY"))
+        XCTAssertTrue(authentication.contains("resolveAuthenticatedAutomationSource(payload: payload)"))
     }
 
     func testUserCommunicationPolicyCannotBeWeakenedByAgentPolicy() throws {
@@ -1077,6 +1127,49 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             try XCTUnwrap(handler.range(of: "agentPaneRequiresMessageAgent")?.lowerBound),
             try XCTUnwrap(handler.range(of: "sendInputToPanes")?.lowerBound)
         )
+    }
+
+    func testActiveGraphFailsClosedForUnboundPanesAndAmbiguousRoleBinding() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let send = try slice(
+            source,
+            from: "private func handleSendAgentMessage(",
+            to: "private func handleListAgentMessages("
+        )
+        let configure = try slice(
+            source,
+            from: "private func handleConfigureAgentOrchestration(",
+            to: "private func resolveAgentMessageTargets("
+        )
+
+        XCTAssertTrue(send.contains("orchestration_denied_unbound_pane"))
+        XCTAssertTrue(send.contains("orchestration_graph_unbound_pane"))
+        XCTAssertTrue(configure.contains("if matches.count > 1"))
+        XCTAssertTrue(configure.contains("ambiguousOrchestrationRoleBinding"))
+    }
+
+    func testAgentMessageRetryDoesNotRequeueAnExistingDurableMessage() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let send = try slice(
+            source,
+            from: "private func handleSendAgentMessage(",
+            to: "private func handleListAgentMessages("
+        )
+        let encode = try slice(
+            source,
+            from: "private func agentInboxMessage(",
+            to: "private func agentCommunicationPolicyState("
+        )
+
+        XCTAssertTrue(send.contains("let inserted = try conversationStore.enqueueAgentMessage"))
+        XCTAssertTrue(send.contains("if !inserted"))
+        XCTAssertTrue(send.contains("delivery_uncertain_not_replayed"))
+        XCTAssertLessThan(
+            try XCTUnwrap(send.range(of: "if !inserted")?.lowerBound),
+            try XCTUnwrap(send.range(of: "pane.enqueueDeferredAgentDelivery")?.lowerBound)
+        )
+        XCTAssertTrue(encode.contains("uncertain_not_replayed"))
+        XCTAssertTrue(encode.contains("deferredTerminalDeliveryStartedAt"))
     }
 
     func testDeferredAgentReturnRestoresThePreviousFirstResponder() throws {

@@ -364,13 +364,41 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         deferredDeliveryWorkItem = nil
         guard agentMessageDraftGate.isClear, !deferredAgentDeliveries.isEmpty else { return }
         let delivery = deferredAgentDeliveries.removeFirst()
+        guard let store = AppEnvironment.conversationStore else {
+            deferredAgentDeliveries.insert(delivery, at: 0)
+            scheduleDeferredAgentDeliveryIfSafe()
+            return
+        }
+        let claimed: Bool
+        do {
+            var didClaim = false
+            guard try store.mutateAgentMessageInbox(conversationID, { inbox in
+                didClaim = try inbox.markDeferredTerminalDeliveryStarted(delivery.messageID)
+            }) != nil else {
+                deferredAgentDeliveries.insert(delivery, at: 0)
+                scheduleDeferredAgentDeliveryIfSafe()
+                return
+            }
+            claimed = didClaim
+        } catch {
+            deferredAgentDeliveries.insert(delivery, at: 0)
+            scheduleDeferredAgentDeliveryIfSafe()
+            return
+        }
+        guard claimed else {
+            // Another live view already owns (or completed) this durable
+            // delivery. Drop the duplicate in-memory copy without touching PTY.
+            pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+            scheduleDeferredAgentDeliveryIfSafe()
+            return
+        }
         terminalView.brokerSend(
             text: delivery.prepared.payload,
             submitWithEnter: delivery.prepared.shouldSendEnterKey,
             focusBeforeSubmit: false
         ) { [weak self] in
             guard let self else { return }
-            try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(conversationID) { inbox in
+            _ = try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(conversationID) { inbox in
                 try inbox.markDeferredTerminalDelivered(delivery.messageID)
             }
             self.pendingDeferredAgentMessageIDs.remove(delivery.messageID)
@@ -745,7 +773,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             commander: conv.commander
         )
         configureContent(for: conv)
-        resumePersistedDeferredAgentDeliveries(for: conv, store: store)
+        resumePersistedDeferredAgentDeliveries(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
         restoreEnginePaneIfNeeded(for: conv)
@@ -756,21 +784,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// after a pane/view lifecycle transition so a queued compatibility
     /// delivery cannot be stranded until somebody types an unrelated key.
     private func resumePersistedDeferredAgentDeliveries(
-        for target: Conversation,
-        store: ConversationStore
+        for target: Conversation
     ) {
         guard target.content.isTerminal else { return }
         for message in target.agentMessageInbox.messagesAwaitingDeferredTerminalDelivery {
             guard !pendingDeferredAgentMessageIDs.contains(message.id),
-                  let source = store.conversation(message.sender.paneID),
                   let prepared = try? AgentPaneInputPlanner.prepare(
                     target: target,
-                    source: source,
+                    storedSender: message.sender,
                     text: message.body,
                     appendNewline: true,
-                    lineEnding: "enter",
-                    requestEnvelope: true,
-                    requireAgentEnvelope: true
+                    lineEnding: "enter"
                   )
             else { continue }
             enqueueDeferredAgentDelivery(messageID: message.id, prepared: prepared)

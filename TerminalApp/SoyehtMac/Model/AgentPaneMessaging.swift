@@ -430,6 +430,39 @@ enum AgentPaneInputPlanner {
         )
     }
 
+    /// Rebuilds a persisted relay after the sender pane has closed. Routing
+    /// identity is carried by the durable endpoint, so delivery does not
+    /// depend on a live `Conversation` that may no longer exist.
+    static func prepare(
+        target: Conversation,
+        storedSender: AgentMessageEndpoint,
+        text: String,
+        appendNewline: Bool,
+        lineEnding: String?
+    ) throws -> Prepared {
+        guard storedSender.paneID != target.id else {
+            throw Error.cannotTargetSource(storedSender.handle)
+        }
+        let outgoingText = agentMessageEnvelope(
+            sender: storedSender,
+            target: target,
+            text: text
+        )
+        let terminalInput = terminalPayload(
+            text: outgoingText,
+            appendNewline: appendNewline,
+            lineEnding: lineEnding
+        )
+        return Prepared(
+            text: outgoingText,
+            payload: terminalInput.payload,
+            shouldSendEnterKey: terminalInput.shouldSendEnterKey,
+            source: nil,
+            envelopeApplied: true,
+            envelopeReason: "restored_from_durable_sender"
+        )
+    }
+
     static func terminalPayload(
         text: String,
         appendNewline: Bool,
@@ -519,15 +552,26 @@ enum AgentPaneInputPlanner {
     }
 
     private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
+        agentMessageEnvelope(
+            sender: AgentMessageEndpoint(
+                paneID: source.id,
+                workspaceID: source.workspaceID,
+                handle: source.handle
+            ),
+            target: target,
+            text: text
+        )
+    }
+
+    private static func agentMessageEnvelope(
+        sender: AgentMessageEndpoint,
+        target: Conversation,
+        text: String
+    ) -> String {
         let body = text
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: .newlines)
             .joined(separator: " ")
-        let sender = AgentMessageEndpoint(
-            paneID: source.id,
-            workspaceID: source.workspaceID,
-            handle: source.handle
-        )
         let recipient = AgentMessageEndpoint(
             paneID: target.id,
             workspaceID: target.workspaceID,
@@ -546,6 +590,6 @@ enum AgentPaneInputPlanner {
         // UUIDs are the routing authority. Bracketed labels are display-only
         // and remain safe when an agent copies the envelope into GitHub.
         let mcpServer = SoyehtInstallProfile.current.mcpConfigKey
-        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }
