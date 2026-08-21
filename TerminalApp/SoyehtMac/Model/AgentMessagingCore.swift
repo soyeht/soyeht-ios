@@ -426,9 +426,21 @@ struct AgentMessageInbox: Codable, Hashable {
     }
 
     mutating func acknowledge(_ id: AgentMessage.ID, at date: Date = Date()) throws {
-        let index = try messageIndex(id)
-        if messages[index].readAt == nil { messages[index].readAt = date }
-        if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
+        try acknowledge([id], at: date)
+    }
+
+    /// Validates the entire batch before mutating it, applies duplicate IDs
+    /// idempotently, and prunes once after every acknowledgement is durable.
+    /// Pruning inside the loop can delete a later ID and roll the whole store
+    /// mutation back forever.
+    mutating func acknowledge(_ ids: [AgentMessage.ID], at date: Date = Date()) throws {
+        var seen: Set<AgentMessage.ID> = []
+        let uniqueIDs = ids.filter { seen.insert($0).inserted }
+        let indices = try uniqueIDs.map(messageIndex)
+        for index in indices {
+            if messages[index].readAt == nil { messages[index].readAt = date }
+            if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
+        }
         _ = pruneCompleted(now: date)
     }
 
@@ -476,20 +488,30 @@ struct AgentMessageInbox: Codable, Hashable {
         now: Date = Date()
     ) -> Int {
         let cutoff = cutoff ?? now.addingTimeInterval(-Self.completedRetentionAge)
-        let completed = messages.filter { message in
-            guard message.acknowledgedAt != nil else { return false }
-            return message.channel != .deferredTerminal
-                || message.deferredTerminalDeliveredAt != nil
-        }.sorted { $0.createdAt > $1.createdAt }
-        let retainedIDs = Set(completed.prefix(max(0, limit)).map(\.id))
+        let completed = messages.compactMap { message -> (message: AgentMessage, completedAt: Date)? in
+            guard let completedAt = Self.completionDate(message) else { return nil }
+            return (message, completedAt)
+        }.sorted {
+            if $0.completedAt != $1.completedAt { return $0.completedAt > $1.completedAt }
+            return $0.message.createdAt > $1.message.createdAt
+        }
+        let retainedIDs = Set(completed.prefix(max(0, limit)).map(\.message.id))
         let before = messages.count
         messages.removeAll { message in
-            guard message.acknowledgedAt != nil,
-                  message.channel != .deferredTerminal
-                    || message.deferredTerminalDeliveredAt != nil else { return false }
-            return message.createdAt < cutoff || !retainedIDs.contains(message.id)
+            guard let completedAt = Self.completionDate(message) else { return false }
+            return completedAt < cutoff || !retainedIDs.contains(message.id)
         }
         return before - messages.count
+    }
+
+    /// Retention starts when work is actually complete, not when it first
+    /// entered the inbox. A month-old pending message acknowledged today must
+    /// remain observable for the normal retention window.
+    private static func completionDate(_ message: AgentMessage) -> Date? {
+        guard let acknowledgedAt = message.acknowledgedAt else { return nil }
+        guard message.channel == .deferredTerminal else { return acknowledgedAt }
+        guard let deliveredAt = message.deferredTerminalDeliveredAt else { return nil }
+        return max(acknowledgedAt, deliveredAt)
     }
 
     private func messageIndex(_ id: AgentMessage.ID) throws -> Int {

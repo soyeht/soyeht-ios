@@ -648,7 +648,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(brokerSend.contains("DispatchQueue.main.asyncAfter"))
         XCTAssertTrue(brokerSend.contains("activeBrokerSubmission"))
         XCTAssertTrue(brokerSend.contains("queuedBrokerSubmissions"))
-        XCTAssertTrue(brokerSend.contains("bufferedUserInputDuringBrokerSubmission"))
+        XCTAssertTrue(brokerSend.contains("bufferedHumanInputDuringBrokerSubmission"))
         XCTAssertTrue(brokerSend.contains("brokerSendEnterKey(focusBeforeSubmit: submission.focusBeforeSubmit)"))
         XCTAssertFalse(brokerSend.contains("brokerSend(data: Data([0x0D]))"))
         let brokerSendEnterKey = try slice(
@@ -1164,6 +1164,81 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(attach.contains("if waitsForStartupHandshake"))
         XCTAssertTrue(tracker.contains("func registerLaunchOwnership"))
         XCTAssertTrue(tracker.contains("expectedHandshakeNonce[paneID] = nonce"))
+    }
+
+    func testAgentLaunchOwnershipSurvivesPersistentEnginePaneRestore() throws {
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let attach = try slice(
+            controller,
+            from: "private func attachLocalPTY(",
+            to: "private static func deliverAgentPromptWithAcknowledgement("
+        )
+        let paneController = try macSource("PaneGrid/PaneViewController.swift")
+        let restore = try slice(
+            paneController,
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation)",
+            to: "private func stillRestorableEngineConversation("
+        )
+
+        XCTAssertTrue(attach.contains("updateAgentLaunchOwnershipNonce(paneID, nonce: launchNonce)"))
+        XCTAssertLessThan(
+            try XCTUnwrap(attach.range(of: "updateAgentLaunchOwnershipNonce")?.lowerBound),
+            try XCTUnwrap(attach.range(of: "registerLaunchOwnership")?.lowerBound)
+        )
+        XCTAssertTrue(restore.contains("liveConversation.agentLaunchOwnershipNonce"))
+        XCTAssertTrue(restore.contains("registerLaunchOwnership("))
+        XCTAssertTrue(restore.contains("launchNonce: restoredLaunchNonce"))
+    }
+
+    func testDeferredAgentDeliveryRechecksHumanDraftAfterEveryBrokerTransaction() throws {
+        let coordinator = try macSource("PaneGrid/PaneDeferredAgentDeliveryCoordinator.swift")
+        let terminal = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        let mainController = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let flush = try slice(
+            coordinator,
+            from: "private func flushOne()",
+            to: "\n    }\n}"
+        )
+        let finish = try slice(
+            terminal,
+            from: "private func finishBrokerSubmission(submitEnter:",
+            to: "private func startNextQueuedBrokerSubmissionIfNeeded()"
+        )
+        let mirror = try slice(
+            mainController,
+            from: "func mirrorTerminalInput(",
+            to: "private func sendGroupVoiceText("
+        )
+
+        XCTAssertTrue(flush.contains("!terminalView.isBrokerSubmissionInFlight"))
+        XCTAssertLessThan(
+            try XCTUnwrap(flush.range(of: "!terminalView.isBrokerSubmissionInFlight")?.lowerBound),
+            try XCTUnwrap(flush.range(of: "deferredAgentDeliveries.removeFirst()")?.lowerBound)
+        )
+        XCTAssertTrue(flush.contains("isWritingDeferredAgentDelivery = true"))
+        XCTAssertTrue(flush.contains("self.isWritingDeferredAgentDelivery = false"))
+        XCTAssertLessThan(
+            try XCTUnwrap(finish.range(of: "onUserInputData?(input.data)")?.lowerBound),
+            try XCTUnwrap(finish.range(of: "submission.completion?()")?.lowerBound)
+        )
+        XCTAssertTrue(mirror.contains("sendMirroredHumanInputForDeferredDeliverySafety(data)"))
+        XCTAssertFalse(mirror.contains("terminalView.brokerSend(data: data)"))
+    }
+
+    func testAgentMessagesRejectUnsubmittedLineEndingsAtTheAppBoundary() throws {
+        let router = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let send = try slice(
+            router,
+            from: "private func handleSendAgentMessage(",
+            to: "private func handleListAgentMessages("
+        )
+
+        XCTAssertTrue(send.contains("lineEnding == \"enter\""))
+        XCTAssertTrue(send.contains("invalidAgentMessageLineEnding"))
+        XCTAssertLessThan(
+            try XCTUnwrap(send.range(of: "invalidAgentMessageLineEnding")?.lowerBound),
+            try XCTUnwrap(send.range(of: "resolveAuthenticatedAutomationSource")?.lowerBound)
+        )
     }
 
     func testAgentMutationsRequireLaunchOwnershipAndUserGrantedOrchestrationPrivilege() throws {

@@ -160,21 +160,26 @@ and protocol regression tests. Raw evidence:
   catalog modules, an app-owned JSON launch catalog, bounded inbox retention,
   delivery claims, uncertain-delivery recovery, and idempotent retry IDs.
 
-## Direct MCP 2.0 regression suite
+## Direct MCP 2.0 regression suite — corrected scope
 
-`QA/scripts/soyeht_mcp2_e2e.py --agents codex,claude,opencode` passed all ten
-check groups:
+Independent review invalidated the earlier claim that
+`QA/scripts/soyeht_mcp2_e2e.py` had passed ten groups after launch-ownership
+hardening. That runner created shell panes and then claimed their public UUIDs
+as agent identities; it never possessed a launch nonce, so its privileged
+messaging/role/policy/graph calls could not be valid against the hardened app.
 
-- global directory grouped with the caller's workspace first;
-- custom roles and planner/executor/reviewer graph;
-- semantic inbox stored and acknowledged without PTY bytes;
-- deferred universal terminal delivery with bracket-safe references;
-- unfinished human draft protected until Enter;
-- pane and cross-workspace deny policies;
-- undeclared graph edge denied;
-- real Codex, Claude, and OpenCode process/flag observation;
-- `close_workspace` regression with an irrelevant destination field;
-- automatic cleanup of test workspaces.
+The runner is now explicitly an external-controller suite. It covers only:
+
+- global directory grouping with the contextual workspace first;
+- real process/argv observation for requested agent launches;
+- the `close_workspace` regression with an irrelevant destination field;
+- cleanup of its temporary workspaces.
+
+Authenticated messaging, inbox, policy, and graph behavior are covered by the
+natural-language agent-driven runner and the security-boundary probes. Those
+paths use a real launched agent that owns its injected nonce; the direct runner
+no longer impersonates one. Historical results below remain evidence for the
+agent-driven runs, not for the obsolete direct checks.
 
 ## Defects exposed and fixed during the run
 

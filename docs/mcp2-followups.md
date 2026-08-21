@@ -60,6 +60,27 @@ each item still needs a product decision or a focused validation.
 - Exercise inbox pruning at the 500-message and 30-day boundaries in a
   behavioral test, not only unit tests.
 
+### Independent PR review backlog
+
+- Serialize or ownership-token workspace parking/restoration for concurrent
+  pane creations so a late request cannot restore another request's workspace
+  or override navigation the user performed meanwhile.
+- Make `agent_race_panes` launch profiles/flags explicit in its public contract
+  instead of silently inheriting `--yolo`/`--auto` with no per-pane escape.
+- Preserve a top-level custom shell command when a nested pane specification
+  selects `agent: shell`; today an explicit empty nested command can win.
+- Put a total deadline on multi-pane creation requests rather than multiplying
+  the per-prompt 120-second timeout by pane count.
+- Replace the remaining security source-grep guards with runtime or extracted
+  pure-boundary tests where practical; source guards should cover wiring only.
+- Make the Dev installer restore its previous signed bundle on every explicit
+  post-install validation failure, not only failures that trigger `ERR`.
+- Specify whether mirrored group input and long multiline auto-submit can hold
+  deferred delivery indefinitely, then add physical-input coverage.
+- Stabilize the Accessibility harness's physical Return on Codex. In the
+  Claude-to-Codex route the draft and queued relay remained intact, but one
+  synthetic Return intermittently failed to submit the visible Codex draft.
+
 ## Threat model and inventory
 
 - Document that the launch nonce is a possession credential within the current

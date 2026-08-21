@@ -1,0 +1,37 @@
+{
+  "agents": {
+    "firstSender": "codex",
+    "recipient": "opencode",
+    "secondSender": "claude"
+  },
+  "deliveryPlans": [
+    {
+      "attentionRequested": false,
+      "channel": "deferredTerminal",
+      "conversationID": "A5B18483-AF20-4756-83A7-FC79F9AF5BF3",
+      "displayReference": "[mcp2-broker-opencode-1787349035]",
+      "messageID": "27913224-C836-415B-8109-1943A45F357D",
+      "policyDenials": [],
+      "status": "queued_until_human_input_is_clear",
+      "workspaceID": "C2F28D0B-863A-4D3D-B517-334C96F0EB4D",
+      "writesToPTY": true
+    },
+    {
+      "attentionRequested": false,
+      "channel": "deferredTerminal",
+      "conversationID": "A5B18483-AF20-4756-83A7-FC79F9AF5BF3",
+      "displayReference": "[mcp2-broker-opencode-1787349035]",
+      "messageID": "B09FF7F9-0802-4CA7-843F-BC952D25EC82",
+      "policyDenials": [],
+      "status": "queued_until_human_input_is_clear",
+      "workspaceID": "C2F28D0B-863A-4D3D-B517-334C96F0EB4D",
+      "writesToPTY": true
+    }
+  ],
+  "firstDeliveredAt": 809041863.444925,
+  "physicalDraftLength": 22,
+  "runID": "1787349035",
+  "secondDeliveredAfterHumanReturnAt": 809041869.968562,
+  "secondDeliveredBeforeHumanReturn": false,
+  "status": "passed"
+}

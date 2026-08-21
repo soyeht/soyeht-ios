@@ -352,13 +352,20 @@ struct Conversation: Codable, Identifiable, Hashable {
     /// Restrictions requested by the currently authenticated agent. These are
     /// stored separately so clearing them cannot weaken the user's policy.
     var agentRequestedCommunicationPolicy: AgentCommunicationPolicy
+    /// Possession credential injected into the process launched for this
+    /// pane. Persistent engine panes survive an app restart, so the app must
+    /// persist the matching expectation as well; otherwise the still-running
+    /// agent keeps its nonce while the router forgets it and rejects every
+    /// authenticated MCP mutation after restore.
+    var agentLaunchOwnershipNonce: String?
     var stats: ConversationStats
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, handle, agent, workspaceID, commander, content, workingDirectoryPath, roleAssignment
         case agentConversation, agentHandoffTranscript, agentMessageInbox
-        case agentCommunicationPolicy, agentRequestedCommunicationPolicy, stats, createdAt
+        case agentCommunicationPolicy, agentRequestedCommunicationPolicy, agentLaunchOwnershipNonce
+        case stats, createdAt
     }
 
     init(
@@ -374,6 +381,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         agentMessageInbox: AgentMessageInbox = AgentMessageInbox(),
         agentCommunicationPolicy: AgentCommunicationPolicy = .open,
         agentRequestedCommunicationPolicy: AgentCommunicationPolicy = .open,
+        agentLaunchOwnershipNonce: String? = nil,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -389,6 +397,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.agentMessageInbox = agentMessageInbox
         self.agentCommunicationPolicy = agentCommunicationPolicy
         self.agentRequestedCommunicationPolicy = agentRequestedCommunicationPolicy
+        self.agentLaunchOwnershipNonce = agentLaunchOwnershipNonce
         self.stats = stats
         self.createdAt = createdAt
     }
@@ -419,6 +428,10 @@ struct Conversation: Codable, Identifiable, Hashable {
             AgentCommunicationPolicy.self,
             forKey: .agentRequestedCommunicationPolicy
         ) ?? .open
+        agentLaunchOwnershipNonce = try container.decodeIfPresent(
+            String.self,
+            forKey: .agentLaunchOwnershipNonce
+        )
         // `agentHandoffTranscript` is intentionally decoded only for backward
         // compatibility and discarded: it was terminal paint and can contain
         // text that was never part of the conversation.
@@ -441,6 +454,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(agentMessageInbox, forKey: .agentMessageInbox)
         try container.encode(agentCommunicationPolicy, forKey: .agentCommunicationPolicy)
         try container.encode(agentRequestedCommunicationPolicy, forKey: .agentRequestedCommunicationPolicy)
+        try container.encodeIfPresent(agentLaunchOwnershipNonce, forKey: .agentLaunchOwnershipNonce)
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }

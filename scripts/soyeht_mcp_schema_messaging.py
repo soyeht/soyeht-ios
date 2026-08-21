@@ -65,8 +65,9 @@ TOOLS_MESSAGING = [
                 },
                 "lineEnding": {
                     "type": "string",
-                    "enum": ["enter", "newline", "crlf", "none"],
+                    "enum": ["enter"],
                     "default": "enter",
+                    "description": "Agent messages are complete submissions and always use the terminal Return key. Use send_pane_input for intentional raw input.",
                 },
                 "deliveryPreference": {
                     "type": "string",

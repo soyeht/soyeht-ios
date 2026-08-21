@@ -923,7 +923,7 @@ def run_typing_collision(
         automation_dir,
         timeout,
     )
-    return {
+    result = {
         "status": "passed",
         "senderAgent": sender_agent,
         "recipientAgent": recipient_agent,

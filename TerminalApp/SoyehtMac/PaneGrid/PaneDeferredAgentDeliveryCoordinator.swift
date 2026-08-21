@@ -22,6 +22,7 @@ final class PaneDeferredAgentDeliveryCoordinator {
     private var pendingDeferredAgentMessageIDs: Set<AgentMessage.ID> = []
     private var agentMessageDraftGate = AgentMessageDraftGate()
     private var deferredDeliveryWorkItem: DispatchWorkItem?
+    private var isWritingDeferredAgentDelivery = false
     private static let deliveryGrace: TimeInterval = 0.75
 
     init(
@@ -66,7 +67,9 @@ final class PaneDeferredAgentDeliveryCoordinator {
     }
 
     private func scheduleIfSafe() {
-        guard agentMessageDraftGate.isClear, !deferredAgentDeliveries.isEmpty else { return }
+        guard agentMessageDraftGate.isClear,
+              !isWritingDeferredAgentDelivery,
+              !deferredAgentDeliveries.isEmpty else { return }
         deferredDeliveryWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             self?.flushOne()
@@ -80,7 +83,15 @@ final class PaneDeferredAgentDeliveryCoordinator {
 
     private func flushOne() {
         deferredDeliveryWorkItem = nil
-        guard agentMessageDraftGate.isClear, !deferredAgentDeliveries.isEmpty else { return }
+        guard agentMessageDraftGate.isClear,
+              !isWritingDeferredAgentDelivery,
+              !deferredAgentDeliveries.isEmpty else { return }
+        guard !terminalView.isBrokerSubmissionInFlight else {
+            // Never queue an agent envelope behind a broker transaction. Its
+            // completion may replay human input and close the draft gate.
+            scheduleIfSafe()
+            return
+        }
         let delivery = deferredAgentDeliveries.removeFirst()
         guard let store = AppEnvironment.conversationStore else {
             deferredAgentDeliveries.insert(delivery, at: 0)
@@ -110,12 +121,14 @@ final class PaneDeferredAgentDeliveryCoordinator {
             scheduleIfSafe()
             return
         }
+        isWritingDeferredAgentDelivery = true
         terminalView.brokerSend(
             text: delivery.prepared.payload,
             submitWithEnter: delivery.prepared.shouldSendEnterKey,
             focusBeforeSubmit: false
         ) { [weak self] in
             guard let self else { return }
+            self.isWritingDeferredAgentDelivery = false
             _ = try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(self.conversationID) { inbox in
                 try inbox.markDeferredTerminalDelivered(delivery.messageID)
             }

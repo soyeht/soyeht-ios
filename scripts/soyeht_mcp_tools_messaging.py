@@ -32,7 +32,12 @@ def tool_message_agent(args):
     handles = args.get("handles") or []
     if not conversation_ids and not handles:
         raise RuntimeError("message_agent requires handles or conversationIDs. Use list_panes first; do not create a new pane when you intend to message an existing agent.")
-    line_ending = args.get("lineEnding") or "enter"
+    line_ending = (args.get("lineEnding") or "enter").strip().lower()
+    if line_ending != "enter":
+        raise RuntimeError(
+            "message_agent always submits a complete message with lineEnding=enter. "
+            "Use send_pane_input only when you intentionally need raw terminal input."
+        )
     payload = with_source_context(with_window_target({
         "conversationIDs": conversation_ids,
         "handles": handles,
@@ -137,5 +142,4 @@ def tool_configure_agent_orchestration(args):
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 10.0),
     )
-
 

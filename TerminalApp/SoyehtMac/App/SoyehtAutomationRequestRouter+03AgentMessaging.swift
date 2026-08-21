@@ -53,6 +53,12 @@ extension SoyehtAutomationRequestRouter {
               !text.isEmpty else {
             throw SoyehtAutomationError.emptyPaneInput
         }
+        let lineEnding = (payload.lineEnding ?? "enter")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard lineEnding == "enter" else {
+            throw SoyehtAutomationError.invalidAgentMessageLineEnding(lineEnding)
+        }
         let source = try resolveAuthenticatedAutomationSource(payload: payload)
         let targets = try resolveAgentMessageTargets(payload)
         let preference = try agentMessageDeliveryPreference(payload.deliveryPreference)
@@ -268,7 +274,7 @@ extension SoyehtAutomationRequestRouter {
             return id
         }
         try conversationStore.mutateAgentMessageInbox(source.id) { inbox in
-            for id in ids { try inbox.acknowledge(id) }
+            try inbox.acknowledge(ids)
         }
         let updated = conversationStore.conversation(source.id)?.agentMessageInbox.messages
             .filter { ids.contains($0.id) } ?? []

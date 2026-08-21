@@ -1001,7 +1001,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard targets.count > 1, targets.contains(sourceConversationID) else { return }
         for target in targets where target != sourceConversationID {
             guard let pane = LivePaneRegistry.shared.pane(for: target) as? PaneViewController else { continue }
-            pane.terminalView.brokerSend(data: data)
+            pane.sendMirroredHumanInputForDeferredDeliverySafety(data)
         }
     }
 
@@ -3883,7 +3883,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // no prompt leaked into a shell when the agent fails to boot).
         // Agents with no startup hook (e.g. agy) are exempt and use the
         // legacy timed prompt delivery instead.
-        let conversation = convStore.conversation(paneID)
+        var conversation = convStore.conversation(paneID)
         let expectedReportSource = conversation.map { "hook:\($0.agent.rawValue)" }
         let preparedInitialCommand = initialCommand.map { AgentLaunchCommandBuilder.prepare($0) }
         let isAgentLaunch = preparedInitialCommand != nil
@@ -3892,6 +3892,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
         let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
         PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
+        convStore.updateAgentLaunchOwnershipNonce(paneID, nonce: launchNonce)
+        conversation = convStore.conversation(paneID)
         if let launchNonce {
             PaneStatusTracker.shared.registerLaunchOwnership(paneID: paneID, nonce: launchNonce)
             if waitsForStartupHandshake {

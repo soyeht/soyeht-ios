@@ -178,6 +178,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-08-21 | **MCP 2.0 PR #56 independent-review fixes** (persistent launch ownership, atomic ack/prune, broker replay gate, complete-message contract) | PASS WITH 1 HARNESS FOLLOW-UP | [report](runs/2026-08-21-mcp2-review-fixes/report.md) |
 | 2026-08-21 | **Soyeht Dev stable Accessibility identity** (signed install, explicit TCC registration, permission survives fresh rebuild/reinstall) | PASS | [report](runs/2026-08-21-soyeht-dev-accessibility/report.md) |
 | 2026-08-21 | **MCP 2.0 real-agent behavioral + typing-collision rings** (launch, injected draft, physical Return, full Backspace, and per-TUI cancel shortcuts across Codex, OpenCode, and Claude) | 15/15 PASS + 1 expected-hold control | [report](runs/2026-08-21-mcp2-agent-driven-e2e/report.md) |
 | 2026-08-21 | **Gate Quick** (iOS, SwiftPM, API contract smoke) | PASS WITH FOLLOW-UPS | [report](runs/2026-08-21-codex-gate-quick/gate-report.md) |

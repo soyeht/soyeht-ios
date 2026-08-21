@@ -279,6 +279,51 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNotNil(inbox.message(id: oldIncomplete.id))
     }
 
+    func testAcknowledgingOldPendingMessageStartsRetentionAtCompletion() throws {
+        let recipient = endpoint(handle: "delia")
+        let now = Date(timeIntervalSince1970: 10_000_000)
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            createdAt: now.addingTimeInterval(-60 * 24 * 60 * 60)
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        try inbox.acknowledge(item.id, at: now)
+
+        XCTAssertEqual(inbox.message(id: item.id)?.acknowledgedAt, now)
+    }
+
+    func testBatchAcknowledgementPreflightsDuplicatesBeforeSinglePrune() throws {
+        let recipient = endpoint(handle: "delia")
+        let now = Date(timeIntervalSince1970: 10_000_000)
+        let expiredCompleted = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            createdAt: now.addingTimeInterval(-60 * 24 * 60 * 60)
+        )
+        let pending = message(
+            sender: endpoint(handle: "isaiah"),
+            recipient: recipient,
+            createdAt: now
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(expiredCompleted, recipientID: recipient.paneID)
+        try inbox.enqueue(pending, recipientID: recipient.paneID)
+        let oldCompletion = now.addingTimeInterval(-40 * 24 * 60 * 60)
+        try inbox.acknowledge(expiredCompleted.id, at: oldCompletion)
+        XCTAssertNotNil(inbox.message(id: expiredCompleted.id))
+
+        XCTAssertNoThrow(try inbox.acknowledge(
+            [pending.id, expiredCompleted.id, pending.id],
+            at: now
+        ))
+
+        XCTAssertEqual(inbox.message(id: pending.id)?.acknowledgedAt, now)
+        XCTAssertNil(inbox.message(id: expiredCompleted.id))
+    }
+
     func testDeferredDeliveryAttemptIsPersistedBeforeCompletionAndNotRequeued() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(
@@ -450,12 +495,14 @@ final class AgentMessagingCoreTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object.removeValue(forKey: "agentMessageInbox")
         object.removeValue(forKey: "agentCommunicationPolicy")
+        object.removeValue(forKey: "agentLaunchOwnershipNonce")
 
         let legacyData = try JSONSerialization.data(withJSONObject: object)
         let decoded = try JSONDecoder().decode(Conversation.self, from: legacyData)
 
         XCTAssertTrue(decoded.agentMessageInbox.messages.isEmpty)
         XCTAssertEqual(decoded.agentCommunicationPolicy, .open)
+        XCTAssertNil(decoded.agentLaunchOwnershipNonce)
     }
 
     func testWorkspaceWithoutPolicyDecodesAsOpen() throws {
@@ -515,6 +562,10 @@ final class AgentMessagingCoreTests: XCTestCase {
                 blockedPaneIDs: [sender.paneID]
             ))
         )
+        conversationStore.updateAgentLaunchOwnershipNonce(
+            recipientID,
+            nonce: "persisted-launch-possession"
+        )
         workspaceStore.updateAgentCommunicationPolicy(
             AgentCommunicationPolicy(incoming: .init(allowsCrossWorkspace: false)),
             for: workspaceID
@@ -532,6 +583,7 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         let restoredConversation = try XCTUnwrap(restoredConversationStore.conversation(recipientID))
         XCTAssertEqual(restoredConversation.agentMessageInbox.messages.map(\.id), [item.id])
+        XCTAssertEqual(restoredConversation.agentLaunchOwnershipNonce, "persisted-launch-possession")
         XCTAssertTrue(
             restoredConversation.agentCommunicationPolicy.incoming.blockedPaneIDs
                 .contains(sender.paneID)

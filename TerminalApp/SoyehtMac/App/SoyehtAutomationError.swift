@@ -8,6 +8,7 @@ enum SoyehtAutomationError: LocalizedError {
     case emptyAgentMessageTargets
     case agentMessageSourceRequired
     case invalidAgentMessageDeliveryPreference(String)
+    case invalidAgentMessageLineEnding(String)
     case invalidAgentMessageID(String)
     case agentRoleTemplateNotFound(String)
     case invalidOrchestrationPreset(String)
@@ -57,6 +58,8 @@ enum SoyehtAutomationError: LocalizedError {
             return "Agent messaging requires a resolved source conversation."
         case .invalidAgentMessageDeliveryPreference(let value):
             return "Unknown agent message delivery preference: \(value)."
+        case .invalidAgentMessageLineEnding(let value):
+            return "Agent messages must be complete submissions with lineEnding=enter; received: \(value). Use send_pane_input for intentional raw terminal input."
         case .invalidAgentMessageID(let value):
             return "Agent message ID is not a valid UUID: \(value)."
         case .agentRoleTemplateNotFound(let value):

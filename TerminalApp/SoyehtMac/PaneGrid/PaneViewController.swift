@@ -330,6 +330,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         )
     }
 
+    /// Mirrored group keystrokes are human drafts in the destination pane as
+    /// well. Record them before transport and keep them out of any active
+    /// broker paste/Return transaction.
+    func sendMirroredHumanInputForDeferredDeliverySafety(_ data: Data) {
+        deferredAgentDeliveryCoordinator.recordHumanInput(data)
+        terminalView.brokerSendMirroredHumanInput(data)
+    }
+
     /// Programmatically claim focus — used by the parent grid when activation
     /// arrives without a mouse click (e.g. keyboard neighbour traversal).
     func claimFocus() {
@@ -963,10 +971,19 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 return
             }
 
+            let restoredLaunchNonce = liveConversation.agentLaunchOwnershipNonce
+            if let restoredLaunchNonce, !restoredLaunchNonce.isEmpty {
+                PaneStatusTracker.shared.registerLaunchOwnership(
+                    paneID: conversationID,
+                    nonce: restoredLaunchNonce
+                )
+            }
+
             var outcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
             for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
                 outcome = await EnginePaneAttacher.attach(
                     conversation: liveConversation,
+                    launchNonce: restoredLaunchNonce,
                     cwd: url,
                     loginPath: loginPath,
                     cols: cols,

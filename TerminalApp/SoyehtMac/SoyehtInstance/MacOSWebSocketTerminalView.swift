@@ -198,11 +198,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         let focusBeforeSubmit: Bool
         let completion: (() -> Void)?
     }
+    private struct BufferedHumanInput {
+        let data: Data
+        /// Physical input has not reached PaneViewController yet. Mirrored
+        /// group input was recorded there before entering this buffer and
+        /// must not be reported again (which would mirror it recursively).
+        let shouldNotifyDelegate: Bool
+    }
     private var activeBrokerSubmission: BrokerSubmission?
     private var queuedBrokerSubmissions: [BrokerSubmission] = []
     private var pendingBrokerEnterWorkItem: DispatchWorkItem?
     private var isDispatchingBrokerEnterKey = false
-    private var bufferedUserInputDuringBrokerSubmission = Data()
+    private var bufferedHumanInputDuringBrokerSubmission: [BufferedHumanInput] = []
     private var showsGroupInputCursor = false
     var onSelectionCopied: (() -> Void)?
     var onScrollToBottomVisibilityChanged: ((Bool) -> Void)?
@@ -896,7 +903,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             // become part of the agent message, or the delayed Return can
             // submit the human's new draft. The bytes are replayed in order
             // immediately after the broker submission completes.
-            bufferedUserInputDuringBrokerSubmission.append(bytes)
+            bufferedHumanInputDuringBrokerSubmission.append(
+                BufferedHumanInput(data: bytes, shouldNotifyDelegate: true)
+            )
             return
         }
         if isDispatchingBrokerEnterKey {
@@ -1010,6 +1019,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         startBrokerSubmission(submission)
     }
 
+    /// True while a paste/Return transaction owns the PTY. Deferred agent
+    /// delivery must wait instead of entering the broker's internal queue,
+    /// because human bytes replayed at completion may close the draft gate.
+    var isBrokerSubmissionInFlight: Bool {
+        activeBrokerSubmission != nil
+    }
+
     private func startBrokerSubmission(_ submission: BrokerSubmission) {
         activeBrokerSubmission = submission
         let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
@@ -1042,11 +1058,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
         // Keyboard bytes arrived after the paste, so preserve that ordering
         // while making the broker paste + Return atomic from the PTY's view.
-        if !bufferedUserInputDuringBrokerSubmission.isEmpty {
-            let buffered = bufferedUserInputDuringBrokerSubmission
-            bufferedUserInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
-            onUserInputData?(buffered)
-            sendInputData(buffered)
+        if !bufferedHumanInputDuringBrokerSubmission.isEmpty {
+            let buffered = bufferedHumanInputDuringBrokerSubmission
+            bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+            for input in buffered {
+                if input.shouldNotifyDelegate {
+                    onUserInputData?(input.data)
+                }
+                sendInputData(input.data)
+            }
         }
         submission.completion?()
         startNextQueuedBrokerSubmissionIfNeeded()
@@ -1061,6 +1081,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// terminal bytes without passing back through SwiftTerm's delegate path.
     func brokerSend(data: Data) {
         sendInputData(data)
+    }
+
+    /// Group input is still human input. Keep it outside an active
+    /// paste/Return transaction and replay it afterward without notifying the
+    /// delegate twice (PaneViewController already recorded it in the gate).
+    func brokerSendMirroredHumanInput(_ data: Data) {
+        guard activeBrokerSubmission != nil else {
+            sendInputData(data)
+            return
+        }
+        bufferedHumanInputDuringBrokerSubmission.append(
+            BufferedHumanInput(data: data, shouldNotifyDelegate: false)
+        )
     }
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active

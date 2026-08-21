@@ -17,7 +17,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
-    def test_tools_list_contract_matches_pre_modularization_golden(self):
+    def test_tools_list_contract_matches_reviewed_mcp2_golden(self):
         encoded = json.dumps(
             MODULE["TOOLS"],
             ensure_ascii=False,
@@ -28,7 +28,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(MODULE["TOOLS"]), 44)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "f84b3a1ef45ec35a5a51d042dabb0e8775d47665aa8baedf3565972c21725478",
+            "6f25cf0c2f4a2e7bcde9a1691802e4803f60111ff56b618d56d69d3c3ed71981",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -778,6 +778,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_message_agent_refuses_to_create_or_guess_target(self):
         with self.assertRaisesRegex(RuntimeError, "requires handles or conversationIDs"):
             MODULE["tool_message_agent"]({"text": "please review"})
+
+    def test_message_agent_rejects_raw_unsubmitted_terminal_input(self):
+        with self.assertRaisesRegex(RuntimeError, "complete message"):
+            MODULE["tool_message_agent"]({
+                "handles": ["@reviewer"],
+                "text": "please review",
+                "lineEnding": "none",
+            })
 
     def test_open_shell_agent_prompt_defaults_to_message_mode_with_source(self):
         captured = {}

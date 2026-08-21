@@ -128,6 +128,15 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Persist the credential together with the pane whose process owns it.
+    /// This is deliberately not exposed by directory/status responses.
+    func updateAgentLaunchOwnershipNonce(_ id: Conversation.ID, nonce: String?) {
+        guard var conv = conversations[id], conv.agentLaunchOwnershipNonce != nonce else { return }
+        conv.agentLaunchOwnershipNonce = nonce
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Persist one idempotent inbox insertion. The route/policy decision must
     /// be made before this mutation; this method additionally guarantees that
     /// a message cannot be written into the wrong pane's inbox.
