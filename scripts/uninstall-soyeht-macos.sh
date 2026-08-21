@@ -18,6 +18,10 @@ SOYEHT_MCP_LAUNCHERS=(
 )
 # Exact names, never a `mcp-logs-soyeht*` glob: a glob would also claim
 # somebody else's server whose name merely starts with ours.
+#
+# The expansion of this array MUST stay unquoted at every call site: these are
+# separate `find` arguments, and quoting them into one word breaks the
+# expression. It is a tempting "fix" that silently disables the match.
 SOYEHT_MCP_LOG_DIR_MATCH=(
     '(' -name mcp-logs-soyeht -o -name mcp-logs-soyeht-dev ')'
 )

@@ -243,16 +243,35 @@ can also resolve release versus Dev from the calling pane identity. A pinned
 release directory prevents a Codex session launched by Soyeht Dev from
 reaching its own conversation.
 
+### Which identity are you wiring up?
+
+The release build and the development build own separate launchers and separate
+server names. Pick one and keep both halves together — a name registered
+against the other identity's launcher points at a file that may not exist, or
+at a launcher left over from before the split.
+
+| build | launcher | server name |
+| --- | --- | --- |
+| shipping `Soyeht.app` | `~/.local/bin/soyeht-mcp` | `soyeht` |
+| `Soyeht Dev.app`, or `scripts/install-soyeht-mcp` | `~/.local/bin/soyeht-dev-mcp` | `soyeht-dev` |
+
+```sh
+# Release:
+export SOYEHT_MCP_NAME=soyeht SOYEHT_MCP_LAUNCHER="$HOME/.local/bin/soyeht-mcp"
+# Development:
+export SOYEHT_MCP_NAME=soyeht-dev SOYEHT_MCP_LAUNCHER="$HOME/.local/bin/soyeht-dev-mcp"
+```
+
 ### Codex
 
 ```sh
-codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
+codex mcp add "$SOYEHT_MCP_NAME" -- "$SOYEHT_MCP_LAUNCHER"
 ```
 
 ### Claude Code
 
 ```sh
-claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[]}"
+claude mcp add-json --scope user "$SOYEHT_MCP_NAME" "{\"type\":\"stdio\",\"command\":\"$SOYEHT_MCP_LAUNCHER\",\"args\":[]}"
 ```
 
 Claude Code user-scoped MCP servers live in `~/.claude.json`; project-scoped
@@ -276,10 +295,24 @@ printed by the installer:
 }
 ```
 
+For the development identity both halves change together:
+
+```json
+{
+  "mcp": {
+    "soyeht-dev": {
+      "type": "local",
+      "command": ["/Users/you/.local/bin/soyeht-dev-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
 ### Droid
 
 ```sh
-droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio
+droid mcp add "$SOYEHT_MCP_NAME" "$SOYEHT_MCP_LAUNCHER" --type stdio
 ```
 
 Droid stores user MCP servers in `~/.factory/mcp.json`.
@@ -298,13 +331,23 @@ Faça uma auditoria somente leitura e responda em português:
 1. Mostre se estes CLIs existem e onde estão: claude, codex, opencode, droid.
    Use command -v e também cheque estes caminhos: ~/.local/bin, /opt/homebrew/bin,
    /usr/local/bin e /usr/bin.
-2. Verifique se ~/.local/bin/soyeht-mcp existe e é executável.
-3. Verifique, sem imprimir segredos, se o servidor "soyeht" está configurado em:
-   - Claude Code: claude mcp get soyeht, e se necessário confirme ~/.claude.json.
-   - Codex: ~/.codex/config.toml, seção [mcp_servers.soyeht].
-   - OpenCode: ~/.config/opencode/opencode.json, chave mcp.soyeht.
-   - Droid: ~/.factory/mcp.json, chave mcpServers.soyeht.
-4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e confirme
+2. Existem DUAS identidades. Verifique quais destes lançadores existem e são
+   executáveis, e para onde cada um aponta (a última linha exec do ficheiro):
+   ~/.local/bin/soyeht-mcp       (build de release, chave "soyeht")
+   ~/.local/bin/soyeht-dev-mcp   (build de dev,     chave "soyeht-dev")
+3. Verifique, sem imprimir segredos, se os servidores "soyeht" e "soyeht-dev"
+   estão configurados em:
+   - Claude Code: claude mcp get soyeht e claude mcp get soyeht-dev.
+   - Codex: ~/.codex/config.toml, seções [mcp_servers.soyeht] e
+     [mcp_servers.soyeht-dev].
+   - OpenCode: ~/.config/opencode/opencode.json, chaves mcp.soyeht e
+     mcp.soyeht-dev.
+   - Droid: ~/.factory/mcp.json, chaves mcpServers.soyeht e
+     mcpServers.soyeht-dev.
+4. Para cada servidor encontrado, diga se o command aponta para o lançador da
+   MESMA identidade — "soyeht" para soyeht-mcp, "soyeht-dev" para
+   soyeht-dev-mcp. Um servidor a apontar para o lançador da outra identidade,
+   ou para um lançador inexistente, é o defeito a reportar. Confirme também
    que a configuração global não fixa SOYEHT_AUTOMATION_DIR. A pasta correta é
    herdada ou resolvida dinamicamente entre:
    ~/Library/Application Support/Soyeht/Automation

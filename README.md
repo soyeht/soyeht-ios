@@ -106,16 +106,26 @@ through the login shell and common GUI-missing paths such as `~/.local/bin`,
 `/opt/homebrew/bin`, `/usr/local/bin`, and `/usr/bin`. If the onboarding misses
 an agent, use the manual commands below.
 
-For the shipping app, the automation directory is:
+Pick the build you are wiring up once, and every command below follows. The
+release build and the development build own **separate** MCP launchers and
+**separate** server names, so mixing them registers a name pointing at a
+launcher that may not exist.
+
+For the shipping app:
 
 ```bash
 export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/Soyeht/Automation"
+export SOYEHT_MCP_NAME=soyeht
+export SOYEHT_MCP_LAUNCHER="$HOME/.local/bin/soyeht-mcp"
 ```
 
-For `Soyeht Dev.app`, use:
+For `Soyeht Dev.app` — or for a launcher installed from this repository with
+`scripts/install-soyeht-mcp`, which defaults to the development identity:
 
 ```bash
 export SOYEHT_AUTOMATION_DIR="$HOME/Library/Application Support/SoyehtDev/Automation"
+export SOYEHT_MCP_NAME=soyeht-dev
+export SOYEHT_MCP_LAUNCHER="$HOME/.local/bin/soyeht-dev-mcp"
 ```
 
 ### Claude Code
@@ -125,8 +135,8 @@ servers are stored in `.mcp.json`. Prefer the official CLI command instead of
 editing `~/.claude.json` by hand:
 
 ```bash
-claude mcp add-json --scope user soyeht "{\"type\":\"stdio\",\"command\":\"$HOME/.local/bin/soyeht-mcp\",\"args\":[],\"env\":{\"SOYEHT_AUTOMATION_DIR\":\"$SOYEHT_AUTOMATION_DIR\"}}"
-claude mcp get soyeht        # expect: Status: ✓ Connected
+claude mcp add-json --scope user "$SOYEHT_MCP_NAME" "{\"type\":\"stdio\",\"command\":\"$SOYEHT_MCP_LAUNCHER\",\"args\":[],\"env\":{\"SOYEHT_AUTOMATION_DIR\":\"$SOYEHT_AUTOMATION_DIR\"}}"
+claude mcp get "$SOYEHT_MCP_NAME"   # expect: Status: ✓ Connected
 ```
 
 `--scope user` registers the server for every project on this machine. Use `--scope project` instead to write a `.mcp.json` you can commit and share with your team.
@@ -134,13 +144,13 @@ claude mcp get soyeht        # expect: Status: ✓ Connected
 ### Codex
 
 ```bash
-codex mcp add soyeht --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR" -- ~/.local/bin/soyeht-mcp
+codex mcp add "$SOYEHT_MCP_NAME" --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR" -- "$SOYEHT_MCP_LAUNCHER"
 ```
 
 Verify:
 
 ```bash
-codex mcp list               # expect: soyeht ... Status: enabled
+codex mcp list               # expect: your server name ... Status: enabled
 ```
 
 ### OpenCode
@@ -159,13 +169,30 @@ Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an
       "enabled": true
     }
   }
+```
+
+For the development build, the whole entry changes name, launcher and
+directory together:
+
+```json
+{
+  "mcp": {
+    "soyeht-dev": {
+      "type": "local",
+      "command": ["/Users/you/.local/bin/soyeht-dev-mcp"],
+      "environment": {
+        "SOYEHT_AUTOMATION_DIR": "/Users/you/Library/Application Support/SoyehtDev/Automation"
+      },
+      "enabled": true
+    }
+  }
 }
 ```
 
 Verify:
 
 ```bash
-opencode mcp list            # expect: soyeht ✓ connected
+opencode mcp list            # expect: your server name ✓ connected
 ```
 
 ### Droid
@@ -174,7 +201,7 @@ Factory Droid stores user MCP servers in `~/.factory/mcp.json`. The CLI creates
 the same shape that Soyeht writes:
 
 ```bash
-droid mcp add soyeht ~/.local/bin/soyeht-mcp --type stdio --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR"
+droid mcp add "$SOYEHT_MCP_NAME" "$SOYEHT_MCP_LAUNCHER" --type stdio --env SOYEHT_AUTOMATION_DIR="$SOYEHT_AUTOMATION_DIR"
 ```
 
 ### If an agent is not recognized
@@ -191,15 +218,26 @@ Faça uma auditoria somente leitura e responda em português:
 1. Mostre se estes CLIs existem e onde estão: claude, codex, opencode, droid.
    Use command -v e também cheque estes caminhos: ~/.local/bin, /opt/homebrew/bin,
    /usr/local/bin e /usr/bin.
-2. Verifique se ~/.local/bin/soyeht-mcp existe e é executável.
-3. Verifique, sem imprimir segredos, se o servidor "soyeht" está configurado em:
-   - Claude Code: claude mcp get soyeht, e se necessário confirme ~/.claude.json.
-   - Codex: ~/.codex/config.toml, seção [mcp_servers.soyeht].
-   - OpenCode: ~/.config/opencode/opencode.json, chave mcp.soyeht.
-   - Droid: ~/.factory/mcp.json, chave mcpServers.soyeht.
-4. Para cada um, diga se command aponta para ~/.local/bin/soyeht-mcp e se
+2. Existem DUAS identidades. Verifique quais destes lançadores existem e são
+   executáveis, e para onde cada um aponta (a última linha exec do ficheiro):
+   ~/.local/bin/soyeht-mcp       (build de release, chave "soyeht")
+   ~/.local/bin/soyeht-dev-mcp   (build de dev,     chave "soyeht-dev")
+3. Verifique, sem imprimir segredos, se os servidores "soyeht" e "soyeht-dev"
+   estão configurados em:
+   - Claude Code: claude mcp get soyeht e claude mcp get soyeht-dev.
+   - Codex: ~/.codex/config.toml, seções [mcp_servers.soyeht] e
+     [mcp_servers.soyeht-dev].
+   - OpenCode: ~/.config/opencode/opencode.json, chaves mcp.soyeht e
+     mcp.soyeht-dev.
+   - Droid: ~/.factory/mcp.json, chaves mcpServers.soyeht e
+     mcpServers.soyeht-dev.
+4. Para cada servidor encontrado, diga se o command aponta para o lançador da
+   MESMA identidade — "soyeht" para soyeht-mcp, "soyeht-dev" para
+   soyeht-dev-mcp. Um servidor a apontar para o lançador da outra identidade,
+   ou para um lançador inexistente, é o defeito a reportar. Diga também se
    SOYEHT_AUTOMATION_DIR aponta para:
-   ~/Library/Application Support/Soyeht/Automation
+   ~/Library/Application Support/Soyeht/Automation      (release)
+   ~/Library/Application Support/SoyehtDev/Automation   (dev)
 5. Não edite nada. Termine com "OK PARA INSTALAR" ou "NAO INSTALAR AINDA" e liste
    exatamente o que está faltando.
 ```
