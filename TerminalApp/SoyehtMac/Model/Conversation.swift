@@ -340,12 +340,19 @@ struct Conversation: Codable, Identifiable, Hashable {
     /// Structured, provider-neutral conversation. Terminal scrollback is not
     /// a source for this state.
     var agentConversation: AgentConversationState
+    /// Durable agent-to-agent messages addressed to this pane. Semantic inbox
+    /// delivery is independent from terminal scrollback and survives relaunch.
+    var agentMessageInbox: AgentMessageInbox
+    /// Pane-level incoming/outgoing blocks. These compose with the workspace
+    /// policy and cannot override a denial at either layer.
+    var agentCommunicationPolicy: AgentCommunicationPolicy
     var stats: ConversationStats
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, handle, agent, workspaceID, commander, content, workingDirectoryPath
-        case agentConversation, agentHandoffTranscript, stats, createdAt
+        case agentConversation, agentHandoffTranscript, agentMessageInbox
+        case agentCommunicationPolicy, stats, createdAt
     }
 
     init(
@@ -357,6 +364,8 @@ struct Conversation: Codable, Identifiable, Hashable {
         content: PaneContent = .terminal(TerminalPaneState()),
         workingDirectoryPath: String? = nil,
         agentConversation: AgentConversationState = AgentConversationState(),
+        agentMessageInbox: AgentMessageInbox = AgentMessageInbox(),
+        agentCommunicationPolicy: AgentCommunicationPolicy = .open,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -368,6 +377,8 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.content = content
         self.workingDirectoryPath = workingDirectoryPath
         self.agentConversation = agentConversation
+        self.agentMessageInbox = agentMessageInbox
+        self.agentCommunicationPolicy = agentCommunicationPolicy
         self.stats = stats
         self.createdAt = createdAt
     }
@@ -385,6 +396,14 @@ struct Conversation: Codable, Identifiable, Hashable {
             AgentConversationState.self,
             forKey: .agentConversation
         ) ?? AgentConversationState()
+        agentMessageInbox = try container.decodeIfPresent(
+            AgentMessageInbox.self,
+            forKey: .agentMessageInbox
+        ) ?? AgentMessageInbox()
+        agentCommunicationPolicy = try container.decodeIfPresent(
+            AgentCommunicationPolicy.self,
+            forKey: .agentCommunicationPolicy
+        ) ?? .open
         // `agentHandoffTranscript` is intentionally decoded only for backward
         // compatibility and discarded: it was terminal paint and can contain
         // text that was never part of the conversation.
@@ -403,6 +422,8 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(content, forKey: .content)
         try container.encodeIfPresent(workingDirectoryPath, forKey: .workingDirectoryPath)
         try container.encode(agentConversation, forKey: .agentConversation)
+        try container.encode(agentMessageInbox, forKey: .agentMessageInbox)
+        try container.encode(agentCommunicationPolicy, forKey: .agentCommunicationPolicy)
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }

@@ -1,0 +1,319 @@
+import XCTest
+@testable import SoyehtMacDomain
+
+@MainActor
+final class AgentMessagingCoreTests: XCTestCase {
+    private func endpoint(
+        paneID: UUID = UUID(),
+        workspaceID: UUID = UUID(),
+        handle: String
+    ) -> AgentMessageEndpoint {
+        AgentMessageEndpoint(paneID: paneID, workspaceID: workspaceID, handle: handle)
+    }
+
+    private func message(
+        id: UUID = UUID(),
+        sender: AgentMessageEndpoint,
+        recipient: AgentMessageEndpoint,
+        channel: AgentMessageDeliveryChannel = .semanticInbox,
+        requestsAttention: Bool = true,
+        createdAt: Date = Date(timeIntervalSince1970: 100)
+    ) -> AgentMessage {
+        AgentMessage(
+            id: id,
+            sender: sender,
+            recipient: recipient,
+            body: "  Review the plan.\r\nThanks.  ",
+            channel: channel,
+            requestsAttention: requestsAttention,
+            createdAt: createdAt
+        )
+    }
+
+    func testEndpointUsesMentionSafeDisplayLabel() {
+        let target = endpoint(handle: " @Caia ")
+
+        XCTAssertEqual(target.handle, "caia")
+        XCTAssertEqual(target.displayLabel, "[caia]")
+        XCTAssertFalse(target.displayLabel.contains("@"))
+    }
+
+    func testEndpointDecoderAlsoRemovesLegacyMentionSigil() throws {
+        let target = endpoint(handle: "caia")
+        let encoded = try JSONEncoder().encode(target)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object["handle"] = "@Caia"
+
+        let decoded = try JSONDecoder().decode(
+            AgentMessageEndpoint.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        XCTAssertEqual(decoded.handle, "caia")
+        XCTAssertEqual(decoded.displayLabel, "[caia]")
+    }
+
+    func testAutomaticDeliveryUsesSemanticInboxWithoutPTYWhenAdapterCanWakeAndRead() {
+        let plan = AgentMessageDeliveryPlan.resolve(
+            preference: .automatic,
+            capabilities: AgentMessageDeliveryCapabilities(
+                canWakeAndReadSemanticInbox: true,
+                canReceiveDeferredTerminal: true,
+                canPresentAttention: true
+            ),
+            requestsAttention: true
+        )
+
+        XCTAssertEqual(plan.channel, .semanticInbox)
+        XCTAssertTrue(plan.requestsAttention)
+        XCTAssertFalse(plan.writesToPTY)
+    }
+
+    func testAutomaticDeliveryFallsBackToDeferredTerminalForTUIWithoutAdapter() {
+        let plan = AgentMessageDeliveryPlan.resolve(
+            preference: .automatic,
+            capabilities: .terminalOnly,
+            requestsAttention: true
+        )
+
+        XCTAssertEqual(plan.channel, .deferredTerminal)
+        XCTAssertTrue(plan.writesToPTY)
+        XCTAssertNil(plan.unavailableReason)
+    }
+
+    func testSemanticInboxOnlyFailsClosedInsteadOfWritingToPTY() {
+        let plan = AgentMessageDeliveryPlan.resolve(
+            preference: .semanticInboxOnly,
+            capabilities: .terminalOnly,
+            requestsAttention: true
+        )
+
+        XCTAssertFalse(plan.isAvailable)
+        XCTAssertFalse(plan.writesToPTY)
+        XCTAssertEqual(plan.unavailableReason, .semanticInboxAdapterMissing)
+    }
+
+    func testInboxInsertIsDurableIdempotentAndNormalizesBody() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(sender: endpoint(handle: "caia"), recipient: recipient)
+        var inbox = AgentMessageInbox()
+
+        XCTAssertTrue(try inbox.enqueue(item, recipientID: recipient.paneID))
+        XCTAssertFalse(try inbox.enqueue(item, recipientID: recipient.paneID))
+        XCTAssertEqual(inbox.messages.count, 1)
+        XCTAssertEqual(inbox.messages[0].body, "Review the plan.\nThanks.")
+        XCTAssertEqual(inbox.unreadCount, 1)
+        XCTAssertEqual(inbox.unacknowledgedCount, 1)
+
+        let decoded = try JSONDecoder().decode(
+            AgentMessageInbox.self,
+            from: JSONEncoder().encode(inbox)
+        )
+        XCTAssertEqual(decoded, inbox)
+    }
+
+    func testReadAttentionAndAcknowledgementHaveSeparateDurableStates() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(sender: endpoint(handle: "caia"), recipient: recipient)
+        let presented = Date(timeIntervalSince1970: 110)
+        let read = Date(timeIntervalSince1970: 120)
+        let acknowledged = Date(timeIntervalSince1970: 130)
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        try inbox.markAttentionPresented(item.id, at: presented)
+        XCTAssertEqual(inbox.message(id: item.id)?.attentionPresentedAt, presented)
+        XCTAssertEqual(inbox.messagesNeedingAttention.map(\.id), [item.id])
+        XCTAssertTrue(inbox.messagesAwaitingAttentionPresentation.isEmpty)
+
+        try inbox.markRead(item.id, at: read)
+        XCTAssertEqual(inbox.unreadCount, 0)
+        XCTAssertEqual(inbox.unacknowledgedCount, 1)
+        XCTAssertTrue(inbox.messagesNeedingAttention.isEmpty)
+
+        try inbox.acknowledge(item.id, at: acknowledged)
+        XCTAssertEqual(inbox.message(id: item.id)?.readAt, read)
+        XCTAssertEqual(inbox.message(id: item.id)?.acknowledgedAt, acknowledged)
+        XCTAssertEqual(inbox.unacknowledgedCount, 0)
+    }
+
+    func testDeferredTerminalReceiptCannotBeAppliedToSemanticMessage() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(sender: endpoint(handle: "caia"), recipient: recipient)
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        XCTAssertThrowsError(try inbox.markDeferredTerminalDelivered(item.id)) { error in
+            XCTAssertEqual(error as? AgentMessageInbox.MutationError, .wrongDeliveryChannel)
+        }
+    }
+
+    func testOpenPoliciesAllowSameAndCrossWorkspaceRoutes() {
+        let source = endpoint(handle: "caia")
+        let sameWorkspace = endpoint(workspaceID: source.workspaceID, handle: "delia")
+        let remote = endpoint(handle: "isaiah")
+
+        for recipient in [sameWorkspace, remote] {
+            let decision = AgentMessagePolicyEvaluator.evaluate(
+                route: AgentMessageRoute(sender: source, recipient: recipient),
+                sourceWorkspacePolicy: .open,
+                sourcePanePolicy: .open,
+                recipientWorkspacePolicy: .open,
+                recipientPanePolicy: .open
+            )
+            XCTAssertTrue(decision.isAllowed)
+            XCTAssertTrue(decision.denials.isEmpty)
+        }
+    }
+
+    func testRecipientPaneCanBlockOneSpecificSender() {
+        let source = endpoint(handle: "caia")
+        let recipient = endpoint(workspaceID: source.workspaceID, handle: "delia")
+        let targetPolicy = AgentCommunicationPolicy(incoming: .init(
+            blockedPaneIDs: [source.paneID]
+        ))
+
+        let decision = AgentMessagePolicyEvaluator.evaluate(
+            route: AgentMessageRoute(sender: source, recipient: recipient),
+            sourceWorkspacePolicy: .open,
+            sourcePanePolicy: .open,
+            recipientWorkspacePolicy: .open,
+            recipientPanePolicy: targetPolicy
+        )
+
+        XCTAssertFalse(decision.isAllowed)
+        XCTAssertEqual(decision.denials, [.recipientPaneBlocksSenderPane])
+    }
+
+    func testDenyDominantEvaluatorReturnsEveryApplicableBlock() {
+        let source = endpoint(handle: "caia")
+        let recipient = endpoint(handle: "delia")
+        let sourceWorkspace = AgentCommunicationPolicy(outgoing: .init(
+            allowsCrossWorkspace: false,
+            blockedPaneIDs: [recipient.paneID]
+        ))
+        let recipientPane = AgentCommunicationPolicy(incoming: .init(
+            isEnabled: false,
+            blockedWorkspaceIDs: [source.workspaceID]
+        ))
+
+        let decision = AgentMessagePolicyEvaluator.evaluate(
+            route: AgentMessageRoute(sender: source, recipient: recipient),
+            sourceWorkspacePolicy: sourceWorkspace,
+            sourcePanePolicy: .open,
+            recipientWorkspacePolicy: .open,
+            recipientPanePolicy: recipientPane
+        )
+
+        XCTAssertEqual(Set(decision.denials), [
+            .sourceWorkspaceDisallowsCrossWorkspace,
+            .sourceWorkspaceBlocksRecipientPane,
+            .recipientPaneIncomingDisabled,
+            .recipientPaneBlocksSenderWorkspace,
+        ])
+    }
+
+    func testConversationWithoutMessagingFieldsDecodesWithOpenEmptyDefaults() throws {
+        let original = Conversation(
+            handle: "@legacy",
+            agent: .claw("claude"),
+            workspaceID: UUID(),
+            commander: .mirror(instanceID: "legacy")
+        )
+        let data = try JSONEncoder().encode(original)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object.removeValue(forKey: "agentMessageInbox")
+        object.removeValue(forKey: "agentCommunicationPolicy")
+
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(Conversation.self, from: legacyData)
+
+        XCTAssertTrue(decoded.agentMessageInbox.messages.isEmpty)
+        XCTAssertEqual(decoded.agentCommunicationPolicy, .open)
+    }
+
+    func testWorkspaceWithoutPolicyDecodesAsOpen() throws {
+        let original = Workspace.make(name: "Legacy", kind: .adhoc)
+        let data = try JSONEncoder().encode(original)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object.removeValue(forKey: "agentCommunicationPolicy")
+
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(Workspace.self, from: legacyData)
+
+        XCTAssertNil(decoded.agentCommunicationPolicy)
+        XCTAssertEqual(decoded.effectiveAgentCommunicationPolicy, .open)
+    }
+
+    func testExistingWorkspaceSnapshotPersistsInboxAndBothPolicyLevels() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("agent-messaging-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let workspaceID = UUID()
+        let recipientID = UUID()
+        let sender = endpoint(handle: "caia")
+        let recipient = endpoint(
+            paneID: recipientID,
+            workspaceID: workspaceID,
+            handle: "delia"
+        )
+        let item = message(sender: sender, recipient: recipient)
+        let conversationStore = ConversationStore()
+        let workspaceStore = WorkspaceStore(storageURL: url)
+        workspaceStore.bootstrap(bridge: .init(
+            snapshot: { conversationStore.all },
+            bootstrap: { conversationStore.bootstrap($0) },
+            reinsert: { conversationStore.reinsert($0) },
+            remove: { ids in ids.forEach { conversationStore.remove($0) } }
+        ))
+        conversationStore.onDirty = { workspaceStore.scheduleSave() }
+
+        _ = workspaceStore.add(Workspace(
+            id: workspaceID,
+            name: "Messaging",
+            kind: .adhoc,
+            layout: .leaf(recipientID)
+        ))
+        _ = conversationStore.add(Conversation(
+            id: recipientID,
+            handle: "@delia",
+            agent: .claw("codex"),
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "test")
+        ))
+        XCTAssertTrue(try conversationStore.enqueueAgentMessage(item, in: recipientID))
+        conversationStore.updateAgentCommunicationPolicy(
+            recipientID,
+            policy: AgentCommunicationPolicy(incoming: .init(
+                blockedPaneIDs: [sender.paneID]
+            ))
+        )
+        workspaceStore.updateAgentCommunicationPolicy(
+            AgentCommunicationPolicy(incoming: .init(allowsCrossWorkspace: false)),
+            for: workspaceID
+        )
+        workspaceStore.flushPendingSave()
+
+        let restoredConversationStore = ConversationStore()
+        let restoredWorkspaceStore = WorkspaceStore(storageURL: url)
+        restoredWorkspaceStore.bootstrap(bridge: .init(
+            snapshot: { restoredConversationStore.all },
+            bootstrap: { restoredConversationStore.bootstrap($0) },
+            reinsert: { restoredConversationStore.reinsert($0) },
+            remove: { ids in ids.forEach { restoredConversationStore.remove($0) } }
+        ))
+
+        let restoredConversation = try XCTUnwrap(restoredConversationStore.conversation(recipientID))
+        XCTAssertEqual(restoredConversation.agentMessageInbox.messages.map(\.id), [item.id])
+        XCTAssertTrue(
+            restoredConversation.agentCommunicationPolicy.incoming.blockedPaneIDs
+                .contains(sender.paneID)
+        )
+        XCTAssertEqual(
+            restoredWorkspaceStore.workspace(workspaceID)?
+                .effectiveAgentCommunicationPolicy.incoming.allowsCrossWorkspace,
+            false
+        )
+    }
+}

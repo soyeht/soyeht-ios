@@ -119,6 +119,46 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Persist one idempotent inbox insertion. The route/policy decision must
+    /// be made before this mutation; this method additionally guarantees that
+    /// a message cannot be written into the wrong pane's inbox.
+    @discardableResult
+    func enqueueAgentMessage(
+        _ message: AgentMessage,
+        in id: Conversation.ID
+    ) throws -> Bool {
+        guard var conv = conversations[id] else {
+            throw AgentMessageInbox.MutationError.wrongRecipient
+        }
+        let inserted = try conv.agentMessageInbox.enqueue(message, recipientID: id)
+        guard inserted else { return false }
+        conversations[id] = conv
+        postChange()
+        return true
+    }
+
+    @discardableResult
+    func mutateAgentMessageInbox(
+        _ id: Conversation.ID,
+        _ mutation: (inout AgentMessageInbox) throws -> Void
+    ) rethrows -> AgentMessageInbox? {
+        guard var conv = conversations[id] else { return nil }
+        try mutation(&conv.agentMessageInbox)
+        conversations[id] = conv
+        postChange()
+        return conv.agentMessageInbox
+    }
+
+    func updateAgentCommunicationPolicy(
+        _ id: Conversation.ID,
+        policy: AgentCommunicationPolicy
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentCommunicationPolicy = policy
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Applies a synchronous mutation to the latest canonical conversation
     /// state. Callers that crossed an `await` must use this instead of writing
     /// a stale snapshot back over hook events recorded during suspension.

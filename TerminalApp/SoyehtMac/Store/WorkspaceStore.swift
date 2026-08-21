@@ -340,6 +340,19 @@ final class WorkspaceStore {
         postChange()
     }
 
+    /// Store a workspace-level messaging policy for the future Preferences/UI
+    /// surface. `nil` restores the open default without changing old snapshot
+    /// semantics.
+    func updateAgentCommunicationPolicy(
+        _ policy: AgentCommunicationPolicy?,
+        for workspaceID: Workspace.ID
+    ) {
+        guard var workspace = workspaces[workspaceID] else { return }
+        workspace.agentCommunicationPolicy = policy
+        workspaces[workspaceID] = workspace
+        postChange()
+    }
+
     @discardableResult
     func detachWorkspace(_ id: Workspace.ID, fromWindow windowID: String) -> Bool {
         let before = workspaceOrder(in: windowID)
