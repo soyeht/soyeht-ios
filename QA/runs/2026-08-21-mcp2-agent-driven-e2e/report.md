@@ -5,7 +5,9 @@
 PASS. Three real parent agents interpreted natural-language instructions,
 opened the requested child agent in the requested directory, exchanged a
 durable round-trip through the new MCP contract, and observed the reply before
-finishing. The isolated test workspace was removed automatically.
+finishing. A fourth real-agent scenario held an MCP relay behind unfinished
+user input and released it only after Enter. Every isolated test workspace was
+removed automatically.
 
 ## Behavioral ring
 
@@ -16,6 +18,24 @@ finishing. The isolated test workspace was removed automatically.
 | Claude → Codex | `/opt/homebrew/bin/codex --yolo` | `TerminalApp` | contract 2 / server 2.0.0 | contract 2 / server 2.0.0 | child inactive |
 
 Raw evidence: [agent-driven-e2e-1787320915.json](../agent-driven-e2e-1787320915.json).
+
+## Real-agent typing collision
+
+A focused OpenCode process (`opencode --auto`) received an unfinished input
+without Enter. A real Codex process (`codex --yolo`) then sent it a message
+through `soyeht-dev.message_agent`:
+
+- before Enter, the relay token was absent from the recipient terminal and its
+  durable `deferredTerminalDeliveredAt` field was `null`;
+- after Enter, the relay appeared and received a delivery timestamp;
+- OpenCode replied through MCP contract 2 / server 2.0.0;
+- Codex observed that real reply before completing.
+
+Soyeht's alternate-screen capture did not reliably expose the live editor
+draft, so the acceptance oracle uses the accepted no-Enter input plus the
+durable delivery state rather than trusting a transient screen redraw.
+
+Raw evidence: [agent-driven-e2e-1787322999.json](../agent-driven-e2e-1787322999.json).
 
 ## Direct MCP 2.0 regression suite
 
