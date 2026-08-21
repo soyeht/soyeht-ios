@@ -37,12 +37,14 @@ not only against model metadata or source-code assertions.
 - Signed Debug app build/install: **passed**, Team ID `W7677A5BK2`.
 - External-controller E2E with Codex, Claude, and OpenCode: **passed**; observed
   `codex --yolo`, `claude`, and `opencode --auto` in the requested directory.
-- Security-boundary probe: **passed** before the final line-ending case was
-  added; the final post-commit run is recorded separately in `security.json`.
+- Security-boundary probe against signed build `146f14ce`: **7/7 passed**,
+  including cross-pane nonce rejection, complete-message enforcement, and
+  launch ownership after app restart. Raw evidence: `security.json`.
 - Deterministic broker-queue collision: **passed**. Codex sent the first relay,
   Claude sent the second, OpenCode held a physical human draft, and the second
   relay remained undelivered until physical Return. Raw evidence:
-  `broker-queue.json`.
+  `broker-queue.json`; the scenario also passed again after the final signed
+  install.
 - Natural-language physical ring: Codex-to-OpenCode and OpenCode-to-Claude
   passed. Claude-to-Codex preserved the draft and correctly retained the relay,
   but the Accessibility harness's first synthetic Return did not submit the
