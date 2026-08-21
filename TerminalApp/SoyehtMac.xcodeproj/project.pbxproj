@@ -59,6 +59,8 @@
 		AA100011000000000000001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011000000000000002 /* CommandPalette.swift */; };
 		AA200001000000000000001 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200001000000000000002 /* PaneHeaderView.swift */; };
 		AA200002000000000000001 /* PaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200002000000000000002 /* PaneViewController.swift */; };
+		D03100010000000000000001 /* PaneDeferredAgentDeliveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */; };
+		D03100020000000000000001 /* AgentMessagingSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100020000000000000002 /* AgentMessagingSettingsViews.swift */; };
 		AA200003000000000000001 /* PaneBorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000002 /* PaneBorderView.swift */; };
 		AA200004000000000000001 /* PaneSplitFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200004000000000000002 /* PaneSplitFactory.swift */; };
 		AA200005000000000000001 /* PaneGridController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000002 /* PaneGridController.swift */; };
@@ -84,6 +86,16 @@
 		AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700001000000000000002 /* AgentAttentionNotifier.swift */; };
 		AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB700004000000000000002 /* LocalAgentCatalog.swift */; };
 		F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */; };
+		D03000010000000000000001 /* SoyehtAutomationRequestRouter+01Resolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000010000000000000002 /* SoyehtAutomationRequestRouter+01Resolution.swift */; };
+		D03000020000000000000001 /* SoyehtAutomationRequestRouter+02Creation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000020000000000000002 /* SoyehtAutomationRequestRouter+02Creation.swift */; };
+		D03000030000000000000001 /* SoyehtAutomationRequestRouter+03AgentMessaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000030000000000000002 /* SoyehtAutomationRequestRouter+03AgentMessaging.swift */; };
+		D03000040000000000000001 /* SoyehtAutomationRequestRouter+04Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000040000000000000002 /* SoyehtAutomationRequestRouter+04Layout.swift */; };
+		D03000050000000000000001 /* SoyehtAutomationRequestRouter+05ConversationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000050000000000000002 /* SoyehtAutomationRequestRouter+05ConversationContext.swift */; };
+		D03000060000000000000001 /* SoyehtAutomationRequestRouter+06AgentSwitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000060000000000000002 /* SoyehtAutomationRequestRouter+06AgentSwitch.swift */; };
+		D03000070000000000000001 /* SoyehtAutomationRequestRouter+07DirectoryIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000070000000000000002 /* SoyehtAutomationRequestRouter+07DirectoryIdentity.swift */; };
+		D03000080000000000000001 /* SoyehtAutomationRequestRouter+08Content.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000080000000000000002 /* SoyehtAutomationRequestRouter+08Content.swift */; };
+		D03000090000000000000001 /* SoyehtAutomationRequestRouter+09Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */; };
+		D030000A0000000000000001 /* SoyehtAutomationRequestRouter+10Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */; };
 		D02000010000000000000007 /* SoyehtAutomationError.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000008 /* SoyehtAutomationError.swift */; };
 		F3A100020000000000000001 /* WindowCommandActionPerformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100020000000000000002 /* WindowCommandActionPerformer.swift */; };
 		AA510001000000000000001 /* MenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510001000000000000002 /* MenuModel.swift */; };
@@ -279,6 +291,8 @@
 		AA100011000000000000002 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		AA200001000000000000002 /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
 		AA200002000000000000002 /* PaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneViewController.swift; sourceTree = "<group>"; };
+		D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneDeferredAgentDeliveryCoordinator.swift; sourceTree = "<group>"; };
+		D03100020000000000000002 /* AgentMessagingSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMessagingSettingsViews.swift; sourceTree = "<group>"; };
 		AA200003000000000000002 /* PaneBorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneBorderView.swift; sourceTree = "<group>"; };
 		AA200004000000000000002 /* PaneSplitFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneSplitFactory.swift; sourceTree = "<group>"; };
 		AA200005000000000000002 /* PaneGridController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneGridController.swift; sourceTree = "<group>"; };
@@ -304,6 +318,16 @@
 		AB700001000000000000002 /* AgentAttentionNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAttentionNotifier.swift; sourceTree = "<group>"; };
 		AB700004000000000000002 /* LocalAgentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocalAgentCatalog.swift; path = ../Model/LocalAgentCatalog.swift; sourceTree = "<group>"; };
 		F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationRequestRouter.swift; sourceTree = "<group>"; };
+		D03000010000000000000002 /* SoyehtAutomationRequestRouter+01Resolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+01Resolution.swift"; sourceTree = "<group>"; };
+		D03000020000000000000002 /* SoyehtAutomationRequestRouter+02Creation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+02Creation.swift"; sourceTree = "<group>"; };
+		D03000030000000000000002 /* SoyehtAutomationRequestRouter+03AgentMessaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+03AgentMessaging.swift"; sourceTree = "<group>"; };
+		D03000040000000000000002 /* SoyehtAutomationRequestRouter+04Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+04Layout.swift"; sourceTree = "<group>"; };
+		D03000050000000000000002 /* SoyehtAutomationRequestRouter+05ConversationContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+05ConversationContext.swift"; sourceTree = "<group>"; };
+		D03000060000000000000002 /* SoyehtAutomationRequestRouter+06AgentSwitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+06AgentSwitch.swift"; sourceTree = "<group>"; };
+		D03000070000000000000002 /* SoyehtAutomationRequestRouter+07DirectoryIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+07DirectoryIdentity.swift"; sourceTree = "<group>"; };
+		D03000080000000000000002 /* SoyehtAutomationRequestRouter+08Content.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+08Content.swift"; sourceTree = "<group>"; };
+		D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+09Lifecycle.swift"; sourceTree = "<group>"; };
+		D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+10Capture.swift"; sourceTree = "<group>"; };
 		D02000010000000000000008 /* SoyehtAutomationError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationError.swift; sourceTree = "<group>"; };
 		F3A100020000000000000002 /* WindowCommandActionPerformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCommandActionPerformer.swift; sourceTree = "<group>"; };
 		AA510001000000000000002 /* MenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModel.swift; sourceTree = "<group>"; };
@@ -716,6 +740,8 @@
 			children = (
 				AA200001000000000000002 /* PaneHeaderView.swift */,
 				AA200002000000000000002 /* PaneViewController.swift */,
+				D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */,
+				D03100020000000000000002 /* AgentMessagingSettingsViews.swift */,
 				AA200003000000000000002 /* PaneBorderView.swift */,
 				AA200004000000000000002 /* PaneSplitFactory.swift */,
 				AA200005000000000000002 /* PaneGridController.swift */,
@@ -755,6 +781,16 @@
 				AB700001000000000000002 /* AgentAttentionNotifier.swift */,
 				AB700004000000000000002 /* LocalAgentCatalog.swift */,
 				F3A100010000000000000002 /* SoyehtAutomationRequestRouter.swift */,
+				D03000010000000000000002 /* SoyehtAutomationRequestRouter+01Resolution.swift */,
+				D03000020000000000000002 /* SoyehtAutomationRequestRouter+02Creation.swift */,
+				D03000030000000000000002 /* SoyehtAutomationRequestRouter+03AgentMessaging.swift */,
+				D03000040000000000000002 /* SoyehtAutomationRequestRouter+04Layout.swift */,
+				D03000050000000000000002 /* SoyehtAutomationRequestRouter+05ConversationContext.swift */,
+				D03000060000000000000002 /* SoyehtAutomationRequestRouter+06AgentSwitch.swift */,
+				D03000070000000000000002 /* SoyehtAutomationRequestRouter+07DirectoryIdentity.swift */,
+				D03000080000000000000002 /* SoyehtAutomationRequestRouter+08Content.swift */,
+				D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */,
+				D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */,
 				D02000010000000000000008 /* SoyehtAutomationError.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
@@ -1196,6 +1232,8 @@
 				AB100001000000000000001 /* AppSupportDirectory.swift in Sources */,
 				AA200001000000000000001 /* PaneHeaderView.swift in Sources */,
 				AA200002000000000000001 /* PaneViewController.swift in Sources */,
+				D03100010000000000000001 /* PaneDeferredAgentDeliveryCoordinator.swift in Sources */,
+				D03100020000000000000001 /* AgentMessagingSettingsViews.swift in Sources */,
 				DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */,
 				DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */,
 				AA200003000000000000001 /* PaneBorderView.swift in Sources */,
@@ -1258,6 +1296,16 @@
 				AB700001000000000000001 /* AgentAttentionNotifier.swift in Sources */,
 				AB700004000000000000001 /* LocalAgentCatalog.swift in Sources */,
 				F3A100010000000000000001 /* SoyehtAutomationRequestRouter.swift in Sources */,
+				D03000010000000000000001 /* SoyehtAutomationRequestRouter+01Resolution.swift in Sources */,
+				D03000020000000000000001 /* SoyehtAutomationRequestRouter+02Creation.swift in Sources */,
+				D03000030000000000000001 /* SoyehtAutomationRequestRouter+03AgentMessaging.swift in Sources */,
+				D03000040000000000000001 /* SoyehtAutomationRequestRouter+04Layout.swift in Sources */,
+				D03000050000000000000001 /* SoyehtAutomationRequestRouter+05ConversationContext.swift in Sources */,
+				D03000060000000000000001 /* SoyehtAutomationRequestRouter+06AgentSwitch.swift in Sources */,
+				D03000070000000000000001 /* SoyehtAutomationRequestRouter+07DirectoryIdentity.swift in Sources */,
+				D03000080000000000000001 /* SoyehtAutomationRequestRouter+08Content.swift in Sources */,
+				D03000090000000000000001 /* SoyehtAutomationRequestRouter+09Lifecycle.swift in Sources */,
+				D030000A0000000000000001 /* SoyehtAutomationRequestRouter+10Capture.swift in Sources */,
 				D02000010000000000000007 /* SoyehtAutomationError.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,

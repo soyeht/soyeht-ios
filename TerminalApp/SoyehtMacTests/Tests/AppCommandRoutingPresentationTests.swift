@@ -944,6 +944,52 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(writeResponse.contains("listedAgents: result.listedAgents"))
     }
 
+    func testMCPAutomationRouterAndPaneMessagingUIRemainSplitByResponsibility() throws {
+        let terminalApp = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appDirectory = terminalApp.appendingPathComponent("SoyehtMac/App")
+        let routerFiles = [
+            "SoyehtAutomationRequestRouter.swift",
+            "SoyehtAutomationRequestRouter+01Resolution.swift",
+            "SoyehtAutomationRequestRouter+02Creation.swift",
+            "SoyehtAutomationRequestRouter+03AgentMessaging.swift",
+            "SoyehtAutomationRequestRouter+04Layout.swift",
+            "SoyehtAutomationRequestRouter+05ConversationContext.swift",
+            "SoyehtAutomationRequestRouter+06AgentSwitch.swift",
+            "SoyehtAutomationRequestRouter+07DirectoryIdentity.swift",
+            "SoyehtAutomationRequestRouter+08Content.swift",
+            "SoyehtAutomationRequestRouter+09Lifecycle.swift",
+            "SoyehtAutomationRequestRouter+10Capture.swift",
+        ]
+        let routerLineCounts = try routerFiles.map {
+            try String(
+                contentsOf: appDirectory.appendingPathComponent($0),
+                encoding: .utf8
+            ).split(separator: "\n", omittingEmptySubsequences: false).count
+        }
+        XCTAssertLessThanOrEqual(routerLineCounts[0], 300)
+        XCTAssertLessThanOrEqual(try XCTUnwrap(routerLineCounts.max()), 600)
+
+        let paneGridDirectory = terminalApp.appendingPathComponent("SoyehtMac/PaneGrid")
+        let paneControllerLines = try String(
+            contentsOf: paneGridDirectory.appendingPathComponent("PaneViewController.swift"),
+            encoding: .utf8
+        ).split(separator: "\n", omittingEmptySubsequences: false).count
+        let coordinatorLines = try String(
+            contentsOf: paneGridDirectory.appendingPathComponent("PaneDeferredAgentDeliveryCoordinator.swift"),
+            encoding: .utf8
+        ).split(separator: "\n", omittingEmptySubsequences: false).count
+        let settingsLines = try String(
+            contentsOf: paneGridDirectory.appendingPathComponent("AgentMessagingSettingsViews.swift"),
+            encoding: .utf8
+        ).split(separator: "\n", omittingEmptySubsequences: false).count
+        XCTAssertLessThanOrEqual(paneControllerLines, 1_900)
+        XCTAssertLessThanOrEqual(coordinatorLines, 200)
+        XCTAssertLessThanOrEqual(settingsLines, 350)
+    }
+
     func testMCPAgentDirectoryResolvesSourceAndPrefillsMessageTargets() throws {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
         let appDelegate = try macSource("AppDelegate.swift")
@@ -1067,10 +1113,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let script = try String(
-            contentsOf: terminalApp.deletingLastPathComponent().appendingPathComponent("scripts/soyeht-mcp"),
-            encoding: .utf8
+        let scriptsDirectory = terminalApp.deletingLastPathComponent().appendingPathComponent("scripts")
+        let modularServerFiles = try FileManager.default.contentsOfDirectory(
+            at: scriptsDirectory,
+            includingPropertiesForKeys: nil
         )
+        .filter { $0.lastPathComponent == "soyeht-mcp" || $0.lastPathComponent.hasPrefix("soyeht_mcp_") }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let script = try modularServerFiles.map {
+            try String(contentsOf: $0, encoding: .utf8)
+        }.joined(separator: "\n")
 
         XCTAssertTrue(attach.contains("async throws -> InitialPromptDeliveryStatus"))
         XCTAssertTrue(attach.contains("return .acknowledged"))
@@ -1322,6 +1374,29 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+        if relativePath == "App/SoyehtAutomationRequestRouter.swift" {
+            let routerFiles = [
+                "SoyehtAutomationRequestRouter.swift",
+                "SoyehtAutomationRequestRouter+01Resolution.swift",
+                "SoyehtAutomationRequestRouter+02Creation.swift",
+                "SoyehtAutomationRequestRouter+03AgentMessaging.swift",
+                "SoyehtAutomationRequestRouter+04Layout.swift",
+                "SoyehtAutomationRequestRouter+05ConversationContext.swift",
+                "SoyehtAutomationRequestRouter+06AgentSwitch.swift",
+                "SoyehtAutomationRequestRouter+07DirectoryIdentity.swift",
+                "SoyehtAutomationRequestRouter+08Content.swift",
+                "SoyehtAutomationRequestRouter+09Lifecycle.swift",
+                "SoyehtAutomationRequestRouter+10Capture.swift",
+            ]
+            let appDirectory = terminalApp.appendingPathComponent("SoyehtMac/App")
+            let combined = try routerFiles.map {
+                try String(contentsOf: appDirectory.appendingPathComponent($0), encoding: .utf8)
+            }.joined(separator: "\n")
+            // Cross-file extensions require module-internal members. Existing
+            // source guards care about handler behavior, not access level, so
+            // retain their historical slice markers in this logical view.
+            return combined.replacingOccurrences(of: "\n    func ", with: "\n    private func ")
+        }
         let url = terminalApp.appendingPathComponent("SoyehtMac").appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
     }

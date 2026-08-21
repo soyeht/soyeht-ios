@@ -11,10 +11,11 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
         )
         XCTAssertEqual(
             attach.components(separatedBy: "deliverAgentPromptWithAcknowledgement(").count - 1,
-            2
+            1
         )
-        XCTAssertTrue(attach.contains("if promptAcknowledged {\n                            onPromptDelivered?()"))
-        XCTAssertTrue(attach.contains("turn_bound_agent_prompt_delivery_failed"))
+        XCTAssertTrue(attach.contains("if promptAcknowledged {"))
+        XCTAssertTrue(attach.contains("onPromptDelivered?()"))
+        XCTAssertTrue(attach.contains("agent_prompt_delivery_failed"))
     }
 
     func testAcknowledgementRetriesAndRequiresFreshWorkingReport() throws {

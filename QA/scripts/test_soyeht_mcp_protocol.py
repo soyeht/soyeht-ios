@@ -37,6 +37,20 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
 
+    def test_server_source_remains_split_into_bounded_domain_modules(self):
+        scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+        entrypoint = scripts_dir / "soyeht-mcp"
+        modules = sorted(scripts_dir.glob("soyeht_mcp_*.py"))
+
+        self.assertLessEqual(len(entrypoint.read_text().splitlines()), 300)
+        self.assertGreaterEqual(len(modules), 10)
+        oversized = {
+            module.name: len(module.read_text().splitlines())
+            for module in modules
+            if len(module.read_text().splitlines()) > 600
+        }
+        self.assertEqual(oversized, {})
+
     def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
         transport = MODULE["StdioTransport"]
         original_read_messages = transport.read_messages
