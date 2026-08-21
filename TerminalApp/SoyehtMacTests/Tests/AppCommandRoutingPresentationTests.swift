@@ -821,6 +821,35 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(droidConfig.contains("\"env\""))
     }
 
+    func testMCPPythonModulesAreBundledBesideTheEntrypoint() throws {
+        let terminalApp = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let project = try String(
+            contentsOf: terminalApp.appendingPathComponent("SoyehtMac.xcodeproj/project.pbxproj"),
+            encoding: .utf8
+        )
+        let modules = [
+            "soyeht_mcp_foundation.py",
+            "soyeht_mcp_runtime.py",
+            "soyeht_mcp_schema.py",
+            "soyeht_mcp_schema_creation.py",
+            "soyeht_mcp_schema_messaging.py",
+            "soyeht_mcp_schema_layout.py",
+            "soyeht_mcp_schema_directory.py",
+            "soyeht_mcp_tools_creation.py",
+            "soyeht_mcp_tools_content.py",
+            "soyeht_mcp_tools_messaging.py",
+            "soyeht_mcp_tools_layout.py",
+            "soyeht_mcp_tools_directory.py",
+        ]
+
+        for module in modules {
+            XCTAssertTrue(project.contains("\(module) in Resources"), "Missing bundled MCP module \(module)")
+        }
+    }
+
     func testAgentSwitchRepairsMCPBeforeChoosingBootstrapProtocol() throws {
         let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let switchAgent = try slice(

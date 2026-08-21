@@ -126,6 +126,18 @@
 		D02000010000000000000001 /* LocalAgentCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000002 /* LocalAgentCatalog.json */; };
 		D02000010000000000000003 /* soyeht_mcp_catalog.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000004 /* soyeht_mcp_catalog.py */; };
 		D02000010000000000000005 /* soyeht_mcp_ipc.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000006 /* soyeht_mcp_ipc.py */; };
+		D02000020000000000000001 /* soyeht_mcp_foundation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000002 /* soyeht_mcp_foundation.py */; };
+		D02000020000000000000003 /* soyeht_mcp_runtime.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000004 /* soyeht_mcp_runtime.py */; };
+		D02000020000000000000005 /* soyeht_mcp_schema.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000006 /* soyeht_mcp_schema.py */; };
+		D02000020000000000000007 /* soyeht_mcp_schema_creation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000008 /* soyeht_mcp_schema_creation.py */; };
+		D02000020000000000000009 /* soyeht_mcp_schema_messaging.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */; };
+		D0200002000000000000000B /* soyeht_mcp_schema_layout.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000C /* soyeht_mcp_schema_layout.py */; };
+		D0200002000000000000000D /* soyeht_mcp_schema_directory.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000E /* soyeht_mcp_schema_directory.py */; };
+		D0200002000000000000000F /* soyeht_mcp_tools_creation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000010 /* soyeht_mcp_tools_creation.py */; };
+		D02000020000000000000011 /* soyeht_mcp_tools_content.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000012 /* soyeht_mcp_tools_content.py */; };
+		D02000020000000000000013 /* soyeht_mcp_tools_messaging.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */; };
+		D02000020000000000000015 /* soyeht_mcp_tools_layout.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000016 /* soyeht_mcp_tools_layout.py */; };
+		D02000020000000000000017 /* soyeht_mcp_tools_directory.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000018 /* soyeht_mcp_tools_directory.py */; };
 		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
 		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
 		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
@@ -333,6 +345,18 @@
 		D02000010000000000000002 /* LocalAgentCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LocalAgentCatalog.json; sourceTree = "<group>"; };
 		D02000010000000000000004 /* soyeht_mcp_catalog.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_catalog.py; path = ../../scripts/soyeht_mcp_catalog.py; sourceTree = "<group>"; };
 		D02000010000000000000006 /* soyeht_mcp_ipc.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_ipc.py; path = ../../scripts/soyeht_mcp_ipc.py; sourceTree = "<group>"; };
+		D02000020000000000000002 /* soyeht_mcp_foundation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_foundation.py; path = ../../scripts/soyeht_mcp_foundation.py; sourceTree = "<group>"; };
+		D02000020000000000000004 /* soyeht_mcp_runtime.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_runtime.py; path = ../../scripts/soyeht_mcp_runtime.py; sourceTree = "<group>"; };
+		D02000020000000000000006 /* soyeht_mcp_schema.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema.py; path = ../../scripts/soyeht_mcp_schema.py; sourceTree = "<group>"; };
+		D02000020000000000000008 /* soyeht_mcp_schema_creation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_creation.py; path = ../../scripts/soyeht_mcp_schema_creation.py; sourceTree = "<group>"; };
+		D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_messaging.py; path = ../../scripts/soyeht_mcp_schema_messaging.py; sourceTree = "<group>"; };
+		D0200002000000000000000C /* soyeht_mcp_schema_layout.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_layout.py; path = ../../scripts/soyeht_mcp_schema_layout.py; sourceTree = "<group>"; };
+		D0200002000000000000000E /* soyeht_mcp_schema_directory.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_directory.py; path = ../../scripts/soyeht_mcp_schema_directory.py; sourceTree = "<group>"; };
+		D02000020000000000000010 /* soyeht_mcp_tools_creation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_creation.py; path = ../../scripts/soyeht_mcp_tools_creation.py; sourceTree = "<group>"; };
+		D02000020000000000000012 /* soyeht_mcp_tools_content.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_content.py; path = ../../scripts/soyeht_mcp_tools_content.py; sourceTree = "<group>"; };
+		D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_messaging.py; path = ../../scripts/soyeht_mcp_tools_messaging.py; sourceTree = "<group>"; };
+		D02000020000000000000016 /* soyeht_mcp_tools_layout.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_layout.py; path = ../../scripts/soyeht_mcp_tools_layout.py; sourceTree = "<group>"; };
+		D02000020000000000000018 /* soyeht_mcp_tools_directory.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_directory.py; path = ../../scripts/soyeht_mcp_tools_directory.py; sourceTree = "<group>"; };
 		C0F0A0FF000000000000C002 /* MacScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacScroll.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000E001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
@@ -536,6 +560,18 @@
 				D02000010000000000000002 /* LocalAgentCatalog.json */,
 				D02000010000000000000004 /* soyeht_mcp_catalog.py */,
 				D02000010000000000000006 /* soyeht_mcp_ipc.py */,
+				D02000020000000000000002 /* soyeht_mcp_foundation.py */,
+				D02000020000000000000004 /* soyeht_mcp_runtime.py */,
+				D02000020000000000000006 /* soyeht_mcp_schema.py */,
+				D02000020000000000000008 /* soyeht_mcp_schema_creation.py */,
+				D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */,
+				D0200002000000000000000C /* soyeht_mcp_schema_layout.py */,
+				D0200002000000000000000E /* soyeht_mcp_schema_directory.py */,
+				D02000020000000000000010 /* soyeht_mcp_tools_creation.py */,
+				D02000020000000000000012 /* soyeht_mcp_tools_content.py */,
+				D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */,
+				D02000020000000000000016 /* soyeht_mcp_tools_layout.py */,
+				D02000020000000000000018 /* soyeht_mcp_tools_directory.py */,
 				49C75E4C2419C7E9008977FE /* Info.plist */,
 				49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */,
 				CA0800200000000000000002 /* SoyehtMacDebug.entitlements */,
@@ -1028,6 +1064,18 @@
 				D02000010000000000000001 /* LocalAgentCatalog.json in Resources */,
 				D02000010000000000000003 /* soyeht_mcp_catalog.py in Resources */,
 				D02000010000000000000005 /* soyeht_mcp_ipc.py in Resources */,
+				D02000020000000000000001 /* soyeht_mcp_foundation.py in Resources */,
+				D02000020000000000000003 /* soyeht_mcp_runtime.py in Resources */,
+				D02000020000000000000005 /* soyeht_mcp_schema.py in Resources */,
+				D02000020000000000000007 /* soyeht_mcp_schema_creation.py in Resources */,
+				D02000020000000000000009 /* soyeht_mcp_schema_messaging.py in Resources */,
+				D0200002000000000000000B /* soyeht_mcp_schema_layout.py in Resources */,
+				D0200002000000000000000D /* soyeht_mcp_schema_directory.py in Resources */,
+				D0200002000000000000000F /* soyeht_mcp_tools_creation.py in Resources */,
+				D02000020000000000000011 /* soyeht_mcp_tools_content.py in Resources */,
+				D02000020000000000000013 /* soyeht_mcp_tools_messaging.py in Resources */,
+				D02000020000000000000015 /* soyeht_mcp_tools_layout.py in Resources */,
+				D02000020000000000000017 /* soyeht_mcp_tools_directory.py in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

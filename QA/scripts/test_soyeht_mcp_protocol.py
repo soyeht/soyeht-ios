@@ -12,7 +12,7 @@ MODULE = runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts" / "s
 
 class SoyehtMCPProtocolTests(unittest.TestCase):
     def setUp(self):
-        MODULE["handle_message"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
+        MODULE["parent_process_environment"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
 
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
@@ -401,8 +401,9 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_send_pane_input_forwards_source_tty_and_keeps_text_raw(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -412,7 +413,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {}, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -421,7 +422,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
@@ -513,9 +514,11 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
+        environment_globals = MODULE["source_environment_for_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
-        original_parent_env = globals_["parent_process_environment"]
+        original_tty = source_globals["current_tty"]
+        original_parent_env = environment_globals["parent_process_environment"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -523,8 +526,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
-            globals_["parent_process_environment"] = lambda: {
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
+            environment_globals["parent_process_environment"] = lambda: {
                 "SOYEHT_CONVERSATION_ID": "33333333-3333-3333-3333-333333333333",
                 "SOYEHT_HANDLE": "@parent-codex",
             }
@@ -535,8 +538,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
-            globals_["parent_process_environment"] = original_parent_env
+            source_globals["current_tty"] = original_tty
+            environment_globals["parent_process_environment"] = original_parent_env
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
@@ -657,9 +660,11 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_explicit_automation_dir_uses_matching_parent_source_environment(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
+        environment_globals = MODULE["source_environment_for_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
-        original_parent_env = globals_["parent_process_environment"]
+        original_tty = source_globals["current_tty"]
+        original_parent_env = environment_globals["parent_process_environment"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -668,8 +673,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: None
-            globals_["parent_process_environment"] = lambda: {
+            source_globals["current_tty"] = lambda: None
+            environment_globals["parent_process_environment"] = lambda: {
                 "SOYEHT_AUTOMATION_DIR": "/Users/test/Library/Application Support/SoyehtDev/Automation",
                 "SOYEHT_CONVERSATION_ID": "44444444-4444-4444-4444-444444444444",
                 "SOYEHT_HANDLE": "@dev-codex",
@@ -682,8 +687,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
-            globals_["parent_process_environment"] = original_parent_env
+            source_globals["current_tty"] = original_tty
+            environment_globals["parent_process_environment"] = original_parent_env
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
