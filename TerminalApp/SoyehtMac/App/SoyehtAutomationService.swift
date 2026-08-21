@@ -867,7 +867,8 @@ final class SoyehtAutomationService {
     private let responseURL: URL
     private var source: DispatchSourceFileSystemObject?
     private var directoryFD: CInt = -1
-    private var processing = false
+    private var inFlightRequestPaths: Set<String> = []
+    private static let maximumConcurrentRequests = 32
 
     init(rootURL: URL, handler: @escaping Handler) {
         self.rootURL = rootURL
@@ -919,32 +920,39 @@ final class SoyehtAutomationService {
     }
 
     private func processPendingRequests() {
-        guard !processing else { return }
-        processing = true
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer {
-                self.processing = false
+        let capacity = Self.maximumConcurrentRequests - inFlightRequestPaths.count
+        guard capacity > 0 else { return }
+        let files: [URL]
+        do {
+            files = try FileManager.default.contentsOfDirectory(
+                at: requestURL,
+                includingPropertiesForKeys: nil
+            )
+            .filter {
+                $0.pathExtension == "json"
+                    && !$0.lastPathComponent.hasPrefix(".")
+                    && !inFlightRequestPaths.contains($0.path)
+            }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        } catch {
+            Self.logger.error("automation_scan_failed error=\(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        // Each request gets its own main-actor task. UI mutations remain
+        // serialized by actor isolation, but a long async creation may yield
+        // while waiting for an agent hook; report_agent_state and read-only
+        // probes must then run, otherwise the awaited ACK deadlocks behind the
+        // request that is waiting for it.
+        for file in files.prefix(capacity) {
+            inFlightRequestPaths.insert(file.path)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.processRequestFile(file)
+                self.inFlightRequestPaths.remove(file.path)
                 if self.hasPendingRequestFiles() {
                     self.processPendingRequests()
                 }
-            }
-
-            let files: [URL]
-            do {
-                files = try FileManager.default.contentsOfDirectory(
-                    at: self.requestURL,
-                    includingPropertiesForKeys: nil
-                )
-                .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix(".") }
-                .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            } catch {
-                Self.logger.error("automation_scan_failed error=\(error.localizedDescription, privacy: .public)")
-                return
-            }
-
-            for file in files {
-                await self.processRequestFile(file)
             }
         }
     }

@@ -617,7 +617,9 @@ def run_typing_collision(
         # a real Quartz click then reproduces how a person focuses its editor.
         click_soyeht_dev_target(recipient["windowID"])
 
-    unfinished_draft = f"{draft_token} reply only OK"
+    # pt-BR multibyte characters reproduce the original byte-vs-character
+    # DraftGate defect while Backspace clears one visible character per key.
+    unfinished_draft = f"{draft_token} café ação reply only OK"
     if input_mode == "physicalKeyboard":
         type_through_macos_keyboard(
             unfinished_draft,

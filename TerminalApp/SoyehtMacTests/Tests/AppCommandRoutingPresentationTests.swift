@@ -1051,6 +1051,22 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(script.contains("promptDeliveryStatuses"))
     }
 
+    func testAutomationServiceAllowsHookAcknowledgementWhileCreationIsAwaitingIt() throws {
+        let service = try macSource("App/SoyehtAutomationService.swift")
+        let pending = try slice(
+            service,
+            from: "private func processPendingRequests()",
+            to: "private func hasPendingRequestFiles()"
+        )
+
+        XCTAssertTrue(service.contains("maximumConcurrentRequests"))
+        XCTAssertTrue(service.contains("inFlightRequestPaths"))
+        XCTAssertTrue(pending.contains("Task { @MainActor"))
+        XCTAssertTrue(pending.contains("await self.processRequestFile(file)"))
+        XCTAssertFalse(pending.contains("for file in files {\n                await self.processRequestFile(file)"))
+        XCTAssertFalse(service.contains("private var processing = false"))
+    }
+
     func testTurnBoundAgentsReceiveLaunchOwnershipWithoutWaitingForStartupHook() throws {
         let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let attach = try slice(
