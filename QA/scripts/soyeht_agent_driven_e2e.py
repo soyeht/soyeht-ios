@@ -2,10 +2,12 @@
 """Behavioral E2E for real coding agents collaborating through Soyeht MCP.
 
 Unlike the protocol E2E, this runner does not open the child panes itself. It
-starts real parent agents, asks each parent in natural language to open a named
-collaborator in an exact directory, and waits for a round-trip MCP reply. The
-runner independently observes pane identity, live process argv and cwd; launch
-metadata alone is never accepted as proof.
+starts real parent agents with raw user prompts, asks each parent in natural
+language to open a named collaborator in an exact directory, and waits for a
+round-trip MCP reply. The runner never impersonates a pane: read-only UI
+automation uses explicit targets, while durable message evidence is read from
+the persisted workspace snapshot. It independently observes pane identity,
+live process argv and cwd; launch metadata alone is never accepted as proof.
 
 The default ring is Codex -> OpenCode -> Claude -> Codex. Run only against
 Soyeht Dev.app because the test creates live paid-agent sessions.
@@ -23,8 +25,10 @@ import subprocess
 from time import monotonic, sleep, time
 
 
-def load_mcp(repo_root: Path):
-    module_path = repo_root / "scripts" / "soyeht-mcp"
+WORKSPACE_SNAPSHOT_PATH = None
+
+
+def load_mcp(module_path: Path):
     loader = importlib.machinery.SourceFileLoader("soyeht_agent_driven_e2e_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
@@ -239,13 +243,46 @@ end run
 
 
 def source_args(pane, automation_dir, timeout):
-    result = {
+    # This process is an external test observer, not the pane. Never attach a
+    # fromConversationID/fromHandle claim or a stolen launch nonce.
+    return {
         "automationDir": automation_dir,
         "timeout": timeout,
-        "fromConversationID": pane["conversationID"],
-        "fromHandle": pane["handle"],
         "targetWindowID": pane["windowID"],
     }
+
+
+def persisted_inbox_messages(recipient):
+    require(WORKSPACE_SNAPSHOT_PATH is not None, "Workspace snapshot path is not configured.")
+    latest_error = None
+    for _ in range(20):
+        try:
+            document = json.loads(WORKSPACE_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            conversation = next((
+                item for item in document.get("conversations", [])
+                if item.get("id") == recipient["conversationID"]
+            ), None)
+            if conversation is not None:
+                return [
+                    {
+                        **message,
+                        "messageID": message.get("id"),
+                        "senderConversationID": message.get("sender", {}).get("paneID"),
+                        "senderWorkspaceID": message.get("sender", {}).get("workspaceID"),
+                        "senderReference": message.get("sender", {}).get("handle"),
+                        "recipientConversationID": message.get("recipient", {}).get("paneID"),
+                        "recipientWorkspaceID": message.get("recipient", {}).get("workspaceID"),
+                        "recipientReference": message.get("recipient", {}).get("handle"),
+                    }
+                    for message in conversation.get("agentMessageInbox", {}).get("messages", [])
+                ]
+        except (OSError, json.JSONDecodeError) as exc:
+            latest_error = exc
+        sleep(0.05)
+    raise RuntimeError(
+        f"Could not read durable inbox for {recipient['conversationID']} from "
+        f"{WORKSPACE_SNAPSHOT_PATH}: {latest_error}"
+    )
 
 
 def process_snapshot():
@@ -354,15 +391,7 @@ def wait_for_parent_request(mcp, parent, child, token, automation_dir, timeout):
     deadline = monotonic() + timeout
     latest_inbox = []
     while monotonic() < deadline:
-        response = mcp.tool_list_agent_messages({
-            "automationDir": automation_dir,
-            "timeout": timeout,
-            "fromConversationID": child["conversationID"],
-            "fromHandle": child["handle"],
-            "unreadOnly": False,
-            "markRead": False,
-        })
-        latest_inbox = response.get("agentInboxMessages", [])
+        latest_inbox = persisted_inbox_messages(child)
         request = next((
             message for message in latest_inbox
             if token in message.get("body", "")
@@ -383,15 +412,7 @@ def wait_for_reply(mcp, parent, child, token, automation_dir, timeout):
     deadline = monotonic() + timeout
     latest_inbox = []
     while monotonic() < deadline:
-        response = mcp.tool_list_agent_messages({
-            "automationDir": automation_dir,
-            "timeout": timeout,
-            "fromConversationID": parent["conversationID"],
-            "fromHandle": parent["handle"],
-            "unreadOnly": False,
-            "markRead": False,
-        })
-        latest_inbox = response.get("agentInboxMessages", [])
+        latest_inbox = persisted_inbox_messages(parent)
         reply = next((
             message for message in latest_inbox
             if token in message.get("body", "")
@@ -409,17 +430,9 @@ def wait_for_reply(mcp, parent, child, token, automation_dir, timeout):
 
 
 def inbox_message(mcp, recipient, message_id, automation_dir, timeout):
-    response = mcp.tool_list_agent_messages({
-        "automationDir": automation_dir,
-        "timeout": timeout,
-        "fromConversationID": recipient["conversationID"],
-        "fromHandle": recipient["handle"],
-        "unreadOnly": False,
-        "markRead": False,
-    })
     return next((
-        message for message in response.get("agentInboxMessages", [])
-        if message.get("messageID") == message_id
+        message for message in persisted_inbox_messages(recipient)
+        if message.get("id") == message_id or message.get("messageID") == message_id
     ), None)
 
 
@@ -522,12 +535,15 @@ def run_typing_collision(
         f"a próxima instrução do usuário."
     )
     sender_opened = mcp.tool_open_agent_pane({
-        **source_args(observer, automation_dir, timeout),
+        "automationDir": automation_dir,
+        "timeout": timeout,
+        "targetWindowID": observer["windowID"],
         "agentID": sender_agent,
         "cwd": str(repo_root),
         "workspaceID": workspace_id,
         "name": sender_name,
         "prompt": sender_prompt,
+        "promptMode": "raw",
         "activate": False,
     })
     sender = sender_opened.get("createdPanes", [])[0]
@@ -644,11 +660,23 @@ def run_typing_collision(
         f"o token {relay_token}. Espere a resposta real. Só depois escreva {completion_prefix}, "
         f"um espaço e o token recebido."
     )
-    mcp.tool_send_pane_input({
+    if input_mode != "physicalKeyboard":
+        raise RuntimeError(
+            "MCP 2.0 intentionally rejects external send_pane_input writes to agent panes; "
+            "run collision tests with --physical-keyboard-only."
+        )
+    raise_soyeht_dev_window(sender["windowID"])
+    mcp.tool_emphasize_pane({
         **source_args(observer, automation_dir, timeout),
         "conversationIDs": [sender["conversationID"]],
-        "text": follow_up,
-        "lineEnding": "enter",
+        "mode": "zoom",
+    })
+    click_soyeht_dev_target(sender["windowID"])
+    type_through_macos_keyboard(follow_up, sender["windowID"], submit_with_return=True)
+    mcp.tool_emphasize_pane({
+        **source_args(observer, automation_dir, timeout),
+        "conversationIDs": [sender["conversationID"]],
+        "mode": "unzoom",
     })
     parent_request = wait_for_parent_request(
         mcp,
@@ -794,6 +822,16 @@ def run_typing_collision(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[2]))
+    parser.add_argument(
+        "--mcp-script",
+        default="/Applications/Soyeht Dev.app/Contents/Resources/soyeht-mcp",
+        help="Exact MCP server implementation used by the external observer.",
+    )
+    parser.add_argument(
+        "--workspace-snapshot",
+        default=str(Path.home() / "Library/Application Support/SoyehtDev/workspaces.json"),
+        help="Durable app snapshot used as a read-only inbox oracle without pane impersonation.",
+    )
     parser.add_argument("--automation-dir", required=True)
     parser.add_argument("--timeout", type=float, default=240.0)
     parser.add_argument("--keep", action="store_true")
@@ -831,7 +869,11 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve()
     automation_dir = str(Path(args.automation_dir).expanduser().resolve())
     require("SoyehtDev/Automation" in automation_dir, "Refusing to run paid-agent E2E outside Soyeht Dev automation.")
-    mcp = load_mcp(repo_root)
+    mcp_script = Path(args.mcp_script).expanduser().resolve()
+    require(mcp_script.is_file(), f"Installed MCP script does not exist: {mcp_script}")
+    mcp = load_mcp(mcp_script)
+    global WORKSPACE_SNAPSHOT_PATH
+    WORKSPACE_SNAPSHOT_PATH = Path(args.workspace_snapshot).expanduser().resolve()
     run_id = str(int(time()))
     evidence = {
         "runID": run_id,
@@ -898,12 +940,15 @@ def main() -> int:
                 f"{completion_prefix}, um espaço e depois repetindo o token recebido."
             )
             opened = mcp.tool_open_agent_pane({
-                **source_args(observer, automation_dir, args.timeout),
+                "automationDir": automation_dir,
+                "timeout": args.timeout,
+                "targetWindowID": observer["windowID"],
                 "agentID": flow["parent"],
                 "cwd": str(repo_root),
                 "workspaceID": workspace_id,
                 "name": parent_name,
                 "prompt": prompt,
+                "promptMode": "raw",
                 "activate": False,
             })
             parent = opened.get("createdPanes", [])[0]
@@ -1041,7 +1086,9 @@ def main() -> int:
         if not args.keep and observer is not None and workspace_id is not None:
             try:
                 mcp.tool_close_workspace({
-                    **source_args(observer, automation_dir, args.timeout),
+                    "automationDir": automation_dir,
+                    "timeout": args.timeout,
+                    "targetWindowID": observer["windowID"],
                     "workspaceIDs": [workspace_id],
                 })
             except Exception as exc:

@@ -3888,11 +3888,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let preparedInitialCommand = initialCommand.map { AgentLaunchCommandBuilder.prepare($0) }
         let isAgentLaunch = preparedInitialCommand != nil
             && (conversation?.agent.isShell ?? true) == false
+        let waitsForStartupHandshake = isAgentLaunch
             && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
         let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
         PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
         if let launchNonce {
-            PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
+            PaneStatusTracker.shared.registerLaunchOwnership(paneID: paneID, nonce: launchNonce)
+            if waitsForStartupHandshake {
+                PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
+            }
         }
 
         // Seed PTY with the terminal's current geometry so the first prompt
@@ -3977,12 +3981,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         guard let plannedPrompt else {
             Self.logger.info(
-                "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(launchNonce != nil ? "expected" : "none")"
+                "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(waitsForStartupHandshake ? "expected" : "turn_bound_or_none")"
             )
             return .notRequested
         }
 
-        if launchNonce != nil {
+        if waitsForStartupHandshake {
             // Hold the automation response until the launch handshake and the
             // prompt acknowledgement resolve. This is the real delivery ACK
             // consumed by MCP; no client-side fixed sleep is required.
@@ -4033,13 +4037,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
         )
         if promptAcknowledged {
-            if launchNonce != nil {
+            if waitsForStartupHandshake {
                 PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
             }
             onPromptDelivered?()
             return .acknowledged
         }
-        if launchNonce != nil {
+        if waitsForStartupHandshake {
             PaneStatusTracker.shared.markHandshakeDeliveryFailed(paneID: paneID)
         }
         Self.logger.error(

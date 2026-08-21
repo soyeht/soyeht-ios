@@ -84,8 +84,16 @@ final class PaneStatusTracker {
     }
 
     func expectHandshake(paneID: Conversation.ID, nonce: String) {
-        expectedHandshakeNonce[paneID] = nonce
+        registerLaunchOwnership(paneID: paneID, nonce: nonce)
         handshakeStates[paneID] = .pending
+    }
+
+    /// Every launched agent receives a possession credential, including
+    /// turn-bound CLIs (Codex, etc.) that cannot emit a startup hook until
+    /// after their first prompt. Handshake timing and request ownership are
+    /// separate concerns.
+    func registerLaunchOwnership(paneID: Conversation.ID, nonce: String) {
+        expectedHandshakeNonce[paneID] = nonce
     }
 
     func handshakeState(for paneID: Conversation.ID) -> HandshakeState {

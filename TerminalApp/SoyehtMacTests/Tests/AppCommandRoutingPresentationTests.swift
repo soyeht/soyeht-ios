@@ -1051,6 +1051,24 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(script.contains("promptDeliveryStatuses"))
     }
 
+    func testTurnBoundAgentsReceiveLaunchOwnershipWithoutWaitingForStartupHook() throws {
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let attach = try slice(
+            controller,
+            from: "private func attachLocalPTY(",
+            to: "private static func deliverAgentPromptWithAcknowledgement("
+        )
+        let tracker = try macSource("Pairing/PaneStatusTracker.swift")
+
+        XCTAssertTrue(attach.contains("let isAgentLaunch = preparedInitialCommand != nil"))
+        XCTAssertTrue(attach.contains("let waitsForStartupHandshake = isAgentLaunch"))
+        XCTAssertTrue(attach.contains("let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil"))
+        XCTAssertTrue(attach.contains("registerLaunchOwnership(paneID: paneID, nonce: launchNonce)"))
+        XCTAssertTrue(attach.contains("if waitsForStartupHandshake"))
+        XCTAssertTrue(tracker.contains("func registerLaunchOwnership"))
+        XCTAssertTrue(tracker.contains("expectedHandshakeNonce[paneID] = nonce"))
+    }
+
     func testAgentMutationsRequireLaunchOwnershipAndUserGrantedOrchestrationPrivilege() throws {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
         let authentication = try slice(
