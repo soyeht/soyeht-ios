@@ -169,6 +169,7 @@ Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an
       "enabled": true
     }
   }
+}
 ```
 
 For the development build, the whole entry changes name, launcher and

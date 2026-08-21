@@ -62,7 +62,13 @@ if [[ -n "\$repo_root" && -n "\$SOYEHT_GIT_COMMON_DIR" ]]; then
   repo_git_common_dir="\$(git -C "\$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 fi
 
-if [[ -n "\$repo_root" && "\$repo_git_common_dir" == "\$SOYEHT_GIT_COMMON_DIR" && -x "\$repo_root/scripts/soyeht-mcp" ]]; then
+# SOYEHT_GIT_COMMON_DIR vazio significa que o git falhou quando este lançador
+# foi instalado. Sem o teste -n, duas cadeias vazias comparam iguais e a guarda
+# degenera de "este checkout pertence ao meu clone" para "qualquer repositório
+# git com um scripts/soyeht-mcp executável" — servindo o clone de outra pessoa.
+if [[ -n "\$repo_root" && -n "\$SOYEHT_GIT_COMMON_DIR" \\
+      && "\$repo_git_common_dir" == "\$SOYEHT_GIT_COMMON_DIR" \\
+      && -x "\$repo_root/scripts/soyeht-mcp" ]]; then
   exec "\$repo_root/scripts/soyeht-mcp" "\$@"
 fi
 

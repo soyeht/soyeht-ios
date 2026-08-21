@@ -200,29 +200,45 @@ def rewrite_json(path, mutator):
     path.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
     print(f"[mcp] removed Soyeht entry from {path}")
 
-def remove_key(container, key):
-    if isinstance(container, dict) and key in container:
-        del container[key]
-        return True
-    return False
+# Todas as chaves MCP que o produto já teve, nos dois builds. Remover só a de
+# release deixava "soyeht-dev" pendurada, apontando para um lançador que esta
+# mesma desinstalação acabou de apagar. O lado Swift (TheyOSUninstaller) já
+# fazia isto; os dois teardowns tinham que concordar.
+MCP_KEYS = ("soyeht", "soyeht-dev")
+
+def remove_keys(container):
+    if not isinstance(container, dict):
+        return False
+    removed = False
+    for key in MCP_KEYS:
+        if key in container:
+            del container[key]
+            removed = True
+    return removed
 
 rewrite_json(
     home / ".claude.json",
-    lambda root: remove_key(root.get("mcpServers"), "soyeht") if isinstance(root, dict) else False,
+    lambda root: remove_keys(root.get("mcpServers")) if isinstance(root, dict) else False,
 )
 rewrite_json(
     home / ".factory" / "mcp.json",
-    lambda root: remove_key(root.get("mcpServers"), "soyeht") if isinstance(root, dict) else False,
+    lambda root: remove_keys(root.get("mcpServers")) if isinstance(root, dict) else False,
 )
 rewrite_json(
     home / ".config" / "opencode" / "opencode.json",
-    lambda root: remove_key(root.get("mcp"), "soyeht") if isinstance(root, dict) else False,
+    lambda root: remove_keys(root.get("mcp")) if isinstance(root, dict) else False,
 )
 
 codex = home / ".codex" / "config.toml"
 if codex.exists():
     text = codex.read_text()
-    new = re.sub(r"(?m)^\s*\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?", "", text)
+    # Alternância derivada de MCP_KEYS, mais longa primeiro. O `\.` ou `\]`
+    # logo a seguir rejeita sósias como soyeht-device ou soyehtfoo, que são de
+    # outra pessoa.
+    alternativas = "|".join(re.escape(k) for k in sorted(MCP_KEYS, key=len, reverse=True))
+    padrao = (r"(?m)^\s*\[mcp_servers\.(?:" + alternativas +
+              r")(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?")
+    new = re.sub(padrao, "", text)
     if new != text:
         if dry_run:
             print(f"[dry-run] remove Soyeht MCP entry from {codex}")

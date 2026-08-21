@@ -224,4 +224,174 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
     }
+
+    // MARK: - O lançador não pode servir o clone de outra pessoa
+
+    /// Com o git avariado, `SOYEHT_GIT_COMMON_DIR` fica vazio no lançador
+    /// gerado. Sem exigir que seja não-vazio, duas cadeias vazias comparam
+    /// iguais e a guarda degenera de "este checkout pertence ao meu clone"
+    /// para "qualquer repositório git com um scripts/soyeht-mcp executável".
+    func testLauncherInstalledWithBrokenGitDoesNotServeAnotherClone() throws {
+        let bin = fixtureHome.appendingPathComponent("guard-bin", isDirectory: true)
+        let alheio = fixtureHome.appendingPathComponent("outro-clone/scripts", isDirectory: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: alheio, withIntermediateDirectories: true)
+
+        let marcador = "SERVIDO-PELO-CLONE-ALHEIO"
+        let intruso = alheio.appendingPathComponent("soyeht-mcp")
+        try "#!/bin/sh\necho \(marcador)\n".write(to: intruso, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o755 as Int16)], ofItemAtPath: intruso.path
+        )
+
+        // Tem MESMO que ser um repositório git: o lançador só avalia a guarda
+        // quando `git rev-parse --show-toplevel` devolve alguma coisa. Sem
+        // isto o teste passaria pelo motivo errado — verificado com mutante.
+        let raizAlheia = alheio.deletingLastPathComponent()
+        let iniciou = try correr("/usr/bin/env", ["git", "init", "-q", raizAlheia.path])
+        XCTAssertEqual(iniciou.status, 0, "não consegui criar o repositório alheio: \(iniciou.text)")
+
+        let instalacao = try runInstaller(identity: nil, binDirectory: bin, sabotageGit: true)
+        XCTAssertEqual(instalacao.status, 0, "não instalou; saída = \(instalacao.text)")
+
+        let saida = try executarLancador(
+            bin.appendingPathComponent("soyeht-dev-mcp"),
+            dentroDe: alheio.deletingLastPathComponent()
+        )
+        XCTAssertFalse(saida.contains(marcador),
+                       "o lançador serviu o clone de outra pessoa; saída = \(saida)")
+    }
+
+    @discardableResult
+    private func correr(_ executavel: String, _ argumentos: [String]) throws -> (status: Int32, text: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executavel)
+        process.arguments = argumentos
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        var data = Data()
+        let handle = pipe.fileHandleForReading
+        try process.run()
+        while true {
+            let chunk = handle.availableData
+            if chunk.isEmpty { break }
+            data.append(chunk)
+        }
+        process.waitUntilExit()
+        return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
+    }
+
+    private func executarLancador(_ lancador: URL, dentroDe diretorio: URL) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [lancador.path, "--help"]
+        process.currentDirectoryURL = diretorio
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        var data = Data()
+        let handle = pipe.fileHandleForReading
+        try process.run()
+        while true {
+            let chunk = handle.availableData
+            if chunk.isEmpty { break }
+            data.append(chunk)
+        }
+        process.waitUntilExit()
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    // MARK: - O desinstalador em shell limpa as configurações dos agentes
+
+    /// `clean_mcp_configs()` é um bloco Python embutido no script de shell, e
+    /// removia só a chave de release nos quatro ficheiros de configuração —
+    /// enquanto o mesmo script apagava o lançador de dev. Ficava uma entrada
+    /// pendurada a apontar para um ficheiro que já não existe.
+    func testShellUninstallerRemovesBothKeysFromEveryAgentConfig() throws {
+        let claude = fixtureHome.appendingPathComponent(".claude.json")
+        let factory = fixtureHome.appendingPathComponent(".factory/mcp.json")
+        let opencode = fixtureHome.appendingPathComponent(".config/opencode/opencode.json")
+        let codex = fixtureHome.appendingPathComponent(".codex/config.toml")
+        for url in [factory, opencode, codex] {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+        }
+
+        let servidores = """
+        {"mcpServers":{"soyeht":{"command":"a"},"soyeht-dev":{"command":"b"},"outro":{"command":"c"}}}
+        """
+        try servidores.write(to: claude, atomically: true, encoding: .utf8)
+        try servidores.write(to: factory, atomically: true, encoding: .utf8)
+        try """
+        {"mcp":{"soyeht":{"command":["a"]},"soyeht-dev":{"command":["b"]},"outro":{"command":["c"]}}}
+        """.write(to: opencode, atomically: true, encoding: .utf8)
+        try """
+        [mcp_servers.soyeht]
+        command = "a"
+
+        [mcp_servers.soyeht-dev]
+        command = "b"
+
+        [mcp_servers.soyeht-device]
+        command = "alheio"
+
+        [mcp_servers.outro]
+        command = "c"
+        """.write(to: codex, atomically: true, encoding: .utf8)
+
+        // Corre APENAS o bloco Python embutido, extraído do próprio script:
+        // executar o desinstalador inteiro apagaria caminhos reais fora deste
+        // HOME de fixture, como o Homebrew do theyOS.
+        let saida = try executarLimpezaDeConfigs()
+        XCTAssertFalse(saida.contains("Traceback"), "o bloco Python rebentou: \(saida)")
+
+        for url in [claude, factory, opencode] {
+            let texto = try String(contentsOf: url, encoding: .utf8)
+            XCTAssertFalse(texto.contains("\"soyeht\""), "\(url.lastPathComponent) manteve soyeht")
+            XCTAssertFalse(texto.contains("\"soyeht-dev\""), "\(url.lastPathComponent) manteve soyeht-dev")
+            XCTAssertTrue(texto.contains("\"outro\""), "\(url.lastPathComponent) apagou o que não é nosso")
+        }
+        let toml = try String(contentsOf: codex, encoding: .utf8)
+        XCTAssertFalse(toml.contains("[mcp_servers.soyeht]"))
+        XCTAssertFalse(toml.contains("[mcp_servers.soyeht-dev]"))
+        XCTAssertTrue(toml.contains("[mcp_servers.soyeht-device]"), "apanhou um sósia")
+        XCTAssertTrue(toml.contains("[mcp_servers.outro]"))
+    }
+
+    /// Extrai o heredoc `<<'PY' ... PY` de `clean_mcp_configs()` e corre-o com
+    /// o HOME de fixture. É o mesmo texto que é entregue, sem os `rm -rf` do
+    /// script que apontam para caminhos reais da máquina.
+    private func executarLimpezaDeConfigs() throws -> String {
+        let script = try String(
+            contentsOf: repoRoot().appendingPathComponent("scripts/uninstall-soyeht-macos.sh"),
+            encoding: .utf8
+        )
+        guard let inicio = script.range(of: "\"$py\" - \"$HOME\" \"$DRY_RUN\" <<'PY'\n"),
+              let fim = script.range(of: "\nPY\n", range: inicio.upperBound..<script.endIndex) else {
+            throw XCTSkip("não encontrei o bloco Python de clean_mcp_configs")
+        }
+        let corpo = String(script[inicio.upperBound..<fim.lowerBound])
+
+        let temporario = fixtureHome.appendingPathComponent("clean_mcp_configs.py")
+        try corpo.write(to: temporario, atomically: true, encoding: .utf8)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", temporario.path, fixtureHome.path, "false"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        var data = Data()
+        let handle = pipe.fileHandleForReading
+        try process.run()
+        while true {
+            let chunk = handle.availableData
+            if chunk.isEmpty { break }
+            data.append(chunk)
+        }
+        process.waitUntilExit()
+        return String(data: data, encoding: .utf8) ?? ""
+    }
 }
