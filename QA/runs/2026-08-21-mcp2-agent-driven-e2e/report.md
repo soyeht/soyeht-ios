@@ -8,8 +8,11 @@ durable round-trip through the new MCP contract, and observed the reply before
 finishing. Two further three-route rings exercised every primary CLI as sender
 and recipient while unfinished user input held the relay until Enter. The last
 ring used actual macOS mouse and keyboard events against the signed Soyeht Dev
-app, not MCP input injection. All nine routes passed and every isolated test
-workspace was removed automatically.
+app, not MCP input injection. A final six-route abandonment matrix cleared
+drafts without Enter using full Backspace or each TUI's valid cancel shortcut.
+All fifteen acceptance routes passed; an OpenCode `Ctrl+U` negative control
+correctly remained queued because that shortcut did not clear its draft. Every
+isolated test workspace was removed automatically.
 
 ## Behavioral ring
 
@@ -71,6 +74,29 @@ python3 QA/scripts/soyeht_agent_driven_e2e.py \
 ```
 
 Raw evidence: [agent-driven-e2e-1787327670.json](../agent-driven-e2e-1787327670.json).
+
+## Abandoning a draft without Enter
+
+The physical-input runner was extended with `--draft-release-action` and a
+route filter. Each case first proved that the draft was visible and that an MCP
+v2 relay was durable but not terminal-delivered. Valid user actions then
+removed the draft without Return; the negative control intentionally did not.
+
+| Physical action | Recipient | Result | Evidence |
+| --- | --- | --- | --- |
+| Backspace once per draft character | OpenCode | PASS — last Backspace released the queued relay | [run 1787329408](../agent-driven-e2e-1787329408.json) |
+| Backspace once per draft character | Claude | PASS — last Backspace released the queued relay | [run 1787329408](../agent-driven-e2e-1787329408.json) |
+| Backspace once per draft character | Codex | PASS — last Backspace released the queued relay | [run 1787329408](../agent-driven-e2e-1787329408.json) |
+| `Ctrl+U` | Claude | PASS — cleared the draft and released the relay | [run 1787330292](../agent-driven-e2e-1787330292.json) |
+| `Ctrl+U` | Codex | PASS — cleared the draft and released the relay | [run 1787330414](../agent-driven-e2e-1787330414.json) |
+| `Ctrl+C` | OpenCode | PASS — cancelled the draft and released the relay | [run 1787330538](../agent-driven-e2e-1787330538.json) |
+| `Ctrl+U` negative control | OpenCode | EXPECTED HOLD — draft token remained visible and delivery timestamp remained `null` | [run 1787330668](../agent-driven-e2e-1787330668.json) |
+
+Every passing route delivered the queued envelope after the draft became
+empty, received an MCP contract 2 / server 2.0.0 reply, and showed that reply in
+the real sender transcript. The negative control is important: Soyeht did not
+infer that an unsupported OpenCode shortcut had cleared text and did not risk
+splicing the relay into the still-visible draft.
 
 ## Direct MCP 2.0 regression suite
 

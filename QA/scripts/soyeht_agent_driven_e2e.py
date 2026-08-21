@@ -22,6 +22,7 @@ import shlex
 import subprocess
 from time import monotonic, sleep, time
 
+
 def load_mcp(repo_root: Path):
     module_path = repo_root / "scripts" / "soyeht-mcp"
     loader = importlib.machinery.SourceFileLoader("soyeht_agent_driven_e2e_module", str(module_path))
@@ -63,7 +64,9 @@ on run argv
   tell application "System Events" to tell process "Soyeht Dev"
     set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
     perform action "AXRaise" of targetWindow
-    set value of attribute "AXMain" of targetWindow to true
+    try
+      set value of attribute "AXMain" of targetWindow to true
+    end try
     delay 0.15
     if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
       error "The requested Soyeht Dev window did not become frontmost"
@@ -116,6 +119,52 @@ end run
             script,
             text,
             "true" if submit_with_return else "false",
+            expected_identifier,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def release_physical_draft(action, draft_length, expected_window_id):
+    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
+    script = r'''
+on run argv
+  set releaseAction to item 1 of argv
+  set draftLength to (item 2 of argv) as integer
+  set expectedIdentifier to item 3 of argv
+  tell application "System Events"
+    set frontApp to name of first application process whose frontmost is true
+    if frontApp is not "Soyeht Dev" then error "Soyeht Dev did not become frontmost"
+    tell process "Soyeht Dev"
+      if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
+        error "Physical clear would target the wrong Soyeht Dev window"
+      end if
+    end tell
+    if releaseAction is "return" then
+      key code 36
+    else if releaseAction is "backspace" then
+      repeat draftLength times
+        key code 51
+      end repeat
+    else if releaseAction is "ctrl-u" then
+      keystroke "u" using {control down}
+    else if releaseAction is "ctrl-c" then
+      keystroke "c" using {control down}
+    else
+      error "Unsupported physical draft release: " & releaseAction
+    end if
+  end tell
+end run
+'''
+    subprocess.run(
+        [
+            "/usr/bin/osascript",
+            "-e",
+            script,
+            action,
+            str(draft_length),
             expected_identifier,
         ],
         check=True,
@@ -190,7 +239,7 @@ end run
 
 
 def source_args(pane, automation_dir, timeout):
-    return {
+    result = {
         "automationDir": automation_dir,
         "timeout": timeout,
         "fromConversationID": pane["conversationID"],
@@ -451,6 +500,8 @@ def run_typing_collision(
     recipient_agent,
     recipient_directory,
     input_mode,
+    draft_release_action,
+    release_timeout,
 ):
     collision_baseline = process_snapshot()
     sender_name = f"e2e-draft-sender-{sender_agent}-{run_id}-{index}"
@@ -627,7 +678,7 @@ def run_typing_collision(
     )
     require(
         held_message.get("deferredTerminalDeliveredAt") is None,
-        f"Real {recipient_agent} relay was marked terminal-delivered before the user's Enter.",
+        f"Real {recipient_agent} relay was marked terminal-delivered before the user's draft release.",
     )
 
     if input_mode == "physicalKeyboard":
@@ -640,10 +691,10 @@ def run_typing_collision(
             "mode": "zoom",
         })
         click_soyeht_dev_target(recipient["windowID"])
-        type_through_macos_keyboard(
-            "",
+        release_physical_draft(
+            draft_release_action,
+            len(unfinished_draft),
             recipient["windowID"],
-            submit_with_return=True,
         )
         mcp.tool_emphasize_pane({
             **source_args(observer, automation_dir, timeout),
@@ -657,13 +708,30 @@ def run_typing_collision(
             "text": " ENVIAR_AGORA",
             "lineEnding": "enter",
         })
-    released_capture = wait_for_transcript_token(
-        mcp,
-        recipient,
-        relay_token,
-        automation_dir,
-        timeout,
-    )
+    try:
+        released_capture = wait_for_transcript_token(
+            mcp,
+            recipient,
+            relay_token,
+            automation_dir,
+            release_timeout,
+        )
+    except RuntimeError as exc:
+        post_release_capture = capture_text(mcp, recipient, automation_dir, timeout)
+        post_release_message = inbox_message(
+            mcp,
+            recipient,
+            parent_request["messageID"],
+            automation_dir,
+            timeout,
+        )
+        raise RuntimeError(
+            f"Physical {draft_release_action} did not release the queued relay for "
+            f"{recipient_agent} within {release_timeout}s; "
+            f"draftTokenVisible={draft_token in post_release_capture}, "
+            f"deliveredAt={post_release_message.get('deferredTerminalDeliveredAt') if post_release_message else None}. "
+            f"Underlying wait: {exc}"
+        ) from exc
     delivered_message = wait_for_deferred_terminal_delivery(
         mcp,
         recipient,
@@ -695,23 +763,32 @@ def run_typing_collision(
         "senderProcess": sender_process,
         "recipientProcess": recipient_process,
         "inputSimulation": (
-            "macOS Accessibility keystrokes plus physical Return"
+            f"macOS Accessibility keystrokes plus physical {draft_release_action}"
             if input_mode == "physicalKeyboard"
             else "send_pane_input without Enter through the shared onUserInputData draft gate"
         ),
+        "draftReleaseAction": draft_release_action,
         "recipientFocusedForHumanSimulation": True,
         "unfinishedDraftInputAccepted": True,
         "unfinishedDraftVisibleInDynamicCapture": draft_token in initial_draft_capture,
-        "relayAbsentBeforeEnter": relay_token not in held_capture,
-        "deliveryTimestampBeforeEnter": held_message.get("deferredTerminalDeliveredAt"),
-        "relayObservedAfterEnter": relay_token in released_capture,
-        "deliveryTimestampAfterEnter": delivered_message.get("deferredTerminalDeliveredAt"),
+        "relayAbsentBeforeRelease": relay_token not in held_capture,
+        "deliveryTimestampBeforeRelease": held_message.get("deferredTerminalDeliveredAt"),
+        "relayObservedAfterRelease": relay_token in released_capture,
+        "deliveryTimestampAfterRelease": delivered_message.get("deferredTerminalDeliveredAt"),
         "requestContractVersion": parent_request.get("mcpClientContractVersion"),
         "requestServerVersion": parent_request.get("mcpClientServerVersion"),
         "replyContractVersion": reply.get("mcpClientContractVersion"),
         "replyServerVersion": reply.get("mcpClientServerVersion"),
         "completionObservedInSenderTranscript": True,
     }
+    if draft_release_action == "return":
+        result.update({
+            "relayAbsentBeforeEnter": relay_token not in held_capture,
+            "deliveryTimestampBeforeEnter": held_message.get("deferredTerminalDeliveredAt"),
+            "relayObservedAfterEnter": relay_token in released_capture,
+            "deliveryTimestampAfterEnter": delivered_message.get("deferredTerminalDeliveredAt"),
+        })
+    return result
 
 
 def main() -> int:
@@ -730,6 +807,24 @@ def main() -> int:
         action="store_true",
         help="Run the collision ring using macOS Accessibility keystrokes instead of send_pane_input.",
     )
+    parser.add_argument(
+        "--draft-release-action",
+        choices=("return", "backspace", "ctrl-u", "ctrl-c"),
+        default="return",
+        help="Physical action that clears/submits the unfinished draft before queued delivery.",
+    )
+    parser.add_argument(
+        "--release-timeout",
+        type=float,
+        default=20.0,
+        help="Maximum wait for a queued relay after the physical draft-release action.",
+    )
+    parser.add_argument(
+        "--collision-route",
+        choices=("all", "codex-opencode", "opencode-claude", "claude-codex"),
+        default="all",
+        help="Limit the typing-collision ring to one sender-recipient route.",
+    )
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -744,6 +839,11 @@ def main() -> int:
         "automationDir": automation_dir,
         "flows": [],
     }
+    output = (
+        Path(args.output).resolve()
+        if args.output
+        else repo_root / "QA" / "runs" / f"agent-driven-e2e-{run_id}.json"
+    )
     workspace_id = None
     observer = None
 
@@ -756,6 +856,10 @@ def main() -> int:
         flows = []
     if args.physical_keyboard_only:
         require_accessibility_keyboard_control()
+    require(
+        args.physical_keyboard_only or args.draft_release_action == "return",
+        "--draft-release-action requires --physical-keyboard-only.",
+    )
 
     try:
         workspace = mcp.tool_open_workspace({
@@ -888,6 +992,12 @@ def main() -> int:
             ("opencode", "claude", repo_root / "docs"),
             ("claude", "codex", repo_root / "TerminalApp"),
         ]
+        if args.collision_route != "all":
+            requested_sender, requested_recipient = args.collision_route.split("-", 1)
+            collision_flows = [
+                flow for flow in collision_flows
+                if flow[0] == requested_sender and flow[1] == requested_recipient
+            ]
         evidence["typingCollisions"] = []
         for index, (sender_agent, recipient_agent, recipient_directory) in enumerate(
             collision_flows,
@@ -906,14 +1016,27 @@ def main() -> int:
                 recipient_agent=recipient_agent,
                 recipient_directory=recipient_directory,
                 input_mode="physicalKeyboard" if args.physical_keyboard_only else "automationInput",
+                draft_release_action=args.draft_release_action,
+                release_timeout=args.release_timeout,
             ))
 
         evidence["status"] = "passed"
-        output = Path(args.output).resolve() if args.output else repo_root / "QA" / "runs" / f"agent-driven-e2e-{run_id}.json"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps({"status": "passed", "report": str(output), "evidence": evidence}, indent=2, sort_keys=True))
         return 0
+    except Exception as exc:
+        evidence["status"] = "failed"
+        evidence["error"] = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+        }
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        raise
     finally:
         if not args.keep and observer is not None and workspace_id is not None:
             try:
