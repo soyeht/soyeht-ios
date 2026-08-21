@@ -84,8 +84,9 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("scripts/uninstall-soyeht-macos.sh")
-        guard FileManager.default.isReadableFile(atPath: script.path) else {
-            throw XCTSkip("uninstall script not present at \(script.path)")
+        if !FileManager.default.isReadableFile(atPath: script.path) {
+            XCTFail("desinstalador ausente em \(script.path)")
+            return []
         }
 
         let process = Process()
@@ -185,11 +186,15 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
     private func runInstaller(
         identity: String?,
         binDirectory: URL,
-        sabotageGit: Bool = false
+        sabotageGit: Bool = false,
+        instaladorEm: URL? = nil
     ) throws -> (status: Int32, text: String) {
-        let script = repoRoot().appendingPathComponent("scripts/install-soyeht-mcp")
-        guard FileManager.default.isReadableFile(atPath: script.path) else {
-            throw XCTSkip("installer not present at \(script.path)")
+        let script = instaladorEm ?? repoRoot().appendingPathComponent("scripts/install-soyeht-mcp")
+        // XCTFail, não XCTSkip: este ficheiro está no repositório e TEM de
+        // existir. Saltar em silêncio deixaria a suite verde sem o testar.
+        if !FileManager.default.isReadableFile(atPath: script.path) {
+            XCTFail("instalador ausente em \(script.path)")
+            return (-1, "")
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
@@ -251,7 +256,19 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
         let iniciou = try correr("/usr/bin/env", ["git", "init", "-q", raizAlheia.path])
         XCTAssertEqual(iniciou.status, 0, "não consegui criar o repositório alheio: \(iniciou.text)")
 
-        let instalacao = try runInstaller(identity: nil, binDirectory: bin, sabotageGit: true)
+        // A fonte da instalação também leva marcador. Sem isto, o estado
+        // correto do teste seria saída VAZIA — e "serviu o servidor certo" e
+        // "o lançador rebentou" ficariam indistinguíveis. Foi assim que este
+        // teste começou, e um lançador com BASE_MCP inexistente passava.
+        let marcadorLegitimo = "SERVIDO-PELO-CLONE-DE-INSTALACAO"
+        let clonaDeInstalacao = try prepararCloneDeInstalacao(imprimindo: marcadorLegitimo)
+
+        let instalacao = try runInstaller(
+            identity: nil,
+            binDirectory: bin,
+            sabotageGit: true,
+            instaladorEm: clonaDeInstalacao
+        )
         XCTAssertEqual(instalacao.status, 0, "não instalou; saída = \(instalacao.text)")
 
         let saida = try executarLancador(
@@ -260,6 +277,31 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
         )
         XCTAssertFalse(saida.contains(marcador),
                        "o lançador serviu o clone de outra pessoa; saída = \(saida)")
+        XCTAssertTrue(saida.contains(marcadorLegitimo),
+                      "o lançador não serviu o próprio checkout; saída = \(saida)")
+    }
+
+    /// Uma cópia do instalador real ao lado de um `scripts/soyeht-mcp` que
+    /// imprime um marcador, para que o teste consiga distinguir "serviu o
+    /// servidor certo" de "não serviu nada".
+    private func prepararCloneDeInstalacao(imprimindo marcador: String) throws -> URL {
+        let raiz = fixtureHome.appendingPathComponent("clone-instalacao", isDirectory: true)
+        let scripts = raiz.appendingPathComponent("scripts", isDirectory: true)
+        try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
+
+        let instaladorReal = repoRoot().appendingPathComponent("scripts/install-soyeht-mcp")
+        let destino = scripts.appendingPathComponent("install-soyeht-mcp")
+        try? FileManager.default.removeItem(at: destino)
+        try FileManager.default.copyItem(at: instaladorReal, to: destino)
+
+        let servidor = scripts.appendingPathComponent("soyeht-mcp")
+        try "#!/bin/sh\necho \(marcador)\n".write(to: servidor, atomically: true, encoding: .utf8)
+        for url in [destino, servidor] {
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o755 as Int16)], ofItemAtPath: url.path
+            )
+        }
+        return destino
     }
 
     @discardableResult
@@ -369,8 +411,10 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
             encoding: .utf8
         )
         guard let inicio = script.range(of: "\"$py\" - \"$HOME\" \"$DRY_RUN\" <<'PY'\n"),
-              let fim = script.range(of: "\nPY\n", range: inicio.upperBound..<script.endIndex) else {
-            throw XCTSkip("não encontrei o bloco Python de clean_mcp_configs")
+              let fim = script.range(of: "\nPY\n", range: inicio.upperBound..<script.endIndex)
+        else {
+            XCTFail("não encontrei o bloco Python de clean_mcp_configs")
+            return ""
         }
         let corpo = String(script[inicio.upperBound..<fim.lowerBound])
 
