@@ -19,13 +19,85 @@ import argparse
 import importlib.machinery
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
+import sys
 from time import monotonic, sleep, time
 
 
 WORKSPACE_SNAPSHOT_PATH = None
+
+# These terms describe implementation, not user intent. Agent-facing E2E
+# prompts must never contain them: the point of this runner is to prove that a
+# real agent discovers the right capability from ordinary language.
+FORBIDDEN_AGENT_PROMPT_FRAGMENTS = (
+    "message_agent",
+    "open_agent_pane",
+    "send_pane_input",
+    "soyeht-dev",
+    "mcp",
+    "nome da função",
+    "nome da ferramenta",
+)
+
+
+def require_natural_user_prompt(prompt: str):
+    normalized = prompt.casefold()
+    leaked = [
+        fragment
+        for fragment in FORBIDDEN_AGENT_PROMPT_FRAGMENTS
+        if (
+            re.search(r"(?<!\w)mcp(?!\w)", normalized)
+            if fragment == "mcp"
+            else fragment.casefold() in normalized
+        )
+    ]
+    require(
+        not leaked,
+        f"Agent-facing prompt leaked implementation vocabulary: {leaked!r}",
+    )
+
+
+def natural_collaboration_prompt(child_agent, child_name, directory, token, completion_prefix):
+    prompt = (
+        f"Sem alterar arquivos, abra uma nova pane com {child_agent} neste mesmo workspace, "
+        f"no diretório exato {directory}, e dê a ela o nome {child_name}. "
+        f"Depois fale com esse agente e peça que ele responda a você com exatamente {token}. "
+        f"Aguarde a resposta dele. Só então responda aqui com exatamente "
+        f"{completion_prefix} {token}."
+    )
+    require_natural_user_prompt(prompt)
+    return prompt
+
+
+def natural_collision_setup_prompt(
+    recipient_agent,
+    recipient_name,
+    recipient_directory,
+    recipient_ready_token,
+    ready_token,
+):
+    prompt = (
+        f"Sem alterar arquivos, abra uma nova pane com {recipient_agent} neste mesmo workspace, "
+        f"no diretório exato {recipient_directory}, e dê a ela o nome {recipient_name}. "
+        f"Ao abrir a pane, peça ao novo agente que responda somente {recipient_ready_token} e aguarde. "
+        f"Quando a pane estiver pronta, responda aqui somente {ready_token} e aguarde minha próxima mensagem."
+    )
+    require_natural_user_prompt(prompt)
+    return prompt
+
+
+def natural_collision_message_prompt(recipient_name, relay_token, completion_prefix):
+    prompt = (
+        f"Fale com o agente {recipient_name}, que está neste mesmo workspace, e peça que ele "
+        f"responda a você com exatamente {relay_token}. Aguarde a resposta dele. "
+        f"Depois responda aqui com exatamente {completion_prefix} {relay_token}."
+    )
+    require_natural_user_prompt(prompt)
+    return prompt
 
 
 def load_mcp(module_path: Path):
@@ -34,6 +106,23 @@ def load_mcp(module_path: Path):
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+def detach_external_observer_identity():
+    """Prevent the harness from inheriting an unauthenticated pane claim."""
+    for key in (
+        "SOYEHT_AGENT_NAME",
+        "SOYEHT_CONVERSATION_ID",
+        "SOYEHT_HANDLE",
+        "SOYEHT_LAUNCH_NONCE",
+    ):
+        os.environ.pop(key, None)
+    foundation = sys.modules.get("soyeht_mcp_foundation")
+    if foundation is not None:
+        # The installed server intentionally inspects parent environments for
+        # real CLI subprocesses. This runner is an external observer, so its
+        # parent-pane metadata is not an identity claim and must be ignored.
+        foundation._PARENT_PROCESS_ENVIRONMENT = {}
 
 
 def require(condition, message):
@@ -580,13 +669,12 @@ def run_typing_collision(
     # Hyphens survive Markdown/TUI rendering. The MCP reply token itself stays
     # underscore-exact and is validated from the durable inbox separately.
     completion_prefix = f"E2E-DRAFT-COLLISION-OK-{run_id}-{index}"
-    sender_prompt = (
-        f"Teste E2E sem alterar arquivos. Use especificamente soyeht-dev.open_agent_pane "
-        f"para abrir um agente {recipient_agent} neste mesmo workspace, no diretório exato "
-        f"{recipient_directory}, com o nome exato {recipient_name}. Passe um prompt inicial pedindo "
-        f"ao agente novo que responda somente {recipient_ready_token} e aguarde. Não envie mensagem "
-        f"pelo MCP ao agente ainda. Quando a pane existir, escreva exatamente {ready_token} e pare, aguardando "
-        f"a próxima instrução do usuário."
+    sender_prompt = natural_collision_setup_prompt(
+        recipient_agent=recipient_agent,
+        recipient_name=recipient_name,
+        recipient_directory=recipient_directory,
+        recipient_ready_token=recipient_ready_token,
+        ready_token=ready_token,
     )
     sender_opened = mcp.tool_open_agent_pane({
         "automationDir": automation_dir,
@@ -706,11 +794,10 @@ def run_typing_collision(
             "mode": "unzoom",
         })
 
-    follow_up = (
-        f"Agora use soyeht-dev.message_agent para enviar uma mensagem ao agente "
-        f"{recipient_name}, pedindo que ele responda a você pela mesma integração com exatamente "
-        f"o token {relay_token}. Espere a resposta real. Só depois escreva {completion_prefix}, "
-        f"um espaço e o token recebido."
+    follow_up = natural_collision_message_prompt(
+        recipient_name=recipient_name,
+        relay_token=relay_token,
+        completion_prefix=completion_prefix,
     )
     if input_mode != "physicalKeyboard":
         raise RuntimeError(
@@ -862,6 +949,14 @@ def run_typing_collision(
         "replyContractVersion": reply.get("mcpClientContractVersion"),
         "replyServerVersion": reply.get("mcpClientServerVersion"),
         "completionObservedInSenderTranscript": True,
+        "userPrompts": {
+            "setup": sender_prompt,
+            "message": follow_up,
+        },
+        "promptVocabularyAudit": {
+            "status": "passed",
+            "forbiddenFragments": list(FORBIDDEN_AGENT_PROMPT_FRAGMENTS),
+        },
     }
     if draft_release_action == "return":
         result.update({
@@ -895,6 +990,11 @@ def main() -> int:
         help="Run only the real-agent unfinished-draft collision scenario.",
     )
     parser.add_argument(
+        "--collaboration-only",
+        action="store_true",
+        help="Run only the natural-language open-and-message collaboration ring.",
+    )
+    parser.add_argument(
         "--physical-keyboard-only",
         action="store_true",
         help="Run the collision ring using macOS Accessibility keystrokes instead of send_pane_input.",
@@ -926,6 +1026,7 @@ def main() -> int:
     mcp_script = Path(args.mcp_script).expanduser().resolve()
     require(mcp_script.is_file(), f"Installed MCP script does not exist: {mcp_script}")
     mcp = load_mcp(mcp_script)
+    detach_external_observer_identity()
     global WORKSPACE_SNAPSHOT_PATH
     WORKSPACE_SNAPSHOT_PATH = Path(args.workspace_snapshot).expanduser().resolve()
     run_id = str(int(time()))
@@ -950,6 +1051,10 @@ def main() -> int:
     ]
     if args.typing_collision_only or args.physical_keyboard_only:
         flows = []
+    require(
+        not (args.collaboration_only and (args.typing_collision_only or args.physical_keyboard_only)),
+        "--collaboration-only cannot be combined with a collision-only mode.",
+    )
     if args.physical_keyboard_only:
         require_accessibility_keyboard_control()
     require(
@@ -979,19 +1084,18 @@ def main() -> int:
         for index, flow in enumerate(flows, start=1):
             parent_name = f"e2e-parent-{flow['parent']}-{run_id}"
             child_name = f"e2e-child-{flow['child']}-{run_id}-{index}"
-            token = f"E2E_REPLY_{run_id}_{index}"
-            completion_prefix = f"E2E_FLOW_OK_{run_id}_{index}"
+            # Hyphens survive all three alternate-screen renderers. OpenCode
+            # visually strips some underscores even when the model emitted
+            # and the durable inbox preserved them.
+            token = f"E2E-REPLY-{run_id}-{index}"
+            completion_prefix = f"E2E-FLOW-OK-{run_id}-{index}"
             marker = f"{completion_prefix} {token}"
-            prompt = (
-                f"Teste E2E de comportamento, sem alterar arquivos. Abra uma nova pane do agente "
-                f"{flow['child']} neste mesmo workspace, no diretório exato {flow['directory']}, "
-                f"com o nome exato {child_name}. Use especificamente a integração MCP nova "
-                f"soyeht-dev para abrir a pane; não use a integração soyeht antiga, não abra um "
-                f"agente diferente e não use Terminal.app. Depois envie uma mensagem ao agente filho "
-                f"pela integração soyeht-dev pedindo que ele responda a você, também pela integração "
-                f"soyeht-dev, com exatamente "
-                f"o token {token}. Espere receber a resposta real. Só então conclua escrevendo o prefixo "
-                f"{completion_prefix}, um espaço e depois repetindo o token recebido."
+            prompt = natural_collaboration_prompt(
+                child_agent=flow["child"],
+                child_name=child_name,
+                directory=flow["directory"],
+                token=token,
+                completion_prefix=completion_prefix,
             )
             opened = mcp.tool_open_agent_pane({
                 "automationDir": automation_dir,
@@ -1013,6 +1117,7 @@ def main() -> int:
                 "childName": child_name,
                 "token": token,
                 "marker": marker,
+                "userPrompt": prompt,
             })
 
         for record in parent_records:
@@ -1082,6 +1187,11 @@ def main() -> int:
                 "completionMarker": record["marker"],
                 "parentTranscriptTail": transcript[-1800:],
                 "childStoleFocus": False,
+                "userPrompt": record["userPrompt"],
+                "promptVocabularyAudit": {
+                    "status": "passed",
+                    "forbiddenFragments": list(FORBIDDEN_AGENT_PROMPT_FRAGMENTS),
+                },
             })
 
         # Exercise the unfinished-draft guarantee with every primary CLI as a
@@ -1091,6 +1201,8 @@ def main() -> int:
             ("opencode", "claude", repo_root / "docs"),
             ("claude", "codex", repo_root / "TerminalApp"),
         ]
+        if args.collaboration_only:
+            collision_flows = []
         if args.collision_route != "all":
             requested_sender, requested_recipient = args.collision_route.split("-", 1)
             collision_flows = [

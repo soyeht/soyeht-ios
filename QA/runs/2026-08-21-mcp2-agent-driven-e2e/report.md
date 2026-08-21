@@ -1,5 +1,12 @@
 # MCP 2.0 real-agent E2E — 2026-08-21
 
+> Methodology correction: the early runs in this historical report named MCP
+> tools in prompts shown to the parent agents. They remain transport and draft-
+> gate evidence, but they do not prove that an agent discovers the capability
+> from an ordinary user request. The implementation-blind replacement runs and
+> their complete prompts are documented in
+> [MCP 2.0 natural-language agent E2E](../mcp2-natural-language-agent-e2e-2026-08-21.md).
+
 ## Verdict
 
 PASS. Three real parent agents interpreted natural-language instructions,
