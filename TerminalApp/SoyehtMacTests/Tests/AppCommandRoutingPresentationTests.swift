@@ -493,9 +493,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(prepared.envelopeApplied)
         XCTAssertEqual(prepared.envelopeReason, "applied")
         XCTAssertEqual(prepared.source?.id, sourceConversationID)
-        XCTAssertTrue(prepared.text.contains("From: @sender (conversationID: \(sourceConversationID.uuidString))"))
-        XCTAssertTrue(prepared.text.contains("To: @reviewer (conversationID: \(targetConversationID.uuidString))"))
-        XCTAssertTrue(prepared.text.contains("message_agent to handles=[\"@sender\"]"))
+        XCTAssertTrue(prepared.text.contains("From: [sender] (conversationID: \(sourceConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("To: [reviewer] (conversationID: \(targetConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("message_agent to conversationIDs=[\"\(sourceConversationID.uuidString)\"]"))
+        XCTAssertFalse(prepared.text.contains("@sender"))
         XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
         XCTAssertFalse(
             prepared.payload.hasSuffix("\r"),

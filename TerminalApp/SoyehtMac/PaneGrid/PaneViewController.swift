@@ -138,6 +138,18 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private var hasBeenAttached = false
     private var isMovingBetweenGrids = false
 
+    /// Agent messages for terminal-only clients are persisted first, then held
+    /// here until no human draft is open. This prevents a relay from being
+    /// inserted between the characters of the user's current question.
+    private struct DeferredAgentDelivery {
+        let messageID: AgentMessage.ID
+        let prepared: AgentPaneInputPlanner.Prepared
+    }
+    private var deferredAgentDeliveries: [DeferredAgentDelivery] = []
+    private var humanDraftByteCount = 0
+    private var deferredDeliveryWorkItem: DispatchWorkItem?
+    private static let deferredDeliveryGrace: TimeInterval = 0.75
+
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
     var onFocusRequested: ((Conversation.ID) -> Void)?
@@ -289,6 +301,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         root.setAccessibilityRole(.group)
         terminalView.onUserInputData = { [weak self] data in
             guard let self else { return }
+            self.recordHumanInputForDeferredDelivery(data)
             self.mainWindowController()?.mirrorTerminalInput(data, from: self.conversationID)
         }
         wireHeaderActions()
@@ -297,6 +310,63 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         wireTerminalInteractionCallbacks()
         updateEmptyStateVisibility()
         updateAccessibilityLabel(focused: false)
+    }
+
+    /// Queues a compatibility delivery without writing to the PTY now. The
+    /// corresponding `AgentMessage` must already exist in the durable inbox.
+    func enqueueDeferredAgentDelivery(
+        messageID: AgentMessage.ID,
+        prepared: AgentPaneInputPlanner.Prepared
+    ) {
+        deferredAgentDeliveries.append(
+            DeferredAgentDelivery(messageID: messageID, prepared: prepared)
+        )
+        scheduleDeferredAgentDeliveryIfSafe()
+    }
+
+    private func recordHumanInputForDeferredDelivery(_ data: Data) {
+        deferredDeliveryWorkItem?.cancel()
+        deferredDeliveryWorkItem = nil
+        for byte in data {
+            switch byte {
+            case 0x0A, 0x0D, 0x03, 0x15: // LF/CR, Ctrl-C, Ctrl-U
+                humanDraftByteCount = 0
+            case 0x08, 0x7F: // backspace/delete
+                humanDraftByteCount = max(0, humanDraftByteCount - 1)
+            case 0x20...0xFF:
+                humanDraftByteCount += 1
+            default:
+                break
+            }
+        }
+        scheduleDeferredAgentDeliveryIfSafe()
+    }
+
+    private func scheduleDeferredAgentDeliveryIfSafe() {
+        guard humanDraftByteCount == 0, !deferredAgentDeliveries.isEmpty else { return }
+        deferredDeliveryWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.flushOneDeferredAgentDelivery()
+        }
+        deferredDeliveryWorkItem = item
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.deferredDeliveryGrace,
+            execute: item
+        )
+    }
+
+    private func flushOneDeferredAgentDelivery() {
+        deferredDeliveryWorkItem = nil
+        guard humanDraftByteCount == 0, !deferredAgentDeliveries.isEmpty else { return }
+        let delivery = deferredAgentDeliveries.removeFirst()
+        terminalView.brokerSend(
+            text: delivery.prepared.payload,
+            submitWithEnter: delivery.prepared.shouldSendEnterKey
+        )
+        try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(conversationID) { inbox in
+            try inbox.markDeferredTerminalDelivered(delivery.messageID)
+        }
+        scheduleDeferredAgentDeliveryIfSafe()
     }
 
     /// Programmatically claim focus — used by the parent grid when activation

@@ -513,6 +513,18 @@ enum AgentPaneInputPlanner {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: .newlines)
             .joined(separator: " ")
-        return "Sent via Soyeht. From: \(source.handle) (conversationID: \(source.id.uuidString)). To: \(target.handle) (conversationID: \(target.id.uuidString)). Reply via Soyeht MCP send_pane_input or message_agent to handles=[\"\(source.handle)\"] or conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
+        let sender = AgentMessageEndpoint(
+            paneID: source.id,
+            workspaceID: source.workspaceID,
+            handle: source.handle
+        )
+        let recipient = AgentMessageEndpoint(
+            paneID: target.id,
+            workspaceID: target.workspaceID,
+            handle: target.handle
+        )
+        // UUIDs are the routing authority. Bracketed labels are display-only
+        // and remain safe when an agent copies the envelope into GitHub.
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)). Reply via Soyeht MCP message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }

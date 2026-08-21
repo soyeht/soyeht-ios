@@ -8,6 +8,10 @@ struct SoyehtAutomationRequest: Decodable {
         case createWorktreePanes = "create_worktree_panes"
         case createWorkspacePanes = "create_workspace_panes"
         case sendPaneInput = "send_pane_input"
+        case sendAgentMessage = "send_agent_message"
+        case listAgentMessages = "list_agent_messages"
+        case ackAgentMessages = "ack_agent_messages"
+        case setAgentCommunicationPolicy = "set_agent_communication_policy"
         case renameWorkspace = "rename_workspace"
         case renamePanes = "rename_panes"
         case arrangePanes = "arrange_panes"
@@ -73,6 +77,17 @@ struct SoyehtAutomationRequest: Decodable {
         let conversationIDs: [String]?
         let handles: [String]?
         let text: String?
+        let messageIDs: [String]?
+        let deliveryPreference: String?
+        let requestAttention: Bool?
+        let unreadOnly: Bool?
+        let markRead: Bool?
+        let incomingEnabled: Bool?
+        let incomingAllowsCrossWorkspace: Bool?
+        let outgoingEnabled: Bool?
+        let outgoingAllowsCrossWorkspace: Bool?
+        let blockedPaneIDs: [String]?
+        let blockedWorkspaceIDs: [String]?
         let sourceConversationID: String?
         let sourceHandle: String?
         let sourceTTY: String?
@@ -216,6 +231,44 @@ struct SoyehtAutomationResponse: Encodable {
             self.envelopeApplied = envelopeApplied
             self.envelopeReason = envelopeReason
         }
+    }
+
+    struct AgentMessageDelivery: Encodable {
+        let messageID: String
+        let conversationID: String
+        let workspaceID: String
+        let displayReference: String
+        let channel: String?
+        let status: String
+        let writesToPTY: Bool
+        let attentionRequested: Bool
+        let policyDenials: [String]
+    }
+
+    struct AgentInboxMessage: Encodable {
+        let messageID: String
+        let senderConversationID: String
+        let senderWorkspaceID: String
+        let senderReference: String
+        let recipientConversationID: String
+        let recipientWorkspaceID: String
+        let recipientReference: String
+        let body: String
+        let channel: String
+        let createdAt: Date
+        let readAt: Date?
+        let acknowledgedAt: Date?
+        let deferredTerminalDeliveredAt: Date?
+    }
+
+    struct AgentCommunicationPolicyState: Encodable {
+        let conversationID: String
+        let incomingEnabled: Bool
+        let incomingAllowsCrossWorkspace: Bool
+        let outgoingEnabled: Bool
+        let outgoingAllowsCrossWorkspace: Bool
+        let blockedPaneIDs: [String]
+        let blockedWorkspaceIDs: [String]
     }
 
     struct RenamedWorkspace: Encodable {
@@ -610,6 +663,9 @@ struct SoyehtAutomationResponse: Encodable {
     let createdWorkspaces: [CreatedWorkspace]
     let createdPanes: [CreatedPane]
     let sentPanes: [SentPane]
+    var agentMessageDeliveries: [AgentMessageDelivery] = []
+    var agentInboxMessages: [AgentInboxMessage] = []
+    var agentCommunicationPolicies: [AgentCommunicationPolicyState] = []
     let renamedWorkspaces: [RenamedWorkspace]
     let renamedPanes: [RenamedPane]
     let arrangedPaneLayouts: [ArrangedPaneLayout]
@@ -644,6 +700,9 @@ struct SoyehtAutomationResult {
     var createdWorkspaces: [SoyehtAutomationResponse.CreatedWorkspace] = []
     var createdPanes: [SoyehtAutomationResponse.CreatedPane] = []
     var sentPanes: [SoyehtAutomationResponse.SentPane] = []
+    var agentMessageDeliveries: [SoyehtAutomationResponse.AgentMessageDelivery] = []
+    var agentInboxMessages: [SoyehtAutomationResponse.AgentInboxMessage] = []
+    var agentCommunicationPolicies: [SoyehtAutomationResponse.AgentCommunicationPolicyState] = []
     var renamedWorkspaces: [SoyehtAutomationResponse.RenamedWorkspace] = []
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
     var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
@@ -867,6 +926,9 @@ final class SoyehtAutomationService {
                 createdWorkspaces: result.createdWorkspaces,
                 createdPanes: result.createdPanes,
                 sentPanes: result.sentPanes,
+                agentMessageDeliveries: result.agentMessageDeliveries,
+                agentInboxMessages: result.agentInboxMessages,
+                agentCommunicationPolicies: result.agentCommunicationPolicies,
                 renamedWorkspaces: result.renamedWorkspaces,
                 renamedPanes: result.renamedPanes,
                 arrangedPaneLayouts: result.arrangedPaneLayouts,
