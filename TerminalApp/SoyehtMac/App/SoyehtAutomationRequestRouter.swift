@@ -1371,7 +1371,15 @@ final class SoyehtAutomationRequestRouter {
         let wsIDStr = request.payload.workspaceID ?? request.payload.workspaceIDs?.first
         let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
         let panes: [SoyehtMainWindowController.ListedPaneResult]
-        if let target {
+        if wsIDStr == nil, !mainWindowControllers().isEmpty {
+            // The MCP 2.0 directory is intentionally global. Proximity is
+            // represented by grouping and `isSourceWorkspace`, not by hiding
+            // collaborators in other workspaces or windows.
+            var seen = Set<Conversation.ID>()
+            panes = try mainWindowControllers().flatMap { controller in
+                try controller.listPanes(workspaceIDString: nil).panes
+            }.filter { seen.insert($0.conversationID).inserted }
+        } else if let target {
             panes = try target.listPanes(workspaceIDString: wsIDStr).panes
         } else if let requested = requestedWindowID(request.payload) {
             _ = try automationWindow(id: requested)
@@ -1390,11 +1398,33 @@ final class SoyehtAutomationRequestRouter {
                 presence: presence[pane.conversationID.uuidString]
             )
         }
+        let grouped = Dictionary(grouping: agents, by: \.workspaceID)
+            .map { workspaceID, members in
+                let sortedMembers = members.sorted { lhs, rhs in
+                    if lhs.isLive != rhs.isLive { return lhs.isLive && !rhs.isLive }
+                    return lhs.displayReference.localizedCaseInsensitiveCompare(rhs.displayReference) == .orderedAscending
+                }
+                return SoyehtAutomationResponse.AgentWorkspaceGroup(
+                    workspaceID: workspaceID,
+                    workspaceName: members.first?.workspaceName ?? "",
+                    isSourceWorkspace: members.first?.isSourceWorkspace ?? false,
+                    agentCount: members.count,
+                    liveAgentCount: members.filter(\.isLive).count,
+                    agents: sortedMembers
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isSourceWorkspace != rhs.isSourceWorkspace {
+                    return lhs.isSourceWorkspace && !rhs.isSourceWorkspace
+                }
+                return lhs.workspaceName.localizedCaseInsensitiveCompare(rhs.workspaceName) == .orderedAscending
+            }
 
         return SoyehtAutomationResult(
             activeContext: try target.map { try makeActiveContext($0, payload: request.payload) },
             sourceIdentity: identity,
-            listedAgents: agents
+            listedAgents: grouped.flatMap(\.agents),
+            agentWorkspaceGroups: grouped
         )
     }
 
@@ -1527,6 +1557,7 @@ final class SoyehtAutomationRequestRouter {
             workspaceID: conversation.workspaceID.uuidString,
             workspaceName: workspaceName,
             handle: conversation.handle,
+            displayReference: Self.displayReference(for: conversation.handle),
             path: automationReportPath(for: conversation.content, workingDirectoryPath: conversation.workingDirectoryPath),
             declaredAgent: conversation.content.isTerminal ? conversation.agent.rawValue : conversation.content.displayKind,
             windowID: windowID,
@@ -1563,6 +1594,7 @@ final class SoyehtAutomationRequestRouter {
             workspaceID: pane.workspaceID.uuidString,
             workspaceName: workspaceStore.workspace(pane.workspaceID)?.name ?? "",
             handle: pane.handle,
+            displayReference: Self.displayReference(for: pane.handle),
             path: pane.path,
             declaredAgent: pane.declaredAgent,
             status: presence?.status ?? (isLive ? "live" : "not_live"),
@@ -1571,9 +1603,10 @@ final class SoyehtAutomationRequestRouter {
             canReceiveMessage: canReceiveMessage,
             isActive: pane.isActive,
             isActiveWorkspace: pane.isActiveWorkspace,
+            isSourceWorkspace: source?.workspaceID == pane.workspaceID.uuidString,
             windowID: pane.windowID,
             messageTarget: args,
-            replyInstructions: replyInstructions(to: pane.handle, source: source)
+            replyInstructions: replyInstructions(to: pane.conversationID, source: source)
         )
     }
 
@@ -1594,13 +1627,19 @@ final class SoyehtAutomationRequestRouter {
     }
 
     private func replyInstructions(
-        to handle: String,
+        to conversationID: Conversation.ID,
         source: SoyehtAutomationResponse.SourceIdentity?
     ) -> String {
         if let source {
-            return "Use message_agent with handles=[\"\(handle)\"], fromHandle=\"\(source.handle)\", lineEnding=\"enter\". Do not create a new pane when this handle is present."
+            return "Use message_agent with conversationIDs=[\"\(conversationID.uuidString)\"], fromConversationID=\"\(source.conversationID)\", lineEnding=\"enter\". Do not create a new pane when this conversation is present."
         }
-        return "Use message_agent with handles=[\"\(handle)\"] and pass fromHandle/fromConversationID from identify_agent when available. Do not create a new pane when this handle is present."
+        return "Use message_agent with conversationIDs=[\"\(conversationID.uuidString)\"] and pass fromConversationID from identify_agent when available. Do not create a new pane when this conversation is present."
+    }
+
+    private static func displayReference(for handle: String) -> String {
+        let trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed
+        return "[\(name.isEmpty ? "pane" : name)]"
     }
 
     private func panePresenceByID() -> [String: PanePresence] {

@@ -381,6 +381,9 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let workspaceName: String
         let handle: String
+        /// Human-safe reference for prompts, logs, and commit/PR text. The
+        /// legacy `handle` remains the routing key for backwards compatibility.
+        let displayReference: String
         let path: String
         let declaredAgent: String
         let windowID: String?
@@ -393,6 +396,7 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let workspaceName: String
         let handle: String
+        let displayReference: String
         let path: String
         let declaredAgent: String
         let status: String
@@ -401,9 +405,22 @@ struct SoyehtAutomationResponse: Encodable {
         let canReceiveMessage: Bool
         let isActive: Bool
         let isActiveWorkspace: Bool
+        /// True when this agent belongs to the resolved caller's workspace.
+        /// A global directory can therefore make nearby collaborators obvious
+        /// without hiding intentional cross-workspace targets.
+        let isSourceWorkspace: Bool
         let windowID: String?
         let messageTarget: MessageAgentArguments
         let replyInstructions: String
+    }
+
+    struct AgentWorkspaceGroup: Encodable {
+        let workspaceID: String
+        let workspaceName: String
+        let isSourceWorkspace: Bool
+        let agentCount: Int
+        let liveAgentCount: Int
+        let agents: [ListedAgent]
     }
 
     struct ClosedPane: Encodable {
@@ -613,6 +630,9 @@ struct SoyehtAutomationResponse: Encodable {
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
     let listedAgents: [ListedAgent]
+    /// MCP 2.0 view of the global agent directory. `listedAgents` is retained
+    /// as a flat compatibility surface while new clients render these groups.
+    var agentWorkspaceGroups: [AgentWorkspaceGroup] = []
     let agentStateReported: AgentStateReported?
     let agentConversationReported: AgentConversationReported?
     let switchedAgents: [SwitchedAgent]?
@@ -644,6 +664,7 @@ struct SoyehtAutomationResult {
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
+    var agentWorkspaceGroups: [SoyehtAutomationResponse.AgentWorkspaceGroup] = []
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
     var agentConversationReported: SoyehtAutomationResponse.AgentConversationReported? = nil
     var switchedAgents: [SoyehtAutomationResponse.SwitchedAgent]? = nil
@@ -866,6 +887,7 @@ final class SoyehtAutomationService {
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
                 listedAgents: result.listedAgents,
+                agentWorkspaceGroups: result.agentWorkspaceGroups,
                 agentStateReported: result.agentStateReported,
                 agentConversationReported: result.agentConversationReported,
                 switchedAgents: result.switchedAgents,
