@@ -70,7 +70,7 @@ To ship a deploy, the following levels must be green:
 | macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
 | macOS Window / Workspace Identity | [mac-window-workspace-identity.md](domains/mac-window-workspace-identity.md) | ST-Q-MWID-001..017 | standard | assisted + unit | No |
 | macOS Shortcut Window Scoping | [mac-shortcut-window-scoping.md](domains/mac-shortcut-window-scoping.md) | ST-Q-MSCOP-001..004 | standard | unit + assisted | No |
-| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..162 | full | auto + assisted | No |
+| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..163 | full | auto + assisted | No |
 
 ### macOS (new — feat/claw-store-macos)
 
@@ -179,7 +179,7 @@ Areas most likely to break, ordered by risk:
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
 | 2026-08-21 | **Soyeht Dev stable Accessibility identity** (signed install, explicit TCC registration, permission survives fresh rebuild/reinstall) | PASS | [report](runs/2026-08-21-soyeht-dev-accessibility/report.md) |
-| 2026-08-21 | **MCP 2.0 real-agent behavioral ring + typing-collision ring** (three launch/round-trip routes plus all three primary CLIs as sender and recipient while an unfinished user draft is held) | 6/6 PASS | [report](runs/2026-08-21-mcp2-agent-driven-e2e/report.md) |
+| 2026-08-21 | **MCP 2.0 real-agent behavioral ring + typing-collision rings** (three launch/round-trip routes, three injected-draft routes, and three physical-keyboard routes across Codex, OpenCode, and Claude) | 9/9 PASS | [report](runs/2026-08-21-mcp2-agent-driven-e2e/report.md) |
 | 2026-08-21 | **Gate Quick** (iOS, SwiftPM, API contract smoke) | PASS WITH FOLLOW-UPS | [report](runs/2026-08-21-codex-gate-quick/gate-report.md) |
 | 2026-05-06 | **Even Pane MCP Layout** (2/4/6/8 MCP batch layouts plus Codex, Claude Code, OpenCode, Droid custom agent paths) | PASS | [report](runs/2026-05-06-even-pane-mcp-layout/report.md) |
 | 2026-05-05 | **MCP Direct Validation ST-Q-MCPA-021..104** (41/48 tested; 7 SKIP agent/manual; 3 code fixes: agent validation, repeated-agent suffix, JSON crash) | 41/41 PASS | [report](runs/2026-05-05-mcpa-021-104/report.md) |

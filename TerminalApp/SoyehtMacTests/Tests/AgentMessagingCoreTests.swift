@@ -147,6 +147,51 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
+    func testDraftGateTracksKittyPrintableKeysAndReturn() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[97u".utf8))
+        gate.record(Data("\u{1B}[98;;66u".utf8))
+        gate.record(Data("\u{1B}[1095::59;;1095u".utf8))
+        XCTAssertFalse(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 3)
+
+        gate.record(Data("\u{1B}[13u".utf8))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testDraftGateHandlesKittyBackspaceCancelAndReleaseEvents() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[97u".utf8))
+        gate.record(Data("\u{1B}[98u".utf8))
+        gate.record(Data("\u{1B}[98;1:3u".utf8)) // key release
+        XCTAssertEqual(gate.pendingByteCount, 2)
+
+        gate.record(Data("\u{1B}[127u".utf8))
+        XCTAssertEqual(gate.pendingByteCount, 1)
+
+        gate.record(Data("\u{1B}[99;5u".utf8)) // Ctrl-C
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("draft".utf8))
+        gate.record(Data("\u{1B}[117;5u".utf8)) // Ctrl-U
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testDraftGateIgnoresKittyNonTextKeysAndTextPreventingModifiers() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[57442;5u".utf8)) // left Control
+        gate.record(Data("\u{1B}[106;5u".utf8)) // Ctrl-J
+        gate.record(Data("\u{1B}[97;3u".utf8)) // Alt-A
+        gate.record(Data("\u{1B}[1;2A".utf8)) // shifted Up arrow
+        gate.record(Data("\u{1B}[u".utf8)) // cursor restore
+
+        XCTAssertTrue(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 0)
+    }
+
     func testInboxInsertIsDurableIdempotentAndNormalizesBody() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(sender: endpoint(handle: "caia"), recipient: recipient)

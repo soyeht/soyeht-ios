@@ -159,6 +159,7 @@ struct AgentMessageDraftGate: Equatable {
 
     private(set) var pendingByteCount = 0
     private var escapeState: EscapeState = .normal
+    private var controlSequenceBytes: [UInt8] = []
 
     var isClear: Bool { pendingByteCount == 0 }
 
@@ -167,16 +168,28 @@ struct AgentMessageDraftGate: Equatable {
             switch escapeState {
             case .escape:
                 switch byte {
-                case 0x5B: escapeState = .controlSequence // ESC [
+                case 0x5B:
+                    controlSequenceBytes.removeAll(keepingCapacity: true)
+                    escapeState = .controlSequence // ESC [
                 case 0x5D: escapeState = .operatingSystemCommand // ESC ]
                 default: escapeState = .normal // Alt/SS3: consume this key as control input.
                 }
                 continue
             case .controlSequence:
-                // CSI sequences end at a byte in 0x40...0x7E. Ignoring the
-                // entire packet prevents arrow, focus, mouse and Kitty-key
-                // reports from masquerading as unfinished printable drafts.
-                if (0x40...0x7E).contains(byte) { escapeState = .normal }
+                // CSI sequences end at a byte in 0x40...0x7E. Arrow, focus,
+                // mouse and other terminal reports must not masquerade as an
+                // unfinished printable draft. Kitty's enhanced keyboard
+                // protocol is the exception: TUIs
+                // such as OpenCode encode real printable keys, Return and
+                // Backspace as CSI ... u, so those packets must update the
+                // same draft state as their legacy byte equivalents.
+                if (0x40...0x7E).contains(byte) {
+                    if byte == 0x75 { recordKittyKey(controlSequenceBytes) } // u
+                    controlSequenceBytes.removeAll(keepingCapacity: true)
+                    escapeState = .normal
+                } else {
+                    controlSequenceBytes.append(byte)
+                }
                 continue
             case .operatingSystemCommand:
                 if byte == 0x07 { // BEL terminates OSC.
@@ -205,6 +218,71 @@ struct AgentMessageDraftGate: Equatable {
                 break
             }
         }
+    }
+
+    /// Applies one Kitty keyboard `CSI key;modifiers:event;text u` packet.
+    /// Release events never change the draft. Associated text is preferred
+    /// when present; otherwise the primary codepoint is counted only when no
+    /// text-preventing modifier (Ctrl/Alt/Super/Hyper/Meta) is active.
+    private mutating func recordKittyKey(_ bytes: [UInt8]) {
+        guard !bytes.isEmpty,
+              let payload = String(bytes: bytes, encoding: .ascii) else { return }
+        let fields = payload.split(separator: ";", omittingEmptySubsequences: false)
+        guard let keyField = fields.first,
+              let keyCode = Int(keyField.split(separator: ":", omittingEmptySubsequences: false)[0]) else {
+            // Plain `CSI u` is cursor restore, not a keyboard packet.
+            return
+        }
+
+        let modifierField = fields.count > 1 ? fields[1] : ""
+        let modifierParts = modifierField.split(separator: ":", omittingEmptySubsequences: false)
+        let encodedModifiers = modifierParts.first.flatMap { Int($0) } ?? 1
+        let eventType = modifierParts.count > 1 ? Int(modifierParts[1]) ?? 1 : 1
+        guard eventType != 3 else { return } // release
+
+        let rawModifiers = max(0, encodedModifiers - 1)
+        let controlModifier = 1 << 2
+        if rawModifiers & controlModifier != 0 {
+            if keyCode == 99 || keyCode == 67 || keyCode == 117 || keyCode == 85 {
+                pendingByteCount = 0 // Ctrl-C / Ctrl-U
+            }
+            return
+        }
+
+        switch keyCode {
+        case 13:
+            pendingByteCount = 0
+            return
+        case 8, 127:
+            pendingByteCount = max(0, pendingByteCount - 1)
+            return
+        default:
+            break
+        }
+
+        if fields.count > 2 {
+            let associatedText = fields[2]
+                .split(separator: ":", omittingEmptySubsequences: true)
+                .compactMap { Int($0) }
+                .filter(Self.isPrintableUnicodeScalar)
+            if !associatedText.isEmpty {
+                pendingByteCount += associatedText.count
+                return
+            }
+        }
+
+        let textPreventingModifierMask = (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5)
+        guard rawModifiers & textPreventingModifierMask == 0,
+              Self.isPrintableUnicodeScalar(keyCode) else { return }
+        pendingByteCount += 1
+    }
+
+    private static func isPrintableUnicodeScalar(_ value: Int) -> Bool {
+        guard let scalar = UnicodeScalar(value) else { return false }
+        return !CharacterSet.controlCharacters.contains(scalar)
+            && !CharacterSet.illegalCharacters.contains(scalar)
+            && !CharacterSet.nonBaseCharacters.contains(scalar)
+            && !(0xE000...0xF8FF).contains(value)
     }
 
     mutating func record(text: String, submitsWithEnter: Bool) {

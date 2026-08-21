@@ -22,7 +22,6 @@ import shlex
 import subprocess
 from time import monotonic, sleep, time
 
-
 def load_mcp(repo_root: Path):
     module_path = repo_root / "scripts" / "soyeht-mcp"
     loader = importlib.machinery.SourceFileLoader("soyeht_agent_driven_e2e_module", str(module_path))
@@ -35,6 +34,159 @@ def load_mcp(repo_root: Path):
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def require_accessibility_keyboard_control():
+    completed = subprocess.run(
+        [
+            "/usr/bin/osascript",
+            "-e",
+            'tell application "System Events" to return UI elements enabled',
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    require(
+        completed.stdout.strip().lower() == "true",
+        "macOS Accessibility keyboard control is not enabled for this runner.",
+    )
+
+
+def raise_soyeht_dev_window(window_id):
+    expected_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
+    script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  tell application id "com.soyeht.mac.dev" to activate
+  delay 0.35
+  tell application "System Events" to tell process "Soyeht Dev"
+    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+    perform action "AXRaise" of targetWindow
+    set value of attribute "AXMain" of targetWindow to true
+    delay 0.15
+    if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
+      error "The requested Soyeht Dev window did not become frontmost"
+    end if
+  end tell
+end run
+'''
+    latest_error = ""
+    for _ in range(8):
+        completed = subprocess.run(
+            ["/usr/bin/osascript", "-e", script, expected_identifier],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            return
+        latest_error = completed.stderr.strip()
+        sleep(0.25)
+    raise RuntimeError(
+        f"Could not raise exact Soyeht Dev window {window_id}: {latest_error}"
+    )
+
+
+def type_through_macos_keyboard(text, expected_window_id, submit_with_return=False):
+    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
+    script = r'''
+on run argv
+  set payload to item 1 of argv
+  set shouldSubmit to item 2 of argv
+  set expectedIdentifier to item 3 of argv
+  tell application "System Events"
+    set frontApp to name of first application process whose frontmost is true
+    if frontApp is not "Soyeht Dev" then error "Soyeht Dev did not become frontmost"
+    tell process "Soyeht Dev"
+      if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
+        error "Physical input would target the wrong Soyeht Dev window"
+      end if
+    end tell
+    if length of payload is greater than 0 then
+      keystroke payload
+    end if
+    if shouldSubmit is "true" then key code 36
+  end tell
+end run
+'''
+    subprocess.run(
+        [
+            "/usr/bin/osascript",
+            "-e",
+            script,
+            text,
+            "true" if submit_with_return else "false",
+            expected_identifier,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def click_soyeht_dev_target(expected_window_id):
+    try:
+        import Quartz
+    except ImportError as exc:
+        raise RuntimeError(
+            "--physical-keyboard-only requires macOS PyObjC Quartz bindings."
+        ) from exc
+
+    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
+    script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  tell application "System Events" to tell process "Soyeht Dev"
+    if frontmost is not true then error "Soyeht Dev is not frontmost"
+    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+    set {windowX, windowY} to position of targetWindow
+    set {windowWidth, windowHeight} to size of targetWindow
+    return (windowX as text) & "," & (windowY as text) & "," & (windowWidth as text) & "," & (windowHeight as text)
+  end tell
+end run
+'''
+    latest_error = ""
+    for _ in range(8):
+        completed = subprocess.run(
+            ["/usr/bin/osascript", "-e", script, expected_identifier],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            try:
+                window_x, window_y, window_width, window_height = [
+                    float(value.strip()) for value in completed.stdout.strip().split(",")
+                ]
+            except (TypeError, ValueError) as exc:
+                latest_error = f"invalid AX window bounds: {completed.stdout!r} ({exc})"
+                sleep(0.25)
+                continue
+            point = (
+                window_x + window_width * 0.50,
+                window_y + window_height * 0.60,
+            )
+            mouse_down = Quartz.CGEventCreateMouseEvent(
+                None,
+                Quartz.kCGEventLeftMouseDown,
+                point,
+                Quartz.kCGMouseButtonLeft,
+            )
+            mouse_up = Quartz.CGEventCreateMouseEvent(
+                None,
+                Quartz.kCGEventLeftMouseUp,
+                point,
+                Quartz.kCGMouseButtonLeft,
+            )
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, mouse_down)
+            sleep(0.05)
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, mouse_up)
+            sleep(0.15)
+            return
+        latest_error = completed.stderr.strip()
+        sleep(0.25)
+    raise RuntimeError(
+        f"Could not click exact Soyeht Dev window {expected_window_id}: {latest_error}"
+    )
 
 
 def source_args(pane, automation_dir, timeout):
@@ -265,6 +417,27 @@ def wait_for_transcript_token(mcp, pane, token, automation_dir, timeout):
     )
 
 
+def wait_for_transcript_token_count(
+    mcp,
+    pane,
+    token,
+    minimum_count,
+    automation_dir,
+    timeout,
+):
+    deadline = monotonic() + timeout
+    latest = ""
+    while monotonic() < deadline:
+        latest = capture_text(mcp, pane, automation_dir, timeout)
+        if latest.count(token) >= minimum_count:
+            return latest
+        sleep(0.5)
+    raise RuntimeError(
+        f"Pane {pane['handle']} showed {token!r} only {latest.count(token)} time(s); "
+        f"expected at least {minimum_count}. Last capture: {latest[-1200:]!r}"
+    )
+
+
 def run_typing_collision(
     mcp,
     observer,
@@ -277,13 +450,14 @@ def run_typing_collision(
     sender_agent,
     recipient_agent,
     recipient_directory,
+    input_mode,
 ):
     collision_baseline = process_snapshot()
     sender_name = f"e2e-draft-sender-{sender_agent}-{run_id}-{index}"
     recipient_name = f"e2e-draft-target-{recipient_agent}-{run_id}-{index}"
     ready_token = f"E2E_DRAFT_CHILD_READY_{run_id}_{index}"
-    draft_token = f"E2E_UNFINISHED_HUMAN_DRAFT_{run_id}_{index}"
-    draft_done_token = f"E2E_HUMAN_DRAFT_DONE_{run_id}_{index}"
+    recipient_ready_token = f"E2E_DRAFT_RECIPIENT_READY_{run_id}_{index}"
+    draft_token = f"E2E_DRAFT_{run_id}_{index}"
     relay_token = f"E2E_DEFERRED_REAL_AGENT_REPLY_{run_id}_{index}"
     # Hyphens survive Markdown/TUI rendering. The MCP reply token itself stays
     # underscore-exact and is validated from the durable inbox separately.
@@ -291,8 +465,9 @@ def run_typing_collision(
     sender_prompt = (
         f"Teste E2E sem alterar arquivos. Use especificamente soyeht-dev.open_agent_pane "
         f"para abrir um agente {recipient_agent} neste mesmo workspace, no diretório exato "
-        f"{recipient_directory}, com o nome exato {recipient_name}. Não envie mensagem ao agente "
-        f"ainda. Quando a pane existir, escreva exatamente {ready_token} e pare, aguardando "
+        f"{recipient_directory}, com o nome exato {recipient_name}. Passe um prompt inicial pedindo "
+        f"ao agente novo que responda somente {recipient_ready_token} e aguarde. Não envie mensagem "
+        f"pelo MCP ao agente ainda. Quando a pane existir, escreva exatamente {ready_token} e pare, aguardando "
         f"a próxima instrução do usuário."
     )
     sender_opened = mcp.tool_open_agent_pane({
@@ -327,15 +502,36 @@ def run_typing_collision(
         timeout,
     )
     wait_for_transcript_token(mcp, sender, ready_token, automation_dir, timeout)
+    # The launch prompt itself contains the token once. Requiring a second
+    # occurrence proves that the real agent answered and returned from a full
+    # turn instead of merely echoing broker input during startup.
+    wait_for_transcript_token_count(
+        mcp,
+        recipient,
+        recipient_ready_token,
+        2,
+        automation_dir,
+        timeout,
+    )
+    # The marker can become visible one render before the TUI restores its
+    # input editor. Give the completed frame a short settle interval so the
+    # physical draft cannot be erased by the final alternate-screen redraw.
+    sleep(3.0)
 
     # Put the real recipient in the same focused state as a pane where the
     # user is actively composing. The text then enters without Enter through
     # the same onUserInputData path used by keyboard input.
+    if input_mode == "physicalKeyboard":
+        # Pane focus inside a background window is not enough: macOS sends
+        # physical keys to the key window. Raise the exact AX-identified
+        # Soyeht window first, then let emphasize_pane claim the terminal as
+        # first responder while that window is active.
+        raise_soyeht_dev_window(recipient["windowID"])
     mcp.tool_emphasize_pane({
         **source_args(observer, automation_dir, timeout),
         "conversationIDs": [recipient["conversationID"]],
-        "mode": "spotlight",
-        "ratio": 0.72,
+        "mode": "zoom" if input_mode == "physicalKeyboard" else "spotlight",
+        "ratio": None if input_mode == "physicalKeyboard" else 0.72,
     })
     focused_inventory = mcp.tool_list_panes({
         **source_args(observer, automation_dir, timeout),
@@ -348,26 +544,48 @@ def run_typing_collision(
         ),
         f"Real {recipient_agent} recipient was not focused before simulating human typing.",
     )
+    if input_mode == "physicalKeyboard":
+        # Model focus and AppKit first-responder focus are separate. Zoom makes
+        # the target deterministic regardless of accumulated pane geometry;
+        # a real Quartz click then reproduces how a person focuses its editor.
+        click_soyeht_dev_target(recipient["windowID"])
 
-    unfinished_draft = (
-        f"{draft_token}. Este texto ainda não foi enviado. Quando eu concluir esta linha, "
-        f"responda apenas {draft_done_token}."
-    )
-    draft_input = mcp.tool_send_pane_input({
-        **source_args(observer, automation_dir, timeout),
-        "conversationIDs": [recipient["conversationID"]],
-        "text": unfinished_draft,
-        "lineEnding": "none",
-    })
-    require(
-        any(
-            pane.get("conversationID") == recipient["conversationID"]
-            for pane in draft_input.get("sentPanes", [])
-        ),
-        f"Synthetic human draft was not accepted by the real {recipient_agent} pane.",
-    )
+    unfinished_draft = f"{draft_token} reply only OK"
+    if input_mode == "physicalKeyboard":
+        type_through_macos_keyboard(
+            unfinished_draft,
+            recipient["windowID"],
+            submit_with_return=False,
+        )
+    else:
+        draft_input = mcp.tool_send_pane_input({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "text": unfinished_draft,
+            "lineEnding": "none",
+        })
+        require(
+            any(
+                pane.get("conversationID") == recipient["conversationID"]
+                for pane in draft_input.get("sentPanes", [])
+            ),
+            f"Synthetic human draft was not accepted by the real {recipient_agent} pane.",
+        )
     sleep(0.75)
     initial_draft_capture = capture_text(mcp, recipient, automation_dir, timeout)
+    require(
+        draft_token in initial_draft_capture,
+        f"{input_mode} input did not reach the focused {recipient_agent} pane. "
+        "Refusing to treat app activation alone as proof of user input.",
+    )
+    if input_mode == "physicalKeyboard":
+        # Zoom temporarily removes siblings from the rendered tree. Restore
+        # them before asking the sender to continue so its pane is live.
+        mcp.tool_emphasize_pane({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "unzoom",
+        })
 
     follow_up = (
         f"Agora use soyeht-dev.message_agent para enviar uma mensagem ao agente "
@@ -412,12 +630,33 @@ def run_typing_collision(
         f"Real {recipient_agent} relay was marked terminal-delivered before the user's Enter.",
     )
 
-    mcp.tool_send_pane_input({
-        **source_args(observer, automation_dir, timeout),
-        "conversationIDs": [recipient["conversationID"]],
-        "text": " ENVIAR_AGORA",
-        "lineEnding": "enter",
-    })
+    if input_mode == "physicalKeyboard":
+        # The sender follow-up uses automation and may momentarily become first
+        # responder. Reassert the exact recipient before generating Return.
+        raise_soyeht_dev_window(recipient["windowID"])
+        mcp.tool_emphasize_pane({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "zoom",
+        })
+        click_soyeht_dev_target(recipient["windowID"])
+        type_through_macos_keyboard(
+            "",
+            recipient["windowID"],
+            submit_with_return=True,
+        )
+        mcp.tool_emphasize_pane({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "unzoom",
+        })
+    else:
+        mcp.tool_send_pane_input({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "text": " ENVIAR_AGORA",
+            "lineEnding": "enter",
+        })
     released_capture = wait_for_transcript_token(
         mcp,
         recipient,
@@ -455,7 +694,11 @@ def run_typing_collision(
         "recipientPane": recipient,
         "senderProcess": sender_process,
         "recipientProcess": recipient_process,
-        "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+        "inputSimulation": (
+            "macOS Accessibility keystrokes plus physical Return"
+            if input_mode == "physicalKeyboard"
+            else "send_pane_input without Enter through the shared onUserInputData draft gate"
+        ),
         "recipientFocusedForHumanSimulation": True,
         "unfinishedDraftInputAccepted": True,
         "unfinishedDraftVisibleInDynamicCapture": draft_token in initial_draft_capture,
@@ -482,6 +725,11 @@ def main() -> int:
         action="store_true",
         help="Run only the real-agent unfinished-draft collision scenario.",
     )
+    parser.add_argument(
+        "--physical-keyboard-only",
+        action="store_true",
+        help="Run the collision ring using macOS Accessibility keystrokes instead of send_pane_input.",
+    )
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -504,8 +752,10 @@ def main() -> int:
         {"parent": "opencode", "child": "claude", "directory": repo_root / "docs"},
         {"parent": "claude", "child": "codex", "directory": repo_root / "TerminalApp"},
     ]
-    if args.typing_collision_only:
+    if args.typing_collision_only or args.physical_keyboard_only:
         flows = []
+    if args.physical_keyboard_only:
+        require_accessibility_keyboard_control()
 
     try:
         workspace = mcp.tool_open_workspace({
@@ -655,6 +905,7 @@ def main() -> int:
                 sender_agent=sender_agent,
                 recipient_agent=recipient_agent,
                 recipient_directory=recipient_directory,
+                input_mode="physicalKeyboard" if args.physical_keyboard_only else "automationInput",
             ))
 
         evidence["status"] = "passed"
