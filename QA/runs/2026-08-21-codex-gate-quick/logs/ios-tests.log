@@ -1,0 +1,2955 @@
+$ make test
+
+set -o pipefail && xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht \
+		-destination 'id=078EA198-9115-41B1-A063-BF9AF6075AF4' \
+		CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+		2>&1 | xcbeautify
+
+----- xcbeautify -----
+Version: 3.2.1
+----------------------
+
+Resolving Package Graph
+Resolved source packages
+swift-asn1 - https://github.com/apple/swift-asn1.git @ 1.5.1
+SwiftDocCPlugin - https://github.com/apple/swift-docc-plugin @ 1.4.6
+swift-snapshot-testing - https://github.com/pointfreeco/swift-snapshot-testing @ 1.19.2
+swift-nio-ssh - https://github.com/apple/swift-nio-ssh @ 0.12.0
+swift-collections - https://github.com/apple/swift-collections.git @ 1.3.0
+swift-argument-parser - https://github.com/apple/swift-argument-parser @ 1.6.1
+BLAKE3 - https://github.com/JoshBashed/blake3-swift.git @ 0.2.2
+xctest-dynamic-overlay - https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.9.0
+swift-secp256k1 - https://github.com/GigaBitcoin/secp256k1.swift.git @ 0.23.2
+swift-system - https://github.com/apple/swift-system @ 1.5.0
+swift-nio - https://github.com/apple/swift-nio.git @ 2.92.2
+swift-crypto - https://github.com/apple/swift-crypto.git @ 3.15.1
+swift-atomics - https://github.com/apple/swift-atomics.git @ 1.3.0
+swift-custom-dump - https://github.com/pointfreeco/swift-custom-dump @ 1.5.0
+swift-syntax - https://github.com/swiftlang/swift-syntax @ 603.0.1
+SymbolKit - https://github.com/swiftlang/swift-docc-symbolkit @ 1.0.0
+note: Using codesigning identity override:
+note: Building targets in dependency order
+note: Target dependency graph (57 targets)
+[nat_probe_ffiFFI] Write Auxiliary File nat_probe_ffiFFI.DependencyMetadataFileList
+[nat_probe_ffiFFI] Write Auxiliary File nat_probe_ffiFFI.DependencyStaticMetadataFileList
+[swift-nio_NIOPosix] Write Auxiliary File swift-nio_NIOPosix.DependencyMetadataFileList
+[nat_probe_ffiFFI] Write Auxiliary File nat_probe_ffiFFI.LinkFileList
+[swift-nio_NIOPosix] Write Auxiliary File empty-swift-nio_NIOPosix.plist
+[relay_stream_guest_ffiFFI] Write Auxiliary File relay_stream_guest_ffiFFI.DependencyMetadataFileList
+[nat_probe_ffiFFI] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[libsecp256k1] Write Auxiliary File libsecp256k1.DependencyStaticMetadataFileList
+[relay_stream_guest_ffiFFI] Write Auxiliary File relay_stream_guest_ffiFFI.DependencyStaticMetadataFileList
+[libsecp256k1] Write Auxiliary File libsecp256k1.modulemap
+[swift-nio_NIOPosix] Write Auxiliary File swift-nio_NIOPosix.DependencyStaticMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File swift-crypto_Crypto.DependencyMetadataFileList
+[libsecp256k1] Write Auxiliary File libsecp256k1.DependencyMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File swift-crypto_Crypto.DependencyStaticMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File empty-swift-crypto_Crypto.plist
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.DependencyStaticMetadataFileList
+[libsecp256k1] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[libsecp256k1] Write Auxiliary File libsecp256k1.LinkFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.DependencyMetadataFileList
+[relay_stream_guest_ffiFFI] Write Auxiliary File relay_stream_guest_ffiFFI.LinkFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.modulemap
+[relay_stream_guest_ffiFFI] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[blake3-c] Write Auxiliary File blake3-c.DependencyStaticMetadataFileList
+[blake3-c] Write Auxiliary File blake3-c.modulemap
+[blake3-c] Write Auxiliary File blake3-c.DependencyMetadataFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures_const_extract_protocols.json
+[libsecp256k1] Copy libsecp256k1.modulemap -> libsecp256k1.modulemap
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.SwiftFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.SwiftConstValuesFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.LinkFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures-OutputFileMap.json
+[blake3-c] Write Auxiliary File blake3-c.LinkFileList
+[blake3-c] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[_NIOBase64] Write Auxiliary File _NIOBase64.modulemap
+[_NIOBase64] Write Auxiliary File _NIOBase64.DependencyStaticMetadataFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.DependencyMetadataFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64_const_extract_protocols.json
+[_NIOBase64] Write Auxiliary File _NIOBase64-OutputFileMap.json
+[_NIOBase64] Write Auxiliary File _NIOBase64.SwiftConstValuesFileList
+[blake3-c] Copy blake3-c.modulemap -> blake3-c.modulemap
+[_NIODataStructures] Copy _NIODataStructures.modulemap -> _NIODataStructures.modulemap
+[_NIOBase64] Write Auxiliary File _NIOBase64.SwiftFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.LinkFileList
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.DependencyMetadataFileList
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.DependencyStaticMetadataFileList
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.LinkFileList
+[_AtomicsShims] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[SwiftTerm] Write Auxiliary File SwiftTerm.modulemap
+[SwiftTerm] Write Auxiliary File SwiftTerm.DependencyStaticMetadataFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm.DependencyMetadataFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm_const_extract_protocols.json
+[SwiftTerm] Write Auxiliary File SwiftTerm.SwiftFileList
+[_NIOBase64] Copy _NIOBase64.modulemap -> _NIOBase64.modulemap
+[SwiftTerm] Write Auxiliary File SwiftTerm.SwiftConstValuesFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm.LinkFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm-OutputFileMap.json
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-generated-files.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.DependencyStaticMetadataFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.DependencyMetadataFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-project-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-own-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-all-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-all-non-framework-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugEntryPoint-normal-arm64.txt
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugDylibPath-normal-arm64.txt
+[SwiftTerm] Copy SwiftTerm.modulemap -> SwiftTerm.modulemap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugDylibInstallName-normal-arm64.txt
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity_const_extract_protocols.json
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.SwiftFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.SwiftConstValuesFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.LinkFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-OutputFileMap.json
+[SoyehtLiveActivity] Write Auxiliary File Entitlements-Simulated.plist
+[SoyehtCore_SoyehtCore] Write Auxiliary File empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore_SoyehtCore] Write Auxiliary File SoyehtCore_SoyehtCore.DependencyStaticMetadataFileList
+[SoyehtCore_SoyehtCore] Write Auxiliary File SoyehtCore_SoyehtCore.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.DependencyStaticMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.modulemap
+[SoyehtCore] Write Auxiliary File SoyehtCore.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_const_extract_protocols.json
+[SoyehtCore] Write Auxiliary File SoyehtCore.SwiftConstValuesFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.SwiftFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.LinkFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore-OutputFileMap.json
+[SoyehtCore] Write Auxiliary File resource_bundle_accessor.swift
+[SoyehtCore] Write Auxiliary File empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.DependencyStaticMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.LinkFileList
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.DependencyStaticMetadataFileList
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.DependencyMetadataFileList
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.modulemap
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.SwiftFileList
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.SwiftConstValuesFileList
+[SnapshotTesting] Write Auxiliary File SnapshotTesting_const_extract_protocols.json
+[SnapshotTesting] Write Auxiliary File SnapshotTesting-OutputFileMap.json
+[SnapshotTesting] Write Auxiliary File SnapshotTesting.LinkFileList
+[SharedSourcesPlugin] Write Auxiliary File SharedSourcesPlugin.DependencyStaticMetadataFileList
+[SoyehtCore] Copy SoyehtCore.modulemap -> SoyehtCore.modulemap
+[SharedSourcesPlugin] Write Auxiliary File SharedSourcesPlugin.DependencyMetadataFileList
+[P256K] Write Auxiliary File P256K.modulemap
+[P256K] Write Auxiliary File P256K.DependencyStaticMetadataFileList
+[P256K] Write Auxiliary File P256K.DependencyMetadataFileList
+[P256K] Write Auxiliary File P256K_const_extract_protocols.json
+[P256K] Write Auxiliary File P256K.SwiftFileList
+[P256K] Write Auxiliary File P256K.SwiftConstValuesFileList
+[P256K] Write Auxiliary File P256K.LinkFileList
+[P256K] Write Auxiliary File P256K-OutputFileMap.json
+[P256K] Write Auxiliary File P256K_D1A82D197DD_PackageProduct.DependencyStaticMetadataFileList
+[P256K] Write Auxiliary File empty-P256K_D1A82D197DD_PackageProduct.plist
+[P256K] Write Auxiliary File P256K_D1A82D197DD_PackageProduct.DependencyMetadataFileList
+[SnapshotTesting] Copy SnapshotTesting.modulemap -> SnapshotTesting.modulemap
+[P256K] Write Auxiliary File P256K_D1A82D197DD_PackageProduct.LinkFileList
+[NIOSSH] Write Auxiliary File NIOSSH_const_extract_protocols.json
+[NIOSSH] Write Auxiliary File NIOSSH.SwiftFileList
+[NIOSSH] Write Auxiliary File NIOSSH.SwiftConstValuesFileList
+[NIOSSH] Write Auxiliary File NIOSSH.LinkFileList
+[NIOSSH] Write Auxiliary File NIOSSH-OutputFileMap.json
+[NIOSSH] Write Auxiliary File NIOSSH.modulemap
+[P256K] Copy P256K.modulemap -> P256K.modulemap
+[NIOSSH] Write Auxiliary File NIOSSH.DependencyStaticMetadataFileList
+[NIOSSH] Write Auxiliary File NIOSSH.DependencyMetadataFileList
+[NIOPosix] Write Auxiliary File NIOPosix_const_extract_protocols.json
+[NIOPosix] Write Auxiliary File NIOPosix.SwiftFileList
+[NIOPosix] Write Auxiliary File NIOPosix.SwiftConstValuesFileList
+[NIOPosix] Write Auxiliary File NIOPosix.LinkFileList
+[NIOPosix] Write Auxiliary File NIOPosix-OutputFileMap.json
+[NIOPosix] Write Auxiliary File NIOPosix.modulemap
+[NIOPosix] Write Auxiliary File NIOPosix.DependencyStaticMetadataFileList
+[NIOPosix] Write Auxiliary File NIOPosix.DependencyMetadataFileList
+[NIOPosix] Write Auxiliary File resource_bundle_accessor.swift
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat_const_extract_protocols.json
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.SwiftFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.SwiftConstValuesFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.LinkFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat-OutputFileMap.json
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.modulemap
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.DependencyStaticMetadataFileList
+[NIOSSH] Copy NIOSSH.modulemap -> NIOSSH.modulemap
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.DependencyMetadataFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded_const_extract_protocols.json
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.SwiftFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.SwiftConstValuesFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.LinkFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded-OutputFileMap.json
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.modulemap
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.DependencyStaticMetadataFileList
+[NIOPosix] Copy NIOPosix.modulemap -> NIOPosix.modulemap
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.DependencyMetadataFileList
+[NIOCore] Write Auxiliary File NIOCore_const_extract_protocols.json
+[NIOCore] Write Auxiliary File NIOCore.SwiftFileList
+[NIOCore] Write Auxiliary File NIOCore.SwiftConstValuesFileList
+[NIOCore] Write Auxiliary File NIOCore.LinkFileList
+[NIOCore] Write Auxiliary File NIOCore-OutputFileMap.json
+[NIOCore] Write Auxiliary File NIOCore.modulemap
+[NIOCore] Write Auxiliary File NIOCore.DependencyStaticMetadataFileList
+[NIOFoundationCompat] Copy NIOFoundationCompat.modulemap -> NIOFoundationCompat.modulemap
+[NIOCore] Write Auxiliary File NIOCore.DependencyMetadataFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers_const_extract_protocols.json
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.SwiftFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.SwiftConstValuesFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.LinkFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers-OutputFileMap.json
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.modulemap
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.DependencyStaticMetadataFileList
+[NIOEmbedded] Copy NIOEmbedded.modulemap -> NIOEmbedded.modulemap
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.DependencyMetadataFileList
+[NIO] Write Auxiliary File NIO.SwiftFileList
+[NIO] Write Auxiliary File NIO_const_extract_protocols.json
+[NIO] Write Auxiliary File NIO.SwiftConstValuesFileList
+[NIO] Write Auxiliary File NIO.LinkFileList
+[NIO] Write Auxiliary File NIO-OutputFileMap.json
+[NIO] Write Auxiliary File NIO.modulemap
+[NIO] Write Auxiliary File NIO.DependencyStaticMetadataFileList
+[NIOCore] Copy NIOCore.modulemap -> NIOCore.modulemap
+[NIO] Write Auxiliary File NIO.DependencyMetadataFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.SwiftFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.LinkFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities_const_extract_protocols.json
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.SwiftConstValuesFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities-OutputFileMap.json
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.modulemap
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.DependencyStaticMetadataFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.DependencyMetadataFileList
+[NIOConcurrencyHelpers] Copy NIOConcurrencyHelpers.modulemap -> NIOConcurrencyHelpers.modulemap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService_const_extract_protocols.json
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.SwiftFileList
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.SwiftConstValuesFileList
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.LinkFileList
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-OutputFileMap.json
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.DependencyStaticMetadataFileList
+[NIO] Copy NIO.modulemap -> NIO.modulemap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService.DependencyMetadataFileList
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-project-headers.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-own-target-headers.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-generated-files.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-all-target-headers.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-all-non-framework-target-headers.hmap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-DebugEntryPoint-normal-arm64.txt
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-DebugDylibPath-normal-arm64.txt
+[InternalCollectionsUtilities] Copy InternalCollectionsUtilities.modulemap -> InternalCollectionsUtilities.modulemap
+[HouseCreatedNotificationService] Write Auxiliary File HouseCreatedNotificationService-DebugDylibInstallName-normal-arm64.txt
+[HouseCreatedNotificationService] Write Auxiliary File Entitlements-Simulated.plist
+[DequeModule] Write Auxiliary File DequeModule_const_extract_protocols.json
+[DequeModule] Write Auxiliary File DequeModule.SwiftFileList
+[DequeModule] Write Auxiliary File DequeModule.SwiftConstValuesFileList
+[DequeModule] Write Auxiliary File DequeModule.LinkFileList
+[DequeModule] Write Auxiliary File DequeModule-OutputFileMap.json
+[DequeModule] Write Auxiliary File DequeModule.modulemap
+[DequeModule] Write Auxiliary File DequeModule.DependencyStaticMetadataFileList
+[DequeModule] Write Auxiliary File DequeModule.DependencyMetadataFileList
+[Crypto] Write Auxiliary File Crypto.SwiftFileList
+[Crypto] Write Auxiliary File Crypto_const_extract_protocols.json
+[Crypto] Write Auxiliary File Crypto.SwiftConstValuesFileList
+[Crypto] Write Auxiliary File Crypto.LinkFileList
+[Crypto] Write Auxiliary File Crypto-OutputFileMap.json
+[Crypto] Write Auxiliary File resource_bundle_accessor.swift
+[Crypto] Write Auxiliary File Crypto.modulemap
+[Crypto] Write Auxiliary File Crypto.DependencyStaticMetadataFileList
+[Crypto] Write Auxiliary File Crypto.DependencyMetadataFileList
+[CNIOWindows] Write Auxiliary File CNIOWindows.LinkFileList
+[CNIOWindows] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOWindows] Write Auxiliary File CNIOWindows.DependencyStaticMetadataFileList
+[CNIOWindows] Write Auxiliary File CNIOWindows.DependencyMetadataFileList
+[CNIOWASI] Write Auxiliary File CNIOWASI.modulemap
+[CNIOWASI] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOWASI] Write Auxiliary File CNIOWASI.LinkFileList
+[CNIOWASI] Write Auxiliary File CNIOWASI.DependencyStaticMetadataFileList
+[CNIOWASI] Write Auxiliary File CNIOWASI.DependencyMetadataFileList
+[DequeModule] Copy DequeModule.modulemap -> DequeModule.modulemap
+[CNIOPosix] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOPosix] Write Auxiliary File CNIOPosix.LinkFileList
+[CNIOPosix] Write Auxiliary File CNIOPosix.modulemap
+[CNIOPosix] Write Auxiliary File CNIOPosix.DependencyMetadataFileList
+[CNIOPosix] Write Auxiliary File CNIOPosix.DependencyStaticMetadataFileList
+[Crypto] Copy Crypto.modulemap -> Crypto.modulemap
+[CNIOOpenBSD] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.LinkFileList
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.modulemap
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.DependencyMetadataFileList
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.DependencyStaticMetadataFileList
+[CNIOLinux] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOLinux] Write Auxiliary File CNIOLinux.LinkFileList
+[CNIOLinux] Write Auxiliary File CNIOLinux.modulemap
+[CNIOLinux] Write Auxiliary File CNIOLinux.DependencyStaticMetadataFileList
+[CNIOWASI] Copy CNIOWASI.modulemap -> CNIOWASI.modulemap
+[CNIOLinux] Write Auxiliary File CNIOLinux.DependencyMetadataFileList
+[CNIODarwin] Write Auxiliary File CNIODarwin.LinkFileList
+[CNIODarwin] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIODarwin] Write Auxiliary File CNIODarwin.modulemap
+[CNIODarwin] Write Auxiliary File CNIODarwin.DependencyStaticMetadataFileList
+[CNIOPosix] Copy CNIOPosix.modulemap -> CNIOPosix.modulemap
+[CNIODarwin] Write Auxiliary File CNIODarwin.DependencyMetadataFileList
+[BLAKE3] Write Auxiliary File empty-BLAKE3_17578F34D7A398_PackageProduct.plist
+[BLAKE3] Write Auxiliary File BLAKE3_17578F34D7A398_PackageProduct.DependencyStaticMetadataFileList
+[BLAKE3] Write Auxiliary File BLAKE3_17578F34D7A398_PackageProduct.LinkFileList
+[BLAKE3] Write Auxiliary File BLAKE3_17578F34D7A398_PackageProduct.DependencyMetadataFileList
+[CNIOOpenBSD] Copy CNIOOpenBSD.modulemap -> CNIOOpenBSD.modulemap
+[CNIOLinux] Copy CNIOLinux.modulemap -> CNIOLinux.modulemap
+[CNIODarwin] Copy CNIODarwin.modulemap -> CNIODarwin.modulemap
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.modulemap
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.DependencyStaticMetadataFileList
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.DependencyMetadataFileList
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.LinkFileList
+[CNIOAtomics] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[BLAKE3] Write Auxiliary File BLAKE3.modulemap
+[BLAKE3] Write Auxiliary File BLAKE3.DependencyStaticMetadataFileList
+[BLAKE3] Write Auxiliary File BLAKE3.DependencyMetadataFileList
+[BLAKE3] Write Auxiliary File BLAKE3.SwiftConstValuesFileList
+[BLAKE3] Write Auxiliary File BLAKE3.LinkFileList
+[BLAKE3] Write Auxiliary File BLAKE3_const_extract_protocols.json
+[BLAKE3] Write Auxiliary File BLAKE3.SwiftFileList
+[BLAKE3] Write Auxiliary File BLAKE3-OutputFileMap.json
+[Atomics] Write Auxiliary File Atomics.SwiftFileList
+[Atomics] Write Auxiliary File Atomics_const_extract_protocols.json
+[Atomics] Write Auxiliary File Atomics.LinkFileList
+[Atomics] Write Auxiliary File Atomics.SwiftConstValuesFileList
+[Atomics] Write Auxiliary File Atomics-OutputFileMap.json
+[Atomics] Write Auxiliary File Atomics.modulemap
+[Atomics] Write Auxiliary File Atomics.DependencyStaticMetadataFileList
+[Atomics] Write Auxiliary File Atomics.DependencyMetadataFileList
+[CNIOAtomics] Copy CNIOAtomics.modulemap -> CNIOAtomics.modulemap
+[BLAKE3] Copy BLAKE3.modulemap -> BLAKE3.modulemap
+[AsciicastLib] Write Auxiliary File AsciicastLib.DependencyStaticMetadataFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib.DependencyMetadataFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib.modulemap
+[AsciicastLib] Write Auxiliary File AsciicastLib-OutputFileMap.json
+[AsciicastLib] Write Auxiliary File AsciicastLib.LinkFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib_const_extract_protocols.json
+[AsciicastLib] Write Auxiliary File AsciicastLib.SwiftFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib.SwiftConstValuesFileList
+[Atomics] Copy Atomics.modulemap -> Atomics.modulemap
+[AsciicastLib] Copy AsciicastLib.modulemap -> AsciicastLib.modulemap
+[swift-nio_NIOPosix] Processing empty-swift-nio_NIOPosix.plist
+[swift-nio_NIOPosix] Copying PrivacyInfo.xcprivacy
+[swift-crypto_Crypto] Processing empty-swift-crypto_Crypto.plist
+[swift-crypto_Crypto] Copying PrivacyInfo.xcprivacy
+[SoyehtCore_SoyehtCore] Processing empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore_SoyehtCore] Copying resident-paired.caf
+[SoyehtCore_SoyehtCore] Copying house-created.caf
+[SoyehtCore_SoyehtCore] Copying Wordlists
+[SoyehtCore_SoyehtCore] Copying Fonts
+[SoyehtCore_SoyehtCore] Compile XCStrings Localizable.xcstrings
+[HouseCreatedNotificationService] Linking __preview.dylib
+[HouseCreatedNotificationService] Processing Info.plist
+[HouseCreatedNotificationService] Compile XCStrings Localizable.xcstrings
+Signing swift-crypto_Crypto.bundle (in target 'swift-crypto_Crypto' from project 'swift-crypto')
+Signing swift-nio_NIOPosix.bundle (in target 'swift-nio_NIOPosix' from project 'swift-nio')
+[SoyehtTests] Write Auxiliary File SoyehtTests-all-non-framework-target-headers.hmap
+[SoyehtTests] Write Auxiliary File empty-SoyehtTests.plist
+[SoyehtTests] Write Auxiliary File SoyehtTests-project-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests-own-target-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.DependencyMetadataFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests.DependencyStaticMetadataFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests-all-target-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.SwiftFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests-generated-files.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.SwiftConstValuesFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests.LinkFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests-OutputFileMap.json
+[SoyehtTests] Write Auxiliary File SoyehtTests_const_extract_protocols.json
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.modulemap
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.DependencyStaticMetadataFileList
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.DependencyMetadataFileList
+[NatProbeFFI] Write Auxiliary File NatProbeFFI-OutputFileMap.json
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.SwiftConstValuesFileList
+[NatProbeFFI] Write Auxiliary File NatProbeFFI_const_extract_protocols.json
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.LinkFileList
+[NatProbeFFI] Write Auxiliary File NatProbeFFI.SwiftFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.DependencyStaticMetadataFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.DependencyMetadataFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-project-headers.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-own-target-headers.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-generated-files.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-all-target-headers.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-all-non-framework-target-headers.hmap
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-DebugEntryPoint-normal-arm64.txt
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-DebugDylibPath-normal-arm64.txt
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-DebugDylibInstallName-normal-arm64.txt
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.SwiftFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.SwiftConstValuesFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider.LinkFileList
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider_const_extract_protocols.json
+[SoyehtClawShareTunnelProvider] Write Auxiliary File SoyehtClawShareTunnelProvider-OutputFileMap.json
+[SoyehtClawShareTunnelProvider] Write Auxiliary File Entitlements-Simulated.plist
+[Soyeht] Write Auxiliary File Soyeht.DependencyStaticMetadataFileList
+[Soyeht] Write Auxiliary File Soyeht.hmap
+[Soyeht] Write Auxiliary File Soyeht-own-target-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-project-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht.DependencyMetadataFileList
+[Soyeht] Write Auxiliary File Soyeht-generated-files.hmap
+[Soyeht] Write Auxiliary File Soyeht-all-target-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-DebugDylibPath-normal-arm64.txt
+[Soyeht] Write Auxiliary File Soyeht-all-non-framework-target-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-DebugDylibInstallName-normal-arm64.txt
+[Soyeht] Write Auxiliary File Script-49SEC0022F5A000200SECRETS.sh
+[Soyeht] Write Auxiliary File Script-49XAT00FIX000200APPSTRIP.sh
+[Soyeht] Write Auxiliary File Script-49D0C0022F5A000200D00001.sh
+[Soyeht] Write Auxiliary File Soyeht_const_extract_protocols.json
+[Soyeht] Write Auxiliary File Soyeht.SwiftFileList
+[Soyeht] Write Auxiliary File Soyeht.SwiftConstValuesFileList
+[Soyeht] Write Auxiliary File Soyeht.LinkFileList
+[Soyeht] Write Auxiliary File Soyeht-OutputFileMap.json
+[Soyeht] Write Auxiliary File Entitlements-Simulated.plist
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.modulemap
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.DependencyStaticMetadataFileList
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.DependencyMetadataFileList
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.SwiftFileList
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI_const_extract_protocols.json
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.SwiftConstValuesFileList
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI-OutputFileMap.json
+[RelayStreamGuestFFI] Write Auxiliary File RelayStreamGuestFFI.LinkFileList
+[NatProbeFFI] Copy NatProbeFFI.modulemap -> NatProbeFFI.modulemap
+[RelayStreamGuestFFI] Copy RelayStreamGuestFFI.modulemap -> RelayStreamGuestFFI.modulemap
+[swift-crypto_Crypto] RegisterExecutionPolicyException swift-crypto_Crypto.bundle
+[swift-nio_NIOPosix] RegisterExecutionPolicyException swift-nio_NIOPosix.bundle
+[swift-nio_NIOPosix] Touching swift-nio_NIOPosix.bundle
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[swift-crypto_Crypto] Touching swift-crypto_Crypto.bundle
+Signing SoyehtCore_SoyehtCore.bundle (in target 'SoyehtCore_SoyehtCore' from project 'SoyehtCore')
+[SoyehtCore_SoyehtCore] RegisterExecutionPolicyException SoyehtCore_SoyehtCore.bundle
+[SoyehtCore_SoyehtCore] Touching SoyehtCore_SoyehtCore.bundle
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[blake3-c] Compiling blake3_sse41.c
+[blake3-c] Compiling blake3_sse2.c
+[_NIOBase64] Compiling Base64.swift
+[blake3-c] Compiling blake3_avx512.c
+[_NIOBase64] Compiling Base64.swift
+[blake3-c] Compiling blake3_avx2.c
+[InternalCollectionsUtilities] Compiling UnsafeRawBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling LifetimeOverride.swift
+[InternalCollectionsUtilities] Compiling Descriptions.swift
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftmodule -> _NIOBase64.swiftmodule
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftdoc -> _NIOBase64.swiftdoc
+[_NIOBase64] Copy arm64-apple-ios-simulator.abi.json -> _NIOBase64.abi.json
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftsourceinfo -> _NIOBase64.swiftsourceinfo
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet+_Word.swift
+[blake3-c] Compiling blake3.c
+[_AtomicsShims] Compiling _AtomicsShims.c
+[nat_probe_ffiFFI] Compiling shim.c
+[_AtomicsShims] Linking _AtomicsShims.o
+[nat_probe_ffiFFI] Linking nat_probe_ffiFFI.o
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftmodule -> InternalCollectionsUtilities.swiftmodule
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftdoc -> InternalCollectionsUtilities.swiftdoc
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.abi.json -> InternalCollectionsUtilities.abi.json
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftsourceinfo -> InternalCollectionsUtilities.swiftsourceinfo
+[_NIODataStructures] Compiling PriorityQueue.swift
+[_NIODataStructures] Compiling Heap.swift
+[_NIODataStructures] Compiling _TinyArray.swift
+[NIOConcurrencyHelpers] Compiling NIOAtomic.swift
+[NIOConcurrencyHelpers] Compiling atomics.swift
+[libsecp256k1] Compiling secp256k1.c
+[libsecp256k1] Compiling precomputed_ecmult_gen.c
+[libsecp256k1] Compiling precomputed_ecmult.c
+[libsecp256k1] Compiling Utility.c
+[blake3-c] Compiling blake3_neon.c
+[NIOConcurrencyHelpers] Compiling NIOLock.swift
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftmodule -> _NIODataStructures.swiftmodule
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftdoc -> _NIODataStructures.swiftdoc
+[_NIODataStructures] Copy arm64-apple-ios-simulator.abi.json -> _NIODataStructures.abi.json
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftsourceinfo -> _NIODataStructures.swiftsourceinfo
+[AsciicastLib] Compiling AsciicastFormat.swift
+[NIOConcurrencyHelpers] Compiling NIOLockedValueBox.swift
+[NIOConcurrencyHelpers] Compiling lock.swift
+[InternalCollectionsUtilities] Compiling UnsafeMutableBufferPointer+Extras.swift
+[NatProbeFFI] Compiling nat_probe_ffi.swift
+[BLAKE3] Compiling BLAKE3.swift
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftmodule -> NIOConcurrencyHelpers.swiftmodule
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftdoc -> NIOConcurrencyHelpers.swiftdoc
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.abi.json -> NIOConcurrencyHelpers.abi.json
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOConcurrencyHelpers.swiftsourceinfo
+[RelayStreamGuestFFI] Compiling relay_stream_guest_ffi.swift
+[RelayStreamGuestFFI] Compiling RelayStreamGuestDataPlaneClient.swift
+[RelayStreamGuestFFI] Compiling RelayStreamGuestTunnelStartOptions.swift
+[P256K] Compiling UInt256+Modular.swift
+[P256K] Compiling UInt256+Representation.swift
+[P256K] Compiling UInt256.swift
+[BLAKE3] Copy arm64-apple-ios-simulator.swiftmodule -> BLAKE3.swiftmodule
+[BLAKE3] Copy arm64-apple-ios-simulator.swiftdoc -> BLAKE3.swiftdoc
+[BLAKE3] Copy arm64-apple-ios-simulator.abi.json -> BLAKE3.abi.json
+[BLAKE3] Copy arm64-apple-ios-simulator.swiftsourceinfo -> BLAKE3.swiftsourceinfo
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftmodule -> AsciicastLib.swiftmodule
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftdoc -> AsciicastLib.swiftdoc
+[AsciicastLib] Copy arm64-apple-ios-simulator.abi.json -> AsciicastLib.abi.json
+[NatProbeFFI] Copy arm64-apple-ios-simulator.swiftmodule -> NatProbeFFI.swiftmodule
+[NatProbeFFI] Copy arm64-apple-ios-simulator.swiftdoc -> NatProbeFFI.swiftdoc
+[NatProbeFFI] Copy arm64-apple-ios-simulator.abi.json -> NatProbeFFI.abi.json
+[NatProbeFFI] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NatProbeFFI.swiftsourceinfo
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftsourceinfo -> AsciicastLib.swiftsourceinfo
+[P256K] Compiling Placeholder.swift
+[P256K] Compiling ASN1.swift
+[P256K] Compiling ASN1Any.swift
+[P256K] Compiling ASN1BitString.swift
+[P256K] Compiling RNG_boring.swift
+[P256K] Compiling Recovery+Signature.swift
+[P256K] Compiling Recovery.swift
+[P256K] Compiling Schnorr+Nonces.swift
+[P256K] Compiling Schnorr+PrivateKey.swift
+[P256K] Compiling Schnorr+PublicKey.swift
+[P256K] Compiling MuSig+Tweak.swift
+[P256K] Compiling MuSig.swift
+[P256K] Compiling ObjectIdentifier.swift
+[Crypto] Copy arm64-apple-ios-simulator.swiftmodule -> Crypto.swiftmodule
+[Crypto] Copy arm64-apple-ios-simulator.swiftdoc -> Crypto.swiftdoc
+[Crypto] Copy arm64-apple-ios-simulator.abi.json -> Crypto.abi.json
+[RelayStreamGuestFFI] Copy arm64-apple-ios-simulator.swiftmodule -> RelayStreamGuestFFI.swiftmodule
+[RelayStreamGuestFFI] Copy arm64-apple-ios-simulator.swiftdoc -> RelayStreamGuestFFI.swiftdoc
+[RelayStreamGuestFFI] Copy arm64-apple-ios-simulator.abi.json -> RelayStreamGuestFFI.abi.json
+[Crypto] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Crypto.swiftsourceinfo
+[RelayStreamGuestFFI] Copy arm64-apple-ios-simulator.swiftsourceinfo -> RelayStreamGuestFFI.swiftsourceinfo
+[P256K] Compiling PrettyBytes.swift
+[P256K] Compiling PrivateKeyImplementation.swift
+[P256K] Compiling PublicKeyImplementation.swift
+[P256K] Compiling MuSig+Aggregate.swift
+[P256K] Compiling MuSig+Nonces.swift
+[P256K] Compiling MuSig+Signing.swift
+[P256K] Compiling ECDSA+Signature.swift
+[P256K] Compiling ECDSA+Tweak.swift
+[P256K] Compiling ECDSA+XonlyKey.swift
+[P256K] Compiling ECDSA.swift
+[P256K] Compiling ECDSASignature.swift
+[P256K] Compiling EdDSA.swift
+[P256K] Compiling Errors.swift
+[P256K] Compiling GeneralizedTime.swift
+[P256K] Compiling HashDigest.swift
+[P256K] Compiling Schnorr.swift
+[P256K] Compiling SecureBytes.swift
+[P256K] Compiling Signature.swift
+[P256K] Compiling Context.swift
+[P256K] Compiling CryptoKitErrors.swift
+[P256K] Compiling DH.swift
+[P256K] Compiling Digest.swift
+[HouseCreatedNotificationService] Compiling NotificationService.swift
+[blake3-c] Linking blake3-c.o
+[Atomics] Copy arm64-apple-ios-simulator.swiftmodule -> Atomics.swiftmodule
+[Atomics] Copy arm64-apple-ios-simulator.swiftdoc -> Atomics.swiftdoc
+[Atomics] Copy arm64-apple-ios-simulator.abi.json -> Atomics.abi.json
+[Atomics] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Atomics.swiftsourceinfo
+[libsecp256k1] Linking libsecp256k1.o
+[P256K] Compiling Schnorr+Signature.swift
+[P256K] Compiling Schnorr+Tweak.swift
+[P256K] Compiling Schnorr+XonlyKey.swift
+[P256K] Copy arm64-apple-ios-simulator.swiftmodule -> P256K.swiftmodule
+[P256K] Copy arm64-apple-ios-simulator.swiftdoc -> P256K.swiftdoc
+[P256K] Copy arm64-apple-ios-simulator.abi.json -> P256K.abi.json
+[P256K] Copy arm64-apple-ios-simulator.swiftsourceinfo -> P256K.swiftsourceinfo
+[HouseCreatedNotificationService] Copy arm64-apple-ios-simulator.swiftmodule -> HouseCreatedNotificationService.swiftmodule
+[HouseCreatedNotificationService] Copy arm64-apple-ios-simulator.swiftdoc -> HouseCreatedNotificationService.swiftdoc
+[HouseCreatedNotificationService] Copy arm64-apple-ios-simulator.abi.json -> HouseCreatedNotificationService.abi.json
+[HouseCreatedNotificationService] Copy arm64-apple-ios-simulator.swiftsourceinfo -> HouseCreatedNotificationService.swiftsourceinfo
+[P256K] Compiling ASN1Boolean.swift
+[P256K] Compiling ASN1Identifier.swift
+[P256K] Compiling ASN1Integer.swift
+[P256K] Compiling ASN1Null.swift
+[P256K] Compiling P256K.swift
+[P256K] Compiling PEMDocument.swift
+[P256K] Compiling PKCS8PrivateKey.swift
+[relay_stream_guest_ffiFFI] Compiling shim.c
+[P256K] Compiling ECDH.swift
+[P256K] Compiling ECDSA+PrivateKey.swift
+[P256K] Compiling ECDSA+PublicKey.swift
+[P256K] Compiling Utility.swift
+[P256K] Compiling XonlyKeyImplementation.swift
+[P256K] Compiling Zeroization.swift
+[P256K] Compiling SEC1PrivateKey.swift
+[P256K] Compiling SHA256.swift
+[P256K] Compiling SafeCompare.swift
+[P256K] Compiling ASN1OctetString.swift
+[P256K] Compiling ASN1Strings.swift
+[P256K] Compiling ArraySliceBigint.swift
+[P256K] Compiling Combine.swift
+[P256K] Compiling SubjectPublicKeyInfo.swift
+[P256K] Compiling UInt256+Arithmetic.swift
+[P256K] Compiling UInt256+FixedWidthInteger.swift
+[NatProbeFFI] Compiling nat_probe_ffi.swift
+[InternalCollectionsUtilities] Compiling UInt+first\ and\ last\ set\ bit.swift
+[InternalCollectionsUtilities] Compiling RandomAccessCollection+Offsets.swift
+[InternalCollectionsUtilities] Compiling Integer\ rank.swift
+[InternalCollectionsUtilities] Compiling Debugging.swift
+[InternalCollectionsUtilities] Compiling FixedWidthInteger+roundUpToPowerOfTwo.swift
+[InternalCollectionsUtilities] Compiling UnsafeBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling UnsafeMutableRawBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet.swift
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet+Index.swift
+[relay_stream_guest_ffiFFI] Linking relay_stream_guest_ffiFFI.o
+[InternalCollectionsUtilities] Compiling UInt+reversed.swift
+[InternalCollectionsUtilities] Compiling _UniqueCollection.swift
+[InternalCollectionsUtilities] Compiling _SortedCollection.swift
+[HouseCreatedNotificationService] Compiling NotificationService.swift
+[Crypto] Compiling ASN1Null.swift
+[Crypto] Compiling ASN1OctetString.swift
+[Crypto] Compiling ASN1Strings.swift
+[Crypto] Compiling ArraySliceBigint.swift
+[Crypto] Compiling EdDSA_boring.swift
+[Crypto] Compiling ECDSA.swift
+[Crypto] Compiling Ed25519.swift
+[Crypto] Compiling Signature.swift
+[Crypto] Compiling CryptoKitErrors.swift
+[Crypto] Compiling Digest_boring.swift
+[Crypto] Compiling Digest.swift
+[Crypto] Compiling Digests.swift
+[Crypto] Compiling MessageAuthenticationCode.swift
+[Crypto] Compiling AES.swift
+[Crypto] Compiling ECDSASignature_boring.swift
+[Crypto] Compiling ECDSA_boring.swift
+[Crypto] Compiling HPKE-KDF.swift
+[Crypto] Compiling HPKE-KexKeyDerivation.swift
+[Crypto] Compiling HPKE-LabeledExtract.swift
+[Crypto] Compiling HPKE-Utils.swift
+[Crypto] Compiling HPKE-Modes.swift
+[Crypto] Compiling Insecure.swift
+[Crypto] Compiling Insecure_HashFunctions.swift
+[Crypto] Compiling KEM.swift
+[Crypto] Compiling HPKE-Errors.swift
+[Crypto] Compiling HPKE.swift
+[Crypto] Compiling HPKE-Context.swift
+[Crypto] Compiling HPKE-KeySchedule.swift
+[Crypto] Compiling ECDH_boring.swift
+[Crypto] Compiling DH.swift
+[Crypto] Compiling ECDH.swift
+[Crypto] Compiling HKDF.swift
+[Crypto] Compiling resource_bundle_accessor.swift
+[Crypto] Compiling AES-GCM.swift
+[Crypto] Compiling AES-GCM_boring.swift
+[Crypto] Compiling ChaChaPoly_boring.swift
+[Crypto] Compiling ChaChaPoly.swift
+[Crypto] Compiling HashFunctions.swift
+[Crypto] Compiling HashFunctions_SHA2.swift
+[Crypto] Compiling HPKE-AEAD.swift
+[Crypto] Compiling HPKE-Ciphersuite.swift
+[Crypto] Compiling CryptoKitErrors_boring.swift
+[Crypto] Compiling RNG_boring.swift
+[Crypto] Compiling SafeCompare_boring.swift
+[Crypto] Compiling Zeroization_boring.swift
+[Crypto] Compiling AESWrap.swift
+[Crypto] Compiling AESWrap_boring.swift
+[Crypto] Compiling Ed25519_boring.swift
+[Crypto] Compiling NISTCurvesKeys_boring.swift
+[Crypto] Compiling Cipher.swift
+[Crypto] Compiling Nonces.swift
+[Crypto] Compiling ASN1.swift
+[Crypto] Compiling ASN1Any.swift
+[Crypto] Compiling ASN1BitString.swift
+[Crypto] Compiling ASN1Boolean.swift
+[Crypto] Compiling ASN1Identifier.swift
+[Crypto] Compiling ASN1Integer.swift
+[Crypto] Compiling PrettyBytes.swift
+[Crypto] Compiling SafeCompare.swift
+[Crypto] Compiling SecureBytes.swift
+[Crypto] Compiling Zeroization.swift
+[Crypto] Compiling PKCS8PrivateKey.swift
+[Crypto] Compiling SEC1PrivateKey.swift
+[Crypto] Compiling SubjectPublicKeyInfo.swift
+[Crypto] Compiling CryptoError_boring.swift
+[Crypto] Compiling X25519Keys.swift
+[Crypto] Compiling SymmetricKeys.swift
+[Crypto] Compiling HMAC.swift
+[Crypto] Compiling MACFunctions.swift
+[Crypto] Compiling DHKEM.swift
+[Crypto] Compiling HPKE-KEM-Curve25519.swift
+[Crypto] Compiling HPKE-NIST-EC-KEMs.swift
+[Crypto] Compiling HPKE-KEM.swift
+[Crypto] Compiling GeneralizedTime.swift
+[Crypto] Compiling ObjectIdentifier.swift
+[Crypto] Compiling ECDSASignature.swift
+[Crypto] Compiling PEMDocument.swift
+[Crypto] Compiling X25519Keys_boring.swift
+[Crypto] Compiling Curve25519.swift
+[Crypto] Compiling Ed25519Keys.swift
+[Crypto] Compiling NISTCurvesKeys.swift
+[CNIOWindows] Compiling shim.c
+[CNIOWindows] Compiling WSAStartup.c
+[CNIOWASI] Compiling CNIOWASI.c
+[CNIOOpenBSD] Compiling shim.c
+[SnapshotTesting] Compiling SnapshotTestingConfiguration.swift
+[SnapshotTesting] Compiling SnapshotsTestTrait.swift
+[SnapshotTesting] Compiling Diffing.swift
+[SnapshotTesting] Compiling Wait.swift
+[CNIOWindows] Linking CNIOWindows.o
+[CNIOWASI] Linking CNIOWASI.o
+[SnapshotTesting] Compiling Internal.swift
+[SnapshotTesting] Compiling PlistEncoder.swift
+[CNIOOpenBSD] Linking CNIOOpenBSD.o
+[SnapshotTesting] Compiling NSViewController.swift
+[SnapshotTesting] Compiling SceneKit.swift
+[SnapshotTesting] Compiling Deprecations.swift
+[SnapshotTesting] Compiling RecordIssue.swift
+[SnapshotTesting] Compiling UIImage.swift
+[SnapshotTesting] Compiling Snapshotting.swift
+[SnapshotTesting] Compiling Any.swift
+[SnapshotTesting] Compiling String+SpecialCharacters.swift
+[SnapshotTesting] Compiling View.swift
+[SnapshotTesting] Compiling Encodable.swift
+[SnapshotTesting] Compiling NSBezierPath.swift
+[SnapshotTesting] Compiling CaseIterable.swift
+[SnapshotTesting] Compiling Data.swift
+[SnapshotTesting] Compiling URLRequest.swift
+[SnapshotTesting] Compiling UIBezierPath.swift
+[SnapshotTesting] Compiling UIView.swift
+[SnapshotTesting] Compiling XCTAttachment.swift
+[SnapshotTesting] Compiling Diff.swift
+[SnapshotTesting] Compiling AssertSnapshot.swift
+[SnapshotTesting] Compiling Async.swift
+[SnapshotTesting] Compiling SpriteKit.swift
+[SnapshotTesting] Compiling String.swift
+[SnapshotTesting] Compiling CALayer.swift
+[SnapshotTesting] Compiling CGPath.swift
+[SnapshotTesting] Compiling UIViewController.swift
+[SnapshotTesting] Compiling SwiftUIView.swift
+[SnapshotTesting] Compiling NSImage.swift
+[SnapshotTesting] Compiling NSView.swift
+[CNIOLinux] Compiling shim.c
+[CNIOLinux] Compiling liburing_shims.c
+[CNIOLinux] Linking CNIOLinux.o
+[CNIOPosix] Compiling event_loop_id.c
+[CNIOPosix] Linking CNIOPosix.o
+[SnapshotTesting] Copy arm64-apple-ios-simulator.swiftmodule -> SnapshotTesting.swiftmodule
+[SnapshotTesting] Copy arm64-apple-ios-simulator.swiftdoc -> SnapshotTesting.swiftdoc
+[SnapshotTesting] Copy arm64-apple-ios-simulator.abi.json -> SnapshotTesting.abi.json
+[SnapshotTesting] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SnapshotTesting.swiftsourceinfo
+[BLAKE3] Compiling BLAKE3.swift
+[Atomics] Compiling RawRepresentable.swift
+[CNIOAtomics] Compiling c-nioatomics.c
+[CNIOAtomics] Compiling c-atomics.c
+[Atomics] Compiling AtomicValue.swift
+[Atomics] Compiling OptionalRawRepresentable.swift
+[Atomics] Compiling UnsafeAtomic.swift
+[Atomics] Compiling AtomicInteger.swift
+[Atomics] Compiling AtomicBool.swift
+[Atomics] Compiling ManagedAtomicLazyReference.swift
+[Atomics] Compiling UnsafeAtomicLazyReference.swift
+[Atomics] Compiling AtomicOptionalWrappable.swift
+[Atomics] Compiling AtomicMemoryOrderings.swift
+[Atomics] Compiling AtomicReference.swift
+[Atomics] Compiling ManagedAtomic.swift
+[Atomics] Compiling PointerConformances.swift
+[Atomics] Compiling AtomicStorage.swift
+[Atomics] Compiling IntegerConformances.swift
+[Atomics] Compiling Unmanaged\ extensions.swift
+[Atomics] Compiling Primitives.native.swift
+[Atomics] Compiling DoubleWord.swift
+[Atomics] Compiling IntegerOperations.swift
+[AsciicastLib] Compiling AsciicastFormat.swift
+[relay_stream_guest_ffiFFI] RegisterExecutionPolicyException relay_stream_guest_ffiFFI.o
+[_NIOBase64] Linking _NIOBase64.o
+[_NIODataStructures] Linking _NIODataStructures.o
+[InternalCollectionsUtilities] Linking InternalCollectionsUtilities.o
+[Crypto] Linking Crypto.o
+[nat_probe_ffiFFI] RegisterExecutionPolicyException nat_probe_ffiFFI.o
+[RelayStreamGuestFFI] Linking RelayStreamGuestFFI.o
+[_NIODataStructures] Extract App Intents Metadata
+[_NIOBase64] Extract App Intents Metadata
+[InternalCollectionsUtilities] Extract App Intents Metadata
+[NatProbeFFI] Linking NatProbeFFI.o
+[Crypto] Extract App Intents Metadata
+[libsecp256k1] RegisterExecutionPolicyException libsecp256k1.o
+[blake3-c] RegisterExecutionPolicyException blake3-c.o
+[_AtomicsShims] RegisterExecutionPolicyException _AtomicsShims.o
+[RelayStreamGuestFFI] Extract App Intents Metadata
+[P256K] Linking P256K.o
+[BLAKE3] Linking BLAKE3.o
+[_NIOBase64] RegisterExecutionPolicyException _NIOBase64.o
+[_NIODataStructures] RegisterExecutionPolicyException _NIODataStructures.o
+[NatProbeFFI] Extract App Intents Metadata
+[CNIOWindows] RegisterExecutionPolicyException CNIOWindows.o
+[InternalCollectionsUtilities] RegisterExecutionPolicyException InternalCollectionsUtilities.o
+[CNIOWASI] RegisterExecutionPolicyException CNIOWASI.o
+[CNIOPosix] RegisterExecutionPolicyException CNIOPosix.o
+[CNIOOpenBSD] RegisterExecutionPolicyException CNIOOpenBSD.o
+[CNIOLinux] RegisterExecutionPolicyException CNIOLinux.o
+[AsciicastLib] Linking AsciicastLib.o
+[RelayStreamGuestFFI] RegisterExecutionPolicyException RelayStreamGuestFFI.o
+[P256K] Extract App Intents Metadata
+[BLAKE3] Extract App Intents Metadata
+[Crypto] RegisterExecutionPolicyException Crypto.o
+[NatProbeFFI] RegisterExecutionPolicyException NatProbeFFI.o
+[CNIODarwin] Compiling shim.c
+[DequeModule] Compiling Deque+Collection.swift
+[DequeModule] Compiling Deque._Storage.swift
+[DequeModule] Compiling Deque+CustomReflectable.swift
+[DequeModule] Compiling Deque+Descriptions.swift
+[DequeModule] Compiling Deque._UnsafeHandle.swift
+[DequeModule] Compiling Deque+Hashable.swift
+[DequeModule] Compiling _DequeBufferHeader.swift
+[DequeModule] Compiling _DequeSlot.swift
+[DequeModule] Compiling Deque+ExpressibleByArrayLiteral.swift
+[DequeModule] Compiling Deque.swift
+[DequeModule] Compiling Deque+Codable.swift
+[DequeModule] Compiling Deque+Testing.swift
+[CNIODarwin] Linking CNIODarwin.o
+[DequeModule] Compiling _UnsafeWrappedBuffer.swift
+[DequeModule] Compiling Deque+Extras.swift
+[DequeModule] Compiling _DequeBuffer.swift
+[DequeModule] Compiling Deque+Equatable.swift
+[HouseCreatedNotificationService] Linking HouseCreatedNotificationService.debug.dylib
+[AsciicastLib] Extract App Intents Metadata
+[P256K] RegisterExecutionPolicyException P256K.o
+[BLAKE3] RegisterExecutionPolicyException BLAKE3.o
+[CNIODarwin] RegisterExecutionPolicyException CNIODarwin.o
+[Atomics] Linking Atomics.o
+[P256K] Linking P256K_D1A82D197DD_PackageProduct
+[P256K] Processing empty-P256K_D1A82D197DD_PackageProduct.plist
+[AsciicastLib] RegisterExecutionPolicyException AsciicastLib.o
+[BLAKE3] Processing empty-BLAKE3_17578F34D7A398_PackageProduct.plist
+[BLAKE3] Linking BLAKE3_17578F34D7A398_PackageProduct
+[Atomics] Extract App Intents Metadata
+[Atomics] RegisterExecutionPolicyException Atomics.o
+[SnapshotTesting] Linking SnapshotTesting.o
+[SnapshotTesting] Extract App Intents Metadata
+note: Using stub executor library without Swift entry point. (in target 'HouseCreatedNotificationService' from project 'Soyeht')
+[HouseCreatedNotificationService] Linking HouseCreatedNotificationService
+[SnapshotTesting] RegisterExecutionPolicyException SnapshotTesting.o
+[HouseCreatedNotificationService] Extract App Intents Metadata
+[BLAKE3] RegisterExecutionPolicyException BLAKE3_17578F34D7A398_PackageProduct.framework
+[P256K] RegisterExecutionPolicyException P256K_D1A82D197DD_PackageProduct.framework
+[BLAKE3] Touching BLAKE3_17578F34D7A398_PackageProduct.framework
+[P256K] Touching P256K_D1A82D197DD_PackageProduct.framework
+[DequeModule] Copy arm64-apple-ios-simulator.abi.json -> DequeModule.abi.json
+[DequeModule] Copy arm64-apple-ios-simulator.swiftmodule -> DequeModule.swiftmodule
+[DequeModule] Copy arm64-apple-ios-simulator.swiftdoc -> DequeModule.swiftdoc
+[DequeModule] Copy arm64-apple-ios-simulator.swiftsourceinfo -> DequeModule.swiftsourceinfo
+[DequeModule] Linking DequeModule.o
+[DequeModule] Extract App Intents Metadata
+Signing HouseCreatedNotificationService.debug.dylib (in target 'HouseCreatedNotificationService' from project 'Soyeht')
+Signing __preview.dylib (in target 'HouseCreatedNotificationService' from project 'Soyeht')
+[DequeModule] RegisterExecutionPolicyException DequeModule.o
+Signing HouseCreatedNotificationService.appex (in target 'HouseCreatedNotificationService' from project 'Soyeht')
+[HouseCreatedNotificationService] RegisterExecutionPolicyException HouseCreatedNotificationService.appex
+[HouseCreatedNotificationService] Touching HouseCreatedNotificationService.appex
+[SwiftTerm] Compiling MetalError.swift
+[SwiftTerm] Compiling MetalShaderSource.swift
+[SwiftTerm] Compiling MetalTerminalRenderer.swift
+[SwiftTerm] Compiling TerminalProgressBarView.swift
+[SwiftTerm] Compiling KittyKeyboardProtocol.swift
+[SwiftTerm] Compiling KittyPlaceholder.swift
+[SwiftTerm] Compiling Line.swift
+[SwiftTerm] Compiling LocalProcess.swift
+[SwiftTerm] Compiling AppleTerminalView.swift
+[SwiftTerm] Compiling BlockElementRenderer.swift
+[SwiftTerm] Compiling BoxDrawingRenderer.swift
+[SwiftTerm] Compiling CaretView.swift
+[SwiftTerm] Compiling CharData.swift
+[SwiftTerm] Compiling CharSets.swift
+[SwiftTerm] Compiling CircularList.swift
+[SwiftTerm] Compiling Colors.swift
+[SwiftTerm] Compiling EscapeSequenceParser.swift
+[SwiftTerm] Compiling EscapeSequences.swift
+[SwiftTerm] Compiling ExtensionsTerminal.swift
+[SwiftTerm] Compiling File.swift
+[SwiftTerm] Compiling HeadlessTerminal.swift
+[SwiftTerm] Compiling KeyBarConfiguration.swift
+[SwiftTerm] Compiling KittyGraphics.swift
+[SwiftTerm] Compiling KittyKeyboardEncoder.swift
+[SwiftTerm] Compiling TerminalViewDelegate.swift
+[SwiftTerm] Compiling Buffer.swift
+[SwiftTerm] Compiling BufferLine.swift
+[SwiftTerm] Compiling BufferSet.swift
+[SwiftTerm] Compiling Extensions.swift
+[SwiftTerm] Compiling CoreTextGlyphRasterizer.swift
+[SwiftTerm] Compiling GlyphAtlas.swift
+[SwiftTerm] Compiling MetalBufferingMode.swift
+[SwiftTerm] Compiling SwiftTermTypography.swift
+[SwiftTerm] Compiling Terminal.swift
+[SwiftTerm] Compiling TerminalContentObserver.swift
+[SwiftTerm] Compiling TerminalSessionExporter.swift
+[SwiftTerm] Compiling TerminalSessionRecorder.swift
+[SwiftTerm] Compiling SixelDcsHandler.swift
+[SwiftTerm] Compiling Pty.swift
+[SwiftTerm] Compiling SearchEngine.swift
+[SwiftTerm] Compiling SearchLineCache.swift
+[SwiftTerm] Compiling SearchOptions.swift
+[SwiftTerm] Compiling SearchService.swift
+[SwiftTerm] Compiling SearchState.swift
+[SwiftTerm] Compiling SelectionService.swift
+[SwiftTerm] Compiling iOSTerminalView.swift
+[SwiftTerm] Compiling iOSTextInput.swift
+[SwiftTerm] Compiling iOSTextStorage.swift
+[SwiftTerm] Compiling EventsV2Format.swift
+[SwiftTerm] Compiling TerminalSession.swift
+[SwiftTerm] Compiling TerminalSessionEvent.swift
+[SwiftTerm] Compiling MacAccessibilityService.swift
+[SwiftTerm] Compiling MacCaretView.swift
+[SwiftTerm] Compiling MacDebugView.swift
+[SwiftTerm] Compiling MacExtensions.swift
+[SwiftTerm] Compiling MacFindBarView.swift
+[SwiftTerm] Compiling MacLocalTerminalView.swift
+[SwiftTerm] Compiling MacTerminalView.swift
+[SwiftTerm] Compiling Position.swift
+[SwiftTerm] Compiling iOSDoubleButton.swift
+[SwiftTerm] Compiling iOSExtensions.swift
+[SwiftTerm] Compiling iOSKeyboardView.swift
+[SwiftTerm] Compiling TerminalViewSearch.swift
+[SwiftTerm] Compiling UnicodeWidthData.swift
+[SwiftTerm] Compiling Utilities.swift
+[SwiftTerm] Compiling SwiftUITerminalView.swift
+[SwiftTerm] Compiling iOSAccessoryView.swift
+[SwiftTerm] Compiling iOSCaretView.swift
+[SwiftTerm] Compiling TerminalContentReader.swift
+[SwiftTerm] Compiling TerminalSnapshot.swift
+[SwiftTerm] Compiling TerminalOptions.swift
+[SoyehtCore] Compiling BootstrapHealthClient.swift
+[SoyehtCore] Compiling BootstrapInitializeClient.swift
+[SoyehtCore] Compiling BootstrapPairDeviceURIClient.swift
+[SoyehtCore] Compiling BootstrapState.swift
+[SoyehtCore] Compiling BootstrapStatusClient.swift
+[SoyehtCore] Compiling BootstrapStatusEndpoint.swift
+[SoyehtCore] Compiling BootstrapTeardownClient.swift
+[SoyehtCore] Compiling BootstrapWireSupport.swift
+[SoyehtCore] Compiling GuestImageFailureCode.swift
+[SoyehtCore] Compiling GuestImagePrepareClient.swift
+[SoyehtCore] Compiling PairMachineQR.swift
+[SoyehtCore] Compiling PairingProof.swift
+[SoyehtCore] Compiling PersonCert.swift
+[SoyehtCore] Compiling RelayOfferGroupRequest.swift
+[SoyehtCore] Compiling RelayStreamOfferContract.swift
+[SoyehtCore] Compiling RosterAdmitClient.swift
+[SoyehtCore] Compiling RosterAuthorityVerifier.swift
+[SoyehtCore] Compiling RosterCurrencyClient.swift
+[SoyehtCore] Compiling RosterEvidenceClient.swift
+[SoyehtCore] Compiling RosterEvidenceCoordinator.swift
+[SoyehtCore] Compiling ClawMockData.swift
+[SoyehtCore] Compiling ClawModels.swift
+[SoyehtCore] Compiling ClawNotificationHelper.swift
+[SoyehtCore] Compiling ClawRoute.swift
+[SoyehtCore] Compiling ClawSetupResourcePolicy.swift
+[SoyehtCore] Compiling ClawSetupViewModel.swift
+[SoyehtCore] Compiling ClawStoreViewModel.swift
+[SoyehtCore] Compiling InstanceStatus.swift
+[SoyehtCore] Compiling MacActiveServerContextResolver.swift
+[SoyehtCore] Compiling EngineVersion.swift
+[SoyehtCore] Compiling GuestImageRecoveryPolicy.swift
+[SoyehtCore] Compiling ClawSiteHTTPBridge.swift
+[SoyehtCore] Compiling ClawSiteHTTPCodec.swift
+[SoyehtCore] Compiling ClawActionPolicy.swift
+[SoyehtCore] Compiling ClawDeployActivity.swift
+[SoyehtCore] Compiling ClawDeployMonitor.swift
+[SoyehtCore] Compiling ClawDetailActionAvailability.swift
+[SoyehtCore] Compiling ClawDetailViewModel.swift
+[SoyehtCore] Compiling ClawInventoryService.swift
+[SoyehtCore] Compiling ClawMachineTarget.swift
+[SoyehtCore] Compiling RosterEvidenceVerifier.swift
+[SoyehtCore] Compiling RosterProjectionStore.swift
+[SoyehtCore] Compiling RosterSignerPinClient.swift
+[SoyehtCore] Compiling RosterWire.swift
+[SoyehtCore] Compiling VerifiedRosterProjection.swift
+[SoyehtCore] Compiling EmbeddedEngineLaunchAgentSpec.swift
+[SoyehtCore] Compiling SoyehtInstallProfile.swift
+[SoyehtCore] Compiling MeshIP.swift
+[SoyehtCore] Compiling MeshTransportReadiness.swift
+[SoyehtCore] Compiling MeshTunnelConfigBuilder.swift
+[SoyehtCore] Compiling MeshTunnelIdentityNsecStore.swift
+[SoyehtCore] Compiling MeshTunnelPublicConfig.swift
+[SoyehtCore] Compiling RelayStreamIPPacketPump.swift
+[SoyehtCore] Compiling RelayStreamIPTunnelSessionMachine.swift
+[SoyehtCore] Compiling EndpointPolicy.swift
+[SoyehtCore] Compiling HouseholdBonjourBrowser.swift
+[SoyehtCore] Compiling HouseholdGossipSocket.swift
+[SoyehtCore] Compiling JoinRequestStagingClient.swift
+[SoyehtCore] Compiling LocalAnchorClient.swift
+[SoyehtCore] Compiling OwnerEventsLongPoll.swift
+[SoyehtCore] Compiling Phase3WireClient.swift
+[SoyehtCore] Compiling UnixDomainSocketHTTPTransport.swift
+[SoyehtCore] Compiling OnboardingConfig.swift
+[SoyehtCore] Compiling RestoredFromBackupDetector.swift
+[SoyehtCore] Compiling OnboardingFonts.swift
+[SoyehtCore] Compiling KeychainHelper.swift
+[SoyehtCore] Compiling PairingCrypto.swift
+[SoyehtCore] Compiling PairingProtocol.swift
+[SoyehtCore] Compiling PresenceProtocol.swift
+[SoyehtCore] Compiling TerminalWireFrame.swift
+[SoyehtCore] Compiling MobileClawVPNDevE2EExecutionTupleV1.swift
+[SoyehtCore] Compiling OwnerApprovalContextV2DTO.swift
+[SoyehtCore] Compiling OwnerApprovalV2Client.swift
+[SoyehtCore] Compiling OwnerApprovalV2DTO.swift
+[SoyehtCore] Compiling OwnerApprovalV2Orchestrator.swift
+[SoyehtCore] Compiling OwnerApprovalV2ReviewViewModel.swift
+[SoyehtCore] Compiling OwnerPasskeyEnrollmentClient.swift
+[SoyehtCore] Compiling OwnerPasskeyEnrollmentOrchestrator.swift
+[SoyehtCore] Compiling OwnerPasskeyEnrollmentViewModel.swift
+[SoyehtCore] Compiling SoyehtAPIClient+MobileClawVPN.swift
+[SoyehtCore] Compiling SoyehtAPIClient+ShareableApps.swift
+[SoyehtCore] Compiling SoyehtAPIClient.swift
+[SoyehtCore] Compiling SoyehtAPIPath.swift
+[SoyehtCore] Compiling UnavailReason.swift
+[SoyehtCore] Compiling AnimationCatalog.swift
+[SoyehtCore] Compiling Bootstrap.swift
+[SoyehtCore] Compiling BootstrapAcceptHouseholdClient.swift
+[SoyehtCore] Compiling BootstrapAcceptHouseholdConfirmClient.swift
+[SoyehtCore] Compiling BootstrapErrorCode.swift
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftmodule -> SwiftTerm.swiftmodule
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftdoc -> SwiftTerm.swiftdoc
+[SwiftTerm] Copy arm64-apple-ios-simulator.abi.json -> SwiftTerm.abi.json
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SwiftTerm.swiftsourceinfo
+[SoyehtCore] Compiling TelemetryClient.swift
+[SoyehtCore] Compiling TelemetryEvent.swift
+[SoyehtCore] Compiling TelemetryPreference.swift
+[SoyehtCore] Compiling ColorTheme.swift
+[SoyehtCore] Compiling LoginShellEnvironmentResolver.swift
+[SoyehtCore] Compiling TerminalColorTheme.swift
+[SoyehtCore] Compiling TerminalProcessEnvironment.swift
+[SoyehtCore] Compiling TerminalProtocolCodec.swift
+[SoyehtCore] Compiling TerminalThemeCatalog.swift
+[SoyehtCore] Compiling TerminalThemeImporter.swift
+[SoyehtCore] Compiling SetupInvitation.swift
+[SoyehtCore] Compiling SetupInvitationBrowser.swift
+[SoyehtCore] Compiling SetupInvitationClaimClient.swift
+[SoyehtCore] Compiling SetupInvitationPublisher.swift
+[SoyehtCore] Compiling SetupInvitationToken.swift
+[SoyehtCore] Compiling TailnetAddressResolver.swift
+[SoyehtCore] Compiling SoundDirector.swift
+[SoyehtCore] Compiling ServerContext.swift
+[SoyehtCore] Compiling SessionStore.swift
+[SoyehtCore] Compiling Telemetry.swift
+[SoyehtCore] Compiling resource_bundle_accessor.swift
+[SoyehtCore] Compiling MobileClawVPNOwnerPresentBoundary.swift
+[SoyehtCore] Compiling MobileClawVPNRendezvousAuthorizer.swift
+[SoyehtCore] Compiling MobileClawVPNRendezvousViewModel.swift
+[SoyehtCore] Compiling ServerKind+Auth.swift
+[SoyehtCore] Compiling ServerKind+Endpoint.swift
+[SoyehtCore] Compiling SoyehtAPIClient+ActiveShares.swift
+[SoyehtCore] Compiling SoyehtAPIClient+ClawShareInvite.swift
+[SoyehtCore] Compiling SoyehtAPIClient+Claws.swift
+[SoyehtCore] Compiling SoyehtAPIClient+LocalTerminals.swift
+[SoyehtCore] Compiling OwnerPasskeyRegistrationStatusClient.swift
+[SoyehtCore] Compiling OwnerWebauthnAddCredentialClient.swift
+[SoyehtCore] Compiling OwnerWebauthnAddCredentialDTO.swift
+[SoyehtCore] Compiling OwnerWebauthnAddCredentialOrchestrator.swift
+[SoyehtCore] Compiling OwnerWebauthnAddCredentialViewModel.swift
+[SoyehtCore] Compiling OwnerWebauthnLocalAttestationFixture.swift
+[SoyehtCore] Compiling OwnerWebauthnRegistrationDTO.swift
+[SoyehtCore] Compiling PasskeyProvider.swift
+[SoyehtCore] Compiling SecureUpgradeTranscript.swift
+[SoyehtCore] Compiling HouseholdCBORMapKeys.swift
+[SoyehtCore] Compiling HouseholdDevicePairingService.swift
+[SoyehtCore] Compiling HouseholdGossipConsumer.swift
+[SoyehtCore] Compiling HouseholdHash.swift
+[SoyehtCore] Compiling HouseholdIdentifiers.swift
+[SoyehtCore] Compiling HouseholdMachinesClient.swift
+[SoyehtCore] Compiling HouseholdMembershipStore.swift
+[SoyehtCore] Compiling HouseholdPairingError.swift
+[SoyehtCore] Compiling HouseholdPairingService.swift
+[SoyehtCore] Compiling HouseholdPoPSigner.swift
+[SoyehtCore] Compiling Color+Hex.swift
+[SoyehtCore] Compiling SoyehtFeatureFlags.swift
+[SoyehtCore] Compiling HapticDirector.swift
+[SoyehtCore] Compiling HouseAvatar.swift
+[SoyehtCore] Compiling HouseAvatarDerivation.swift
+[SoyehtCore] Compiling HouseAvatarEmojiCatalog.swift
+[SoyehtCore] Compiling ActiveShareLinkCache.swift
+[SoyehtCore] Compiling BIP39Wordlist.swift
+[SoyehtCore] Compiling CRLStore.swift
+[SoyehtCore] Compiling ClawShareClaimSubmitter.swift
+[SoyehtCore] Compiling NostrNIP44.swift
+[SoyehtCore] Compiling NostrWSSClient.swift
+[SoyehtCore] Compiling NostrWireTransport.swift
+[SoyehtCore] Compiling OperatorAuthorizationSigner.swift
+[SoyehtCore] Compiling OperatorFingerprint.swift
+[SoyehtCore] Compiling OwnerIdentityKey.swift
+[SoyehtCore] Compiling OwnerSiteA2DeviceFinishedTransport.swift
+[SoyehtCore] Compiling OwnerSiteA2DevicePreFinishedHandshake.swift
+[SoyehtCore] Compiling OwnerSiteA2Transport.swift
+[SoyehtCore] Compiling PairDeviceQR.swift
+[SoyehtCore] Compiling TerminalThemeStore.swift
+[SoyehtCore] Compiling TerminalWebSocketHandshakeVerifier.swift
+[SoyehtCore] Compiling BrandColors.swift
+[SoyehtCore] Compiling DesignStyle.swift
+[SoyehtCore] Compiling DesignStylePresets.swift
+[SoyehtCore] Compiling HexColorMath.swift
+[SoyehtCore] Compiling NeoStyleColors.swift
+[SoyehtCore] Compiling SoyehtAppPalette.swift
+[SoyehtCore] Compiling Typography.swift
+[SoyehtCore] Compiling MacosLocalRegistrationSocket.swift
+[SoyehtCore] Compiling TerminalPreferences.swift
+[SoyehtCore] Compiling HouseCreatedPushHandler.swift
+[SoyehtCore] Compiling MachineReachability.swift
+[SoyehtCore] Compiling MachineReachabilityAuthorityBootstrapper.swift
+[SoyehtCore] Compiling SoyehtCoreResources.swift
+[SoyehtCore] Compiling PairedServer+Server.swift
+[SoyehtCore] Compiling Server.swift
+[SoyehtCore] Compiling ServerEndpointResolver.swift
+[SoyehtCore] Compiling ServerInventoryWriter.swift
+[SoyehtCore] Compiling ServerStore.swift
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtCore.swiftmodule
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtCore.swiftdoc
+[SoyehtCore] Copy arm64-apple-ios-simulator.abi.json -> SoyehtCore.abi.json
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtCore.swiftsourceinfo
+[SoyehtCore] Compiling ClawShareCodec.swift
+[SoyehtCore] Compiling ClawShareEnvelopes.swift
+[SoyehtCore] Compiling ClawShareGuestIdentity.swift
+[SoyehtCore] Compiling ClawShareMemberEnrollmentController.swift
+[SoyehtCore] Compiling ClawShareMemberEnrollmentLink.swift
+[SoyehtCore] Compiling ClawShareMemberIdentity.swift
+[SoyehtCore] Compiling DeviceCert.swift
+[SoyehtCore] Compiling DevicePairRequestQueue.swift
+[SoyehtCore] Compiling HexData.swift
+[SoyehtCore] Compiling HouseholdCBOR.swift
+[SoyehtCore] Compiling HouseholdSession.swift
+[SoyehtCore] Compiling HouseholdSignMachineCertClient.swift
+[SoyehtCore] Compiling HouseholdSnapshotBootstrapper.swift
+[SoyehtCore] Compiling JoinRequestEnvelope.swift
+[SoyehtCore] Compiling JoinRequestQueue.swift
+[SoyehtCore] Compiling JoinRequestSafeRenderer.swift
+[SoyehtCore] Compiling MachineCertValidator.swift
+[SoyehtCore] Compiling MachineJoinError.swift
+[SoyehtCore] Compiling NostrChaCha20.swift
+[SoyehtCore] Compiling NostrClawShareClaimSubmitter.swift
+[NIOCore] Compiling ChannelInvoker.swift
+[NIOCore] Compiling ChannelOption.swift
+[NIOCore] Compiling ChannelPipeline.swift
+[NIOCore] Compiling CircularBuffer.swift
+[NIOCore] Compiling TypeAssistedChannelHandler.swift
+[NIOCore] Compiling UniversalBootstrapSupport.swift
+[NIOCore] Compiling Utilities.swift
+[NIOCore] Compiling AsyncChannelInboundStream.swift
+[NIOCore] Compiling AsyncChannelOutboundWriter.swift
+[NIOCore] Compiling NIOAsyncSequenceProducer.swift
+[NIOCore] Compiling NIOAsyncSequenceProducerStrategies.swift
+[NIOCore] Compiling ByteBuffer-binaryEncodedLengthPrefix.swift
+[NIOCore] Compiling ByteBuffer-conversions.swift
+[NIOCore] Compiling ByteBuffer-core.swift
+[NIOCore] Compiling ByteBuffer-hex.swift
+[NIOCore] Compiling Codec.swift
+[NIOCore] Compiling ConvenienceOptionSupport.swift
+[NIOCore] Compiling DeadChannel.swift
+[NIOCore] Compiling DispatchQueue+WithFuture.swift
+[NIOCore] Compiling SocketOptionProvider.swift
+[NIOCore] Compiling SystemCallHelpers.swift
+[NIOCore] Compiling TimeAmount+Duration.swift
+[NIOCore] Compiling AddressedEnvelope.swift
+[NIOCore] Compiling AsyncAwaitSupport.swift
+[NIOCore] Compiling AsyncChannel.swift
+[NIOCore] Compiling AsyncChannelHandler.swift
+[NIOCore] Compiling NIOScheduledCallback.swift
+[NIOCore] Compiling NIOSendable.swift
+[NIOCore] Compiling NIOSplitLinesMessageDecoder.swift
+[NIOCore] Compiling ByteBuffer-views.swift
+[NIOCore] Compiling Channel.swift
+[NIOCore] Compiling ChannelHandler.swift
+[NIOCore] Compiling ChannelHandlers.swift
+[NIOCore] Compiling IntegerBitPacking.swift
+[NIOCore] Compiling IntegerTypes.swift
+[NIOCore] Compiling Interfaces.swift
+[NIOCore] Compiling EventLoop+Deprecated.swift
+[NIOCore] Compiling EventLoop+SerialExecutor.swift
+[NIOCore] Compiling EventLoop.swift
+[NIOCore] Compiling EventLoopFuture+AssumeIsolated.swift
+[NIOCore] Compiling RecvByteBufferAllocator.swift
+[NIOCore] Compiling SingleStepByteToMessageDecoder.swift
+[NIOCore] Compiling SocketAddresses.swift
+[NIOCore] Compiling Linux.swift
+[NIOCore] Compiling MarkedCircularBuffer.swift
+[NIOCore] Compiling MulticastChannel.swift
+[NIOCore] Compiling NIOAny.swift
+[NIOCore] Compiling NIOCloseOnErrorHandler.swift
+[NIOCore] Compiling NIOCoreSendableMetatype.swift
+[NIOCore] Compiling NIODecodedAsyncSequence.swift
+[NIOCore] Compiling NIOLoopBound.swift
+[NIOCore] Compiling NIOPooledRecvBufferAllocator.swift
+[NIOCore] Compiling EventLoopFuture+Deprecated.swift
+[NIOCore] Compiling EventLoopFuture+WithEventLoop.swift
+[NIOCore] Compiling EventLoopFuture.swift
+[NIOCore] Compiling FileDescriptor.swift
+[NIOCore] Compiling FileHandle.swift
+[NIOCore] Compiling FileRegion.swift
+[NIOCore] Compiling GlobalSingletons.swift
+[NIOCore] Compiling ByteBuffer-int.swift
+[NIOCore] Compiling ByteBuffer-lengthPrefix.swift
+[NIOCore] Compiling ByteBuffer-multi-int.swift
+[NIOCore] Compiling ByteBuffer-quicBinaryEncodingStrategy.swift
+[NIOCore] Compiling IO.swift
+[NIOCore] Compiling IOData.swift
+[NIOCore] Compiling IPProtocol.swift
+[NIOCore] Compiling NIOAsyncWriter.swift
+[NIOCore] Compiling NIOThrowingAsyncSequenceProducer.swift
+[NIOCore] Compiling BSDSocketAPI.swift
+[NIOCore] Compiling ByteBuffer-aux.swift
+[SwiftTerm] Linking SwiftTerm.o
+[NIOCore] Copy arm64-apple-ios-simulator.swiftmodule -> NIOCore.swiftmodule
+[NIOCore] Copy arm64-apple-ios-simulator.swiftdoc -> NIOCore.swiftdoc
+[NIOCore] Copy arm64-apple-ios-simulator.abi.json -> NIOCore.abi.json
+[NIOCore] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOCore.swiftsourceinfo
+[SwiftTerm] Extract App Intents Metadata
+[SwiftTerm] RegisterExecutionPolicyException SwiftTerm.o
+[NIOEmbedded] Compiling AsyncTestingEventLoop.swift
+[NIOEmbedded] Compiling AsyncTestingChannel.swift
+[NIOEmbedded] Compiling Embedded.swift
+[NIOPosix] Compiling SocketProtocols.swift
+[NIOPosix] Compiling StructuredConcurrencyHelpers.swift
+[NIOPosix] Compiling System.swift
+[NIOPosix] Compiling FileDescriptor.swift
+[NIOPosix] Compiling GetaddrinfoResolver.swift
+[NIOPosix] Compiling HappyEyeballs.swift
+[NIOPosix] Compiling PipeChannel.swift
+[NIOPosix] Compiling PipePair.swift
+[NIOPosix] Compiling Pool.swift
+[NIOPosix] Compiling Linux.swift
+[NIOPosix] Compiling LinuxCPUSet.swift
+[NIOPosix] Compiling LinuxUring.swift
+[NIOPosix] Compiling Utilities.swift
+[NIOPosix] Compiling VsockAddress.swift
+[NIOPosix] Compiling ThreadWindows.swift
+[NIOPosix] Compiling UnsafeTransfer.swift
+[NIOPosix] Compiling PosixSingletons+ConcurrencyTakeOver.swift
+[NIOPosix] Compiling PosixSingletons.swift
+[NIOPosix] Compiling RawSocketBootstrap.swift
+[NIOPosix] Compiling IO.swift
+[NIOPosix] Compiling IntegerBitPacking.swift
+[NIOPosix] Compiling IntegerTypes.swift
+[NIOPosix] Compiling SelectorKqueue.swift
+[NIOPosix] Compiling SelectorUring.swift
+[NIOPosix] Compiling SelectorWSAPoll.swift
+[NIOPosix] Compiling BSDSocketAPIWindows.swift
+[NIOPosix] Compiling BaseSocket.swift
+[NIOPosix] Compiling BaseSocketChannel+SocketOptionProvider.swift
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftmodule -> NIOEmbedded.swiftmodule
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftdoc -> NIOEmbedded.swiftdoc
+[NIOEmbedded] Copy arm64-apple-ios-simulator.abi.json -> NIOEmbedded.abi.json
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOEmbedded.swiftsourceinfo
+[NIOPosix] Compiling resource_bundle_accessor.swift
+[NIOPosix] Compiling BSDSocketAPICommon.swift
+[NIOPosix] Compiling BSDSocketAPIPosix.swift
+[NIOPosix] Compiling ControlMessage.swift
+[NIOPosix] Compiling DatagramVectorReadManager.swift
+[NIOPosix] Compiling Errors+Any.swift
+[NIOPosix] Compiling MultiThreadedEventLoopGroup.swift
+[NIOPosix] Compiling NIOPosixSendableMetatype.swift
+[NIOPosix] Compiling NIOThreadPool.swift
+[NIOPosix] Compiling ServerSocket.swift
+[NIOPosix] Compiling Socket.swift
+[NIOPosix] Compiling SocketChannel.swift
+[NIOPosix] Compiling VsockChannelEvents.swift
+[NIOPosix] Compiling Windows.swift
+[SoyehtLiveActivity] Compiling SoyehtLiveActivityBundle.swift
+[SoyehtLiveActivity] Compiling ClawDeployAttributes.swift
+[SoyehtLiveActivity] Compiling ClawDeployLiveActivity.swift
+[CNIOAtomics] Linking CNIOAtomics.o
+[SoyehtClawShareTunnelProvider] Compiling NEPacketTunnelFlowAdapter.swift
+[SoyehtClawShareTunnelProvider] Compiling SoyehtClawShareTunnelProvider.swift
+[SoyehtCore] Linking SoyehtCore.o
+[SoyehtClawShareTunnelProvider] Compiling M0bSmokeCheck.swift
+[SoyehtClawShareTunnelProvider] Compiling RelayStreamIPTunnelNetworkSettings.swift
+[SoyehtClawShareTunnelProvider] Compiling RelayStreamGuestIPTunnelSessionAdapter.swift
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtLiveActivity.swiftmodule
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtLiveActivity.swiftdoc
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.abi.json -> SoyehtLiveActivity.abi.json
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtLiveActivity.swiftsourceinfo
+[NIOPosix] Compiling NonBlockingFileIO.swift
+[NIOPosix] Compiling PendingDatagramWritesManager.swift
+[NIOPosix] Compiling PendingWritesManager.swift
+[NIOPosix] Compiling Resolver.swift
+[NIOPosix] Compiling Selectable.swift
+[NIOPosix] Compiling SelectableChannel.swift
+[SoyehtClawShareTunnelProvider] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtClawShareTunnelProvider.swiftmodule
+[SoyehtClawShareTunnelProvider] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtClawShareTunnelProvider.swiftdoc
+[SoyehtClawShareTunnelProvider] Copy arm64-apple-ios-simulator.abi.json -> SoyehtClawShareTunnelProvider.abi.json
+[SoyehtClawShareTunnelProvider] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtClawShareTunnelProvider.swiftsourceinfo
+[NIOPosix] Compiling SelectableEventLoop.swift
+[NIOPosix] Compiling SelectorEpoll.swift
+[NIOPosix] Compiling SelectorGeneric.swift
+[NIOPosix] Compiling Thread.swift
+[NIOPosix] Compiling ThreadPosix.swift
+[NIOPosix] Compiling BaseSocketChannel.swift
+[NIOPosix] Compiling BaseStreamSocketChannel.swift
+[NIOPosix] Compiling Bootstrap.swift
+[SoyehtCore] Extract App Intents Metadata
+[CNIOAtomics] RegisterExecutionPolicyException CNIOAtomics.o
+[SoyehtCore] RegisterExecutionPolicyException SoyehtCore.o
+[SoyehtCore] Processing empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtCore] Copying SoyehtCore_SoyehtCore.bundle
+[SoyehtCore] Linking SoyehtCore_-730A002516DF5AF1_PackageProduct
+[NIOConcurrencyHelpers] Linking NIOConcurrencyHelpers.o
+[NIOConcurrencyHelpers] Extract App Intents Metadata
+[NIOConcurrencyHelpers] RegisterExecutionPolicyException NIOConcurrencyHelpers.o
+[SoyehtCore] RegisterExecutionPolicyException SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtCore] Touching SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtLiveActivity] Linking __preview.dylib
+[SoyehtClawShareTunnelProvider] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtLiveActivity] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtClawShareTunnelProvider] Linking __preview.dylib
+[SoyehtClawShareTunnelProvider] Linking SoyehtClawShareTunnelProvider.debug.dylib
+[SoyehtClawShareTunnelProvider] Processing Info.plist
+[SoyehtLiveActivity] Processing Info.plist
+[NIOCore] Linking NIOCore.o
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftdoc -> NIOPosix.swiftdoc
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftmodule -> NIOPosix.swiftmodule
+[NIOPosix] Copy arm64-apple-ios-simulator.abi.json -> NIOPosix.abi.json
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOPosix.swiftsourceinfo
+[NIOCore] Extract App Intents Metadata
+[SoyehtLiveActivity] Linking SoyehtLiveActivity.debug.dylib
+[NIOCore] RegisterExecutionPolicyException NIOCore.o
+[NIOEmbedded] Linking NIOEmbedded.o
+[NIOEmbedded] Extract App Intents Metadata
+[NIOEmbedded] RegisterExecutionPolicyException NIOEmbedded.o
+[NIO] Compiling Exports.swift
+[NIO] Compiling Exports.swift
+note: Using stub executor library with Swift entry point. (in target 'SoyehtLiveActivity' from project 'Soyeht')
+[SoyehtLiveActivity] Linking SoyehtLiveActivity
+[NIO] Copy arm64-apple-ios-simulator.swiftdoc -> NIO.swiftdoc
+[NIO] Copy arm64-apple-ios-simulator.swiftmodule -> NIO.swiftmodule
+[NIO] Copy arm64-apple-ios-simulator.abi.json -> NIO.abi.json
+[NIO] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIO.swiftsourceinfo
+[SoyehtLiveActivity] Extract App Intents Metadata
+Signing SoyehtLiveActivity.debug.dylib (in target 'SoyehtLiveActivity' from project 'Soyeht')
+Signing __preview.dylib (in target 'SoyehtLiveActivity' from project 'Soyeht')
+Signing SoyehtLiveActivity.appex (in target 'SoyehtLiveActivity' from project 'Soyeht')
+[SoyehtLiveActivity] RegisterExecutionPolicyException SoyehtLiveActivity.appex
+[SoyehtLiveActivity] Touching SoyehtLiveActivity.appex
+note: Using stub executor library without Swift entry point. (in target 'SoyehtClawShareTunnelProvider' from project 'Soyeht')
+[SoyehtClawShareTunnelProvider] Linking SoyehtClawShareTunnelProvider
+[NIOFoundationCompat] Compiling Codable+ByteBuffer.swift
+[NIOFoundationCompat] Compiling JSONSerialization+ByteBuffer.swift
+[NIOFoundationCompat] Compiling WaitSpinningRunLoop.swift
+[NIOFoundationCompat] Compiling ByteBuffer-foundation.swift
+[SoyehtClawShareTunnelProvider] Extract App Intents Metadata
+Signing SoyehtClawShareTunnelProvider.debug.dylib (in target 'SoyehtClawShareTunnelProvider' from project 'Soyeht')
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftdoc -> NIOFoundationCompat.swiftdoc
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.abi.json -> NIOFoundationCompat.abi.json
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftmodule -> NIOFoundationCompat.swiftmodule
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOFoundationCompat.swiftsourceinfo
+Signing __preview.dylib (in target 'SoyehtClawShareTunnelProvider' from project 'Soyeht')
+Signing SoyehtClawShareTunnelProvider.appex (in target 'SoyehtClawShareTunnelProvider' from project 'Soyeht')
+[SoyehtClawShareTunnelProvider] RegisterExecutionPolicyException SoyehtClawShareTunnelProvider.appex
+[SoyehtClawShareTunnelProvider] Touching SoyehtClawShareTunnelProvider.appex
+[NIOSSH] Compiling SSHConnectionStateMachine.swift
+[NIOSSH] Compiling ActiveState.swift
+[NIOSSH] Compiling IdleState.swift
+[NIOSSH] Compiling SSHChildChannel.swift
+[NIOSSH] Compiling AcceptsChannelMessages.swift
+[NIOSSH] Compiling AcceptsKeyExchangeMessages.swift
+[NIOSSH] Compiling AcceptsUserAuthMessages.swift
+[NIOSSH] Compiling ByteBuffer+SSH.swift
+[NIOSSH] Compiling CSPRNG.swift
+[NIOSSH] Compiling ChildChannelOptions.swift
+[NIOSSH] Compiling ChildChannelStateMachine.swift
+[NIOSSH] Compiling AcceptsVersionMessages.swift
+[NIOSSH] Compiling SendsChannelMessages.swift
+[NIOSSH] Compiling SendsKeyExchangeMessages.swift
+[NIOSSH] Compiling SendsUserAuthMessages.swift
+[NIOSSH] Compiling ChildChannelUserEvents.swift
+[NIOSSH] Compiling ChildChannelWindowManager.swift
+[NIOSSH] Compiling ChildChannelWritabilityManager.swift
+[NIOSSH] Compiling OutboundFlowController.swift
+[NIOSSH] Compiling UserAuthenticationState.swift
+[NIOSSH] Compiling Constants.swift
+[NIOSSH] Compiling GlobalRequestDelegate.swift
+[NIOSSH] Compiling KeyExchangeState.swift
+[NIOSSH] Compiling ReceivedKexInitWhenActiveState.swift
+[NIOSSH] Compiling ReceivedNewKeysState.swift
+[NIOSSH] Compiling SentKexInitWhenActiveState.swift
+[NIOSSH] Compiling SentNewKeysState.swift
+[NIOSSH] Compiling SentVersionState.swift
+[NIOSSH] Compiling RekeyingReceivedNewKeysState.swift
+[NIOSSH] Compiling RekeyingSentNewKeysState.swift
+[NIOSSH] Compiling RekeyingState.swift
+[NIOSSH] Compiling SSHClientConfiguration.swift
+[NIOSSH] Compiling SSHEncryptablePacketPayload.swift
+[NIOSSH] Compiling SSHMessages.swift
+[NIOSSH] Compiling NIOSSHError.swift
+[NIOSSH] Compiling NIOSSHHandler.swift
+[NIOSSH] Compiling Role.swift
+[NIOSSH] Compiling ClientUserAuthenticationDelegate.swift
+[NIOSSH] Compiling DenyAllServerAuthDelegate.swift
+[NIOSSH] Compiling ServerUserAuthenticationDelegate.swift
+[NIOSSH] Compiling SSHPacketParser.swift
+[NIOSSH] Compiling SSHPacketSerializer.swift
+[NIOSSH] Compiling SSHServerConfiguration.swift
+[NIOSSH] Compiling ECDHCompatibleKey.swift
+[NIOSSH] Compiling EllipticCurveKeyExchange.swift
+[NIOSSH] Compiling SSHKeyExchangeResult.swift
+[NIOSSH] Compiling UserAuthenticationMethod.swift
+[NIOSSH] Compiling UserAuthenticationStateMachine.swift
+[NIOSSH] Compiling _NIOSSHSendableMetatype.swift
+[NIOSSH] Compiling SSHKeyExchangeStateMachine.swift
+[NIOSSH] Compiling ClientServerAuthenticationDelegate.swift
+[NIOSSH] Compiling NIOSSHCertifiedPublicKey.swift
+[NIOSSH] Compiling NIOSSHPrivateKey.swift
+[NIOSSH] Compiling NIOSSHPublicKey.swift
+[NIOSSH] Compiling NIOSSHSignature.swift
+[NIOSSH] Compiling SimplePasswordDelegate.swift
+[NIOSSH] Compiling UserAuthDelegate.swift
+[NIOSSH] Compiling UserAuthSignablePayload.swift
+[NIOSSH] Compiling SSHTerminalModes.swift
+[NIOSSH] Compiling AESGCM.swift
+[NIOSSH] Compiling SSHTransportProtection.swift
+[NIOSSH] Compiling SSHChannelData.swift
+[NIOSSH] Compiling SSHChannelIdentifier.swift
+[NIOSSH] Compiling SSHChannelMultiplexer.swift
+[NIOSSH] Compiling SSHChannelType.swift
+[NIOSSH] Copy arm64-apple-ios-simulator.abi.json -> NIOSSH.abi.json
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftmodule -> NIOSSH.swiftmodule
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftdoc -> NIOSSH.swiftdoc
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOSSH.swiftsourceinfo
+[Soyeht] Generate Asset Symbols Assets.xcassets
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawStore/GuestImageReadinessGate.swift:285:59: main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+        preparationClient: GuestImagePreparationClient = .shared,
+                                                          ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawStore/GuestImageReadinessGate.swift:378:37: main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+        registry: ServerRegistry = .shared
+                                    ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:41:9: stored property 'client' of 'Sendable'-conforming struct 'EngineShareableAppsReader' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:2:1: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'SoyehtCore'
+import SoyehtCore
+^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:64:9: stored property 'client' of 'Sendable'-conforming struct 'EngineShareInviteMinter' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:84:9: stored property 'client' of 'Sendable'-conforming struct 'EngineActiveSharesReader' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:2:1: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'SoyehtCore'
+import SoyehtCore
+^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:96:9: stored property 'client' of 'Sendable'-conforming struct 'EngineActiveShareRevoker' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[Soyeht] Compiling ProximityQuestionView.swift
+[Soyeht] Compiling RecoveryMessageView.swift
+[Soyeht] Compiling APNsTokenRegistrar.swift
+[Soyeht] Compiling HouseCreatedPushHandler.swift
+[Soyeht] Compiling ResidentExplainerView.swift
+[Soyeht] Compiling AirDropPresenter.swift
+[Soyeht] Compiling NetworkDownloadGuard.swift
+[Soyeht] Compiling CellularConfirmationSheet.swift
+[Soyeht] Compiling RemoteFileDownloadManager.swift
+[Soyeht] Compiling SoyehtAPIClient+Browse.swift
+[Soyeht] Compiling SourceChipStrip.swift
+[Soyeht] Compiling ClawDeployAttributes.swift
+[Soyeht] Compiling ClawDeployActivityManager.swift
+[Soyeht] Compiling CarouselRootView.swift
+[Soyeht] Compiling HouseNamingFromiPhoneView.swift
+[Soyeht] Compiling InstallPickerView.swift
+[Soyeht] Compiling CardClawStore.swift
+[Soyeht] Compiling CardSecurityByDesign.swift
+[Soyeht] Compiling CardAgentTeams.swift
+[Soyeht] Compiling CardAgentAsSite.swift
+[Soyeht] Compiling CardVoice.swift
+[Soyeht] Compiling CardMacAndIphone.swift
+[Soyeht] Compiling KeyHandoffMetaphorView.swift
+[Soyeht] Compiling HowToRecoverView.swift
+[Soyeht] Compiling NoHouseholdBanner.swift
+[Soyeht] Compiling AddDevicePickerView.swift
+[Soyeht] Compiling AwaitingNewMacView.swift
+[Soyeht] Compiling HomeViewState.swift
+[Soyeht] Compiling SoyehtIdentityState.swift
+[Soyeht] Compiling SoyehtIdentitySnapshot.swift
+[Soyeht] Compiling OwnerDevice.swift
+[Soyeht] Compiling SoyehtIdentity.swift
+[Soyeht] Compiling AwaitingMacView.swift
+[Soyeht] Compiling QRFallbackView.swift
+[Soyeht] Compiling ReshowTourView.swift
+[Soyeht] Compiling CarouselCardLayout.swift
+[Soyeht] Compiling CarouselSeenStorage.swift
+[Soyeht] Compiling MorphingPageIndicator.swift
+[Soyeht] Compiling ParallaxHeroIllustration.swift
+[Soyeht] Compiling RestoredFromBackupView.swift
+[Soyeht] Compiling ShareAppViewModel.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:41:9: stored property 'client' of 'Sendable'-conforming struct 'EngineShareableAppsReader' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:2:1: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'SoyehtCore'
+import SoyehtCore
+^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ShareAppViewModel.swift:64:9: stored property 'client' of 'Sendable'-conforming struct 'EngineShareInviteMinter' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[Soyeht] Compiling ShareAppView.swift
+[Soyeht] Compiling ClawShareOpenFailure.swift
+[Soyeht] Compiling ActiveSharesView.swift
+[Soyeht] Compiling ActiveSharesViewModel.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:84:9: stored property 'client' of 'Sendable'-conforming struct 'EngineActiveSharesReader' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:2:1: add '@preconcurrency' to suppress 'Sendable'-related warnings from module 'SoyehtCore'
+import SoyehtCore
+^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSite/ActiveSharesViewModel.swift:96:9: stored property 'client' of 'Sendable'-conforming struct 'EngineActiveShareRevoker' has non-Sendable type 'SoyehtAPIClient'; this is an error in the Swift 6 language mode
+    let client: SoyehtAPIClient
+        ^
+[Soyeht] Compiling ActiveShareDateFormatter.swift
+[Soyeht] Compiling RelayStreamIPTunnelController.swift
+[Soyeht] Compiling GeneratedAssetSymbols.swift
+[Soyeht] Compiling SoyehtIdentity+Environment.swift
+[Soyeht] Compiling RelayStreamTerminalSession.swift
+[Soyeht] Compiling RelayStreamOpenController.swift
+[Soyeht] Compiling RelayStreamTerminalView.swift
+[Soyeht] Compiling ClawSiteView.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSiteView.swift:52:9: expression is 'async' but is not marked with 'await'; this is an error in the Swift 6 language mode
+        ClawSiteSource(
+        ^~~~~~~~~~~~~~~
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawSiteView.swift:271:28: call to main actor-isolated instance method 'reportLoadFailure' in a synchronous nonisolated context
+                    model?.reportLoadFailure(error)
+                           ^
+[Soyeht] Compiling ClawSiteRelayStreamOpener.swift
+[Soyeht] Compiling ClawSiteURLSchemeHandler.swift
+[Soyeht] Compiling ClawSiteOpenController.swift
+[Soyeht] Compiling BiometricConfirmView.swift
+[Soyeht] Compiling HouseholdInviteView.swift
+[Soyeht] Compiling PairingProgressView.swift
+[Soyeht] Compiling PairingSuccessView.swift
+[Soyeht] Compiling OwnerPasskeyEnrollmentComposer.swift
+[Soyeht] Compiling OwnerPasskeyEnrollmentView.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentView.swift:35:25: no 'async' operations occur within 'await' expression
+            if let vm = await OwnerPasskeyEnrollmentComposer.makeViewModel(
+                        ^
+[Soyeht] Compiling PasskeyPresentationAnchor.swift
+[Soyeht] Compiling LaterParkingLotView.swift
+[Soyeht] Compiling DownloadsManager.swift
+[Soyeht] Compiling AttachmentPickerView.swift
+[Soyeht] Compiling TerminalAttachmentCoordinator.swift
+[Soyeht] Compiling SoyehtAPIClient+Attachments.swift
+[Soyeht] Compiling AttachmentSourceRouter.swift
+[Soyeht] Compiling BreadcrumbBar.swift
+[Soyeht] Compiling FileBrowserCell.swift
+[Soyeht] Compiling FilePreviewViewController.swift
+[Soyeht] Compiling FileBrowserViewController.swift
+[Soyeht] Compiling FileBrowserViewController+Collection.swift
+[Soyeht] Compiling FileBrowserViewController+DirectoryLoading.swift
+[Soyeht] Compiling FileBrowserViewController+Downloads.swift
+[Soyeht] Compiling FileBrowserViewController+History.swift
+[Soyeht] Compiling FileBrowserViewController+Layout.swift
+[Soyeht] Compiling FileBrowserViewController+Preview.swift
+[Soyeht] Compiling NavigationHistoryStore.swift
+[Soyeht] Compiling ColorTheme+SwiftTerm.swift
+[Soyeht] Compiling ColorThemeView.swift
+[Soyeht] Compiling VoiceInputState.swift
+[Soyeht] Compiling VoicePermissionHelper.swift
+[Soyeht] Compiling VoiceInputService.swift
+[Soyeht] Compiling VoiceWaveformView.swift
+[Soyeht] Compiling VoiceBarView.swift
+[Soyeht] Compiling ServerListView.swift
+[Soyeht] Compiling AccessibilityID.swift
+[Soyeht] Compiling VoiceRecordingPanel.swift
+[Soyeht] Compiling VoiceSettingsView.swift
+[Soyeht] Compiling ShortcutBarItem.swift
+[Soyeht] Compiling ShortcutBarCatalog.swift
+[Soyeht] Compiling ShortcutBarView.swift
+[Soyeht] Compiling CustomShortcutCreatorView.swift
+[Soyeht] Compiling ClawCardView.swift
+[Soyeht] Compiling HouseholdMachineJoinRuntime.swift
+[Soyeht] Compiling RosterActivationProvider.swift
+[Soyeht] Compiling RosterAlertBanner.swift
+[Soyeht] Compiling DevicePairConfirmationViewModel.swift
+[Soyeht] Compiling HouseholdSessionController.swift
+[Soyeht] Compiling BaseMachineProjector.swift
+[Soyeht] Compiling ClipboardWriter.swift
+[Soyeht] Compiling SettingsRootView.swift
+[Soyeht] Compiling SettingsRoute.swift
+[Soyeht] Compiling M0bLockCanaryDebugView.swift
+[Soyeht] Compiling HouseholdApplePushServiceView.swift
+[Soyeht] Compiling HouseholdApplePushServiceViewModel.swift
+[Soyeht] Compiling SettingsRow.swift
+[Soyeht] Compiling CursorStyleView.swift
+[Soyeht] Compiling CustomColorPickerView.swift
+[Soyeht] Compiling FontSizeView.swift
+[Soyeht] Compiling HouseholdHomeView.swift
+[Soyeht] Compiling OwnerApprovalV2ReviewAdapter.swift
+[Soyeht] Compiling OwnerApprovalV2ReviewScreen.swift
+[Soyeht] Compiling JoinRequestConfirmationView.swift
+[Soyeht] Compiling JoinRequestConfirmationViewModel.swift
+[Soyeht] Compiling OwnerEventsCoordinator.swift
+[Soyeht] Compiling ApplicationDelegate+APNS.swift
+[Soyeht] Compiling APNSRegistrationCoordinator.swift
+[Soyeht] Compiling MacAliasView.swift
+[Soyeht] Compiling PairedMac+Server.swift
+[Soyeht] Compiling ServerRegistry.swift
+[Soyeht] Compiling PairedMacsStoreObservable.swift
+[Soyeht] Compiling SoyehtAPIClient.swift
+[Soyeht] Compiling WebSocketTerminalView.swift
+[Soyeht] Compiling TerminalLinkAllowlist.swift
+[Soyeht] Compiling QRScannerView.swift
+[Soyeht] Compiling HouseholdPairingViewModel.swift
+[Soyeht] Compiling TerminalHostViewController.swift
+[Soyeht] Compiling SSHLoginView.swift
+[Soyeht] Compiling AppRoute.swift
+[Soyeht] Compiling UIKitSshTerminalView.swift
+[Soyeht] Compiling ViewController.swift
+[Soyeht] Compiling AppDelegate.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/AppDelegate.swift:966:48: 'kSecUseAuthenticationUIFail' was deprecated in iOS 14.0: Instead of kSecUseAuthenticationUI, use kSecUseAuthenticationContext and set LAContext.interactionNotAllowed property
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
+                                               ^
+[Soyeht] Compiling SoyehtTheme.swift
+[Soyeht] Compiling SplashView.swift
+[Soyeht] Compiling InstanceListView.swift
+[Soyeht] Compiling TerminalPreferences+iOS.swift
+[Soyeht] Compiling AppNotifications.swift
+[Soyeht] Compiling SoyehtTerminalAppearance.swift
+[Soyeht] Compiling TerminalPreview.swift
+[Soyeht] Compiling ANSIParser.swift
+[Soyeht] Compiling HapticZoneModel.swift
+[Soyeht] Compiling HapticEngine.swift
+[Soyeht] Compiling HapticZoneView.swift
+[Soyeht] Compiling SessionStore.swift
+[Soyeht] Compiling PairedMacsStore.swift
+[Soyeht] Compiling PairingCoordinator.swift
+[Soyeht] Compiling PairedMacsListView.swift
+[Soyeht] Compiling PaneEntry.swift
+[Soyeht] Compiling MacPresenceClient.swift
+[Soyeht] Compiling PairedMacRegistry.swift
+[Soyeht] Compiling MacDetailView.swift
+[Soyeht] Compiling MacHomeRow.swift
+[Soyeht] Compiling ClawStoreView.swift
+[Soyeht] Compiling ClawDetailView.swift
+[Soyeht] Compiling ClawSetupView.swift
+[Soyeht] Compiling ClawInstallTarget.swift
+[Soyeht] Compiling ClawInstallTargetResolver.swift
+[Soyeht] Compiling ClawStoreServerPickerView.swift
+[Soyeht] Compiling MacClawUnavailableView.swift
+[Soyeht] Compiling GuestImageReadinessGate.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawStore/GuestImageReadinessGate.swift:378:37: main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+        registry: ServerRegistry = .shared
+                                    ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/Soyeht/ClawStore/GuestImageReadinessGate.swift:285:59: main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+        preparationClient: GuestImagePreparationClient = .shared,
+                                                          ^
+[NIOPosix] Linking NIOPosix.o
+[NIOPosix] Extract App Intents Metadata
+[NIOPosix] RegisterExecutionPolicyException NIOPosix.o
+[NIO] Linking NIO.o
+[NIO] Extract App Intents Metadata
+[Soyeht] Copy arm64-apple-ios-simulator.abi.json -> Soyeht.abi.json
+[Soyeht] Copy arm64-apple-ios-simulator.swiftmodule -> Soyeht.swiftmodule
+[Soyeht] Copy arm64-apple-ios-simulator.swiftdoc -> Soyeht.swiftdoc
+[Soyeht] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Soyeht.swiftsourceinfo
+[NIO] RegisterExecutionPolicyException NIO.o
+[NIOFoundationCompat] Linking NIOFoundationCompat.o
+[NIOFoundationCompat] Extract App Intents Metadata
+[NIOFoundationCompat] RegisterExecutionPolicyException NIOFoundationCompat.o
+[NIOSSH] Linking NIOSSH.o
+[NIOSSH] Extract App Intents Metadata
+[NIOSSH] RegisterExecutionPolicyException NIOSSH.o
+[Soyeht] Copying house-created.caf
+[Soyeht] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[Soyeht] Copying resident-paired.caf
+[Soyeht] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[Soyeht] Linking __preview.dylib
+[Soyeht] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[Soyeht] Copy libXCTestSwiftSupport.dylib -> libXCTestSwiftSupport.dylib
+[Soyeht] Copy libXCTestBundleInject.dylib -> libXCTestBundleInject.dylib
+[Soyeht] Copy XCUnit.framework -> XCUnit.framework
+[Soyeht] Copy XCUIAutomation.framework -> XCUIAutomation.framework
+[Soyeht] Copy XCTestSupport.framework -> XCTestSupport.framework
+[Soyeht] Copy XCTestCore.framework -> XCTestCore.framework
+[Soyeht] Copy XCTest.framework -> XCTest.framework
+[Soyeht] Copy XCTAutomationSupport.framework -> XCTAutomationSupport.framework
+[Soyeht] Copy Testing.framework -> Testing.framework
+[Soyeht] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[Soyeht] Copy P256K_D1A82D197DD_PackageProduct.framework -> P256K_D1A82D197DD_PackageProduct.framework
+[Soyeht] Copy BLAKE3_17578F34D7A398_PackageProduct.framework -> BLAKE3_17578F34D7A398_PackageProduct.framework
+[Soyeht] Compiling LaunchScreen.storyboard
+[Soyeht] Compiling Main.storyboard
+[Soyeht] Compile XCStrings Localizable.xcstrings
+Signing P256K_D1A82D197DD_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+Signing BLAKE3_17578F34D7A398_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-gdsfsmcqkzfmgngselzsmhvzczav/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon60x60@2x.png (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-gdsfsmcqkzfmgngselzsmhvzczav/Build/Products/Debug-iphonesimulator/Soyeht.app/Assets.car (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-gdsfsmcqkzfmgngselzsmhvzczav/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon76x76@2x~ipad.png (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Linking Soyeht.debug.dylib
+note: Using stub executor library with Swift entry point. (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Linking Soyeht
+[Soyeht] Running script Copy Secrets (Debug/Dev)
+[Soyeht] Running script Copy Soyeht DMG if Present
+[Soyeht] Copy SoyehtLiveActivity.appex -> SoyehtLiveActivity.appex
+[Soyeht] Copy HouseCreatedNotificationService.appex -> HouseCreatedNotificationService.appex
+[Soyeht] Copy SoyehtClawShareTunnelProvider.appex -> SoyehtClawShareTunnelProvider.appex
+[Soyeht] Processing Info.plist
+[Soyeht] Running script Strip Provenance xattrs (pre-Codesign)
+[Soyeht] Extract App Intents Metadata
+[SoyehtTests] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[SoyehtTests] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[SoyehtTests] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtTests] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtTests] Copy P256K_D1A82D197DD_PackageProduct.framework -> P256K_D1A82D197DD_PackageProduct.framework
+[SoyehtTests] Copy BLAKE3_17578F34D7A398_PackageProduct.framework -> BLAKE3_17578F34D7A398_PackageProduct.framework
+Signing BLAKE3_17578F34D7A398_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+Signing P256K_D1A82D197DD_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] Processing empty-SoyehtTests.plist
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] Compiling SecureUpgradeAppAttestCaptureTests.swift
+[SoyehtTests] Compiling PairedMacAliasTests.swift
+[SoyehtTests] Compiling MachineJoinTestFixtures.swift
+[SoyehtTests] Compiling ClawShareOpenRouterTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawShareOpenRouterTests.swift:42:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawShareOpenRouterTests.swift:44:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling ActiveSharesViewModelTests.swift
+[SoyehtTests] Compiling ActiveShareDateFormatterTests.swift
+[SoyehtTests] Compiling APNSPayloadInvariantTests.swift
+[SoyehtTests] Compiling RelayStreamIPTunnelControllerTests.swift
+[SoyehtTests] Compiling M0bProvisioningSmokeTests.swift
+[SoyehtTests] Compiling NatProbeDeviceTests.swift
+[SoyehtTests] Compiling RelayStreamGuestIPTunnelSessionAdapterTests.swift
+[SoyehtTests] Compiling ClawSiteWebViewCoordinatorTests.swift
+[SoyehtTests] Compiling ClawShareOpenFailureTests.swift
+[SoyehtTests] Compiling ClawSiteViewModelTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteViewModelTests.swift:35:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteViewModelTests.swift:37:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling ClawSiteURLSchemeHandlerTests.swift
+[SoyehtTests] Compiling OwnerEventsCoordinatorTests.swift
+[SoyehtTests] Compiling QRScannerViewMachineDispatchTests.swift
+[SoyehtTests] Compiling RelayStreamOpenControllerTests.swift
+[SoyehtTests] Compiling ShareAppViewModelTests.swift
+[SoyehtTests] Compiling ServerRegistryTests.swift
+[SoyehtTests] Compiling ClawInstallTargetResolverTests.swift
+[SoyehtTests] Compiling ClawRouteUsageTests.swift
+[SoyehtTests] Compiling RelayStreamGuestIPTunnelSessionAdapter.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:481:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:483:18: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+            lock.unlock()
+                 ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:486:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:552:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:555:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:564:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:569:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:587:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:589:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:653:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:663:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling RelayStreamIPTunnelNetworkSettingsTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:481:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:483:18: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+            lock.unlock()
+                 ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:486:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:552:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:555:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:564:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:569:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:587:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:589:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:653:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:663:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling RelayStreamIPTunnelNetworkSettings.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:481:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:483:18: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+            lock.unlock()
+                 ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:486:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:552:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:555:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:564:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:569:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:587:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:589:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:653:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:663:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling ClawSiteRelayStreamOpenerTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:481:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:483:18: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+            lock.unlock()
+                 ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:486:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:552:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:555:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:564:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:569:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:587:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:589:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:653:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/ClawSiteRelayStreamOpenerTests.swift:663:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling MachineJoinStory2IntegrationTests.swift
+[SoyehtTests] Compiling MachineJoinFailoverIntegrationTests.swift
+[SoyehtTests] Compiling HouseholdApplePushServiceViewModelTests.swift
+[SoyehtTests] Compiling RosterAlertPresentationTests.swift
+[SoyehtTests] Compiling MachineJoinStory1IntegrationTests.swift
+[SoyehtTests] Compiling JoinRequestConfirmationFluidityTests.swift
+[SoyehtTests] Compiling HouseholdPairingViewModelTests.swift
+[SoyehtTests] Compiling HouseholdPairingFailureViewModelTests.swift
+[SoyehtTests] Compiling JoinRequestConfirmationViewModelTests.swift
+[SoyehtTests] Compiling JoinRequestConfirmationFailureViewModelTests.swift
+[SoyehtTests] Compiling ParkingLotSnapshotTests.swift
+[SoyehtTests] Compiling SoyehtIdentityTests.swift
+[SoyehtTests] Compiling HomeViewStateTests.swift
+[SoyehtTests] Compiling HomeClawStoreButtonRoutingTests.swift
+[SoyehtTests] Compiling LegacyBoundaryUsageTests.swift
+[SoyehtTests] Compiling BaseMachineProjectorTests.swift
+[SoyehtTests] Compiling DevicePairApprovalPresentationTests.swift
+[SoyehtTests] Compiling OwnerPasskeyEnrollmentPresentationTests.swift
+[SoyehtTests] Compiling OwnerApprovalV2ReviewPresentationTests.swift
+[SoyehtTests] Compiling I18nSmokeTests.swift
+[SoyehtTests] Compiling MacPresenceClientTests.swift
+[SoyehtTests] Compiling ClawModelsTests.swift
+[SoyehtTests] Compiling SourceCommentStripper.swift
+[SoyehtTests] Compiling TypographyTests.swift
+[SoyehtTests] Compiling HapticZoneModelTests.swift
+[SoyehtTests] Compiling HapticPreferencesTests.swift
+[SoyehtTests] Compiling ColorThemeTests.swift
+[SoyehtTests] Compiling SourceCommentStripperTests.swift
+[SoyehtTests] Compiling ClawAPITests.swift
+[SoyehtTests] Compiling ClawViewModelTests.swift
+[SoyehtTests] Compiling ClipboardWriterTests.swift
+[SoyehtTests] Compiling TestFixtures.swift
+[SoyehtTests] Compiling SoyehtAPIClientTests.swift
+[SoyehtTests] Compiling TerminalPreferencesTests.swift
+[SoyehtTests] Compiling ANSIParserTests.swift
+[SoyehtTests] Compiling ShortcutBarTests.swift
+[SoyehtTests] Compiling ServerListViewTests.swift
+[SoyehtTests] Compiling NavigationStateTests.swift
+[SoyehtTests] Compiling PaneEntryTests.swift
+[SoyehtTests] Compiling APNSRegistrationCoordinatorTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1465:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1468:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling HouseholdMachineJoinRuntimeTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1465:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1468:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling RosterActivationProviderTests.swift
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1465:14: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+[!]  /tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp/SoyehtTests/HouseholdMachineJoinRuntimeTests.swift:1468:14: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+[SoyehtTests] Compiling MockURLProtocol.swift
+[SoyehtTests] Compiling TestSessions.swift
+[SoyehtTests] Compiling TestSessionStoreFactory.swift
+[SoyehtTests] Compiling TestAPIClientFactory.swift
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtTests.swiftmodule
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtTests.swiftdoc
+[SoyehtTests] Copy arm64-apple-ios-simulator.abi.json -> SoyehtTests.abi.json
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtTests.swiftsourceinfo
+[SoyehtTests] Linking SoyehtTests
+[SoyehtTests] Extract App Intents Metadata
+Signing SoyehtTests.xctest (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] RegisterExecutionPolicyException SoyehtTests.xctest
+[SoyehtTests] Touching SoyehtTests.xctest
+Signing Soyeht.debug.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing __preview.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing Soyeht.app (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Validate Embedded Binary SoyehtLiveActivity.appex
+[Soyeht] Validate Embedded Binary SoyehtClawShareTunnelProvider.appex
+[Soyeht] Validate Embedded Binary HouseCreatedNotificationService.appex
+[Soyeht] RegisterExecutionPolicyException Soyeht.app
+[Soyeht] Validate Soyeht.app
+[Soyeht] Touching Soyeht.app
+note: Run script build phase 'Strip Provenance xattrs (pre-Codesign)' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Soyeht' from project 'Soyeht')
+Test Suite 'All tests' started at 2026-08-21 11:10:52.832.
+Test Suite 'SoyehtTests.xctest' started at 2026-08-21 11:10:52.832.
+Test Suite 'APNSPayloadInvariantTests' started at 2026-08-21 11:10:52.833.
+    ✔ testCanonicalPayloadBytesAreExactlyTheContractLiteral (0.046 seconds)
+    ✔ testCanonicalPayloadRejectsLengthWhitespaceAndExtraKeys (0.005 seconds)
+    ✔ testRuntimeUserInfoAllowsOnlyOpaqueBackgroundTickle (0.001 seconds)
+    ✔ testRuntimeUserInfoRejectsAPNSAlertBadgeSoundAndMutableContent (0.001 seconds)
+    ✔ testRuntimeUserInfoRejectsHouseholdDataFields (0.001 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.053 (0.061) seconds
+Test Suite 'APNSRegistrationCoordinatorTests' started at 2026-08-21 11:10:52.894.
+    ✔ testForegroundReRegistersWhenLocalStateIsMissingOrStale (0.005 seconds)
+    ✔ testInitialRegisterBuildsPoPAuthenticatedCBORWithoutHouseholdId (0.003 seconds)
+    ✔ testSessionClearDeletesLocalStateWithoutNetworkDeregisterAndSuppressesUntilNewSession (0.003 seconds)
+    ✔ testTokenRotationRegistersNewTokenAndIdenticalTokenIsDeduped (0.002 seconds)
+    ✔ testTokenRotationWhileRegistrationIsInFlightRetriesLatestToken (0.011 seconds)
+    ✔ testUnknownTokenReportForcesNextForegroundRegistration (0.002 seconds)
+Executed 6 tests, with 0 failures (0 unexpected) in 0.027 (0.028) seconds
+Test Suite 'ActiveShareDateFormatterTests' started at 2026-08-21 11:10:52.923.
+    ✔ test_dateFartherThanADayUsesAFullDateNotARelativeWord (0.003 seconds)
+    ✔ test_labelIsDeterministicForTheSameInputs (0.001 seconds)
+    ✔ test_oneDayAfterNowLabelsTomorrow (0.001 seconds)
+    ✔ test_oneDayBeforeNowLabelsYesterday (0.001 seconds)
+    ✔ test_sameDayAsNowLabelsToday (0.001 seconds)
+    ✔ test_timeZoneIsInjectableAndChangesTheRenderedDayAndTime (0.001 seconds)
+    ✔ test_twentyFourHoursApartAtTheSameClockTimeNeverCollapseToTheSameString (0.001 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'ActiveShareRowDisplayTextTests' started at 2026-08-21 11:10:52.934.
+    ✔ test_acceptedAndRevokedAtTheSameClockTimeOnDifferentDaysAreDistinguishable (0.001 seconds)
+    ✔ test_acceptedStatusTextCarriesTheAcceptedAtTimestamp (0.001 seconds)
+    ✔ test_acceptedStatusTextFallsBackToBareWordWhenTimestampIsAbsent (0.000 seconds)
+    ✔ test_expiredStatusTextIsTheBareWord (0.001 seconds)
+    ✔ test_lifetimeTextAlwaysShowsCreatedAndExpiresRegardlessOfStatus (0.001 seconds)
+    ✔ test_revokedStatusTextCarriesTheRevokedAtTimestampWhenPresent (0.001 seconds)
+    ✔ test_revokedStatusTextFallsBackToBareWordWhenTimestampIsAbsent (0.001 seconds)
+    ✔ test_waitingStatusTextIsTheBareWord (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.005 (0.008) seconds
+Test Suite 'ActiveSharesViewModelTests' started at 2026-08-21 11:10:52.942.
+    ✔ test_cancelRevokeClearsPendingRevokeWithoutCallingTheRevoker (0.004 seconds)
+    ✔ test_confirmRevokeCallsTheRevokerMarksRowRevokedAndRemovesTheCachedLink (0.001 seconds)
+    ✔ test_confirmRevokeFailureLeavesTheRowUnchanged (0.009 seconds)
+    ✔ test_confirmRevokeFailureSurfacesACuratedMessageWithoutTouchingRowOrCache (0.001 seconds)
+    ✔ test_confirmRevokeStillCallsRevokerWhenDismissalAlreadyClearedPendingRevoke (0.001 seconds)
+    ✔ test_copyLinkEligibleOnlyWhenWaitingUnexpiredAndCached (0.001 seconds)
+    ✔ test_copyLinkWritesTheCachedUriAndFailsSilentlyWhenIneligible (0.001 seconds)
+    ✔ test_dismissRevokeFailureClearsTheMessageAndRevokeCanBeRetried (0.001 seconds)
+    ✔ test_duplicateAppTwoSharesRevokeIndependently (0.001 seconds)
+    ✔ test_loadClearsHasCachedLinkForAShareThatConvergedAwayFromWaiting (0.001 seconds)
+    ✔ test_loadFailureSurfacesACuratedMessage (0.001 seconds)
+    ✔ test_loadPopulatesRowsFromTheReader (0.001 seconds)
+    ✔ test_loadPruneAlsoDropsASlotAbsentFromTheFreshList (0.001 seconds)
+    ✔ test_loadPrunesAWaitingButAlreadyExpiredCachedLink (0.001 seconds)
+    ✔ test_loadPrunesCacheKeepingOnlyWaitingSlotIds (0.001 seconds)
+    ✔ test_requestRevokeSetsPendingRevokeWithoutCallingTheRevoker (0.001 seconds)
+Executed 16 tests, with 0 failures (0 unexpected) in 0.027 (0.032) seconds
+Test Suite 'BaseMachineProjectorTests' started at 2026-08-21 11:10:52.973.
+    ✔ testBaseProjectionAloneChoosesHouseholdHomeWithoutOperationalRecoverySideEffects (0.005 seconds)
+    ✔ testBaseProjectionDoesNotFlipColdLaunchSetupState (0.002 seconds)
+    ✔ testIdentityOnlyBaseMachineCannotResolveOrPersistOperationalState (0.003 seconds)
+    ✔ testLegacyIdentifierOnlyBootstrapLeavesProjectionAndServerStoreUntouched (0.028 seconds)
+    ✔ testLinuxNixAndLinuxOtherPlatformValuesBothPresentAsLinux (0.003 seconds)
+    ✔ testNoActiveHouseholdClearsOnlyTheEphemeralProjection (0.003 seconds)
+    ✔ testReachabilityOnlyChangeStillPublishesToObservers (0.005 seconds)
+    ✔ testReachabilityStillResolvesForAMachineAlreadyLegacyPairedAsAnOperationalServer (0.004 seconds)
+    ✔ testRefreshClearsPriorHouseholdProjectionBeforeFailedBootstrap (0.004 seconds)
+    ✔ testRefreshHasZeroProjectionSideEffectWhenHouseholdChangesDuringBootstrap (0.003 seconds)
+    ✔ testRefreshProjectsPeersWithTriStateReachabilityAndNeutralizesSelfsEcho (0.004 seconds)
+    ✔ testRefreshProjectsValidatedSelfMachineInMemoryWithoutPairingRouteOrSecret (0.003 seconds)
+    ✔ testRefreshRejectsSnapshotForDifferentActiveHousehold (0.003 seconds)
+    ✔ testWrongHouseholdBootstrapLeavesProjectionAndServerStoreUntouched (0.008 seconds)
+    ✔ testWrongMachinePublicKeyBootstrapLeavesProjectionAndServerStoreUntouched (0.007 seconds)
+    ✔ testWrongRespondentBootstrapLeavesProjectionAndServerStoreUntouched (0.009 seconds)
+Executed 16 tests, with 0 failures (0 unexpected) in 0.093 (0.098) seconds
+Test Suite 'ClawInstallTargetResolverTests' started at 2026-08-21 11:10:53.072.
+    ✔ testDefaultBootstrapPortFollowsCurrentInstallProfile (0.009 seconds)
+    ✔ testGuestImageGateInitialState_pollsMacEndpointInMultiServerHousehold (0.103 seconds)
+    ✔ testGuestImageGateInitialState_usesServerKindAndResolution (0.018 seconds)
+    ✔ testGuestImageGateState_allowsOnlyLinuxOrReadyMac (0.008 seconds)
+    ✔ testGuestImagePrepareResponse_failedCarriesFailureCodeIntoGateState (0.008 seconds)
+    ✔ testGuestImagePrepareResponse_mapsStartingToBlockedInProgress (0.010 seconds)
+    ✔ testGuestImageReadinessBootstrapBaseURL_usesResolvedEndpointPortInsteadOfStoredHost (0.047 seconds)
+    ✔ testGuestImageReadinessClient_cachesPerServerAndSeparatesServers (0.020 seconds)
+    ✔ testGuestImageReadinessClient_fetchErrorMirrorsUnreachable (0.023 seconds)
+    ✔ testGuestImageReadinessClient_noBaseURLDoesNotMirrorUnreachable (0.015 seconds)
+    ✔ testGuestImageReadinessClient_successMirrorsTheyOSStatus (0.022 seconds)
+    ✔ testGuestImageReadinessObserver_prepareErrorStillRefetchesStatus (0.007 seconds)
+    ✔ testGuestImageReadinessObserver_preparePreservesDNSHostPort (0.003 seconds)
+    ✔ testGuestImageReadinessObserver_prepareRefetchesStatusBeforePublishing (0.003 seconds)
+    ✔ testHouseholdEndpoint_bootstrapEndpointBypassesNetworkOrdering (0.003 seconds)
+    ✔ testHouseholdEndpoint_explicitURLBypassesNetworkOrdering (0.002 seconds)
+    ✔ testHouseholdEndpoint_hostPortPreservesCustomBootstrapPort (0.002 seconds)
+    ✔ testHouseholdEndpoint_magicDNSTailnetHostPreservesMagicDNSHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_noNetworkSignalsPreservesStoredHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetActiveWithoutLANPreservesTailnetHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetHostWinsOverDisplayAliasNetworkLabel (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetIPv6HostPreservesTailnetHost (0.003 seconds)
+    ✔ testHouseholdEndpoint_twoServersDoNotShareResolverState (0.002 seconds)
+    ✔ testHouseholdEndpoint_usesInstallProfileBootstrapPortForBareHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_wifiActiveLocalHostIsNotSelectable (0.002 seconds)
+    ✔ testHouseholdEndpoint_wifiActiveTailnetHostPreservesTailnetHost (0.002 seconds)
+    ✔ testRefreshStatus_reChecksWithoutIssuingPrepare (0.002 seconds)
+    ✔ testResolution_supportsDeploy_forServerAndHouseholdEndpoint (0.002 seconds)
+    ✔ testResolve_linuxWithContext_returnsServer (0.022 seconds)
+    ✔ testResolve_macLANLastHostWithDNSPort_returnsUnavailable (0.014 seconds)
+    ✔ testResolve_macLastHostWithExplicitHTTPURL_returnsNormalizedEndpoint (0.011 seconds)
+    ✔ testResolve_macNoContext_withMultipleServers_returnsHouseholdEndpoint (0.021 seconds)
+    ✔ testResolve_macNoContextFreshUnreachable_returnsUnavailable (0.014 seconds)
+    ✔ testResolve_macNoContextRunningUninitializedAndUnknownRemainRouteable (0.033 seconds)
+    ✔ testResolve_macNoContextStaleUnreachable_returnsHouseholdEndpoint (0.012 seconds)
+    ✔ testResolve_macTailnetLastHostWithDNSPort_returnsHouseholdEndpointHostAndPort (0.013 seconds)
+    ✔ testResolve_macWithContext_returnsServer (0.021 seconds)
+    ✔ testResolve_singleMacNoContext_returnsHouseholdEndpoint (0.006 seconds)
+    ✔ testResolve_unknownServerID_returnsUnknownServer (0.002 seconds)
+Executed 39 tests, with 0 failures (0 unexpected) in 0.497 (0.508) seconds
+Test Suite 'ClawRouteUsageTests' started at 2026-08-21 11:10:53.580.
+    ✔ test_ClawAPITargetHousehold_onlyAppearsInResolver (0.375 seconds)
+    ✔ test_clawStoreViewModel_builtFromMachineTarget_notLossyApiTarget (0.181 seconds)
+    ✔ test_iosUI_neverConstructsHouseholdDetailRoute (0.201 seconds)
+    ✔ test_iosUI_neverConstructsHouseholdStoreRoute (0.204 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.961 (0.962) seconds
+Test Suite 'ClawShareOpenFailureTests' started at 2026-08-21 11:10:54.542.
+    ✔ test_anUnrecognizedErrorDefaultsToUnknownWithRetry (0.000 seconds)
+    ✔ test_credentialExpiredAlsoMapsToLinkExpired (0.001 seconds)
+    ✔ test_everyCaseHasNonEmptyTitleAndMessage (0.001 seconds)
+    ✔ test_inviteExpiredMapsToLinkExpiredWithAskForNewLink (0.000 seconds)
+    ✔ test_rejectionAndMismatchCausesMapToLinkNoLongerValid (0.000 seconds)
+    ✔ test_routeErrorMissingOfferMapsToLinkNoLongerValid (0.000 seconds)
+    ✔ test_routeErrorUnsupportedResourceMapsToIncompatibleClient (0.001 seconds)
+    ✔ test_shareAppNoLongerAvailableReasonMapsToLinkNoLongerValid (0.001 seconds)
+    ✔ test_shareAppUnavailableReasonIsRecognizedAsRecoverable (0.001 seconds)
+    ✔ test_streamFailedCarriesTheReasonThroughTheSameMatcher (0.001 seconds)
+    ✔ test_transportCausesMapToTemporaryConnectionFailureWithRetry (0.000 seconds)
+    ✔ test_tunnelReasonMatchesTheBareCode (0.001 seconds)
+    ✔ test_tunnelReasonMatchesTheRealPrefixedPayload (0.000 seconds)
+    ✔ test_tunnelReasonRejectsAnExtendedSuffix (0.000 seconds)
+    ✔ test_tunnelReasonRejectsTheCodeBeforeTheWrongDelimiter (0.000 seconds)
+    ✔ test_tunnelReasonRejectsTheCodeGluedWithoutADelimiter (0.000 seconds)
+    ✔ test_unexpectedFrameMapsToIncompatibleClientWithClose (0.000 seconds)
+    ✔ test_unrelatedTunnelReasonFallsBackToUnknown (0.001 seconds)
+Executed 18 tests, with 0 failures (0 unexpected) in 0.010 (0.027) seconds
+Test Suite 'ClawShareOpenRouterTests' started at 2026-08-21 11:10:54.569.
+    ✔ test_openCallsTheClaimSubmitterExactlyOnce (0.014 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.014 (0.015) seconds
+Test Suite 'ClawSiteRelayStreamOpenerTests' started at 2026-08-21 11:10:54.584.
+    ✔ testCancellationRightAtHandoffReleasesTheSlotBeforeOpeningAnyTarget (0.133 seconds)
+    ✔ testCancelledWaiterReturnsPromptlyAndDoesNotOrphanATarget (0.117 seconds)
+    ✔ testConcurrentExchangesSerializeOntoOneLiveTarget (0.106 seconds)
+    ✔ testFirstExchangeUsesTheTargetConnectPersistentAlreadyOpened (0.002 seconds)
+    ✔ testRedialAfterAnUnavailableSignalReusesTheIdenticalOfferAndCredentialBytes (0.003 seconds)
+    ✔ testRedialsOnlyAfterTheSessionFails (0.003 seconds)
+    ✔ testSecondExchangeReusesTheConnectionViaOpenNextTarget (0.002 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.364 (0.366) seconds
+Test Suite 'ClawSiteURLSchemeHandlerTests' started at 2026-08-21 11:10:54.951.
+    ✔ test_typedFailureHandlerIsInvokedOutsideTheLock (0.002 seconds)
+    ✔ test_typedFailureHandlerReceivesTheOriginalErrorCase (0.001 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'ClawSiteViewModelTests' started at 2026-08-21 11:10:54.954.
+    ✔ test_recoverableUnavailableReasonRoutesToUnavailablePhase (0.008 seconds)
+    ✔ test_retryReusesTheSameProviderAndReachesReadyAgain (0.001 seconds)
+    ✔ test_secondFailureReportAfterTheFirstIsANoOp (0.001 seconds)
+    ✔ test_terminalReasonRoutesToFailedLinkNoLongerValid (0.001 seconds)
+    ✔ test_unrelatedReasonFallsBackToFailedUnknown (0.001 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.011 (0.013) seconds
+Test Suite 'ClawSiteWebViewCoordinatorTests' started at 2026-08-21 11:10:54.967.
+    ✔ test_coordinatorStatePlusPolicyCorrectlyDetectsAGenuinelyNewSource (0.000 seconds)
+    ✔ test_markingASecondHandlerReplacesTheFirst (0.001 seconds)
+    ✔ test_markLoadedRecordsTheExactHandler (0.001 seconds)
+    ✔ test_startsWithNoHandlerLoaded (0.000 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'ClawSiteWebViewReloadPolicyTests' started at 2026-08-21 11:10:54.970.
+    ✔ test_aGenuinelyDifferentSourceNeedsReload (0.001 seconds)
+    ✔ test_noHandlerLoadedYetNeedsReload (0.000 seconds)
+    ✔ test_sameSourceNeverNeedsReload_regardlessOfWhereTheGuestHasNavigated (0.000 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'DevicePairApprovalPresentationTests' started at 2026-08-21 11:10:54.974.
+    ✔ test_addMacExistingHouseNoticeAppearsOnlyAfterGraceWhileStillLooking (0.006 seconds)
+    ✔ test_addMacFiltersSetupClaimsByInstallProfileBeforeIgnoringExistingHouse (0.002 seconds)
+    ✔ test_addMacIgnoresExistingHouseClaimAndKeepsLookingForFreshMac (0.002 seconds)
+    ✔ test_awaitingMacStopResetsAlreadyFoundLifecycleLatch (0.001 seconds)
+    ✔ test_awaitingNewMacStopResetsAlreadyOrchestratingLifecycleLatch (0.001 seconds)
+    ✔ test_baseMachineHomeRowPresentationDependsOnServerKindNotJustMac (0.001 seconds)
+    ✔ test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList (0.006 seconds)
+    ✔ test_bodyExtractorFailsLoudlyOnAbsentOrDuplicatedAnchors (0.002 seconds)
+    ✔ test_checkerAcceptsACleanPublishPath (0.001 seconds)
+    ✔ test_checkerDoesNotAcceptANeighbouringFunctionsAssignment (0.001 seconds)
+    ✔ test_checkerRejectsAnAssignmentThatExistsOnlyInAComment (0.001 seconds)
+    ✔ test_checkerRejectsARebounParameter (0.001 seconds)
+    ✔ test_checkerRejectsARebuiltDegradedThatDropsLastKnown (0.001 seconds)
+    ✔ test_checkerRejectsARenamedPassThroughArgument (0.001 seconds)
+    ✔ test_checkerRejectsASanitisedCopyThatPrefixMatchesTheNeedle (0.001 seconds)
+    ✔ test_checkerRejectsATransformedRefreshResult (0.001 seconds)
+    ✔ test_debugLocalStateReportBreaksDownServerSources (0.002 seconds)
+    ✔ test_debugLocalStateResetClearsLegacyMacStoreAndRegistryMirror (0.002 seconds)
+    ✔ test_debugResetUsesProfileScopedHouseholdKeychainDeletionPlan (0.002 seconds)
+    ✔ test_devicePairingPublishesSetupInvitationForLocalMacPairing (0.002 seconds)
+    ✔ test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint (0.005 seconds)
+    ✔ test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes (0.001 seconds)
+    ✔ test_firstSetupFiltersDirectAndBonjourMacDiscoveryByInstallProfile (0.004 seconds)
+    ✔ test_foregroundRevalidationPublishesTheCoordinatorStateWithoutRebuildingIt (0.006 seconds)
+    ✔ test_householdHomeRendersBaseMachineWithoutMakingItInteractive (0.001 seconds)
+    ✔ test_householdHomeSharesDevicePairApprovalOverlay (0.002 seconds)
+    ✔ test_instanceListRendersDevicePairApprovalOverlay (0.002 seconds)
+    ✔ test_localMacPairingClaimStillRunsBootstrapDecisionBeforeOpeningMacMirror (0.003 seconds)
+    ✔ test_localMacPairingWritesServerListThroughRegistryFunnel (0.005 seconds)
+    ✔ test_localTerminalHandoffClosesLosingUnauthenticatedClientsAfterConsume (0.004 seconds)
+    ✔ test_macAliasViewRenamesThroughServerRegistry (0.001 seconds)
+    ✔ test_machineJoinRuntimeSnapshotsQueuesAfterSubscribingToStreams (0.003 seconds)
+    ✔ test_macPresenceClientWritesMacMutationsThroughServerRegistry (0.003 seconds)
+    ✔ test_macSetupInvitationUsesDirectNotificationPath (0.004 seconds)
+    ✔ test_mobileCredentialStoresUseProfileScopedKeychainService (0.003 seconds)
+    ✔ test_pairingCoordinatorWritesMacRowsThroughRegistryFunnel (0.002 seconds)
+    ✔ test_postSplashDoesNotLetHouseholdHomePreemptPairedServers (0.003 seconds)
+    ✔ test_recoveryDismissRoutesOnlyOnOperationalInventory (0.002 seconds)
+    ✔ test_rosterAlertBannerNeverDestructuresRosterPayload (0.006 seconds)
+    ✔ test_rosterAlertBannerRendersOnBothHouseholdSurfaces (0.014 seconds)
+Executed 40 tests, with 0 failures (0 unexpected) in 0.112 (0.123) seconds
+Test Suite 'GuestImageReadinessTransportTests' started at 2026-08-21 11:10:55.097.
+    ✔ test_bootstrapBaseURL_tailscaleMac_isHttp8091_neverHttps (0.001 seconds)
+    ✔ test_hostVmLimit_recoversViaCheckAgain_notPrepare (0.001 seconds)
+    ✔ test_state_reachableHostVmLimit_isBlockedFailed_notGeneric (0.002 seconds)
+    ✔ test_state_unreachable_staysUnavailableGeneric (0.002 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'HomeClawStoreButtonRoutingTests' started at 2026-08-21 11:10:55.103.
+    ✔ test_clawStoreButton_branchesByRegistryCount (0.002 seconds)
+    ✔ test_clawStoreE2ELaunchArgument_isDebugOnlyAndDefaultOff (0.002 seconds)
+    ✔ test_deleteActionPrunesLocalHomeRowsAndCacheByInstanceIdentity (0.001 seconds)
+    ✔ test_householdAttachMintsThenConnectsWithoutPreflight (0.005 seconds)
+    ✔ test_householdTerminalReconnectUsesFreshRequest (0.002 seconds)
+    ✔ test_householdTerminalUsesRequestModeWithoutChangingStringMode (0.002 seconds)
+    ✔ test_instanceActionsMenuIsCapabilityGatedAndPerformerIsDualMode (0.003 seconds)
+    ✔ test_instanceActionsRouteContextFirstThenMacHouseholdEndpoint (0.000 seconds)
+    ✔ test_macAliasCover_onlyPresentsWhenLegacyPairedMacCanRender (0.004 seconds)
+    ✔ test_macHomeRowsExposeStableAutomationIdentifier (0.002 seconds)
+    ✔ test_macHouseholdTerminalCardFlipRequiresEndpoint (0.001 seconds)
+    ✔ test_mobileClawVPNControlPlaneFlag_isDevOnlyAndDefaultOff (0.001 seconds)
+    ✔ test_mobileClawVPNControlPlaneLaunchConfig_requiresExplicitDeviceAndClawIDs (0.006 seconds)
+    ✔ test_mobileClawVPNControlPlaneSettingsRoute_isFlagGated (0.004 seconds)
+    ✔ test_mobileClawVPNControlPlaneView_isHeadlessAndNoEcho (0.006 seconds)
+    ✔ test_navigationDestination_handlesServerPicker (0.002 seconds)
+    ✔ test_navigationDestination_routesByInstallTarget (0.002 seconds)
+    ✔ test_relayStreamOpeningRequiresExplicitConfirmBeforeClaim (0.004 seconds)
+    ✔ test_relayStreamTerminalLinkOpeningIsAllowlistedAndInjectable (0.001 seconds)
+    ✔ test_releaseLaunchRouting_keepsCarouselBehindFeatureFlag (0.001 seconds)
+    ✔ test_terminalLinkConfirmationOpenerIsTheOnlyUIApplicationOpenSiteForTerminalLinks (0.001 seconds)
+    ✔ test_terminalViewsUseSharedLinkAllowlistAndConfirmationOpener (0.002 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 0.055 (0.061) seconds
+Test Suite 'HomeViewStateTests' started at 2026-08-21 11:10:55.164.
+    ✔ testBannerHides_whenIdentityFiresIsActiveChange_afterUnlock (0.013 seconds)
+    ✔ testBannerIsHidden_whenIdentityIsActive_evenAfterParkingLotVisited (0.002 seconds)
+    ✔ testBannerIsHidden_whenParkingLotNotVisited_evenIfInactive (0.001 seconds)
+    ✔ testBannerIsVisible_whenParkingLotVisited_andIdentityInactive (0.001 seconds)
+    ✔ testBannerShows_whenIdentityFiresIsActiveChange_afterRevoke (0.008 seconds)
+    ✔ testClearBanner_hidesBanner_andResetsParkingLot (0.002 seconds)
+Executed 6 tests, with 0 failures (0 unexpected) in 0.026 (0.028) seconds
+Test Suite 'HouseholdApplePushServiceViewModelTests' started at 2026-08-21 11:10:55.193.
+    ✔ testApplyFailureBannerClearsOnSuccessfulRetry (0.020 seconds)
+    ✔ testApplyWithoutActiveHouseholdIsNoOp (0.033 seconds)
+    ✔ testFirstHandleToggleAfterRollbackShortCircuitsRegardlessOfValue (0.040 seconds)
+    ✔ testReloadDuringInFlightApplyIsNoOp (0.007 seconds)
+    ✔ testReloadFollowedByOnChangeDoesNotTriggerApply (0.032 seconds)
+    ✔ testReloadLoadsActiveHouseholdAndPersistedToggleValue (0.001 seconds)
+    ✔ testResumeFailureRollsBackPreferenceAndToggleAndShowsBanner (0.007 seconds)
+    ✔ testRolledBackBaselineIsTheRevertedValueNotTheOptimisticForward (0.045 seconds)
+    ✔ testToggleOffSuccessfullySuspendsAndPersists (0.008 seconds)
+    ✔ testToggleOnSuccessfullyResumesAndPersists (0.008 seconds)
+Executed 10 tests, with 0 failures (0 unexpected) in 0.201 (0.205) seconds
+Test Suite 'HouseholdMachineJoinRuntimeTests' started at 2026-08-21 11:10:55.398.
+    ✔ testActivationFailureNeverLeaksPastSnapshotCompletion (0.249 seconds)
+    ✔ testBeginConfirmingPublishesSnapshotAndDerivedKey (0.002 seconds)
+    ✔ testConcurrentForegroundsIssueASingleRosterRoundTrip (0.164 seconds)
+    ✔ testDevicePairApprovalAllowsLocallyOwnedDelegatedSession (0.004 seconds)
+    ✔ testEndConfirmingClearsSnapshotForMatchingKey (0.002 seconds)
+    ✔ testEndConfirmingIsIdempotentOnMismatch (0.002 seconds)
+    ✔ testEnterForegroundForwardsToOwnerEventsExactlyOncePerCall (0.056 seconds)
+    ✔ testForegroundAfterStopNeitherFetchesNorPublishes (0.376 seconds)
+    ✔ testForegroundBeforeAnyActivationNeitherFetchesNorPublishes (0.208 seconds)
+    ✔ testForegroundRevalidationClearsAResolvedCondition (0.110 seconds)
+    ✔ testForegroundRevalidationPublishesTheCoordinatorStateVerbatim (0.104 seconds)
+    ✔ testForegroundRevalidationSurfacesRevocationThatAppearedMidSession (0.108 seconds)
+    ✔ testForegroundRevalidationSurfacesTamperThatAppearedMidSession (0.110 seconds)
+    ✔ testForegroundWithoutARosterActivatorSkipsWithoutPublishing (0.258 seconds)
+    ✔ testHappyPathActivationCrossesPhasesInForwardOrder (0.053 seconds)
+    ✔ testHouseholdSwitchBeatsAnInFlightForegroundRevalidation (0.212 seconds)
+    ✔ testNoRosterActivatorSkipsStepAndLeavesStateUnknown (0.056 seconds)
+    ✔ testOriginalQRTTLEqualToNowIsRejectedAsQRExpired (0.000 seconds)
+    ✔ testOriginalQRTTLInPastIsRejectedAsQRExpired (0.000 seconds)
+    ✔ testRosterDegradedPreservesActivationAndStartsGossip (0.055 seconds)
+    ✔ testRosterRefreshCalledOncePerActivation (0.054 seconds)
+    ✔ testRosterRePairingAndTamperRemainDistinguishable (0.110 seconds)
+    ✔ testRosterRunsBetweenSnapshotAndGossipInOrder (0.055 seconds)
+    ✔ testRosterTokenInvalidatedDuringRefreshPublishesNothingAndSkipsGossip (0.054 seconds)
+    ✔ testSnapshotSurvivesQueueRemoval (0.002 seconds)
+    ✔ testStagingExpiryCannotExtendOriginalQRHardTTL (0.000 seconds)
+    ✔ testStagingExpiryEqualToNowIsRejected (0.000 seconds)
+    ✔ testStagingExpiryInThePastIsRejected (0.000 seconds)
+    ✔ testStagingExpiryShorterThanQRTTLIsAccepted (0.000 seconds)
+    ✔ testStagingExpiryZeroIsRejected (0.001 seconds)
+    ✔ testStopBeatsAnInFlightForegroundRevalidation (0.161 seconds)
+    ✔ testStopBeforeActivateEmitsBoundaryPair (0.002 seconds)
+    ✔ testStopClearsConfirmingSnapshot (0.011 seconds)
+    ✔ testStopIsIdempotent (0.002 seconds)
+    ✔ testStopRacedAgainstActivationCancelsBeforeGossip (0.206 seconds)
+Executed 35 tests, with 0 failures (0 unexpected) in 2.791 (2.802) seconds
+Test Suite 'HouseholdPairingFailureViewModelTests' started at 2026-08-21 11:10:58.200.
+    ✔ testBiometryCanceledMapsToRetryBiometryRecovery (0.003 seconds)
+    ✔ testCameraDeniedCanBeRenderedWithoutActivatingHousehold (0.001 seconds)
+    ✔ testExpiredQRMapsToFreshQRRecovery (0.001 seconds)
+    ✔ testNoMatchingHouseholdMapsToNetworkRecovery (0.001 seconds)
+    ✔ testStorageFailureMapsToDeviceSecurityRecovery (0.001 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'HouseholdPairingViewModelTests' started at 2026-08-21 11:10:58.208.
+    ✔ testFailureStateDoesNotActivateHousehold (0.001 seconds)
+    ✔ testScanToActiveHouseholdState (0.002 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'JoinRequestConfirmationFailureViewModelTests' started at 2026-08-21 11:10:58.212.
+    ✔ testBiometricCancelRevertsQueueEntryAndKeepsCardPending (0.005 seconds)
+    ✔ testBiometricLockoutRevertsQueueEntryAndKeepsCardPending (0.002 seconds)
+    ✔ testFingerprintRegenerationDriftFailsAndClearsQueueEntry (0.003 seconds)
+    ✔ testHouseholdMismatchFailsAndDoesNotSubmit (0.003 seconds)
+    ✔ testNetworkDropOnSubmitFailsAndClearsQueueEntry (0.004 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.017 (0.018) seconds
+Test Suite 'JoinRequestConfirmationFluidityTests' started at 2026-08-21 11:10:58.230.
+    ✔ testCardPresentationLatencyP95Under400Milliseconds (0.020 seconds)
+    ✔ testConfirmToSucceededTransitionWellBelowSixHundredMilliseconds (0.003 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.023 (0.024) seconds
+Test Suite 'JoinRequestConfirmationViewModelTests' started at 2026-08-21 11:10:58.254.
+    ✔ testCardPresentationDerivesFingerprintAndSafeDisplayFields (0.003 seconds)
+    ✔ testConfirmIsIdempotentAcrossDoubleTap (0.028 seconds)
+    ✔ testConfirmSignsSubmitsAndConfirmsQueueEntry (0.002 seconds)
+    ✔ testCountdownExpiryDismissesQueueEntry (0.002 seconds)
+    ✔ testDismissAfterFailedTransitionsToDismissed (0.002 seconds)
+    ✔ testDismissAfterSucceededTransitionsToDismissed (0.002 seconds)
+    ✔ testDoubleTapDoesNotEmitTransientDismissedDuringConfirm (0.029 seconds)
+    ✔ testMachineJoinErrorsResolveLocalizedMessages (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.070 (0.073) seconds
+Test Suite 'LegacyBoundaryUsageTests' started at 2026-08-21 11:10:58.327.
+    ✔ test_clawAPITargetHouseholdFallback_doesNotExistInIOSUI (0.171 seconds)
+    ✔ test_clawDetailViewsRouteInFlightEnablementThroughPolicy (0.025 seconds)
+    ✔ test_clawDetailViewsUseSharedActionAvailabilityPolicy (0.019 seconds)
+    ✔ test_clawInstallTargetResolver_usesTheyOSCacheNotPresenceClient (0.009 seconds)
+    ✔ test_clawSetupPerformanceSelector_ownsAccessibilitySelectionState (0.011 seconds)
+    ✔ test_clawSetupView_doesNotOwnRoutingOrResourcePolicy (0.014 seconds)
+    ✔ test_clawStoreView_isAlwaysConstructedWithInstallTarget (0.172 seconds)
+    ✔ test_clawStoreViewsConsultInstallability (0.032 seconds)
+    ✔ test_guestImageRecovery_isReasonCoded_noRawStringPrimary (0.026 seconds)
+    ✔ test_guestImageRecoveryViewsUseSharedPolicyCTA (0.018 seconds)
+    ✔ test_householdSessionStoreConstruction_onlyInBoundaryFiles (0.175 seconds)
+    ✔ test_iosCatalogDoesNotReDeriveInstallabilityInline (0.019 seconds)
+    ✔ test_iosCatalogInstallSurfacesUseActionPolicy (0.018 seconds)
+    ✔ test_macClawStoreSurface_doesNotCoupleToLegacyStores (0.028 seconds)
+    ✔ test_macClawSurfacesConsultInstallability (0.024 seconds)
+    ✔ test_macGuestImageRecovery_isReasonCoded_noRawStringPrimary (0.018 seconds)
+    ✔ test_noClawNameLiteralsInIOSUI (0.175 seconds)
+    ✔ test_noClawNameLiteralsInMacUI (0.326 seconds)
+    ✔ test_noInstallabilityRuleDuplicationInIOSUI (0.277 seconds)
+    ✔ test_noInstallabilityRuleDuplicationInMacUI (0.474 seconds)
+    ✔ test_pairedMacsStoreMacs_onlyInBoundaryFiles (0.171 seconds)
+    ✔ test_sessionStorePairedServers_onlyInBoundaryFiles (0.170 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 2.370 (2.376) seconds
+Test Suite 'M0bProvisioningSmokeTests' started at 2026-08-21 11:11:00.703.
+    ✔ testAppGroupRoundTrip (0.003 seconds)
+    ⊘ testDiagnoseExistingTunnelProviderManagers (0.006 seconds)
+    ⊘ testExtensionLoadsReadsKeychainAndCallsFFI (0.001 seconds)
+    ⊘ testKeychainAccessibilityCanaryUnderLock (0.001 seconds)
+Executed 4 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'MachineJoinFailoverIntegrationTests' started at 2026-08-21 11:11:00.715.
+    ✔ testIPhoneToleratesAPNSSenderSwitchoverDuringStory1 (0.010 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.010 (0.010) seconds
+Test Suite 'MachineJoinStory1IntegrationTests' started at 2026-08-21 11:11:00.726.
+    ✔ testBonjourOriginJoinReachesGossipAppliedMembershipUnder15Seconds (0.007 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'MachineJoinStory2IntegrationTests' started at 2026-08-21 11:11:00.733.
+    ✔ testQRScannedJoinReachesGossipAppliedMembershipUnder25Seconds (0.007 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'NatProbeDeviceTests' started at 2026-08-21 11:11:00.741.
+    ✔ testDefaultSettingsABI (0.002 seconds)
+    ⊘ testLiteralAddressReachabilityOnCurrentNetwork (0.001 seconds)
+    ⊘ testObserveFromCurrentNetwork (0.001 seconds)
+Executed 3 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'OwnerApprovalV2ReviewPresentationTests' started at 2026-08-21 11:11:00.746.
+    ✔ test_adapterRunsPinBeforeConfirmAndCompletesQueueLifecycle (0.004 seconds)
+    ✔ test_reviewViewIsPhaseOnlyWYSIWYSAndDoesNotExposeOracleInputs (0.005 seconds)
+    ✔ test_runtimeKeepsApprovalV2ReviewDefaultOffAndPreservesV1Host (0.008 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.017 (0.018) seconds
+Test Suite 'OwnerEventsCoordinatorTests' started at 2026-08-21 11:11:00.764.
+    ✔ testAPNSIntegrityErrorDoesNotTriggerBackgroundFetch (0.024 seconds)
+    ✔ testAPNSTickleDoesNotStartBackgroundFetchWhileForegroundPollRuns (0.022 seconds)
+    ✔ testAPNSTickleTriggersOneBackgroundFetch (0.001 seconds)
+    ✔ testBackgroundSuspendsAndForegroundRestartsLongPoll (0.001 seconds)
+    ✔ testForegroundPollFailureSurfacesTypedError (0.001 seconds)
+    ✔ testForegroundStartsLongPoll (0.001 seconds)
+    ✔ testRepeatedForegroundDoesNotStartDuplicatePollers (0.022 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.072 (0.074) seconds
+Test Suite 'OwnerPasskeyEnrollmentPresentationTests' started at 2026-08-21 11:11:00.838.
+    ✔ test_composerWiresOrchestratorStatusAndDegradesGracefully (0.002 seconds)
+    ✔ test_enrollmentInsertedBetweenPairingSuccessAndRecovery (0.002 seconds)
+    ✔ test_enrollmentViewConsumesViewModelPhaseAndActions (0.002 seconds)
+    ✔ test_enrollmentViewNeverBranchesOnError (0.001 seconds)
+    ✔ test_routeVocabularyKeepsAllFifteenCasesWithoutMovingRootHandlers (0.005 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.012 (0.014) seconds
+Test Suite 'PairDeviceFingerprintWordsTests' started at 2026-08-21 11:11:00.852.
+    ✔ testDifferentHomesHaveDifferentHomeFingerprints (0.003 seconds)
+    ✔ testPairDeviceAndDevicePairingShareFingerprintWhenNonceMatches (0.003 seconds)
+    ✔ testReturnsBLAKE3DerivedWordsForDevicePairingURL (0.002 seconds)
+    ✔ testReturnsBLAKE3DerivedWordsForValidURL (0.003 seconds)
+    ✔ testSameHomeWithDifferentNoncesHasDifferentFingerprints (0.003 seconds)
+    ✔ testThrowsOnExpiredURL (0.002 seconds)
+    ✔ testThrowsOnInvalidPublicKey (0.001 seconds)
+    ✔ testThrowsOnUnsupportedScheme (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.018 (0.020) seconds
+Test Suite 'ParkingLotSnapshotTests' started at 2026-08-21 11:11:00.872.
+    ✔ testParkingLot_ar_RTL (0.309 seconds)
+    ✔ testParkingLot_en (0.123 seconds)
+    ✔ testParkingLot_en_AX5 (0.052 seconds)
+    ✔ testParkingLot_ja (0.273 seconds)
+    ✔ testParkingLot_ptBR (0.131 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.888 (0.889) seconds
+Test Suite 'QRScannerViewMachineDispatchTests' started at 2026-08-21 11:11:01.761.
+    ✔ testADifferentInviteMidClaimIsDroppedAndNamedAsSuchNotAsADuplicate (0.000 seconds)
+    ✔ testADifferentInviteWhileAwaitingReplacesTheOlderOne (0.000 seconds)
+    ✔ testAnAttemptedSlotStaysRefusedAcrossAnUnrelatedInviteComingAndGoing (0.000 seconds)
+    ✔ testAnAttemptedSlotStaysRefusedAfterAnotherInviteIsAlsoAttempted (0.000 seconds)
+    ✔ testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome (0.000 seconds)
+    ✔ testAStaleCancelFromAReplacedSheetDoesNotClearTheInviteThatReplacedIt (0.001 seconds)
+    ✔ testAStaleConfirmFromAReplacedSheetDoesNotAuthoriseTheInviteThatReplacedIt (0.001 seconds)
+    ✔ testAStaleFinishMarksNothingAndLeavesTheOpeningSubjectIntact (0.000 seconds)
+    ✔ testCancelAfterConfirmDoesNotReopenAnAttemptedInvite (0.000 seconds)
+    ✔ testCancelAttemptsNothingAndACancelledInviteCannotBeConfirmed (0.001 seconds)
+    ✔ testCancelBeforeAnyAttemptLeavesTheSlotPresentableAgain (0.001 seconds)
+    ✔ testClawShareInviteInvalidReturnsTypedScanError (0.003 seconds)
+    ✔ testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt (0.001 seconds)
+    ✔ testClawShareInviteRoutesOnlyThroughScannerDispatcher (0.001 seconds)
+    ✔ testClawShareInviteURLIsClaimedByTheDeepLinkMatcher (0.002 seconds)
+    ✔ testColdLaunchWithAnInviteAndNoHouseholdOpensMainNotMacDiscovery (0.001 seconds)
+    ✔ testColdLaunchWithoutAnInviteKeepsOnboarding (0.001 seconds)
+    ✔ testDeepLinkMatcherIgnoresEveryOtherRoutedURLShape (0.000 seconds)
+    ✔ testDoubleConfirmAttemptsExactlyOnce (0.004 seconds)
+    ✔ testInviteOutranksTheCarouselOnADeviceThatAlreadyHasAHousehold (0.001 seconds)
+    ✔ testLegacyTheyOSConnectStillRoutesThroughLegacyResult (0.001 seconds)
+    ✔ testLegacyTheyOSPairRoutesFromLinuxOnboarding (0.001 seconds)
+    ✔ testMalformedClawShareURLIsClaimedThenRefused (0.003 seconds)
+    ✔ testMalformedClawShareURLStillRoutesAndIsRefusedDownstreamNotHere (0.000 seconds)
+    ✔ testNonInviteURLsLeaveOnboardingUntouched (0.000 seconds)
+    ✔ testOnboardingLaunchIntentOpensQRScannerOnlyOnce (0.005 seconds)
+    ✔ testPairDeviceRefusedWhenSessionAlreadyActive (0.001 seconds)
+    ✔ testPairDeviceRoutesToPhase2PairingWhenNoActiveHousehold (0.001 seconds)
+    ✔ testPairMachineRequiresActiveHouseholdBeforeEnvelopeEmission (0.001 seconds)
+    ✔ testPairMachineRoutesToJoinRequestEnvelope (0.001 seconds)
+    ✔ testRedeliveryWhileAwaitingNeitherLosesNorDuplicates (0.001 seconds)
+    ✔ testRestoredFromBackupOutranksAnInvite (0.001 seconds)
+    ✔ testSameInviteDeliveredTwicePresentsOnceAndAttemptsNothing (0.001 seconds)
+    ✔ testServerPairingDeepLinksOpenMainStoryboardDuringOnboarding (0.001 seconds)
+    ✔ testTheInviteSheetActionsAreWiredThroughTheGate (0.005 seconds)
+    ✔ testWarmInviteSwapsRootWhenNotAlreadyOnMain (0.001 seconds)
+    ✔ testWarmNonInviteNeverSwapsRoot (0.000 seconds)
+Executed 37 tests, with 0 failures (0 unexpected) in 0.043 (0.061) seconds
+Test Suite 'RelayStreamGuestIPTunnelSessionAdapterTests' started at 2026-08-21 11:11:01.822.
+    ✔ testDataFrameReturnsOnlyStructurallyValidPacket (0.001 seconds)
+    ✔ testOutboundMalformedPacketIsRejectedBeforeFFI (0.002 seconds)
+    ✔ testPTYAndDuplicateHandshakeFramesFailClosed (0.002 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'RelayStreamIPTunnelControllerTests' started at 2026-08-21 11:11:01.828.
+    ✔ testActivateFailsClosedBeforeOfferSigningOrPreferencesWhenGateDisabled (0.003 seconds)
+    ✔ testActivateRejectsClaimedGroupMismatchBeforePreferencesMutation (0.002 seconds)
+    ✔ testActivateSignsInHostPersistsOnlyStaticConfigAndStartsWithEphemeralOptions (0.010 seconds)
+    ✔ testEphemeralStartOptionsRejectExpiredAndGuestMismatchedMaterial (0.003 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.018 (0.019) seconds
+Test Suite 'RelayStreamIPTunnelNetworkSettingsTests' started at 2026-08-21 11:11:01.848.
+    ✔ testAcceptsPointToPoint31PoolWithoutWideningRoute (0.001 seconds)
+    ✔ testBuildsPoolRouteWithoutInstallingDefaultRoute (0.001 seconds)
+    ✔ testRejectsDefaultRouteAndPeerOutsideAuthenticatedPool (0.001 seconds)
+    ✔ testRejectsNetworkBroadcastAndNonUnicastAssignments (0.001 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'RelayStreamIPTunnelValidatorParityTests' started at 2026-08-21 11:11:01.853.
+    ✔ testValidatorParityTableMatchesTheSwiftValidator (0.002 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'RelayStreamOpenControllerTests' started at 2026-08-21 11:11:01.855.
+    ✔ testOpenForwardsClaimedRelayStreamOfferCredentialAndSigner (0.001 seconds)
+    ✔ testOpenGroupOfferForwardsOfferWithoutCredentialAndSigner (0.002 seconds)
+    ✔ testOpenGroupOfferRejectsGroupAndMemberMismatchBeforeDialing (0.003 seconds)
+    ✔ testOpenGroupOfferRejectsNonGroupAudienceBeforeDialing (0.002 seconds)
+    ✔ testOpenGroupOfferRejectsWrongResourceAndPathBeforeDialing (0.003 seconds)
+    ✔ testOpenPropagatesOpenerFailure (0.002 seconds)
+    ✔ testOpenRejectsClaimedSessionWithoutRelayStreamOffer (0.001 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.015 (0.017) seconds
+Test Suite 'RosterActivationProviderTests' started at 2026-08-21 11:11:01.872.
+    ✔ testAuthorityHouseholdMismatchYieldsNil (0.002 seconds)
+    ✔ testBootstrapAndResolveHappenExactlyOnce (0.003 seconds)
+    ✔ testBootstrapFailureYieldsNil (0.002 seconds)
+    ✔ testBootstrapReceivesCallerSuppliedSigner (0.002 seconds)
+    ✔ testCandidateForForeignMachineYieldsNil (0.002 seconds)
+    ✔ testResolutionIsRequestedForAuthenticatedSelfMachine (0.002 seconds)
+    ✔ testResolvedCandidateProducesActivator (0.006 seconds)
+    ✔ testSnapshotHouseholdMismatchYieldsNil (0.002 seconds)
+    ✔ testUnavailableResolutionYieldsNil (0.002 seconds)
+    ✔ testUnresolvedResolutionYieldsNil (0.002 seconds)
+Executed 10 tests, with 0 failures (0 unexpected) in 0.025 (0.028) seconds
+Test Suite 'RosterAlertPresentationTests' started at 2026-08-21 11:11:01.901.
+    ✔ test_activeIdentityPreservesTheUngatedResolution (0.001 seconds)
+    ✔ test_everyDegradedReasonShowsNoBanner (0.001 seconds)
+    ✔ test_everyTamperCategoryShowsUnverifiableBanner (0.001 seconds)
+    ✔ test_identityGateChangesTheOutcomeForAlertingStates (0.001 seconds)
+    ✔ test_inactiveIdentitySilencesEveryConstructibleState (0.001 seconds)
+    ✔ test_onlyRePairingAndTamperAreVisible (0.001 seconds)
+    ✔ test_onlyRePairRequiredOffersASettingsAction (0.001 seconds)
+    ✔ test_presentationsFromDifferentPayloadsAreEqual (0.000 seconds)
+    ✔ test_requiresRePairingShowsRePairBanner (0.001 seconds)
+    ✔ test_resolveAgreesWithExhaustiveWitness (0.001 seconds)
+    ✔ test_resolvedPresentationCarriesNoPayloadFromTheState (0.017 seconds)
+    ✔ test_staleAlertingStateShowsNoBannerWhenIdentityIsInactive (0.001 seconds)
+    ✔ test_unknownShowsNoBanner (0.001 seconds)
+Executed 13 tests, with 0 failures (0 unexpected) in 0.025 (0.028) seconds
+Test Suite 'SecureUpgradeAppAttestCaptureTests' started at 2026-08-21 11:11:01.929.
+    ⊘ testCaptureRealIphoneAppAttestPositiveFixture (0.001 seconds)
+Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ServerRegistryTests' started at 2026-08-21 11:11:01.931.
+    ✔ testCount_matchesServersCount (0.105 seconds)
+    ✔ testDefaultMacAliasWritesCanonicalStoreSynchronously (0.035 seconds)
+    ✔ testLinuxServers_linuxOnly (0.023 seconds)
+    ✔ testMacs_macsOnly (0.029 seconds)
+    ✔ testMarkMacPairingSeenWritesCanonicalStoreSynchronously (0.042 seconds)
+    ✔ testPairedMac_returnsLegacyValueForMacKind (0.030 seconds)
+    ✔ testPairedMac_returnsNilForLinuxKind (0.023 seconds)
+    ✔ testPairedMac_returnsNilForUnknownID (0.007 seconds)
+    ✔ testPairedMacLegacyMutationRefreshesRegistrySynchronously (0.023 seconds)
+    ✔ testRefreshFromLegacyStoresCollapsesNewMacRecordsWithSameEngineMachineId (0.042 seconds)
+    ✔ testRefreshFromLegacyStoresKeepsSecretOwningMacIDCanonical (0.101 seconds)
+    ✔ testRefreshFromLegacyStoresPreservesCanonicalTheyOSStatus (0.032 seconds)
+    ✔ testRemove_linuxClearsSessionStore (0.032 seconds)
+    ✔ testRemove_linuxDropsCanonicalStoreSynchronously (0.023 seconds)
+    ✔ testRemove_macClearsPairedMacsStore (0.021 seconds)
+    ✔ testRemove_macDropsCanonicalStoreSynchronously (0.020 seconds)
+    ✔ testRemove_unknownIDIsNoOp (0.008 seconds)
+    ✔ testRename_linuxDispatchesToSessionStore (0.529 seconds)
+    ✔ testRename_linuxWritesCanonicalStoreSynchronously (0.031 seconds)
+    ✔ testRename_macDispatchesToPairedMacsStore (0.052 seconds)
+    ✔ testRename_macWritesCanonicalStoreSynchronously (0.032 seconds)
+    ✔ testRename_rejectsDuplicateAcrossKinds (0.046 seconds)
+    ✔ testRename_rejectsDuplicateVisibleNameAcrossKinds (0.042 seconds)
+    ✔ testRename_rejectsEmptyAlias (0.030 seconds)
+    ✔ testRename_returnsSuccessWhenAliasUnchanged (0.035 seconds)
+    ✔ testUpdateMacPairingDisplayNameWritesCanonicalStoreSynchronously (0.032 seconds)
+    ✔ testUpdateMacPairingEndpointsWritesCanonicalStoreSynchronously (0.038 seconds)
+    ✔ testUpsertMacPairingWritesLegacyAndCanonicalStoreSynchronously (0.027 seconds)
+Executed 28 tests, with 0 failures (0 unexpected) in 1.489 (1.499) seconds
+Test Suite 'ShareAppViewModelTests' started at 2026-08-21 11:11:03.430.
+    ✔ test_copyLinkDoesNothingOutsideTheSharedPhase (0.007 seconds)
+    ✔ test_copyLinkWritesTheCurrentLinkWhileShared (0.006 seconds)
+    ✔ test_dayQualifierIsOtherForAFarExpiry (0.001 seconds)
+    ✔ test_dayQualifierIsTodayForASameDayExpiry (0.001 seconds)
+    ✔ test_dayQualifierIsTomorrowForA24HourInvite (0.001 seconds)
+    ✔ test_dayQualifierUsesTheGivenCalendarsTimeZoneAcrossAMidnightUTCBoundary (0.001 seconds)
+    ✔ test_duplicateDisplayNamesStayIndependentlySelectableAndMintTheCorrectAppID (0.004 seconds)
+    ✔ test_everyNonRunningReadinessWarnsAndMintingStaysPermitted (0.009 seconds)
+    ✔ test_loadFailureSurfacesInsteadOfShowingAnEmptyPicker (0.004 seconds)
+    ✔ test_loadListsAppsAndDoesNotPreselectWhenThereIsAChoice (0.001 seconds)
+    ✔ test_mintFailureSurfacesAndDoesNotClaimSuccess (0.001 seconds)
+    ✔ test_noWarningBeforeAnAppIsSelected (0.001 seconds)
+    ✔ test_runningAppDoesNotShowTheWarning (0.001 seconds)
+    ✔ test_shareAnotherReturnsToThePickerKeepingTheAppList (0.004 seconds)
+    ✔ test_shareDoesNothingWithoutASelection (0.001 seconds)
+    ✔ test_shareMintsForTheSelectedAppAndChosenDuration (0.004 seconds)
+    ✔ test_shareStillReachesSharedPhaseAndKeepsTheCurrentLinkWhenCacheStoreFails (0.001 seconds)
+    ✔ test_shareStoresTheMintedLinkInTheCacheWithTheInvitesUriAndSlotId (0.001 seconds)
+    ✔ test_singleAppIsPreselected (0.001 seconds)
+    ✔ test_staleSelectionIsClearedWhenTheAppDisappears (0.001 seconds)
+    ✔ test_stoppedAppShowsTheWarningAndMintingIsStillPermitted (0.004 seconds)
+    ✔ test_unambiguousExpiryLabelNeverShowsABareClockTimeForA24HourInvite (0.001 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 0.054 (0.061) seconds
+Test Suite 'SoyehtIdentityTests' started at 2026-08-21 11:11:03.492.
+    ✔ testActive_isNil_forUnknownInactiveUnavailable (0.009 seconds)
+    ✔ testDebugResetterDoesNotTargetShippingHouseholdFromDevProfile (0.001 seconds)
+    ✔ testFreshInstallSweeperDoesNotTargetShippingHouseholdFromDevProfile (0.001 seconds)
+    ✔ testHouseCreatedReceived_triggersReload (0.007 seconds)
+    ✔ testIsActive_isTrue_onlyForActiveState (0.002 seconds)
+    ✔ testProtectedDataDidBecomeAvailable_triggersReload (0.006 seconds)
+    ✔ testReload_movesToActive_whenStoreHasEntry (0.002 seconds)
+    ✔ testReload_movesToInactive_whenStoreEmpty (0.001 seconds)
+    ✔ testReload_movesToUnavailable_decodingFailed_whenStoreThrows (0.001 seconds)
+    ✔ testReload_movesToUnavailable_protectedDataUnavailable_whenLocked (0.001 seconds)
+    ✔ testReload_promotesUnavailable_toActive_whenProtectedDataBecomesAvailable (0.002 seconds)
+    ✔ testSnapshot_allows_delegatesToPersonCert (0.002 seconds)
+    ✔ testSnapshot_displayName_isHouseholdName (0.001 seconds)
+    ✔ testSnapshot_endpoint_isStoreEndpoint (0.001 seconds)
+    ✔ testSnapshot_id_isHouseholdId (0.002 seconds)
+    ✔ testSnapshot_underlying_returnsExactStoredState (0.001 seconds)
+    ✔ testThisDevice_alwaysAvailable_evenWithoutTenant (0.001 seconds)
+    ✔ testThisDevice_localPairingDeviceId_isInjectedValue (0.001 seconds)
+Executed 18 tests, with 0 failures (0 unexpected) in 0.040 (0.055) seconds
+Test Suite 'SoyehtTests.xctest' passed at 2026-08-21 11:11:03.547.
+Executed 488 tests, with 6 tests skipped and 0 failures (0 unexpected) in 10.521 (10.715) seconds
+Test Suite 'All tests' passed at 2026-08-21 11:11:03.561.
+Executed 488 tests, with 6 tests skipped and 0 failures (0 unexpected) in 10.521 (10.729) seconds
+Test run started.
+Suite "ClawStoreViewModel" started
+Suite "PairedMacRegistry" started
+Suite "PairingCoordinator — reinstall recovery" started
+Suite TypographyTests started
+Suite "ClawViewModelAsync" started
+Suite "ClipboardWriter" started
+Suite ShortcutBarPreferencesTests started
+Suite "ClawAvailability" started
+Suite "MacPresenceClient — PR#4 wire handler coverage" started
+Suite ShortcutBarItemTests started
+Suite "NavigationState — persistence, restore logic, and cleanup" started
+Suite "SoyehtAPIClient" started
+Suite "ClawSetupViewModel injected servers" started
+Suite "I18n Smoke" started
+Suite "HouseholdCreatedInstancesStore" started
+Suite TerminalPreferencesTests started
+Suite "ServerListView — SessionStore integration" started
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" started
+Suite HapticPreferencesTests started
+Suite WorkflowPresetTests started
+Suite "HouseholdCreatedInstancesLoader" started
+Suite HapticZoneModelTests started
+Suite ANSIParserTests started
+Suite "ClawModels" started
+Suite SourceCommentStripperTests started
+Suite "ClawDetailViewModel" started
+Suite "ClawSetupViewModel" started
+Suite ColorThemeTests started
+Suite "Claw API Endpoints" started
+    ✔ "Bold+italic variant uses BoldItalic PostScript name" (0.031 seconds)
+    ✔ "Family name is 'JetBrains Mono'" (0.031 seconds)
+    ✔ "Empty label falls back to auto-generated" (0.031 seconds)
+    ✔ "Italic variant uses the Italic PostScript name" (0.031 seconds)
+    ✔ "Text command truncates auto-label at 8 chars" (0.030 seconds)
+    ✔ "Text command uses custom label when provided" (0.031 seconds)
+    ✔ "Text command produces UTF-8 bytes of the string" (0.031 seconds)
+    ✔ "Ctrl+Z produces byte 0x1A" (0.031 seconds)
+    ✔ "Each bundled weight returns a non-nil UIFont" (0.031 seconds)
+    ✔ "Ctrl+D produces byte 0x04" (0.031 seconds)
+    ✔ "Custom label overrides auto-generated label" (0.031 seconds)
+    ✔ "Alt+X produces ESC prefix + x" (0.031 seconds)
+    ✔ "bootstrap is idempotent" (0.031 seconds)
+    ✔ "UIKit grouped UI tokens respect minimum readable size" (0.032 seconds)
+    ✔ "All JetBrains Mono PostScript names resolve after bootstrap" (0.031 seconds)
+    ✔ "Default activeIDs matches catalog defaultBarOrder" (0.032 seconds)
+    ✔ "round-trip preserves all fields" (0.032 seconds)
+    ✔ "Custom shortcut IDs start with 'custom.'" (0.031 seconds)
+    ✔ "Default haptic types match spec" (0.063 seconds)
+    ✔ "Ctrl+C produces byte 0x03" (0.063 seconds)
+    ✔ "Tab maps to tactile zone" (0.057 seconds)
+    ✔ "All presets resolve their items without errors" (0.063 seconds)
+    ✔ "Ctrl and Alt map to tactile zone" (0.063 seconds)
+    ✔ "Every key bar item label has a zone mapping" (0.063 seconds)
+    ✔ "decodes a minimal snapshot entry" (0.063 seconds)
+    ✔ "groupedOptions has 4 groups in correct order" (0.057 seconds)
+    ✔ "monoUIFont returns JetBrains Mono regardless of requested weight" (0.064 seconds)
+    ✔ "Preset keyCount matches itemIDs count" (0.063 seconds)
+    ✔ "displayName starts with dot for all except disabled" (0.180 seconds)
+    ✔ "Enter maps to clicky zone" (0.180 seconds)
+    ✔ "iOS SessionStore alias points at the SoyehtCore shared store" (0.063 seconds)
+    ✔ "tmux preset includes Prefix and Dtch items" (0.063 seconds)
+    ✔ "Zone displayNames are non-empty English strings" (0.180 seconds)
+    ✔ "division and multiplication operators are not treated as comments" (0.180 seconds)
+    ✔ "token in a trailing // comment is not seen, but the code stays" (0.178 seconds)
+    ✔ "token in a code line is seen" (0.178 seconds)
+    ✔ "a block-open sequence inside a line comment does not start a block" (0.178 seconds)
+    ✔ "a line-comment sequence inside a block comment stays inside the block" (0.168 seconds)
+    ✔ "nested block comments are fully stripped" (0.178 seconds)
+    ✔ "groupedOptions contains all cases exactly once" (0.187 seconds)
+    ✔ "token in a full // line is not seen" (0.179 seconds)
+    ✔ "Kill item has danger style" (0.168 seconds)
+    ✔ "allBuiltins has 14 items matching the real key bar" (0.168 seconds)
+    ✔ "paneSwipe maps to gestures zone" (0.186 seconds)
+    ✔ "code after a block comment terminator is seen again" (0.179 seconds)
+    ✔ "Arrow keys map to tactile zone" (0.180 seconds)
+    ✔ "HapticZone round-trips through Codable" (0.188 seconds)
+    ✔ "Every HapticType has a category" (0.180 seconds)
+    ✔ "Claw decodes from backend JSON with embedded availability" (0.170 seconds)
+    ✔ "Builtin IDs are unique" (0.168 seconds)
+    ✔ "resolve returns nil for unknown ID" (0.168 seconds)
+    ✔ "Unknown key returns nil" (0.181 seconds)
+    ✔ "token in an inline block comment is not seen, code around it stays" (0.168 seconds)
+    ✔ "Default font size is 13 when nothing is stored" (0.189 seconds)
+    ✔ "Codable round-trip preserves all fields" (0.190 seconds)
+    ✔ "Enter item has action style" (0.161 seconds)
+    ✔ "resolve finds builtins by ID" (0.161 seconds)
+    ✔ "Reset code splits into separate runs" (0.161 seconds)
+    ✔ "resolve finds popular shortcuts by ID" (0.169 seconds)
+    ✔ "resolve finds custom items" (0.169 seconds)
+    ✔ "token in a multi-line block comment is not seen" (0.179 seconds)
+    ✔ "Installing payload decodes with typed status and phase" (0.190 seconds)
+    ✔ "Plain text preserves content and attaches a font" (0.161 seconds)
+    ✔ "RGB true color codes parse without crash" (0.161 seconds)
+    ✔ "SoyehtCore catalog sentinels resolve in every supported locale" with 15 test cases (0.161 seconds)
+    ✔ "popularShortcuts has 6 items" (0.194 seconds)
+    ✔ "defaultBarOrder has same count and IDs as allBuiltins" (0.193 seconds)
+    ✔ "allBuiltins includes PgUp and PgDn" (0.193 seconds)
+    ✔ "256-color codes parse without crash" (0.192 seconds)
+    ✔ "Unrecognized SGR codes are skipped without crash" (0.193 seconds)
+    ✔ "Kill maps to clicky zone" (0.188 seconds)
+    ✔ "Font size parameter is respected across sizes" (0.193 seconds)
+    ✔ "HapticType round-trips through Codable" (0.188 seconds)
+    ✔ "Active defaults to soyehtDark when no preference set" (0.192 seconds)
+    ✔ "SGR 3 enables italic, 23 disables it" (0.170 seconds)
+    ✔ "Empty string returns empty AttributedString" (0.194 seconds)
+    ✔ "addServer stores servers retrievable by ID" (0.223 seconds)
+    ✔ "iOS app catalog sentinels resolve in every supported locale" with 15 test cases (0.161 seconds)
+    ✔ "round trip, upsert, isolation, prune, and remove" (0.190 seconds)
+    ✔ "Bold ANSI code produces a run" (0.193 seconds)
+    ✔ "Foreground color codes change color" (0.161 seconds)
+    ✔ "Mac without context uses household list without local records" (0.223 seconds)
+    ✔ "Valid UTF-8 clipboard payload is written" (0.224 seconds)
+Suite ShortcutBarItemTests passed after 0.237 seconds
+Suite WorkflowPresetTests passed after 0.225 seconds
+    ✔ "404 prunes household-created record and clears server cache" (0.222 seconds)
+Suite SourceCommentStripperTests passed after 0.237 seconds
+    ✔ "transient status error keeps cached household-created line" (0.223 seconds)
+Suite "I18n Smoke" passed after 0.237 seconds
+Suite "HouseholdCreatedInstancesStore" passed after 0.241 seconds
+    ✔ "Non-SGR CSI sequences are skipped" (0.194 seconds)
+    ✔ "deploy calls household-created handler only for household endpoint targets" (0.223 seconds)
+Suite HapticZoneModelTests passed after 0.237 seconds
+    ✔ "Mac without context loads household-created status and caches under server id" (0.306 seconds)
+    ✔ "household list is unioned with local records that still have status" (0.300 seconds)
+    ✔ "Mac with ServerContext skips household-created loader" (0.305 seconds)
+    ✔ "transient household list error keeps cached line without local records" (0.306 seconds)
+    ✔ "getClaws sends GET to /api/v1/mobile/claws with Bearer token" (0.276 seconds)
+    ✔ "defaults title to id and agent to shell when missing" (0.084 seconds)
+Suite "HouseholdCreatedInstancesLoader" passed after 0.310 seconds
+Suite ShortcutBarCatalogTests passed after 0.225 seconds
+    ✔ "Creatable payload decodes (succeeded + no host issues)" (0.002 seconds)
+Suite ANSIParserTests passed after 0.310 seconds
+    ✔ "Claw installState maps install axis correctly across states" (0.001 seconds)
+    ✔ "Persistence round trip works" (0.047 seconds)
+    ✔ "Saves and loads custom font size with minimum" (0.047 seconds)
+    ✔ "hapticEnabled persists false when set" (0.044 seconds)
+    ✔ "active server is identified correctly" (0.045 seconds)
+    ✔ "Installed-but-blocked by maintenance (realistic fixture)" (0.044 seconds)
+    ✔ "returns nil when empty" (0.129 seconds)
+    ✔ "createNewWorkspace without name sends empty JSON body {}" (0.129 seconds)
+    ✔ "parses ISO8601 createdAt" (0.046 seconds)
+    ✔ "Installed-but-blocked by missing cold path" (0.001 seconds)
+    ✔ "ClawsResponse decodes items wrapper" (0.001 seconds)
+    ✔ "returns nil when id missing" (0.001 seconds)
+    ✔ "Install failed decodes error string from install.error" (0.001 seconds)
+    ✔ "decodes mirror metadata for workspace panes" (0.001 seconds)
+    ✔ "workspace entry orders panes by layout tree" (0.001 seconds)
+    ✔ "workspace entry keeps non-attachable empty panes in layout order" (0.001 seconds)
+    ✔ "icon mapping — claude → sparkles, codex → curlybraces, hermes → bolt, shell → terminal" (0.001 seconds)
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" passed after 0.371 seconds
+    ✔ "Unknown discriminators fall through safely" (0.001 seconds)
+    ✔ "createNewWorkspace with name sends display_name in body" (0.069 seconds)
+    ✔ "switch active server updates activeServerId" (0.070 seconds)
+    ✔ "ResourceOptions decodes from API JSON" (0.067 seconds)
+    ✔ "hapticType returns zone default when nothing stored" (0.069 seconds)
+    ✔ "clear removes state" (0.068 seconds)
+    ✔ "Invalid UTF-8 clipboard payload is ignored" (0.116 seconds)
+    ✔ "Invalid rawValue falls back to soyehtDark" (0.069 seconds)
+    ✔ "Returns default for invalid values and clamps below minimum" (0.069 seconds)
+    ✔ "Default shortcutBarLabel is 'Default'" (0.069 seconds)
+Suite "ClipboardWriter" passed after 0.439 seconds
+    ✔ "Degradation base_rootfs_missing_but_golden_present decodes" (0.001 seconds)
+    ✔ "getClawAvailability sends GET to /api/v1/mobile/claws/{name}/availability" (0.117 seconds)
+    ✔ "ClawUser decodes from JSON" (0.001 seconds)
+    ✔ "APIErrorBody decodes the full claw error contract" (0.001 seconds)
+    ✔ "APIErrorBody decodes 503 maintenance with retryAfterSecs" (0.001 seconds)
+    ✔ "Default cursor style is blinkBlock when nothing is stored" (0.065 seconds)
+    ✔ "setHapticType updates and persists correctly" (0.065 seconds)
+    ✔ "Each theme has exactly 16 ANSI hex colors" (0.065 seconds)
+    ✔ "UsersResponse decodes wrapped array" (0.063 seconds)
+    ✔ "Custom activeIDs changes label to 'Custom'" (0.065 seconds)
+    ✔ "expired >24h returns nil" (0.065 seconds)
+    ✔ "APIErrorBody preserves error+code when reasons vocabulary drifts" (0.063 seconds)
+    ✔ "Palette and swiftUIPalette derive same count from ansiHex" (0.001 seconds)
+    ✔ "APIErrorBody decodes minimal body (only error string)" (0.001 seconds)
+    ✔ "succeeded + creatable → .installed (isInstalled ∧ canCreate)" (0.001 seconds)
+    ✔ "succeeded + blocked → .installedButBlocked (isInstalled ∧ ¬canCreate)" (0.001 seconds)
+    ✔ "installing → .installing (not terminal)" (0.001 seconds)
+    ✔ "Preview swatches returns exactly 4 colors" (0.079 seconds)
+    ✔ "fresh <24h loads" (0.079 seconds)
+    ✔ "createNewWorkspace includes Bearer token" (0.146 seconds)
+    ✔ "resume ready rebuilds paired Mac registry when UserDefaults were wiped" (0.572 seconds)
+    ✔ "remove server cleans up token and server list" (0.146 seconds)
+    ✔ "CreateInstanceRequest encodes all fields" (0.080 seconds)
+    ✔ "availableCount and installedCount are correct" (0.573 seconds)
+    ✔ "setHapticType does not affect other zones" (0.081 seconds)
+    ✔ "installedButBlocked counts in installedCount" (0.572 seconds)
+    ✔ "hasTransientClaws is true when any claw is installing or uninstalling" (0.572 seconds)
+    ✔ "Saves and loads custom cursor style" (0.080 seconds)
+    ✔ "trendingClaws returns non-featured claws (max 2)" (0.573 seconds)
+    ✔ "moreClaws excludes featured and trending" (0.574 seconds)
+    ✔ "featuredClaw returns the claw marked as featured in mock data" (0.574 seconds)
+    ✔ "failed with install.error takes precedence over overall.error" (0.080 seconds)
+    ✔ "default init reads from canonical ServerStore inventory" (0.573 seconds)
+    ✔ "getResourceOptions sends GET to /api/v1/mobile/resource-options" (0.147 seconds)
+    ✔ "empty injected list yields no selected server" (0.573 seconds)
+    ✔ "CreateInstanceRequest encodes nil optional fields as null" (0.001 seconds)
+    ✔ "resolve nil state → nil" (0.001 seconds)
+    ✔ "failed with only overall.error falls through to overall source" (0.001 seconds)
+    ✔ "resolve expired → nil" (0.001 seconds)
+    ✔ "failed with no error source falls through to "unknown"" (0.001 seconds)
+    ✔ "resolve server mismatch → nil" (0.001 seconds)
+    ✔ "Round-trip: set all zones, read back, all match" (0.063 seconds)
+    ✔ "renameWorkspace sends PATCH with display_name in body" (0.063 seconds)
+    ✔ "CreateInstanceResponse decodes with snake_case claw_type" (0.063 seconds)
+    ✔ "Default cursor color is #10B981 when nothing is stored" (0.063 seconds)
+    ✔ "removing active server falls back to first remaining" (0.064 seconds)
+    ✔ "Custom shortcuts persist separately from activeIDs" (0.064 seconds)
+    ✔ "All themes have non-empty background, foreground, cursor hex" (0.063 seconds)
+    ✔ "resolve match → returns instanceId + sessionName" (0.001 seconds)
+    ✔ "Interactive shell environment preserves natural CLI colors" (0.001 seconds)
+    ✔ "getUsers sends GET to /api/v1/mobile/users" (0.064 seconds)
+    ✔ "uninstalling → .uninstalling (counts as installed, transient)" (0.001 seconds)
+    ✔ "CreateInstanceResponse handles missing clawType" (0.001 seconds)
+    ✔ "resolve match nil sessionName → returns instanceId only" (0.001 seconds)
+    ✔ "install.status = unknown + overall = unknown → .unknown (both drift)" (0.001 seconds)
+    ✔ "install.status = succeeded + overall = unknown → .unknown (mixed drift)" (0.001 seconds)
+    ✔ "install.status = not_installed + overall = unknown → .unknown" (0.001 seconds)
+    ✔ "install.status = unknown + overall = creatable → .unknown" (0.001 seconds)
+    ✔ "Setting disabled works correctly" (0.050 seconds)
+    ✔ "App palette preserves terminal colors and derives readable app tokens" (0.049 seconds)
+    ✔ "Saves and loads custom cursor color" (0.050 seconds)
+    ✔ "clearSession clears navigation state" (0.049 seconds)
+    ✔ "removing last test server clears its token" (0.050 seconds)
+    ✔ "InstanceStatusResponse decodes provisioning state with phase" (0.049 seconds)
+Suite HapticPreferencesTests passed after 0.690 seconds
+    ✔ "Removing custom from activeIDs keeps it in customShortcuts" (0.050 seconds)
+Suite "ServerListView — SessionStore integration" passed after 0.703 seconds
+    ✔ "installedCount axis is based on isInstalled, NOT canCreate" (0.001 seconds)
+    ✔ "getUsers decodes bare array response" (0.051 seconds)
+Suite "ClawAvailability" passed after 0.703 seconds
+    ✔ "InstanceStatusResponse decodes active state with no extras" (0.001 seconds)
+    ✔ "Readable app tokens choose from the theme instead of inventing colors" (0.001 seconds)
+    ✔ "ClawMockData curation marks ironclaw featured and others not" (0.001 seconds)
+Suite "ClawModels" passed after 0.703 seconds
+    ✔ "Solarized dark readable secondary avoids the background-matching muted slot" (0.001 seconds)
+    ✔ "listWorkspaces decodes snake_case workspace metadata" (0.055 seconds)
+    ✔ "file browser initial directory prefers requested path, then pane cwd, then home" (0.001 seconds)
+    ✔ "Recent custom colors starts empty" (0.006 seconds)
+    ✔ "Default customShortcuts is empty" (0.006 seconds)
+    ✔ "Solarized dark muted app text aliases stay readable" (0.049 seconds)
+    ✔ "removeServer clears navigation state when serverId matches" (0.051 seconds)
+    ✔ "createInstance sends POST to /api/v1/instances with correct body" (0.051 seconds)
+Suite "NavigationState — persistence, restore logic, and cleanup" passed after 0.754 seconds
+    ✔ "Ghostty theme import parses the full terminal palette" (0.002 seconds)
+    ✔ "iTerm2 theme import preserves extended terminal colors" (0.003 seconds)
+    ✔ "listRemoteDirectory decodes entries and derives full paths" (0.053 seconds)
+    ✔ "Bluloco Light iTerm2 import preserves picker-readable colors" (0.002 seconds)
+    ✔ "addRecentCustomColor prepends and caps at 5" (0.057 seconds)
+    ✔ "getInstanceStatus sends GET to /api/v1/instances/{id}/status" (0.015 seconds)
+    ✔ "addRecentCustomColor deduplicates case-insensitively" (0.007 seconds)
+    ✔ "Imported custom themes can be saved and resolved by the store" (0.013 seconds)
+    ✔ "paneNickname returns nil when no nickname is set" (0.001 seconds)
+    ✔ "listRemoteDirectory decodes legacy standard list envelope" (0.017 seconds)
+    ✔ "paneNickname stores and retrieves by paneId" (0.002 seconds)
+    ✔ "iTerm2 catalog JSON lists installable theme files" (0.004 seconds)
+    ✔ "Background color 42 (green) resets with 49" (0.003 seconds)
+    ✔ "Combined foreground and background SGR" (0.001 seconds)
+    ✔ "Different paneIds have independent nicknames" (0.005 seconds)
+    ✔ "Reset (0) clears both foreground and background" (0.006 seconds)
+    ✔ "instanceAction sends POST to /api/v1/instances/{id}/stop" (0.015 seconds)
+    ✔ "listRemoteDirectory decodes wrapped payload with nested entries" (0.012 seconds)
+    ✔ "Default foreground comes from active theme" (0.004 seconds)
+    ✔ "Setting nil removes the nickname" (0.005 seconds)
+    ✔ "Bright background colors 100-107 parse correctly" (0.001 seconds)
+    ✔ "256-color background via 48;5;n" (0.001 seconds)
+    ✔ "True color background via 48;2;r;g;b" (0.001 seconds)
+Suite ColorThemeTests passed after 0.796 seconds
+    ✔ "Nicknames survive pane kill and index renumber" (0.012 seconds)
+    ✔ "loadRemoteFilePreview hits files/read with max_bytes" (0.019 seconds)
+    ✔ "Key format uses :pid: separator and does not collide with old index-based format" (0.002 seconds)
+Suite TerminalPreferencesTests passed after 0.799 seconds
+    ✔ "getInstance sends GET to /api/v1/instances/{id}" (0.026 seconds)
+    ✔ "makeRemoteFileDownloadRequest builds authenticated download URL" (0.013 seconds)
+    ✔ "installClaw sends POST to /api/v1/mobile/claws/{name}/install" (0.009 seconds)
+    ✔ "uninstallClaw sends POST to /api/v1/mobile/claws/{name}/uninstall" (0.024 seconds)
+    ✔ "initialServerId selects within the injected list" (0.848 seconds)
+    ✔ "auth creates PairedServer when none exists for host" (0.038 seconds)
+    ✔ "API throws httpError on 401 response" (0.011 seconds)
+    ✔ "default deploy options enumerate canonical inventory source" (0.860 seconds)
+    ✔ "selected server constrains agent OS choices" (0.851 seconds)
+    ✔ "nameValidationError returns nil for valid hyphenated name" (0.840 seconds)
+    ✔ "nameValidationError returns error for names longer than 64 chars" (0.840 seconds)
+    ✔ pairedForServerReturnsNilForAdminHost() (0.838 seconds)
+    ✔ setEngineMachineIdIsIdempotent() (0.839 seconds)
+    ✔ displayNameForServerPrefersMacAlias() (0.851 seconds)
+    ✔ "canDeploy is true with valid name and server" (0.840 seconds)
+    ✔ "canDeploy is false when clawName is empty" (0.840 seconds)
+    ✔ "servers reads from the injected list when provided" (0.860 seconds)
+    ✔ "uninstalling counts in installedCount during transition" (0.860 seconds)
+    ✔ setDefaultAliasIfNeededCreatesUniqueFallback() (0.838 seconds)
+    ✔ setDefaultAliasIfNeededPreservesUserAlias() (0.851 seconds)
+    ✔ validatorTrimsLeadingTrailingWhitespace() (0.839 seconds)
+    ✔ "nameValidationError returns nil for empty name" (0.840 seconds)
+    ✔ "deploySucceeded is false initially" (0.851 seconds)
+    ✔ setAliasRejectsDuplicateOnOtherMac() (0.838 seconds)
+    ✔ validatorRejectsForbiddenChars() (0.839 seconds)
+    ✔ setAliasReturnsUnknownMacWhenIDMissing() (0.841 seconds)
+    ✔ "initial clawName is derived from claw name" (0.851 seconds)
+    ✔ "nameValidationError returns error for special characters" (0.851 seconds)
+    ✔ validatorAcceptsAccentsApostropheAndSpaces() (0.839 seconds)
+    ✔ "claw display helpers format spec fields" (0.831 seconds)
+    ✔ displayNameTreatsWhitespaceAliasAsEmpty() (0.851 seconds)
+    ✔ displayNamePrefersAliasOverHostname() (0.840 seconds)
+    ✔ setAliasRejectsDuplicateCaseInsensitively() (0.839 seconds)
+    ✔ setAliasAllowsSameMacResettingToSameValue() (0.839 seconds)
+    ✔ "default init ignores legacy pairedServers that are not in ServerStore" (0.859 seconds)
+    ✔ displayNameFallsBackToHostnameWhenAliasNil() (0.839 seconds)
+    ✔ "installedButBlocked claw exposes isInstalled + canUninstall + !canCreate" (0.833 seconds)
+    ✔ upsertMacStoresEngineMachineIdAndDoesNotClearWithNilIncomingValue() (0.841 seconds)
+    ✔ pairedMacToServerEmitsEngineMachineId() (0.842 seconds)
+    ✔ "detail count default reads canonical ServerStore inventory" (0.832 seconds)
+    ✔ setDefaultAliasIfNeededUsesMacNameWhenUnnamed() (0.840 seconds)
+    ✔ "claw display helpers return dash for nil fields" (0.833 seconds)
+    ✔ setAliasSucceedsOnFreshMac() (0.841 seconds)
+    ✔ pairedForServerMatchesHostForEngineKind() (0.841 seconds)
+    ✔ setAliasReturnsInvalidOnBadInput() (0.841 seconds)
+    ✔ legacyPairedMacPayloadWithoutEngineMachineIdDecodesNil() (0.838 seconds)
+    ✔ validatorRejectsOversize() (0.840 seconds)
+Suite "ClawStoreViewModel" passed after 0.876 seconds
+    ✔ validatorRejectsEmpty() (0.840 seconds)
+Suite "ClawSetupViewModel injected servers" passed after 0.876 seconds
+Suite "ClawSetupViewModel" passed after 0.864 seconds
+Suite "ClawDetailViewModel" passed after 0.876 seconds
+Suite PairedMacAliasTests passed after 0.864 seconds
+    ✔ "API throws httpError on 500 response" (0.012 seconds)
+    ✔ "loadClaws populates claws on success" (0.864 seconds)
+    ✔ "auth refreshes token for existing PairedServer" (0.019 seconds)
+    ✔ "resume denial clears stale local pairing so the next QR can re-pair" (0.311 seconds)
+    ✔ "pairServer reuses existing server id and stores platform metadata" (0.026 seconds)
+Suite "PairingCoordinator — reinstall recovery" passed after 0.909 seconds
+    ✔ "API throws httpError on 403 response" (0.032 seconds)
+    ✔ "existing client connects after migration learns presence endpoint" (0.899 seconds)
+    ✔ "loadClaws sets errorMessage on failure" (0.035 seconds)
+    ✔ "API throws httpError on 404 response" (0.011 seconds)
+    ✔ "tailnet active prefers MagicDNS host while preserving LAN fallback" (0.009 seconds)
+    ✔ "validateSession refreshes server platform metadata" (0.057 seconds)
+    ✔ "createInstance includes guest_os in request body" (0.046 seconds)
+Suite "Claw API Endpoints" passed after 0.954 seconds
+    ✔ "wifi active prefers local DNS before tailnet candidates" (0.053 seconds)
+    ✔ "uploadAttachment decodes backend snake_case response without ok field" (0.011 seconds)
+    ✔ "SoyehtInstance round-trips through apiEncoder and apiDecoder" (0.002 seconds)
+    ✔ "Two servers with the same instance.id do not collide" (0.001 seconds)
+    ✔ "tailnet inactive prefers stored LAN host while preserving DNS fallback" (0.010 seconds)
+    ✔ "installClaw sets no actionError on success" (0.074 seconds)
+    ✔ "installClaw sets actionError on HTTP error" (0.008 seconds)
+    ✔ "Request routed via context B does not leak server A's token or host" (0.016 seconds)
+Suite "SoyehtAPIClient" passed after 0.998 seconds
+    ✔ "Tailscale MagicDNS endpoints use the Mac-local plain WebSocket listener" (0.016 seconds)
+Suite "PairedMacRegistry" passed after 1.004 seconds
+    ✔ "happy handshake: challenge_response HMAC matches PresenceHMACInput" (0.989 seconds)
+    ✔ "uninstallClaw sets no actionError on success" (0.007 seconds)
+    ✔ "store installClaw does NOT call the API for a non-installable claw" (0.004 seconds)
+    ✔ "store installClaw DOES call the API for an installable claw" (0.007 seconds)
+    ✔ "detail installClaw does NOT call the API for a non-installable claw" (0.006 seconds)
+    ✔ "loadOptions sets resource defaults from API response" (0.025 seconds)
+    ✔ "performance profiles apply resource policy from live options" (0.027 seconds)
+    ✔ "manual resource edits switch performance to custom" (0.003 seconds)
+    ✔ "fallback high profile uses safe local defaults" (0.003 seconds)
+    ✔ "loadOptions sets warning on API failure" (0.012 seconds)
+    ✔ "loadOptions failure preserves current resource values" (0.012 seconds)
+    ✔ "deploy sets deploySucceeded on success" (0.031 seconds)
+    ✔ "attach_denied routes to the matching pane continuation, not the oldest" (0.155 seconds)
+    ✔ "installClaw transitions state correctly" (0.017 seconds)
+    ✔ "uninstallClaw transitions state correctly" (0.007 seconds)
+    ✔ "polling starts when claws are installing" (0.007 seconds)
+    ✔ "polling does not start when all claws ready" (0.012 seconds)
+    ✔ "attach_denied without pane_id is a no-op — does not resolve any continuation" (0.048 seconds)
+    ✔ "polling stops when all claws become ready" (0.029 seconds)
+    ✔ "polling sends success notification on completion" (0.030 seconds)
+    ✔ "panes_snapshot decodes mirrored windows and workspaces" (0.047 seconds)
+Suite "MacPresenceClient — PR#4 wire handler coverage" passed after 1.255 seconds
+    ✔ "polling sends failure notification on failed" (0.028 seconds)
+    ✔ "detail polling starts on install" (0.007 seconds)
+    ✔ "detail polling stops and notifies on completion" (0.036 seconds)
+    ✔ "detail polling preserves dedicated availability when catalog lags" (0.027 seconds)
+    ✔ "deploy hands off to monitor and sets deploySucceeded" (0.019 seconds)
+    ✔ "deploy with macOS server type omits disk_gb when live limits are unavailable" (0.036 seconds)
+    ✔ "deploy sends current user-selected values when live limits are unavailable" (0.044 seconds)
+    ✔ "deploy omits disk_gb when live resource options disable custom disk" (0.036 seconds)
+Suite "ClawViewModelAsync" passed after 1.486 seconds
+Test session results: /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-gdsfsmcqkzfmgngselzsmhvzczav/Logs/Test/Test-Soyeht-2026.08.21_11-09-39--0300.xcresult
+Test Succeeded
+Testing started

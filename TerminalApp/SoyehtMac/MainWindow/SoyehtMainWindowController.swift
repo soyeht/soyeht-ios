@@ -1191,7 +1191,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     func createLocalAgentPanes(
         _ specs: [LocalAgentPaneSpec],
         workspaceID requestedWorkspaceID: Workspace.ID? = nil,
-        batchSeedPaneIDs: [Conversation.ID] = []
+        batchSeedPaneIDs: [Conversation.ID] = [],
+        activateCreatedPane: Bool = true
     ) async throws -> [LocalAgentPaneResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -1201,8 +1202,34 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.noActiveWorkspace
         }
 
-        activate(workspaceID: workspaceID)
-        window?.makeKeyAndOrderFront(nil)
+        // A newly launched supported CLI must load this build's MCP entry at
+        // process startup. Repair it before attaching the PTY; otherwise a Dev
+        // pane can inherit only the release MCP integration and quietly run an
+        // older tool contract against the Dev automation directory.
+        for agentName in Set(specs.map(\.agentName)) where agentName != "shell" {
+            _ = try AIAgentIntegrator.ensureMCPAvailable(forLocalAgentName: agentName)
+        }
+
+        // Terminal panes are view-owned today, so an inactive workspace has
+        // no live PaneViewController to attach its PTY to. Render that
+        // workspace only for the duration of the attachment, then restore the
+        // user's original workspace before returning. This preserves the
+        // activate=false contract while allowing explicit background targets.
+        let previouslyActiveWorkspaceID = activeWorkspaceID
+        let temporarilyActivatesWorkspace = !activateCreatedPane
+            && workspaceID != previouslyActiveWorkspaceID
+        if activateCreatedPane || temporarilyActivatesWorkspace {
+            activate(workspaceID: workspaceID)
+        }
+        if activateCreatedPane {
+            window?.makeKeyAndOrderFront(nil)
+        }
+        defer {
+            if temporarilyActivatesWorkspace,
+               store.workspace(previouslyActiveWorkspaceID, isInWindow: windowID) {
+                activate(workspaceID: previouslyActiveWorkspaceID)
+            }
+        }
 
         var results: [LocalAgentPaneResult] = []
         var attachJobs: [(Conversation.ID, LocalAgentPaneSpec)] = []
@@ -1220,7 +1247,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 commander: .placeholderMirror,
                 workingDirectoryPath: spec.projectURL.path
             ))
-            store.setActivePane(workspaceID: workspaceID, paneID: paneID)
+            if activateCreatedPane {
+                store.setActivePane(workspaceID: workspaceID, paneID: paneID)
+            }
             attachJobs.append((paneID, spec))
             batchPaneIDs.append(paneID)
             results.append(LocalAgentPaneResult(

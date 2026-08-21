@@ -69,6 +69,9 @@ struct SoyehtAutomationRequest: Decodable {
         let promptMode: String?
         let promptDelayMs: Int?
         let allowAutoPaneNames: Bool?
+        let activateCreatedPane: Bool?
+        let mcpClientContractVersion: Int?
+        let mcpClientServerVersion: String?
         let workspaceName: String?
         let workspaceBranch: String?
         let workspaceID: String?
@@ -269,6 +272,8 @@ struct SoyehtAutomationResponse: Encodable {
         let readAt: Date?
         let acknowledgedAt: Date?
         let deferredTerminalDeliveredAt: Date?
+        let mcpClientContractVersion: Int?
+        let mcpClientServerVersion: String?
     }
 
     struct AgentCommunicationPolicyState: Encodable {

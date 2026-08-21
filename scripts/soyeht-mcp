@@ -15,7 +15,8 @@ from pathlib import Path
 
 
 SERVER_NAME = "soyeht-automation"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "2.0.0"
+MCP_CLIENT_CONTRACT_VERSION = 2
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
@@ -336,6 +337,11 @@ def default_agent_command(agent):
     if str(agent).strip().lower() == "shell":
         return ""
     agent_id = str(agent).strip().lower()
+    if agent_id in AGENT_CATALOG:
+        # Keep the legacy launch tools behaviorally aligned with the dedicated
+        # launcher. Agents do not always choose the newest tool, so Codex and
+        # OpenCode still need the user's default safety profiles here.
+        return build_agent_launch(agent_id)["command"]
     executable = AGENT_CATALOG.get(agent_id, {}).get("executable", agent_id)
     resolved = shutil.which(executable)
     return shlex.quote(resolved) if resolved else executable
@@ -761,6 +767,11 @@ def wait_response(root, request_id, timeout):
 
 
 def submit_request_to_root(root, request_type, payload, timeout=DEFAULT_REQUEST_TIMEOUT, check_status=True):
+    payload = dict(payload or {})
+    # Persisted on agent messages by the app so behavioral E2E can
+    # distinguish this contract from an older launcher targeting the same app.
+    payload.setdefault("mcpClientContractVersion", MCP_CLIENT_CONTRACT_VERSION)
+    payload.setdefault("mcpClientServerVersion", SERVER_VERSION)
     request_id = str(uuid.uuid4())
     request = {
         "id": request_id,
@@ -878,8 +889,17 @@ def session_spec(
         raise RuntimeError("Pane spec is missing path.")
 
     directory = require_directory(path)
-    agent = spec.get("agent") or default_agent or "codex"
-    command = spec.get("command") or default_command or default_agent_command(agent)
+    explicit_agent = spec.get("agent")
+    agent = explicit_agent or default_agent or "codex"
+    # A pane-level agent override must also change the executable. Previously
+    # panes=[{agent: "claude"}] inherited the top-level default command
+    # (usually Codex), producing exactly the wrong-agent launch users saw.
+    if spec.get("command") is not None:
+        command = spec.get("command")
+    elif explicit_agent and str(explicit_agent).strip().lower() != str(default_agent or "").strip().lower():
+        command = default_agent_command(agent)
+    else:
+        command = default_command or default_agent_command(agent)
     result = {
         "path": str(directory),
         "agent": agent,
@@ -920,7 +940,13 @@ def tool_open_panes(args):
     default_command = explicit_default_command or default_agent_command(default_agent)
     default_prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
 
+    pane_agents = [pane.get("agent") or default_agent for pane in panes]
+    activate_created_pane = args.get("activate")
+    if activate_created_pane is None:
+        activate_created_pane = all(str(agent).strip().lower() == "shell" for agent in pane_agents)
+
     payload = with_source_context(with_window_target(with_name_styles({
+        "activateCreatedPane": bool(activate_created_pane),
         "agent": default_agent,
         "command": default_command,
         "prompt": args.get("prompt"),
@@ -1013,8 +1039,13 @@ def tool_open_shell(args):
     if name:
         spec["name"] = name
 
+    activate_created_pane = args.get("activate")
+    if activate_created_pane is None:
+        activate_created_pane = str(agent).strip().lower() == "shell"
+
     payload = with_source_context(with_window_target(with_name_styles({
         "allowAutoPaneNames": True,
+        "activateCreatedPane": bool(activate_created_pane),
         "agent": agent,
         "command": command,
         "promptMode": resolved_prompt_mode(agent, args.get("prompt"), prompt_mode),
@@ -1071,8 +1102,15 @@ def tool_open_agent_pane(args):
     routing_args = dict(args)
     if workspace:
         routing_args["workspaceID"] = workspace
+    # This dedicated launcher represents an exact agent intent. Preserve an
+    # explicit pane name unless the caller deliberately selected a compact
+    # naming style; otherwise a later message cannot reliably find the pane by
+    # the name the user just requested.
+    if name and not routing_args.get("nameStyle") and not routing_args.get("paneNameStyle"):
+        routing_args["paneNameStyle"] = "verbatim"
     payload = with_source_context(with_window_target(with_name_styles({
         "allowAutoPaneNames": True,
+        "activateCreatedPane": bool(args.get("activate", False)),
         "agent": launch["agentID"],
         "command": launch["command"],
         "promptMode": resolved_prompt_mode(launch["agentID"], prompt, prompt_mode),
@@ -1893,7 +1931,7 @@ def tool_get_active_context(args):
 TOOLS = [
     {
         "name": "open_panes",
-        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
+        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Prefer open_agent_pane when the user names a coding agent; this compatibility tool still honors the full agent catalog and default launch profiles. Agent panes do not steal focus by default. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1918,6 +1956,10 @@ TOOLS = [
                 "prompt": {"type": "string"},
                 "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "activate": {
+                    "type": "boolean",
+                    "description": "Focus the newly created panes. Defaults to false for agent panes and true for shell-only panes.",
+                },
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
@@ -1962,6 +2004,10 @@ TOOLS = [
                 "prompt": {"type": "string"},
                 "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "activate": {
+                    "type": "boolean",
+                    "description": "Focus the newly created pane. Defaults to false for an agent and true for a plain shell.",
+                },
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
@@ -1988,7 +2034,8 @@ TOOLS = [
             "defaults to opencode-auto (opencode --auto); pass profile=base to suppress profile flags. "
             "The response returns launchContract.command and expectedArgv for audit, but always marks "
             "argvVerification as required/unverified. Acceptance requires an E2E observation of the live "
-            "child process argv in Soyeht Dev; declaredAgent, pane title, and request metadata are not proof."
+            "child process argv in Soyeht Dev; declaredAgent, pane title, and request metadata are not proof. "
+            "An explicit name/paneName is preserved verbatim unless a name style is explicitly requested."
         ),
         "inputSchema": {
             "type": "object",
@@ -2029,6 +2076,11 @@ TOOLS = [
                 "prompt": {"type": "string", "description": "Optional initial agent message after startup."},
                 "promptMode": PROMPT_MODE_PROPERTY,
                 "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "activate": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Focus the newly created pane. Defaults to false so an agent opening a collaborator cannot steal the user's typing focus.",
+                },
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
@@ -2930,7 +2982,7 @@ TOOLS = [
     },
     {
         "name": "get_active_context",
-        "description": "Return the resolved Soyeht context: activeContext = { windowID, workspaceID, workspaceName, paneID, paneHandle }. When called from a Soyeht pane this resolves to the caller/source workspace unless targetWindowID points elsewhere; otherwise it falls back to the user's active window/workspace. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the workspace explicitly.",
+        "description": "Return the resolved Soyeht context: activeContext = { windowID, workspaceID, workspaceName, paneID, paneHandle } plus sourceIdentity when called by a live Soyeht pane. In that case activeContext identifies the caller pane, not whichever sibling pane happens to be focused; otherwise it falls back to the user's active window/workspace. Use sourceIdentity for fromConversationID/fromHandle and activeContext.workspaceID when the user says 'open a pane here' / 'in this workspace'.",
         "inputSchema": {
             "type": "object",
             "properties": {

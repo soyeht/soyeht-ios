@@ -1068,8 +1068,21 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     func brokerSendEnterKey(focusBeforeSubmit: Bool = true) {
         if focusBeforeSubmit {
             window?.makeFirstResponder(self)
+            doCommand(by: #selector(insertNewline(_:)))
+            return
         }
+
+        // SwiftTerm's keyboard command path needs this view to be first
+        // responder in order to encode Return correctly for enhanced-keyboard
+        // TUIs. Borrow responder status only for the synchronous command and
+        // restore it immediately; a background collaborator must not leave the
+        // user's typing focus in another pane.
+        let previousFirstResponder = window?.firstResponder
+        window?.makeFirstResponder(self)
         doCommand(by: #selector(insertNewline(_:)))
+        if let previousFirstResponder, previousFirstResponder !== self {
+            window?.makeFirstResponder(previousFirstResponder)
+        }
     }
 
     /// Inserts text produced by macOS voice input into this terminal session.

@@ -495,6 +495,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertEqual(prepared.source?.id, sourceConversationID)
         XCTAssertTrue(prepared.text.contains("From: [sender] (conversationID: \(sourceConversationID.uuidString))"))
         XCTAssertTrue(prepared.text.contains("To: [reviewer] (conversationID: \(targetConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("Reply via Soyeht MCP soyeht.message_agent"))
         XCTAssertTrue(prepared.text.contains("message_agent to conversationIDs=[\"\(sourceConversationID.uuidString)\"]"))
         XCTAssertFalse(prepared.text.contains("@sender"))
         XCTAssertTrue(prepared.text.contains("Request: please review this patch"))
@@ -945,6 +946,83 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(appDelegate.contains("return try await automationRequestRouter.handle(request)"))
     }
 
+    func testMCPActiveContextPrefersTheCallingPaneOverFocusedSibling() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let activeContext = try slice(
+            source,
+            from: "private func makeActiveContext",
+            to: "private func handleClosePane"
+        )
+        let handler = try slice(
+            source,
+            from: "private func handleGetActiveContext",
+            to: "private func handleOpenEditor"
+        )
+
+        XCTAssertTrue(activeContext.contains("resolveAutomationSource(payload: payload)"))
+        XCTAssertTrue(activeContext.contains("source?.conversation.workspaceID == workspaceID"))
+        XCTAssertTrue(activeContext.contains("sourceConversation?.id ?? workspace.activePaneID"))
+        XCTAssertTrue(handler.contains("sourceIdentity: source.map(sourceIdentity)"))
+    }
+
+    func testMCPAgentLaunchCanAvoidStealingTheUsersFocus() throws {
+        let service = try macSource("App/SoyehtAutomationService.swift")
+        let router = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+
+        XCTAssertTrue(service.contains("let activateCreatedPane: Bool?"))
+        XCTAssertTrue(router.contains("let shouldActivateCreatedPane = payload.activateCreatedPane ?? panes.allSatisfy"))
+        XCTAssertTrue(router.contains("activateCreatedPane: shouldActivateCreatedPane"))
+        XCTAssertTrue(controller.contains("if activateCreatedPane {"))
+        XCTAssertTrue(controller.contains("let temporarilyActivatesWorkspace = !activateCreatedPane"))
+        XCTAssertTrue(controller.contains("activate(workspaceID: previouslyActiveWorkspaceID)"))
+        XCTAssertTrue(controller.contains("store.setActivePane(workspaceID: workspaceID, paneID: paneID)"))
+    }
+
+    func testNewAgentPaneRepairsItsBuildScopedMCPBeforeProcessStartup() throws {
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let create = try slice(
+            controller,
+            from: "func createLocalAgentPanes",
+            to: "func openEditorPane"
+        )
+
+        XCTAssertTrue(create.contains("AIAgentIntegrator.ensureMCPAvailable"))
+        XCTAssertLessThan(
+            try XCTUnwrap(create.range(of: "AIAgentIntegrator.ensureMCPAvailable")?.lowerBound),
+            try XCTUnwrap(create.range(of: "attachLocalPTY")?.lowerBound)
+        )
+    }
+
+    func testDevRejectsReleaseMCPForAgentCreationAndMessaging() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let validation = try slice(
+            source,
+            from: "private func validateMCPClientContract(",
+            to: "private func requestedWindowID("
+        )
+
+        XCTAssertTrue(validation.contains("SoyehtInstallProfile.current.kind == .dev"))
+        XCTAssertTrue(validation.contains("request.payload.mcpClientContractVersion != currentContract"))
+        XCTAssertTrue(validation.contains("case .sendAgentMessage, .switchAgent:"))
+        XCTAssertTrue(validation.contains(".createWorktreePanes"))
+        XCTAssertTrue(validation.contains(".createWorkspacePanes"))
+        XCTAssertTrue(source.contains("Use the soyeht-dev integration instead of the soyeht Release integration"))
+    }
+
+    func testDeferredAgentReturnRestoresThePreviousFirstResponder() throws {
+        let terminal = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        let sender = try slice(
+            terminal,
+            from: "func brokerSendEnterKey",
+            to: "func insertVoiceTranscription"
+        )
+
+        XCTAssertTrue(sender.contains("let previousFirstResponder = window?.firstResponder"))
+        XCTAssertTrue(sender.contains("window?.makeFirstResponder(self)"))
+        XCTAssertTrue(sender.contains("window?.makeFirstResponder(previousFirstResponder)"))
+    }
+
     func testMCPAutomationResolvesPaneAndSourceWindowBeforeActiveFallback() throws {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
         let targetResolver = try slice(
@@ -1004,7 +1082,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(workspaceResolver.contains("workspaceStore.workspace(explicitWorkspaceID, isInWindow: target.windowID)"))
         XCTAssertTrue(workspaceResolver.contains("sourceWindowID == target.windowID"))
         XCTAssertTrue(createPanes.contains("let workspaceID = try automationWorkspaceID(payload: payload, in: target)"))
-        XCTAssertTrue(createPanes.contains("target.createLocalAgentPanes(specs, workspaceID: workspaceID)"))
+        XCTAssertTrue(createPanes.contains("target.createLocalAgentPanes("))
+        XCTAssertTrue(createPanes.contains("workspaceID: workspaceID"))
         XCTAssertTrue(capture.contains("let targets = captureTargetArguments(payload, in: target)"))
         XCTAssertTrue(capture.contains("conversationIDStrings: targets.conversationIDs"))
         XCTAssertTrue(capture.contains("resolveAutomationSource(payload: payload)"))

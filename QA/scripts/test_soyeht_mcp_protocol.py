@@ -35,6 +35,31 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             MODULE["signal"].SIG_IGN,
         )
 
+    def test_every_request_identifies_the_new_mcp_client_contract(self):
+        captured = {}
+        globals_ = MODULE["submit_request_to_root"].__globals__
+        original_write_request = globals_["write_request"]
+        original_wait_response = globals_["wait_response"]
+        try:
+            def fake_write_request(_root, request):
+                captured.update(request)
+                return Path("/tmp/request.json")
+
+            globals_["write_request"] = fake_write_request
+            globals_["wait_response"] = lambda _root, _request_id, _timeout: {"status": "ok"}
+
+            MODULE["submit_request_to_root"](
+                Path("/tmp/automation"),
+                "message_agent",
+                {"text": "hello"},
+            )
+        finally:
+            globals_["write_request"] = original_write_request
+            globals_["wait_response"] = original_wait_response
+
+        self.assertEqual(captured["payload"]["mcpClientContractVersion"], 2)
+        self.assertEqual(captured["payload"]["mcpClientServerVersion"], "2.0.0")
+
     def test_list_panes_describes_declared_agent_as_metadata(self):
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_panes")
 
@@ -171,6 +196,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                     "workspace": "22222222-2222-2222-2222-222222222222",
                     "model": "gpt-5.6",
                     "args": ["--search"],
+                    "name": "exact-agent-pane-name",
                     "prompt": None,
                 })
         finally:
@@ -180,6 +206,9 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "create_worktree_panes")
         self.assertEqual(captured["payload"]["workspaceID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["agent"], "codex")
+        self.assertFalse(captured["payload"]["activateCreatedPane"])
+        self.assertEqual(captured["payload"]["paneNameStyle"], "verbatim")
+        self.assertEqual(captured["payload"]["panes"][0]["name"], "exact-agent-pane-name")
         self.assertEqual(captured["payload"]["panes"][0]["agent"], "codex")
         self.assertEqual(captured["payload"]["command"], "/mock/bin/codex --yolo --model gpt-5.6 --search")
         self.assertEqual(result["launchContract"]["expectedArgv"], expected_argv)
@@ -973,6 +1002,44 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_open_panes_requires_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
             MODULE["tool_open_panes"]({"panes": [{"path": "."}]})
+
+    def test_legacy_open_panes_honors_each_agent_profile_without_stealing_focus(self):
+        captured = {}
+        globals_ = MODULE["tool_open_panes"].__globals__
+        original = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            MODULE["tool_open_panes"]({
+                "panes": [{"name": "requested-opencode", "path": ".", "agent": "opencode"}],
+            })
+        finally:
+            globals_["submit_request"] = original
+
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertFalse(captured["payload"]["activateCreatedPane"])
+        self.assertEqual(captured["payload"]["panes"][0]["agent"], "opencode")
+        self.assertIn("opencode", captured["payload"]["panes"][0]["command"])
+        self.assertIn("--auto", captured["payload"]["panes"][0]["command"])
+
+    def test_legacy_open_panes_keeps_plain_shell_focus_behavior(self):
+        captured = {}
+        globals_ = MODULE["tool_open_panes"].__globals__
+        original = globals_["submit_request"]
+        try:
+            globals_["submit_request"] = lambda request_type, payload, **kwargs: captured.setdefault("payload", payload) or {"status": "ok"}
+            MODULE["tool_open_panes"]({
+                "agent": "shell",
+                "panes": [{"name": "shell", "path": ".", "agent": "shell"}],
+            })
+        finally:
+            globals_["submit_request"] = original
+
+        self.assertTrue(captured["payload"]["activateCreatedPane"])
 
     def test_open_workspace_requires_pane_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):

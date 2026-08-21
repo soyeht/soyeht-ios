@@ -149,13 +149,52 @@ struct AgentMessageDeliveryPlan: Equatable {
 /// keyboard input and automation input pass through this state machine, so an
 /// agent relay cannot splice itself into either kind of partially typed line.
 struct AgentMessageDraftGate: Equatable {
+    private enum EscapeState: Equatable {
+        case normal
+        case escape
+        case controlSequence
+        case operatingSystemCommand
+        case operatingSystemCommandEscape
+    }
+
     private(set) var pendingByteCount = 0
+    private var escapeState: EscapeState = .normal
 
     var isClear: Bool { pendingByteCount == 0 }
 
     mutating func record(_ data: Data) {
         for byte in data {
+            switch escapeState {
+            case .escape:
+                switch byte {
+                case 0x5B: escapeState = .controlSequence // ESC [
+                case 0x5D: escapeState = .operatingSystemCommand // ESC ]
+                default: escapeState = .normal // Alt/SS3: consume this key as control input.
+                }
+                continue
+            case .controlSequence:
+                // CSI sequences end at a byte in 0x40...0x7E. Ignoring the
+                // entire packet prevents arrow, focus, mouse and Kitty-key
+                // reports from masquerading as unfinished printable drafts.
+                if (0x40...0x7E).contains(byte) { escapeState = .normal }
+                continue
+            case .operatingSystemCommand:
+                if byte == 0x07 { // BEL terminates OSC.
+                    escapeState = .normal
+                } else if byte == 0x1B {
+                    escapeState = .operatingSystemCommandEscape
+                }
+                continue
+            case .operatingSystemCommandEscape:
+                escapeState = byte == 0x5C ? .normal : .operatingSystemCommand
+                continue
+            case .normal:
+                break
+            }
+
             switch byte {
+            case 0x1B:
+                escapeState = .escape
             case 0x0A, 0x0D, 0x03, 0x15: // LF/CR, Ctrl-C, Ctrl-U
                 pendingByteCount = 0
             case 0x08, 0x7F: // backspace/delete
@@ -193,6 +232,8 @@ struct AgentMessage: Codable, Identifiable, Hashable {
     var readAt: Date?
     var acknowledgedAt: Date?
     var deferredTerminalDeliveredAt: Date?
+    var mcpClientContractVersion: Int?
+    var mcpClientServerVersion: String?
 
     init(
         id: ID = UUID(),
@@ -201,7 +242,9 @@ struct AgentMessage: Codable, Identifiable, Hashable {
         body: String,
         channel: AgentMessageDeliveryChannel,
         requestsAttention: Bool = true,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        mcpClientContractVersion: Int? = nil,
+        mcpClientServerVersion: String? = nil
     ) {
         self.id = id
         self.sender = sender
@@ -214,6 +257,8 @@ struct AgentMessage: Codable, Identifiable, Hashable {
         self.readAt = nil
         self.acknowledgedAt = nil
         self.deferredTerminalDeliveredAt = nil
+        self.mcpClientContractVersion = mcpClientContractVersion
+        self.mcpClientServerVersion = mcpClientServerVersion
     }
 
     var isUnread: Bool { readAt == nil }
@@ -249,6 +294,9 @@ struct AgentMessageInbox: Codable, Hashable {
     var messagesNeedingAttention: [AgentMessage] { messages.filter(\.needsAttention) }
     var messagesAwaitingAttentionPresentation: [AgentMessage] {
         messages.filter { $0.needsAttention && $0.attentionPresentedAt == nil }
+    }
+    var messagesAwaitingDeferredTerminalDelivery: [AgentMessage] {
+        messages.filter { $0.channel == .deferredTerminal && $0.deferredTerminalDeliveredAt == nil }
     }
 
     func message(id: AgentMessage.ID) -> AgentMessage? {

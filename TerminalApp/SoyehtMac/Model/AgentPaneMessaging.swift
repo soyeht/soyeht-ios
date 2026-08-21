@@ -545,6 +545,7 @@ enum AgentPaneInputPlanner {
         }
         // UUIDs are the routing authority. Bracketed labels are display-only
         // and remain safe when an agent copies the envelope into GitHub.
-        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(roleContext) Reply via Soyeht MCP message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
+        let mcpServer = SoyehtInstallProfile.current.mcpConfigKey
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }

@@ -17,7 +17,9 @@ final class AgentMessagingCoreTests: XCTestCase {
         recipient: AgentMessageEndpoint,
         channel: AgentMessageDeliveryChannel = .semanticInbox,
         requestsAttention: Bool = true,
-        createdAt: Date = Date(timeIntervalSince1970: 100)
+        createdAt: Date = Date(timeIntervalSince1970: 100),
+        mcpClientContractVersion: Int? = nil,
+        mcpClientServerVersion: String? = nil
     ) -> AgentMessage {
         AgentMessage(
             id: id,
@@ -26,7 +28,9 @@ final class AgentMessagingCoreTests: XCTestCase {
             body: "  Review the plan.\r\nThanks.  ",
             channel: channel,
             requestsAttention: requestsAttention,
-            createdAt: createdAt
+            createdAt: createdAt,
+            mcpClientContractVersion: mcpClientContractVersion,
+            mcpClientServerVersion: mcpClientServerVersion
         )
     }
 
@@ -121,6 +125,28 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
+    func testDraftGateIgnoresTerminalControlSequences() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data([0x1B, 0x5B, 0x41])) // Up arrow.
+        gate.record(Data("\u{1B}[<0;42;8M".utf8)) // SGR mouse press.
+        gate.record(Data("\u{1B}]0;title\u{07}".utf8)) // OSC title.
+
+        XCTAssertTrue(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 0)
+    }
+
+    func testDraftGateCountsBracketedPasteBodyButNotItsControlPackets() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[200~draft\u{1B}[201~".utf8))
+        XCTAssertFalse(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 5)
+
+        gate.record(Data([0x0D]))
+        XCTAssertTrue(gate.isClear)
+    }
+
     func testInboxInsertIsDurableIdempotentAndNormalizesBody() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(sender: endpoint(handle: "caia"), recipient: recipient)
@@ -138,6 +164,26 @@ final class AgentMessagingCoreTests: XCTestCase {
             from: JSONEncoder().encode(inbox)
         )
         XCTAssertEqual(decoded, inbox)
+    }
+
+    func testInboxPersistsMCPClientContractProvenance() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            mcpClientContractVersion: 2,
+            mcpClientServerVersion: "2.0.0"
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        let decoded = try JSONDecoder().decode(
+            AgentMessageInbox.self,
+            from: JSONEncoder().encode(inbox)
+        )
+
+        XCTAssertEqual(decoded.messages[0].mcpClientContractVersion, 2)
+        XCTAssertEqual(decoded.messages[0].mcpClientServerVersion, "2.0.0")
     }
 
     func testReadAttentionAndAcknowledgementHaveSeparateDurableStates() throws {

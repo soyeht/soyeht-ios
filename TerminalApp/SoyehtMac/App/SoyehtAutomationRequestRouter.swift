@@ -81,6 +81,7 @@ final class SoyehtAutomationRequestRouter {
     func handle(
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
+        try validateMCPClientContract(request)
         if let source = try? resolveAutomationSource(payload: request.payload) {
             PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
         }
@@ -122,6 +123,7 @@ final class SoyehtAutomationRequestRouter {
         case invalidConversationSequence(Int, Int)
         case missingWebURL
         case missingAppInstallID
+        case incompatibleMCPClientContract(expected: Int, received: Int?)
 
         var errorDescription: String? {
             switch self {
@@ -193,7 +195,47 @@ final class SoyehtAutomationRequestRouter {
                 return "Automation open_web request requires a non-empty url."
             case .missingAppInstallID:
                 return "Automation open_app request requires a non-empty installID."
+            case .incompatibleMCPClientContract(let expected, let received):
+                let observed = received.map(String.init) ?? "missing"
+                return "Soyeht Dev rejected MCP client contract \(observed); agent creation and messaging require contract \(expected). Use the soyeht-dev integration instead of the soyeht Release integration."
             }
+        }
+    }
+
+    /// Dev and Release intentionally coexist on the same Mac. A Release MCP
+    /// process can inherit the Dev automation directory from a pane and appear
+    /// to work against the wrong app, even though it exposes an older tool
+    /// contract. Fail closed for the collaboration mutations where that mixup
+    /// is dangerous; read-only inventory remains backward compatible so an old
+    /// client can still discover why its write was rejected.
+    private func validateMCPClientContract(_ request: SoyehtAutomationRequest) throws {
+        let currentContract = 2
+        guard SoyehtInstallProfile.current.kind == .dev,
+              requestRequiresCurrentMCPContract(request),
+              request.payload.mcpClientContractVersion != currentContract else {
+            return
+        }
+        throw AutomationError.incompatibleMCPClientContract(
+            expected: currentContract,
+            received: request.payload.mcpClientContractVersion
+        )
+    }
+
+    private func requestRequiresCurrentMCPContract(_ request: SoyehtAutomationRequest) -> Bool {
+        switch request.type {
+        case .sendAgentMessage, .switchAgent:
+            return true
+        case .createWorktreeWorkspaces, .createWorktreePanes, .createWorktreeTabs, .createWorkspacePanes:
+            let agentNames = [request.payload.agent]
+                + (request.payload.workspaces ?? []).map(\.agent)
+                + (request.payload.panes ?? []).map(\.agent)
+                + (request.payload.tabs ?? []).map(\.agent)
+            return agentNames.contains { name in
+                guard let name else { return false }
+                return name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "shell"
+            }
+        default:
+            return false
         }
     }
 
@@ -536,8 +578,19 @@ final class SoyehtAutomationRequestRouter {
         guard !panes.isEmpty else { throw AutomationError.emptyWorktreePanes }
 
         let target = try automationTargetWindow(payload: payload)
-        target.window?.makeKeyAndOrderFront(nil)
         let workspaceID = try automationWorkspaceID(payload: payload, in: target)
+        // Older MCP clients do not send activateCreatedPane. Preserve the
+        // historical focus behavior for shell panes, but treat any coding
+        // agent launch as background collaboration by default. Enforcing the
+        // default here protects clients running a stale bundled Python tool.
+        let shouldActivateCreatedPane = payload.activateCreatedPane ?? panes.allSatisfy { pane in
+            (pane.agent ?? payload.agent ?? "codex")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() == "shell"
+        }
+        if shouldActivateCreatedPane {
+            target.window?.makeKeyAndOrderFront(nil)
+        }
 
         var specs: [SoyehtMainWindowController.LocalAgentPaneSpec] = []
         for pane in panes {
@@ -572,7 +625,11 @@ final class SoyehtAutomationRequestRouter {
             ))
         }
 
-        let results = try await target.createLocalAgentPanes(specs, workspaceID: workspaceID)
+        let results = try await target.createLocalAgentPanes(
+            specs,
+            workspaceID: workspaceID,
+            activateCreatedPane: shouldActivateCreatedPane
+        )
         let created = results.map {
             SoyehtAutomationResponse.CreatedPane(
                 name: $0.name,
@@ -813,7 +870,9 @@ final class SoyehtAutomationRequestRouter {
                 recipient: recipient,
                 body: text,
                 channel: storedChannel,
-                requestsAttention: requestsAttention
+                requestsAttention: requestsAttention,
+                mcpClientContractVersion: payload.mcpClientContractVersion,
+                mcpClientServerVersion: payload.mcpClientServerVersion
             )
             _ = try conversationStore.enqueueAgentMessage(message, in: target.id)
 
@@ -1132,7 +1191,9 @@ final class SoyehtAutomationRequestRouter {
             createdAt: message.createdAt,
             readAt: message.readAt,
             acknowledgedAt: message.acknowledgedAt,
-            deferredTerminalDeliveredAt: message.deferredTerminalDeliveredAt
+            deferredTerminalDeliveredAt: message.deferredTerminalDeliveredAt,
+            mcpClientContractVersion: message.mcpClientContractVersion,
+            mcpClientServerVersion: message.mcpClientServerVersion
         )
     }
 
@@ -2164,7 +2225,11 @@ final class SoyehtAutomationRequestRouter {
 
     private func handleGetActiveContext(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let target = try automationTargetWindow(payload: request.payload, createIfMissing: false)
-        return SoyehtAutomationResult(activeContext: try makeActiveContext(target, payload: request.payload))
+        let source = try resolveAutomationSource(payload: request.payload)
+        return SoyehtAutomationResult(
+            activeContext: try makeActiveContext(target, payload: request.payload),
+            sourceIdentity: source.map(sourceIdentity)
+        )
     }
 
     private func handleOpenEditor(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
@@ -2381,8 +2446,18 @@ final class SoyehtAutomationRequestRouter {
         if let payload,
            let workspaceID = try automationWorkspaceID(payload: payload, in: target),
            let workspace = workspaceStore.workspace(workspaceID) {
-            let paneID = workspace.activePaneID
-            let handle = paneID.flatMap { conversationStore.conversation($0)?.handle }
+            // Focus is shared UI state and can change while multiple agents
+            // call the MCP concurrently. When a source pane is known, return
+            // that caller instead of letting the focused sibling impersonate
+            // it. Explicit requests for another workspace still use that
+            // workspace's active pane.
+            let source = try? resolveAutomationSource(payload: payload)
+            let sourceConversation = source?.conversation.workspaceID == workspaceID
+                ? source?.conversation
+                : nil
+            let paneID = sourceConversation?.id ?? workspace.activePaneID
+            let handle = sourceConversation?.handle
+                ?? paneID.flatMap { conversationStore.conversation($0)?.handle }
             return SoyehtAutomationResponse.ActiveContext(
                 windowID: target.windowID,
                 workspaceID: workspaceID.uuidString,

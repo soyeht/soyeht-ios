@@ -239,8 +239,25 @@ created and attached in one request.
 | ST-Q-MCPA-152 | Identify source without TTY inference. | `QA/scripts/soyeht_mcp_agent_messaging_smoke.py` setting `SOYEHT_CONVERSATION_ID`/`SOYEHT_HANDLE`, then calling `identify_agent` and `list_agents` without explicit `fromHandle`. | Source resolves from pane environment, `messageTarget` includes the source conversationID/handle, and no `sourceTTY` is required. |
 | ST-Q-MCPA-153 | Pin envelope and Enter behavior in CI. | Swift unit `AppCommandRoutingPresentationTests.testMCPAgentMessagingUsesExplicitSenderEnvelopeAndAtomicTerminator`. | Planner applies From/To/Reply envelope, appends CR in the same payload, fails closed when source is missing, rejects self-targeting, and reports `non_terminal_target` for non-terminal panes. |
 
+### MCP 2.0 Real-Agent Behavior
+
+These cases are behavioral acceptance tests, not direct API calls. The runner
+prompts a real parent model in natural language and independently proves what
+the parent created and how both agents communicated. Declared pane metadata is
+never accepted as proof of the launched executable.
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-154 | Ask a real Codex to open OpenCode in an exact directory and exchange a reply. | `QA/scripts/soyeht_agent_driven_e2e.py` against Soyeht Dev | Codex calls `soyeht-dev.open_agent_pane`; the child process is observed as `opencode --auto` in `QA`; request and reply both persist with MCP contract 2; parent observes the reply; child never becomes active. |
+| ST-Q-MCPA-155 | Ask a real OpenCode to open Claude in an exact directory and exchange a reply. | Same behavioral runner | OpenCode calls the new MCP; the child process is observed as `claude` in `docs`; both durable messages carry contract 2; parent completes after the reply; child never becomes active. |
+| ST-Q-MCPA-156 | Ask a real Claude to open Codex in an exact directory and exchange a reply. | Same behavioral runner | Claude calls the new MCP; the child process is observed as `codex --yolo` in `TerminalApp`; both durable messages carry contract 2; parent completes after the reply; child never becomes active. |
+| ST-Q-MCPA-157 | A Release MCP process inherits the Dev automation directory and attempts agent collaboration. | Direct call through the `soyeht` Release integration to Soyeht Dev | Dev rejects agent creation/message mutation when `mcpClientContractVersion` is missing or not 2, names `soyeht-dev` in the error, and creates/sends nothing. Read-only discovery remains available. |
+| ST-Q-MCPA-158 | Open an agent in an inactive workspace with `activate=false`. | Direct MCP 2.0 E2E | App temporarily renders the target long enough to attach the PTY, restores the user's original workspace before returning, observes the real process, and does not leave the child or target workspace active. |
+| ST-Q-MCPA-159 | Close a test workspace while a legacy `destinationWorkspaceID` field is also present. | `QA/scripts/soyeht_mcp2_e2e.py` | `close_workspace` ignores the irrelevant destination field, closes the requested test workspace, and leaves no test panes behind. This pins the previously reported `@e2e-mcp`/`@e2e-mcp-2` cleanup defect. |
+
 ## Execution Reports
 
+- [2026-08-21 MCP 2.0 real-agent behavioral ring](../runs/2026-08-21-mcp2-agent-driven-e2e/report.md)
 - [2026-05-04 Soyeht MCP Automation](../runs/2026-05-04-soyeht-mcp-automation/report.md)
 - [2026-05-05 MCP Fanout — Agent Race Panes (9 tests)](../runs/2026-05-05-mcp-fanout/report.md)
 - [2026-05-05 Direct MCP Validation ST-Q-MCPA-021..104](../runs/2026-05-05-mcpa-021-104/report.md)
