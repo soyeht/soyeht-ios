@@ -62,7 +62,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(prompt_mode["enum"], ["auto", "message", "raw"])
         self.assertIn("agent message", prompt_mode["description"])
         self.assertIn("raw", prompt_mode["description"])
-        for name in ("open_panes", "open_shell", "open_workspace", "create_worktree_panes", "agent_race_panes"):
+        for name in ("open_panes", "open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
             self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
@@ -88,6 +88,101 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("agent/pane directory", directory["description"])
         self.assertIn("messageTarget", directory["description"])
         self.assertIn("Never create a new pane", directory["description"])
+
+    def test_open_agent_pane_catalog_matches_the_app_catalog(self):
+        expected = {
+            "claude": "claude",
+            "codex": "codex",
+            "opencode": "opencode",
+            "qwen": "qwen",
+            "antigravity": "agy",
+            "pi": "pi",
+            "droid": "droid",
+            "kilo": "kilo",
+            "cursor": "cursor-agent",
+            "copilot": "copilot",
+            "grok": "grok",
+            "kimi": "kimi",
+            "devin": "devin",
+            "qoder": "qodercli",
+        }
+
+        self.assertEqual(
+            {agent_id: entry["executable"] for agent_id, entry in MODULE["AGENT_CATALOG"].items()},
+            expected,
+        )
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "open_agent_pane")
+        self.assertEqual(set(tool["inputSchema"]["properties"]["agentID"]["enum"]), set(expected))
+        self.assertEqual(tool["inputSchema"]["required"], ["agentID"])
+        self.assertIn("live child process argv", tool["description"])
+        self.assertIn("not proof", tool["description"])
+
+    def test_launch_profiles_are_agent_specific_and_default_for_codex_and_opencode(self):
+        with patch.object(MODULE["shutil"], "which", lambda executable: f"/mock/bin/{executable}"):
+            codex = MODULE["build_agent_launch"]("codex")
+            opencode = MODULE["build_agent_launch"]("opencode")
+            base = MODULE["build_agent_launch"]("codex", profile="base")
+            quoted = MODULE["build_agent_launch"](
+                "qwen",
+                profile="base",
+                args=["value with spaces", "$(must-not-execute)"],
+            )
+
+        self.assertEqual(codex["profile"], "codex-yolo")
+        self.assertEqual(codex["expectedArgv"], ["/mock/bin/codex", "--yolo"])
+        self.assertEqual(opencode["profile"], "opencode-auto")
+        self.assertEqual(opencode["expectedArgv"], ["/mock/bin/opencode", "--auto"])
+        self.assertEqual(base["profile"], "base")
+        self.assertEqual(base["expectedArgv"], ["/mock/bin/codex"])
+        self.assertEqual(MODULE["shlex"].split(quoted["command"]), quoted["expectedArgv"])
+
+        with self.assertRaisesRegex(RuntimeError, "belongs to agentID"):
+            MODULE["build_agent_launch"]("claude", profile="codex-yolo")
+        with self.assertRaisesRegex(RuntimeError, "silently substituting"):
+            MODULE["build_agent_launch"]("not-real")
+
+    def test_open_agent_pane_forwards_exact_launch_contract_and_requires_real_argv_e2e(self):
+        captured = {}
+        globals_ = MODULE["tool_open_agent_pane"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok", "createdPanes": [{"declaredAgent": "codex"}]}
+
+            globals_["submit_request"] = fake_submit_request
+            with patch.object(MODULE["shutil"], "which", lambda executable: f"/mock/bin/{executable}"):
+                result = MODULE["tool_open_agent_pane"]({
+                    "agentID": "codex",
+                    "cwd": ".",
+                    "workspace": "22222222-2222-2222-2222-222222222222",
+                    "model": "gpt-5.6",
+                    "args": ["--search"],
+                    "prompt": None,
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        expected_argv = ["/mock/bin/codex", "--yolo", "--model", "gpt-5.6", "--search"]
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertEqual(captured["payload"]["workspaceID"], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(captured["payload"]["agent"], "codex")
+        self.assertEqual(captured["payload"]["panes"][0]["agent"], "codex")
+        self.assertEqual(captured["payload"]["command"], "/mock/bin/codex --yolo --model gpt-5.6 --search")
+        self.assertEqual(result["launchContract"]["expectedArgv"], expected_argv)
+        self.assertEqual(result["launchContract"]["profile"], "codex-yolo")
+        self.assertTrue(result["argvVerification"]["required"])
+        self.assertEqual(result["argvVerification"]["status"], "unverified")
+        self.assertIn("not proof", result["argvVerification"]["acceptance"])
+
+    def test_open_agent_pane_rejects_conflicting_workspace_aliases(self):
+        with self.assertRaisesRegex(RuntimeError, "workspace and workspaceID must match"):
+            MODULE["tool_open_agent_pane"]({
+                "agentID": "codex",
+                "workspace": "workspace-a",
+                "workspaceID": "workspace-b",
+            })
 
     def test_concrete_tty_path_rejects_generic_dev_tty(self):
         self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))
@@ -738,6 +833,64 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
         self.assertEqual(captured["payload"]["workspaceIDs"], ["22222222-2222-2222-2222-222222222222"])
         self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
+
+    def test_list_agents_is_global_grouped_and_marks_callers_workspace_first(self):
+        globals_ = MODULE["tool_list_agents"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=10.0):
+                self.assertNotIn("workspaceIDs", payload)
+                return {
+                    "status": "ok",
+                    "sourceIdentity": {
+                        "workspaceID": "workspace-current",
+                        "workspaceName": "Current Team",
+                        "handle": "@delia",
+                    },
+                    "activeContext": {
+                        "workspaceID": "workspace-other",
+                        "workspaceName": "Other",
+                    },
+                    "listedAgents": [
+                        {
+                            "conversationID": "other-id",
+                            "workspaceID": "workspace-other",
+                            "workspaceName": "Other",
+                            "handle": "@remote",
+                            "messageTarget": {"handles": ["@remote"]},
+                            "replyInstructions": "legacy @remote instructions",
+                        },
+                        {
+                            "conversationID": "current-id",
+                            "workspaceID": "workspace-current",
+                            "workspaceName": "Current Team",
+                            "handle": "@caia",
+                            "messageTarget": {"handles": ["@caia"]},
+                            "replyInstructions": "legacy @caia instructions",
+                        },
+                    ],
+                }
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_list_agents"]({"fromHandle": "@delia"})
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["directoryScope"], "global")
+        self.assertEqual(result["currentWorkspace"]["workspaceID"], "workspace-current")
+        self.assertEqual(result["currentWorkspace"]["resolution"], "sourceIdentity")
+        self.assertEqual(result["workspaceGroups"][0]["workspaceID"], "workspace-current")
+        self.assertTrue(result["workspaceGroups"][0]["sameWorkspace"])
+        by_id = {agent["conversationID"]: agent for agent in result["listedAgents"]}
+        self.assertTrue(by_id["current-id"]["sameWorkspace"])
+        self.assertTrue(by_id["current-id"]["currentWorkspace"])
+        self.assertEqual(by_id["current-id"]["displayReference"], "[caia]")
+        self.assertEqual(by_id["current-id"]["routingHandle"], "@caia")
+        self.assertFalse(by_id["other-id"]["sameWorkspace"])
+        self.assertEqual(by_id["other-id"]["displayReference"], "[remote]")
+        self.assertNotIn("@remote", by_id["other-id"]["replyInstructions"])
+        self.assertEqual(result["sourceIdentity"]["displayReference"], "[delia]")
+        self.assertIn("Legacy @handles", result["routingCompatibility"])
 
     def test_move_pane_forwards_source_and_destination_windows(self):
         captured = {}

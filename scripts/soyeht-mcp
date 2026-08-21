@@ -19,7 +19,31 @@ SERVER_VERSION = "0.1.0"
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
-KNOWN_AGENTS = {"claude", "opencode", "codex", "shell"}
+AGENT_CATALOG = {
+    "claude": {"displayName": "Claude Code", "executable": "claude", "modelFlag": "--model"},
+    "codex": {"displayName": "Codex", "executable": "codex", "modelFlag": "--model"},
+    "opencode": {"displayName": "OpenCode", "executable": "opencode", "modelFlag": "--model"},
+    "qwen": {"displayName": "Qwen Code", "executable": "qwen", "modelFlag": "--model"},
+    "antigravity": {"displayName": "Antigravity", "executable": "agy", "modelFlag": "--model"},
+    "pi": {"displayName": "Pi", "executable": "pi", "modelFlag": "--model"},
+    "droid": {"displayName": "Droid", "executable": "droid", "modelFlag": "--model"},
+    "kilo": {"displayName": "Kilo Code", "executable": "kilo", "modelFlag": "--model"},
+    "cursor": {"displayName": "Cursor", "executable": "cursor-agent", "modelFlag": "--model"},
+    "copilot": {"displayName": "Copilot CLI", "executable": "copilot", "modelFlag": "--model"},
+    "grok": {"displayName": "Grok", "executable": "grok", "modelFlag": "--model"},
+    "kimi": {"displayName": "Kimi", "executable": "kimi", "modelFlag": "--model"},
+    "devin": {"displayName": "Devin", "executable": "devin", "modelFlag": "--model"},
+    "qoder": {"displayName": "Qoder", "executable": "qodercli", "modelFlag": "--model"},
+}
+KNOWN_AGENTS = set(AGENT_CATALOG) | {"shell"}
+LAUNCH_PROFILES = {
+    "codex-yolo": {"agentID": "codex", "args": ["--yolo"]},
+    "opencode-auto": {"agentID": "opencode", "args": ["--auto"]},
+}
+DEFAULT_AGENT_PROFILES = {
+    "codex": "codex-yolo",
+    "opencode": "opencode-auto",
+}
 PROMPT_MODE_CHOICES = ["auto", "message", "raw"]
 DEFAULT_INITIAL_PROMPT_DELAYS_MS = {
     "codex": 8_000,
@@ -144,7 +168,10 @@ def current_tty():
             pass
         finally:
             os.close(fd)
-    proc = run(["ps", "-o", "tty=", "-p", str(os.getpid())], check=False)
+    try:
+        proc = run(["ps", "-o", "tty=", "-p", str(os.getpid())], check=False)
+    except OSError:
+        return None
     return concrete_tty_path(proc.stdout)
 
 
@@ -308,8 +335,156 @@ def parse_soyeht_environment(output):
 def default_agent_command(agent):
     if str(agent).strip().lower() == "shell":
         return ""
-    resolved = shutil.which(agent)
-    return shlex.quote(resolved) if resolved else agent
+    agent_id = str(agent).strip().lower()
+    executable = AGENT_CATALOG.get(agent_id, {}).get("executable", agent_id)
+    resolved = shutil.which(executable)
+    return shlex.quote(resolved) if resolved else executable
+
+
+def normalize_launch_args(values):
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise RuntimeError("open_agent_pane args must be an array of strings.")
+    normalized = []
+    for value in values:
+        if not isinstance(value, str):
+            raise RuntimeError("open_agent_pane args must contain only strings.")
+        if "\0" in value:
+            raise RuntimeError("open_agent_pane args cannot contain NUL bytes.")
+        normalized.append(value)
+    return normalized
+
+
+def build_agent_launch(agent_id, profile=None, model=None, args=None):
+    normalized_agent_id = str(agent_id or "").strip().lower()
+    agent = AGENT_CATALOG.get(normalized_agent_id)
+    if agent is None:
+        valid = ", ".join(AGENT_CATALOG)
+        raise RuntimeError(
+            f"Unknown agentID: {agent_id!r}. Valid agentIDs: {valid}. "
+            "The launch is rejected instead of silently substituting another agent."
+        )
+
+    if profile is None:
+        resolved_profile = DEFAULT_AGENT_PROFILES.get(normalized_agent_id)
+    else:
+        resolved_profile = str(profile).strip()
+        if not resolved_profile:
+            raise RuntimeError("open_agent_pane profile cannot be empty. Use 'base' for no profile flags.")
+        if resolved_profile == "base":
+            resolved_profile = None
+
+    profile_args = []
+    if resolved_profile:
+        profile_spec = LAUNCH_PROFILES.get(resolved_profile)
+        if profile_spec is None:
+            valid = ", ".join(["base", *LAUNCH_PROFILES])
+            raise RuntimeError(f"Unknown launch profile: {resolved_profile!r}. Valid profiles: {valid}.")
+        if profile_spec["agentID"] != normalized_agent_id:
+            raise RuntimeError(
+                f"Launch profile {resolved_profile!r} belongs to agentID "
+                f"{profile_spec['agentID']!r}, not {normalized_agent_id!r}."
+            )
+        profile_args = list(profile_spec["args"])
+
+    extra_args = normalize_launch_args(args)
+    model_value = None
+    if model is not None:
+        model_value = str(model).strip()
+        if not model_value:
+            raise RuntimeError("open_agent_pane model cannot be empty.")
+        if any(value in {"--model", "-m"} or value.startswith("--model=") for value in extra_args):
+            raise RuntimeError("Pass the model once via model, not again in args.")
+
+    executable = agent["executable"]
+    resolved_executable = shutil.which(executable) or executable
+    argv = [resolved_executable, *profile_args]
+    if model_value is not None:
+        argv.extend([agent["modelFlag"], model_value])
+    argv.extend(extra_args)
+    return {
+        "agentID": normalized_agent_id,
+        "displayName": agent["displayName"],
+        "executable": executable,
+        "resolvedExecutable": resolved_executable,
+        "profile": resolved_profile or "base",
+        "model": model_value,
+        "args": extra_args,
+        "expectedArgv": argv,
+        "command": shlex.join(argv),
+    }
+
+
+def safe_agent_reference(handle):
+    value = str(handle or "").strip()
+    while value.startswith("@"):
+        value = value[1:]
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    value = value.replace("[", "").replace("]", "").strip() or "agent"
+    return f"[{value}]"
+
+
+def decorate_agent_directory(response, filtered_workspace_id=None):
+    if not isinstance(response, dict):
+        return response
+
+    source = response.get("sourceIdentity") or {}
+    active = response.get("activeContext") or {}
+    current_workspace_id = source.get("workspaceID") or active.get("workspaceID")
+    current_workspace_name = source.get("workspaceName") or active.get("workspaceName")
+    resolution = "sourceIdentity" if source.get("workspaceID") else "activeContext"
+    if not current_workspace_id:
+        resolution = "unresolved"
+
+    if source:
+        source["displayReference"] = safe_agent_reference(source.get("handle"))
+        source["safeReference"] = source["displayReference"]
+
+    groups_by_id = {}
+    group_order = []
+    agents = response.get("listedAgents") or []
+    for agent in agents:
+        workspace_id = agent.get("workspaceID")
+        same_workspace = bool(current_workspace_id and workspace_id == current_workspace_id)
+        agent["sameWorkspace"] = same_workspace
+        agent["currentWorkspace"] = same_workspace
+        agent["displayReference"] = safe_agent_reference(agent.get("handle"))
+        agent["safeReference"] = agent["displayReference"]
+        agent["routingHandle"] = agent.get("handle")
+        agent["replyInstructions"] = (
+            f"Reply to {agent['displayReference']} with message_agent using this entry's messageTarget. "
+            "Use the bracketed reference in prose; routingHandle is machine-only."
+        )
+        group_key = workspace_id or ""
+        if group_key not in groups_by_id:
+            groups_by_id[group_key] = {
+                "workspaceID": workspace_id,
+                "workspaceName": agent.get("workspaceName") or "",
+                "sameWorkspace": same_workspace,
+                "currentWorkspace": same_workspace,
+                "agents": [],
+            }
+            group_order.append(group_key)
+        groups_by_id[group_key]["agents"].append(agent)
+
+    groups = [groups_by_id[key] for key in group_order]
+    groups.sort(key=lambda group: (not group["sameWorkspace"], group["workspaceName"].lower()))
+    response["directoryScope"] = "workspace" if filtered_workspace_id else "global"
+    response["currentWorkspace"] = {
+        "workspaceID": current_workspace_id,
+        "workspaceName": current_workspace_name,
+        "resolution": resolution,
+    }
+    response["workspaceGroups"] = groups
+    response["displayReferenceFormat"] = "[name]"
+    response["safeReferenceFormat"] = "[name]"
+    response["routingCompatibility"] = (
+        "Legacy @handles and conversation UUIDs remain accepted in tool arguments. "
+        "Use safeReference ([name]) in commits, PRs, comments, and other prose."
+    )
+    return response
 
 
 def with_name_styles(payload, args):
@@ -863,6 +1038,79 @@ def tool_open_shell(args):
     ))
 
 
+def tool_open_agent_pane(args):
+    agent_id = args.get("agentID")
+    if not agent_id:
+        raise RuntimeError("open_agent_pane requires agentID.")
+
+    workspace = first_present(args.get("workspaceID"), args.get("workspace"))
+    if args.get("workspaceID") and args.get("workspace") and args["workspaceID"] != args["workspace"]:
+        raise RuntimeError("workspace and workspaceID must match when both are provided.")
+
+    launch = build_agent_launch(
+        agent_id,
+        profile=args.get("profile"),
+        model=args.get("model"),
+        args=args.get("args"),
+    )
+    directory = require_directory(args.get("cwd") or args.get("path") or ".")
+    prompt = args.get("prompt")
+    prompt_mode = normalize_prompt_mode(first_present(args.get("promptMode"), args.get("promptDelivery")))
+    name = args.get("name") or args.get("paneName")
+    spec = {
+        "path": str(directory),
+        "agent": launch["agentID"],
+        "command": launch["command"],
+        "prompt": prompt,
+        "promptMode": prompt_mode,
+        "promptDelayMs": args.get("promptDelayMs"),
+    }
+    if name:
+        spec["name"] = name
+
+    routing_args = dict(args)
+    if workspace:
+        routing_args["workspaceID"] = workspace
+    payload = with_source_context(with_window_target(with_name_styles({
+        "allowAutoPaneNames": True,
+        "agent": launch["agentID"],
+        "command": launch["command"],
+        "promptMode": resolved_prompt_mode(launch["agentID"], prompt, prompt_mode),
+        "panes": [
+            session_spec(
+                spec,
+                default_agent=launch["agentID"],
+                default_command=launch["command"],
+                default_prompt=prompt,
+                default_prompt_delay_ms=args.get("promptDelayMs"),
+                default_prompt_mode=prompt_mode,
+                require_name=False,
+            )
+        ],
+    }, routing_args), routing_args), routing_args)
+    result = wait_for_initial_prompt_delivery(payload, submit_request(
+        "create_worktree_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
+    ))
+    result["launchContract"] = {
+        **launch,
+        "cwd": str(directory),
+        "workspaceID": workspace,
+    }
+    result["argvVerification"] = {
+        "required": True,
+        "status": "unverified",
+        "expectedArgv": launch["expectedArgv"],
+        "acceptance": (
+            "Observe the live child process argv in Soyeht Dev. declaredAgent, pane title, "
+            "and command metadata are not proof that the requested agent actually launched."
+        ),
+    }
+    return result
+
+
 def tool_open_file(args):
     mode = str(args.get("mode") or "shell").strip().lower()
     if mode in {"native", "editor"}:
@@ -1411,12 +1659,13 @@ def tool_list_agents(args):
     payload = with_source_context(with_window_target({}, args), args)
     if args.get("workspaceID"):
         payload["workspaceIDs"] = [args["workspaceID"]]
-    return submit_request(
+    response = submit_request(
         "list_agents",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 10.0),
     )
+    return decorate_agent_directory(response, filtered_workspace_id=args.get("workspaceID"))
 
 
 def tool_close_pane(args):
@@ -1637,6 +1886,69 @@ TOOLS = [
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
+        },
+    },
+    {
+        "name": "open_agent_pane",
+        "description": (
+            "Open exactly one requested coding-agent CLI in a new Soyeht pane. Use this instead of "
+            "open_shell/open_panes whenever the user names Codex, Claude Code, OpenCode, Qwen, "
+            "Antigravity, Pi, Droid, Kilo, Cursor, Copilot, Grok, Kimi, Devin, or Qoder. agentID is "
+            "fail-closed: an unknown ID or a profile belonging to another agent is rejected, never "
+            "silently replaced. Codex defaults to profile codex-yolo (codex --yolo) and OpenCode "
+            "defaults to opencode-auto (opencode --auto); pass profile=base to suppress profile flags. "
+            "The response returns launchContract.command and expectedArgv for audit, but always marks "
+            "argvVerification as required/unverified. Acceptance requires an E2E observation of the live "
+            "child process argv in Soyeht Dev; declaredAgent, pane title, and request metadata are not proof."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agentID": {
+                    "type": "string",
+                    "enum": list(AGENT_CATALOG),
+                    "description": "Exact stable agent ID. The tool rejects unknown IDs instead of choosing a fallback agent.",
+                },
+                "cwd": {
+                    "type": "string",
+                    "default": ".",
+                    "description": "Existing working directory in which the exact agent process must launch.",
+                },
+                "path": {"type": "string", "description": "Legacy alias for cwd."},
+                "workspace": {
+                    "type": "string",
+                    "description": "Stable destination workspace UUID; alias for workspaceID.",
+                },
+                "workspaceID": WORKSPACE_ID_PROPERTY,
+                "model": {
+                    "type": "string",
+                    "description": "Requested model, encoded as the catalogued --model argument and verified through real argv E2E.",
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                    "description": "Additional literal argv entries appended after profile and model arguments.",
+                },
+                "profile": {
+                    "type": "string",
+                    "enum": ["base", *LAUNCH_PROFILES],
+                    "description": "Named launch profile. Omit for per-agent defaults; base launches only the executable plus model/args.",
+                },
+                "name": {"type": "string", "description": "Optional pane name."},
+                "paneName": {"type": "string", "description": "Alias for name."},
+                "prompt": {"type": "string", "description": "Optional initial agent message after startup."},
+                "promptMode": PROMPT_MODE_PROPERTY,
+                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
+            },
+            "required": ["agentID"],
         },
     },
     {
@@ -1865,7 +2177,11 @@ TOOLS = [
                 "agent": {
                     "type": "string",
                     "default": "codex",
-                    "description": "Agent to launch in every pane. Valid built-ins: codex, claude, opencode, shell. Custom agent names must also provide command.",
+                    "description": (
+                        "Legacy multi-pane agent selector. All 14 catalog IDs plus shell are supported; "
+                        "custom agent names must also provide command. For an exact single-agent launch "
+                        "with profiles/model/argv audit, prefer open_agent_pane."
+                    ),
                 },
                 "command": {"type": "string"},
                 "prompt": {
@@ -1974,7 +2290,7 @@ TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "default": ["codex", "claude", "opencode"],
-                    "description": "List of agent names to launch. Each gets its own worktree and tab. Valid values: codex, claude, opencode.",
+                    "description": "Catalog agent IDs to launch. Each gets its own worktree and tab; all 14 IDs in open_agent_pane are accepted.",
                 },
                 "prefix": {
                     "type": "string",
@@ -2061,7 +2377,7 @@ TOOLS = [
     },
     {
         "name": "message_agent",
-        "description": "High-level safe tool for agent-to-agent communication in Soyeht. Use this when the user says 'tell @name', 'ask @name', 'send this to the reviewer', or similar. It never creates panes. It requires handles or conversationIDs for existing panes, identifies the sender via fromHandle/fromConversationID or TTY inference, wraps the message with From/To/Reply instructions, and presses Enter by default. If the target handle is stale or in another window, use list_panes/list_windows and retry with the correct handle or targetWindowID instead of opening a new pane.",
+        "description": "High-level safe tool for agent-to-agent communication in Soyeht. Use this when the user says 'tell [name]', 'ask [name]', 'send this to the reviewer', or similar. It never creates panes. Use displayReference=[name] in prose and copy only the machine-routing messageTarget (legacy @handle and/or UUID) from list_agents into tool arguments. It identifies the sender via fromHandle/fromConversationID or TTY inference, wraps the message with From/To/Reply instructions, and presses Enter by default. If the target is stale or in another window, use list_agents/list_windows and retry with the correct machine target or targetWindowID instead of opening a new pane.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2391,7 +2707,7 @@ TOOLS = [
     },
     {
         "name": "list_agents",
-        "description": "List the current Soyeht agent/pane directory for reliable multi-agent routing. Prefer this over raw list_panes when the user asks you to talk to another agent. Each listedAgents entry includes handle, conversationID, workspace/window, live status, canReceiveMessage, messageTarget arguments for message_agent, and replyInstructions. Passing fromHandle/fromConversationID personalizes messageTarget so agents can respond without guessing the sender. Never create a new pane when the requested handle is already listed here.",
+        "description": "List the global Soyeht agent/pane directory for reliable multi-agent routing. By default all workspaces remain visible, grouped in workspaceGroups with the caller's current workspace first; every entry explicitly marks sameWorkspace/currentWorkspace. Pass workspaceID only for an intentional filter. Each agent includes displayReference=[name] for prose, while legacy @handles and conversation UUIDs remain machine-routing inputs in messageTarget. Use displayReference in commits, PRs, comments, and prose so GitHub accounts are not mentioned. Never create a new pane when the requested agent is already listed here.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2667,6 +2983,7 @@ TOOLS = [
 TOOL_HANDLERS = {
     "open_panes": tool_open_panes,
     "open_shell": tool_open_shell,
+    "open_agent_pane": tool_open_agent_pane,
     "open_file": tool_open_file,
     "open_editor": tool_open_editor,
     "open_explorer": tool_open_explorer,
