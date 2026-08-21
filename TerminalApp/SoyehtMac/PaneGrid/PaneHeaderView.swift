@@ -96,6 +96,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// pane's gesture recognizer for focus steals clicks from any embedded
     /// NSTextField before it can become first-responder.
     var onRenameRequested: (() -> Void)?
+    /// Opens the pane's human-facing communication policy editor (receive,
+    /// cross-workspace, and explicit sender blocks).
+    var onMessagingSettingsRequested: (() -> Void)?
+    /// Opens role/template assignment and workspace orchestration presets.
+    var onOrchestrationSettingsRequested: (() -> Void)?
 
     /// Kept for API compatibility with the existing pane controller. The
     /// design does not permanently reserve space for this affordance, so the
@@ -470,6 +475,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
     @objc private func renameMenuTapped()    { onRenameRequested?() }
+    @objc private func messagingSettingsMenuTapped() { onMessagingSettingsRequested?() }
+    @objc private func orchestrationSettingsMenuTapped() { onOrchestrationSettingsRequested?() }
     @objc private func agentSwitchButtonTapped() { onAgentSwitchRequested?(agentSwitchButton) }
 
     // MARK: - Drag source (Fase 2.2)
@@ -618,6 +625,31 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         )
         rename.target = self
         menu.addItem(rename)
+        menu.addItem(.separator())
+
+        let messaging = NSMenuItem(
+            title: String(
+                localized: "pane.header.contextMenu.messaging",
+                defaultValue: "Messaging & Blocks…",
+                comment: "Right-click menu item on a pane header that opens agent communication controls."
+            ),
+            action: #selector(messagingSettingsMenuTapped),
+            keyEquivalent: ""
+        )
+        messaging.target = self
+        menu.addItem(messaging)
+
+        let orchestration = NSMenuItem(
+            title: String(
+                localized: "pane.header.contextMenu.orchestration",
+                defaultValue: "Role & Orchestration…",
+                comment: "Right-click menu item on a pane header that opens role and graph settings."
+            ),
+            action: #selector(orchestrationSettingsMenuTapped),
+            keyEquivalent: ""
+        )
+        orchestration.target = self
+        menu.addItem(orchestration)
         return menu
     }
 
