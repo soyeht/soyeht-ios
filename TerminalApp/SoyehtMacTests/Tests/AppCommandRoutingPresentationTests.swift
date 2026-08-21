@@ -150,6 +150,19 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
+    func testDebugLaunchCanExplicitlyRequestAgentVisualPermissions() throws {
+        let source = try macSource("AppDelegate.swift")
+        let launch = try slice(
+            source,
+            from: "func applicationDidFinishLaunching(_ aNotification: Notification)",
+            to: "func applicationShouldTerminate(_ sender: NSApplication)"
+        )
+
+        XCTAssertTrue(launch.contains("--request-agent-visual-permissions"))
+        XCTAssertTrue(launch.contains("self?.runAgentVisualPermissionsFlow()"))
+        XCTAssertTrue(launch.contains("#if DEBUG"))
+    }
+
     func testConnectedServersWindowReadsCanonicalInventoryBeforeSessionCredentials() throws {
         let source = try macSource("Servers/ConnectedServersWindowController.swift")
         let reload = try slice(

@@ -218,6 +218,18 @@ separate bundle IDs and must be approved separately. After changing either
 permission, quit and reopen that app so newly launched agent processes inherit
 the updated TCC access.
 
+For a stable development identity, build and install through:
+
+```sh
+scripts/build-install-soyeht-dev --request-permissions
+```
+
+The script reuses `TerminalApp/Local.xcconfig`, including from the primary
+checkout when invoked inside a git worktree. It verifies a non-ad-hoc Team ID
+before replacing `/Applications/Soyeht Dev.app`; the explicit launch flag then
+runs the same permission flow as **Soyeht > Agent Permissions…**. macOS still
+requires the user to enable the resulting `Soyeht Dev` entry manually.
+
 ### Install the MCP launcher
 
 From this repository:

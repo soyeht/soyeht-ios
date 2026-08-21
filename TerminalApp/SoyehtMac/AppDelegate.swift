@@ -153,6 +153,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
 
         #if DEBUG
+        // An explicit launch argument lets signed Dev installs register their
+        // own TCC identity without turning every ordinary development launch
+        // into a permission prompt. This is also usable when UI automation is
+        // not trusted yet, so the menu item cannot be clicked programmatically.
+        if ProcessInfo.processInfo.arguments.contains("--request-agent-visual-permissions") {
+            DispatchQueue.main.async { [weak self] in
+                self?.runAgentVisualPermissionsFlow()
+            }
+        }
+        #endif
+
+        #if DEBUG
         // Cursor-policy audit: after the initial window paints, walk the
         // hierarchy and report any custom NSView that isn't a
         // `MacCursor.ChromeView` (or in the AppKit safe-list). Catches
