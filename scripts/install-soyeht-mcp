@@ -2,7 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-main_root="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10); exit}')"
+# `|| true` porque `set -euo pipefail` mata o script quando o git falha, e o
+# git falha por motivos que não são culpa de ninguém: um checkout que não é
+# repositório, uma worktree cujo registro foi removido, um git ausente. Este
+# valor é uma otimização — saber a raiz principal do clone — e a ausência dele
+# só faz o launcher cair no próprio checkout, que é o comportamento correto.
+main_root="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10); exit}' || true)"
 if [[ -n "$main_root" && -x "$main_root/scripts/soyeht-mcp" ]]; then
   source_mcp="$main_root/scripts/soyeht-mcp"
 else

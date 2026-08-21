@@ -153,9 +153,39 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
         XCTAssertTrue(written.isEmpty, "escreveu \(written) apesar de recusar")
     }
 
+    /// The installer must survive a broken `git`: a checkout that is not a
+    /// repository, a worktree whose registration was removed, no git at all.
+    /// It knows this failure mode because it happened — the worktree these
+    /// tests run in lost its registration, every `git` call returned 128, and
+    /// `set -euo pipefail` killed the script before it wrote anything.
+    func testInstallerSurvivesABrokenGit() throws {
+        let bin = fixtureHome.appendingPathComponent("install-nogit", isDirectory: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+
+        let result = try runInstaller(identity: nil, binDirectory: bin, sabotageGit: true)
+        XCTAssertEqual(result.status, 0, "morreu com git avariado; saída = \(result.text)")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: bin.appendingPathComponent("soyeht-dev-mcp").path),
+            "não escreveu o lançador com git avariado; saída = \(result.text)"
+        )
+    }
+
+    /// A directory holding a `git` that always fails, to put first on PATH.
+    private func brokenGitDirectory() throws -> URL {
+        let dir = fixtureHome.appendingPathComponent("broken-git-bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let git = dir.appendingPathComponent("git")
+        try "#!/bin/sh\nexit 128\n".write(to: git, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o755 as Int16)], ofItemAtPath: git.path
+        )
+        return dir
+    }
+
     private func runInstaller(
         identity: String?,
-        binDirectory: URL
+        binDirectory: URL,
+        sabotageGit: Bool = false
     ) throws -> (status: Int32, text: String) {
         let script = repoRoot().appendingPathComponent("scripts/install-soyeht-mcp")
         guard FileManager.default.isReadableFile(atPath: script.path) else {
@@ -168,6 +198,10 @@ final class MCPTeardownScriptExecutionTests: XCTestCase {
         environment["SOYEHT_MCP_BIN_DIR"] = binDirectory.path
         if let identity { environment["SOYEHT_MCP_IDENTITY"] = identity }
         else { environment.removeValue(forKey: "SOYEHT_MCP_IDENTITY") }
+        if sabotageGit {
+            let stub = try brokenGitDirectory().path
+            environment["PATH"] = stub + ":" + (environment["PATH"] ?? "/usr/bin:/bin")
+        }
         process.environment = environment
         let pipe = Pipe()
         process.standardOutput = pipe
