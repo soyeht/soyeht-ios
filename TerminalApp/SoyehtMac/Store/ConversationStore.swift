@@ -100,6 +100,15 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Assign or clear a semantic role without changing the pane handle or
+    /// agent process identity.
+    func updateRoleAssignment(_ id: Conversation.ID, roleAssignment: AgentRoleAssignment?) {
+        guard var conv = conversations[id], conv.roleAssignment != roleAssignment else { return }
+        conv.roleAssignment = roleAssignment
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Hydrate an existing placeholder conversation in-place (keeping the same
     /// identity) with a new handle + agent. Used by the in-pane empty-state
     /// picker flow (driQx → RgdJh) where the leaf `Conversation.ID` must

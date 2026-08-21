@@ -393,6 +393,16 @@ final class WorkspaceStore {
         return ws.name
     }
 
+    /// Persist or clear the workspace's saved role templates and graphs.
+    /// Validation stays explicit so an editor can display all issues before
+    /// choosing whether to save a draft.
+    func updateOrchestration(_ id: Workspace.ID, orchestration: WorkspaceOrchestration?) {
+        guard var workspace = workspaces[id], workspace.orchestration != orchestration else { return }
+        workspace.orchestration = orchestration
+        workspaces[id] = workspace
+        postChange()
+    }
+
     /// Workspace names are global user-facing identifiers. Keep them unique
     /// across every window so automation by name cannot resolve ambiguously.
     func uniqueWorkspaceName(desired: String, excluding: Workspace.ID?) -> String {

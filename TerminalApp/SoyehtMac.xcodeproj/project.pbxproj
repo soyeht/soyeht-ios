@@ -47,6 +47,7 @@
 		AA100003000000000000001 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003000000000000002 /* Conversation.swift */; };
 		AC200001000000000000001 /* AgentMessagingCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC200001000000000000002 /* AgentMessagingCore.swift */; };
 		AA100012000000000000001 /* AgentPaneMessaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012000000000000002 /* AgentPaneMessaging.swift */; };
+		AD2000010000000000000001 /* AgentOrchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2000010000000000000002 /* AgentOrchestration.swift */; };
 		AA100004000000000000001 /* PaneNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100004000000000000002 /* PaneNode.swift */; };
 		AA100005000000000000001 /* WorkspaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100005000000000000002 /* WorkspaceLayout.swift */; };
 		AA100006000000000000001 /* ConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100006000000000000002 /* ConversationStore.swift */; };
@@ -250,6 +251,7 @@
 		AA100003000000000000002 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		AC200001000000000000002 /* AgentMessagingCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMessagingCore.swift; sourceTree = "<group>"; };
 		AA100012000000000000002 /* AgentPaneMessaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPaneMessaging.swift; sourceTree = "<group>"; };
+		AD2000010000000000000002 /* AgentOrchestration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentOrchestration.swift; sourceTree = "<group>"; };
 		AA100004000000000000002 /* PaneNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneNode.swift; sourceTree = "<group>"; };
 		AA100005000000000000002 /* WorkspaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLayout.swift; sourceTree = "<group>"; };
 		AA100006000000000000002 /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
@@ -639,6 +641,7 @@
 				AA100003000000000000002 /* Conversation.swift */,
 				AC200001000000000000002 /* AgentMessagingCore.swift */,
 				AA100012000000000000002 /* AgentPaneMessaging.swift */,
+				AD2000010000000000000002 /* AgentOrchestration.swift */,
 				CB1000010000000000000002 /* PaneContent.swift */,
 				AA100004000000000000002 /* PaneNode.swift */,
 				AA100005000000000000002 /* WorkspaceLayout.swift */,
@@ -1114,6 +1117,7 @@
 				AA100003000000000000001 /* Conversation.swift in Sources */,
 				AC200001000000000000001 /* AgentMessagingCore.swift in Sources */,
 				AA100012000000000000001 /* AgentPaneMessaging.swift in Sources */,
+				AD2000010000000000000001 /* AgentOrchestration.swift in Sources */,
 				CB1000010000000000000001 /* PaneContent.swift in Sources */,
 				AA100004000000000000001 /* PaneNode.swift in Sources */,
 				AA100005000000000000001 /* WorkspaceLayout.swift in Sources */,

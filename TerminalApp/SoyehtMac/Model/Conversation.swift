@@ -337,6 +337,9 @@ struct Conversation: Codable, Identifiable, Hashable {
     var commander: CommanderState
     var content: PaneContent
     var workingDirectoryPath: String?
+    /// Semantic role/assignment for this pane. This is intentionally separate
+    /// from `handle`, which remains only a routing/display identity.
+    var roleAssignment: AgentRoleAssignment?
     /// Structured, provider-neutral conversation. Terminal scrollback is not
     /// a source for this state.
     var agentConversation: AgentConversationState
@@ -350,7 +353,7 @@ struct Conversation: Codable, Identifiable, Hashable {
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, handle, agent, workspaceID, commander, content, workingDirectoryPath
+        case id, handle, agent, workspaceID, commander, content, workingDirectoryPath, roleAssignment
         case agentConversation, agentHandoffTranscript, agentMessageInbox
         case agentCommunicationPolicy, stats, createdAt
     }
@@ -363,6 +366,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander: CommanderState,
         content: PaneContent = .terminal(TerminalPaneState()),
         workingDirectoryPath: String? = nil,
+        roleAssignment: AgentRoleAssignment? = nil,
         agentConversation: AgentConversationState = AgentConversationState(),
         agentMessageInbox: AgentMessageInbox = AgentMessageInbox(),
         agentCommunicationPolicy: AgentCommunicationPolicy = .open,
@@ -376,6 +380,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.commander = commander
         self.content = content
         self.workingDirectoryPath = workingDirectoryPath
+        self.roleAssignment = roleAssignment
         self.agentConversation = agentConversation
         self.agentMessageInbox = agentMessageInbox
         self.agentCommunicationPolicy = agentCommunicationPolicy
@@ -392,6 +397,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         commander = try container.decode(CommanderState.self, forKey: .commander)
         content = try container.decodeIfPresent(PaneContent.self, forKey: .content) ?? .terminal(TerminalPaneState())
         workingDirectoryPath = try container.decodeIfPresent(String.self, forKey: .workingDirectoryPath)
+        roleAssignment = try container.decodeIfPresent(AgentRoleAssignment.self, forKey: .roleAssignment)
         agentConversation = try container.decodeIfPresent(
             AgentConversationState.self,
             forKey: .agentConversation
@@ -421,6 +427,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(commander, forKey: .commander)
         try container.encode(content, forKey: .content)
         try container.encodeIfPresent(workingDirectoryPath, forKey: .workingDirectoryPath)
+        try container.encodeIfPresent(roleAssignment, forKey: .roleAssignment)
         try container.encode(agentConversation, forKey: .agentConversation)
         try container.encode(agentMessageInbox, forKey: .agentMessageInbox)
         try container.encode(agentCommunicationPolicy, forKey: .agentCommunicationPolicy)
