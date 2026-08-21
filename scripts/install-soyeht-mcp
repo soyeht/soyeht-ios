@@ -2,14 +2,40 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-main_root="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10); exit}')"
+# `|| true` porque `set -euo pipefail` mata o script quando o git falha, e o
+# git falha por motivos que não são culpa de ninguém: um checkout que não é
+# repositório, uma worktree cujo registro foi removido, um git ausente. Este
+# valor é uma otimização — saber a raiz principal do clone — e a ausência dele
+# só faz o launcher cair no próprio checkout, que é o comportamento correto.
+main_root="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10); exit}' || true)"
 if [[ -n "$main_root" && -x "$main_root/scripts/soyeht-mcp" ]]; then
   source_mcp="$main_root/scripts/soyeht-mcp"
 else
   source_mcp="$repo_root/scripts/soyeht-mcp"
 fi
 install_dir="${SOYEHT_MCP_BIN_DIR:-$HOME/.local/bin}"
-launcher="$install_dir/soyeht-mcp"
+
+# Which build's MCP identity this launcher claims. Running the server from a
+# git checkout is a development activity, so `dev` is the default: writing the
+# release launcher from here would repoint every one of the person's agents at
+# working-tree code — the same cross-build capture the app itself no longer
+# does. Set SOYEHT_MCP_IDENTITY=release to deliberately own the release name.
+identity="${SOYEHT_MCP_IDENTITY:-dev}"
+case "$identity" in
+  dev)
+    launcher_name="soyeht-dev-mcp"
+    config_key="soyeht-dev"
+    ;;
+  release)
+    launcher_name="soyeht-mcp"
+    config_key="soyeht"
+    ;;
+  *)
+    echo "error: SOYEHT_MCP_IDENTITY must be 'dev' or 'release' (got '$identity')" >&2
+    exit 2
+    ;;
+esac
+launcher="$install_dir/$launcher_name"
 
 if [[ ! -x "$source_mcp" ]]; then
   echo "error: $source_mcp is missing or not executable" >&2
@@ -36,7 +62,13 @@ if [[ -n "\$repo_root" && -n "\$SOYEHT_GIT_COMMON_DIR" ]]; then
   repo_git_common_dir="\$(git -C "\$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 fi
 
-if [[ -n "\$repo_root" && "\$repo_git_common_dir" == "\$SOYEHT_GIT_COMMON_DIR" && -x "\$repo_root/scripts/soyeht-mcp" ]]; then
+# SOYEHT_GIT_COMMON_DIR vazio significa que o git falhou quando este lançador
+# foi instalado. Sem o teste -n, duas cadeias vazias comparam iguais e a guarda
+# degenera de "este checkout pertence ao meu clone" para "qualquer repositório
+# git com um scripts/soyeht-mcp executável" — servindo o clone de outra pessoa.
+if [[ -n "\$repo_root" && -n "\$SOYEHT_GIT_COMMON_DIR" \\
+      && "\$repo_git_common_dir" == "\$SOYEHT_GIT_COMMON_DIR" \\
+      && -x "\$repo_root/scripts/soyeht-mcp" ]]; then
   exec "\$repo_root/scripts/soyeht-mcp" "\$@"
 fi
 
@@ -45,3 +77,4 @@ LAUNCHER
 
 chmod +x "$launcher"
 echo "Installed Soyeht MCP launcher at $launcher"
+echo "Configure your agents with the MCP server name \"$config_key\"."
