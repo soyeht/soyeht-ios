@@ -445,6 +445,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
+                "SOYEHT_LAUNCH_NONCE": "launch-proof",
             }, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -458,7 +459,27 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
+        self.assertEqual(captured["payload"]["nonce"], "launch-proof")
         self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_explicit_source_still_forwards_launch_nonce_from_environment(self):
+        payload = {}
+        globals_ = MODULE["with_source_context"].__globals__
+        original_tty = globals_["current_tty"]
+        try:
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            with patch.dict("os.environ", {"SOYEHT_LAUNCH_NONCE": "launch-proof"}, clear=True):
+                MODULE["with_source_context"](payload, {
+                    "fromConversationID": "22222222-2222-2222-2222-222222222222",
+                    "fromHandle": "@claimed-source",
+                })
+        finally:
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(payload["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(payload["sourceHandle"], "@claimed-source")
+        self.assertEqual(payload["nonce"], "launch-proof")
+        self.assertNotIn("sourceTTY", payload)
 
     def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
         captured = {}

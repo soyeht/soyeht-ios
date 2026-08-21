@@ -124,6 +124,9 @@ final class SoyehtAutomationRequestRouter {
         case missingWebURL
         case missingAppInstallID
         case incompatibleMCPClientContract(expected: Int, received: Int?)
+        case unauthenticatedAgentSource
+        case orchestrationManagerAuthorizationRequired
+        case agentPaneRequiresMessageAgent(String)
 
         var errorDescription: String? {
             switch self {
@@ -198,6 +201,12 @@ final class SoyehtAutomationRequestRouter {
             case .incompatibleMCPClientContract(let expected, let received):
                 let observed = received.map(String.init) ?? "missing"
                 return "Soyeht Dev rejected MCP client contract \(observed); agent creation and messaging require contract \(expected). Use the soyeht-dev integration instead of the soyeht Release integration."
+            case .unauthenticatedAgentSource:
+                return "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment."
+            case .orchestrationManagerAuthorizationRequired:
+                return "This agent is not authorized to manage roles or orchestration. The user can grant that privilege in the pane's Role & Orchestration settings."
+            case .agentPaneRequiresMessageAgent(let handle):
+                return "Low-level send_pane_input cannot write to agent pane \(handle). Use message_agent so communication policy, durable inbox, and deferred delivery are enforced."
             }
         }
     }
@@ -223,7 +232,9 @@ final class SoyehtAutomationRequestRouter {
 
     private func requestRequiresCurrentMCPContract(_ request: SoyehtAutomationRequest) -> Bool {
         switch request.type {
-        case .sendAgentMessage, .switchAgent:
+        case .sendPaneInput, .sendAgentMessage, .listAgentMessages, .ackAgentMessages,
+             .setAgentCommunicationPolicy, .setAgentRole, .saveAgentRoleTemplate,
+             .configureAgentOrchestration, .switchAgent:
             return true
         case .createWorktreeWorkspaces, .createWorktreePanes, .createWorktreeTabs, .createWorkspacePanes:
             let agentNames = [request.payload.agent]
@@ -746,6 +757,10 @@ final class SoyehtAutomationRequestRouter {
         guard let text = payload.text, !text.isEmpty else {
             throw AutomationError.emptyPaneInput
         }
+        let resolvedTargets = try resolveAgentMessageTargets(payload)
+        if let agentTarget = resolvedTargets.first(where: { !$0.agent.isShell }) {
+            throw AutomationError.agentPaneRequiresMessageAgent(agentTarget.handle)
+        }
         let target = try automationTargetWindow(payload: payload)
         let sent = try target.sendInputToPanes(
             conversationIDStrings: payload.conversationIDs ?? [],
@@ -779,9 +794,7 @@ final class SoyehtAutomationRequestRouter {
               !text.isEmpty else {
             throw AutomationError.emptyPaneInput
         }
-        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthenticatedAutomationSource(payload: payload)
         let targets = try resolveAgentMessageTargets(payload)
         let preference = try agentMessageDeliveryPreference(payload.deliveryPreference)
         let requestsAttention = payload.requestAttention ?? true
@@ -808,9 +821,15 @@ final class SoyehtAutomationRequestRouter {
             let decision = AgentMessagePolicyEvaluator.evaluate(
                 route: route,
                 sourceWorkspacePolicy: workspaceStore.workspace(source.workspaceID)?.effectiveAgentCommunicationPolicy ?? .open,
-                sourcePanePolicy: source.agentCommunicationPolicy,
+                sourcePanePolicy: AgentCommunicationPolicy.restricting(
+                    source.agentCommunicationPolicy,
+                    source.agentRequestedCommunicationPolicy
+                ),
                 recipientWorkspacePolicy: workspaceStore.workspace(target.workspaceID)?.effectiveAgentCommunicationPolicy ?? .open,
-                recipientPanePolicy: target.agentCommunicationPolicy
+                recipientPanePolicy: AgentCommunicationPolicy.restricting(
+                    target.agentCommunicationPolicy,
+                    target.agentRequestedCommunicationPolicy
+                )
             )
             guard decision.isAllowed else {
                 deliveries.append(.init(
@@ -923,9 +942,7 @@ final class SoyehtAutomationRequestRouter {
     }
 
     private func handleListAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        guard let source = try resolveAutomationSource(payload: request.payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
         let unreadOnly = request.payload.unreadOnly ?? false
         var messages = source.agentMessageInbox.messages
             .filter { !unreadOnly || $0.isUnread }
@@ -943,9 +960,7 @@ final class SoyehtAutomationRequestRouter {
     }
 
     private func handleAckAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        guard let source = try resolveAutomationSource(payload: request.payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
         let ids = try (request.payload.messageIDs ?? []).map { raw -> AgentMessage.ID in
             guard let id = UUID(uuidString: raw) else {
                 throw AutomationError.invalidAgentMessageID(raw)
@@ -963,10 +978,8 @@ final class SoyehtAutomationRequestRouter {
     private func handleSetAgentCommunicationPolicy(
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
-        guard let source = try resolveAutomationSource(payload: request.payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
-        var policy = source.agentCommunicationPolicy
+        let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
+        var policy = source.agentRequestedCommunicationPolicy
         if let value = request.payload.incomingEnabled { policy.incoming.isEnabled = value }
         if let value = request.payload.incomingAllowsCrossWorkspace {
             policy.incoming.allowsCrossWorkspace = value
@@ -991,17 +1004,17 @@ final class SoyehtAutomationRequestRouter {
                 return id
             })
         }
-        conversationStore.updateAgentCommunicationPolicy(source.id, policy: policy)
+        conversationStore.updateAgentRequestedCommunicationPolicy(source.id, policy: policy)
+        let userPolicy = conversationStore.conversation(source.id)?.agentCommunicationPolicy ?? .open
+        let effective = AgentCommunicationPolicy.restricting(userPolicy, policy)
         return SoyehtAutomationResult(agentCommunicationPolicies: [
-            agentCommunicationPolicyState(conversationID: source.id, policy: policy)
+            agentCommunicationPolicyState(conversationID: source.id, policy: effective)
         ])
     }
 
     private func handleSetAgentRole(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
         let targets: [Conversation]
         if (payload.conversationIDs ?? []).isEmpty, (payload.handles ?? []).isEmpty {
             targets = [source]
@@ -1053,9 +1066,7 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
         let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let instructions = payload.roleInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let generatedSlug = name.lowercased()
@@ -1082,9 +1093,7 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
-            throw AutomationError.agentMessageSourceRequired
-        }
+        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
         var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration
             ?? WorkspaceOrchestration()
         let rawPreset = payload.preset?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -2086,6 +2095,33 @@ final class SoyehtAutomationRequestRouter {
             return AutomationSourceResolution(conversation: conversation, resolution: "tty")
         }
         return nil
+    }
+
+    private func resolveAuthenticatedAutomationSource(
+        payload: SoyehtAutomationRequest.Payload
+    ) throws -> Conversation {
+        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
+            throw AutomationError.agentMessageSourceRequired
+        }
+        guard PaneStatusTracker.shared.validatesLaunchOwnership(
+            paneID: source.id,
+            nonce: payload.nonce
+        ) else {
+            throw AutomationError.unauthenticatedAgentSource
+        }
+        return source
+    }
+
+    private func resolveAuthorizedOrchestrationManager(
+        payload: SoyehtAutomationRequest.Payload
+    ) throws -> Conversation {
+        let source = try resolveAuthenticatedAutomationSource(payload: payload)
+        guard workspaceStore.workspace(source.workspaceID)?
+            .orchestration?
+            .canManageRolesAndTopology(source.id) == true else {
+            throw AutomationError.orchestrationManagerAuthorizationRequired
+        }
+        return source
     }
 
     private func sourceIdentity(

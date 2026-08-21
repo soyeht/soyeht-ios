@@ -422,17 +422,20 @@ struct WorkspaceOrchestration: Codable, Hashable {
 
     var schemaVersion: Int
     var roleTemplates: AgentRoleTemplateLibrary
+    private(set) var authorizedManagerPaneIDs: Set<Conversation.ID>
     private(set) var graphs: [AgentOrchestrationGraph]
     private(set) var activeGraphID: AgentOrchestrationGraph.ID?
 
     init(
         schemaVersion: Int = currentSchemaVersion,
         roleTemplates: AgentRoleTemplateLibrary = AgentRoleTemplateLibrary(),
+        authorizedManagerPaneIDs: Set<Conversation.ID> = [],
         graphs: [AgentOrchestrationGraph] = [],
         activeGraphID: AgentOrchestrationGraph.ID? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.roleTemplates = roleTemplates
+        self.authorizedManagerPaneIDs = authorizedManagerPaneIDs
         self.graphs = graphs
         self.activeGraphID = activeGraphID
     }
@@ -440,6 +443,60 @@ struct WorkspaceOrchestration: Codable, Hashable {
     var activeGraph: AgentOrchestrationGraph? {
         guard let activeGraphID else { return nil }
         return graphs.first(where: { $0.id == activeGraphID })
+    }
+
+    func canManageRolesAndTopology(_ paneID: Conversation.ID) -> Bool {
+        authorizedManagerPaneIDs.contains(paneID)
+    }
+
+    mutating func setManagementAuthorization(
+        for paneID: Conversation.ID,
+        isAuthorized: Bool
+    ) {
+        if isAuthorized {
+            authorizedManagerPaneIDs.insert(paneID)
+        } else {
+            authorizedManagerPaneIDs.remove(paneID)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case roleTemplates
+        case authorizedManagerPaneIDs
+        case graphs
+        case activeGraphID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion)
+            ?? Self.currentSchemaVersion
+        roleTemplates = try container.decodeIfPresent(
+            AgentRoleTemplateLibrary.self,
+            forKey: .roleTemplates
+        ) ?? AgentRoleTemplateLibrary()
+        authorizedManagerPaneIDs = try container.decodeIfPresent(
+            Set<Conversation.ID>.self,
+            forKey: .authorizedManagerPaneIDs
+        ) ?? []
+        graphs = try container.decodeIfPresent(
+            [AgentOrchestrationGraph].self,
+            forKey: .graphs
+        ) ?? []
+        activeGraphID = try container.decodeIfPresent(
+            AgentOrchestrationGraph.ID.self,
+            forKey: .activeGraphID
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(roleTemplates, forKey: .roleTemplates)
+        try container.encode(authorizedManagerPaneIDs, forKey: .authorizedManagerPaneIDs)
+        try container.encode(graphs, forKey: .graphs)
+        try container.encodeIfPresent(activeGraphID, forKey: .activeGraphID)
     }
 
     mutating func saveGraph(_ graph: AgentOrchestrationGraph) throws {

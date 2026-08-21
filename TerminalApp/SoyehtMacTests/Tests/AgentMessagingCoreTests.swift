@@ -129,9 +129,21 @@ final class AgentMessagingCoreTests: XCTestCase {
         var gate = AgentMessageDraftGate()
 
         gate.record(Data([0x1B, 0x5B, 0x41])) // Up arrow.
+        gate.record(Data([0x1B, 0x4F, 0x50])) // SS3 F1.
         gate.record(Data("\u{1B}[<0;42;8M".utf8)) // SGR mouse press.
         gate.record(Data("\u{1B}]0;title\u{07}".utf8)) // OSC title.
 
+        XCTAssertTrue(gate.isClear)
+        XCTAssertEqual(gate.pendingByteCount, 0)
+    }
+
+    func testDraftGateCountsUTF8CharactersInsteadOfBytesWhenBackspacing() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("café".utf8))
+        XCTAssertEqual(gate.pendingByteCount, 4)
+
+        gate.record(Data(repeating: 0x7F, count: 4))
         XCTAssertTrue(gate.isClear)
         XCTAssertEqual(gate.pendingByteCount, 0)
     }
@@ -302,6 +314,39 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         XCTAssertFalse(decision.isAllowed)
         XCTAssertEqual(decision.denials, [.recipientPaneBlocksSenderPane])
+    }
+
+    func testUserAndAgentPoliciesComposeRestrictively() {
+        let userBlockedPane = UUID()
+        let agentBlockedPane = UUID()
+        let userBlockedWorkspace = UUID()
+        let agentBlockedWorkspace = UUID()
+        let userPolicy = AgentCommunicationPolicy(
+            incoming: .init(
+                isEnabled: false,
+                allowsCrossWorkspace: true,
+                blockedWorkspaceIDs: [userBlockedWorkspace],
+                blockedPaneIDs: [userBlockedPane]
+            )
+        )
+        let agentPolicy = AgentCommunicationPolicy(
+            incoming: .init(
+                isEnabled: true,
+                allowsCrossWorkspace: false,
+                blockedWorkspaceIDs: [agentBlockedWorkspace],
+                blockedPaneIDs: [agentBlockedPane]
+            )
+        )
+
+        let effective = AgentCommunicationPolicy.restricting(userPolicy, agentPolicy)
+
+        XCTAssertFalse(effective.incoming.isEnabled)
+        XCTAssertFalse(effective.incoming.allowsCrossWorkspace)
+        XCTAssertEqual(effective.incoming.blockedPaneIDs, [userBlockedPane, agentBlockedPane])
+        XCTAssertEqual(
+            effective.incoming.blockedWorkspaceIDs,
+            [userBlockedWorkspace, agentBlockedWorkspace]
+        )
     }
 
     func testDenyDominantEvaluatorReturnsEveryApplicableBlock() {

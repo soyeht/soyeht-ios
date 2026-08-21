@@ -168,6 +168,16 @@ final class ConversationStore {
         postChange()
     }
 
+    func updateAgentRequestedCommunicationPolicy(
+        _ id: Conversation.ID,
+        policy: AgentCommunicationPolicy
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentRequestedCommunicationPolicy = policy
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Applies a synchronous mutation to the latest canonical conversation
     /// state. Callers that crossed an `await` must use this instead of writing
     /// a stale snapshot back over hook events recorded during suspension.

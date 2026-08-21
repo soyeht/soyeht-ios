@@ -347,15 +347,18 @@ struct Conversation: Codable, Identifiable, Hashable {
     /// delivery is independent from terminal scrollback and survives relaunch.
     var agentMessageInbox: AgentMessageInbox
     /// Pane-level incoming/outgoing blocks. These compose with the workspace
-    /// policy and cannot override a denial at either layer.
+    /// policy and are owned exclusively by the human-facing UI.
     var agentCommunicationPolicy: AgentCommunicationPolicy
+    /// Restrictions requested by the currently authenticated agent. These are
+    /// stored separately so clearing them cannot weaken the user's policy.
+    var agentRequestedCommunicationPolicy: AgentCommunicationPolicy
     var stats: ConversationStats
     var createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, handle, agent, workspaceID, commander, content, workingDirectoryPath, roleAssignment
         case agentConversation, agentHandoffTranscript, agentMessageInbox
-        case agentCommunicationPolicy, stats, createdAt
+        case agentCommunicationPolicy, agentRequestedCommunicationPolicy, stats, createdAt
     }
 
     init(
@@ -370,6 +373,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         agentConversation: AgentConversationState = AgentConversationState(),
         agentMessageInbox: AgentMessageInbox = AgentMessageInbox(),
         agentCommunicationPolicy: AgentCommunicationPolicy = .open,
+        agentRequestedCommunicationPolicy: AgentCommunicationPolicy = .open,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -384,6 +388,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.agentConversation = agentConversation
         self.agentMessageInbox = agentMessageInbox
         self.agentCommunicationPolicy = agentCommunicationPolicy
+        self.agentRequestedCommunicationPolicy = agentRequestedCommunicationPolicy
         self.stats = stats
         self.createdAt = createdAt
     }
@@ -410,6 +415,10 @@ struct Conversation: Codable, Identifiable, Hashable {
             AgentCommunicationPolicy.self,
             forKey: .agentCommunicationPolicy
         ) ?? .open
+        agentRequestedCommunicationPolicy = try container.decodeIfPresent(
+            AgentCommunicationPolicy.self,
+            forKey: .agentRequestedCommunicationPolicy
+        ) ?? .open
         // `agentHandoffTranscript` is intentionally decoded only for backward
         // compatibility and discarded: it was terminal paint and can contain
         // text that was never part of the conversation.
@@ -431,6 +440,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(agentConversation, forKey: .agentConversation)
         try container.encode(agentMessageInbox, forKey: .agentMessageInbox)
         try container.encode(agentCommunicationPolicy, forKey: .agentCommunicationPolicy)
+        try container.encode(agentRequestedCommunicationPolicy, forKey: .agentRequestedCommunicationPolicy)
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }

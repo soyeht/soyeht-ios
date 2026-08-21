@@ -92,6 +92,15 @@ final class PaneStatusTracker {
         handshakeStates[paneID] ?? .notExpected
     }
 
+    /// Proves that an automation mutation came from the process currently
+    /// launched in this pane. Conversation IDs and handles are public routing
+    /// metadata; only the per-launch nonce is a possession credential.
+    func validatesLaunchOwnership(paneID: Conversation.ID, nonce: String?) -> Bool {
+        guard let nonce, !nonce.isEmpty,
+              let expected = expectedHandshakeNonce[paneID] else { return false }
+        return nonce == expected
+    }
+
     func markHandshakeTimeout(paneID: Conversation.ID) {
         guard handshakeStates[paneID] == .pending else { return }
         handshakeStates[paneID] = .timeout

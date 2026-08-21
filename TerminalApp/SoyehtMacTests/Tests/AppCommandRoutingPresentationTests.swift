@@ -1017,10 +1017,66 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
         XCTAssertTrue(validation.contains("SoyehtInstallProfile.current.kind == .dev"))
         XCTAssertTrue(validation.contains("request.payload.mcpClientContractVersion != currentContract"))
-        XCTAssertTrue(validation.contains("case .sendAgentMessage, .switchAgent:"))
+        XCTAssertTrue(validation.contains("case .sendPaneInput, .sendAgentMessage, .listAgentMessages, .ackAgentMessages,"))
+        XCTAssertTrue(validation.contains(".setAgentCommunicationPolicy, .setAgentRole, .saveAgentRoleTemplate,"))
         XCTAssertTrue(validation.contains(".createWorktreePanes"))
         XCTAssertTrue(validation.contains(".createWorkspacePanes"))
         XCTAssertTrue(source.contains("Use the soyeht-dev integration instead of the soyeht Release integration"))
+    }
+
+    func testAgentMutationsRequireLaunchOwnershipAndUserGrantedOrchestrationPrivilege() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let authentication = try slice(
+            source,
+            from: "private func resolveAuthenticatedAutomationSource(",
+            to: "private func sourceIdentity("
+        )
+        let roleHandler = try slice(
+            source,
+            from: "private func handleSetAgentRole(",
+            to: "private func resolveAgentMessageTargets("
+        )
+
+        XCTAssertTrue(authentication.contains("validatesLaunchOwnership"))
+        XCTAssertTrue(authentication.contains("payload.nonce"))
+        XCTAssertTrue(authentication.contains("canManageRolesAndTopology(source.id)"))
+        XCTAssertTrue(roleHandler.contains("resolveAuthorizedOrchestrationManager"))
+    }
+
+    func testUserCommunicationPolicyCannotBeWeakenedByAgentPolicy() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let send = try slice(
+            source,
+            from: "private func handleSendAgentMessage(",
+            to: "private func handleListAgentMessages("
+        )
+        let policy = try slice(
+            source,
+            from: "private func handleSetAgentCommunicationPolicy(",
+            to: "private func handleSetAgentRole("
+        )
+
+        XCTAssertTrue(send.contains("source.agentRequestedCommunicationPolicy"))
+        XCTAssertTrue(send.contains("target.agentRequestedCommunicationPolicy"))
+        XCTAssertTrue(policy.contains("resolveAuthenticatedAutomationSource"))
+        XCTAssertTrue(policy.contains("updateAgentRequestedCommunicationPolicy"))
+        XCTAssertFalse(policy.contains("updateAgentCommunicationPolicy"))
+    }
+
+    func testLowLevelPaneInputFailsClosedForAgentTargets() throws {
+        let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let handler = try slice(
+            source,
+            from: "private func handleSendPaneInput(",
+            to: "private func handleSendAgentMessage("
+        )
+
+        XCTAssertTrue(handler.contains("!$0.agent.isShell"))
+        XCTAssertTrue(handler.contains("agentPaneRequiresMessageAgent"))
+        XCTAssertLessThan(
+            try XCTUnwrap(handler.range(of: "agentPaneRequiresMessageAgent")?.lowerBound),
+            try XCTUnwrap(handler.range(of: "sendInputToPanes")?.lowerBound)
+        )
     }
 
     func testDeferredAgentReturnRestoresThePreviousFirstResponder() throws {

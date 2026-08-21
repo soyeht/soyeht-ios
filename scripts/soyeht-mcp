@@ -123,6 +123,7 @@ SOYEHT_ENV_KEYS = {
     "SOYEHT_AUTOMATION_DIR",
     "SOYEHT_CONVERSATION_ID",
     "SOYEHT_HANDLE",
+    "SOYEHT_LAUNCH_NONCE",
 }
 _PARENT_PROCESS_ENVIRONMENT = None
 
@@ -263,7 +264,12 @@ def source_environment_for_context(args=None):
     for values in (os.environ, parent_process_environment()):
         source = {
             key: values.get(key)
-            for key in ("SOYEHT_AUTOMATION_DIR", "SOYEHT_CONVERSATION_ID", "SOYEHT_HANDLE")
+            for key in (
+                "SOYEHT_AUTOMATION_DIR",
+                "SOYEHT_CONVERSATION_ID",
+                "SOYEHT_HANDLE",
+                "SOYEHT_LAUNCH_NONCE",
+            )
             if values.get(key)
         }
         if not (source.get("SOYEHT_CONVERSATION_ID") or source.get("SOYEHT_HANDLE")):
@@ -621,6 +627,10 @@ def with_source_context(payload, args=None):
         payload["sourceConversationID"] = from_conversation_id
     if from_handle:
         payload["sourceHandle"] = from_handle
+    launch_nonce = source_environment_for_context(args).get("SOYEHT_LAUNCH_NONCE") \
+        or soyeht_environment_value("SOYEHT_LAUNCH_NONCE")
+    if launch_nonce:
+        payload["nonce"] = launch_nonce
     tty = current_tty()
     if tty and not from_conversation_id and not from_handle:
         payload["sourceTTY"] = tty

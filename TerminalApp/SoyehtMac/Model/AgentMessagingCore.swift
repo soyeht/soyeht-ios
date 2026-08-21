@@ -152,6 +152,7 @@ struct AgentMessageDraftGate: Equatable {
     private enum EscapeState: Equatable {
         case normal
         case escape
+        case singleShiftThree
         case controlSequence
         case operatingSystemCommand
         case operatingSystemCommandEscape
@@ -172,7 +173,16 @@ struct AgentMessageDraftGate: Equatable {
                     controlSequenceBytes.removeAll(keepingCapacity: true)
                     escapeState = .controlSequence // ESC [
                 case 0x5D: escapeState = .operatingSystemCommand // ESC ]
-                default: escapeState = .normal // Alt/SS3: consume this key as control input.
+                case 0x4F: escapeState = .singleShiftThree // ESC O (SS3)
+                default: escapeState = .normal // Alt: consume this key as control input.
+                }
+                continue
+            case .singleShiftThree:
+                // SS3 encodes F1-F4, keypad and cursor keys as ESC O <final>.
+                // The complete packet is control input and must not create a
+                // phantom human draft.
+                if (0x40...0x7E).contains(byte) {
+                    escapeState = .normal
                 }
                 continue
             case .controlSequence:
@@ -212,7 +222,10 @@ struct AgentMessageDraftGate: Equatable {
                 pendingByteCount = 0
             case 0x08, 0x7F: // backspace/delete
                 pendingByteCount = max(0, pendingByteCount - 1)
-            case 0x20...0xFF:
+            case 0x20...0x7F, 0xC0...0xFF:
+                // Count logical UTF-8 input units, not bytes. Continuation
+                // bytes (0x80...0xBF) belong to the same typed scalar as the
+                // leading byte, so one Backspace clears one pt-BR character.
                 pendingByteCount += 1
             default:
                 break
@@ -503,6 +516,28 @@ struct AgentCommunicationPolicy: Codable, Hashable {
             AgentMessageDirectionPolicy.self,
             forKey: .outgoing
         ) ?? .open
+    }
+
+    /// Intersects independent policy owners. A permissive value in one layer
+    /// can never cancel a denial or block stored by another layer.
+    static func restricting(_ policies: AgentCommunicationPolicy...) -> AgentCommunicationPolicy {
+        AgentCommunicationPolicy(
+            incoming: restricting(policies.map(\.incoming)),
+            outgoing: restricting(policies.map(\.outgoing))
+        )
+    }
+
+    private static func restricting(
+        _ policies: [AgentMessageDirectionPolicy]
+    ) -> AgentMessageDirectionPolicy {
+        policies.reduce(.open) { result, policy in
+            AgentMessageDirectionPolicy(
+                isEnabled: result.isEnabled && policy.isEnabled,
+                allowsCrossWorkspace: result.allowsCrossWorkspace && policy.allowsCrossWorkspace,
+                blockedWorkspaceIDs: result.blockedWorkspaceIDs.union(policy.blockedWorkspaceIDs),
+                blockedPaneIDs: result.blockedPaneIDs.union(policy.blockedPaneIDs)
+            )
+        }
     }
 }
 

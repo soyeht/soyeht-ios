@@ -212,6 +212,40 @@ final class AgentOrchestrationTests: XCTestCase {
         XCTAssertNil(orchestration.activeGraphID)
     }
 
+    func testWorkspaceOrchestrationPersistsMultipleAuthorizedManagers() throws {
+        let first = UUID()
+        let second = UUID()
+        var orchestration = WorkspaceOrchestration()
+
+        orchestration.setManagementAuthorization(for: first, isAuthorized: true)
+        orchestration.setManagementAuthorization(for: second, isAuthorized: true)
+
+        XCTAssertTrue(orchestration.canManageRolesAndTopology(first))
+        XCTAssertTrue(orchestration.canManageRolesAndTopology(second))
+
+        let roundTrip = try JSONDecoder().decode(
+            WorkspaceOrchestration.self,
+            from: JSONEncoder().encode(orchestration)
+        )
+        XCTAssertEqual(roundTrip, orchestration)
+
+        orchestration.setManagementAuthorization(for: first, isAuthorized: false)
+        XCTAssertFalse(orchestration.canManageRolesAndTopology(first))
+        XCTAssertTrue(orchestration.canManageRolesAndTopology(second))
+    }
+
+    func testLegacyWorkspaceOrchestrationDefaultsAuthorizedManagersToEmpty() throws {
+        let orchestration = WorkspaceOrchestration()
+        let legacyData = try removingJSONKey(
+            "authorizedManagerPaneIDs",
+            from: JSONEncoder().encode(orchestration)
+        )
+
+        let decoded = try JSONDecoder().decode(WorkspaceOrchestration.self, from: legacyData)
+
+        XCTAssertTrue(decoded.authorizedManagerPaneIDs.isEmpty)
+    }
+
     func testWorkspaceValidationRejectsBindingOutsideWorkspace() {
         let inside = UUID()
         let outside = UUID()

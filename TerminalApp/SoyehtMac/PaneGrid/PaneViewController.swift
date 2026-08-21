@@ -1342,6 +1342,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
               let conversation = conversationStore.conversation(conversationID),
               let workspace = workspaceStore.workspace(conversation.workspaceID) else { return }
         let accessory = AgentRoleOrchestrationAccessoryView(
+            conversationID: conversationID,
             assignment: conversation.roleAssignment,
             orchestration: workspace.orchestration
         )
@@ -1358,6 +1359,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             do {
                 var orchestration = workspaceStore.workspace(conversation.workspaceID)?.orchestration
                     ?? WorkspaceOrchestration()
+                orchestration.setManagementAuthorization(
+                    for: self.conversationID,
+                    isAuthorized: accessory.isManagementAuthorized
+                )
                 let assignment = try accessory.resolvedAssignment(updating: &orchestration)
                 conversationStore.updateRoleAssignment(self.conversationID, roleAssignment: assignment)
 
@@ -1916,16 +1921,29 @@ private final class AgentRoleOrchestrationAccessoryView: NSView {
     private let roleNameField = NSTextField()
     private let instructionsView = NSTextView()
     private let presetPopup = NSPopUpButton()
+    private let managerAuthorizationCheckbox = NSButton(
+        checkboxWithTitle: "Allow this agent to manage roles and topology in this workspace",
+        target: nil,
+        action: nil
+    )
     private let templates: [AgentRoleTemplate]
+
+    var isManagementAuthorized: Bool {
+        managerAuthorizationCheckbox.state == .on
+    }
 
     var selectedPreset: AgentOrchestrationPreset? {
         guard let raw = presetPopup.selectedItem?.representedObject as? String else { return nil }
         return AgentOrchestrationPreset(rawValue: raw)
     }
 
-    init(assignment: AgentRoleAssignment?, orchestration: WorkspaceOrchestration?) {
+    init(
+        conversationID: Conversation.ID,
+        assignment: AgentRoleAssignment?,
+        orchestration: WorkspaceOrchestration?
+    ) {
         self.templates = orchestration?.roleTemplates.allTemplates ?? AgentRoleTemplateCatalog.builtIn
-        super.init(frame: NSRect(x: 0, y: 0, width: 560, height: 310))
+        super.init(frame: NSRect(x: 0, y: 0, width: 560, height: 340))
 
         addPopupItem(title: "No role", represented: Self.noneRoleID, to: rolePopup)
         for template in templates {
@@ -1950,12 +1968,17 @@ private final class AgentRoleOrchestrationAccessoryView: NSView {
         addPopupItem(title: "Council (N ideas → aggregator)", represented: AgentOrchestrationPreset.council.rawValue, to: presetPopup)
         addPopupItem(title: "Plan → Execute → Review", represented: AgentOrchestrationPreset.plannerExecutorReviewer.rawValue, to: presetPopup)
         addPopupItem(title: "Execute ↔ Review", represented: AgentOrchestrationPreset.executorReviewerLoop.rawValue, to: presetPopup)
+        managerAuthorizationCheckbox.state = orchestration?.canManageRolesAndTopology(conversationID) == true
+            ? .on
+            : .off
+        managerAuthorizationCheckbox.toolTip = "Only the user can grant or revoke this privilege. Multiple agents may be authorized."
 
         let stack = NSStackView(views: [
             sectionLabel("Role template"), rolePopup,
             sectionLabel("Role name"), roleNameField,
             sectionLabel("Instructions"), instructionScroll,
             sectionLabel("Workspace topology"), presetPopup,
+            managerAuthorizationCheckbox,
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
