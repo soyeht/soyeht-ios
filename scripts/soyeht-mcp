@@ -1470,16 +1470,105 @@ def tool_message_agent(args):
         "conversationIDs": conversation_ids,
         "handles": handles,
         "text": text,
-        "appendNewline": line_ending != "none",
         "lineEnding": line_ending,
-        "forceAgentEnvelope": True,
-        "requireAgentEnvelope": True,
+        "deliveryPreference": args.get("deliveryPreference") or args.get("deliveryMode") or "automatic",
+        "requestAttention": bool(args.get("requestAttention", True)),
+        "messageIDs": [args["messageID"]] if args.get("messageID") else [],
     }, args), args)
     return submit_request(
-        "send_pane_input",
+        "send_agent_message",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_list_agent_messages(args):
+    payload = with_source_context({
+        "unreadOnly": bool(args.get("unreadOnly", False)),
+        "markRead": bool(args.get("markRead", True)),
+    }, args)
+    return submit_request(
+        "list_agent_messages",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_ack_agent_messages(args):
+    message_ids = args.get("messageIDs") or []
+    if not message_ids:
+        raise RuntimeError("ack_agent_messages requires messageIDs.")
+    payload = with_source_context({"messageIDs": message_ids}, args)
+    return submit_request(
+        "ack_agent_messages",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_set_agent_communication_policy(args):
+    payload = with_source_context({
+        "incomingEnabled": args.get("incomingEnabled"),
+        "incomingAllowsCrossWorkspace": args.get("incomingAllowsCrossWorkspace"),
+        "outgoingEnabled": args.get("outgoingEnabled"),
+        "outgoingAllowsCrossWorkspace": args.get("outgoingAllowsCrossWorkspace"),
+        "blockedPaneIDs": args.get("blockedPaneIDs"),
+        "blockedWorkspaceIDs": args.get("blockedWorkspaceIDs"),
+    }, args)
+    return submit_request(
+        "set_agent_communication_policy",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_set_agent_role(args):
+    payload = with_source_context({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "roleTemplateID": args.get("roleTemplateID"),
+        "roleName": args.get("roleName"),
+        "roleInstructions": args.get("roleInstructions"),
+    }, args)
+    return submit_request(
+        "set_agent_role",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_save_agent_role_template(args):
+    if not str(args.get("roleName") or "").strip() or not str(args.get("roleInstructions") or "").strip():
+        raise RuntimeError("save_agent_role_template requires roleName and roleInstructions.")
+    payload = with_source_context({
+        "templateID": args.get("templateID"),
+        "roleName": args.get("roleName"),
+        "roleInstructions": args.get("roleInstructions"),
+    }, args)
+    return submit_request(
+        "save_agent_role_template",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_configure_agent_orchestration(args):
+    payload = with_source_context({
+        "preset": args.get("preset"),
+        "ideatorCount": args.get("ideatorCount"),
+        "nodeBindings": args.get("nodeBindings") or {},
+    }, args)
+    return submit_request(
+        "configure_agent_orchestration",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
     )
 
 
@@ -2377,7 +2466,7 @@ TOOLS = [
     },
     {
         "name": "message_agent",
-        "description": "High-level safe tool for agent-to-agent communication in Soyeht. Use this when the user says 'tell [name]', 'ask [name]', 'send this to the reviewer', or similar. It never creates panes. Use displayReference=[name] in prose and copy only the machine-routing messageTarget (legacy @handle and/or UUID) from list_agents into tool arguments. It identifies the sender via fromHandle/fromConversationID or TTY inference, wraps the message with From/To/Reply instructions, and presses Enter by default. If the target is stale or in another window, use list_agents/list_windows and retry with the correct machine target or targetWindowID instead of opening a new pane.",
+        "description": "High-level durable tool for agent-to-agent communication in Soyeht. It never creates panes. The message is persisted before delivery and policy blocks are enforced. automatic uses semantic inbox only with an observed wake+read adapter; otherwise terminal delivery is deferred until no human draft is open. inbox guarantees zero PTY writes. Use displayReference=[name] in prose and copy only the machine-routing UUID or legacy @handle from list_agents.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -2397,11 +2486,120 @@ TOOLS = [
                     "enum": ["enter", "newline", "crlf", "none"],
                     "default": "enter",
                 },
+                "deliveryPreference": {
+                    "type": "string",
+                    "enum": ["automatic", "inbox", "deferred_terminal"],
+                    "default": "automatic",
+                    "description": "automatic uses semantic inbox only when a wake+read adapter is observed; otherwise it queues terminal delivery until the human draft is clear. inbox never writes to PTY.",
+                },
+                "requestAttention": {"type": "boolean", "default": True},
+                "messageID": {"type": "string", "description": "Optional UUID idempotency key for retries."},
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
             "required": ["text"],
+        },
+    },
+    {
+        "name": "list_agent_messages",
+        "description": "Read this calling agent's durable semantic inbox. Reading and acknowledgement are separate; call ack_agent_messages after accepting responsibility for a message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "unreadOnly": {"type": "boolean", "default": False},
+                "markRead": {"type": "boolean", "default": True},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "ack_agent_messages",
+        "description": "Acknowledge durable inbox messages after this agent has read and accepted them.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "messageIDs": {"type": "array", "items": {"type": "string"}},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+            "required": ["messageIDs"],
+        },
+    },
+    {
+        "name": "set_agent_communication_policy",
+        "description": "Update the calling pane's incoming/outgoing messaging policy. Blocks route by stable pane/workspace UUID and deny always wins.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "incomingEnabled": {"type": "boolean"},
+                "incomingAllowsCrossWorkspace": {"type": "boolean"},
+                "outgoingEnabled": {"type": "boolean"},
+                "outgoingAllowsCrossWorkspace": {"type": "boolean"},
+                "blockedPaneIDs": {"type": "array", "items": {"type": "string"}},
+                "blockedWorkspaceIDs": {"type": "array", "items": {"type": "string"}},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "set_agent_role",
+        "description": "Assign a built-in/custom role template or inline role to panes in the caller's workspace. Use roleTemplateID=none to clear.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "roleTemplateID": {"type": "string", "description": "builtin.planner, builtin.executor, builtin.reviewer, builtin.aggregator, a saved custom ID, or none."},
+                "roleName": {"type": "string"},
+                "roleInstructions": {"type": "string"},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "save_agent_role_template",
+        "description": "Create or update a reusable custom agent-role template in the caller's workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "templateID": {"type": "string"},
+                "roleName": {"type": "string"},
+                "roleInstructions": {"type": "string"},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+            "required": ["roleName", "roleInstructions"],
+        },
+    },
+    {
+        "name": "configure_agent_orchestration",
+        "description": "Activate a declarative workspace topology with nodes, roles, message/artifact edges and closed-by-default policy. Presets: council, planner-executor-reviewer, executor-reviewer-loop; none deactivates.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "preset": {"type": "string", "enum": ["none", "council", "planner-executor-reviewer", "executor-reviewer-loop"]},
+                "ideatorCount": {"type": "integer", "minimum": 1},
+                "nodeBindings": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Map graph node IDs to real conversation UUIDs."},
+                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
+                "fromHandle": FROM_HANDLE_PROPERTY,
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+            "required": ["preset"],
         },
     },
     {
@@ -2997,6 +3195,12 @@ TOOL_HANDLERS = {
     "agent_race_panes": tool_agent_race_panes,
     "send_pane_input": tool_send_pane_input,
     "message_agent": tool_message_agent,
+    "list_agent_messages": tool_list_agent_messages,
+    "ack_agent_messages": tool_ack_agent_messages,
+    "set_agent_communication_policy": tool_set_agent_communication_policy,
+    "set_agent_role": tool_set_agent_role,
+    "save_agent_role_template": tool_save_agent_role_template,
+    "configure_agent_orchestration": tool_configure_agent_orchestration,
     "rename_panes": tool_rename_panes,
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,

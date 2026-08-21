@@ -8,6 +8,9 @@ enum AgentPaneEnvironment {
     static let launchNonceKey = "SOYEHT_LAUNCH_NONCE"
     static let agentNameKey = "SOYEHT_AGENT_NAME"
     static let transcriptPathKey = "SOYEHT_AGENT_TRANSCRIPT_PATH"
+    static let roleNameKey = "SOYEHT_ROLE_NAME"
+    static let roleInstructionsKey = "SOYEHT_ROLE_INSTRUCTIONS"
+    static let roleTemplateIDKey = "SOYEHT_ROLE_TEMPLATE_ID"
 
     static func values(
         for conversation: Conversation,
@@ -25,6 +28,13 @@ enum AgentPaneEnvironment {
         }
         if let launchNonce, !launchNonce.isEmpty {
             values[launchNonceKey] = launchNonce
+        }
+        if let role = conversation.roleAssignment {
+            values[roleNameKey] = role.roleName
+            values[roleInstructionsKey] = role.instructions
+            if let templateID = role.templateID {
+                values[roleTemplateIDKey] = templateID
+            }
         }
         if conversation.agent.rawValue == "devin",
            let transcripts = try? AppSupportDirectory.subdirectory("AgentTranscripts") {
@@ -523,8 +533,18 @@ enum AgentPaneInputPlanner {
             workspaceID: target.workspaceID,
             handle: target.handle
         )
+        let roleContext: String
+        if let role = target.roleAssignment {
+            let instructions = role.instructions
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .newlines)
+                .joined(separator: " ")
+            roleContext = " Your assigned role is \(role.roleName): \(instructions)"
+        } else {
+            roleContext = ""
+        }
         // UUIDs are the routing authority. Bracketed labels are display-only
         // and remain safe when an agent copies the envelope into GitHub.
-        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)). Reply via Soyeht MCP message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(source.id.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(roleContext) Reply via Soyeht MCP message_agent to conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }

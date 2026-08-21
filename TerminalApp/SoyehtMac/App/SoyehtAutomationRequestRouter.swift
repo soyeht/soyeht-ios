@@ -96,6 +96,9 @@ final class SoyehtAutomationRequestRouter {
         case agentMessageSourceRequired
         case invalidAgentMessageDeliveryPreference(String)
         case invalidAgentMessageID(String)
+        case agentRoleTemplateNotFound(String)
+        case invalidOrchestrationPreset(String)
+        case orchestrationConversationOutsideWorkspace(String)
         case emptyRenameName
         case emptyRenameTargets
         case invalidDirectory(String)
@@ -138,6 +141,12 @@ final class SoyehtAutomationRequestRouter {
                 return "Unknown agent message delivery preference: \(value)."
             case .invalidAgentMessageID(let value):
                 return "Agent message ID is not a valid UUID: \(value)."
+            case .agentRoleTemplateNotFound(let value):
+                return "Agent role template does not exist: \(value)."
+            case .invalidOrchestrationPreset(let value):
+                return "Unknown agent orchestration preset: \(value)."
+            case .orchestrationConversationOutsideWorkspace(let value):
+                return "Orchestration conversation is not in the source workspace: \(value)."
             case .emptyRenameName:
                 return "Automation request did not include a new name."
             case .emptyRenameTargets:
@@ -208,6 +217,12 @@ final class SoyehtAutomationRequestRouter {
             return try handleAckAgentMessages(request)
         case .setAgentCommunicationPolicy:
             return try handleSetAgentCommunicationPolicy(request)
+        case .setAgentRole:
+            return try handleSetAgentRole(request)
+        case .saveAgentRoleTemplate:
+            return try handleSaveAgentRoleTemplate(request)
+        case .configureAgentOrchestration:
+            return try handleConfigureAgentOrchestration(request)
         case .renameWorkspace:
             return try handleRenameWorkspace(request)
         case .renamePanes:
@@ -754,6 +769,29 @@ final class SoyehtAutomationRequestRouter {
                 ))
                 continue
             }
+            if source.workspaceID == target.workspaceID,
+               let graph = workspaceStore.workspace(source.workspaceID)?.orchestration?.activeGraph,
+               let flow = graph.flowPolicy(
+                    from: source.id,
+                    to: target.id,
+                    kind: .message
+               ),
+               flow.authorization != .allow {
+                deliveries.append(.init(
+                    messageID: retryID?.uuidString ?? "",
+                    conversationID: target.id.uuidString,
+                    workspaceID: target.workspaceID.uuidString,
+                    displayReference: recipient.displayLabel,
+                    channel: nil,
+                    status: flow.authorization == .requireApproval
+                        ? "orchestration_approval_required"
+                        : "orchestration_denied",
+                    writesToPTY: false,
+                    attentionRequested: false,
+                    policyDenials: ["orchestration_graph_\(flow.authorization.rawValue)"]
+                ))
+                continue
+            }
 
             // No shipped provider hook can wake a dormant TUI and make it
             // pull an inbox item yet. Keep this false until an observed adapter
@@ -900,6 +938,146 @@ final class SoyehtAutomationRequestRouter {
         ])
     }
 
+    private func handleSetAgentRole(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
+            throw AutomationError.agentMessageSourceRequired
+        }
+        let targets: [Conversation]
+        if (payload.conversationIDs ?? []).isEmpty, (payload.handles ?? []).isEmpty {
+            targets = [source]
+        } else {
+            targets = try resolveAgentMessageTargets(payload)
+        }
+        let workspace = workspaceStore.workspace(source.workspaceID)
+        let templateID = payload.roleTemplateID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let assignment: AgentRoleAssignment?
+        if templateID?.lowercased() == "none" {
+            assignment = nil
+        } else if let templateID, !templateID.isEmpty {
+            guard let template = workspace?.orchestration?.roleTemplates.template(id: templateID)
+                ?? AgentRoleTemplateCatalog.template(id: templateID) else {
+                throw AutomationError.agentRoleTemplateNotFound(templateID)
+            }
+            assignment = AgentRoleAssignment(template: template)
+        } else if let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let instructions = payload.roleInstructions?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty, !instructions.isEmpty {
+            assignment = AgentRoleAssignment(roleName: name, instructions: instructions)
+        } else {
+            assignment = nil
+        }
+
+        var states: [SoyehtAutomationResponse.AgentRoleState] = []
+        for target in targets {
+            guard target.workspaceID == source.workspaceID else {
+                throw AutomationError.orchestrationConversationOutsideWorkspace(target.id.uuidString)
+            }
+            conversationStore.updateRoleAssignment(target.id, roleAssignment: assignment)
+            let endpoint = AgentMessageEndpoint(
+                paneID: target.id,
+                workspaceID: target.workspaceID,
+                handle: target.handle
+            )
+            states.append(.init(
+                conversationID: target.id.uuidString,
+                displayReference: endpoint.displayLabel,
+                templateID: assignment?.templateID,
+                roleName: assignment?.roleName,
+                instructions: assignment?.instructions
+            ))
+        }
+        return SoyehtAutomationResult(agentRoles: states)
+    }
+
+    private func handleSaveAgentRoleTemplate(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
+            throw AutomationError.agentMessageSourceRequired
+        }
+        let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let instructions = payload.roleInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let generatedSlug = name.lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        let requestedID = payload.templateID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let id = (requestedID?.isEmpty == false)
+            ? requestedID!
+            : "custom.\(generatedSlug)"
+        var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration
+            ?? WorkspaceOrchestration()
+        try orchestration.roleTemplates.save(.init(
+            id: id,
+            displayName: name,
+            instructions: instructions
+        ))
+        workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
+        return SoyehtAutomationResult(agentOrchestrations: [
+            agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
+        ])
+    }
+
+    private func handleConfigureAgentOrchestration(
+        _ request: SoyehtAutomationRequest
+    ) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
+            throw AutomationError.agentMessageSourceRequired
+        }
+        var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration
+            ?? WorkspaceOrchestration()
+        let rawPreset = payload.preset?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if rawPreset == nil || rawPreset == "" || rawPreset == "none" {
+            try orchestration.activateGraph(id: nil)
+            workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
+            return SoyehtAutomationResult(agentOrchestrations: [
+                agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
+            ])
+        }
+        let preset: AgentOrchestrationPreset
+        switch rawPreset {
+        case "council", "conselho": preset = .council
+        case "plannerexecutorreviewer", "plan-execute-review", "planner-executor-reviewer":
+            preset = .plannerExecutorReviewer
+        case "executorreviewerloop", "execute-review", "executor-reviewer-loop":
+            preset = .executorReviewerLoop
+        case .some(let value): throw AutomationError.invalidOrchestrationPreset(value)
+        case nil: throw AutomationError.invalidOrchestrationPreset("")
+        }
+
+        var graph = preset == .council
+            ? AgentOrchestrationPresets.council(ideatorCount: payload.ideatorCount ?? 3)
+            : AgentOrchestrationPresets.make(preset)
+        for (nodeID, rawConversationID) in payload.nodeBindings ?? [:] {
+            guard let conversationID = UUID(uuidString: rawConversationID),
+                  let conversation = conversationStore.conversation(conversationID),
+                  conversation.workspaceID == source.workspaceID else {
+                throw AutomationError.orchestrationConversationOutsideWorkspace(rawConversationID)
+            }
+            try graph.bind(conversationID: conversationID, toNodeID: nodeID)
+        }
+
+        var used = Set(graph.nodes.compactMap(\.conversationID))
+        let workspaceConversations = conversationStore.conversations(in: source.workspaceID)
+        for node in graph.nodes where node.conversationID == nil {
+            if let match = workspaceConversations.first(where: {
+                !used.contains($0.id)
+                    && $0.roleAssignment?.roleName.caseInsensitiveCompare(node.role.roleName) == .orderedSame
+            }) {
+                try graph.bind(conversationID: match.id, toNodeID: node.id)
+                used.insert(match.id)
+            }
+        }
+        try orchestration.saveGraph(graph)
+        try orchestration.activateGraph(id: graph.id)
+        workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
+        return SoyehtAutomationResult(agentOrchestrations: [
+            agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
+        ])
+    }
+
     private func resolveAgentMessageTargets(
         _ payload: SoyehtAutomationRequest.Payload
     ) throws -> [Conversation] {
@@ -970,6 +1148,17 @@ final class SoyehtAutomationRequestRouter {
             outgoingAllowsCrossWorkspace: policy.outgoing.allowsCrossWorkspace,
             blockedPaneIDs: policy.incoming.blockedPaneIDs.map(\.uuidString).sorted(),
             blockedWorkspaceIDs: policy.incoming.blockedWorkspaceIDs.map(\.uuidString).sorted()
+        )
+    }
+
+    private func agentOrchestrationState(
+        workspaceID: Workspace.ID,
+        orchestration: WorkspaceOrchestration
+    ) -> SoyehtAutomationResponse.AgentOrchestrationState {
+        .init(
+            workspaceID: workspaceID.uuidString,
+            templates: orchestration.roleTemplates.allTemplates,
+            activeGraph: orchestration.activeGraph
         )
     }
 
@@ -1850,6 +2039,9 @@ final class SoyehtAutomationRequestRouter {
             workspaceName: workspaceName,
             handle: conversation.handle,
             displayReference: Self.displayReference(for: conversation.handle),
+            roleTemplateID: conversation.roleAssignment?.templateID,
+            roleName: conversation.roleAssignment?.roleName,
+            roleInstructions: conversation.roleAssignment?.instructions,
             path: automationReportPath(for: conversation.content, workingDirectoryPath: conversation.workingDirectoryPath),
             declaredAgent: conversation.content.isTerminal ? conversation.agent.rawValue : conversation.content.displayKind,
             windowID: windowID,
@@ -1875,6 +2067,9 @@ final class SoyehtAutomationRequestRouter {
         let isLive = presence?.isLive ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) != nil)
         let isAttachable = presence?.isAttachable ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) as? PaneViewController != nil)
         let canReceiveMessage = isTerminal && isAttachable
+        let role = AppEnvironment.conversationStore?
+            .conversation(pane.conversationID)?
+            .roleAssignment
         let args = messageArguments(
             toHandle: pane.handle,
             conversationID: pane.conversationID,
@@ -1887,6 +2082,9 @@ final class SoyehtAutomationRequestRouter {
             workspaceName: workspaceStore.workspace(pane.workspaceID)?.name ?? "",
             handle: pane.handle,
             displayReference: Self.displayReference(for: pane.handle),
+            roleTemplateID: role?.templateID,
+            roleName: role?.roleName,
+            roleInstructions: role?.instructions,
             path: pane.path,
             declaredAgent: pane.declaredAgent,
             status: presence?.status ?? (isLive ? "live" : "not_live"),

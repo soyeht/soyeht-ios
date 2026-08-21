@@ -12,6 +12,9 @@ struct SoyehtAutomationRequest: Decodable {
         case listAgentMessages = "list_agent_messages"
         case ackAgentMessages = "ack_agent_messages"
         case setAgentCommunicationPolicy = "set_agent_communication_policy"
+        case setAgentRole = "set_agent_role"
+        case saveAgentRoleTemplate = "save_agent_role_template"
+        case configureAgentOrchestration = "configure_agent_orchestration"
         case renameWorkspace = "rename_workspace"
         case renamePanes = "rename_panes"
         case arrangePanes = "arrange_panes"
@@ -88,6 +91,13 @@ struct SoyehtAutomationRequest: Decodable {
         let outgoingAllowsCrossWorkspace: Bool?
         let blockedPaneIDs: [String]?
         let blockedWorkspaceIDs: [String]?
+        let roleTemplateID: String?
+        let roleName: String?
+        let roleInstructions: String?
+        let templateID: String?
+        let preset: String?
+        let ideatorCount: Int?
+        let nodeBindings: [String: String]?
         let sourceConversationID: String?
         let sourceHandle: String?
         let sourceTTY: String?
@@ -271,6 +281,20 @@ struct SoyehtAutomationResponse: Encodable {
         let blockedWorkspaceIDs: [String]
     }
 
+    struct AgentRoleState: Encodable {
+        let conversationID: String
+        let displayReference: String
+        let templateID: String?
+        let roleName: String?
+        let instructions: String?
+    }
+
+    struct AgentOrchestrationState: Encodable {
+        let workspaceID: String
+        let templates: [AgentRoleTemplate]
+        let activeGraph: AgentOrchestrationGraph?
+    }
+
     struct RenamedWorkspace: Encodable {
         let workspaceID: String
         let oldName: String
@@ -437,6 +461,9 @@ struct SoyehtAutomationResponse: Encodable {
         /// Human-safe reference for prompts, logs, and commit/PR text. The
         /// legacy `handle` remains the routing key for backwards compatibility.
         let displayReference: String
+        let roleTemplateID: String?
+        let roleName: String?
+        let roleInstructions: String?
         let path: String
         let declaredAgent: String
         let windowID: String?
@@ -450,6 +477,9 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceName: String
         let handle: String
         let displayReference: String
+        let roleTemplateID: String?
+        let roleName: String?
+        let roleInstructions: String?
         let path: String
         let declaredAgent: String
         let status: String
@@ -666,6 +696,8 @@ struct SoyehtAutomationResponse: Encodable {
     var agentMessageDeliveries: [AgentMessageDelivery] = []
     var agentInboxMessages: [AgentInboxMessage] = []
     var agentCommunicationPolicies: [AgentCommunicationPolicyState] = []
+    var agentRoles: [AgentRoleState] = []
+    var agentOrchestrations: [AgentOrchestrationState] = []
     let renamedWorkspaces: [RenamedWorkspace]
     let renamedPanes: [RenamedPane]
     let arrangedPaneLayouts: [ArrangedPaneLayout]
@@ -703,6 +735,8 @@ struct SoyehtAutomationResult {
     var agentMessageDeliveries: [SoyehtAutomationResponse.AgentMessageDelivery] = []
     var agentInboxMessages: [SoyehtAutomationResponse.AgentInboxMessage] = []
     var agentCommunicationPolicies: [SoyehtAutomationResponse.AgentCommunicationPolicyState] = []
+    var agentRoles: [SoyehtAutomationResponse.AgentRoleState] = []
+    var agentOrchestrations: [SoyehtAutomationResponse.AgentOrchestrationState] = []
     var renamedWorkspaces: [SoyehtAutomationResponse.RenamedWorkspace] = []
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
     var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
@@ -929,6 +963,8 @@ final class SoyehtAutomationService {
                 agentMessageDeliveries: result.agentMessageDeliveries,
                 agentInboxMessages: result.agentInboxMessages,
                 agentCommunicationPolicies: result.agentCommunicationPolicies,
+                agentRoles: result.agentRoles,
+                agentOrchestrations: result.agentOrchestrations,
                 renamedWorkspaces: result.renamedWorkspaces,
                 renamedPanes: result.renamedPanes,
                 arrangedPaneLayouts: result.arrangedPaneLayouts,

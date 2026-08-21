@@ -75,6 +75,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("never creates panes", tool["description"])
         self.assertIn("fromHandle", tool["inputSchema"]["properties"])
         self.assertIn("fromConversationID", tool["inputSchema"]["properties"])
+        self.assertIn("deliveryPreference", tool["inputSchema"]["properties"])
+
+        for name in (
+            "list_agent_messages",
+            "ack_agent_messages",
+            "set_agent_communication_policy",
+            "set_agent_role",
+            "save_agent_role_template",
+            "configure_agent_orchestration",
+        ):
+            self.assertIn(name, MODULE["TOOL_HANDLERS"])
+            self.assertTrue(any(tool["name"] == name for tool in MODULE["TOOLS"]))
 
     def test_agent_directory_tools_are_registered_for_multi_agent_routing(self):
         self.assertIn("identify_agent", MODULE["TOOL_HANDLERS"])
@@ -657,11 +669,11 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             globals_["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["request_type"], "send_agent_message")
         self.assertEqual(captured["payload"]["handles"], ["@reviewer"])
         self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
-        self.assertTrue(captured["payload"]["forceAgentEnvelope"])
-        self.assertTrue(captured["payload"]["requireAgentEnvelope"])
+        self.assertEqual(captured["payload"]["deliveryPreference"], "automatic")
+        self.assertTrue(captured["payload"]["requestAttention"])
         self.assertEqual(captured["payload"]["lineEnding"], "enter")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
 
