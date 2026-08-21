@@ -1,4 +1,6 @@
 #!/usr/bin/env -S uv run
+import hashlib
+import json
 import runpy
 import unittest
 from unittest.mock import patch
@@ -14,6 +16,26 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
+
+    def test_tools_list_contract_matches_pre_modularization_golden(self):
+        encoded = json.dumps(
+            MODULE["TOOLS"],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+        self.assertEqual(len(MODULE["TOOLS"]), 44)
+        self.assertEqual(
+            hashlib.sha256(encoded).hexdigest(),
+            "f84b3a1ef45ec35a5a51d042dabb0e8775d47665aa8baedf3565972c21725478",
+        )
+
+    def test_tool_registry_has_exactly_one_handler_per_schema(self):
+        schema_names = [tool["name"] for tool in MODULE["TOOLS"]]
+
+        self.assertEqual(len(schema_names), len(set(schema_names)))
+        self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
 
     def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
         transport = MODULE["StdioTransport"]
