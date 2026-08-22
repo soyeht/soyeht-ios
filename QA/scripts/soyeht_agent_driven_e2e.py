@@ -895,11 +895,12 @@ def run_typing_collision(
         ),
         f"Real {recipient_agent} recipient was not focused before simulating human typing.",
     )
-    if input_mode == "physicalKeyboard":
-        # Model focus and AppKit first-responder focus are separate. Zoom makes
-        # the target deterministic regardless of accumulated pane geometry;
-        # a real Quartz click then reproduces how a person focuses its editor.
-        click_soyeht_dev_target(recipient["windowID"])
+    # emphasize_pane claims the terminal as AppKit first responder. Avoid a
+    # synthetic mouse click here: mouse-reporting TUIs legitimately encode it
+    # as cursor movement, which makes the draft state uncertain and changes
+    # this scenario from "typed then erased" into a different cursor-editing
+    # case. The dynamic capture below proves that the ordinary keystrokes did
+    # reach the intended composer.
 
     # pt-BR multibyte characters reproduce the original byte-vs-character
     # DraftGate defect while Backspace clears one visible character per key.
