@@ -28,6 +28,8 @@ import subprocess
 import sys
 from time import monotonic, sleep, time
 
+from soyeht_dev_ui_cleanup import close_workspace_through_ui
+
 
 WORKSPACE_SNAPSHOT_PATH = None
 
@@ -1434,6 +1436,15 @@ def main() -> int:
                 release_timeout=args.release_timeout,
             ))
 
+        cleanup = close_workspace_through_ui(
+            snapshot_path=WORKSPACE_SNAPSHOT_PATH,
+            workspace_id=workspace_id,
+            window_id=observer["windowID"],
+            timeout=min(args.timeout, 30.0),
+        )
+        evidence["cleanup"] = cleanup
+        workspace_id = None
+        observer = None
         evidence["status"] = "passed"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1454,14 +1465,18 @@ def main() -> int:
     finally:
         if not args.keep and observer is not None and workspace_id is not None:
             try:
-                mcp.tool_close_workspace({
-                    "automationDir": automation_dir,
-                    "timeout": args.timeout,
-                    "targetWindowID": observer["windowID"],
-                    "workspaceIDs": [workspace_id],
-                })
-            except Exception as exc:
-                print(json.dumps({"cleanupWarning": str(exc), "workspaceID": workspace_id}), flush=True)
+                cleanup = close_workspace_through_ui(
+                    snapshot_path=WORKSPACE_SNAPSHOT_PATH,
+                    workspace_id=workspace_id,
+                    window_id=observer["windowID"],
+                    timeout=min(args.timeout, 30.0),
+                )
+                print(json.dumps({"cleanupAfterFailure": cleanup}), flush=True)
+            except Exception as cleanup_error:
+                print(json.dumps({
+                    "cleanupFailureAfterTestFailure": str(cleanup_error),
+                    "workspaceID": workspace_id,
+                }), flush=True)
 
 
 if __name__ == "__main__":

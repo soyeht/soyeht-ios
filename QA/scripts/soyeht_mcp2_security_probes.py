@@ -15,6 +15,8 @@ import subprocess
 import sys
 from time import monotonic, sleep, time
 
+from soyeht_dev_ui_cleanup import close_workspace_through_ui
+
 
 def load_mcp(module_path: Path):
     # SourceFileLoader otherwise writes __pycache__ into the signed bundle and
@@ -682,6 +684,24 @@ def main() -> int:
                 for agent_id, pane in opened.items()
             },
         }
+        cleanup = []
+        if parking_workspace_id:
+            cleanup.append(close_workspace_through_ui(
+                snapshot_path=snapshot_path,
+                workspace_id=parking_workspace_id,
+                window_id=window_id,
+                timeout=min(args.timeout, 30.0),
+            ))
+            parking_workspace_id = None
+        if workspace_id:
+            cleanup.append(close_workspace_through_ui(
+                snapshot_path=snapshot_path,
+                workspace_id=workspace_id,
+                window_id=window_id,
+                timeout=min(args.timeout, 30.0),
+            ))
+            workspace_id = None
+        evidence["cleanup"] = cleanup
         rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
         if args.output:
             output = Path(args.output)
@@ -692,24 +712,32 @@ def main() -> int:
     finally:
         if parking_workspace_id:
             try:
-                mcp.tool_close_workspace({
-                    "automationDir": automation_dir,
-                    "timeout": args.timeout,
-                    "targetWindowID": window_id,
-                    "workspaceIDs": [parking_workspace_id],
-                })
-            except Exception as error:
-                print(json.dumps({"cleanupWarning": str(error)}))
+                cleanup = close_workspace_through_ui(
+                    snapshot_path=snapshot_path,
+                    workspace_id=parking_workspace_id,
+                    window_id=window_id,
+                    timeout=min(args.timeout, 30.0),
+                )
+                print(json.dumps({"cleanupAfterFailure": cleanup}))
+            except Exception as cleanup_error:
+                print(json.dumps({
+                    "cleanupFailureAfterTestFailure": str(cleanup_error),
+                    "workspaceID": parking_workspace_id,
+                }))
         if workspace_id:
             try:
-                mcp.tool_close_workspace({
-                    "automationDir": automation_dir,
-                    "timeout": args.timeout,
-                    "targetWindowID": window_id,
-                    "workspaceIDs": [workspace_id],
-                })
-            except Exception as error:
-                print(json.dumps({"cleanupWarning": str(error)}))
+                cleanup = close_workspace_through_ui(
+                    snapshot_path=snapshot_path,
+                    workspace_id=workspace_id,
+                    window_id=window_id,
+                    timeout=min(args.timeout, 30.0),
+                )
+                print(json.dumps({"cleanupAfterFailure": cleanup}))
+            except Exception as cleanup_error:
+                print(json.dumps({
+                    "cleanupFailureAfterTestFailure": str(cleanup_error),
+                    "workspaceID": workspace_id,
+                }))
 
 
 if __name__ == "__main__":
