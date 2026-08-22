@@ -940,14 +940,12 @@ def run_typing_collision(
         f"{input_mode} input did not reach the focused {recipient_agent} pane. "
         "Refusing to treat app activation alone as proof of user input.",
     )
-    if input_mode == "physicalKeyboard":
-        # Zoom temporarily removes siblings from the rendered tree. Restore
-        # them before asking the sender to continue so its pane is live.
-        mcp.tool_emphasize_pane({
-            **source_args(observer, automation_dir, timeout),
-            "conversationIDs": [recipient["conversationID"]],
-            "mode": "unzoom",
-        })
+    # Keep the recipient zoomed until the physical release. The sender is an
+    # autonomous background process and does not need to be rendered to send
+    # its relay. Unzooming here can move AppKit's first responder even though
+    # the recipient remains the model's active pane, which would make the
+    # Backspace simulation prove only that a window (not its composer) had
+    # focus.
 
     if input_mode != "physicalKeyboard":
         raise RuntimeError(
