@@ -1291,6 +1291,9 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let terminal = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         let paneController = try macSource("PaneGrid/PaneViewController.swift")
         let mainController = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let contextRouter = try macSource(
+            "App/SoyehtAutomationRequestRouter+05ConversationContext.swift"
+        )
         let flush = try slice(
             coordinator,
             from: "private func flushOne()",
@@ -1338,6 +1341,9 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(automation.contains("pendingTerminalSubmissions.append"))
         XCTAssertTrue(automation.contains(".automation(DeferredAutomationInput("))
         XCTAssertTrue(coordinator.contains("promoteDraftReleaseControlIfNeeded()"))
+        XCTAssertTrue(coordinator.contains("func agentStateDidChange()"))
+        XCTAssertTrue(paneController.contains("agentStateDidChangeForDeferredDelivery"))
+        XCTAssertTrue(contextRouter.contains("pane.agentStateDidChangeForDeferredDelivery()"))
         XCTAssertTrue(coordinator.contains("case .partiallyWritten:"))
         XCTAssertTrue(coordinator.contains("submitsWithEnter: false"))
         XCTAssertTrue(coordinator.contains("guard workspaceStore.flushPendingSave() else"))

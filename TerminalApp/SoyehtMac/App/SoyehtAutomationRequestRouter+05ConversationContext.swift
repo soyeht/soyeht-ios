@@ -412,6 +412,11 @@ extension SoyehtAutomationRequestRouter {
             outcome = (false, "agent_mismatch")
         }
         if outcome.accepted {
+            if let pane = LivePaneRegistry.shared.pane(
+                for: source.conversation.id
+            ) as? PaneViewController {
+                pane.agentStateDidChangeForDeferredDelivery()
+            }
             notifyAttentionIfNeeded(
                 conversationID: source.conversation.id,
                 handle: source.conversation.handle,

@@ -120,6 +120,14 @@ final class PaneDeferredAgentDeliveryCoordinator {
         scheduleIfSafe()
     }
 
+    /// A queued relay can be otherwise ready while the target agent is still
+    /// working. Re-run arbitration when a provider hook reports a new state;
+    /// without this edge, clearing the human draft during that turn leaves no
+    /// later event to release the queue after the agent becomes idle.
+    func agentStateDidChange() {
+        scheduleIfSafe()
+    }
+
     /// The transport may fail after accepting only a prefix of human input.
     /// That is not safe to treat as either an absent draft or a complete
     /// submit/cancel sequence, so hold later automation until the person

@@ -39,6 +39,10 @@ extension PaneViewController {
         )
     }
 
+    func agentStateDidChangeForDeferredDelivery() {
+        deferredAgentDeliveryCoordinator.agentStateDidChange()
+    }
+
     func prepareDeferredDeliveryForTerminalTransportReplacement() {
         deferredAgentDeliveryCoordinator.prepareForTerminalTransportReplacement()
     }
