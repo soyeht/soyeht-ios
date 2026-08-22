@@ -141,11 +141,11 @@ final class PaneDeferredAgentDeliveryCoordinator {
 
     /// A persistent engine process can outlive the app together with an
     /// unfinished TUI composer, while this in-memory gate cannot. Reattach is
-    /// therefore fail-closed until the next unambiguous human submit/cancel.
+    /// fail-closed for automation until submit/cancel, but the keyboard stays
+    /// live: a clean reattach does not prove the next input was partly written.
     func markTerminalDraftStateUnknownAfterPersistentReattach() {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
-        terminalView.markUncertainComposerRecoveryRequired()
         agentMessageDraftGate.markUncertainTerminalDraft()
         draftOwner = .human
     }

@@ -13,8 +13,10 @@ Signing team: `W7677A5BK2`
 
 The final signed build passed the security boundary, natural-language
 collaboration, physical unfinished-draft, and broker-queue scenarios. Every
-behavioral runner required the installed app commit, binary digest, MCP bundle
-digest, and Developer ID team before exercising the product. Cleanup used the
+behavioral runner verified the installed app's signature and exact source
+commit before exercising the product, then recorded the binary and MCP bundle
+digests in its evidence. The security runner additionally pinned the exact
+Developer ID team before its first behavioral request. Cleanup used the
 human-owned **Shell → Close Workspace** UI and verified disappearance from the
 durable snapshot; no runner treated cleanup failure as a warning.
 

@@ -1322,14 +1322,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         hasWritableInputTransport
     }
 
-    /// A persistent child can outlive this view while its composer remains in
-    /// bracketed paste. Pair the pane-level fail-closed draft gate with the
-    /// transport-level recovery latch so the first Ctrl-C closes paste before
-    /// cancelling instead of being inserted as literal content.
-    func markUncertainComposerRecoveryRequired() {
-        uncertainComposerRecoveryRequired = true
-    }
-
     private var hasWritableInputTransport: Bool {
         if localPTY != nil { return true }
         guard case .open = state else { return false }

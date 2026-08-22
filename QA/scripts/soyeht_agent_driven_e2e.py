@@ -1446,6 +1446,17 @@ def main() -> int:
                 release_timeout=args.release_timeout,
             ))
 
+        if not (args.typing_collision_only or args.physical_keyboard_only):
+            require(
+                evidence["flows"],
+                "The requested collaboration ring produced no behavioral flows.",
+            )
+        if not args.collaboration_only:
+            require(
+                evidence["typingCollisions"],
+                "The requested physical collision ring produced no behavioral flows.",
+            )
+
         cleanup = close_workspace_through_ui(
             snapshot_path=WORKSPACE_SNAPSHOT_PATH,
             workspace_id=workspace_id,

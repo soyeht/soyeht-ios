@@ -55,13 +55,13 @@ not only against model metadata or source-code assertions.
   launch ownership in an inactive workspace after app restart. The probe
   refuses to claim this result unless the tested panes are engine-owned and
   persistent. Raw evidence: `security.json`.
-- Deterministic broker-queue collision: **passed in both producer paths**.
+- Deterministic broker-queue collision: **passed for the durable relay path**.
   Codex sent the first relay, Claude sent the second, OpenCode held a physical
   human draft, and the second relay remained undelivered until physical
-  Return. A second phase mixed a durable relay with raw and complete
-  `send_pane_input`: the complete submission stayed held behind the raw draft,
-  raw Return released it, and the next relay drained only afterward. Raw
-  evidence: `broker-queue.json`.
+  Return. The earlier raw-automation phase was superseded when
+  `send_pane_input` admission moved behind the unified payload-derived draft
+  gate; its coverage now lives in the Swift regression suite. Raw evidence:
+  `broker-queue.json`.
 - Natural-language physical ring: Codex-to-OpenCode and OpenCode-to-Claude
   passed. Claude-to-Codex preserved the draft and correctly retained the relay,
   but the Accessibility harness's first synthetic Return did not submit the

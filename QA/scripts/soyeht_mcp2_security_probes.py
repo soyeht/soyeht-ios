@@ -15,6 +15,14 @@ import subprocess
 import sys
 from time import monotonic, sleep, time
 
+from soyeht_agent_driven_e2e import (
+    capture_text,
+    click_soyeht_dev_target,
+    raise_soyeht_dev_window,
+    release_physical_draft,
+    require_accessibility_keyboard_control,
+    type_through_macos_keyboard,
+)
 from soyeht_dev_ui_cleanup import close_workspace_through_ui
 
 
@@ -274,6 +282,20 @@ def wait_for_restored_ownership(root, mcp, pane, nonce, window_id, timeout):
     return latest or {"status": "error", "message": "No ownership response."}
 
 
+def wait_for_capture_token(mcp, pane, nonce, automation_dir, token, timeout):
+    deadline = monotonic() + timeout
+    latest = ""
+    while monotonic() < deadline:
+        latest = capture_text(mcp, pane, nonce, automation_dir, min(timeout, 5.0))
+        if token in latest:
+            return latest
+        sleep(0.2)
+    raise RuntimeError(
+        "Physical keyboard input never reached the persistently reattached "
+        f"pane; missing {token!r}. Capture tail: {latest[-600:]!r}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[2]))
@@ -289,6 +311,7 @@ def main() -> int:
         help="Exact installed MCP server exercised by the external observer.",
     )
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--expected-team-id", required=True)
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -316,6 +339,20 @@ def main() -> int:
     unique = str(int(time()))
     workspace_id = None
     parking_workspace_id = None
+    cases = []
+
+    # Provenance is a precondition, not metadata attached after the behavior.
+    # Refuse to exercise a stale or differently signed bundle.
+    app_path = Path("/Applications/Soyeht Dev.app")
+    provenance = bundle_provenance(app_path)
+    require(
+        provenance["commit"] == args.expected_commit,
+        f"Installed app commit {provenance['commit']} != expected {args.expected_commit}.",
+    )
+    require(
+        provenance["teamID"] == args.expected_team_id,
+        f"Installed app team {provenance['teamID']} != expected {args.expected_team_id}.",
+    )
 
     windows = mcp.tool_list_windows({
         "automationDir": automation_dir,
@@ -362,7 +399,7 @@ def main() -> int:
         require_persistent_engine_owner(snapshot_path, codex["conversationID"])
         require_persistent_engine_owner(snapshot_path, opencode["conversationID"])
         require(snapshot_path.stat().st_mode & 0o777 == 0o600, "workspaces.json is not mode 0600")
-        cases = [
+        cases.extend([
             expect_runtime_rejection(
                 "legacy-agent-write",
                 "Low-level send_pane_input cannot write to agent pane",
@@ -392,7 +429,7 @@ def main() -> int:
                     "incomingEnabled": False,
                 }),
             ),
-        ]
+        ])
 
         valid_ownership = policy_request(
             root,
@@ -661,12 +698,45 @@ def main() -> int:
             "agentWorkspaceID": workspace_id,
         })
 
-        app_path = Path("/Applications/Soyeht Dev.app")
-        provenance = bundle_provenance(app_path)
+        # F1 regression: a clean persistent reattach must keep the automation
+        # draft gate conservative without activating the transport latch used
+        # only for a genuinely partial/unknown write. Focus the restored pane,
+        # type through real Accessibility keyboard events, and prove the bytes
+        # reached the TUI before cancelling the harmless draft.
+        require_accessibility_keyboard_control()
+        emphasized = mcp.tool_emphasize_pane({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [codex["conversationID"]],
+            "mode": "zoom",
+        })
         require(
-            provenance["commit"] == args.expected_commit,
-            f"Installed app commit {provenance['commit']} != expected {args.expected_commit}.",
+            emphasized.get("emphasizedPanes"),
+            "The persistently restored pane could not be focused for physical input.",
         )
+        raise_soyeht_dev_window(window_id)
+        click_soyeht_dev_target(window_id)
+        keyboard_token = f"MCP2_REATTACH_KEYBOARD_{unique}"
+        type_through_macos_keyboard(keyboard_token, window_id, submit_with_return=False)
+        restored_capture = wait_for_capture_token(
+            mcp,
+            codex,
+            codex_nonce,
+            automation_dir,
+            keyboard_token,
+            args.timeout,
+        )
+        release_physical_draft("ctrl-c", len(keyboard_token), window_id)
+        cases.append({
+            "case": "persistent-reattach-keeps-physical-keyboard-live",
+            "expected": "typed bytes visible before explicit cancel",
+            "result": "accepted",
+            "token": keyboard_token,
+            "captureTail": restored_capture[-600:],
+        })
+
+        require(cases, "Security runner produced no behavioral cases.")
         evidence = {
             "status": "passed",
             "app": {
@@ -709,6 +779,25 @@ def main() -> int:
             output.write_text(rendered)
         print(rendered, end="")
         return 0
+    except Exception as error:
+        if args.output:
+            failed = {
+                "status": "failed",
+                "app": {
+                    "bundleID": "com.soyeht.mac.dev",
+                    **provenance,
+                    "installation": str(app_path),
+                },
+                "cases": cases,
+                "error": {
+                    "type": type(error).__name__,
+                    "message": str(error),
+                },
+            }
+            output = Path(args.output)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps(failed, indent=2, sort_keys=True) + "\n")
+        raise
     finally:
         if parking_workspace_id:
             try:

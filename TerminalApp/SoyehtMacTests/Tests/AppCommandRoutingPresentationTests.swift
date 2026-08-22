@@ -1376,7 +1376,13 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(terminal.contains("uncertainComposerRecoveryRequired = true"))
         XCTAssertTrue(terminal.contains("self?.uncertainComposerRecoveryRequired = false"))
         XCTAssertTrue(terminal.contains("rejected: {"))
-        XCTAssertTrue(coordinator.contains("terminalView.markUncertainComposerRecoveryRequired()"))
+        let persistentReattach = try slice(
+            coordinator,
+            from: "func markTerminalDraftStateUnknownAfterPersistentReattach()",
+            to: "func markTerminalDraftStateUnknownAfterUnverifiedSubmission()"
+        )
+        XCTAssertTrue(persistentReattach.contains("agentMessageDraftGate.markUncertainTerminalDraft()"))
+        XCTAssertFalse(persistentReattach.contains("markUncertainComposerRecoveryRequired"))
         XCTAssertTrue(mirroredInput.contains("accepted: { [weak self] admittedData in"))
         XCTAssertTrue(mirroredInput.contains("recordHumanInput(admittedData)"))
         let rejectedRollback = try slice(
