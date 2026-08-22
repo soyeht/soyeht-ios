@@ -82,22 +82,18 @@ def natural_collision_setup_prompt(
     recipient_directory,
     recipient_ready_token,
     ready_token,
+    relay_token,
+    completion_prefix,
 ):
     prompt = (
         f"Sem alterar arquivos, abra uma nova pane com {recipient_agent} neste mesmo workspace, "
         f"no diretório exato {recipient_directory}, e dê a ela o nome {recipient_name}. "
         f"Ao abrir a pane, peça ao novo agente que responda somente {recipient_ready_token} e aguarde. "
-        f"Quando a pane estiver pronta, responda aqui somente {ready_token} e aguarde minha próxima mensagem."
-    )
-    require_natural_user_prompt(prompt)
-    return prompt
-
-
-def natural_collision_message_prompt(recipient_name, relay_token, completion_prefix):
-    prompt = (
-        f"Fale com o agente {recipient_name}, que está neste mesmo workspace, e peça que ele "
-        f"responda a você com exatamente {relay_token}. Aguarde a resposta dele. "
-        f"Depois responda aqui com exatamente {completion_prefix} {relay_token}."
+        f"Quando a pane estiver pronta, diga aqui {ready_token} sem encerrar seu trabalho. "
+        "Em seguida aguarde 15 segundos sem trazer outra pane para a frente. "
+        f"Depois desse intervalo, fale com o agente {recipient_name} e peça que ele responda "
+        f"a você com exatamente {relay_token}. Aguarde a resposta dele e então diga aqui "
+        f"exatamente {completion_prefix} {relay_token}."
     )
     require_natural_user_prompt(prompt)
     return prompt
@@ -278,56 +274,6 @@ end run
         capture_output=True,
         text=True,
     )
-
-
-def paste_through_macos_keyboard(text, expected_window_id):
-    """Paste UTF-8 like a human and restore the user's text clipboard."""
-    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
-    previous = subprocess.run(
-        ["/usr/bin/pbpaste"],
-        capture_output=True,
-        check=False,
-    ).stdout
-    try:
-        subprocess.run(
-            ["/usr/bin/pbcopy"],
-            input=text.encode("utf-8"),
-            check=True,
-        )
-        script = r'''
-on run argv
-  set expectedIdentifier to item 1 of argv
-  tell application "System Events"
-    set frontApp to name of first application process whose frontmost is true
-    if frontApp is not "Soyeht Dev" then error "Soyeht Dev did not become frontmost"
-    tell process "Soyeht Dev"
-      if value of attribute "AXIdentifier" of front window is not expectedIdentifier then
-        error "Physical paste would target the wrong Soyeht Dev window"
-      end if
-    end tell
-    keystroke "v" using {command down}
-  end tell
-end run
-'''
-        latest_error = ""
-        for _ in range(8):
-            raise_soyeht_dev_window(expected_window_id)
-            completed = subprocess.run(
-                ["/usr/bin/osascript", "-e", script, expected_identifier],
-                capture_output=True,
-                text=True,
-            )
-            if completed.returncode == 0:
-                break
-            latest_error = completed.stderr.strip()
-            sleep(0.25)
-        else:
-            raise RuntimeError(
-                f"Could not paste into exact Soyeht Dev window {expected_window_id}: {latest_error}"
-            )
-        sleep(0.35)
-    finally:
-        subprocess.run(["/usr/bin/pbcopy"], input=previous, check=False)
 
 
 def release_physical_draft(action, draft_length, expected_window_id):
@@ -851,6 +797,8 @@ def run_typing_collision(
         recipient_directory=recipient_directory,
         recipient_ready_token=recipient_ready_token,
         ready_token=ready_token,
+        relay_token=relay_token,
+        completion_prefix=completion_prefix,
     )
     sender_opened = mcp.tool_open_agent_pane({
         "automationDir": automation_dir,
@@ -957,7 +905,14 @@ def run_typing_collision(
     # DraftGate defect while Backspace clears one visible character per key.
     unfinished_draft = f"{draft_token} café ação reply only OK"
     if input_mode == "physicalKeyboard":
-        paste_through_macos_keyboard(unfinished_draft, recipient["windowID"])
+        # Generate ordinary keyboard events, not bracketed paste. The scenario
+        # under test is a person typing and then deleting the draft one key at
+        # a time while the sender continues independently in the background.
+        type_through_macos_keyboard(
+            unfinished_draft,
+            recipient["windowID"],
+            submit_with_return=False,
+        )
     else:
         draft_input = mcp.tool_send_pane_input({
             **source_args(observer, automation_dir, timeout),
@@ -994,31 +949,11 @@ def run_typing_collision(
             "mode": "unzoom",
         })
 
-    follow_up = natural_collision_message_prompt(
-        recipient_name=recipient_name,
-        relay_token=relay_token,
-        completion_prefix=completion_prefix,
-    )
     if input_mode != "physicalKeyboard":
         raise RuntimeError(
             "MCP 2.0 intentionally rejects external send_pane_input writes to agent panes; "
             "run collision tests with --physical-keyboard-only."
         )
-    raise_soyeht_dev_window(sender["windowID"])
-    mcp.tool_emphasize_pane({
-        **source_args(observer, automation_dir, timeout),
-        "conversationIDs": [sender["conversationID"]],
-        "mode": "zoom",
-    })
-    click_soyeht_dev_target(sender["windowID"])
-    type_through_macos_keyboard(follow_up, sender["windowID"], submit_with_return=False)
-    sleep(1.0)
-    type_through_macos_keyboard("", sender["windowID"], submit_with_return=True)
-    mcp.tool_emphasize_pane({
-        **source_args(observer, automation_dir, timeout),
-        "conversationIDs": [sender["conversationID"]],
-        "mode": "unzoom",
-    })
     parent_request = wait_for_parent_request(
         mcp,
         sender,
@@ -1057,25 +992,13 @@ def run_typing_collision(
     )
 
     if input_mode == "physicalKeyboard":
-        # The sender follow-up uses automation and may momentarily become first
-        # responder. Reassert the exact recipient before generating Return.
-        raise_soyeht_dev_window(recipient["windowID"])
-        mcp.tool_emphasize_pane({
-            **source_args(observer, automation_dir, timeout),
-            "conversationIDs": [recipient["conversationID"]],
-            "mode": "zoom",
-        })
-        click_soyeht_dev_target(recipient["windowID"])
+        # The sender continued independently and never took focus from the
+        # composing recipient, matching the real user scenario.
         release_physical_draft(
             draft_release_action,
             len(unfinished_draft),
             recipient["windowID"],
         )
-        mcp.tool_emphasize_pane({
-            **source_args(observer, automation_dir, timeout),
-            "conversationIDs": [recipient["conversationID"]],
-            "mode": "unzoom",
-        })
     else:
         mcp.tool_send_pane_input({
             **source_args(observer, automation_dir, timeout),
@@ -1146,7 +1069,7 @@ def run_typing_collision(
         "senderProcess": sender_process,
         "recipientProcess": recipient_process,
         "inputSimulation": (
-            f"macOS Accessibility UTF-8 paste plus physical {draft_release_action}"
+            f"macOS Accessibility typing plus physical {draft_release_action}"
             if input_mode == "physicalKeyboard"
             else "send_pane_input without Enter through the shared onUserInputData draft gate"
         ),
