@@ -1055,6 +1055,16 @@ def run_typing_collision(
         automation_dir,
         timeout,
     )
+    if input_mode == "physicalKeyboard":
+        # The recipient stayed zoomed throughout the critical section so
+        # AppKit's first responder could not drift. Restore the workspace only
+        # after delivery and reply; otherwise the next route's pane exists in
+        # the model but cannot materialize its terminal process.
+        mcp.tool_emphasize_pane({
+            **source_args(observer, automation_dir, timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "unzoom",
+        })
     sender_completion_observed = False
     sender_completion_observation = None
     try:
