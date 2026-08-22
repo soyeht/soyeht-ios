@@ -117,10 +117,15 @@ each item still needs a product decision or a focused validation.
   same-user-process exposure explicitly: the owning process still receives
   its bearer in the environment until file IPC is replaced with peer-authenticated
   transport.
-- A legacy engine credential is no longer promoted merely because it is the
-  only `.engine` row. Without a previously associated server ID, repair
-  pairing must succeed or local persistent-pane restore fails closed to the
-  native fallback. Keep that migration error explicit in support diagnostics.
+- The one-shot engine upgrade migration accepts only the exact `.engine` row
+  whose persisted host already equals this install profile's loopback admin
+  host -- the same association released builds trusted before the verified-ID
+  key existed. A fresh self-pair always gets first refusal; the legacy row is
+  considered only after that attempt fails. The migration performs no bearer
+  probe and writes a durable one-shot tombstone before using that credential,
+  so a later 401 cannot promote the same stale token again. An already
+  verified identity or a successful self-pair also consumes the migration.
+  Tailnet/remote rows are never guessed or rewritten.
 - A persisted paired-server ID plus a bearer proves which credential the app
   selected; pinning its transport to loopback does **not** cryptographically
   authenticate the process listening on that port. The current desktop threat

@@ -224,6 +224,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         let accepted: (() -> Void)?
         let outcomeUnknown: (() -> Void)?
     }
+    /// Outcome-unknown transport writes can leave the child inside bracketed
+    /// paste. A bare Ctrl-C is literal data in that mode, so the explicit
+    /// recovery gesture first closes paste and then cancels the composer.
+    private static let uncertainComposerCancelData = Data("\u{1B}[201~\u{03}".utf8)
     private var activeBrokerSubmission: BrokerSubmission?
     private var queuedBrokerSubmissions: [BrokerSubmission] = []
     private var pendingBrokerEnterWorkItem: DispatchWorkItem?
@@ -239,6 +243,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var pendingHumanWriteCount = 0
     private var humanTransportGeneration = 0
     private var humanWriteOutcomeUnknown = false
+    /// A partial broker/human write may have left the remote composer inside
+    /// bracketed paste. Keep this latch until the transport admits the full
+    /// paste-end + Ctrl-C recovery sequence; a rejected recovery must not
+    /// downgrade the next Ctrl-C to a bare byte.
+    private var uncertainComposerRecoveryRequired = false
     private var bufferedHumanRetryWorkItem: DispatchWorkItem?
     private var isAwaitingSemanticAcknowledgement = false
     private var showsGroupInputCursor = false
@@ -462,6 +471,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         bufferedHumanRetryWorkItem?.cancel()
         bufferedHumanRetryWorkItem = nil
         cancelBrokerSubmissions()
+        uncertainComposerRecoveryRequired = false
         // Buffered keys belong to the exact process/transport generation that
         // accepted them. A configure/switch must never replay an old agent's
         // draft into the replacement process. Transient WS reconnects do not
@@ -988,11 +998,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             bufferedHumanRetryWorkItem = nil
             bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
         }
-        if humanWriteOutcomeUnknown, !isDispatchingBrokerEnterKey {
+        if (uncertainComposerRecoveryRequired || humanWriteOutcomeUnknown),
+           !isDispatchingBrokerEnterKey {
             // A partial/unknown human write is recovered only by an explicit
             // cancel. Continuing to drain text would guess where the old
             // transport stopped and can reorder or submit the wrong draft.
-            guard bytes.allSatisfy({ $0 == 0x03 }), hasWritableInputTransport else {
+            guard bytes.allSatisfy({ $0 == 0x03 }) else {
                 bufferedHumanInputDuringBrokerSubmission.append(.init(
                     data: bytes,
                     shouldNotifyDelegate: shouldNotifyDelegate,
@@ -1001,8 +1012,26 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 ))
                 return true
             }
+            guard hasWritableInputTransport else { return false }
             bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
-            humanWriteOutcomeUnknown = false
+            let recoveryBytes = Self.uncertainComposerCancelData
+            sendHumanInputDataAcknowledged(
+                recoveryBytes,
+                shouldNotifyDelegate: shouldNotifyDelegate,
+                accepted: { [weak self] in
+                    self?.uncertainComposerRecoveryRequired = false
+                    self?.humanWriteOutcomeUnknown = false
+                    self?.isAwaitingSemanticAcknowledgement = false
+                    accepted?()
+                },
+                outcomeUnknown: outcomeUnknown,
+                rejected: {
+                    // Keep the recovery latch set. The next explicit Ctrl-C
+                    // retries the complete boundary instead of sending a bare
+                    // byte into a possibly open bracketed-paste transaction.
+                }
+            )
+            return true
         }
         if (pendingHumanWriteCount > 0 || !bufferedHumanInputDuringBrokerSubmission.isEmpty),
            !isDispatchingBrokerEnterKey {
@@ -1023,7 +1052,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 // later buffered typing instead of replaying it out of order.
                 guard hasWritableInputTransport else { return false }
                 sendHumanInputDataAcknowledged(
-                    bytes,
+                    Self.uncertainComposerCancelData,
                     shouldNotifyDelegate: shouldNotifyDelegate,
                     accepted: { [weak self] in
                         self?.bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
@@ -1100,6 +1129,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 mayContinueFIFO = true
             case .outcomeUnknown:
                 self.humanWriteOutcomeUnknown = true
+                self.uncertainComposerRecoveryRequired = true
                 if shouldNotifyDelegate { self.onUserInputOutcomeUnknown?(bytes) }
                 outcomeUnknown?()
             case .rejectedBeforeWrite:
@@ -1266,7 +1296,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         guard activeBrokerSubmission == nil,
               bufferedHumanInputDuringBrokerSubmission.isEmpty,
               pendingHumanWriteCount == 0,
-              !humanWriteOutcomeUnknown else {
+              !humanWriteOutcomeUnknown,
+              !uncertainComposerRecoveryRequired else {
             queuedBrokerSubmissions.append(submission)
             return
         }
@@ -1281,6 +1312,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             || isAwaitingSemanticAcknowledgement
             || pendingHumanWriteCount > 0
             || humanWriteOutcomeUnknown
+            || uncertainComposerRecoveryRequired
             || !bufferedHumanInputDuringBrokerSubmission.isEmpty
     }
 
@@ -1288,6 +1320,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// local transport can accept bytes now; it is not a remote/TUI receipt.
     var canAcceptBrokerSubmission: Bool {
         hasWritableInputTransport
+    }
+
+    /// A persistent child can outlive this view while its composer remains in
+    /// bracketed paste. Pair the pane-level fail-closed draft gate with the
+    /// transport-level recovery latch so the first Ctrl-C closes paste before
+    /// cancelling instead of being inserted as literal content.
+    func markUncertainComposerRecoveryRequired() {
+        uncertainComposerRecoveryRequired = true
     }
 
     private var hasWritableInputTransport: Bool {
@@ -1368,6 +1408,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         activeBrokerWriteWasAttempted = false
         activeBrokerWriteOutcomeIsUnknown = false
         capturedBrokerEnterData = nil
+        if case .partiallyWritten = result {
+            uncertainComposerRecoveryRequired = true
+        }
         if submission.waitsForSemanticAcknowledgement {
             if case .rejectedBeforeWrite = result {
                 // Nothing entered the composer.
@@ -1395,6 +1438,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     func releaseHumanInputAfterSemanticAcknowledgement() {
         guard isAwaitingSemanticAcknowledgement else { return }
         isAwaitingSemanticAcknowledgement = false
+        uncertainComposerRecoveryRequired = false
         flushBufferedHumanInputIfPossible()
         startNextQueuedBrokerSubmissionIfNeeded()
     }
@@ -1407,6 +1451,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
               !isAwaitingSemanticAcknowledgement,
               pendingHumanWriteCount == 0,
               !humanWriteOutcomeUnknown,
+              !uncertainComposerRecoveryRequired,
               !bufferedHumanInputDuringBrokerSubmission.isEmpty,
               hasWritableInputTransport else { return }
         let input = bufferedHumanInputDuringBrokerSubmission.removeFirst()
@@ -1451,6 +1496,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
               bufferedHumanInputDuringBrokerSubmission.isEmpty,
               pendingHumanWriteCount == 0,
               !humanWriteOutcomeUnknown,
+              !uncertainComposerRecoveryRequired,
               !queuedBrokerSubmissions.isEmpty else { return }
         startBrokerSubmission(queuedBrokerSubmissions.removeFirst())
     }
@@ -1472,6 +1518,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         capturedBrokerEnterData = nil
         queuedBrokerSubmissions.removeAll(keepingCapacity: true)
         if let active {
+            if pasteMayHaveBeenWritten {
+                uncertainComposerRecoveryRequired = true
+            }
             active.completion?(
                 pasteMayHaveBeenWritten ? .partiallyWritten : .rejectedBeforeWrite
             )
@@ -1485,14 +1534,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     @discardableResult
     func brokerSendMirroredHumanInput(
         _ data: Data,
-        accepted: @escaping () -> Void,
-        outcomeUnknown: @escaping () -> Void
+        accepted: @escaping (Data) -> Void,
+        outcomeUnknown: @escaping (Data) -> Void
     ) -> Bool {
-        sendHumanInput(
+        let transmittedData = (uncertainComposerRecoveryRequired || humanWriteOutcomeUnknown)
+            && data.allSatisfy({ $0 == 0x03 })
+            ? Self.uncertainComposerCancelData
+            : data
+        return sendHumanInput(
             data,
             shouldNotifyDelegate: false,
-            accepted: accepted,
-            outcomeUnknown: outcomeUnknown
+            accepted: { accepted(transmittedData) },
+            outcomeUnknown: { outcomeUnknown(transmittedData) }
         )
     }
 

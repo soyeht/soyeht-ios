@@ -177,6 +177,11 @@ struct AgentMessageDraftGate: Equatable {
     /// paste, so byte parsing cannot prove the TUI composer is clear.
     mutating func markUncertainTerminalDraft() {
         hasUncertainTerminalDraft = true
+        // Do not clear `isInsideBracketedPaste`: an outcome-unknown write may
+        // have admitted ESC[200~ without ESC[201~. Opening the local gate
+        // while the TUI still treats CR/Ctrl-C as literal paste content would
+        // let the next relay splice into that composer. Recovery therefore
+        // sends an explicit paste-end boundary followed by Ctrl-C.
         escapeState = .normal
         controlSequenceBytes.removeAll(keepingCapacity: true)
     }

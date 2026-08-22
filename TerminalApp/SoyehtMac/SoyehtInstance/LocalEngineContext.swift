@@ -22,9 +22,13 @@ enum LocalEngineContext {
     /// context. Self-pairs on demand (mirroring `TheyOSAutoPairService`, the
     /// same flow `WelcomeRootView`/`LocalInstallView` run at onboarding) if
     /// no session exists yet — some onboarding paths skip local self-pair
-    /// when a remote server is paired first. Returns `nil` if self-pairing
-    /// also fails (e.g. the one-time bootstrap token was already consumed);
-    /// callers should fall back to `NativePTY` rather than block the pane.
+    /// when a remote server is paired first. On the first upgraded launch,
+    /// first attempt a fresh self-pair; only if it fails, preserve the one
+    /// legacy association main already trusted: an `.engine` row whose
+    /// persisted host is this profile's exact loopback admin host.
+    /// This migration is local metadata only -- it never sprays stored bearer
+    /// tokens at an unauthenticated listener. Tailnet/remote rows still need a
+    /// fresh self-pair and fail closed when that proof is unavailable.
     /// Why resolution failed, when it did.
     ///
     /// MEASURED on a cold boot, 2026-08-20: the app started at 11:27:08 and
@@ -55,11 +59,14 @@ enum LocalEngineContext {
         func verifiedServerID() -> String?
         func saveVerifiedServerID(_ serverID: String)
         func clearVerifiedServerID()
+        func hasAttemptedLegacyMigration() -> Bool
+        func markLegacyMigrationAttempted()
     }
 
     struct DefaultsIdentityStore: IdentityPersisting {
         private let defaults: UserDefaults
         private let key = "verifiedLocalEngineServerID"
+        private let migrationKey = "verifiedLocalEngineLegacyMigrationAttempted"
 
         init(defaults: UserDefaults = .standard) {
             self.defaults = defaults
@@ -75,6 +82,14 @@ enum LocalEngineContext {
 
         func clearVerifiedServerID() {
             defaults.removeObject(forKey: key)
+        }
+
+        func hasAttemptedLegacyMigration() -> Bool {
+            defaults.bool(forKey: migrationKey)
+        }
+
+        func markLegacyMigrationAttempted() {
+            defaults.set(true, forKey: migrationKey)
         }
     }
 
@@ -94,14 +109,43 @@ enum LocalEngineContext {
         if let verifiedID = identity.verifiedServerID(),
            let existing = store.pairedServers.first(where: { $0.kind == .engine && $0.id == verifiedID }),
            let context = store.context(for: existing.id) {
+            // A positively associated identity supersedes the compatibility
+            // migration. Consume that one-shot path now so a later 401 can
+            // only recover through a fresh self-pair.
+            identity.markLegacyMigrationAttempted()
             return .resolved(pinnedToLocalHost(context, localHost: localHost))
         }
         do {
             let paired = try await autoPair()
             guard let context = store.context(for: paired.id) else { return .unavailable }
             identity.saveVerifiedServerID(paired.id)
+            // Save the fresh positive identity first. If the process stops
+            // between these writes, the verified path above can consume the
+            // tombstone on the next launch; the reverse order could strand a
+            // freshly paired tailnet row after its bootstrap token was used.
+            identity.markLegacyMigrationAttempted()
             return .resolved(pinnedToLocalHost(context, localHost: localHost))
         } catch {
+            // One-shot compatibility with the exact identity rule used on
+            // main before `verifiedLocalEngineServerID` existed. A fresh
+            // self-pair always gets first refusal; migration never probes a
+            // stored bearer and never guesses among duplicate rows.
+            if identity.verifiedServerID() == nil,
+               !identity.hasAttemptedLegacyMigration() {
+                // Persist the tombstone before consulting/returning legacy
+                // state. A crash or later 401 therefore fails closed instead
+                // of silently promoting the same stale credential again.
+                identity.markLegacyMigrationAttempted()
+                let legacyLoopbackRows = store.pairedServers.filter {
+                    $0.kind == .engine && $0.host == localHost
+                }
+                if legacyLoopbackRows.count == 1,
+                   let legacyLocal = legacyLoopbackRows.first,
+                   let context = store.context(for: legacyLocal.id) {
+                    identity.saveVerifiedServerID(legacyLocal.id)
+                    return .resolved(context)
+                }
+            }
             logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
             return isNotAnsweringYet(error) ? .engineNotAnsweringYet : .unavailable
         }

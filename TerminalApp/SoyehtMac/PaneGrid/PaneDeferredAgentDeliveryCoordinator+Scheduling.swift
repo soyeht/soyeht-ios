@@ -1,6 +1,23 @@
 import Foundation
 
 extension PaneDeferredAgentDeliveryCoordinator {
+    /// A queued relay can be otherwise ready while the target agent is still
+    /// working. Re-run arbitration when a provider hook reports a new state.
+    func agentStateDidChange() {
+        scheduleIfSafe()
+    }
+
+    func terminalTransportDidAttachForBootstrapAutomation() {
+        isTerminalTransportAttachedForAutomation = true
+        scheduleIfSafe()
+    }
+
+    func terminalTransportDidBecomeReadyForAgentDelivery() {
+        isTerminalTransportAttachedForAutomation = true
+        isTerminalTransportReadyForAgentDelivery = true
+        scheduleIfSafe()
+    }
+
     func sendAutomationInput(
         text: String,
         submitWithEnter: Bool,
@@ -75,6 +92,7 @@ extension PaneDeferredAgentDeliveryCoordinator {
         if requiresSemanticAcknowledgement {
             awaitingAutomationSubmissionAcknowledgement = input.submissionID
             observedAutomationSubmissionAcknowledgement = false
+            awaitingAutomationCompletion = input.completion
         }
         agentMessageDraftGate.record(text: submissionText, submitsWithEnter: input.submitWithEnter)
         if agentMessageDraftGate.isClear {
@@ -98,6 +116,11 @@ extension PaneDeferredAgentDeliveryCoordinator {
                 if requiresSemanticAcknowledgement {
                     self.awaitingAutomationSubmissionAcknowledgement = nil
                     self.observedAutomationSubmissionAcknowledgement = false
+                    let completion = self.awaitingAutomationCompletion
+                    self.awaitingAutomationCompletion = nil
+                    completion?(.rejectedBeforeWrite)
+                } else {
+                    input.completion?(.rejectedBeforeWrite)
                 }
             case .partiallyWritten:
                 self.agentMessageDraftGate = previousGate
@@ -108,6 +131,13 @@ extension PaneDeferredAgentDeliveryCoordinator {
                 if requiresSemanticAcknowledgement,
                    self.observedAutomationSubmissionAcknowledgement {
                     self.completeAutomationSubmissionAfterSemanticHook()
+                } else if requiresSemanticAcknowledgement {
+                    self.scheduleAutomationAcknowledgementTimeout(
+                        submissionID: input.submissionID,
+                        generation: generation
+                    )
+                } else {
+                    input.completion?(.partiallyWritten)
                 }
             case .completed:
                 if requiresSemanticAcknowledgement {
@@ -116,13 +146,109 @@ extension PaneDeferredAgentDeliveryCoordinator {
                     } else {
                         self.agentMessageDraftGate.markUncertainTerminalDraft()
                         self.draftOwner = .automation
+                        self.scheduleAutomationAcknowledgementTimeout(
+                            submissionID: input.submissionID,
+                            generation: generation
+                        )
                     }
+                } else {
+                    input.completion?(.completed)
                 }
             }
-            input.completion?(result)
             self.isWritingTerminalSubmission = false
             self.scheduleIfSafe()
         }
+    }
+
+    /// No byte reached the terminal, so the durable at-most-once claim can be
+    /// rolled back safely. Persist that rollback before retrying; if storage
+    /// itself fails, restore the claimed snapshot and leave the message in the
+    /// observable `uncertain_not_replayed` state instead of risking a replay.
+    func handleRejectedAgentDeliveryBeforeWrite(_ delivery: DeferredAgentDelivery) {
+        guard let store = AppEnvironment.conversationStore,
+              let workspaceStore = AppEnvironment.workspaceStore,
+              let claimedInbox = store.conversation(conversationID)?.agentMessageInbox else {
+            pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+            return
+        }
+        do {
+            try store.mutateAgentMessageInbox(conversationID) { inbox in
+                try inbox.resetDeferredTerminalDeliveryStarted(delivery.messageID)
+            }
+        } catch {
+            pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+            return
+        }
+        guard workspaceStore.flushPendingSave() else {
+            _ = try? store.mutateAgentMessageInbox(conversationID) { inbox in
+                inbox = claimedInbox
+            }
+            _ = workspaceStore.flushPendingSave()
+            pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+            return
+        }
+        pendingTerminalSubmissions.insert(.agent(delivery), at: 0)
+    }
+
+    func scheduleAgentAcknowledgementTimeout(
+        messageID: AgentMessage.ID,
+        generation: Int
+    ) {
+        agentAcknowledgementTimeoutWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.transportGeneration == generation,
+                  self.awaitingAgentSubmissionAcknowledgement == messageID else { return }
+            self.agentAcknowledgementTimeoutWorkItem = nil
+            // Keep the exact expected hook and the durable uncertain claim.
+            // A late authenticated ACK may still finish the delivery; Ctrl-C
+            // is the explicit paste-aware escape hatch. A clock expiry alone
+            // must never open the next relay and recreate a splice.
+            if let conversation = AppEnvironment.conversationStore?.conversation(self.conversationID) {
+                AgentAttentionNotifier.shared.notifyAgentAttention(
+                    conversationID: self.conversationID,
+                    handle: conversation.handle,
+                    title: "Entrega aguardando confirmação",
+                    message: "O agente não confirmou a mensagem. Pressione Ctrl-C no pane para cancelar com segurança."
+                )
+            }
+        }
+        agentAcknowledgementTimeoutWorkItem = item
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.semanticAcknowledgementTimeout,
+            execute: item
+        )
+    }
+
+    func scheduleAutomationAcknowledgementTimeout(
+        submissionID: UUID,
+        generation: Int
+    ) {
+        automationAcknowledgementTimeoutWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.transportGeneration == generation,
+                  self.awaitingAutomationSubmissionAcknowledgement == submissionID else { return }
+            self.automationAcknowledgementTimeoutWorkItem = nil
+            // Return an honest unknown result to the waiting caller, while
+            // preserving the hold for a late exact ACK or explicit Ctrl-C.
+            let completion = self.awaitingAutomationCompletion
+            self.awaitingAutomationCompletion = nil
+            completion?(.partiallyWritten)
+            if let conversation = AppEnvironment.conversationStore?.conversation(self.conversationID) {
+                AgentAttentionNotifier.shared.notifyAgentAttention(
+                    conversationID: self.conversationID,
+                    handle: conversation.handle,
+                    title: "Automação aguardando confirmação",
+                    message: "O agente não confirmou o envio. Pressione Ctrl-C no pane para cancelar com segurança."
+                )
+            }
+        }
+        automationAcknowledgementTimeoutWorkItem = item
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.semanticAcknowledgementTimeout,
+            execute: item
+        )
     }
 
     private func canRun(_ submission: PendingTerminalSubmission) -> Bool {

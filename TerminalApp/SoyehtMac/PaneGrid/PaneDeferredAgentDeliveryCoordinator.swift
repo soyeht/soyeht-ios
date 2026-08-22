@@ -66,15 +66,18 @@ final class PaneDeferredAgentDeliveryCoordinator {
     /// whose Return was swallowed, reopening the no-splice race.
     var awaitingAutomationSubmissionAcknowledgement: UUID?
     var observedAutomationSubmissionAcknowledgement = false
+    var awaitingAutomationCompletion: ((MacOSWebSocketTerminalView.BrokerSubmissionResult) -> Void)?
     var agentMessageDraftGate = AgentMessageDraftGate()
     var draftOwner: DraftOwner = .none
     var deferredDeliveryWorkItem: DispatchWorkItem?
+    var agentAcknowledgementTimeoutWorkItem: DispatchWorkItem?
+    var automationAcknowledgementTimeoutWorkItem: DispatchWorkItem?
     var isWritingTerminalSubmission = false
     var isTerminalTransportReadyForAgentDelivery = true
     var isTerminalTransportAttachedForAutomation = true
     var transportGeneration = 0
     static let deliveryGrace: TimeInterval = 0.75
-
+    static let semanticAcknowledgementTimeout: TimeInterval = 15
     init(
         conversationID: Conversation.ID,
         terminalView: MacOSWebSocketTerminalView
@@ -82,11 +85,9 @@ final class PaneDeferredAgentDeliveryCoordinator {
         self.conversationID = conversationID
         self.terminalView = terminalView
     }
-
     func containsPendingMessage(_ messageID: AgentMessage.ID) -> Bool {
         pendingDeferredAgentMessageIDs.contains(messageID)
     }
-
     func enqueue(
         messageID: AgentMessage.ID,
         prepared: AgentPaneInputPlanner.Prepared,
@@ -102,29 +103,27 @@ final class PaneDeferredAgentDeliveryCoordinator {
         )
         scheduleIfSafe()
     }
-
     func recordHumanInput(_ data: Data) {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
         if data.contains(0x03), let messageID = awaitingAgentSubmissionAcknowledgement {
+            agentAcknowledgementTimeoutWorkItem?.cancel()
+            agentAcknowledgementTimeoutWorkItem = nil
             awaitingAgentSubmissionAcknowledgement = nil
             observedAgentSubmissionAcknowledgements.remove(messageID)
             pendingDeferredAgentMessageIDs.remove(messageID)
         }
         if data.contains(0x03) {
+            automationAcknowledgementTimeoutWorkItem?.cancel()
+            automationAcknowledgementTimeoutWorkItem = nil
             awaitingAutomationSubmissionAcknowledgement = nil
             observedAutomationSubmissionAcknowledgement = false
+            let completion = awaitingAutomationCompletion
+            awaitingAutomationCompletion = nil
+            completion?(.partiallyWritten)
         }
         agentMessageDraftGate.record(data)
         draftOwner = agentMessageDraftGate.isClear ? .none : .human
-        scheduleIfSafe()
-    }
-
-    /// A queued relay can be otherwise ready while the target agent is still
-    /// working. Re-run arbitration when a provider hook reports a new state;
-    /// without this edge, clearing the human draft during that turn leaves no
-    /// later event to release the queue after the agent becomes idle.
-    func agentStateDidChange() {
         scheduleIfSafe()
     }
 
@@ -146,10 +145,10 @@ final class PaneDeferredAgentDeliveryCoordinator {
     func markTerminalDraftStateUnknownAfterPersistentReattach() {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
+        terminalView.markUncertainComposerRecoveryRequired()
         agentMessageDraftGate.markUncertainTerminalDraft()
         draftOwner = .human
     }
-
     func markTerminalDraftStateUnknownAfterUnverifiedSubmission() {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
@@ -161,6 +160,10 @@ final class PaneDeferredAgentDeliveryCoordinator {
         transportGeneration += 1
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
+        agentAcknowledgementTimeoutWorkItem?.cancel()
+        agentAcknowledgementTimeoutWorkItem = nil
+        automationAcknowledgementTimeoutWorkItem?.cancel()
+        automationAcknowledgementTimeoutWorkItem = nil
         // Every queued agent item remains durable in the inbox. Drop its
         // process-specific Prepared payload and rebuild it only after the
         // replacement agent transport is ready; otherwise a switch could
@@ -170,6 +173,8 @@ final class PaneDeferredAgentDeliveryCoordinator {
         observedAgentSubmissionAcknowledgements.removeAll(keepingCapacity: true)
         awaitingAutomationSubmissionAcknowledgement = nil
         observedAutomationSubmissionAcknowledgement = false
+        let completion = awaitingAutomationCompletion
+        awaitingAutomationCompletion = nil
         let abandoned = pendingTerminalSubmissions
         pendingTerminalSubmissions.removeAll(keepingCapacity: true)
         for case .automation(let input) in abandoned {
@@ -180,17 +185,7 @@ final class PaneDeferredAgentDeliveryCoordinator {
         isWritingTerminalSubmission = false
         isTerminalTransportReadyForAgentDelivery = false
         isTerminalTransportAttachedForAutomation = false
-    }
-
-    func terminalTransportDidAttachForBootstrapAutomation() {
-        isTerminalTransportAttachedForAutomation = true
-        scheduleIfSafe()
-    }
-
-    func terminalTransportDidBecomeReadyForAgentDelivery() {
-        isTerminalTransportAttachedForAutomation = true
-        isTerminalTransportReadyForAgentDelivery = true
-        scheduleIfSafe()
+        completion?(.partiallyWritten)
     }
 
     /// A provider hook reporting `working` is the first semantic evidence
@@ -231,6 +226,8 @@ final class PaneDeferredAgentDeliveryCoordinator {
             return
         }
         pendingDeferredAgentMessageIDs.remove(messageID)
+        agentAcknowledgementTimeoutWorkItem?.cancel()
+        agentAcknowledgementTimeoutWorkItem = nil
         awaitingAgentSubmissionAcknowledgement = nil
         observedAgentSubmissionAcknowledgements.remove(messageID)
         terminalView.releaseHumanInputAfterSemanticAcknowledgement()
@@ -247,11 +244,16 @@ final class PaneDeferredAgentDeliveryCoordinator {
     func completeAutomationSubmissionAfterSemanticHook() {
         guard awaitingAutomationSubmissionAcknowledgement != nil,
               observedAutomationSubmissionAcknowledgement else { return }
+        automationAcknowledgementTimeoutWorkItem?.cancel()
+        automationAcknowledgementTimeoutWorkItem = nil
         awaitingAutomationSubmissionAcknowledgement = nil
         observedAutomationSubmissionAcknowledgement = false
+        let completion = awaitingAutomationCompletion
+        awaitingAutomationCompletion = nil
         agentMessageDraftGate.markSubmissionAcknowledged()
         draftOwner = .none
         terminalView.releaseHumanInputAfterSemanticAcknowledgement()
+        completion?(.completed)
         scheduleIfSafe()
     }
 
@@ -322,6 +324,10 @@ final class PaneDeferredAgentDeliveryCoordinator {
                 } else {
                     self.agentMessageDraftGate.markUncertainTerminalDraft()
                     self.draftOwner = .agent
+                    self.scheduleAgentAcknowledgementTimeout(
+                        messageID: delivery.messageID,
+                        generation: generation
+                    )
                 }
             case .partiallyWritten:
                 // The envelope paste is now a real unfinished draft. Hold all
@@ -335,14 +341,16 @@ final class PaneDeferredAgentDeliveryCoordinator {
                 self.draftOwner = .agent
                 if self.observedAgentSubmissionAcknowledgements.contains(delivery.messageID) {
                     self.completeAgentDeliveryAfterSemanticHook(messageID: delivery.messageID)
+                } else {
+                    self.scheduleAgentAcknowledgementTimeout(
+                        messageID: delivery.messageID,
+                        generation: generation
+                    )
                 }
             case .rejectedBeforeWrite:
                 self.awaitingAgentSubmissionAcknowledgement = nil
                 self.observedAgentSubmissionAcknowledgements.remove(delivery.messageID)
-                break
-            }
-            if case .rejectedBeforeWrite = result {
-                self.pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+                self.handleRejectedAgentDeliveryBeforeWrite(delivery)
             }
             self.scheduleIfSafe()
         }

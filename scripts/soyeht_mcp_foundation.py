@@ -26,7 +26,7 @@ MCP_CLIENT_CONTRACT_VERSION = 3
 
 def inferred_mcp_client_profile(module_path=None):
     explicit = os.environ.get("SOYEHT_MCP_PROFILE")
-    if explicit is not None:
+    if explicit is not None and explicit.strip():
         return explicit.strip().lower()
     # Compatibility for launchers installed by older Soyeht builds. Those
     # wrappers exec the bundled server without exporting a profile. The

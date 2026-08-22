@@ -1348,6 +1348,46 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(coordinator.contains("submitsWithEnter: false"))
         XCTAssertTrue(coordinator.contains("guard workspaceStore.flushPendingSave() else"))
         XCTAssertTrue(coordinator.contains("resetDeferredTerminalDeliveryStarted"))
+        XCTAssertTrue(coordinator.contains("handleRejectedAgentDeliveryBeforeWrite(delivery)"))
+        XCTAssertTrue(coordinator.contains("scheduleAgentAcknowledgementTimeout("))
+        XCTAssertTrue(coordinator.contains("scheduleAutomationAcknowledgementTimeout("))
+        XCTAssertTrue(coordinator.contains("Self.semanticAcknowledgementTimeout"))
+        XCTAssertTrue(coordinator.contains("releaseHumanInputAfterSemanticAcknowledgement()"))
+        XCTAssertTrue(coordinator.contains("awaitingAutomationCompletion = input.completion"))
+        XCTAssertFalse(automationFlush.contains("input.completion?(result)"))
+        let agentAckTimeout = try slice(
+            coordinator,
+            from: "func scheduleAgentAcknowledgementTimeout(",
+            to: "func scheduleAutomationAcknowledgementTimeout("
+        )
+        XCTAssertTrue(agentAckTimeout.contains("awaitingAgentSubmissionAcknowledgement == messageID"))
+        XCTAssertFalse(agentAckTimeout.contains("awaitingAgentSubmissionAcknowledgement = nil"))
+        XCTAssertFalse(agentAckTimeout.contains("releaseHumanInputAfterSemanticAcknowledgement"))
+        let automationAckTimeout = try slice(
+            coordinator,
+            from: "func scheduleAutomationAcknowledgementTimeout(",
+            to: "private func canRun("
+        )
+        XCTAssertTrue(automationAckTimeout.contains("completion?(.partiallyWritten)"))
+        XCTAssertFalse(automationAckTimeout.contains("awaitingAutomationSubmissionAcknowledgement = nil"))
+        XCTAssertFalse(automationAckTimeout.contains("releaseHumanInputAfterSemanticAcknowledgement"))
+        XCTAssertTrue(terminal.contains("uncertainComposerCancelData"))
+        XCTAssertTrue(terminal.contains("Data(\"\\u{1B}[201~\\u{03}\".utf8)"))
+        XCTAssertTrue(terminal.contains("uncertainComposerRecoveryRequired = true"))
+        XCTAssertTrue(terminal.contains("self?.uncertainComposerRecoveryRequired = false"))
+        XCTAssertTrue(terminal.contains("rejected: {"))
+        XCTAssertTrue(coordinator.contains("terminalView.markUncertainComposerRecoveryRequired()"))
+        XCTAssertTrue(mirroredInput.contains("accepted: { [weak self] admittedData in"))
+        XCTAssertTrue(mirroredInput.contains("recordHumanInput(admittedData)"))
+        let rejectedRollback = try slice(
+            coordinator,
+            from: "func handleRejectedAgentDeliveryBeforeWrite(",
+            to: "func scheduleAgentAcknowledgementTimeout("
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(rejectedRollback.range(of: "resetDeferredTerminalDeliveryStarted")?.lowerBound),
+            try XCTUnwrap(rejectedRollback.range(of: "pendingTerminalSubmissions.insert")?.lowerBound)
+        )
         XCTAssertTrue(coordinator.contains("pendingTerminalSubmissions.insert(contentsOf: segment, at: 0)"))
         XCTAssertTrue(terminal.contains("submission.allowsBracketedPaste"))
         XCTAssertFalse(automation.contains("terminalView.brokerSend"))
@@ -1363,10 +1403,10 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(mirror.contains("terminalView.brokerSend(data: data)"))
         XCTAssertLessThan(
             try XCTUnwrap(mirroredInput.range(of: "brokerSendMirroredHumanInput(")?.lowerBound),
-            try XCTUnwrap(mirroredInput.range(of: "recordHumanInput(data)")?.lowerBound)
+            try XCTUnwrap(mirroredInput.range(of: "recordHumanInput(admittedData)")?.lowerBound)
         )
         XCTAssertTrue(mirroredInput.contains("outcomeUnknown:"))
-        XCTAssertTrue(mirroredInput.contains("recordUncertainHumanInput(data)"))
+        XCTAssertTrue(mirroredInput.contains("recordUncertainHumanInput(attemptedData)"))
         XCTAssertTrue(mirroredTransport.contains("-> Bool"))
         XCTAssertTrue(mirroredTransport.contains("sendHumanInput("))
         XCTAssertTrue(terminal.contains("guard case .open = state, let task = webSocketTask else"))

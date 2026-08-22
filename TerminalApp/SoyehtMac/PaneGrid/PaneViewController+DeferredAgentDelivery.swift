@@ -95,11 +95,11 @@ extension PaneViewController {
     func sendMirroredHumanInputForDeferredDeliverySafety(_ data: Data) {
         _ = terminalView.brokerSendMirroredHumanInput(
             data,
-            accepted: { [weak self] in
-                self?.deferredAgentDeliveryCoordinator.recordHumanInput(data)
+            accepted: { [weak self] admittedData in
+                self?.deferredAgentDeliveryCoordinator.recordHumanInput(admittedData)
             },
-            outcomeUnknown: { [weak self] in
-                self?.deferredAgentDeliveryCoordinator.recordUncertainHumanInput(data)
+            outcomeUnknown: { [weak self] attemptedData in
+                self?.deferredAgentDeliveryCoordinator.recordUncertainHumanInput(attemptedData)
             }
         )
     }

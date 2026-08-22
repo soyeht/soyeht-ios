@@ -104,6 +104,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             )
             self.assertEqual(foundation("/tmp/worktree/scripts/soyeht_mcp_foundation.py"), "dev")
 
+    def test_empty_profile_override_is_treated_as_unset(self):
+        foundation = MODULE["inferred_mcp_client_profile"]
+        with patch.dict(os.environ, {"SOYEHT_MCP_PROFILE": "  "}, clear=True):
+            self.assertEqual(
+                foundation("/Applications/Soyeht.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "release",
+            )
+
     def test_signed_dev_builder_embeds_and_rechecks_binary_provenance(self):
         repo_root = Path(__file__).resolve().parents[2]
         script = (repo_root / "scripts" / "build-install-soyeht-dev").read_text()

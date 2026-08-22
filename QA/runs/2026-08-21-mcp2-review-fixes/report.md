@@ -1,5 +1,11 @@
 # MCP 2.0 independent-review fixes
 
+> Historical run. Its failed physical-ring artifact was removed so it cannot
+> be mistaken for final-build evidence. The superseding exact-build 3/3 result
+> is recorded in
+> [the 2026-08-22 merge gate](../2026-08-22-mcp2-merge-gate/report.md) and its
+> `physical-collision-summary.json`.
+
 This run addresses the four merge-blocking defects reported by the independent
 review of PR #56. The changes were tested against the signed Soyeht Dev app,
 not only against model metadata or source-code assertions.
@@ -60,7 +66,8 @@ not only against model metadata or source-code assertions.
   passed. Claude-to-Codex preserved the draft and correctly retained the relay,
   but the Accessibility harness's first synthetic Return did not submit the
   visible Codex draft within the timeout. This is recorded as a harness/focus
-  failure, not a product pass. Raw evidence: `physical-ring.json`.
+  failure, not a product pass. That superseded artifact was removed after the
+  exact-build rerun passed all three routes.
 
 ## Remaining follow-ups
 

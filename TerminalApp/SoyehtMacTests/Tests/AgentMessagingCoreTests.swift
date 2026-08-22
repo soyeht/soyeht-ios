@@ -189,6 +189,29 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
+    func testUncertainBracketedPasteRequiresPasteEndBeforeControlC() {
+        var gate = AgentMessageDraftGate()
+        gate.record(Data("\u{1B}[200~unfinished".utf8))
+        gate.markUncertainTerminalDraft()
+        XCTAssertFalse(gate.isClear)
+
+        gate.record(Data([0x03]))
+        XCTAssertFalse(gate.isClear, "Ctrl-C is literal while the TUI remains inside paste")
+
+        gate.record(Data("\u{1B}[201~\u{03}".utf8))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testUncertainBracketedPasteDoesNotTreatReturnAsSubmission() {
+        var gate = AgentMessageDraftGate()
+        gate.record(Data("\u{1B}[200~unfinished".utf8))
+        gate.markUncertainTerminalDraft()
+        XCTAssertFalse(gate.isClear)
+
+        gate.record(Data([0x0D]))
+        XCTAssertFalse(gate.isClear, "Return is literal while the TUI remains inside paste")
+    }
+
     func testCursorMovementMakesBackspaceAndCtrlUConservativelyUncertain() {
         var gate = AgentMessageDraftGate()
         gate.record(Data("echo SAFE_SUFFIX".utf8))
