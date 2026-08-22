@@ -179,6 +179,7 @@ def main() -> int:
     snapshot_path = Path(args.workspace_snapshot).expanduser().resolve()
     unique = str(int(time()))
     workspace_id = None
+    parking_workspace_id = None
 
     windows = mcp.tool_list_windows({
         "automationDir": automation_dir,
@@ -342,9 +343,48 @@ def main() -> int:
             "message": old_contract["message"],
         })
 
+        # Leave the owning agent in an inactive workspace before relaunch.
+        # This distinguishes store-level credential rehydration from the lazy
+        # PaneViewController restore path, which only runs after a human visits
+        # the workspace.
+        parking_workspace = mcp.tool_open_workspace({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "name": f"mcp2-security-parking-{unique}",
+            "agent": "shell",
+            "panes": [{
+                "name": f"mcp2-security-parking-shell-{unique}",
+                "path": str(repo_root),
+                "agent": "shell",
+                "command": "/bin/cat",
+            }],
+        })
+        parking_workspace_id = parking_workspace["createdPanes"][0]["workspaceID"]
+        active_before_restart = mcp.tool_get_active_context({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+        })
+        require(
+            active_before_restart.get("activeContext", {}).get("workspaceID")
+            == parking_workspace_id,
+            "The parking workspace did not become active before restart.",
+        )
+
         resumed_windows = restart_dev_and_wait(mcp, automation_dir, args.timeout)
         resumed_window_ids = {item["windowID"] for item in resumed_windows["listedWindows"]}
         require(window_id in resumed_window_ids, "The persistent test window did not restore.")
+        active_after_restart = mcp.tool_get_active_context({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+        })
+        require(
+            active_after_restart.get("activeContext", {}).get("workspaceID")
+            == parking_workspace_id,
+            "The original agent workspace was materialized during restart.",
+        )
         restored_ownership = wait_for_restored_ownership(
             root,
             mcp,
@@ -358,9 +398,11 @@ def main() -> int:
             f"Restored pane lost its launch ownership: {restored_ownership.get('message')}",
         )
         cases.append({
-            "case": "launch-ownership-survives-app-restart",
+            "case": "inactive-workspace-launch-ownership-survives-app-restart",
             "expected": "accepted",
             "result": "accepted",
+            "activeWorkspaceID": parking_workspace_id,
+            "agentWorkspaceID": workspace_id,
         })
 
         app_path = Path("/Applications/Soyeht Dev.app")
@@ -396,6 +438,16 @@ def main() -> int:
         print(rendered, end="")
         return 0
     finally:
+        if parking_workspace_id:
+            try:
+                mcp.tool_close_workspace({
+                    "automationDir": automation_dir,
+                    "timeout": args.timeout,
+                    "targetWindowID": window_id,
+                    "workspaceIDs": [parking_workspace_id],
+                })
+            except Exception as error:
+                print(json.dumps({"cleanupWarning": str(error)}))
         if workspace_id:
             try:
                 mcp.tool_close_workspace({

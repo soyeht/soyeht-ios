@@ -6,21 +6,25 @@ not only against model metadata or source-code assertions.
 
 ## Corrected behavior
 
-1. **Launch ownership survives app restart.** The per-launch nonce is persisted
-   with its conversation, restored into `PaneStatusTracker`, and reused when a
-   persistent engine pane reconnects. A runtime probe accepted the owning
-   pane's nonce, rejected a different live pane's valid nonce, restarted the
-   app, and accepted the original owner again after restoration.
+1. **Launch ownership survives app restart without visiting the workspace.**
+   The per-launch nonce is persisted with its conversation and every live
+   engine credential is restored into `PaneStatusTracker` during store
+   bootstrap, before lazy workspace views are materialized. The runtime probe
+   leaves the agent in an inactive workspace, restarts the app into a separate
+   parking workspace, and authenticates the inactive agent without opening its
+   tab.
 2. **Batch acknowledgement is atomic with respect to pruning.** IDs are
    deduplicated and preflighted before mutation, the batch is applied once, and
    completed records are pruned once afterward. Retention age now starts at
    actual completion rather than creation, so acknowledging an old pending
    message does not immediately erase it.
-3. **A second relay cannot splice into replayed human input.** Deferred delivery
+3. **A second terminal submission cannot splice into replayed human input.** Deferred delivery
    no longer queues another envelope behind an active broker paste/Return
    transaction. Human bytes are replayed first, the draft gate observes them,
-   and only a later submit/cancel can release the next relay. Mirrored group
-   input uses the same safety path.
+   and only a later submit/cancel can release the next relay or a complete
+   `send_pane_input`. Mirrored group input is recorded only after a live
+   terminal transport accepts it, so disconnected panes do not acquire phantom
+   drafts.
 4. **`message_agent` always submits a complete message.** Its public schema now
    accepts only `lineEnding=enter`, the Python server rejects raw/unsubmitted
    variants, and the app independently rejects them at the wire boundary.
@@ -55,6 +59,6 @@ not only against model metadata or source-code assertions.
 
 The other independent-review observations were not silently folded into this
 fix. They remain in `docs/mcp2-followups.md`, including manually launched agents
-in shell panes, pause semantics, inbox visibility, concurrent workspace
-parking, total multi-pane creation deadlines, installer rollback coverage, and
-broader CLI/IME coverage.
+in shell panes, pause semantics, inbox visibility, terminal receipt semantics,
+nonce storage at rest, concurrent workspace parking, total multi-pane creation
+deadlines, installer rollback coverage, and broader CLI/IME coverage.

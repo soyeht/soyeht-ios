@@ -918,14 +918,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         sendInputData(bytes)
     }
 
-    private func sendInputData(_ bytes: Data) {
+    /// Returns whether the bytes were accepted by a live transport. This is
+    /// intentionally synchronous admission, not a remote acknowledgement;
+    /// callers use it to avoid recording drafts for bytes that were dropped
+    /// locally while a PTY/WebSocket was unavailable.
+    @discardableResult
+    private func sendInputData(_ bytes: Data) -> Bool {
         // Local PTY transport: write raw bytes straight to the master fd.
         // Skip the WebSocket JSON framing entirely.
         if let pty = localPTY {
             pty.write(bytes)
-            return
+            return true
         }
-        guard case .open = state, let task = webSocketTask else { return }
+        guard case .open = state, let task = webSocketTask else { return false }
 
         // All sends (keystrokes and pastes) flow through the serial
         // sendQueue for FIFO ordering between any pair of consecutive
@@ -952,6 +957,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 }
             }
         }
+        return true
     }
 
     func scrolled(source: TerminalView, position: Double) {
@@ -1026,6 +1032,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         activeBrokerSubmission != nil
     }
 
+    /// Synchronous admission signal for the pane-level arbiter. It means a
+    /// local transport can accept bytes now; it is not a remote/TUI receipt.
+    var canAcceptBrokerSubmission: Bool {
+        hasWritableInputTransport
+    }
+
+    private var hasWritableInputTransport: Bool {
+        if localPTY != nil { return true }
+        guard case .open = state else { return false }
+        return webSocketTask != nil
+    }
+
     private func startBrokerSubmission(_ submission: BrokerSubmission) {
         activeBrokerSubmission = submission
         let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
@@ -1086,14 +1104,16 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Group input is still human input. Keep it outside an active
     /// paste/Return transaction and replay it afterward without notifying the
     /// delegate twice (PaneViewController already recorded it in the gate).
-    func brokerSendMirroredHumanInput(_ data: Data) {
+    @discardableResult
+    func brokerSendMirroredHumanInput(_ data: Data) -> Bool {
         guard activeBrokerSubmission != nil else {
-            sendInputData(data)
-            return
+            return sendInputData(data)
         }
+        guard hasWritableInputTransport else { return false }
         bufferedHumanInputDuringBrokerSubmission.append(
             BufferedHumanInput(data: data, shouldNotifyDelegate: false)
         )
+        return true
     }
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active

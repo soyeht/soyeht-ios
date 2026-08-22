@@ -331,11 +331,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     /// Mirrored group keystrokes are human drafts in the destination pane as
-    /// well. Record them before transport and keep them out of any active
-    /// broker paste/Return transaction.
+    /// well. Record them only after a live transport accepts the bytes, and
+    /// keep them out of any active broker paste/Return transaction.
     func sendMirroredHumanInputForDeferredDeliverySafety(_ data: Data) {
+        guard terminalView.brokerSendMirroredHumanInput(data) else { return }
         deferredAgentDeliveryCoordinator.recordHumanInput(data)
-        terminalView.brokerSendMirroredHumanInput(data)
     }
 
     /// Programmatically claim focus — used by the parent grid when activation

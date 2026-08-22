@@ -100,6 +100,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 ids.forEach { conversationStore?.remove($0) }
             }
         ))
+        // Engine panes persist independently of their lazy workspace views.
+        // Restore every live launch credential now so agents in inactive
+        // workspaces remain authenticated immediately after app relaunch.
+        PaneStatusTracker.shared.rehydratePersistentLaunchOwnership(
+            from: conversationStore.all
+        )
         Typography.bootstrap()
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")

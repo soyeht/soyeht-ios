@@ -96,6 +96,20 @@ final class PaneStatusTracker {
         expectedHandshakeNonce[paneID] = nonce
     }
 
+    /// Rebuild possession expectations before any workspace pane is
+    /// materialized. Persistent engine processes outlive the app and can send
+    /// MCP requests while their workspace is still an unopened tab; tying
+    /// this restoration to PaneViewController creation makes authentication
+    /// depend on a human visiting that workspace.
+    func rehydratePersistentLaunchOwnership(from conversations: [Conversation]) {
+        for conversation in conversations {
+            guard case .engineLocal = conversation.commander,
+                  let nonce = conversation.agentLaunchOwnershipNonce,
+                  !nonce.isEmpty else { continue }
+            registerLaunchOwnership(paneID: conversation.id, nonce: nonce)
+        }
+    }
+
     func handshakeState(for paneID: Conversation.ID) -> HandshakeState {
         handshakeStates[paneID] ?? .notExpected
     }

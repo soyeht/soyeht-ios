@@ -1,7 +1,7 @@
 {
   "app": {
     "bundleID": "com.soyeht.mac.dev",
-    "commit": "146f14ce",
+    "commit": "ac622885",
     "installation": "/Applications/Soyeht Dev.app",
     "signedTeamID": "W7677A5BK2"
   },
@@ -9,7 +9,7 @@
     {
       "case": "legacy-agent-write",
       "expected": "rejected",
-      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787349454. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787357232. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
       "result": "rejected"
     },
     {
@@ -42,19 +42,21 @@
       "result": "rejected"
     },
     {
-      "case": "launch-ownership-survives-app-restart",
+      "activeWorkspaceID": "68BE332D-60EE-4394-B69C-3AA315F9AE14",
+      "agentWorkspaceID": "CE5DC822-E303-420E-B72B-5949A870861A",
+      "case": "inactive-workspace-launch-ownership-survives-app-restart",
       "expected": "accepted",
       "result": "accepted"
     }
   ],
   "createdAgents": {
     "codex": {
-      "conversationID": "DE9101FB-CBC8-436E-9FCC-CC72164D175D",
-      "handle": "@mcp2-security-codex-1787349454"
+      "conversationID": "C94FFD5F-E01A-4E6E-BEE1-88513D863911",
+      "handle": "@mcp2-security-codex-1787357232"
     },
     "opencode": {
-      "conversationID": "7CE80463-14FD-4466-A200-FB9E356D9EEC",
-      "handle": "@mcp2-security-opencode-1787349454"
+      "conversationID": "7C10D85E-679C-48C8-AD71-1407CE7AF886",
+      "handle": "@mcp2-security-opencode-1787357232"
     }
   },
   "status": "passed"

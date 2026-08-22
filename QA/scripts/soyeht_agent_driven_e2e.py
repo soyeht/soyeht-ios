@@ -385,6 +385,93 @@ end run
     )
 
 
+def click_soyeht_dev_pane(expected_window_id, pane_label):
+    """Click terminal content below an exact, visible pane-header label."""
+    try:
+        import Quartz
+    except ImportError as exc:
+        raise RuntimeError(
+            "--physical-keyboard-only requires macOS PyObjC Quartz bindings."
+        ) from exc
+
+    expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
+    visible_label = str(pane_label).removeprefix("@")
+    script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  set expectedLabel to item 2 of argv
+  tell application "System Events" to tell process "Soyeht Dev"
+    if frontmost is not true then error "Soyeht Dev is not frontmost"
+    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+    set elements to entire contents of targetWindow
+    repeat with elementRef in elements
+      try
+        if role of elementRef is "AXStaticText" then
+          if (value of elementRef as text) is expectedLabel then
+            set {elementX, elementY} to position of elementRef
+            set {elementWidth, elementHeight} to size of elementRef
+            return (elementX as text) & "," & (elementY as text) & "," & (elementWidth as text) & "," & (elementHeight as text)
+          end if
+        end if
+      end try
+    end repeat
+    error "Visible pane label was not found: " & expectedLabel
+  end tell
+end run
+'''
+    latest_error = ""
+    for _ in range(8):
+        raise_soyeht_dev_window(expected_window_id)
+        completed = subprocess.run(
+            [
+                "/usr/bin/osascript",
+                "-e",
+                script,
+                expected_identifier,
+                visible_label,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            try:
+                element_x, element_y, element_width, element_height = [
+                    float(value.strip())
+                    for value in completed.stdout.strip().split(",")
+                ]
+            except (TypeError, ValueError) as exc:
+                latest_error = f"invalid pane-label bounds: {completed.stdout!r} ({exc})"
+                sleep(0.25)
+                continue
+            point = (
+                element_x + element_width * 0.5,
+                element_y + element_height * 0.5,
+            )
+            mouse_down = Quartz.CGEventCreateMouseEvent(
+                None,
+                Quartz.kCGEventLeftMouseDown,
+                point,
+                Quartz.kCGMouseButtonLeft,
+            )
+            mouse_up = Quartz.CGEventCreateMouseEvent(
+                None,
+                Quartz.kCGEventLeftMouseUp,
+                point,
+                Quartz.kCGMouseButtonLeft,
+            )
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, mouse_down)
+            sleep(0.05)
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, mouse_up)
+            sleep(0.15)
+            return
+        latest_error = completed.stderr.strip()
+        sleep(0.25)
+    raise RuntimeError(
+        f"Could not click pane {visible_label!r} in Soyeht Dev window "
+        f"{expected_window_id}: {latest_error}"
+    )
+
+
 def source_args(pane, automation_dir, timeout):
     # This process is an external test observer, not the pane. Never attach a
     # fromConversationID/fromHandle claim or a stolen launch nonce.

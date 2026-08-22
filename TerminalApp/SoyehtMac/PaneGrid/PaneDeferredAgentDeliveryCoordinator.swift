@@ -4,25 +4,46 @@
 //
 
 import Foundation
-
 /// Owns the in-memory compatibility queue that sits in front of an agent
-/// pane's PTY. The durable inbox remains the source of truth; this coordinator
-/// only decides when a persisted message can be written without splicing it
-/// into a human draft.
+/// pane's PTY. The durable inbox remains the source of truth; this only decides
+/// when a persisted message can be written without splicing into a human draft.
 @MainActor
 final class PaneDeferredAgentDeliveryCoordinator {
     private struct DeferredAgentDelivery {
         let messageID: AgentMessage.ID
         let prepared: AgentPaneInputPlanner.Prepared
     }
+    private struct DeferredAutomationInput {
+        let text: String
+        let submitWithEnter: Bool
+    }
+    private enum PendingTerminalSubmission {
+        case agent(DeferredAgentDelivery)
+        case automation(DeferredAutomationInput)
 
+        var requiresHumanInputGrace: Bool {
+            if case .agent = self { return true }
+            return false
+        }
+
+        var requiresClearHumanDraft: Bool {
+            switch self {
+            case .agent:
+                return true
+            case .automation(let input):
+                // Complete commands wait; raw input may intentionally continue,
+                // edit, or cancel the draft (for example CR/Backspace).
+                return input.submitWithEnter
+            }
+        }
+    }
     private let conversationID: Conversation.ID
     private let terminalView: MacOSWebSocketTerminalView
-    private var deferredAgentDeliveries: [DeferredAgentDelivery] = []
+    private var pendingTerminalSubmissions: [PendingTerminalSubmission] = []
     private var pendingDeferredAgentMessageIDs: Set<AgentMessage.ID> = []
     private var agentMessageDraftGate = AgentMessageDraftGate()
     private var deferredDeliveryWorkItem: DispatchWorkItem?
-    private var isWritingDeferredAgentDelivery = false
+    private var isWritingTerminalSubmission = false
     private static let deliveryGrace: TimeInterval = 0.75
 
     init(
@@ -42,8 +63,8 @@ final class PaneDeferredAgentDeliveryCoordinator {
         prepared: AgentPaneInputPlanner.Prepared
     ) {
         guard pendingDeferredAgentMessageIDs.insert(messageID).inserted else { return }
-        deferredAgentDeliveries.append(
-            DeferredAgentDelivery(messageID: messageID, prepared: prepared)
+        pendingTerminalSubmissions.append(
+            .agent(DeferredAgentDelivery(messageID: messageID, prepared: prepared))
         )
         scheduleIfSafe()
     }
@@ -61,40 +82,79 @@ final class PaneDeferredAgentDeliveryCoordinator {
     ) {
         deferredDeliveryWorkItem?.cancel()
         deferredDeliveryWorkItem = nil
-        agentMessageDraftGate.record(text: text, submitsWithEnter: submitWithEnter)
-        terminalView.brokerSend(text: text, submitWithEnter: submitWithEnter)
+        let input = DeferredAutomationInput(text: text, submitWithEnter: submitWithEnter)
+        let submission = PendingTerminalSubmission.automation(input)
+        if !submitWithEnter,
+           !agentMessageDraftGate.isClear,
+           let blockedIndex = pendingTerminalSubmissions.firstIndex(where: \.requiresClearHumanDraft) {
+            // Raw controls can release the draft holding a complete submission.
+            pendingTerminalSubmissions.insert(submission, at: blockedIndex)
+        } else {
+            pendingTerminalSubmissions.append(submission)
+        }
         scheduleIfSafe()
     }
 
     private func scheduleIfSafe() {
-        guard agentMessageDraftGate.isClear,
-              !isWritingDeferredAgentDelivery,
-              !deferredAgentDeliveries.isEmpty else { return }
+        guard !isWritingTerminalSubmission,
+              let next = pendingTerminalSubmissions.first else { return }
+        guard !next.requiresClearHumanDraft || agentMessageDraftGate.isClear else { return }
         deferredDeliveryWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             self?.flushOne()
         }
         deferredDeliveryWorkItem = item
+        let transportIsBusyOrUnavailable = terminalView.isBrokerSubmissionInFlight
+            || !terminalView.canAcceptBrokerSubmission
+        let delay = transportIsBusyOrUnavailable
+            ? Self.deliveryGrace
+            : (next.requiresHumanInputGrace ? Self.deliveryGrace : 0)
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.deliveryGrace,
+            deadline: .now() + delay,
             execute: item
         )
     }
 
     private func flushOne() {
         deferredDeliveryWorkItem = nil
-        guard agentMessageDraftGate.isClear,
-              !isWritingDeferredAgentDelivery,
-              !deferredAgentDeliveries.isEmpty else { return }
-        guard !terminalView.isBrokerSubmissionInFlight else {
-            // Never queue an agent envelope behind a broker transaction. Its
-            // completion may replay human input and close the draft gate.
+        guard !isWritingTerminalSubmission,
+              let next = pendingTerminalSubmissions.first else { return }
+        guard !next.requiresClearHumanDraft || agentMessageDraftGate.isClear else { return }
+        guard !terminalView.isBrokerSubmissionInFlight,
+              terminalView.canAcceptBrokerSubmission else {
+            // Completion may replay human input and close the gate. Do not
+            // queue behind it or record bytes a disconnected transport drops.
             scheduleIfSafe()
             return
         }
-        let delivery = deferredAgentDeliveries.removeFirst()
+        let submission = pendingTerminalSubmissions.removeFirst()
+        switch submission {
+        case .automation(let input):
+            flushAutomationInput(input)
+        case .agent(let delivery):
+            flushAgentDelivery(delivery)
+        }
+    }
+
+    private func flushAutomationInput(_ input: DeferredAutomationInput) {
+        agentMessageDraftGate.record(
+            text: input.text,
+            submitsWithEnter: input.submitWithEnter
+        )
+        isWritingTerminalSubmission = true
+        terminalView.brokerSend(
+            text: input.text,
+            submitWithEnter: input.submitWithEnter
+        ) { [weak self] in
+            guard let self else { return }
+            self.isWritingTerminalSubmission = false
+            self.scheduleIfSafe()
+        }
+    }
+
+    private func flushAgentDelivery(_ delivery: DeferredAgentDelivery) {
         guard let store = AppEnvironment.conversationStore else {
-            deferredAgentDeliveries.insert(delivery, at: 0)
+            pendingTerminalSubmissions.insert(.agent(delivery), at: 0)
             scheduleIfSafe()
             return
         }
@@ -104,13 +164,13 @@ final class PaneDeferredAgentDeliveryCoordinator {
             guard try store.mutateAgentMessageInbox(conversationID, { inbox in
                 didClaim = try inbox.markDeferredTerminalDeliveryStarted(delivery.messageID)
             }) != nil else {
-                deferredAgentDeliveries.insert(delivery, at: 0)
+                pendingTerminalSubmissions.insert(.agent(delivery), at: 0)
                 scheduleIfSafe()
                 return
             }
             claimed = didClaim
         } catch {
-            deferredAgentDeliveries.insert(delivery, at: 0)
+            pendingTerminalSubmissions.insert(.agent(delivery), at: 0)
             scheduleIfSafe()
             return
         }
@@ -121,14 +181,14 @@ final class PaneDeferredAgentDeliveryCoordinator {
             scheduleIfSafe()
             return
         }
-        isWritingDeferredAgentDelivery = true
+        isWritingTerminalSubmission = true
         terminalView.brokerSend(
             text: delivery.prepared.payload,
             submitWithEnter: delivery.prepared.shouldSendEnterKey,
             focusBeforeSubmit: false
         ) { [weak self] in
             guard let self else { return }
-            self.isWritingDeferredAgentDelivery = false
+            self.isWritingTerminalSubmission = false
             _ = try? AppEnvironment.conversationStore?.mutateAgentMessageInbox(self.conversationID) { inbox in
                 try inbox.markDeferredTerminalDelivered(delivery.messageID)
             }

@@ -1174,10 +1174,22 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             to: "private static func deliverAgentPromptWithAcknowledgement("
         )
         let paneController = try macSource("PaneGrid/PaneViewController.swift")
+        let appDelegate = try macSource("AppDelegate.swift")
+        let tracker = try macSource("Pairing/PaneStatusTracker.swift")
         let restore = try slice(
             paneController,
             from: "private func restoreEnginePaneIfNeeded(for conv: Conversation)",
             to: "private func stillRestorableEngineConversation("
+        )
+        let bootstrap = try slice(
+            appDelegate,
+            from: "workspaceStore.bootstrap(bridge:",
+            to: "Typography.bootstrap()"
+        )
+        let rehydrate = try slice(
+            tracker,
+            from: "func rehydratePersistentLaunchOwnership(",
+            to: "func handshakeState("
         )
 
         XCTAssertTrue(attach.contains("updateAgentLaunchOwnershipNonce(paneID, nonce: launchNonce)"))
@@ -1188,11 +1200,18 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(restore.contains("liveConversation.agentLaunchOwnershipNonce"))
         XCTAssertTrue(restore.contains("registerLaunchOwnership("))
         XCTAssertTrue(restore.contains("launchNonce: restoredLaunchNonce"))
+        XCTAssertTrue(bootstrap.contains(
+            "rehydratePersistentLaunchOwnership(\n            from: conversationStore.all"
+        ))
+        XCTAssertTrue(rehydrate.contains("case .engineLocal = conversation.commander"))
+        XCTAssertTrue(rehydrate.contains("conversation.agentLaunchOwnershipNonce"))
+        XCTAssertTrue(rehydrate.contains("registerLaunchOwnership(paneID: conversation.id, nonce: nonce)"))
     }
 
     func testDeferredAgentDeliveryRechecksHumanDraftAfterEveryBrokerTransaction() throws {
         let coordinator = try macSource("PaneGrid/PaneDeferredAgentDeliveryCoordinator.swift")
         let terminal = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        let paneController = try macSource("PaneGrid/PaneViewController.swift")
         let mainController = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let flush = try slice(
             coordinator,
@@ -1209,20 +1228,58 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "func mirrorTerminalInput(",
             to: "private func sendGroupVoiceText("
         )
+        let automation = try slice(
+            coordinator,
+            from: "func sendAutomationInput(",
+            to: "private func scheduleIfSafe()"
+        )
+        let automationFlush = try slice(
+            coordinator,
+            from: "private func flushAutomationInput(",
+            to: "private func flushAgentDelivery("
+        )
+        let mirroredInput = try slice(
+            paneController,
+            from: "func sendMirroredHumanInputForDeferredDeliverySafety(",
+            to: "func claimFocus()"
+        )
+        let mirroredTransport = try slice(
+            terminal,
+            from: "func brokerSendMirroredHumanInput(",
+            to: "func brokerSendEnterKey("
+        )
 
         XCTAssertTrue(flush.contains("!terminalView.isBrokerSubmissionInFlight"))
+        XCTAssertTrue(flush.contains("terminalView.canAcceptBrokerSubmission"))
         XCTAssertLessThan(
             try XCTUnwrap(flush.range(of: "!terminalView.isBrokerSubmissionInFlight")?.lowerBound),
-            try XCTUnwrap(flush.range(of: "deferredAgentDeliveries.removeFirst()")?.lowerBound)
+            try XCTUnwrap(flush.range(of: "pendingTerminalSubmissions.removeFirst()")?.lowerBound)
         )
-        XCTAssertTrue(flush.contains("isWritingDeferredAgentDelivery = true"))
-        XCTAssertTrue(flush.contains("self.isWritingDeferredAgentDelivery = false"))
+        XCTAssertTrue(coordinator.contains("isWritingTerminalSubmission = true"))
+        XCTAssertTrue(coordinator.contains("self.isWritingTerminalSubmission = false"))
+        XCTAssertTrue(automation.contains("pendingTerminalSubmissions.append"))
+        XCTAssertTrue(automation.contains("PendingTerminalSubmission.automation(input)"))
+        XCTAssertTrue(automation.contains("firstIndex(where: \\.requiresClearHumanDraft)"))
+        XCTAssertTrue(automation.contains("pendingTerminalSubmissions.insert(submission, at: blockedIndex)"))
+        XCTAssertFalse(automation.contains("terminalView.brokerSend"))
+        XCTAssertLessThan(
+            try XCTUnwrap(automationFlush.range(of: "agentMessageDraftGate.record")?.lowerBound),
+            try XCTUnwrap(automationFlush.range(of: "terminalView.brokerSend")?.lowerBound)
+        )
         XCTAssertLessThan(
             try XCTUnwrap(finish.range(of: "onUserInputData?(input.data)")?.lowerBound),
             try XCTUnwrap(finish.range(of: "submission.completion?()")?.lowerBound)
         )
         XCTAssertTrue(mirror.contains("sendMirroredHumanInputForDeferredDeliverySafety(data)"))
         XCTAssertFalse(mirror.contains("terminalView.brokerSend(data: data)"))
+        XCTAssertLessThan(
+            try XCTUnwrap(mirroredInput.range(of: "brokerSendMirroredHumanInput(data)")?.lowerBound),
+            try XCTUnwrap(mirroredInput.range(of: "recordHumanInput(data)")?.lowerBound)
+        )
+        XCTAssertTrue(mirroredInput.contains("guard terminalView.brokerSendMirroredHumanInput(data) else { return }"))
+        XCTAssertTrue(mirroredTransport.contains("-> Bool"))
+        XCTAssertTrue(mirroredTransport.contains("guard hasWritableInputTransport else { return false }"))
+        XCTAssertTrue(terminal.contains("guard case .open = state, let task = webSocketTask else { return false }"))
     }
 
     func testAgentMessagesRejectUnsubmittedLineEndingsAtTheAppBoundary() throws {

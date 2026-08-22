@@ -40,6 +40,25 @@ each item still needs a product decision or a focused validation.
   ID and may duplicate terminal-visible content.
 - Product decision remains open between observable at-most-once and an
   alternative at-least-once policy with idempotency support.
+- Decide whether acknowledged deferred-terminal records that never obtain a
+  delivery timestamp remain durable forever or receive a separate retention
+  ceiling. The current completion-date policy deliberately does not prune
+  them as ordinary completed messages.
+
+### Terminal submission receipt
+
+- `deferredTerminalDeliveredAt` currently means the paste and Return were
+  dispatched to the local terminal transport; it does not prove that a TUI
+  accepted the Return. Define a capability-specific receipt before treating
+  terminal delivery as semantic acceptance.
+- Add a recovery/diagnostic path for a Return swallowed by a TUI so a later
+  relay cannot silently concatenate with the still-visible envelope.
+
+### Inbox acknowledgement diagnostics
+
+- Bound `ack_agent_messages.messageIDs` and report stale/unknown IDs per item.
+  Batch acknowledgement is atomic today, so one ID pruned between list and ack
+  rejects the entire retry without item-level detail.
 
 ## Compatibility matrix
 
@@ -68,15 +87,18 @@ each item still needs a product decision or a focused validation.
 - Make `agent_race_panes` launch profiles/flags explicit in its public contract
   instead of silently inheriting `--yolo`/`--auto` with no per-pane escape.
 - Preserve a top-level custom shell command when a nested pane specification
-  selects `agent: shell`; today an explicit empty nested command can win.
+  selects `agent: shell`; the Python runtime currently normalizes the missing
+  nested command to `""`, which then wins over the top-level command.
 - Put a total deadline on multi-pane creation requests rather than multiplying
   the per-prompt 120-second timeout by pane count.
 - Replace the remaining security source-grep guards with runtime or extracted
   pure-boundary tests where practical; source guards should cover wiring only.
 - Make the Dev installer restore its previous signed bundle on every explicit
   post-install validation failure, not only failures that trigger `ERR`.
-- Specify whether mirrored group input and long multiline auto-submit can hold
-  deferred delivery indefinitely, then add physical-input coverage.
+- Specify whether long multiline auto-submit can hold deferred delivery
+  indefinitely, then add physical-input coverage.
+- Route group voice input and `BrokerInjector` writes through the same draft
+  admission contract as physical and mirrored keyboard input.
 - Stabilize the Accessibility harness's physical Return on Codex. In the
   Claude-to-Codex route the draft and queued relay remained intact, but one
   synthetic Return intermittently failed to submit the visible Codex draft.
@@ -86,5 +108,21 @@ each item still needs a product decision or a focused validation.
 - Document that the launch nonce is a possession credential within the current
   file-IPC model, not isolation from hostile processes running as the same
   macOS user. Socket peer authentication remains a future hardening option.
+- The persisted launch nonce is plaintext in the workspace snapshot. Decide
+  whether it should move to Keychain/protected storage or be replaced with a
+  verifier that does not persist the bearer credential; document backup and
+  same-user-process exposure explicitly.
 - Re-test app panes and moved/pre-existing panes across `list_panes`,
   `list_agents`, and `get_pane_status` lifecycle transitions.
+
+## Verification harness debt
+
+- Exercise all MCP-contract-v1-sensitive request types behaviorally; source
+  greps remain wiring checks, not security proofs.
+- Derive `promptVocabularyAudit` from the audit result instead of emitting a
+  fixed `"passed"` literal.
+- Decide whether vocabulary forms such as `MCP2`, `MCPs`, and `mcp_` should be
+  rejected by the natural-language E2E prompt audit, then encode that rule.
+- Stop rewriting `func` to `private func` inside the macOS source-test helper
+  before assertions; compile the production access level or test an extracted
+  boundary directly.

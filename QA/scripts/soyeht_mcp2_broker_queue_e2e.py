@@ -216,8 +216,12 @@ def main() -> int:
             "conversationIDs": [recipient["conversationID"]],
             "mode": "zoom",
         })
+        # Zoom rebuilds the rendered pane subtree. Let AppKit install the new
+        # terminal view before clicking it; otherwise a valid window-level
+        # keystroke can still target the responder from the previous pane.
+        sleep(1.0)
         physical.raise_soyeht_dev_window(window_id)
-        physical.click_soyeht_dev_target(window_id)
+        physical.click_soyeht_dev_pane(window_id, recipient["handle"])
 
         first_id = str(uuid.uuid4())
         second_id = str(uuid.uuid4())
@@ -277,6 +281,92 @@ def main() -> int:
             args.timeout,
         )
 
+        # Exercise the other producer that used to bypass the pane arbiter.
+        # Raw send_pane_input simulates an unfinished terminal draft while an
+        # agent relay owns the broker; a later complete send_pane_input must be
+        # held until a raw Return releases that draft. The first half of this
+        # test already covers actual physical typing/Return with agent TUIs.
+        mcp.tool_emphasize_pane({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [observer["conversationID"]],
+            "mode": "zoom",
+        })
+        shell_message_id = str(uuid.uuid4())
+        shell_relay_token = f"BROKER_SHELL_RELAY_{run_id}"
+        shell_draft_token = f"SHELL_HUMAN_DRAFT_{run_id}"
+        shell_automation_token = f"SHELL_AUTOMATION_{run_id}"
+        shell_delivery = send_authenticated_message(
+            mcp,
+            automation_root,
+            window_id,
+            codex,
+            codex_nonce,
+            observer,
+            shell_message_id,
+            f"{shell_relay_token} Não responda; este é um teste de arbitragem. "
+            + ("y" * 900),
+            args.timeout,
+        )
+        sleep(1.0)
+        raw_draft_response = mcp.tool_send_pane_input({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [observer["conversationID"]],
+            "text": shell_draft_token,
+            "lineEnding": "none",
+        })
+        automation_response = mcp.tool_send_pane_input({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [observer["conversationID"]],
+            "text": shell_automation_token,
+            "lineEnding": "enter",
+        })
+        shell_relay = wait_for_message_state(
+            snapshot_path,
+            observer["conversationID"],
+            shell_message_id,
+            lambda item: item.get("deferredTerminalDeliveredAt") is not None,
+            args.timeout,
+        )
+        draft_capture = physical.wait_for_transcript_token(
+            mcp,
+            observer,
+            shell_draft_token,
+            automation_dir,
+            args.timeout,
+        )
+        sleep(2.75)
+        held_capture = physical.capture_text(
+            mcp,
+            observer,
+            automation_dir,
+            args.timeout,
+        )
+        require(
+            shell_automation_token not in held_capture,
+            "send_pane_input bypassed the replayed human draft.",
+        )
+        raw_release_response = mcp.tool_send_pane_input({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [observer["conversationID"]],
+            "text": "\r",
+            "lineEnding": "none",
+        })
+        released_capture = physical.wait_for_transcript_token(
+            mcp,
+            observer,
+            shell_automation_token,
+            automation_dir,
+            args.timeout,
+        )
+
         evidence = {
             "status": "passed",
             "runID": run_id,
@@ -292,6 +382,20 @@ def main() -> int:
                 "deferredTerminalDeliveredAt"
             ),
             "physicalDraftLength": len(draft_token),
+            "rawAutomationArbitration": {
+                "agentRelayPlan": shell_delivery,
+                "agentRelayDeliveredAt": shell_relay.get(
+                    "deferredTerminalDeliveredAt"
+                ),
+                "rawDraftStatus": raw_draft_response.get("status"),
+                "sendPaneInputStatus": automation_response.get("status"),
+                "rawReleaseStatus": raw_release_response.get("status"),
+                "automationVisibleBeforeHumanReturn": False,
+                "automationVisibleAfterHumanReturn": shell_automation_token
+                in released_capture,
+                "humanDraftVisibleBeforeReturn": shell_draft_token in draft_capture,
+                "physicalDraftLength": len(shell_draft_token),
+            },
         }
         rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
         if args.output:
