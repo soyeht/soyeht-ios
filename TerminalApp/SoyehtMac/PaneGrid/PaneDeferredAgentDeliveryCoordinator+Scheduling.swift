@@ -1,6 +1,25 @@
 import Foundation
 
 extension PaneDeferredAgentDeliveryCoordinator {
+    /// A capable client may acknowledge the durable inbox before the PTY
+    /// fallback starts. Drop only submissions atomically reclassified to the
+    /// semantic channel; a started terminal delivery remains at-most-once.
+    func reconcileSemanticInboxAcknowledgements(_ inbox: AgentMessageInbox) {
+        let accepted = Set(inbox.messages.lazy.filter {
+            $0.channel == .semanticInbox
+                && $0.acknowledgedAt != nil
+                && $0.deferredTerminalDeliveryStartedAt == nil
+                && $0.deferredTerminalDeliveredAt == nil
+        }.map(\.id))
+        guard !accepted.isEmpty else { return }
+        pendingTerminalSubmissions.removeAll { submission in
+            guard case .agent(let delivery) = submission else { return false }
+            return accepted.contains(delivery.messageID)
+        }
+        pendingDeferredAgentMessageIDs.subtract(accepted)
+        scheduleIfSafe()
+    }
+
     /// A queued relay can be otherwise ready while the target agent is still
     /// working. Re-run arbitration when a provider hook reports a new state.
     func agentStateDidChange() {

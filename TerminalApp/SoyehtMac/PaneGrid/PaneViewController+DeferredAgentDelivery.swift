@@ -108,6 +108,8 @@ extension PaneViewController {
     /// after a pane/view lifecycle transition.
     func resumePersistedDeferredAgentDeliveries(for target: Conversation) {
         guard target.content.isTerminal else { return }
+        deferredAgentDeliveryCoordinator
+            .reconcileSemanticInboxAcknowledgements(target.agentMessageInbox)
         guard AgentConversationAdapterCapabilities
             .capabilities(for: target.agent.displayName)
             .structuredCapture else { return }

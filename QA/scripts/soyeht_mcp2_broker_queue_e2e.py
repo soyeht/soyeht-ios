@@ -348,6 +348,10 @@ def main() -> int:
         sleep(2.75)
         held_second = snapshot_message(snapshot_path, recipient["conversationID"], second_id)
         require(held_second is not None, "Second message was not persisted.")
+        semantic_before_release = (
+            held_second.get("channel") == "semanticInbox"
+            and held_second.get("acknowledgedAt") is not None
+        )
         require(
             held_second.get("deferredTerminalDeliveredAt") is None,
             "Second relay bypassed the human draft after the first broker transaction.",
@@ -358,9 +362,26 @@ def main() -> int:
             snapshot_path,
             recipient["conversationID"],
             second_id,
-            lambda item: item.get("deferredTerminalDeliveredAt") is not None,
+            lambda item: (
+                item.get("deferredTerminalDeliveredAt") is not None
+                or (
+                    item.get("channel") == "semanticInbox"
+                    and item.get("acknowledgedAt") is not None
+                    and item.get("deferredTerminalDeliveryStartedAt") is None
+                )
+            ),
             args.timeout,
         )
+        second_delivery_mode = (
+            "semanticInbox"
+            if delivered_second.get("channel") == "semanticInbox"
+            else "deferredTerminal"
+        )
+        if second_delivery_mode == "semanticInbox":
+            require(
+                delivered_second.get("deferredTerminalDeliveryStartedAt") is None,
+                "Semantic inbox acceptance occurred after terminal delivery had already started.",
+            )
 
         evidence = {
             "status": "passed",
@@ -374,9 +395,12 @@ def main() -> int:
             "deliveryPlans": [first_delivery, second_delivery],
             "firstDeliveredAt": first_message.get("deferredTerminalDeliveredAt"),
             "secondDeliveredBeforeHumanReturn": False,
+            "secondSemanticInboxAcknowledgedBeforeHumanReturn": semantic_before_release,
+            "secondDeliveryMode": second_delivery_mode,
             "secondDeliveredAfterHumanReturnAt": delivered_second.get(
                 "deferredTerminalDeliveredAt"
             ),
+            "secondSemanticInboxAcknowledgedAt": delivered_second.get("acknowledgedAt"),
             "physicalDraftLength": len(draft_token),
         }
         evidence["cleanup"] = close_workspace_through_ui(

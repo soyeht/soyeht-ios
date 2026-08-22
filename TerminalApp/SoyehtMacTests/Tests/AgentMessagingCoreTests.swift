@@ -649,6 +649,41 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(inbox.message(id: expiredCompleted.id))
     }
 
+    func testInboxAcknowledgementSupersedesUnstartedTerminalFallback() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            channel: .deferredTerminal
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+
+        try inbox.acknowledge(item.id)
+
+        XCTAssertEqual(inbox.message(id: item.id)?.channel, .semanticInbox)
+        XCTAssertTrue(inbox.messagesAwaitingDeferredTerminalDelivery.isEmpty)
+        XCTAssertNotNil(inbox.message(id: item.id)?.acknowledgedAt)
+    }
+
+    func testInboxAcknowledgementDoesNotReclassifyStartedTerminalDelivery() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            channel: .deferredTerminal
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(item, recipientID: recipient.paneID)
+        XCTAssertTrue(try inbox.markDeferredTerminalDeliveryStarted(item.id))
+
+        try inbox.acknowledge(item.id)
+
+        XCTAssertEqual(inbox.message(id: item.id)?.channel, .deferredTerminal)
+        XCTAssertNotNil(inbox.message(id: item.id)?.deferredTerminalDeliveryStartedAt)
+        XCTAssertNotNil(inbox.message(id: item.id)?.acknowledgedAt)
+    }
+
     func testDeferredDeliveryAttemptIsPersistedBeforeCompletionAndNotRequeued() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(
@@ -740,6 +775,46 @@ final class AgentMessagingCoreTests: XCTestCase {
             appendNewline: true,
             lineEnding: "enter"
         ))
+    }
+
+    func testSemanticRoleAcknowledgementGatesEachExactRevisionUntilObserved() throws {
+        let workspaceID = UUID()
+        let target = Conversation(
+            handle: "@worker",
+            agent: .claw("codex"),
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "test")
+        )
+        let manager = Conversation(
+            handle: "@manager",
+            agent: .claw("claude"),
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "test")
+        )
+        let executor = try AgentRoleAssignmentDelivery.make(
+            target: target,
+            sender: manager,
+            assignment: .init(template: AgentRoleTemplateCatalog.executor)
+        )
+        let reviewer = try AgentRoleAssignmentDelivery.make(
+            target: target,
+            sender: manager,
+            assignment: .init(template: AgentRoleTemplateCatalog.reviewer)
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(executor.message, recipientID: target.id)
+        try inbox.enqueue(reviewer.message, recipientID: target.id)
+
+        try inbox.acknowledge(executor.message.id)
+        XCTAssertEqual(inbox.message(id: executor.message.id)?.channel, .semanticInbox)
+        XCTAssertTrue(
+            inbox.hasUnobservedRoleAssignmentDelivery,
+            "acknowledging the older semantic revision must not authorize the newer role"
+        )
+
+        try inbox.acknowledge(reviewer.message.id)
+        XCTAssertEqual(inbox.message(id: reviewer.message.id)?.channel, .semanticInbox)
+        XCTAssertFalse(inbox.hasUnobservedRoleAssignmentDelivery)
     }
 
     func testReadAttentionAndAcknowledgementHaveSeparateDurableStates() throws {

@@ -449,8 +449,8 @@ extension SoyehtAutomationRequestRouter {
             _ = workspaceStore.flushPendingSave()
             throw SoyehtAutomationError.agentMessagePersistenceFailed
         }
-        let updated = conversationStore.conversation(source.id)?.agentMessageInbox.messages
-            .filter { ids.contains($0.id) } ?? []
+        (LivePaneRegistry.shared.pane(for: source.id) as? PaneViewController)?.resumePersistedDeferredAgentDeliveries(for: conversationStore.conversation(source.id) ?? source)
+        let updated = conversationStore.conversation(source.id)?.agentMessageInbox.messages.filter { ids.contains($0.id) } ?? []
         return SoyehtAutomationResult(agentInboxMessages: updated.map(agentInboxMessage))
     }
 

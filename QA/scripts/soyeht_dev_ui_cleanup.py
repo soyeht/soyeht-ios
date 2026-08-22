@@ -48,13 +48,22 @@ def close_workspace_through_ui(
         raise RuntimeError(
             f"Cannot safely identify test workspace {workspace_id} in the persisted snapshot."
         )
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    same_window_workspace_ids = snapshot.get("workspaceOrderByWindow", {}).get(
+        window_id,
+        [],
+    )
+    if len(same_window_workspace_ids) < 2:
+        raise RuntimeError(
+            "Soyeht intentionally refuses to close the final workspace in a window; "
+            f"cannot clean test workspace {workspace_id} without a non-test anchor."
+        )
 
     expected_window_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
     script = r'''
 on run argv
   set expectedWindowIdentifier to item 1 of argv
   set workspaceName to item 2 of argv
-  set paneCount to (item 3 of argv) as integer
   tell application id "com.soyeht.mac.dev" to activate
   delay 0.25
   tell application "System Events"
@@ -71,20 +80,23 @@ on run argv
       end if
       click menu item workspaceName of menu 1 of menu bar item "Workspaces" of menu bar 1
       delay 0.2
-      repeat paneCount times
-        click menu item "Close Pane" of menu 1 of menu bar item "Pane" of menu bar 1
-        delay 0.2
-        -- The title changes when workspace activation changes. AppleScript
-        -- retains AX window references by title, so re-address the already
-        -- verified front window instead of using the now-stale specifier.
-        if (count of sheets of front window) > 0 then
-          if exists button "Close Workspace" of sheet 1 of front window then
-            click button "Close Workspace" of sheet 1 of front window
-            return "closed"
-          end if
-        end if
+      set closeWorkspaceItem to menu item "Close Workspace" of menu 1 of menu bar item "Shell" of menu bar 1
+      if enabled of closeWorkspaceItem is false then
+        error "Close Workspace is disabled for the selected test workspace"
+      end if
+      click closeWorkspaceItem
+      repeat 40 times
+        if (count of sheets of front window) > 0 then exit repeat
+        delay 0.05
       end repeat
-      error "Closing the final pane did not offer the Close Workspace confirmation"
+      if (count of sheets of front window) is 0 then
+        error "Close Workspace confirmation sheet did not appear"
+      end if
+      if not (exists button "Close Workspace" of sheet 1 of front window) then
+        error "Close Workspace confirmation button did not appear"
+      end if
+      click button "Close Workspace" of sheet 1 of front window
+      return "workspace"
     end tell
   end tell
 end run
@@ -96,23 +108,22 @@ end run
             script,
             expected_window_identifier,
             workspace_name,
-            str(pane_count),
         ],
         capture_output=True,
         text=True,
-        timeout=max(timeout, 1.0),
+        timeout=max(min(timeout, 10.0), 1.0),
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip() or "unknown UI error"
         raise RuntimeError(
             f"Could not close E2E workspace {workspace_id} through Soyeht Dev UI: {detail}"
         )
-
     deadline = monotonic() + timeout
     while monotonic() < deadline:
         if _workspace(snapshot_path, workspace_id) is None:
             return {"workspaceID": workspace_id, "status": "closed_via_ui"}
         sleep(0.1)
     raise RuntimeError(
-        f"Soyeht Dev UI accepted cleanup but workspace {workspace_id} remained persisted."
+        f"Soyeht Dev UI reported {completed.stdout.strip()!r}, but test workspace "
+        f"{workspace_id} remained in the snapshot."
     )

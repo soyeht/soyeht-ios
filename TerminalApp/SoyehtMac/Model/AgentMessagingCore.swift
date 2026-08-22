@@ -579,13 +579,21 @@ struct AgentMessageInbox: Codable, Hashable {
         }
     }
     /// A configured graph must not authorize work for a role revision that
-    /// its already-running process has not observed. The authenticated hook
-    /// marks the exact delivery ID delivered; an older ACK cannot clear a
-    /// newer control message.
+    /// its already-running process has not observed. A terminal fallback is
+    /// observed only after the authenticated submission hook marks that exact
+    /// delivery. A capable client may instead acknowledge the exact durable
+    /// inbox revision before terminal delivery starts; in that case ACK is the
+    /// semantic observation and cancels the fallback. An older observation
+    /// can never clear a newer control message.
     var hasUnobservedRoleAssignmentDelivery: Bool {
         messages.contains {
-            $0.isRoleAssignmentControlDelivery
-                && $0.deferredTerminalDeliveredAt == nil
+            guard $0.isRoleAssignmentControlDelivery else { return false }
+            switch $0.channel {
+            case .semanticInbox:
+                return $0.acknowledgedAt == nil
+            case .deferredTerminal:
+                return $0.deferredTerminalDeliveredAt == nil
+            }
         }
     }
 
@@ -692,6 +700,18 @@ struct AgentMessageInbox: Codable, Hashable {
         let uniqueIDs = ids.filter { seen.insert($0).inserted }
         let indices = try uniqueIDs.map(messageIndex)
         for index in indices {
+            // An explicit inbox acknowledgement is a semantic receipt. If no
+            // terminal byte has crossed the at-most-once claim yet, cancel
+            // that fallback by recording the channel that actually delivered
+            // the message. Otherwise a capable agent can read/ack from MCP
+            // and later receive the same body a second time through its PTY.
+            // Once terminal delivery has started we cannot reclassify safely:
+            // bytes may already be present in the TUI composer.
+            if messages[index].channel == .deferredTerminal,
+               messages[index].deferredTerminalDeliveryStartedAt == nil,
+               messages[index].deferredTerminalDeliveredAt == nil {
+                messages[index].channel = .semanticInbox
+            }
             if messages[index].readAt == nil { messages[index].readAt = date }
             if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
         }
