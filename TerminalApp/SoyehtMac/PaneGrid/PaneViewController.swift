@@ -141,7 +141,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// Agent messages for terminal-only clients are persisted first, then held
     /// until no human draft is open. The coordinator owns the compatibility
     /// queue while this controller only forwards pane lifecycle/input events.
-    private lazy var deferredAgentDeliveryCoordinator = PaneDeferredAgentDeliveryCoordinator(
+    lazy var deferredAgentDeliveryCoordinator = PaneDeferredAgentDeliveryCoordinator(
         conversationID: conversationID,
         terminalView: terminalView
     )
@@ -300,42 +300,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             self.deferredAgentDeliveryCoordinator.recordHumanInput(data)
             self.mainWindowController()?.mirrorTerminalInput(data, from: self.conversationID)
         }
+        terminalView.onUserInputOutcomeUnknown = { [weak self] data in
+            self?.deferredAgentDeliveryCoordinator.recordUncertainHumanInput(data)
+        }
         wireHeaderActions()
         installClickTracking()
         wireConnectionCallbacks()
         wireTerminalInteractionCallbacks()
         updateEmptyStateVisibility()
         updateAccessibilityLabel(focused: false)
-    }
-
-    /// Queues a compatibility delivery without writing to the PTY now. The
-    /// corresponding `AgentMessage` must already exist in the durable inbox.
-    func enqueueDeferredAgentDelivery(
-        messageID: AgentMessage.ID,
-        prepared: AgentPaneInputPlanner.Prepared
-    ) {
-        deferredAgentDeliveryCoordinator.enqueue(messageID: messageID, prepared: prepared)
-    }
-
-    /// Automation can also leave an unfinished line in a TUI. Route it
-    /// through the same draft gate as physical keyboard input before writing
-    /// to the PTY, which makes the no-splice guarantee observable in E2E.
-    func sendAutomationInputForDeferredDeliverySafety(
-        text: String,
-        submitWithEnter: Bool
-    ) {
-        deferredAgentDeliveryCoordinator.sendAutomationInput(
-            text: text,
-            submitWithEnter: submitWithEnter
-        )
-    }
-
-    /// Mirrored group keystrokes are human drafts in the destination pane as
-    /// well. Record them only after a live transport accepts the bytes, and
-    /// keep them out of any active broker paste/Return transaction.
-    func sendMirroredHumanInputForDeferredDeliverySafety(_ data: Data) {
-        guard terminalView.brokerSendMirroredHumanInput(data) else { return }
-        deferredAgentDeliveryCoordinator.recordHumanInput(data)
     }
 
     /// Programmatically claim focus — used by the parent grid when activation
@@ -556,7 +529,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     func insertGroupVoiceText(_ text: String, focusAfterInsert: Bool) {
         MacVoiceInputLog.write("pane.insertGroupVoiceText length=\(text.count), focus=\(focusAfterInsert)")
-        terminalView.insertVoiceTranscription(text, focusAfterInsert: focusAfterInsert)
+        let normalized = text.replacingOccurrences(of: "\n", with: "\r")
+        terminalView.insertVoiceTranscription(
+            text,
+            focusAfterInsert: focusAfterInsert,
+            shouldNotifyDelegate: false
+        ) { [weak self] in
+            self?.deferredAgentDeliveryCoordinator.recordHumanInput(Data(normalized.utf8))
+        }
         if focusAfterInsert {
             view.window?.makeFirstResponder(terminalView)
         }
@@ -712,27 +692,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         updateEmptyStateVisibility()
     }
 
-    /// The inbox is the durable source of truth. Rebuild the in-memory queue
-    /// after a pane/view lifecycle transition so a queued compatibility
-    /// delivery cannot be stranded until somebody types an unrelated key.
-    private func resumePersistedDeferredAgentDeliveries(
-        for target: Conversation
-    ) {
-        guard target.content.isTerminal else { return }
-        for message in target.agentMessageInbox.messagesAwaitingDeferredTerminalDelivery {
-            guard !deferredAgentDeliveryCoordinator.containsPendingMessage(message.id),
-                  let prepared = try? AgentPaneInputPlanner.prepare(
-                    target: target,
-                    storedSender: message.sender,
-                    text: message.body,
-                    appendNewline: true,
-                    lineEnding: "enter"
-                  )
-            else { continue }
-            enqueueDeferredAgentDelivery(messageID: message.id, prepared: prepared)
-        }
-    }
-
     private func configureContent(for conv: Conversation) {
         switch conv.content {
         case .terminal:
@@ -810,6 +769,42 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         header.headerAccessories = contentController?.headerAccessories ?? .specialDefault
     }
 
+    /// A replacement plain shell must not inherit role/topology authority from
+    /// the agent process that disappeared. Persist all identity changes in one
+    /// synchronous snapshot before the shell becomes message-ready.
+    private func persistDowngradedShellIdentity(
+        for conversation: Conversation,
+        convStore: ConversationStore
+    ) -> Bool {
+        guard let workspaceStore = AppEnvironment.workspaceStore else { return false }
+        convStore.updateFields(
+            conversation.id,
+            handle: conversation.handle,
+            agent: .shell
+        )
+        convStore.updateRoleAssignment(conversation.id, roleAssignment: nil)
+        convStore.updateAgentRequestedCommunicationPolicy(
+            conversation.id,
+            policy: .open
+        )
+        if var orchestration = workspaceStore.workspace(conversation.workspaceID)?.orchestration {
+            orchestration.setManagementAuthorization(
+                for: conversation.id,
+                isAuthorized: false
+            )
+            if orchestration.activeGraph?.nodes.contains(where: {
+                $0.conversationID == conversation.id
+            }) == true {
+                try? orchestration.activateGraph(id: nil)
+            }
+            workspaceStore.updateOrchestration(
+                conversation.workspaceID,
+                orchestration: orchestration
+            )
+        }
+        return workspaceStore.flushPendingSave()
+    }
+
     /// `.native(pid)` survives undo/relaunch in the model, but the live PTY
     /// object does not. When a pane rebinds to a local conversation that says
     /// "native" yet has no attached PTY, spawn a fresh local shell in the
@@ -826,6 +821,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard !terminalView.isLocalSessionActive else { return }
         guard !isRestoringLocalShell else { return }
 
+        // A native child cannot survive the app process. Revoke any old agent
+        // bearer and durably model the replacement as a shell before an async
+        // engine/native attach can expose it to messaging or a later restart.
+        prepareDeferredDeliveryForTerminalTransportReplacement()
+        guard let convStore = AppEnvironment.conversationStore,
+              PaneStatusTracker.shared.prepareForAgentLaunch(paneID: conv.id) else {
+            PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conv.id)
+            return
+        }
+        guard persistDowngradedShellIdentity(for: conv, convStore: convStore),
+              let restoredConversation = convStore.conversation(conv.id) else {
+            PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conv.id)
+            return
+        }
+
         let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? resolvedWorkspaceFolder()
             ?? FileManager.default.homeDirectoryForCurrentUser
@@ -840,7 +850,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             defer { self?.isRestoringLocalShell = false }
             let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
             guard let self else { return }
-
             // UPGRADE ON RESTORE.
             //
             // A pane recorded `.native` used to be recreated `.native` forever,
@@ -875,10 +884,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     cols: cols,
                     rows: rows,
                     loginPath: loginPath,
-                    extraEnvironment: AgentPaneEnvironment.values(for: conv)
+                    extraEnvironment: AgentPaneEnvironment.values(for: restoredConversation)
                 )
                 AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
                 self.terminalView.configureLocal(pty: pty)
+                self.markTerminalTransportReadyForDeferredAgentDelivery()
                 Self.logger.info(
                     "local shell restored pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
                 )
@@ -948,8 +958,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // moments ago and is coming back via undo, cancel the pending reap so
         // the still-alive session is reconnected instead of deleted. No-op on
         // the normal relaunch path (nothing scheduled).
-        DeferredEngineSessionReaper.cancelReap(engineConversationID: initialEngineConversationID)
-
         let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? resolvedWorkspaceFolder()
             ?? FileManager.default.homeDirectoryForCurrentUser
@@ -962,6 +970,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
         Task { @MainActor [weak self] in
             defer { self?.isRestoringLocalShell = false }
+            // A DELETE already sent to the engine is irreversible even if
+            // this task is cancelled. Wait for it before any idempotent
+            // create/attach so undo cannot reconnect a session being reaped.
+            _ = await DeferredEngineSessionReaper.settlePendingReapBeforeReuse(
+                engineConversationID: initialEngineConversationID
+            )
             let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
 
             guard let self,
@@ -970,20 +984,34 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 Self.logger.notice("engine pane restore aborted before attach (pane no longer live) pane=\(conversationID.uuidString, privacy: .public)")
                 return
             }
-
-            let restoredLaunchNonce = liveConversation.agentLaunchOwnershipNonce
-            if let restoredLaunchNonce, !restoredLaunchNonce.isEmpty {
-                PaneStatusTracker.shared.registerLaunchOwnership(
-                    paneID: conversationID,
-                    nonce: restoredLaunchNonce
-                )
+            let previousLaunchNonce = PaneStatusTracker.shared.launchOwnershipNonce(
+                for: conversationID
+            )
+            if !liveConversation.agent.isShell {
+                // Keep the old process credential valid throughout an
+                // idempotent reattach. Reporter hooks from that still-running
+                // process are canonical conversation events and must not be
+                // dropped during a slow engine round-trip. A missing session
+                // creates a plain shell with launchNonce=nil; the false
+                // reconnected outcome then revokes this old credential before
+                // the shell identity is persisted.
+                guard previousLaunchNonce != nil else {
+                    self.terminalView.disconnect()
+                    Self.logger.error("engine pane restore aborted because persisted agent ownership is missing pane=\(conversationID.uuidString, privacy: .public)")
+                    return
+                }
             }
+            self.prepareDeferredDeliveryForTerminalTransportReplacement()
 
             var outcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
             for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
                 outcome = await EnginePaneAttacher.attach(
                     conversation: liveConversation,
-                    launchNonce: restoredLaunchNonce,
+                    // A reconnect retains the running process environment. If
+                    // the engine session is gone, the idempotent create starts
+                    // a plain shell, which must never inherit the old agent's
+                    // possession credential.
+                    launchNonce: nil,
                     cwd: url,
                     loginPath: loginPath,
                     cols: cols,
@@ -1016,6 +1044,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
             switch outcome {
             case .attached(reconnected: true):
+                deferredAgentDeliveryCoordinator
+                    .markTerminalDraftStateUnknownAfterPersistentReattach()
+                markTerminalTransportReadyForDeferredAgentDelivery()
                 Self.logger.info("engine pane session restored pane=\(conversationID.uuidString, privacy: .public)")
                 return
             case .attached(reconnected: false):
@@ -1023,13 +1054,28 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 // spawned a brand-new, empty shell under the same
                 // conversation_id. Discreet (Console-only, no UI per A6) but
                 // honest — must not say "restored" when there's no history.
-                Self.logger.notice("engine pane session was gone; started a fresh shell pane=\(conversationID.uuidString, privacy: .public)")
+                if let current = convStore.conversation(conversationID) {
+                    guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
+                        PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
+                        terminalView.disconnect()
+                        return
+                    }
+                }
+                markTerminalTransportReadyForDeferredAgentDelivery()
+                Self.logger.notice("engine pane session was gone; revoked agent ownership and started a fresh shell pane=\(conversationID.uuidString, privacy: .public)")
                 return
             case .failed:
                 break
             }
 
             Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
+            if let current = convStore.conversation(conversationID) {
+                guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
+                    PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
+                    terminalView.disconnect()
+                    return
+                }
+            }
             // Best-effort: a request WE saw as failed (timeout, dropped
             // response) may have actually succeeded engine-side — don't
             // leave that orphaned once we fall back to NativePTY.
@@ -1041,10 +1087,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     cols: cols,
                     rows: rows,
                     loginPath: loginPath,
-                    extraEnvironment: AgentPaneEnvironment.values(for: conv)
+                    extraEnvironment: AgentPaneEnvironment.values(
+                        for: convStore.conversation(conversationID) ?? conv
+                    )
                 )
                 convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
                 self.terminalView.configureLocal(pty: pty)
+                self.markTerminalTransportReadyForDeferredAgentDelivery()
                 Self.logger.info(
                     "local shell restored (engine fallback) pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
                 )
@@ -1097,7 +1146,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             }
             liveConversation = revalidated
         }
-        guard case .attached = outcome else { return false }
+        guard case .attached(let reconnected) = outcome else { return false }
+        if reconnected {
+            markTerminalDraftUnknownAfterPersistentTransportReattach()
+        }
+        markTerminalTransportReadyForDeferredAgentDelivery()
         Self.logger.notice(
             "native pane rebuilt in the broker on restore pane=\(conversationID.uuidString, privacy: .public)"
         )
@@ -1251,115 +1304,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
     }
 
-    private func presentAgentMessagingSettings() {
-        guard let store = AppEnvironment.conversationStore,
-              let conversation = store.conversation(conversationID),
-              let workspaceStore = AppEnvironment.workspaceStore else { return }
-        let candidates = store.all
-            .filter { $0.id != conversationID && $0.content.isTerminal }
-            .sorted {
-                let leftWorkspace = workspaceStore.workspace($0.workspaceID)?.name ?? ""
-                let rightWorkspace = workspaceStore.workspace($1.workspaceID)?.name ?? ""
-                if leftWorkspace != rightWorkspace {
-                    return leftWorkspace.localizedCaseInsensitiveCompare(rightWorkspace) == .orderedAscending
-                }
-                return $0.handle.localizedCaseInsensitiveCompare($1.handle) == .orderedAscending
-            }
-        let accessory = AgentMessagingPolicyAccessoryView(
-            conversation: conversation,
-            candidates: candidates,
-            workspaceName: { workspaceStore.workspace($0)?.name ?? "" }
-        )
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Messaging & Blocks"
-        alert.informativeText = "Control who may send messages to \(AgentMessageEndpoint(paneID: conversation.id, workspaceID: conversation.workspaceID, handle: conversation.handle).displayLabel). Blocks use stable pane IDs, so renaming does not remove them."
-        alert.accessoryView = accessory
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let apply: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn,
-                  var latest = store.conversation(self.conversationID)?.agentCommunicationPolicy else { return }
-            switch accessory.receiveMode {
-            case .everyone:
-                latest.incoming.isEnabled = true
-                latest.incoming.allowsCrossWorkspace = true
-            case .sameWorkspace:
-                latest.incoming.isEnabled = true
-                latest.incoming.allowsCrossWorkspace = false
-            case .nobody:
-                latest.incoming.isEnabled = false
-            }
-            latest.incoming.blockedPaneIDs = accessory.blockedPaneIDs
-            store.updateAgentCommunicationPolicy(self.conversationID, policy: latest)
-        }
-        if let window = view.window {
-            alert.beginSheetModal(for: window, completionHandler: apply)
-        } else {
-            apply(alert.runModal())
-        }
-    }
-
-    private func presentAgentRoleAndOrchestrationSettings() {
-        guard let conversationStore = AppEnvironment.conversationStore,
-              let workspaceStore = AppEnvironment.workspaceStore,
-              let conversation = conversationStore.conversation(conversationID),
-              let workspace = workspaceStore.workspace(conversation.workspaceID) else { return }
-        let accessory = AgentRoleOrchestrationAccessoryView(
-            conversationID: conversationID,
-            assignment: conversation.roleAssignment,
-            orchestration: workspace.orchestration
-        )
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Role & Orchestration"
-        alert.informativeText = "Assign a reusable role to this agent and optionally activate a declarative topology for \(workspace.name)."
-        alert.accessoryView = accessory
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let apply: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
-            do {
-                var orchestration = workspaceStore.workspace(conversation.workspaceID)?.orchestration
-                    ?? WorkspaceOrchestration()
-                orchestration.setManagementAuthorization(
-                    for: self.conversationID,
-                    isAuthorized: accessory.isManagementAuthorized
-                )
-                let assignment = try accessory.resolvedAssignment(updating: &orchestration)
-                conversationStore.updateRoleAssignment(self.conversationID, roleAssignment: assignment)
-
-                if let preset = accessory.selectedPreset {
-                    var graph = AgentOrchestrationPresets.make(preset)
-                    if let assignment,
-                       let node = graph.nodes.first(where: {
-                           $0.role.roleName.caseInsensitiveCompare(assignment.roleName) == .orderedSame
-                       }) ?? graph.nodes.first {
-                        try graph.bind(conversationID: self.conversationID, toNodeID: node.id)
-                    }
-                    try orchestration.saveGraph(graph)
-                    try orchestration.activateGraph(id: graph.id)
-                } else {
-                    try orchestration.activateGraph(id: nil)
-                }
-                workspaceStore.updateOrchestration(conversation.workspaceID, orchestration: orchestration)
-            } catch {
-                let errorAlert = NSAlert(error: error)
-                if let window = self.view.window {
-                    errorAlert.beginSheetModal(for: window) { _ in }
-                } else {
-                    errorAlert.runModal()
-                }
-            }
-        }
-        if let window = view.window {
-            alert.beginSheetModal(for: window, completionHandler: apply)
-        } else {
-            apply(alert.runModal())
-        }
-    }
 
     private func wireHeaderActions() {
         header.onQRTapped = { [weak self] in
@@ -1748,7 +1692,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     func brokerInject(_ text: String) {
         guard contentController == nil else { return }
         Self.logger.info("brokerInject len=\(text.count)")
-        terminalView.brokerSend(text: text)
+        let prepared = AgentPaneInputPlanner.terminalPayload(
+            text: text,
+            appendNewline: false,
+            lineEnding: "none"
+        )
+        sendAutomationInputForDeferredDeliverySafety(
+            text: prepared.payload,
+            submitWithEnter: prepared.shouldSendEnterKey,
+            isExplicitRawInput: prepared.isExplicitRawInput,
+            allowsBracketedPaste: prepared.allowsBracketedPaste
+        )
     }
 
     func prepareForClose() {
@@ -1784,7 +1738,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // the still-alive session is reconnected — nothing died, so nothing was
         // lost. The TTY mapping is intentionally kept until the reap fires so a
         // reattach in the window can still resolve it.
-        DeferredEngineSessionReaper.scheduleReap(engineConversationID: engineConversationID)
+        DeferredEngineSessionReaper.scheduleReap(
+            engineConversationID: engineConversationID,
+            paneID: conversationID
+        )
     }
 }
 

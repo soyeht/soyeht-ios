@@ -82,48 +82,50 @@ final class SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) async throws -> SoyehtAutomationResult {
         try validateMCPClientContract(request)
-        if let source = try? resolveAutomationSource(payload: request.payload) {
+        if let source = try? resolveAutomationSource(payload: request.payload),
+           PaneStatusTracker.shared.validatesLaunchOwnership(
+               paneID: source.conversation.id,
+               nonce: request.payload.nonce
+           ) {
             PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
         }
         return try await handleAutomationRequest(request)
     }
 
-    /// Dev and Release intentionally coexist on the same Mac. A Release MCP
-    /// process can inherit the Dev automation directory from a pane and appear
-    /// to work against the wrong app, even though it exposes an older tool
-    /// contract. Fail closed for the collaboration mutations where that mixup
-    /// is dangerous; read-only inventory remains backward compatible so an old
-    /// client can still discover why its write was rejected.
+    /// Dev and Release may coexist on the same Mac, and either app can be
+    /// reached by a stale MCP launcher. Fail closed in both profiles for the
+    /// mutations where a contract mismatch is dangerous. Only read-only
+    /// inventory remains backward compatible so an old client can still
+    /// discover why its write was rejected.
     func validateMCPClientContract(_ request: SoyehtAutomationRequest) throws {
-        let currentContract = 2
-        guard SoyehtInstallProfile.current.kind == .dev,
-              requestRequiresCurrentMCPContract(request),
-              request.payload.mcpClientContractVersion != currentContract else {
-            return
+        let currentContract = 3
+        guard requestRequiresCurrentMCPContract(request) else { return }
+        guard request.payload.mcpClientContractVersion == currentContract else {
+            throw SoyehtAutomationError.incompatibleMCPClientContract(
+                expected: currentContract,
+                received: request.payload.mcpClientContractVersion
+            )
         }
-        throw SoyehtAutomationError.incompatibleMCPClientContract(
-            expected: currentContract,
-            received: request.payload.mcpClientContractVersion
-        )
+        let expectedProfile = SoyehtInstallProfile.current.kind.rawValue
+        let receivedProfile = request.payload.mcpClientProfile?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard receivedProfile == expectedProfile else {
+            throw SoyehtAutomationError.incompatibleMCPClientProfile(
+                expected: expectedProfile,
+                received: receivedProfile
+            )
+        }
     }
 
     func requestRequiresCurrentMCPContract(_ request: SoyehtAutomationRequest) -> Bool {
         switch request.type {
-        case .sendPaneInput, .sendAgentMessage, .listAgentMessages, .ackAgentMessages,
-             .setAgentCommunicationPolicy, .setAgentRole, .saveAgentRoleTemplate,
-             .configureAgentOrchestration, .switchAgent:
-            return true
-        case .createWorktreeWorkspaces, .createWorktreePanes, .createWorktreeTabs, .createWorkspacePanes:
-            let agentNames = [request.payload.agent]
-                + (request.payload.workspaces ?? []).map(\.agent)
-                + (request.payload.panes ?? []).map(\.agent)
-                + (request.payload.tabs ?? []).map(\.agent)
-            return agentNames.contains { name in
-                guard let name else { return false }
-                return name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "shell"
-            }
-        default:
+        case .listWindows, .listWorkspaces, .listPanes, .getPaneStatus,
+             .getActiveContext,
+             .identifyAgent, .listAgents:
             return false
+        default:
+            return true
         }
     }
 
@@ -138,7 +140,7 @@ final class SoyehtAutomationRequestRouter {
         case .createWorkspacePanes:
             return try await handleCreateWorkspacePanes(request)
         case .sendPaneInput:
-            return try handleSendPaneInput(request)
+            return try await handleSendPaneInput(request)
         case .sendAgentMessage:
             return try handleSendAgentMessage(request)
         case .listAgentMessages:

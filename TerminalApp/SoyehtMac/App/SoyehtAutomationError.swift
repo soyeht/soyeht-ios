@@ -30,6 +30,7 @@ enum SoyehtAutomationError: LocalizedError {
     case invalidAgentState(String)
     case invalidConversationRole(String)
     case emptyConversationEvent
+    case conversationEventQuotaExceeded
     case unknownAgent(String)
     case emptyPaneInputTargets
     case invalidConversationIDFormat(String)
@@ -37,10 +38,18 @@ enum SoyehtAutomationError: LocalizedError {
     case missingWebURL
     case missingAppInstallID
     case incompatibleMCPClientContract(expected: Int, received: Int?)
+    case incompatibleMCPClientProfile(expected: String, received: String?)
     case unauthenticatedAgentSource
     case orchestrationManagerAuthorizationRequired
     case ambiguousOrchestrationRoleBinding(String)
     case agentPaneRequiresMessageAgent(String)
+    case agentMessagePersistenceFailed
+    case agentMessageQuotaExceeded(String)
+    case invalidOrchestrationIdeatorCount(Int)
+    case orchestrationRequiresAgentPane(String)
+    case orchestrationRoleChangeRequiresReconfiguration(String)
+    case orchestrationBoundPaneMutationDenied(String)
+    case agentWorkspaceMutationAuthorizationRequired(String)
 
     var errorDescription: String? {
         switch self {
@@ -102,6 +111,8 @@ enum SoyehtAutomationError: LocalizedError {
             return "Invalid conversation role: \(value). Expected user or assistant."
         case .emptyConversationEvent:
             return "Conversation event did not include session metadata or user-visible message text."
+        case .conversationEventQuotaExceeded:
+            return "Conversation event exceeds the 64 KiB event limit or this pane's bounded 4 MiB/2,000-event canonical history quota. The event was not recorded."
         case .unknownAgent(let value):
             return "Unknown local agent: \(value). Run list_agents to see available agents."
         case .emptyPaneInputTargets:
@@ -116,7 +127,10 @@ enum SoyehtAutomationError: LocalizedError {
             return "Automation open_app request requires a non-empty installID."
         case .incompatibleMCPClientContract(let expected, let received):
             let observed = received.map(String.init) ?? "missing"
-            return "Soyeht Dev rejected MCP client contract \(observed); agent creation and messaging require contract \(expected). Use the soyeht-dev integration instead of the soyeht Release integration."
+            return "Soyeht rejected MCP client contract \(observed); automation mutations require contract \(expected). Reinstall this app's MCP integration."
+        case .incompatibleMCPClientProfile(let expected, let received):
+            let observed = received ?? "missing"
+            return "Soyeht rejected MCP profile \(observed); this app accepts the \(expected) integration. Reinstall or select the matching MCP server."
         case .unauthenticatedAgentSource:
             return "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment."
         case .orchestrationManagerAuthorizationRequired:
@@ -125,6 +139,20 @@ enum SoyehtAutomationError: LocalizedError {
             return "More than one pane has the orchestration role '\(role)'. Pass explicit nodeBindings so Soyeht never chooses an agent by list order."
         case .agentPaneRequiresMessageAgent(let handle):
             return "Low-level send_pane_input cannot write to agent pane \(handle). Use message_agent so communication policy, durable inbox, and deferred delivery are enforced."
+        case .agentMessagePersistenceFailed:
+            return "The agent message was accepted in memory but could not be durably saved. Retry the same message ID after storage becomes writable."
+        case .agentMessageQuotaExceeded(let reason):
+            return "The agent inbox rejected the message because its durable quota was exceeded: \(reason). Read and acknowledge existing work before retrying."
+        case .invalidOrchestrationIdeatorCount(let count):
+            return "Council ideatorCount must be between 1 and 16; received \(count)."
+        case .orchestrationRequiresAgentPane(let value):
+            return "Orchestration node \(value) must be a terminal agent pane with active launch ownership."
+        case .orchestrationRoleChangeRequiresReconfiguration(let value):
+            return "Pane \(value) is bound in the active graph. Reconfigure or deactivate the graph before changing its role."
+        case .orchestrationBoundPaneMutationDenied(let value):
+            return "Pane \(value) is bound in an active orchestration graph and cannot be moved or switched until that graph is reconfigured."
+        case .agentWorkspaceMutationAuthorizationRequired(let value):
+            return "Closing workspace \(value) requires an authenticated agent that the user authorized to manage that workspace's roles and topology."
         }
     }
 }

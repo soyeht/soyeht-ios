@@ -1,4 +1,5 @@
 from soyeht_mcp_runtime import *
+from soyeht_mcp_tools_creation import tool_open_shell
 
 def tool_open_file(args):
     mode = str(args.get("mode") or "shell").strip().lower()
@@ -191,5 +192,4 @@ def tool_open_app(args):
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
     )
-
 

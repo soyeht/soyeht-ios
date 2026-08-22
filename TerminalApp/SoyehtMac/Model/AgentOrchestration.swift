@@ -7,6 +7,9 @@ import Foundation
 /// its assignment.
 struct AgentRoleTemplate: Codable, Identifiable, Hashable {
     typealias ID = String
+    static let maximumIDUTF8Bytes = 128
+    static let maximumDisplayNameUTF8Bytes = 256
+    static let maximumInstructionsUTF8Bytes = 16 * 1_024
 
     var id: ID
     var displayName: String
@@ -86,6 +89,8 @@ enum AgentRoleTemplateCatalog {
 /// Codable workspace-scoped library. UI may copy a built-in into a custom ID,
 /// edit it, and save it; the enclosing Workspace persistence makes it durable.
 struct AgentRoleTemplateLibrary: Codable, Hashable {
+    static let maximumCustomTemplates = 64
+    static let maximumEncodedUTF8Bytes = 1 * 1_024 * 1_024
     private(set) var customTemplates: [AgentRoleTemplate]
 
     init(customTemplates: [AgentRoleTemplate] = []) {
@@ -111,12 +116,19 @@ struct AgentRoleTemplateLibrary: Codable, Hashable {
             throw AgentRoleTemplateLibraryError.invalidTemplate(issues)
         }
 
-        if let index = customTemplates.firstIndex(where: { $0.id == template.id }) {
-            customTemplates[index] = template
+        var candidate = customTemplates
+        if let index = candidate.firstIndex(where: { $0.id == template.id }) {
+            candidate[index] = template
         } else {
-            customTemplates.append(template)
+            candidate.append(template)
         }
-        customTemplates.sort { $0.id < $1.id }
+        candidate.sort { $0.id < $1.id }
+        guard candidate.count <= Self.maximumCustomTemplates,
+              ((try? JSONEncoder().encode(candidate).count) ?? Int.max)
+                <= Self.maximumEncodedUTF8Bytes else {
+            throw AgentRoleTemplateLibraryError.quotaExceeded
+        }
+        customTemplates = candidate
     }
 
     @discardableResult
@@ -127,11 +139,33 @@ struct AgentRoleTemplateLibrary: Codable, Hashable {
         guard let index = customTemplates.firstIndex(where: { $0.id == id }) else { return nil }
         return customTemplates.remove(at: index)
     }
+
+    private enum CodingKeys: String, CodingKey { case customTemplates }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decoded = try container.decodeIfPresent(
+            [AgentRoleTemplate].self,
+            forKey: .customTemplates
+        ) ?? []
+        customTemplates = []
+        // Legacy oversized snapshots are reduced deterministically instead of
+        // making the enclosing workspace undecodable.
+        for template in decoded.sorted(by: { $0.id < $1.id }) {
+            try? save(template)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(customTemplates, forKey: .customTemplates)
+    }
 }
 
 enum AgentRoleTemplateLibraryError: Error, Equatable {
     case builtInTemplateIsReadOnly(AgentRoleTemplate.ID)
     case invalidTemplate([AgentOrchestrationValidationIssue])
+    case quotaExceeded
 }
 
 // MARK: - Declarative graph
@@ -326,19 +360,110 @@ struct AgentOrchestrationGraph: Codable, Identifiable, Hashable {
         }
         nodes[index].conversationID = conversationID
     }
+
+    /// Binds every preset node to a distinct pane whose user-assigned role
+    /// matches it. A topology is an effective allowlist, so partially binding
+    /// and then activating it would deny all traffic involving the missing
+    /// panes. Fail before persistence instead.
+    mutating func bindAllRoleAssignments(
+        _ candidates: [(conversationID: Conversation.ID, assignment: AgentRoleAssignment)]
+    ) throws {
+        var remaining = candidates
+        // Preserve every still-valid binding. Reopening settings to change an
+        // unrelated option must not silently move roles to different panes.
+        for index in nodes.indices {
+            guard let boundID = nodes[index].conversationID,
+                  let candidateIndex = remaining.firstIndex(where: { $0.conversationID == boundID }),
+                  Self.role(remaining[candidateIndex].assignment, matches: nodes[index].role)
+            else {
+                nodes[index].conversationID = nil
+                continue
+            }
+            remaining.remove(at: candidateIndex)
+        }
+        for index in nodes.indices {
+            guard nodes[index].conversationID == nil else { continue }
+            let requiredRole = nodes[index].role
+            let roleKey = Self.roleKey(requiredRole)
+            let nodeIndices = nodes.indices.filter {
+                nodes[$0].conversationID == nil && Self.roleKey(nodes[$0].role) == roleKey
+            }
+            guard nodeIndices.first == index else { continue }
+            let matchingCandidates = remaining.enumerated().filter {
+                Self.role($0.element.assignment, matches: requiredRole)
+            }
+            guard matchingCandidates.count >= nodeIndices.count else {
+                throw AgentOrchestrationGraphError.noAvailableConversationForRole(
+                    requiredRole.roleName
+                )
+            }
+            guard matchingCandidates.count == nodeIndices.count else {
+                throw AgentOrchestrationGraphError.ambiguousConversationsForRole(
+                    requiredRole.roleName
+                )
+            }
+            let bindings = zip(nodeIndices, matchingCandidates.map(\.element.conversationID))
+            for (nodeIndex, conversationID) in bindings {
+                nodes[nodeIndex].conversationID = conversationID
+            }
+            for candidateIndex in matchingCandidates.map(\.offset).sorted(by: >) {
+                remaining.remove(at: candidateIndex)
+            }
+        }
+    }
+
+    private static func role(
+        _ candidate: AgentRoleAssignment,
+        matches required: AgentRoleAssignment
+    ) -> Bool {
+        if let templateID = required.templateID {
+            return candidate.templateID == templateID
+        }
+        return candidate.roleName.caseInsensitiveCompare(required.roleName) == .orderedSame
+    }
+
+    private static func roleKey(_ role: AgentRoleAssignment) -> String {
+        if let templateID = role.templateID { return "template:\(templateID)" }
+        return "name:\(role.roleName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    }
 }
 
-enum AgentOrchestrationGraphError: Error, Equatable {
+enum AgentOrchestrationGraphError: LocalizedError, Equatable {
     case unknownNode(AgentOrchestrationNode.ID)
     case conversationAlreadyBound(Conversation.ID)
+    case noAvailableConversationForRole(String)
+    case ambiguousConversationsForRole(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unknownNode(let nodeID):
+            return "Unknown orchestration node: \(nodeID)."
+        case .conversationAlreadyBound(let conversationID):
+            return "Pane \(conversationID.uuidString) is already bound to another orchestration node."
+        case .noAvailableConversationForRole(let roleName):
+            return "Assign the role ‘\(roleName)’ to another agent in this workspace before activating this topology."
+        case .ambiguousConversationsForRole(let roleName):
+            return "More agents have the role ‘\(roleName)’ than this topology can bind. Keep existing bindings or make the role assignments unambiguous before activating it."
+        }
+    }
 }
 
 enum AgentOrchestrationPresets {
+    static func graph(
+        for preset: AgentOrchestrationPreset,
+        reusing activeGraph: AgentOrchestrationGraph?
+    ) -> AgentOrchestrationGraph {
+        if let activeGraph, activeGraph.preset == preset {
+            return activeGraph
+        }
+        return make(preset)
+    }
+
     /// N independent proposals converge on one aggregator. Ideators are
     /// intentionally inline roles: the four reusable built-ins remain the
     /// user's requested planner/executor/reviewer/aggregator vocabulary.
     static func council(ideatorCount requestedCount: Int = 3) -> AgentOrchestrationGraph {
-        let ideatorCount = max(1, requestedCount)
+        let ideatorCount = min(16, max(1, requestedCount))
         let ideatorRole = AgentRoleAssignment(
             roleName: "Ideator",
             instructions: "Develop an independent proposal. Send evidence, assumptions, and tradeoffs to the aggregator without forcing consensus."
@@ -419,6 +544,9 @@ enum AgentOrchestrationPresets {
 /// topologies before any one of them is activated or bound to live panes.
 struct WorkspaceOrchestration: Codable, Hashable {
     static let currentSchemaVersion = 1
+    static let maximumSavedGraphs = 16
+    static let maximumEncodedGraphBytes = 2 * 1_024 * 1_024
+    static let maximumAuthorizedManagers = 64
 
     var schemaVersion: Int
     var roleTemplates: AgentRoleTemplateLibrary
@@ -441,12 +569,16 @@ struct WorkspaceOrchestration: Codable, Hashable {
     }
 
     var activeGraph: AgentOrchestrationGraph? {
-        guard let activeGraphID else { return nil }
-        return graphs.first(where: { $0.id == activeGraphID })
+        guard schemaVersion == Self.currentSchemaVersion,
+              let activeGraphID,
+              let graph = graphs.first(where: { $0.id == activeGraphID }),
+              graph.isValid else { return nil }
+        return graph
     }
 
     func canManageRolesAndTopology(_ paneID: Conversation.ID) -> Bool {
-        authorizedManagerPaneIDs.contains(paneID)
+        schemaVersion == Self.currentSchemaVersion
+            && authorizedManagerPaneIDs.contains(paneID)
     }
 
     mutating func setManagementAuthorization(
@@ -454,7 +586,10 @@ struct WorkspaceOrchestration: Codable, Hashable {
         isAuthorized: Bool
     ) {
         if isAuthorized {
-            authorizedManagerPaneIDs.insert(paneID)
+            if authorizedManagerPaneIDs.contains(paneID)
+                || authorizedManagerPaneIDs.count < Self.maximumAuthorizedManagers {
+                authorizedManagerPaneIDs.insert(paneID)
+            }
         } else {
             authorizedManagerPaneIDs.remove(paneID)
         }
@@ -476,18 +611,28 @@ struct WorkspaceOrchestration: Codable, Hashable {
             AgentRoleTemplateLibrary.self,
             forKey: .roleTemplates
         ) ?? AgentRoleTemplateLibrary()
-        authorizedManagerPaneIDs = try container.decodeIfPresent(
+        let decodedManagers = try container.decodeIfPresent(
             Set<Conversation.ID>.self,
             forKey: .authorizedManagerPaneIDs
         ) ?? []
-        graphs = try container.decodeIfPresent(
+        authorizedManagerPaneIDs = Set(decodedManagers.sorted {
+            $0.uuidString < $1.uuidString
+        }.prefix(Self.maximumAuthorizedManagers))
+        let decodedGraphs = try container.decodeIfPresent(
             [AgentOrchestrationGraph].self,
             forKey: .graphs
         ) ?? []
-        activeGraphID = try container.decodeIfPresent(
+        graphs = []
+        for graph in decodedGraphs.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
+            try? saveGraph(graph)
+        }
+        let decodedActiveGraphID = try container.decodeIfPresent(
             AgentOrchestrationGraph.ID.self,
             forKey: .activeGraphID
         )
+        activeGraphID = graphs.contains(where: { $0.id == decodedActiveGraphID })
+            ? decodedActiveGraphID
+            : nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -509,11 +654,19 @@ struct WorkspaceOrchestration: Codable, Hashable {
             throw WorkspaceOrchestrationError.invalidGraph(issues)
         }
 
-        if let index = graphs.firstIndex(where: { $0.id == graph.id }) {
-            graphs[index] = graph
+        var candidate = graphs
+        if let index = candidate.firstIndex(where: { $0.id == graph.id }) {
+            candidate[index] = graph
         } else {
-            graphs.append(graph)
+            candidate.append(graph)
         }
+        candidate.sort { $0.id.uuidString < $1.id.uuidString }
+        guard candidate.count <= Self.maximumSavedGraphs,
+              ((try? JSONEncoder().encode(candidate).count) ?? Int.max)
+                <= Self.maximumEncodedGraphBytes else {
+            throw WorkspaceOrchestrationError.quotaExceeded
+        }
+        graphs = candidate
     }
 
     mutating func activateGraph(id: AgentOrchestrationGraph.ID?) throws {
@@ -546,6 +699,7 @@ struct WorkspaceOrchestration: Codable, Hashable {
 enum WorkspaceOrchestrationError: Error, Equatable {
     case invalidGraph([AgentOrchestrationValidationIssue])
     case unknownGraph(AgentOrchestrationGraph.ID)
+    case quotaExceeded
 }
 
 // MARK: - Deterministic validation
@@ -561,6 +715,7 @@ struct AgentOrchestrationValidationIssue: Codable, Hashable {
         case invalidIdentifier
         case emptyTemplateName
         case emptyInstructions
+        case fieldTooLong
         case duplicateTemplateID
         case builtInTemplateIDCollision
         case emptyGraphTitle
@@ -597,6 +752,39 @@ enum AgentOrchestrationValidator {
         if isBlank(template.instructions) {
             issues.append(issue(.emptyInstructions, path: "template.instructions", "Template instructions must not be empty."))
         }
+        if template.id.utf8.count > AgentRoleTemplate.maximumIDUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "template.id", "Template ID is too long."))
+        }
+        if template.displayName.utf8.count > AgentRoleTemplate.maximumDisplayNameUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "template.displayName", "Template display name is too long."))
+        }
+        if template.instructions.utf8.count > AgentRoleTemplate.maximumInstructionsUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "template.instructions", "Template instructions are too long."))
+        }
+        return sorted(issues)
+    }
+
+    static func validate(
+        assignment: AgentRoleAssignment,
+        path: String = "role"
+    ) -> [AgentOrchestrationValidationIssue] {
+        var issues: [AgentOrchestrationValidationIssue] = []
+        if isBlank(assignment.roleName) {
+            issues.append(issue(.emptyTemplateName, path: "\(path).roleName", "Role name must not be empty."))
+        }
+        if isBlank(assignment.instructions) {
+            issues.append(issue(.emptyInstructions, path: "\(path).instructions", "Role instructions must not be empty."))
+        }
+        if let templateID = assignment.templateID,
+           templateID.utf8.count > AgentRoleTemplate.maximumIDUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "\(path).templateID", "Role template ID is too long."))
+        }
+        if assignment.roleName.utf8.count > AgentRoleTemplate.maximumDisplayNameUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "\(path).roleName", "Role name is too long."))
+        }
+        if assignment.instructions.utf8.count > AgentRoleTemplate.maximumInstructionsUTF8Bytes {
+            issues.append(issue(.fieldTooLong, path: "\(path).instructions", "Role instructions are too long."))
+        }
         return sorted(issues)
     }
 
@@ -630,12 +818,7 @@ enum AgentOrchestrationValidator {
             if !nodeIDs.insert(node.id).inserted {
                 issues.append(issue(.duplicateNodeID, path: "\(nodePath).id", "Duplicate node ID '\(node.id)'."))
             }
-            if isBlank(node.role.roleName) {
-                issues.append(issue(.emptyTemplateName, path: "\(nodePath).role.roleName", "Role name must not be empty."))
-            }
-            if isBlank(node.role.instructions) {
-                issues.append(issue(.emptyInstructions, path: "\(nodePath).role.instructions", "Role instructions must not be empty."))
-            }
+            issues.append(contentsOf: validate(assignment: node.role, path: "\(nodePath).role"))
             if let templateID = node.role.templateID,
                !availableRoleTemplateIDs.contains(templateID) {
                 issues.append(issue(

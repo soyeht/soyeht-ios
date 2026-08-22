@@ -15,6 +15,11 @@ final class AgentMessagingPolicyAccessoryView: NSView {
     }
 
     private let receivePopup = NSPopUpButton()
+    private let resetAgentRestrictionsButton = NSButton(
+        checkboxWithTitle: "Clear extra restrictions requested by the current agent",
+        target: nil,
+        action: nil
+    )
     private var blockButtons: [(button: NSButton, paneID: Conversation.ID)] = []
 
     var receiveMode: ReceiveMode {
@@ -25,12 +30,16 @@ final class AgentMessagingPolicyAccessoryView: NSView {
         Set(blockButtons.compactMap { $0.button.state == .on ? $0.paneID : nil })
     }
 
+    var shouldResetAgentRequestedPolicy: Bool {
+        resetAgentRestrictionsButton.state == .on
+    }
+
     init(
         conversation: Conversation,
         candidates: [Conversation],
         workspaceName: (Workspace.ID) -> String
     ) {
-        super.init(frame: NSRect(x: 0, y: 0, width: 520, height: max(150, 88 + candidates.count * 23)))
+        super.init(frame: NSRect(x: 0, y: 0, width: 520, height: max(180, 118 + candidates.count * 23)))
         receivePopup.addItems(withTitles: [
             "Everyone",
             "Only this workspace",
@@ -48,6 +57,12 @@ final class AgentMessagingPolicyAccessoryView: NSView {
         receiveLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
         let blockLabel = NSTextField(labelWithString: "Blocked agents")
         blockLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+        let hasAgentRestrictions = conversation.agentRequestedCommunicationPolicy != .open
+        resetAgentRestrictionsButton.state = hasAgentRestrictions ? .on : .off
+        resetAgentRestrictionsButton.isEnabled = hasAgentRestrictions
+        resetAgentRestrictionsButton.toolTip = hasAgentRestrictions
+            ? "The running agent requested additional deny-only restrictions. Saving with this checked returns that process-owned layer to open; your UI blocks remain authoritative."
+            : "The current agent has not requested any additional restrictions."
 
         let blockViews: [NSView]
         if candidates.isEmpty {
@@ -77,7 +92,13 @@ final class AgentMessagingPolicyAccessoryView: NSView {
         blockStack.alignment = .leading
         blockStack.spacing = 3
 
-        let stack = NSStackView(views: [receiveLabel, receivePopup, blockLabel, blockStack])
+        let stack = NSStackView(views: [
+            receiveLabel,
+            receivePopup,
+            resetAgentRestrictionsButton,
+            blockLabel,
+            blockStack,
+        ])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 7

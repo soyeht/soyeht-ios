@@ -9,7 +9,7 @@ TOOLS_MESSAGING = [
             "properties": {
                 "conversationIDs": {"type": "array", "items": {"type": "string"}},
                 "handles": {"type": "array", "items": {"type": "string"}},
-                "text": {"type": "string"},
+                "text": {"type": "string", "maxLength": 65536},
                 "fromConversationID": {
                     "type": "string",
                     "description": "Explicit sender conversationID. Use this when relaying a message from a known Soyeht pane; it is more reliable than TTY inference.",
@@ -54,7 +54,7 @@ TOOLS_MESSAGING = [
             "properties": {
                 "conversationIDs": {"type": "array", "items": {"type": "string"}},
                 "handles": {"type": "array", "items": {"type": "string"}},
-                "text": {"type": "string"},
+                "text": {"type": "string", "maxLength": 65536},
                 "fromConversationID": {
                     "type": "string",
                     "description": "Explicit sender conversationID. Strongly recommended when you know your own Soyeht pane.",
@@ -92,6 +92,17 @@ TOOLS_MESSAGING = [
             "properties": {
                 "unreadOnly": {"type": "boolean", "default": False},
                 "markRead": {"type": "boolean", "default": True},
+                "afterMessageID": {
+                    "type": "string",
+                    "description": "Cursor from agentInboxPage.nextCursor. Omit for the first page.",
+                },
+                "messageLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "Maximum messages in this bounded response page.",
+                },
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -105,7 +116,11 @@ TOOLS_MESSAGING = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "messageIDs": {"type": "array", "items": {"type": "string"}},
+                "messageIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 500,
+                },
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -141,9 +156,9 @@ TOOLS_MESSAGING = [
             "properties": {
                 "conversationIDs": {"type": "array", "items": {"type": "string"}},
                 "handles": {"type": "array", "items": {"type": "string"}},
-                "roleTemplateID": {"type": "string", "description": "builtin.planner, builtin.executor, builtin.reviewer, builtin.aggregator, a saved custom ID, or none."},
-                "roleName": {"type": "string"},
-                "roleInstructions": {"type": "string"},
+                "roleTemplateID": {"type": "string", "maxLength": 128, "description": "builtin.planner, builtin.executor, builtin.reviewer, builtin.aggregator, a saved custom ID, or none."},
+                "roleName": {"type": "string", "maxLength": 256},
+                "roleInstructions": {"type": "string", "maxLength": 16384},
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -157,9 +172,9 @@ TOOLS_MESSAGING = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "templateID": {"type": "string"},
-                "roleName": {"type": "string"},
-                "roleInstructions": {"type": "string"},
+                "templateID": {"type": "string", "maxLength": 128},
+                "roleName": {"type": "string", "maxLength": 256},
+                "roleInstructions": {"type": "string", "maxLength": 16384},
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,
                 "automationDir": {"type": "string"},
@@ -175,7 +190,7 @@ TOOLS_MESSAGING = [
             "type": "object",
             "properties": {
                 "preset": {"type": "string", "enum": ["none", "council", "planner-executor-reviewer", "executor-reviewer-loop"]},
-                "ideatorCount": {"type": "integer", "minimum": 1},
+                "ideatorCount": {"type": "integer", "minimum": 1, "maximum": 16},
                 "nodeBindings": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Map graph node IDs to real conversation UUIDs."},
                 "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
                 "fromHandle": FROM_HANDLE_PROPERTY,

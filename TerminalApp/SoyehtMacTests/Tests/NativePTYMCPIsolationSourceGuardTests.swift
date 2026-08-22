@@ -4,6 +4,88 @@ import XCTest
 @testable import SoyehtMacDomain
 
 final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
+    func testWriteBufferKeepsPartialOperationAcrossBackpressure() {
+        var buffer = NativePTYWriteBuffer(maximumPendingBytes: 64)
+        var receipts: [TransportWriteReceipt] = []
+        XCTAssertTrue(buffer.enqueue(Data([1, 2, 3])) { receipts.append($0) })
+
+        var firstDrainAttempt = 0
+        let blocked = buffer.drain { remaining in
+            firstDrainAttempt += 1
+            if firstDrainAttempt == 1 {
+                XCTAssertEqual(remaining, Data([1, 2, 3]))
+                return .wrote(1)
+            }
+            XCTAssertEqual(remaining, Data([2, 3]))
+            return .wouldBlock
+        }
+
+        XCTAssertTrue(blocked.needsWritableEvent)
+        XCTAssertTrue(blocked.resolutions.isEmpty)
+        XCTAssertTrue(receipts.isEmpty)
+
+        let completed = buffer.drain { remaining in
+            XCTAssertEqual(remaining, Data([2, 3]))
+            return .wrote(remaining.count)
+        }
+        completed.resolutions.forEach { $0.completion?($0.receipt) }
+
+        XCTAssertFalse(completed.needsWritableEvent)
+        XCTAssertTrue(buffer.isEmpty)
+        XCTAssertEqual(receipts, [.admitted])
+    }
+
+    func testWriteBufferClassifiesPartialFailureAsUnknownAndUntouchedTailAsRejected() {
+        var buffer = NativePTYWriteBuffer(maximumPendingBytes: 64)
+        var receipts: [(String, TransportWriteReceipt)] = []
+        XCTAssertTrue(buffer.enqueue(Data([1, 2])) { receipts.append(("first", $0)) })
+        XCTAssertTrue(buffer.enqueue(Data([3])) { receipts.append(("second", $0)) })
+
+        var attempt = 0
+        let failed = buffer.drain { _ in
+            attempt += 1
+            return attempt == 1 ? .wrote(1) : .failed
+        }
+        failed.resolutions.forEach { $0.completion?($0.receipt) }
+
+        XCTAssertTrue(buffer.isEmpty)
+        XCTAssertEqual(receipts.map(\.0), ["first", "second"])
+        XCTAssertEqual(receipts.map(\.1), [.outcomeUnknown, .rejectedBeforeWrite])
+    }
+
+    func testWriteBufferRetriesInterruptedWriteWithoutResolvingReceipt() {
+        var buffer = NativePTYWriteBuffer(maximumPendingBytes: 64)
+        var receipts: [TransportWriteReceipt] = []
+        XCTAssertTrue(buffer.enqueue(Data([7])) { receipts.append($0) })
+
+        var attempt = 0
+        let result = buffer.drain { remaining in
+            attempt += 1
+            return attempt == 1 ? .retry : .wrote(remaining.count)
+        }
+        result.resolutions.forEach { $0.completion?($0.receipt) }
+
+        XCTAssertEqual(attempt, 2)
+        XCTAssertEqual(receipts, [.admitted])
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
+    func testWriteBufferCloseResolvesEachPendingOperationExactlyOnce() {
+        var buffer = NativePTYWriteBuffer(maximumPendingBytes: 64)
+        var receipts: [TransportWriteReceipt] = []
+        XCTAssertTrue(buffer.enqueue(Data([1, 2])) { receipts.append($0) })
+        XCTAssertTrue(buffer.enqueue(Data([3])) { receipts.append($0) })
+        _ = buffer.drain { _ in .wouldBlock }
+
+        let firstClose = buffer.close()
+        firstClose.forEach { $0.completion?($0.receipt) }
+        let secondClose = buffer.close()
+        secondClose.forEach { $0.completion?($0.receipt) }
+
+        XCTAssertEqual(receipts, [.rejectedBeforeWrite, .rejectedBeforeWrite])
+        XCTAssertTrue(secondClose.isEmpty)
+    }
+
     func testRegularFileIsNotClassifiedAsTerminalStandardIO() throws {
         let targetPTY = try makePTYPair()
         defer { targetPTY.close() }

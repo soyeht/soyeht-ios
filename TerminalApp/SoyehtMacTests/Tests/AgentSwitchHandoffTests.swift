@@ -365,7 +365,7 @@ final class AgentSwitchHandoffTests: XCTestCase {
 
     func testMCPContextClampsPageSizeButDoesNotSplitLongMessage() {
         var state = AgentConversationState()
-        let longMessage = String(repeating: "x", count: 100_000)
+        let longMessage = String(repeating: "x", count: 60_000)
         state.recordEvent(role: .user, text: longMessage, sourceAgent: "codex")
         state.recordEvent(role: .assistant, text: "second", sourceAgent: "codex")
 
@@ -373,6 +373,38 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertEqual(page.events.count, 1)
         XCTAssertEqual(page.events[0].text, longMessage)
         XCTAssertTrue(page.hasMore)
+    }
+
+    func testInheritedSessionMetadataCountsAgainstConversationQuota() {
+        var state = AgentConversationState()
+        let metadata = String(repeating: "m", count: 4_000)
+        state.recordSession(
+            agent: "codex",
+            nativeSessionID: metadata,
+            model: metadata,
+            reasoningEffort: metadata,
+            variant: metadata
+        )
+
+        var rejected = false
+        for index in 0..<400 {
+            let event = state.recordEvent(
+                role: .assistant,
+                text: "event-\(index)",
+                sourceAgent: "codex"
+            )
+            if event == nil {
+                rejected = true
+                break
+            }
+        }
+
+        XCTAssertTrue(rejected)
+        XCTAssertLessThan(state.events.count, 400)
+        XCTAssertLessThanOrEqual(
+            try! JSONEncoder().encode(state.events).count,
+            AgentConversationState.maximumStoredTextBytes + 512_000
+        )
     }
 
     func testLegacyTerminalTranscriptIsDiscardedAndNeverReencoded() throws {
@@ -468,7 +500,7 @@ final class AgentSwitchHandoffTests: XCTestCase {
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").mcpContext)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "claude").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "opencode").modelMetadata)
-        XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
+        XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "pi").structuredCapture)
         XCTAssertTrue(AgentConversationAdapterCapabilities.capabilities(for: "copilot").reasoningEffortMetadata)
         XCTAssertFalse(AgentConversationAdapterCapabilities.capabilities(for: "antigravity").mcpContext)

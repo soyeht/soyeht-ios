@@ -8,6 +8,14 @@ import XCTest
 /// host code execution on whichever machine the resolved context names.
 @MainActor
 final class LocalEngineContextTests: XCTestCase {
+    private final class IdentityStore: LocalEngineContext.IdentityPersisting {
+        var serverID: String?
+
+        func verifiedServerID() -> String? { serverID }
+        func saveVerifiedServerID(_ serverID: String) { self.serverID = serverID }
+        func clearVerifiedServerID() { serverID = nil }
+    }
+
     private func makeIsolatedSessionStore() -> SessionStore {
         let id = UUID().uuidString
         let defaults = UserDefaults(suiteName: "com.soyeht.tests.localEngineContext.\(id)")!
@@ -18,7 +26,7 @@ final class LocalEngineContextTests: XCTestCase {
         )
     }
 
-    func testResolvesExistingLocalEngineRowWithoutSelfPairing() async {
+    func testExistingLocalHostRowStillRequiresPositiveAuthenticationProof() async {
         let store = makeIsolatedSessionStore()
         let localHost = SoyehtInstallProfile.current.adminHost
         let localEngineRow = PairedServer(
@@ -46,19 +54,37 @@ final class LocalEngineContextTests: XCTestCase {
         store.setActiveServer(id: remoteServer.id)
 
         var autoPairCalled = false
-        let context = await LocalEngineContext.resolve(store: store) {
+        let context = await LocalEngineContext.resolve(store: store, identity: IdentityStore()) {
             autoPairCalled = true
             throw NSError(domain: "test", code: 1)
         }
 
-        XCTAssertFalse(autoPairCalled, "must not self-pair when a local engine row already exists")
-        XCTAssertEqual(context?.host, localHost)
-        XCTAssertEqual(context?.token, "local-token")
-        XCTAssertEqual(context?.server.kind, .engine)
+        XCTAssertTrue(autoPairCalled, "host metadata alone must not become verified identity")
+        XCTAssertNil(context, "an unproven legacy row must fail closed")
+    }
+
+    func testAuthenticationRejectionInvalidatesVerifiedIdentity() {
+        let identity = IdentityStore()
+        identity.serverID = "rotated-token-row"
+        let server = PairedServer(
+            id: "rotated-token-row",
+            host: SoyehtInstallProfile.current.adminHost,
+            name: "this-mac",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            kind: .engine
+        )
+        LocalEngineContext.invalidateVerification(
+            ServerContext(server: server, token: "stale"),
+            identity: identity
+        )
+        XCTAssertNil(identity.serverID)
     }
 
     func testSelfPairsWhenNoLocalEngineRowExists() async {
         let store = makeIsolatedSessionStore()
+        let identity = IdentityStore()
         let selfPaired = PairedServer(
             id: "freshly-paired",
             host: SoyehtInstallProfile.current.adminHost,
@@ -69,18 +95,19 @@ final class LocalEngineContextTests: XCTestCase {
             kind: .engine
         )
 
-        let context = await LocalEngineContext.resolve(store: store) {
+        let context = await LocalEngineContext.resolve(store: store, identity: identity) {
             _ = store.addServer(selfPaired, token: "minted-token")
             return selfPaired
         }
 
         XCTAssertEqual(context?.server.id, "freshly-paired")
         XCTAssertEqual(context?.token, "minted-token")
+        XCTAssertEqual(identity.serverID, "freshly-paired")
     }
 
     func testReturnsNilWhenSelfPairingFails() async {
         let store = makeIsolatedSessionStore()
-        let context = await LocalEngineContext.resolve(store: store) {
+        let context = await LocalEngineContext.resolve(store: store, identity: IdentityStore()) {
             throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "bootstrap token missing"])
         }
         XCTAssertNil(context)
@@ -107,7 +134,7 @@ final class LocalEngineContextTests: XCTestCase {
             kind: .engine
         )
 
-        let context = await LocalEngineContext.resolve(store: store) {
+        let context = await LocalEngineContext.resolve(store: store, identity: IdentityStore()) {
             _ = store.addServer(tailnetRow, token: "self-token")
             return tailnetRow
         }
@@ -118,13 +145,13 @@ final class LocalEngineContextTests: XCTestCase {
         XCTAssertEqual(context?.server.id, "self-tailnet")
     }
 
-    /// A later launch cannot assume that the one-time bootstrap pairing can
-    /// be redeemed again. Reuse the sole persisted engine credential, but
-    /// never its public host: the local-terminal request must still go only
-    /// to this Mac's loopback engine.
-    func testPersistedTailnetCredentialSurvivesRejectedRepairPairing() async {
+    /// A later launch cannot infer local identity from a single legacy row.
+    /// If repair pairing is rejected and no positively associated ID exists,
+    /// persistent panes fail closed to NativePTY rather than send a bearer to
+    /// an unauthenticated listener.
+    func testPersistedTailnetCredentialIsNotGuessedAfterRejectedRepairPairing() async {
         let store = makeIsolatedSessionStore()
-        let localHost = SoyehtInstallProfile.current.adminHost
+        let identity = IdentityStore()
         let tailnetRow = PairedServer(
             id: "persisted-self-tailnet",
             host: "https://mac-alpha.example.ts.net",
@@ -136,14 +163,68 @@ final class LocalEngineContextTests: XCTestCase {
         )
         store.addServer(tailnetRow, token: "persisted-token")
 
-        let context = await LocalEngineContext.resolve(store: store) {
+        let context = await LocalEngineContext.resolve(store: store, identity: identity) {
             throw NSError(domain: "test", code: 500,
                           userInfo: [NSLocalizedDescriptionKey: "already paired"])
         }
 
-        XCTAssertEqual(context?.host, localHost)
-        XCTAssertEqual(context?.token, "persisted-token")
-        XCTAssertEqual(context?.server.id, "persisted-self-tailnet")
+        XCTAssertNil(context)
+        XCTAssertNil(identity.serverID)
+    }
+
+    func testVerifiedTailnetIdentityBypassesRepairAndPinsTransport() async {
+        let store = makeIsolatedSessionStore()
+        let identity = IdentityStore()
+        identity.serverID = "verified-self"
+        let row = PairedServer(
+            id: "verified-self",
+            host: "https://mac-alpha.example.ts.net",
+            name: "this-mac",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            kind: .engine
+        )
+        store.addServer(row, token: "verified-token")
+        var autoPairCalled = false
+
+        let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: identity) {
+            autoPairCalled = true
+            throw NSError(domain: "test", code: 500)
+        }
+
+        guard case .resolved(let context) = resolution else {
+            return XCTFail("a positively verified row must resolve")
+        }
+        XCTAssertFalse(autoPairCalled)
+        XCTAssertEqual(context.host, SoyehtInstallProfile.current.adminHost)
+        XCTAssertEqual(context.token, "verified-token")
+    }
+
+    func testSoleUnverifiedEngineFailsClosed() async {
+        let store = makeIsolatedSessionStore()
+        let identity = IdentityStore()
+        store.addServer(
+            PairedServer(
+                id: "remote-only",
+                host: "https://remote.example.ts.net",
+                name: "remote",
+                role: nil,
+                pairedAt: Date(),
+                expiresAt: nil,
+                kind: .engine
+            ),
+            token: "remote-token"
+        )
+
+        let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: identity) {
+            throw NSError(domain: "test", code: 500)
+        }
+
+        guard case .unavailable = resolution else {
+            return XCTFail("a sole legacy row must fail closed; came \(resolution)")
+        }
+        XCTAssertNil(identity.serverID)
     }
 
     func testRejectedRepairDoesNotGuessBetweenMultipleEngineCredentials() async {
@@ -163,7 +244,7 @@ final class LocalEngineContextTests: XCTestCase {
             )
         }
 
-        let resolution = await LocalEngineContext.resolveDetailed(store: store) {
+        let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: IdentityStore()) {
             throw NSError(domain: "test", code: 500)
         }
 
@@ -185,7 +266,7 @@ final class LocalEngineContextTests: XCTestCase {
         let store = makeIsolatedSessionStore()
         let notListening = NSError(domain: NSURLErrorDomain, code: -1004,
                                    userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."])
-        let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw notListening }
+        let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: IdentityStore()) { throw notListening }
         guard case .engineNotAnsweringYet = resolution else {
             return XCTFail("um engine que ainda não está a escutar tem de valer a pena esperar; veio \(resolution)")
         }
@@ -196,7 +277,7 @@ final class LocalEngineContextTests: XCTestCase {
         for code in LocalEngineContext.notAnsweringURLErrorCodes {
             let store = makeIsolatedSessionStore()
             let error = NSError(domain: NSURLErrorDomain, code: code)
-            let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw error }
+            let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: IdentityStore()) { throw error }
             guard case .engineNotAnsweringYet = resolution else {
                 return XCTFail("código \(code) devia valer a pena esperar; veio \(resolution)")
             }
@@ -210,7 +291,7 @@ final class LocalEngineContextTests: XCTestCase {
         let store = makeIsolatedSessionStore()
         // 401: answered, rejected. Not a transport failure.
         let refused = NSError(domain: NSURLErrorDomain, code: 401)
-        let resolution = await LocalEngineContext.resolveDetailed(store: store) { throw refused }
+        let resolution = await LocalEngineContext.resolveDetailed(store: store, identity: IdentityStore()) { throw refused }
         guard case .unavailable = resolution else {
             return XCTFail("uma recusa não se resolve esperando; veio \(resolution)")
         }

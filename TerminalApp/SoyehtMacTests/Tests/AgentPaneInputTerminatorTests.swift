@@ -18,6 +18,8 @@ final class AgentPaneInputTerminatorTests: XCTestCase {
             lineEnding: "enter"
         )
         XCTAssertTrue(r.shouldSendEnterKey)
+        XCTAssertFalse(r.isExplicitRawInput)
+        XCTAssertTrue(r.allowsBracketedPaste)
         XCTAssertEqual(r.payload, "confirma a correcao com a @jovian ")
         XCTAssertFalse(r.payload.hasSuffix("@jovian"), "mention must not be the final token")
     }
@@ -62,6 +64,8 @@ final class AgentPaneInputTerminatorTests: XCTestCase {
             lineEnding: "newline"
         )
         XCTAssertFalse(r.shouldSendEnterKey)
+        XCTAssertFalse(r.isExplicitRawInput)
+        XCTAssertFalse(r.allowsBracketedPaste)
         XCTAssertEqual(r.payload, "raw @jovian\n")
     }
 
@@ -72,7 +76,30 @@ final class AgentPaneInputTerminatorTests: XCTestCase {
             lineEnding: "none"
         )
         XCTAssertFalse(r.shouldSendEnterKey)
+        XCTAssertTrue(r.isExplicitRawInput)
+        XCTAssertFalse(r.allowsBracketedPaste)
         XCTAssertEqual(r.payload, "raw @jovian")
+    }
+
+    func test_newlineModeAlreadyEndingInLF_remainsCompleteInput() {
+        let r = AgentPaneInputPlanner.terminalPayload(
+            text: "ls -la\n",
+            appendNewline: true,
+            lineEnding: "newline"
+        )
+        XCTAssertFalse(r.shouldSendEnterKey)
+        XCTAssertFalse(r.isExplicitRawInput)
+        XCTAssertFalse(r.allowsBracketedPaste)
+        XCTAssertEqual(r.payload, "ls -la\n")
+    }
+
+    func test_rawLF_isMarkedExplicitRawOnlyWhenTerminatorIsNone() {
+        let r = AgentPaneInputPlanner.terminalPayload(
+            text: "\n",
+            appendNewline: true,
+            lineEnding: "none"
+        )
+        XCTAssertTrue(r.isExplicitRawInput)
     }
 
     // MARK: - submitSafeText helper
@@ -82,5 +109,23 @@ final class AgentPaneInputTerminatorTests: XCTestCase {
         XCTAssertEqual(AgentPaneInputPlanner.submitSafeText("hello "), "hello ")
         XCTAssertEqual(AgentPaneInputPlanner.submitSafeText("hi\n"), "hi\n")
         XCTAssertEqual(AgentPaneInputPlanner.submitSafeText(""), "")
+    }
+
+    func test_deliveryReceiptExtractsOnlyTheCorrelatedMessageID() {
+        let messageID = UUID()
+        let submitted = "Sent via Soyeht. Soyeht-Delivery-ID: \(messageID.uuidString). Request: review this"
+
+        XCTAssertEqual(
+            AgentPaneInputPlanner.deliveryMessageID(inSubmittedText: submitted),
+            messageID
+        )
+        XCTAssertNil(
+            AgentPaneInputPlanner.deliveryMessageID(
+                inSubmittedText: "Sent via Soyeht. Soyeht-Delivery-ID: not-a-uuid."
+            )
+        )
+        XCTAssertNil(
+            AgentPaneInputPlanner.deliveryMessageID(inSubmittedText: "unrelated user turn")
+        )
     }
 }

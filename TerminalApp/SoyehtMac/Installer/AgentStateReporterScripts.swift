@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 23
+    static let version = 24
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v23). Do not edit.
+# Managed by Soyeht (agent-state integration v24). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -25,7 +25,18 @@ from pathlib import Path
 
 
 def write_request(automation_dir, request_type, payload):
-    request = {"id": str(uuid.uuid4()), "type": request_type, "payload": payload}
+    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return
+    payload = dict(payload)
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": request_type,
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -508,6 +519,8 @@ def main():
         "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "agent"),
         "seq": time.time_ns(),
     }
+    if event == "UserPromptSubmit":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
     nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
@@ -574,18 +587,27 @@ def main():
     if snippet and state == "working":
         message = ("%s: %s" % (tool_name, snippet))[:160] if tool_name else snippet[:160]
 
+    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
     payload = {
         "state": state,
         "sourceConversationID": conversation_id,
         "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "antigravity"),
         "seq": time.time_ns(),
+        "nonce": nonce,
+        "mcpClientContractVersion": 3,
+        "mcpClientProfile": profile,
     }
+    if event == "PreInvocation":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
-    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
-    if nonce:
-        payload["nonce"] = nonce
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -687,15 +709,24 @@ export default function (pi: any) {
 
   async function writeRequest(type: string, payload: Record<string, unknown>) {
     if (!enabled()) return;
+    const nonce = process.env.SOYEHT_LAUNCH_NONCE;
+    const profile = process.env.SOYEHT_MCP_PROFILE?.trim().toLowerCase();
+    if (!nonce || (profile !== "dev" && profile !== "release")) return;
+    payload = {
+      ...payload,
+      nonce,
+      mcpClientContractVersion: 3,
+      mcpClientProfile: profile,
+    };
     const dir = join(process.env.SOYEHT_AUTOMATION_DIR as string, "Requests");
     await mkdir(dir, { recursive: true });
     const id = randomUUID();
     const tmp = join(dir, `.${id}.tmp`);
-    await writeFile(tmp, JSON.stringify({ id, type, payload }));
+    await writeFile(tmp, JSON.stringify({ id, type, expectsResponse: false, payload }));
     await rename(tmp, join(dir, `${id}.json`));
   }
 
-  async function report(state: string, message?: string) {
+  async function report(state: string, message?: string, submittedTurn = false) {
     if (!enabled() || !state) return;
     try {
       const payload: Record<string, unknown> = {
@@ -704,6 +735,7 @@ export default function (pi: any) {
         reportSource: "hook:pi",
         seq: Date.now() * 1000 + Math.floor(Math.random() * 1000),
       };
+      if (submittedTurn) payload.turnSubmissionAcknowledged = true;
       if (message) payload.message = String(message).slice(0, 200);
       if (process.env.SOYEHT_LAUNCH_NONCE) payload.nonce = process.env.SOYEHT_LAUNCH_NONCE;
       await writeRequest("report_agent_state", payload);
@@ -714,7 +746,7 @@ export default function (pi: any) {
 
   pi.on("session_start", async () => { await report("idle", "ready"); });
   pi.on("agent_start", async () => { await report("working"); });
-  pi.on("turn_start", async () => { await report("working"); });
+  pi.on("turn_start", async () => { await report("working", undefined, true); });
   pi.on("message_end", async (event: any) => {
     try {
       const message = event?.message;
@@ -779,12 +811,21 @@ let lastBlockedMessage = null;
 async function writeAutomationRequest(type, payload) {
   const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
   if (!automationDir) return;
+  const nonce = process.env.SOYEHT_LAUNCH_NONCE;
+  const profile = process.env.SOYEHT_MCP_PROFILE?.trim().toLowerCase();
+  if (!nonce || (profile !== "dev" && profile !== "release")) return;
+  payload = {
+    ...payload,
+    nonce,
+    mcpClientContractVersion: 3,
+    mcpClientProfile: profile,
+  };
   const id = randomUUID();
   try {
     const dir = join(automationDir, "Requests");
     await mkdir(dir, { recursive: true });
     const tmp = join(dir, `.${id}.tmp`);
-    await writeFile(tmp, JSON.stringify({ id, type, payload }));
+    await writeFile(tmp, JSON.stringify({ id, type, expectsResponse: false, payload }));
     await rename(tmp, join(dir, `${id}.json`));
   } catch {
     // never disturb the agent session
@@ -814,7 +855,7 @@ async function reportAssistantPart(part, info) {
   });
 }
 
-async function report(state, message) {
+async function report(state, message, submittedTurn = false) {
   const conversationID = process.env.SOYEHT_CONVERSATION_ID;
   const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
   if (!conversationID || !automationDir || !state) return;
@@ -824,6 +865,7 @@ async function report(state, message) {
     reportSource: SOURCE,
     seq: Date.now() * 1000 + Math.floor(Math.random() * 1000),
   };
+  if (submittedTurn) payload.turnSubmissionAcknowledged = true;
   if (message) payload.message = String(message).slice(0, 200);
   const nonce = process.env.SOYEHT_LAUNCH_NONCE;
   if (nonce) payload.nonce = nonce;
@@ -871,7 +913,7 @@ export const SoyehtAgentStatePlugin = async () => {
           variant: input?.variant,
         });
       }
-      await publish();
+      await report("working", undefined, true);
     },
     "tool.execute.before": async () => {
       lastBaseState = "working";
@@ -1020,12 +1062,21 @@ def main():
         "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "cursor"),
         "seq": time.time_ns(),
     }
+    if event == "beforeSubmitPrompt":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
     nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
-    if nonce:
-        payload["nonce"] = nonce
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -1091,12 +1142,21 @@ def main():
         "reportSource": "hook:copilot",
         "seq": time.time_ns(),
     }
+    if event == "userPromptSubmitted":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
     nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
-    if nonce:
-        payload["nonce"] = nonce
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -1160,9 +1220,21 @@ def main():
         "reportSource": "hook:grok",
         "seq": time.time_ns(),
     }
+    if event == "UserPromptSubmit":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -1231,9 +1303,21 @@ def main():
         "reportSource": "hook:kimi",
         "seq": time.time_ns(),
     }
+    if event == "UserPromptSubmit":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -1298,9 +1382,21 @@ def main():
         "reportSource": "hook:devin",
         "seq": time.time_ns(),
     }
+    if event == "UserPromptSubmit":
+        payload["turnSubmissionAcknowledged"] = True
     if message:
         payload["message"] = message
-    request = {"id": str(uuid.uuid4()), "type": "report_agent_state", "payload": payload}
+    nonce = os.environ.get("SOYEHT_LAUNCH_NONCE", "")
+    profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if not nonce or profile not in ("dev", "release"):
+        return 0
+    payload["nonce"] = nonce
+    payload["mcpClientContractVersion"] = 3
+    payload["mcpClientProfile"] = profile
+    request = {
+        "id": str(uuid.uuid4()), "type": "report_agent_state",
+        "expectsResponse": False, "payload": payload,
+    }
     requests_dir = Path(automation_dir) / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
     request_id = request["id"]
@@ -1339,25 +1435,32 @@ const pendingPermissions = new Set();
 let lastBaseState = null;
 let lastBlockedMessage = null;
 
-async function report(state, message) {
+async function report(state, message, submittedTurn = false) {
   const conversationID = process.env.SOYEHT_CONVERSATION_ID;
   const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
   if (!conversationID || !automationDir || !state) return;
   const id = randomUUID();
+  const nonce = process.env.SOYEHT_LAUNCH_NONCE;
+  const profile = process.env.SOYEHT_MCP_PROFILE?.trim().toLowerCase();
+  if (!nonce || (profile !== "dev" && profile !== "release")) return;
   const payload = {
     state,
     sourceConversationID: conversationID,
     reportSource: SOURCE,
     seq: Date.now() * 1000 + Math.floor(Math.random() * 1000),
+    nonce,
+    mcpClientContractVersion: 3,
+    mcpClientProfile: profile,
   };
+  if (submittedTurn) payload.turnSubmissionAcknowledged = true;
   if (message) payload.message = String(message).slice(0, 200);
-  const nonce = process.env.SOYEHT_LAUNCH_NONCE;
-  if (nonce) payload.nonce = nonce;
   try {
     const dir = join(automationDir, "Requests");
     await mkdir(dir, { recursive: true });
     const tmp = join(dir, `.${id}.tmp`);
-    await writeFile(tmp, JSON.stringify({ id, type: "report_agent_state", payload }));
+    await writeFile(tmp, JSON.stringify({
+      id, type: "report_agent_state", expectsResponse: false, payload,
+    }));
     await rename(tmp, join(dir, `${id}.json`));
   } catch {
     // never disturb the agent session
@@ -1385,7 +1488,7 @@ export const SoyehtAgentStatePlugin = async () => {
   return {
     "chat.message": async () => {
       lastBaseState = "working";
-      await publish();
+      await report("working", undefined, true);
     },
     "tool.execute.before": async () => {
       lastBaseState = "working";

@@ -196,6 +196,9 @@ extension SoyehtAutomationRequestRouter {
         guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
             throw SoyehtAutomationError.agentMessageSourceRequired
         }
+        guard !source.agent.isShell else {
+            throw SoyehtAutomationError.unauthenticatedAgentSource
+        }
         guard PaneStatusTracker.shared.validatesLaunchOwnership(
             paneID: source.id,
             nonce: payload.nonce

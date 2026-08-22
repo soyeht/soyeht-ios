@@ -216,14 +216,28 @@ enum AIAgentIntegrator {
         # it switches a pane to another agent. Reinstalling updates the path.
         # Release and development builds own separate launchers, so this file
         # is only ever written by the bundle identifier named above.
+        export SOYEHT_MCP_PROFILE="\(SoyehtInstallProfile.current.kind.rawValue)"
         exec "\(bundled.path)" "$@"
         """
-        try? FileManager.default.removeItem(at: launcherURL)
-        try launcherBody.data(using: .utf8)!.write(to: launcherURL)
+        let temporaryURL = parent.appendingPathComponent(
+            ".\(launcherURL.lastPathComponent).\(UUID().uuidString).tmp"
+        )
+        defer { try? FileManager.default.removeItem(at: temporaryURL) }
+        try launcherBody.data(using: .utf8)!.write(to: temporaryURL, options: .atomic)
         try FileManager.default.setAttributes(
             [.posixPermissions: NSNumber(value: 0o755 as Int16)],
-            ofItemAtPath: launcherURL.path
+            ofItemAtPath: temporaryURL.path
         )
+        if FileManager.default.fileExists(atPath: launcherURL.path) {
+            _ = try FileManager.default.replaceItemAt(
+                launcherURL,
+                withItemAt: temporaryURL,
+                backupItemName: nil,
+                options: []
+            )
+        } else {
+            try FileManager.default.moveItem(at: temporaryURL, to: launcherURL)
+        }
     }
 
     private static func writeConfig(for agent: Agent) throws {

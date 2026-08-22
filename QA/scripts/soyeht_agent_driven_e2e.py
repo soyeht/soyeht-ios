@@ -16,6 +16,7 @@ Soyeht Dev.app because the test creates live paid-agent sessions.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.machinery
 import importlib.util
 import json
@@ -128,6 +129,58 @@ def detach_external_observer_identity():
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def installed_app_provenance(app_path: Path) -> dict:
+    subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    signature = subprocess.run(
+        ["/usr/bin/codesign", "-dvv", str(app_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stderr
+    team_id = next(
+        (line.split("=", 1)[1] for line in signature.splitlines() if line.startswith("TeamIdentifier=")),
+        "",
+    )
+    require(team_id not in {"", "not set"}, "Installed Soyeht Dev is ad-hoc signed.")
+    plist = app_path / "Contents" / "Info.plist"
+    executable = app_path / "Contents" / "MacOS" / "Soyeht Dev"
+    commit = subprocess.run(
+        ["/usr/libexec/PlistBuddy", "-c", "Print :SoyehtBuildGitCommit", str(plist)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    binary_sha = subprocess.run(
+        ["/usr/bin/shasum", "-a", "256", str(executable)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()[0]
+    resources = app_path / "Contents" / "Resources"
+    mcp_files = sorted(
+        [resources / "soyeht-mcp", resources / "LocalAgentCatalog.json"]
+        + list(resources.glob("soyeht_mcp_*.py")),
+        key=lambda item: item.name,
+    )
+    require(all(item.is_file() for item in mcp_files), "Installed MCP resource set is incomplete.")
+    digest = hashlib.sha256()
+    for item in mcp_files:
+        digest.update(item.name.encode("utf-8") + b"\0")
+        digest.update(item.read_bytes())
+    return {
+        "commit": commit,
+        "teamID": team_id,
+        "binarySHA256": binary_sha,
+        "mcpBundleSHA256": digest.hexdigest(),
+        "mcpFiles": [item.name for item in mcp_files],
+    }
 
 
 def require_accessibility_keyboard_control():
@@ -551,14 +604,11 @@ def command_matches(command: str, expected_argv):
         tokens = shlex.split(command)
     except ValueError:
         tokens = command.split()
-    executable = Path(expected_argv[0]).name.lower()
-    observed_executables = {
-        Path(token).name.lower()
-        for token in tokens
-        if token and not token.startswith("-")
-    }
-    expected_flags = [token for token in expected_argv[1:] if token.startswith("-")]
-    return executable in observed_executables and all(flag in tokens for flag in expected_flags)
+    if len(tokens) != len(expected_argv) or not tokens:
+        return False
+    if Path(tokens[0]).name.lower() != Path(expected_argv[0]).name.lower():
+        return False
+    return tokens[1:] == list(expected_argv[1:])
 
 
 def observe_process(baseline, expected_argv, expected_cwd: Path, timeout):
@@ -626,7 +676,7 @@ def wait_for_parent_request(mcp, parent, child, token, automation_dir, timeout):
             message for message in latest_inbox
             if token in message.get("body", "")
             and message.get("senderConversationID") == parent["conversationID"]
-            and message.get("mcpClientContractVersion") == 2
+            and message.get("mcpClientContractVersion") == 3
         ), None)
         if request:
             return request
@@ -647,7 +697,7 @@ def wait_for_reply(mcp, parent, child, token, automation_dir, timeout):
             message for message in latest_inbox
             if token in message.get("body", "")
             and message.get("senderConversationID") == child["conversationID"]
-            and message.get("mcpClientContractVersion") == 2
+            and message.get("mcpClientContractVersion") == 3
         ), None)
         if reply:
             return reply
@@ -1070,6 +1120,7 @@ def main() -> int:
     )
     parser.add_argument("--automation-dir", required=True)
     parser.add_argument("--timeout", type=float, default=240.0)
+    parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--keep", action="store_true")
     parser.add_argument(
         "--typing-collision-only",
@@ -1107,20 +1158,55 @@ def main() -> int:
     parser.add_argument("--output")
     args = parser.parse_args()
 
+    if args.typing_collision_only:
+        # A collision-only run exists specifically to model a human composing
+        # in the pane. Never silently substitute automation input for actual
+        # macOS Accessibility keyboard events.
+        args.physical_keyboard_only = True
+
     repo_root = Path(args.repo_root).resolve()
     automation_dir = str(Path(args.automation_dir).expanduser().resolve())
     require("SoyehtDev/Automation" in automation_dir, "Refusing to run paid-agent E2E outside Soyeht Dev automation.")
     mcp_script = Path(args.mcp_script).expanduser().resolve()
     require(mcp_script.is_file(), f"Installed MCP script does not exist: {mcp_script}")
+    expected_mcp_script = Path("/Applications/Soyeht Dev.app/Contents/Resources/soyeht-mcp").resolve()
+    require(
+        mcp_script == expected_mcp_script,
+        f"E2E must exercise the installed MCP bundle, not an override: {mcp_script}",
+    )
     mcp = load_mcp(mcp_script)
     detach_external_observer_identity()
     global WORKSPACE_SNAPSHOT_PATH
     WORKSPACE_SNAPSHOT_PATH = Path(args.workspace_snapshot).expanduser().resolve()
     run_id = str(int(time()))
+    app_provenance = installed_app_provenance(Path("/Applications/Soyeht Dev.app"))
+    require(
+        re.fullmatch(r"[0-9a-f]{40}", args.expected_commit) is not None,
+        "--expected-commit must be the full 40-character Git commit.",
+    )
+    require(
+        app_provenance["commit"] == args.expected_commit,
+        f"Installed app commit {app_provenance['commit']} != expected {args.expected_commit}.",
+    )
+    repo_commit = subprocess.run(
+        ["/usr/bin/git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    repo_dirty = subprocess.run(
+        ["/usr/bin/git", "-C", str(repo_root), "status", "--porcelain"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    require(repo_commit == args.expected_commit, "E2E repo checkout is not the expected commit.")
+    require(not repo_dirty, "E2E repo checkout must be clean before launching paid agents.")
     evidence = {
         "runID": run_id,
         "kind": "real-agent-behavioral-ring",
         "automationDir": automation_dir,
+        "installedApp": app_provenance,
         "flows": [],
     }
     output = (

@@ -144,6 +144,8 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             "SOYEHT_AUTOMATION_DIR": automation.path,
             "SOYEHT_CONVERSATION_ID": "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
             "SOYEHT_REPORT_AGENT": "kimi",
+            "SOYEHT_LAUNCH_NONCE": "launch-proof",
+            "SOYEHT_MCP_PROFILE": "dev",
         ]
         let input = Pipe()
         process.standardInput = input
@@ -161,18 +163,45 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             at: automation.appendingPathComponent("Requests"),
             includingPropertiesForKeys: nil
         )
-        let payloads = try requests.compactMap { request -> [String: Any]? in
+        let matchingRequests = try requests.compactMap { request -> [String: Any]? in
             let object = try JSONSerialization.jsonObject(with: Data(contentsOf: request))
             guard let root = object as? [String: Any],
                   root["type"] as? String == "report_agent_conversation" else { return nil }
-            return root["payload"] as? [String: Any]
+            return root
         }
-        let payload = try XCTUnwrap(payloads.first)
+        let request = try XCTUnwrap(matchingRequests.first)
+        XCTAssertEqual(request["expectsResponse"] as? Bool, false)
+        let payload = try XCTUnwrap(request["payload"] as? [String: Any])
+        XCTAssertEqual(payload["nonce"] as? String, "launch-proof")
+        XCTAssertEqual(payload["mcpClientContractVersion"] as? Int, 3)
+        XCTAssertEqual(payload["mcpClientProfile"] as? String, "dev")
         XCTAssertEqual(payload["text"] as? String, "visible final")
         XCTAssertEqual(payload["sourceEventID"] as? String, "kimi:message-final")
         XCTAssertEqual(payload["model"] as? String, "test-model")
         XCTAssertEqual(payload["reasoningEffort"] as? String, "low")
         XCTAssertFalse((payload["text"] as? String)?.contains("hidden reasoning") ?? true)
+    }
+
+    func testEveryInstalledReporterDeclaresAuthenticatedOneWayRequests() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let markers = [
+            "claudeCodexHookReporter", "antigravityHookReporter", "piExtensionReporter",
+            "kiloPluginReporter", "cursorHookReporter", "copilotHookReporter",
+            "grokHookReporter", "kimiHookReporter", "devinHookReporter",
+            "opencodePluginReporter",
+        ]
+        for name in markers {
+            let startMarker = "static let \(name) = #\"\"\""
+            let start = try XCTUnwrap(source.range(of: startMarker), "missing \(name)")
+            let tail = source[start.upperBound...]
+            let end = try XCTUnwrap(tail.range(of: "\"\"\"#"), "unterminated \(name)")
+            let reporter = String(tail[..<end.lowerBound])
+            XCTAssertTrue(reporter.contains("SOYEHT_LAUNCH_NONCE"), name)
+            XCTAssertTrue(reporter.contains("SOYEHT_MCP_PROFILE"), name)
+            XCTAssertTrue(reporter.contains("mcpClientContractVersion"), name)
+            XCTAssertTrue(reporter.contains("mcpClientProfile"), name)
+            XCTAssertTrue(reporter.contains("expectsResponse"), name)
+        }
     }
 
     private func macSource(_ relativePath: String) throws -> String {

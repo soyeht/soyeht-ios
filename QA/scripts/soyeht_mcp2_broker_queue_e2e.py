@@ -9,11 +9,14 @@ language tool selection is covered separately by soyeht_agent_driven_e2e.py.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.machinery
 import importlib.util
 import json
 import os
 from pathlib import Path
+import re
+import subprocess
 import sys
 from time import monotonic, sleep, time
 import uuid
@@ -32,6 +35,61 @@ def load_mcp(module_path: Path):
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def installed_app_provenance(app_path: Path) -> dict:
+    subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    signature = subprocess.run(
+        ["/usr/bin/codesign", "-dvv", str(app_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stderr
+    team_id = next(
+        (line.split("=", 1)[1] for line in signature.splitlines() if line.startswith("TeamIdentifier=")),
+        "",
+    )
+    require(team_id not in {"", "not set"}, "Installed Soyeht Dev is ad-hoc signed.")
+    commit = subprocess.run(
+        [
+            "/usr/libexec/PlistBuddy",
+            "-c",
+            "Print :SoyehtBuildGitCommit",
+            str(app_path / "Contents" / "Info.plist"),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    binary_sha = subprocess.run(
+        ["/usr/bin/shasum", "-a", "256", str(app_path / "Contents" / "MacOS" / "Soyeht Dev")],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()[0]
+    resources = app_path / "Contents" / "Resources"
+    mcp_files = sorted(
+        [resources / "soyeht-mcp", resources / "LocalAgentCatalog.json"]
+        + list(resources.glob("soyeht_mcp_*.py")),
+        key=lambda item: item.name,
+    )
+    require(all(item.is_file() for item in mcp_files), "Installed MCP resource set is incomplete.")
+    digest = hashlib.sha256()
+    for item in mcp_files:
+        digest.update(item.name.encode("utf-8") + b"\0")
+        digest.update(item.read_bytes())
+    return {
+        "commit": commit,
+        "teamID": team_id,
+        "binarySHA256": binary_sha,
+        "mcpBundleSHA256": digest.hexdigest(),
+        "mcpFiles": [item.name for item in mcp_files],
+    }
 
 
 def detach_external_observer_identity():
@@ -56,19 +114,23 @@ def snapshot_conversation(snapshot_path: Path, conversation_id: str):
     )
 
 
-def wait_for_nonce(snapshot_path: Path, conversation_id: str, timeout: float) -> str:
+def wait_for_nonce(_snapshot_path: Path, conversation_id: str, timeout: float) -> str:
     deadline = monotonic() + timeout
     while monotonic() < deadline:
-        try:
-            nonce = snapshot_conversation(snapshot_path, conversation_id).get(
-                "agentLaunchOwnershipNonce"
-            )
-            if nonce:
-                return nonce
-        except (FileNotFoundError, json.JSONDecodeError, StopIteration):
-            pass
+        processes = subprocess.run(
+            ["/bin/ps", "eww", "-ax", "-o", "command="],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        for command in processes.splitlines():
+            if f"SOYEHT_CONVERSATION_ID={conversation_id}" not in command:
+                continue
+            match = re.search(r"(?:^|\s)SOYEHT_LAUNCH_NONCE=([^\s]+)", command)
+            if match:
+                return match.group(1)
         sleep(0.1)
-    raise RuntimeError(f"No persisted launch nonce for {conversation_id}.")
+    raise RuntimeError(f"No owning-process launch nonce for {conversation_id}.")
 
 
 def snapshot_message(snapshot_path: Path, conversation_id: str, message_id: str):
@@ -125,7 +187,8 @@ def send_authenticated_message(
             "deliveryPreference": "automatic",
             "requestAttention": False,
             "messageIDs": [message_id],
-            "mcpClientContractVersion": 2,
+            "mcpClientContractVersion": 3,
+            "mcpClientProfile": "dev",
             "mcpClientServerVersion": "2.0.0-broker-queue-e2e",
         },
         timeout=timeout,
@@ -153,6 +216,7 @@ def main() -> int:
     )
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[2]))
     parser.add_argument("--timeout", type=float, default=90.0)
+    parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -161,8 +225,22 @@ def main() -> int:
     automation_root = Path(automation_dir)
     snapshot_path = Path(args.workspace_snapshot).expanduser().resolve()
     mcp = load_mcp(Path(args.mcp_script).resolve())
+    expected_mcp_script = Path("/Applications/Soyeht Dev.app/Contents/Resources/soyeht-mcp").resolve()
+    require(
+        Path(args.mcp_script).resolve() == expected_mcp_script,
+        "Broker E2E must exercise the installed MCP bundle.",
+    )
     detach_external_observer_identity()
     physical.require_accessibility_keyboard_control()
+    app_provenance = installed_app_provenance(Path("/Applications/Soyeht Dev.app"))
+    require(
+        re.fullmatch(r"[0-9a-f]{40}", args.expected_commit) is not None,
+        "--expected-commit must be the full 40-character Git commit.",
+    )
+    require(
+        app_provenance["commit"] == args.expected_commit,
+        f"Installed app commit {app_provenance['commit']} != expected {args.expected_commit}.",
+    )
 
     windows = mcp.tool_list_windows({"automationDir": automation_dir, "timeout": args.timeout})
     require(windows.get("listedWindows"), "Soyeht Dev automation is not responding.")
@@ -325,7 +403,10 @@ def main() -> int:
             "targetWindowID": window_id,
             "conversationIDs": [observer["conversationID"]],
             "text": shell_automation_token,
-            "lineEnding": "enter",
+            # This exact LF payload used to bypass the gate because the
+            # coordinator looked only at shouldSendEnterKey instead of the
+            # caller's complete-vs-raw intent.
+            "lineEnding": "newline",
         })
         shell_second_delivery = send_authenticated_message(
             mcp,
@@ -374,6 +455,7 @@ def main() -> int:
         evidence = {
             "status": "passed",
             "runID": run_id,
+            "installedApp": app_provenance,
             "agents": {
                 "firstSender": "codex",
                 "secondSender": "claude",

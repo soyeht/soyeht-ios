@@ -78,6 +78,11 @@ struct AgentSessionBinding: Codable, Hashable {
 /// conversation. It is intentionally append-only at the semantic level.
 struct AgentConversationState: Codable, Hashable {
     static let currentProtocolVersion = 1
+    static let maximumEventTextBytes = 64 * 1_024
+    static let maximumStoredTextBytes = 4 * 1_024 * 1_024
+    static let maximumStoredEvents = 2_000
+    static let maximumContextPageTextBytes = 256 * 1_024
+    static let maximumMetadataFieldBytes = 4 * 1_024
 
     var protocolVersion: Int = currentProtocolVersion
     var events: [AgentConversationEvent] = []
@@ -101,10 +106,18 @@ struct AgentConversationState: Codable, Hashable {
     func contextPage(afterSequence requestedAfter: Int, maxEvents requestedLimit: Int) -> ContextPage {
         let afterSequence = max(0, requestedAfter)
         let limit = min(50, max(1, requestedLimit))
-        let pageEvents = Array(events.lazy
-            .filter { $0.sequence > afterSequence }
-            .prefix(limit)
-            .map(Self.sanitizedEvent))
+        var pageEvents: [AgentConversationEvent] = []
+        var pageBytes = 0
+        for event in events where event.sequence > afterSequence {
+            guard pageEvents.count < limit else { break }
+            let sanitized = Self.sanitizedEvent(event)
+            let bytes = Self.storedBytes(of: sanitized)
+            guard pageEvents.isEmpty || pageBytes + bytes <= Self.maximumContextPageTextBytes else {
+                break
+            }
+            pageEvents.append(sanitized)
+            pageBytes += bytes
+        }
         let throughSequence = pageEvents.last?.sequence ?? afterSequence
         let hasMore = events.contains { $0.sequence > throughSequence }
         return ContextPage(
@@ -125,6 +138,13 @@ struct AgentConversationState: Codable, Hashable {
         variant: String?,
         at date: Date = Date()
     ) {
+        guard canRecordSession(
+            agent: agent,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        ) else { return }
         let key = Self.agentKey(agent)
         var binding = bindings[key] ?? AgentSessionBinding(
             agent: key,
@@ -165,6 +185,15 @@ struct AgentConversationState: Codable, Hashable {
         let text = Self.normalizeMessage(rawText)
         guard !text.isEmpty else { return nil }
         let agent = Self.agentKey(sourceAgent)
+        guard canRecordEvent(
+            text: text,
+            sourceAgent: agent,
+            sourceEventID: sourceEventID,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        ) else { return nil }
         recordSession(
             agent: agent,
             nativeSessionID: nativeSessionID,
@@ -218,6 +247,89 @@ struct AgentConversationState: Codable, Hashable {
         nextSequence += 1
         events.append(event)
         return event
+    }
+
+    func canRecordEvent(
+        text rawText: String,
+        sourceAgent: String,
+        sourceEventID: String?,
+        nativeSessionID: String? = nil,
+        model: String? = nil,
+        reasoningEffort: String? = nil,
+        variant: String? = nil
+    ) -> Bool {
+        let text = Self.normalizeMessage(rawText)
+        let bytes = text.utf8.count
+        guard !text.isEmpty, bytes <= Self.maximumEventTextBytes else { return false }
+        let agent = Self.agentKey(sourceAgent)
+        guard canRecordSession(
+            agent: agent,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: reasoningEffort,
+            variant: variant
+        ), Self.metadataFits(sourceEventID) else { return false }
+        let existingIndex = Self.nonEmpty(sourceEventID).flatMap { eventID in
+            events.firstIndex {
+                $0.sourceAgent == agent && $0.sourceEventID == eventID
+            }
+        }
+        let existingEvent = existingIndex.map { events[$0] }
+        let binding = bindings[agent]
+        let candidate = AgentConversationEvent(
+            id: existingEvent?.id ?? UUID().uuidString,
+            sequence: existingEvent?.sequence ?? nextSequence,
+            role: existingEvent?.role ?? .user,
+            text: text,
+            sourceAgent: agent,
+            nativeSessionID: Self.nonEmpty(nativeSessionID)
+                ?? binding?.nativeSessionID
+                ?? existingEvent?.nativeSessionID,
+            sourceEventID: Self.nonEmpty(sourceEventID),
+            model: Self.nonEmpty(model) ?? binding?.model ?? existingEvent?.model,
+            reasoningEffort: Self.nonEmpty(reasoningEffort)
+                ?? binding?.reasoningEffort
+                ?? existingEvent?.reasoningEffort,
+            variant: Self.nonEmpty(variant) ?? binding?.variant ?? existingEvent?.variant,
+            createdAt: existingEvent?.createdAt ?? Date()
+        )
+        let existingBytes = existingIndex.map { Self.storedBytes(of: events[$0]) } ?? 0
+        let totalBytes = events.reduce(into: 0) { $0 += Self.storedBytes(of: $1) }
+        guard totalBytes - existingBytes + Self.storedBytes(of: candidate)
+                <= Self.maximumStoredTextBytes else {
+            return false
+        }
+        return existingIndex != nil || events.count < Self.maximumStoredEvents
+    }
+
+    func canRecordSession(
+        agent: String,
+        nativeSessionID: String?,
+        model: String?,
+        reasoningEffort: String?,
+        variant: String?
+    ) -> Bool {
+        Self.metadataFits(agent)
+            && Self.metadataFits(nativeSessionID)
+            && Self.metadataFits(model)
+            && Self.metadataFits(reasoningEffort)
+            && Self.metadataFits(variant)
+    }
+
+    private static func metadataFits(_ value: String?) -> Bool {
+        value?.utf8.count ?? 0 <= maximumMetadataFieldBytes
+    }
+
+    private static func storedBytes(of event: AgentConversationEvent) -> Int {
+        128
+            + event.id.utf8.count
+            + event.text.utf8.count
+            + event.sourceAgent.utf8.count
+            + (event.nativeSessionID?.utf8.count ?? 0)
+            + (event.sourceEventID?.utf8.count ?? 0)
+            + (event.model?.utf8.count ?? 0)
+            + (event.reasoningEffort?.utf8.count ?? 0)
+            + (event.variant?.utf8.count ?? 0)
     }
 
     func eventsNotImported(by agent: String) -> [AgentConversationEvent] {
@@ -454,7 +566,8 @@ struct Conversation: Codable, Identifiable, Hashable {
         try container.encode(agentMessageInbox, forKey: .agentMessageInbox)
         try container.encode(agentCommunicationPolicy, forKey: .agentCommunicationPolicy)
         try container.encode(agentRequestedCommunicationPolicy, forKey: .agentRequestedCommunicationPolicy)
-        try container.encodeIfPresent(agentLaunchOwnershipNonce, forKey: .agentLaunchOwnershipNonce)
+        // Decode-only migration field. Launch possession is stored in the
+        // profile-scoped Keychain and must never re-enter workspaces.json.
         try container.encode(stats, forKey: .stats)
         try container.encode(createdAt, forKey: .createdAt)
     }

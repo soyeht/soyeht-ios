@@ -6,6 +6,9 @@ import Foundation
 /// snapshot, deliberately stored without a leading `@` so copying an envelope
 /// into a commit or GitHub comment cannot accidentally mention a real account.
 struct AgentMessageEndpoint: Codable, Hashable {
+    static let soyehtControlPlanePaneID = UUID(
+        uuidString: "00000000-0000-0000-0000-000000000000"
+    )!
     var paneID: Conversation.ID
     var workspaceID: Workspace.ID
     private(set) var handle: String
@@ -159,29 +162,112 @@ struct AgentMessageDraftGate: Equatable {
     }
 
     private(set) var pendingByteCount = 0
+    private(set) var hasUncertainTerminalDraft = false
     private var escapeState: EscapeState = .normal
     private var controlSequenceBytes: [UInt8] = []
+    private var isInsideBracketedPaste = false
+    private var bracketedPasteEndCandidate: [UInt8] = []
 
-    var isClear: Bool { pendingByteCount == 0 }
+    var isClear: Bool {
+        pendingByteCount == 0 && !hasUncertainTerminalDraft && !isInsideBracketedPaste
+    }
+
+    /// A broker paste was admitted but its requested Return was not. The
+    /// payload may itself contain LF/CR bytes that were inert inside bracketed
+    /// paste, so byte parsing cannot prove the TUI composer is clear.
+    mutating func markUncertainTerminalDraft() {
+        hasUncertainTerminalDraft = true
+        escapeState = .normal
+        controlSequenceBytes.removeAll(keepingCapacity: true)
+    }
+
+    mutating func markSubmissionAcknowledged() {
+        pendingByteCount = 0
+        hasUncertainTerminalDraft = false
+        isInsideBracketedPaste = false
+        bracketedPasteEndCandidate.removeAll(keepingCapacity: true)
+        escapeState = .normal
+        controlSequenceBytes.removeAll(keepingCapacity: true)
+    }
+
+    /// Automation may move ahead of a blocked complete submission only when
+    /// every byte is an explicit draft-edit/cancel control whose effect is
+    /// independent of cursor position. Ctrl-U is deliberately excluded: in
+    /// readline-style editors it only deletes to the cursor and can leave an
+    /// invisible suffix that a later relay would submit.
+    static func automationCanMutateExistingHumanDraft(
+        text: String,
+        isExplicitRawInput: Bool
+    ) -> Bool {
+        guard isExplicitRawInput else { return false }
+        let bytes = Array(text.utf8)
+        guard !bytes.isEmpty else { return false }
+        let safeControls: Set<UInt8> = [
+            0x03, 0x08, 0x0A, 0x0D, 0x7F,
+        ] // Ctrl-C, BS, explicit raw LF/CR, DEL
+        return bytes.allSatisfy(safeControls.contains)
+    }
 
     mutating func record(_ data: Data) {
         for byte in data {
+            if isInsideBracketedPaste {
+                let endBoundary: [UInt8] = [0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E]
+                if !bracketedPasteEndCandidate.isEmpty || byte == 0x1B {
+                    bracketedPasteEndCandidate.append(byte)
+                    if bracketedPasteEndCandidate == endBoundary {
+                        bracketedPasteEndCandidate.removeAll(keepingCapacity: true)
+                        isInsideBracketedPaste = false
+                        continue
+                    }
+                    if endBoundary.starts(with: bracketedPasteEndCandidate) {
+                        continue
+                    }
+                    markCursorStateUncertain()
+                    let canRestart = byte == 0x1B
+                    bracketedPasteEndCandidate.removeAll(keepingCapacity: true)
+                    if canRestart { bracketedPasteEndCandidate.append(byte) }
+                    continue
+                }
+                // Bracketed paste content is literal composer input. Never
+                // interpret embedded CSI-u Return/Ctrl-C packets as keys.
+                markCursorStateUncertain()
+                continue
+            }
             switch escapeState {
             case .escape:
                 switch byte {
                 case 0x5B:
                     controlSequenceBytes.removeAll(keepingCapacity: true)
                     escapeState = .controlSequence // ESC [
-                case 0x5D: escapeState = .operatingSystemCommand // ESC ]
-                case 0x4F: escapeState = .singleShiftThree // ESC O (SS3)
-                default: escapeState = .normal // Alt: consume this key as control input.
+                    continue
+                case 0x5D:
+                    escapeState = .operatingSystemCommand // ESC ]
+                    continue
+                case 0x4F:
+                    escapeState = .singleShiftThree // ESC O (SS3)
+                    continue
+                default:
+                    escapeState = .normal
+                    // Alt-printable input is a control chord and must not
+                    // create a draft. A line/edit control following Escape,
+                    // however, still has its ordinary terminal meaning; do
+                    // not swallow CR/LF and leave a phantom draft forever.
+                    guard [0x03, 0x08, 0x0A, 0x0D, 0x15, 0x7F].contains(byte) else {
+                        markCursorStateUncertain()
+                        continue
+                    }
                 }
-                continue
             case .singleShiftThree:
                 // SS3 encodes F1-F4, keypad and cursor keys as ESC O <final>.
                 // The complete packet is control input and must not create a
                 // phantom human draft.
                 if (0x40...0x7E).contains(byte) {
+                    // SS3 cursor/keypad controls can recall or mutate a TUI
+                    // composer even when our byte counter was previously
+                    // empty. Function keys are conservatively held too: the
+                    // app cannot observe whether the TUI bound them to an
+                    // edit action.
+                    markCursorStateUncertain()
                     escapeState = .normal
                 }
                 continue
@@ -194,7 +280,23 @@ struct AgentMessageDraftGate: Equatable {
                 // Backspace as CSI ... u, so those packets must update the
                 // same draft state as their legacy byte equivalents.
                 if (0x40...0x7E).contains(byte) {
-                    if byte == 0x75 { recordKittyKey(controlSequenceBytes) } // u
+                    if byte == 0x75 { // Kitty keyboard packet or cursor restore.
+                        if !recordKittyKey(controlSequenceBytes) {
+                            markCursorStateUncertain()
+                        }
+                    } else if let boundary = bracketedPasteBoundary(
+                        finalByte: byte, payload: controlSequenceBytes
+                    ) {
+                        isInsideBracketedPaste = boundary == .start
+                    } else if !isBenignControlSequence(
+                        finalByte: byte,
+                        payload: controlSequenceBytes
+                    ) {
+                        // Cursor movement, mouse input and editing keys can
+                        // invalidate a simple character counter. Hold relays
+                        // until an unambiguous submit/cancel arrives.
+                        markCursorStateUncertain()
+                    }
                     controlSequenceBytes.removeAll(keepingCapacity: true)
                     escapeState = .normal
                 } else {
@@ -218,8 +320,11 @@ struct AgentMessageDraftGate: Equatable {
             switch byte {
             case 0x1B:
                 escapeState = .escape
-            case 0x0A, 0x0D, 0x03, 0x15: // LF/CR, Ctrl-C, Ctrl-U
+            case 0x0A, 0x0D, 0x03: // LF/CR, Ctrl-C
                 pendingByteCount = 0
+                hasUncertainTerminalDraft = false
+            case 0x15: // Ctrl-U may leave a suffix when the cursor is not at EOL.
+                markCursorStateUncertain()
             case 0x08, 0x7F: // backspace/delete
                 pendingByteCount = max(0, pendingByteCount - 1)
             case 0x20...0x7F, 0xC0...0xFF:
@@ -228,47 +333,79 @@ struct AgentMessageDraftGate: Equatable {
                 // leading byte, so one Backspace clears one pt-BR character.
                 pendingByteCount += 1
             default:
-                break
+                if byte < 0x20 {
+                    markCursorStateUncertain()
+                }
             }
         }
+    }
+
+    private mutating func markCursorStateUncertain() {
+        hasUncertainTerminalDraft = true
+    }
+
+    private enum BracketedPasteBoundary { case start, end }
+
+    private func bracketedPasteBoundary(
+        finalByte: UInt8,
+        payload: [UInt8]
+    ) -> BracketedPasteBoundary? {
+        guard finalByte == 0x7E,
+              let value = String(bytes: payload, encoding: .ascii) else { return nil }
+        if value == "200" { return .start }
+        if value == "201" { return .end }
+        return nil
+    }
+
+    private func isBenignControlSequence(finalByte: UInt8, payload: [UInt8]) -> Bool {
+        // Focus-in/focus-out reports are terminal lifecycle metadata and
+        // cannot edit the composer. Mouse/cursor/editing sequences remain
+        // conservative because TUIs may bind them to prompt navigation.
+        payload.isEmpty && (finalByte == 0x49 || finalByte == 0x4F)
     }
 
     /// Applies one Kitty keyboard `CSI key;modifiers:event;text u` packet.
     /// Release events never change the draft. Associated text is preferred
     /// when present; otherwise the primary codepoint is counted only when no
     /// text-preventing modifier (Ctrl/Alt/Super/Hyper/Meta) is active.
-    private mutating func recordKittyKey(_ bytes: [UInt8]) {
+    @discardableResult
+    private mutating func recordKittyKey(_ bytes: [UInt8]) -> Bool {
         guard !bytes.isEmpty,
-              let payload = String(bytes: bytes, encoding: .ascii) else { return }
+              let payload = String(bytes: bytes, encoding: .ascii) else { return false }
         let fields = payload.split(separator: ";", omittingEmptySubsequences: false)
         guard let keyField = fields.first,
               let keyCode = Int(keyField.split(separator: ":", omittingEmptySubsequences: false)[0]) else {
             // Plain `CSI u` is cursor restore, not a keyboard packet.
-            return
+            return false
         }
 
         let modifierField = fields.count > 1 ? fields[1] : ""
         let modifierParts = modifierField.split(separator: ":", omittingEmptySubsequences: false)
         let encodedModifiers = modifierParts.first.flatMap { Int($0) } ?? 1
         let eventType = modifierParts.count > 1 ? Int(modifierParts[1]) ?? 1 : 1
-        guard eventType != 3 else { return } // release
+        guard eventType != 3 else { return true } // release
 
         let rawModifiers = max(0, encodedModifiers - 1)
         let controlModifier = 1 << 2
         if rawModifiers & controlModifier != 0 {
-            if keyCode == 99 || keyCode == 67 || keyCode == 117 || keyCode == 85 {
-                pendingByteCount = 0 // Ctrl-C / Ctrl-U
+            if keyCode == 99 || keyCode == 67 {
+                pendingByteCount = 0 // Ctrl-C
+                hasUncertainTerminalDraft = false
+            } else {
+                // Ctrl-U/W/K and cursor controls are position-sensitive.
+                markCursorStateUncertain()
             }
-            return
+            return true
         }
 
         switch keyCode {
         case 13:
             pendingByteCount = 0
-            return
+            hasUncertainTerminalDraft = false
+            return true
         case 8, 127:
             pendingByteCount = max(0, pendingByteCount - 1)
-            return
+            return true
         default:
             break
         }
@@ -280,14 +417,18 @@ struct AgentMessageDraftGate: Equatable {
                 .filter(Self.isPrintableUnicodeScalar)
             if !associatedText.isEmpty {
                 pendingByteCount += associatedText.count
-                return
+                return true
             }
         }
 
         let textPreventingModifierMask = (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5)
         guard rawModifiers & textPreventingModifierMask == 0,
-              Self.isPrintableUnicodeScalar(keyCode) else { return }
+              Self.isPrintableUnicodeScalar(keyCode) else {
+            markCursorStateUncertain()
+            return true
+        }
         pendingByteCount += 1
+        return true
     }
 
     private static func isPrintableUnicodeScalar(_ value: Int) -> Bool {
@@ -357,6 +498,10 @@ struct AgentMessage: Codable, Identifiable, Hashable {
     var isUnread: Bool { readAt == nil }
     var isAcknowledged: Bool { acknowledgedAt != nil }
     var needsAttention: Bool { attentionRequestedAt != nil && readAt == nil }
+    var isRoleAssignmentControlDelivery: Bool {
+        sender.paneID == AgentMessageEndpoint.soyehtControlPlanePaneID
+            && sender.handle == "soyeht-control"
+    }
 
     private static func normalizeBody(_ raw: String) -> String {
         raw
@@ -373,12 +518,18 @@ struct AgentMessageInbox: Codable, Hashable {
     static let currentProtocolVersion = 1
     static let completedRetentionLimit = 500
     static let completedRetentionAge: TimeInterval = 30 * 24 * 60 * 60
+    static let maximumMessageBodyUTF8Bytes = 64 * 1024
+    static let maximumPendingMessages = 1_000
+    static let maximumPendingBodyUTF8Bytes = 8 * 1024 * 1024
 
     enum MutationError: Error, Equatable {
         case emptyBody
         case wrongRecipient
         case messageNotFound
         case wrongDeliveryChannel
+        case bodyTooLarge
+        case pendingMessageLimitReached
+        case pendingByteLimitReached
     }
 
     var protocolVersion: Int = currentProtocolVersion
@@ -404,6 +555,65 @@ struct AgentMessageInbox: Codable, Hashable {
                 && $0.deferredTerminalDeliveredAt == nil
         }
     }
+    /// A configured graph must not authorize work for a role revision that
+    /// its already-running process has not observed. The authenticated hook
+    /// marks the exact delivery ID delivered; an older ACK cannot clear a
+    /// newer control message.
+    var hasUnobservedRoleAssignmentDelivery: Bool {
+        messages.contains {
+            $0.isRoleAssignmentControlDelivery
+                && $0.deferredTerminalDeliveredAt == nil
+        }
+    }
+
+    struct Page {
+        let messages: [AgentMessage]
+        let hasMore: Bool
+        let nextCursor: AgentMessage.ID?
+    }
+
+    /// Produces a stable chronological page before any read/ack mutation.
+    /// The caller supplies the exact response encoding cost so the page stays
+    /// below the transport cap even when labels and provenance add overhead.
+    func page(
+        after cursor: AgentMessage.ID?,
+        unreadOnly: Bool,
+        maximumCount: Int,
+        maximumEncodedBytes: Int,
+        encodedSize: (AgentMessage) throws -> Int
+    ) throws -> Page {
+        let ordered = messages.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+        let startIndex: Int
+        if let cursor {
+            guard let index = ordered.firstIndex(where: { $0.id == cursor }) else {
+                throw MutationError.messageNotFound
+            }
+            startIndex = ordered.index(after: index)
+        } else {
+            startIndex = ordered.startIndex
+        }
+        let candidates = ordered[startIndex...].filter { !unreadOnly || $0.isUnread }
+        let limit = max(1, maximumCount)
+        let byteLimit = max(1, maximumEncodedBytes)
+        var selected: [AgentMessage] = []
+        var bytes = 0
+        for message in candidates {
+            guard selected.count < limit else { break }
+            let messageBytes = try encodedSize(message)
+            if !selected.isEmpty, bytes + messageBytes > byteLimit { break }
+            selected.append(message)
+            bytes += messageBytes
+        }
+        let hasMore = candidates.count > selected.count
+        return Page(
+            messages: selected,
+            hasMore: hasMore,
+            nextCursor: hasMore ? selected.last?.id : nil
+        )
+    }
 
     func message(id: AgentMessage.ID) -> AgentMessage? {
         messages.first { $0.id == id }
@@ -416,8 +626,29 @@ struct AgentMessageInbox: Codable, Hashable {
         guard !message.body.isEmpty else { throw MutationError.emptyBody }
         guard message.recipient.paneID == recipientID else { throw MutationError.wrongRecipient }
         guard !messages.contains(where: { $0.id == message.id }) else { return false }
+        let bodyBytes = message.body.utf8.count
+        guard bodyBytes <= Self.maximumMessageBodyUTF8Bytes else {
+            throw MutationError.bodyTooLarge
+        }
+        let pending = messages.filter { Self.completionDate($0) == nil }
+        guard pending.count < Self.maximumPendingMessages else {
+            throw MutationError.pendingMessageLimitReached
+        }
+        let pendingBytes = pending.reduce(into: 0) { total, item in
+            total += item.body.utf8.count
+        }
+        guard pendingBytes <= Self.maximumPendingBodyUTF8Bytes - bodyBytes else {
+            throw MutationError.pendingByteLimitReached
+        }
         messages.append(message)
         return true
+    }
+
+    mutating func removeUndelivered(_ id: AgentMessage.ID) throws {
+        let index = try messageIndex(id)
+        guard messages[index].deferredTerminalDeliveryStartedAt == nil,
+              messages[index].deferredTerminalDeliveredAt == nil else { return }
+        messages.remove(at: index)
     }
 
     mutating func markRead(_ id: AgentMessage.ID, at date: Date = Date()) throws {
@@ -477,6 +708,18 @@ struct AgentMessageInbox: Codable, Hashable {
         guard messages[index].deferredTerminalDeliveryStartedAt == nil else { return false }
         messages[index].deferredTerminalDeliveryStartedAt = date
         return true
+    }
+
+    /// Rolls back an in-memory claim when the workspace snapshot could not be
+    /// persisted. No PTY byte has been written in that path, so returning the
+    /// item to `awaiting` is both safe and necessary for a later retry.
+    mutating func resetDeferredTerminalDeliveryStarted(_ id: AgentMessage.ID) throws {
+        let index = try messageIndex(id)
+        guard messages[index].channel == .deferredTerminal else {
+            throw MutationError.wrongDeliveryChannel
+        }
+        guard messages[index].deferredTerminalDeliveredAt == nil else { return }
+        messages[index].deferredTerminalDeliveryStartedAt = nil
     }
 
     /// Bounds snapshot growth without ever deleting work that is unread,

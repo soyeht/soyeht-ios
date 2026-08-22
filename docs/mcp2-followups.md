@@ -47,10 +47,11 @@ each item still needs a product decision or a focused validation.
 
 ### Terminal submission receipt
 
-- `deferredTerminalDeliveredAt` currently means the paste and Return were
-  dispatched to the local terminal transport; it does not prove that a TUI
-  accepted the Return. Define a capability-specific receipt before treating
-  terminal delivery as semantic acceptance.
+- `deferredTerminalDeliveredAt` currently means the local transport admitted
+  both the paste and Return; a rejected/disconnected transaction remains
+  `uncertain_not_replayed`. It still does not prove that a TUI accepted the
+  Return. Define a capability-specific receipt before treating terminal
+  delivery as semantic acceptance.
 - Add a recovery/diagnostic path for a Return swallowed by a TUI so a later
   relay cannot silently concatenate with the still-visible envelope.
 
@@ -74,8 +75,10 @@ each item still needs a product decision or a focused validation.
 - Exercise orchestration-manager grant and revoke through the real UI, then
   verify accepted and rejected role/topology mutations from real agents.
 - Specify and test active-graph behavior for panes not bound to a graph node.
-- Test request ordering under concurrent IPC load. The current service scans
-  request filenames, whose UUID ordering is not temporal FIFO.
+- Stress request ordering under concurrent IPC load. The service now sorts by
+  request modification time with filename as a deterministic tie-breaker;
+  per-client causal ordering under equal filesystem timestamps remains worth
+  a behavioral test.
 - Exercise inbox pruning at the 500-message and 30-day boundaries in a
   behavioral test, not only unit tests.
 
@@ -93,12 +96,13 @@ each item still needs a product decision or a focused validation.
   the per-prompt 120-second timeout by pane count.
 - Replace the remaining security source-grep guards with runtime or extracted
   pure-boundary tests where practical; source guards should cover wiring only.
-- Make the Dev installer restore its previous signed bundle on every explicit
-  post-install validation failure, not only failures that trigger `ERR`.
 - Specify whether long multiline auto-submit can hold deferred delivery
   indefinitely, then add physical-input coverage.
-- Route group voice input and `BrokerInjector` writes through the same draft
-  admission contract as physical and mirrored keyboard input.
+- Model destructive terminal editing shortcuts such as Ctrl-W/Ctrl-K with a
+  cursor-aware draft representation. Cursor movement and position-sensitive
+  Ctrl-U/Backspace are now conservatively marked uncertain; the gate stays
+  closed until an unambiguous Return/Ctrl-C, which is safe but can hold longer
+  than necessary.
 - Stabilize the Accessibility harness's physical Return on Codex. In the
   Claude-to-Codex route the draft and queued relay remained intact, but one
   synthetic Return intermittently failed to submit the visible Codex draft.
@@ -108,10 +112,25 @@ each item still needs a product decision or a focused validation.
 - Document that the launch nonce is a possession credential within the current
   file-IPC model, not isolation from hostile processes running as the same
   macOS user. Socket peer authentication remains a future hardening option.
-- The persisted launch nonce is plaintext in the workspace snapshot. Decide
-  whether it should move to Keychain/protected storage or be replaced with a
-  verifier that does not persist the bearer credential; document backup and
-  same-user-process exposure explicitly.
+- Launch nonces now persist in a profile-scoped Keychain namespace and legacy
+  plaintext snapshot fields are scrubbed at startup. Document the remaining
+  same-user-process exposure explicitly: the owning process still receives
+  its bearer in the environment until file IPC is replaced with peer-authenticated
+  transport.
+- A legacy engine credential is no longer promoted merely because it is the
+  only `.engine` row. Without a previously associated server ID, repair
+  pairing must succeed or local persistent-pane restore fails closed to the
+  native fallback. Keep that migration error explicit in support diagnostics.
+- A persisted paired-server ID plus a bearer proves which credential the app
+  selected; pinning its transport to loopback does **not** cryptographically
+  authenticate the process listening on that port. The current desktop threat
+  model trusts processes running as the same macOS user. Closing that boundary
+  requires engine support such as a Unix-domain socket/XPC peer identity,
+  mutual TLS, or a signed challenge bound to the engine machine identity.
+- Garbage-collect profile-scoped launch-ownership Keychain tombstones after a
+  pane is permanently removed. Tombstones are safe and bounded by pane churn
+  today, but they should not remain indefinitely after the corresponding pane
+  can no longer be restored.
 - Re-test app panes and moved/pre-existing panes across `list_panes`,
   `list_agents`, and `get_pane_status` lifecycle transitions.
 
@@ -126,3 +145,11 @@ each item still needs a product decision or a focused validation.
 - Stop rewriting `func` to `private func` inside the macOS source-test helper
   before assertions; compile the production access level or test an extracted
   boundary directly.
+- Document the MCP 2.0 migration explicitly: `message_agent.lineEnding` accepts
+  only `enter`. Raw/unsubmitted collaboration payloads must use an inbox-aware
+  future capability, not terminal concatenation.
+- Contract 3 adds the Dev/Release profile boundary and authenticated context,
+  state, attention, role and policy mutations. Long-running contract-2 MCP
+  processes must be restarted after upgrade; older installed launchers infer
+  their profile from the owning app bundle and then receive the explicit
+  reinstall error instead of silently driving the other build.

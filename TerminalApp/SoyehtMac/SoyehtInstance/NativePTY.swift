@@ -54,6 +54,107 @@ private struct SoyehtProcFDInfo {
 /// called from any queue. The read loop runs on a private serial queue and
 /// delivers `onData` and `onExit` callbacks back on that same queue — callers
 /// should hop to `@MainActor` if they touch UI.
+enum TransportWriteReceipt: Equatable {
+    case admitted
+    case rejectedBeforeWrite
+    case outcomeUnknown
+}
+
+/// Pure FIFO used by NativePTY so backpressure and partial-write outcomes are
+/// testable without relying on a kernel PTY buffer filling at just the right
+/// instant.
+struct NativePTYWriteBuffer {
+    enum WriteAttempt: Equatable {
+        case wrote(Int)
+        case retry
+        case wouldBlock
+        case failed
+    }
+
+    struct Resolution {
+        let completion: ((TransportWriteReceipt) -> Void)?
+        let receipt: TransportWriteReceipt
+    }
+
+    struct DrainResult {
+        let resolutions: [Resolution]
+        let needsWritableEvent: Bool
+    }
+
+    private struct Operation {
+        let data: Data
+        var offset: Int
+        let completion: ((TransportWriteReceipt) -> Void)?
+    }
+
+    private let maximumPendingBytes: Int
+    private var operations: [Operation] = []
+
+    init(maximumPendingBytes: Int) {
+        self.maximumPendingBytes = maximumPendingBytes
+    }
+
+    var isEmpty: Bool { operations.isEmpty }
+
+    mutating func enqueue(
+        _ data: Data,
+        completion: ((TransportWriteReceipt) -> Void)?
+    ) -> Bool {
+        let pendingBytes = operations.reduce(0) { $0 + ($1.data.count - $1.offset) }
+        guard pendingBytes + data.count <= maximumPendingBytes else { return false }
+        operations.append(Operation(data: data, offset: 0, completion: completion))
+        return true
+    }
+
+    mutating func drain(
+        write: (Data) -> WriteAttempt
+    ) -> DrainResult {
+        var resolutions: [Resolution] = []
+        while !operations.isEmpty {
+            let current = operations[0]
+            let remaining = Data(current.data.dropFirst(current.offset))
+            switch write(remaining) {
+            case .wrote(let count) where count > 0 && count <= remaining.count:
+                operations[0].offset += count
+                if operations[0].offset == current.data.count {
+                    let completed = operations.removeFirst()
+                    resolutions.append(.init(
+                        completion: completed.completion,
+                        receipt: .admitted
+                    ))
+                }
+            case .retry:
+                continue
+            case .wouldBlock:
+                return .init(resolutions: resolutions, needsWritableEvent: true)
+            case .failed, .wrote:
+                let failed = operations.removeFirst()
+                resolutions.append(.init(
+                    completion: failed.completion,
+                    receipt: failed.offset > 0 ? .outcomeUnknown : .rejectedBeforeWrite
+                ))
+                resolutions.append(contentsOf: operations.map {
+                    .init(completion: $0.completion, receipt: .rejectedBeforeWrite)
+                })
+                operations.removeAll(keepingCapacity: true)
+                return .init(resolutions: resolutions, needsWritableEvent: false)
+            }
+        }
+        return .init(resolutions: resolutions, needsWritableEvent: false)
+    }
+
+    mutating func close() -> [Resolution] {
+        let resolutions = operations.map {
+            Resolution(
+                completion: $0.completion,
+                receipt: $0.offset > 0 ? .outcomeUnknown : .rejectedBeforeWrite
+            )
+        }
+        operations.removeAll(keepingCapacity: true)
+        return resolutions
+    }
+}
+
 final class NativePTY {
     enum FileDescriptorType: Equatable {
         case vnode
@@ -116,9 +217,11 @@ final class NativePTY {
     /// ioQueue — a blocking input write on the same serial queue as the read
     /// source deadlocked the whole pane (child stuck in write(2), reader
     /// starved, each waiting on the other).
-    private var pendingInput = Data()
+    static let maxPendingInputBytes = 4 * 1024 * 1024
+    private var pendingInput = NativePTYWriteBuffer(
+        maximumPendingBytes: NativePTY.maxPendingInputBytes
+    )
     private var writeSource: DispatchSourceWrite?
-    private static let maxPendingInputBytes = 4 * 1024 * 1024
 
     /// Guards `readSuspended`/`closed` transitions. `pauseReading()` and
     /// `resumeReading()` may be called from any thread (the feed bridge calls
@@ -260,15 +363,24 @@ final class NativePTY {
 
     /// Write raw bytes (typed keystrokes, paste content, control sequences)
     /// into the PTY master. No-op after `close()`.
-    func write(_ data: Data) {
-        guard !data.isEmpty else { return }
+    func write(
+        _ data: Data,
+        completion: ((TransportWriteReceipt) -> Void)? = nil
+    ) {
+        guard !data.isEmpty else {
+            completion?(.admitted)
+            return
+        }
         ioQueue.async { [weak self] in
-            guard let self, !self.closed else { return }
-            if self.pendingInput.count + data.count > Self.maxPendingInputBytes {
-                Self.logger.error("pending input over \(Self.maxPendingInputBytes) bytes; dropping \(data.count)-byte write (child not reading stdin)")
+            guard let self, !self.closed else {
+                DispatchQueue.main.async { completion?(.rejectedBeforeWrite) }
                 return
             }
-            self.pendingInput.append(data)
+            if !self.pendingInput.enqueue(data, completion: completion) {
+                Self.logger.error("pending input over \(Self.maxPendingInputBytes) bytes; dropping \(data.count)-byte write (child not reading stdin)")
+                DispatchQueue.main.async { completion?(.rejectedBeforeWrite) }
+                return
+            }
             self.flushPendingInput()
         }
     }
@@ -277,29 +389,44 @@ final class NativePTY {
     /// full input queue (EAGAIN) arms a write source and returns immediately
     /// so the read source keeps draining output on this same queue.
     private func flushPendingInput() {
-        guard !closed else { return }
-        while !pendingInput.isEmpty {
-            let n = pendingInput.withUnsafeBytes { buf -> Int in
+        guard !closed else {
+            let resolutions = pendingInput.close()
+            resolve(resolutions)
+            return
+        }
+        let result = pendingInput.drain { remaining in
+            let n = remaining.withUnsafeBytes { buf -> Int in
                 guard let base = buf.baseAddress else { return 0 }
                 return Darwin.write(masterFD, base, buf.count)
             }
             if n > 0 {
-                pendingInput.removeFirst(n)
+                return .wrote(n)
             } else if n < 0 && errno == EINTR {
-                continue
+                return .retry
             } else if n < 0 && errno == EAGAIN {
-                armWriteSource()
-                return
+                return .wouldBlock
             } else {
                 Self.logger.error("write failed errno=\(errno)")
-                pendingInput.removeAll()
-                break
+                return .failed
             }
+        }
+        resolve(result.resolutions)
+        if result.needsWritableEvent {
+            armWriteSource()
+            return
         }
         stateLock.lock()
         writeSource?.cancel()
         writeSource = nil
         stateLock.unlock()
+    }
+
+    private func resolve(_ resolutions: [NativePTYWriteBuffer.Resolution]) {
+        resolutions.forEach { resolution in
+            DispatchQueue.main.async {
+                resolution.completion?(resolution.receipt)
+            }
+        }
     }
 
     private func armWriteSource() {
@@ -411,6 +538,11 @@ final class NativePTY {
         writeSource?.cancel()
         writeSource = nil
         stateLock.unlock()
+        ioQueue.async { [weak self] in
+            guard let self else { return }
+            let resolutions = self.pendingInput.close()
+            self.resolve(resolutions)
+        }
         readSource?.cancel()
         readSource = nil
         exitSource?.cancel()

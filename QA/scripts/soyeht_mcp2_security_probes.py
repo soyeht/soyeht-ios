@@ -4,18 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.machinery
 import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from time import monotonic, sleep, time
 
 
-def load_mcp(repo_root: Path):
-    module_path = repo_root / "scripts" / "soyeht-mcp"
+def load_mcp(module_path: Path):
     loader = importlib.machinery.SourceFileLoader("soyeht_mcp2_security_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
@@ -72,24 +73,24 @@ def signed_team_id(app_path: Path) -> str:
     return ""
 
 
-def persisted_launch_nonce(snapshot_path: Path, conversation_id: str, timeout: float) -> str:
+def process_launch_nonce(conversation_id: str, timeout: float) -> str:
     deadline = monotonic() + timeout
     while monotonic() < deadline:
-        try:
-            snapshot = json.loads(snapshot_path.read_text())
-            conversation = next(
-                item
-                for item in snapshot.get("conversations", [])
-                if item.get("id") == conversation_id
-            )
-            nonce = conversation.get("agentLaunchOwnershipNonce")
-            if nonce:
-                return nonce
-        except (FileNotFoundError, json.JSONDecodeError, StopIteration):
-            pass
+        processes = subprocess.run(
+            ["/bin/ps", "eww", "-ax", "-o", "command="],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        for command in processes.splitlines():
+            if f"SOYEHT_CONVERSATION_ID={conversation_id}" not in command:
+                continue
+            match = re.search(r"(?:^|\s)SOYEHT_LAUNCH_NONCE=([^\s]+)", command)
+            if match:
+                return match.group(1)
         sleep(0.2)
     raise RuntimeError(
-        f"Persistent snapshot never recorded a launch nonce for {conversation_id}."
+        f"The owning process never exposed a launch nonce for {conversation_id}."
     )
 
 
@@ -101,10 +102,57 @@ def require_persistent_engine_owner(snapshot_path: Path, conversation_id: str):
         if item.get("id") == conversation_id
     )
     require(
+        not conversation.get("agentLaunchOwnershipNonce"),
+        "The workspace snapshot must not contain a launch bearer.",
+    )
+    require(
         "engineLocal" in (conversation.get("commander") or {}),
         "Restart ownership requires an engineLocal pane; the local engine "
         f"fell back to a non-persistent PTY for {conversation_id}.",
     )
+
+
+def bundle_provenance(app_path: Path) -> dict:
+    subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    team_id = signed_team_id(app_path)
+    require(team_id not in {"", "not set"}, "Installed Soyeht Dev is ad-hoc signed.")
+    plist = app_path / "Contents" / "Info.plist"
+    executable = app_path / "Contents" / "MacOS" / "Soyeht Dev"
+    commit = subprocess.run(
+        ["/usr/libexec/PlistBuddy", "-c", "Print :SoyehtBuildGitCommit", str(plist)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    binary_sha = subprocess.run(
+        ["/usr/bin/shasum", "-a", "256", str(executable)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()[0]
+    resources = app_path / "Contents" / "Resources"
+    mcp_files = sorted(
+        [resources / "soyeht-mcp", resources / "LocalAgentCatalog.json"]
+        + list(resources.glob("soyeht_mcp_*.py")),
+        key=lambda item: item.name,
+    )
+    require(all(item.is_file() for item in mcp_files), "Installed MCP resource set is incomplete.")
+    digest = hashlib.sha256()
+    for item in mcp_files:
+        digest.update(item.name.encode("utf-8") + b"\0")
+        digest.update(item.read_bytes())
+    return {
+        "commit": commit,
+        "teamID": team_id,
+        "binarySHA256": binary_sha,
+        "mcpBundleSHA256": digest.hexdigest(),
+        "mcpFiles": [item.name for item in mcp_files],
+    }
 
 
 def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
@@ -116,7 +164,8 @@ def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
             "sourceConversationID": pane["conversationID"],
             "sourceHandle": pane["handle"],
             "nonce": nonce,
-            "mcpClientContractVersion": 2,
+            "mcpClientContractVersion": 3,
+            "mcpClientProfile": "dev",
             "mcpClientServerVersion": "2.0.0-security-probe",
             **policy,
         },
@@ -204,6 +253,12 @@ def main() -> int:
         default=str(Path.home() / "Library/Application Support/SoyehtDev/workspaces.json"),
     )
     parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument(
+        "--mcp-script",
+        default="/Applications/Soyeht Dev.app/Contents/Resources/soyeht-mcp",
+        help="Exact installed MCP server exercised by the external observer.",
+    )
+    parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -213,7 +268,18 @@ def main() -> int:
         "Soyeht/Automation" not in automation_dir,
         "Refusing to probe the release Soyeht automation directory.",
     )
-    mcp = load_mcp(repo_root)
+    mcp_script = Path(args.mcp_script).expanduser().resolve()
+    require(mcp_script.is_file(), f"Installed MCP script does not exist: {mcp_script}")
+    expected_mcp_script = Path("/Applications/Soyeht Dev.app/Contents/Resources/soyeht-mcp").resolve()
+    require(
+        mcp_script == expected_mcp_script,
+        f"Security probes must exercise the installed MCP bundle, not {mcp_script}.",
+    )
+    mcp = load_mcp(mcp_script)
+    require(
+        re.fullmatch(r"[0-9a-f]{40}", args.expected_commit) is not None,
+        "--expected-commit must be the full 40-character Git commit.",
+    )
     detach_external_observer_identity()
     root = Path(automation_dir)
     snapshot_path = Path(args.workspace_snapshot).expanduser().resolve()
@@ -261,10 +327,11 @@ def main() -> int:
 
         codex = opened["codex"]
         opencode = opened["opencode"]
-        codex_nonce = persisted_launch_nonce(snapshot_path, codex["conversationID"], args.timeout)
-        opencode_nonce = persisted_launch_nonce(snapshot_path, opencode["conversationID"], args.timeout)
+        codex_nonce = process_launch_nonce(codex["conversationID"], args.timeout)
+        opencode_nonce = process_launch_nonce(opencode["conversationID"], args.timeout)
         require_persistent_engine_owner(snapshot_path, codex["conversationID"])
         require_persistent_engine_owner(snapshot_path, opencode["conversationID"])
+        require(snapshot_path.stat().st_mode & 0o777 == 0o600, "workspaces.json is not mode 0600")
         cases = [
             expect_runtime_rejection(
                 "legacy-agent-write",
@@ -308,6 +375,65 @@ def main() -> int:
             "result": "accepted",
         })
 
+        # Every endpoint that reads or mutates pane-owned collaboration state
+        # must bind the public conversation ID to that pane's possession
+        # credential. A valid nonce from another pane is still a spoof.
+        pane_owned_requests = [
+            ("get_conversation_context", {}),
+            ("ack_conversation_context", {"throughSequence": 0}),
+            ("report_agent_state", {"state": "idle", "reportSource": "self_report"}),
+            ("report_agent_conversation", {"role": "assistant", "text": "MUST_NOT_BE_RECORDED"}),
+            ("request_attention", {"attentionKind": "done", "message": "MUST_NOT_NOTIFY"}),
+        ]
+        for request_type, fields in pane_owned_requests:
+            spoof = mcp.submit_request_to_root(
+                root,
+                request_type,
+                {
+                    "targetWindowID": window_id,
+                    "sourceConversationID": opencode["conversationID"],
+                    "sourceHandle": opencode["handle"],
+                    "nonce": codex_nonce,
+                    "mcpClientContractVersion": 3,
+                    "mcpClientProfile": "dev",
+                    **fields,
+                },
+                timeout=args.timeout,
+                check_status=False,
+            )
+            require(
+                spoof.get("status") == "error"
+                and "does not belong to that pane" in spoof.get("message", ""),
+                f"{request_type} accepted another pane's nonce: {spoof}",
+            )
+            cases.append({
+                "case": f"cross-pane-nonce-{request_type}",
+                "expected": "rejected",
+                "result": "rejected",
+                "message": spoof["message"],
+            })
+
+        context_control = mcp.submit_request_to_root(
+            root,
+            "get_conversation_context",
+            {
+                "targetWindowID": window_id,
+                "sourceConversationID": opencode["conversationID"],
+                "sourceHandle": opencode["handle"],
+                "nonce": opencode_nonce,
+                "mcpClientContractVersion": 3,
+                "mcpClientProfile": "dev",
+            },
+            timeout=args.timeout,
+            check_status=False,
+        )
+        require(context_control.get("status") == "ok", f"Valid context owner was rejected: {context_control}")
+        cases.append({
+            "case": "owning-pane-context-read",
+            "expected": "accepted",
+            "result": "accepted",
+        })
+
         unsubmitted_message = mcp.submit_request_to_root(
             root,
             "send_agent_message",
@@ -320,7 +446,8 @@ def main() -> int:
                 "text": "MCP2_UNSUBMITTED_AGENT_MESSAGE_MUST_NOT_APPEAR",
                 "lineEnding": "none",
                 "deliveryPreference": "automatic",
-                "mcpClientContractVersion": 2,
+                "mcpClientContractVersion": 3,
+                "mcpClientProfile": "dev",
                 "mcpClientServerVersion": "2.0.0-security-probe",
             },
             timeout=args.timeout,
@@ -370,19 +497,71 @@ def main() -> int:
                 "sourceConversationID": codex["conversationID"],
                 "sourceHandle": codex["handle"],
                 "incomingEnabled": False,
-                "mcpClientContractVersion": 1,
-                "mcpClientServerVersion": "1.x-probe",
+                "mcpClientContractVersion": 2,
+                "mcpClientServerVersion": "2.0.0-pre-profile-probe",
             },
             timeout=args.timeout,
             check_status=False,
         )
         require(old_contract.get("status") == "error", "Old MCP contract unexpectedly succeeded.")
-        require("contract 1" in old_contract.get("message", ""), "Old contract returned the wrong error.")
+        require("contract 3" in old_contract.get("message", ""), "Old contract returned the wrong error.")
         cases.append({
             "case": "old-contract-sensitive-write",
             "expected": "rejected",
             "result": "rejected",
             "message": old_contract["message"],
+        })
+
+        omitted_agent_old_contract = mcp.submit_request_to_root(
+            root,
+            "create_worktree_panes",
+            {
+                "targetWindowID": window_id,
+                "repo": "/definitely/not/a/repository",
+                "names": ["must-not-create"],
+                # No agent field: this route defaults to Codex and therefore
+                # must still be classified as an agent launch.
+                "mcpClientContractVersion": 2,
+                "mcpClientServerVersion": "2.0.0-pre-profile-omitted-agent-probe",
+            },
+            timeout=args.timeout,
+            check_status=False,
+        )
+        require(
+            omitted_agent_old_contract.get("status") == "error"
+            and "contract 3" in omitted_agent_old_contract.get("message", ""),
+            f"Omitted-agent creation bypassed the contract gate: {omitted_agent_old_contract}",
+        )
+        cases.append({
+            "case": "omitted-agent-default-codex-still-requires-current-contract",
+            "expected": "rejected",
+            "result": "rejected",
+            "message": omitted_agent_old_contract["message"],
+        })
+
+        wrong_profile = mcp.submit_request_to_root(
+            root,
+            "set_agent_communication_policy",
+            {
+                "targetWindowID": window_id,
+                "sourceConversationID": codex["conversationID"],
+                "sourceHandle": codex["handle"],
+                "nonce": codex_nonce,
+                "incomingEnabled": False,
+                "mcpClientContractVersion": 3,
+                "mcpClientProfile": "release",
+                "mcpClientServerVersion": "2.0.0-wrong-profile-probe",
+            },
+            timeout=args.timeout,
+            check_status=False,
+        )
+        require(wrong_profile.get("status") == "error", "Wrong MCP profile unexpectedly succeeded.")
+        require("profile release" in wrong_profile.get("message", ""), "Wrong profile returned the wrong error.")
+        cases.append({
+            "case": "wrong-profile-sensitive-write",
+            "expected": "rejected",
+            "result": "rejected",
+            "message": wrong_profile["message"],
         })
 
         # Leave the owning agent in an inactive workspace before relaunch.
@@ -448,18 +627,16 @@ def main() -> int:
         })
 
         app_path = Path("/Applications/Soyeht Dev.app")
-        commit = subprocess.run(
-            ["/usr/bin/git", "rev-parse", "--short=8", "HEAD"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        provenance = bundle_provenance(app_path)
+        require(
+            provenance["commit"] == args.expected_commit,
+            f"Installed app commit {provenance['commit']} != expected {args.expected_commit}.",
+        )
         evidence = {
             "status": "passed",
             "app": {
                 "bundleID": "com.soyeht.mac.dev",
-                "commit": commit,
+                **provenance,
                 "installation": str(app_path),
                 "signedTeamID": signed_team_id(app_path),
             },

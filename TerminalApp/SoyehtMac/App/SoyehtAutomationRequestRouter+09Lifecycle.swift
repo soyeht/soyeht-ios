@@ -13,10 +13,24 @@ import SoyehtCore
 extension SoyehtAutomationRequestRouter {
     func handleClosePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
+        let targets = try resolveAgentMessageTargets(payload)
+        for targetConversation in targets {
+            guard targetConversation.id == caller.id else {
+                throw SoyehtAutomationError.orchestrationManagerAuthorizationRequired
+            }
+            if workspaceStore.workspace(targetConversation.workspaceID)?
+                .orchestration?.activeGraph?.nodes
+                .contains(where: { $0.conversationID == targetConversation.id }) == true {
+                throw SoyehtAutomationError.orchestrationBoundPaneMutationDenied(
+                    targetConversation.id.uuidString
+                )
+            }
+        }
         let target = try automationTargetWindow(payload: payload)
         let closed = try target.closePanes(
-            conversationIDStrings: payload.conversationIDs ?? [],
-            handles: payload.handles ?? []
+            conversationIDStrings: targets.map { $0.id.uuidString },
+            handles: []
         )
         return SoyehtAutomationResult(closedPanes: closed.map {
             SoyehtAutomationResponse.ClosedPane(
@@ -29,45 +43,21 @@ extension SoyehtAutomationRequestRouter {
 
     func handleCloseWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        let target = try automationTargetWindow(payload: payload)
-        let closed = try target.closeWorkspaceSilently(
-            workspaceIDStrings: payload.workspaceIDs ?? [],
-            workspaceNames: payload.workspaceNames ?? []
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
+        throw SoyehtAutomationError.agentWorkspaceMutationAuthorizationRequired(
+            caller.workspaceID.uuidString
         )
-        return SoyehtAutomationResult(closedWorkspaces: closed.map {
-            SoyehtAutomationResponse.ClosedWorkspace(
-                workspaceID: $0.workspaceID.uuidString,
-                name: $0.name
-            )
-        })
     }
 
     func handleMovePaneToWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        let source = try automationTargetWindow(payload: payload)
-        let destination = try automationMoveDestinationWindow(payload: payload)
-        let moved = try source.movePanesToWorkspace(
-            conversationIDStrings: payload.conversationIDs ?? [],
-            handles: payload.handles ?? [],
-            destinationWorkspaceIDString: payload.destinationWorkspaceID,
-            destinationWorkspaceName: payload.destinationWorkspaceName,
-            destinationWindowID: destination.windowID,
-            destinationController: destination
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
+        // Workspace membership changes the meaning of every same-workspace
+        // communication policy and graph edge. An agent cannot safely grant
+        // itself membership in a destination workspace; this remains a UI
+        // action until a destination-scoped user grant exists.
+        throw SoyehtAutomationError.agentWorkspaceMutationAuthorizationRequired(
+            caller.workspaceID.uuidString
         )
-        if destination.windowID != source.windowID,
-           let destinationWorkspaceID = moved.last?.destinationWorkspaceID {
-            destination.activate(workspaceID: destinationWorkspaceID)
-        }
-        mainWindowControllers().forEach { $0.ensureActiveWorkspaceIsValid() }
-        return SoyehtAutomationResult(movedPanes: moved.map {
-            SoyehtAutomationResponse.MovedPane(
-                conversationID: $0.conversationID.uuidString,
-                sourceWorkspaceID: $0.sourceWorkspaceID.uuidString,
-                destinationWorkspaceID: $0.destinationWorkspaceID.uuidString,
-                handle: $0.handle,
-                sourceWindowID: source.windowID,
-                destinationWindowID: destination.windowID
-            )
-        })
     }
 }

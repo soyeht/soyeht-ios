@@ -363,6 +363,111 @@ final class AgentOrchestrationTests: XCTestCase {
         XCTAssertEqual(conversationRoundTrip, conversation)
     }
 
+    func testTemplateAndGraphLibrariesRejectGrowthPastDurableQuotas() throws {
+        var templates = AgentRoleTemplateLibrary()
+        for index in 0..<AgentRoleTemplateLibrary.maximumCustomTemplates {
+            try templates.save(.init(
+                id: "custom.role-\(index)",
+                displayName: "Role \(index)",
+                instructions: "Bounded"
+            ))
+        }
+        XCTAssertThrowsError(try templates.save(.init(
+            id: "custom.one-too-many",
+            displayName: "Too many",
+            instructions: "Rejected before mutation"
+        ))) { error in
+            XCTAssertEqual(error as? AgentRoleTemplateLibraryError, .quotaExceeded)
+        }
+        XCTAssertEqual(
+            templates.customTemplates.count,
+            AgentRoleTemplateLibrary.maximumCustomTemplates
+        )
+
+        var orchestration = WorkspaceOrchestration()
+        for index in 0..<WorkspaceOrchestration.maximumSavedGraphs {
+            let graph = AgentOrchestrationGraph(
+                title: "Graph \(index)",
+                nodes: [.init(
+                    id: "node",
+                    role: .init(template: AgentRoleTemplateCatalog.executor)
+                )],
+                edges: []
+            )
+            try orchestration.saveGraph(graph)
+        }
+        XCTAssertThrowsError(try orchestration.saveGraph(.init(
+            title: "One too many",
+            nodes: [.init(
+                id: "node",
+                role: .init(template: AgentRoleTemplateCatalog.executor)
+            )],
+            edges: []
+        ))) { error in
+            XCTAssertEqual(error as? WorkspaceOrchestrationError, .quotaExceeded)
+        }
+        XCTAssertEqual(
+            orchestration.graphs.count,
+            WorkspaceOrchestration.maximumSavedGraphs
+        )
+    }
+
+    func testLegacyOversizedRoleAndGraphArraysAreSanitizedOnDecode() throws {
+        let templates = (0...AgentRoleTemplateLibrary.maximumCustomTemplates).map { index in
+            AgentRoleTemplate(
+                id: "custom.legacy-\(index)",
+                displayName: "Legacy \(index)",
+                instructions: "Bounded after decode"
+            )
+        }
+        let templateObject = [
+            "customTemplates": try XCTUnwrap(
+                JSONSerialization.jsonObject(with: JSONEncoder().encode(templates))
+                    as? [[String: Any]]
+            ),
+        ]
+        let decodedTemplates = try JSONDecoder().decode(
+            AgentRoleTemplateLibrary.self,
+            from: JSONSerialization.data(withJSONObject: templateObject)
+        )
+        XCTAssertEqual(
+            decodedTemplates.customTemplates.count,
+            AgentRoleTemplateLibrary.maximumCustomTemplates
+        )
+        XCTAssertEqual(
+            decodedTemplates.customTemplates.map(\.id),
+            decodedTemplates.customTemplates.map(\.id).sorted()
+        )
+
+        let graphs = (0...WorkspaceOrchestration.maximumSavedGraphs).map { index in
+            AgentOrchestrationGraph(
+                title: "Legacy graph \(index)",
+                nodes: [.init(
+                    id: "node",
+                    role: .init(template: AgentRoleTemplateCatalog.executor)
+                )],
+                edges: []
+            )
+        }
+        let orchestrationObject: [String: Any] = [
+            "schemaVersion": WorkspaceOrchestration.currentSchemaVersion,
+            "roleTemplates": templateObject,
+            "authorizedManagerPaneIDs": [],
+            "graphs": try XCTUnwrap(
+                JSONSerialization.jsonObject(with: JSONEncoder().encode(graphs))
+                    as? [[String: Any]]
+            ),
+        ]
+        let decodedOrchestration = try JSONDecoder().decode(
+            WorkspaceOrchestration.self,
+            from: JSONSerialization.data(withJSONObject: orchestrationObject)
+        )
+        XCTAssertEqual(
+            decodedOrchestration.graphs.count,
+            WorkspaceOrchestration.maximumSavedGraphs
+        )
+    }
+
     private func removingJSONKey(_ key: String, from data: Data) throws -> Data {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object.removeValue(forKey: key)

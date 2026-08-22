@@ -21,6 +21,12 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 project="$repo_root/TerminalApp/SoyehtMac.xcodeproj"
 signing_config=${SOYEHT_SIGNING_XCCONFIG:-}
+source_commit=$(/usr/bin/git -C "$repo_root" rev-parse HEAD)
+if [[ -n "$(/usr/bin/git -C "$repo_root" status --porcelain --untracked-files=normal)" ]]; then
+  >&2 echo "refusing a dirty build: commit provenance would not identify the tested source tree"
+  >&2 echo "commit or remove all tracked and untracked changes before installing Soyeht Dev"
+  exit 1
+fi
 
 if [[ -n "${SOYEHT_DEV_DERIVED_DATA:-}" ]]; then
   derived_data="$SOYEHT_DEV_DERIVED_DATA"
@@ -61,6 +67,7 @@ fi
   -destination 'platform=macOS' \
   -derivedDataPath "$derived_data" \
   -xcconfig "$signing_config" \
+  SOYEHT_BUILD_GIT_COMMIT="$source_commit" \
   build
 
 artifact="$derived_data/Build/Products/Debug/Soyeht Dev.app"
@@ -74,6 +81,12 @@ if [[ "$bundle_id" != "com.soyeht.mac.dev" ]]; then
   >&2 echo "refusing unexpected bundle id: $bundle_id"
   exit 1
 fi
+artifact_commit=$(/usr/libexec/PlistBuddy -c 'Print :SoyehtBuildGitCommit' "$artifact/Contents/Info.plist")
+if [[ "$artifact_commit" != "$source_commit" ]]; then
+  >&2 echo "build provenance mismatch: expected $source_commit, got $artifact_commit"
+  exit 1
+fi
+artifact_sha=$(/usr/bin/shasum -a 256 "$artifact/Contents/MacOS/Soyeht Dev" | /usr/bin/awk '{print $1}')
 
 /usr/bin/codesign --verify --deep --strict "$artifact"
 team_id=$(/usr/bin/codesign -dv --verbose=2 "$artifact" 2>&1 | /usr/bin/sed -n 's/^TeamIdentifier=//p')
@@ -82,7 +95,7 @@ if [[ -z "$team_id" || "$team_id" == "not set" ]]; then
   exit 1
 fi
 
-echo "verified signed Soyeht Dev: bundle=$bundle_id team=$team_id"
+echo "verified signed Soyeht Dev: bundle=$bundle_id team=$team_id commit=$artifact_commit binary_sha256=$artifact_sha"
 if [[ "$install_app" != true ]]; then
   echo "artifact: $artifact"
   exit 0
@@ -116,7 +129,13 @@ trap restore_previous ERR
 installed_team=$(/usr/bin/codesign -dv --verbose=2 "$destination" 2>&1 | /usr/bin/sed -n 's/^TeamIdentifier=//p')
 if [[ "$installed_team" != "$team_id" ]]; then
   >&2 echo "installed signature changed unexpectedly: expected $team_id, got $installed_team"
-  exit 1
+  /usr/bin/false
+fi
+installed_commit=$(/usr/libexec/PlistBuddy -c 'Print :SoyehtBuildGitCommit' "$destination/Contents/Info.plist")
+installed_sha=$(/usr/bin/shasum -a 256 "$destination/Contents/MacOS/Soyeht Dev" | /usr/bin/awk '{print $1}')
+if [[ "$installed_commit" != "$artifact_commit" || "$installed_sha" != "$artifact_sha" ]]; then
+  >&2 echo "installed provenance changed unexpectedly: commit=$installed_commit sha256=$installed_sha"
+  /usr/bin/false
 fi
 trap - ERR
 
@@ -127,4 +146,5 @@ else
 fi
 
 echo "installed: $destination"
+echo "installed provenance: commit=$installed_commit binary_sha256=$installed_sha"
 echo "previous build backup: $backup"

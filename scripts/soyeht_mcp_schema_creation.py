@@ -210,6 +210,10 @@ TOOLS_CREATION = [
                     "type": "integer",
                     "description": "Optional 1-based line number for vim/nvim/vi.",
                 },
+                "column": {
+                    "type": "integer",
+                    "description": "Optional 1-based column for mode=native/editor.",
+                },
                 "patterns": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -232,6 +236,7 @@ TOOLS_CREATION = [
                     "description": "Pane/tab names default to short hyphen names.",
                 },
                 "workspaceID": WORKSPACE_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },

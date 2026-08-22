@@ -316,11 +316,15 @@ TOOLS_DIRECTORY = [
                 },
                 "startLine": {
                     "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000,
                     "default": 0,
                     "description": "Zero-based line offset. With fromEnd=true, this is the number of trailing lines to skip.",
                 },
                 "lineCount": {
                     "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
                     "default": 120,
                     "description": "Maximum number of lines to return.",
                 },

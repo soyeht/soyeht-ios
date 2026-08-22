@@ -52,6 +52,11 @@ enum EnginePaneAttacher {
         return LocalEngineContext.isNotAnsweringYet(error)
     }
 
+    private static func isAuthenticationRejection(_ error: Error) -> Bool {
+        guard case SoyehtAPIClient.APIError.httpError(let status, _) = error else { return false }
+        return status == 401 || status == 403
+    }
+
     static func attach(
         conversation: Conversation,
         launchNonce: String? = nil,
@@ -62,7 +67,7 @@ enum EnginePaneAttacher {
         terminalView: MacOSWebSocketTerminalView,
         convStore: ConversationStore
     ) async -> AttachOutcome {
-        let context: ServerContext
+        var context: ServerContext
         switch await LocalEngineContext.resolveDetailed() {
         case .resolved(let resolved):
             context = resolved
@@ -88,8 +93,13 @@ enum EnginePaneAttacher {
             rows: rows,
             launchNonce: launchNonce
         )
-        do {
-            let response = try await SoyehtAPIClient.shared.createLocalTerminal(request, context: context)
+        var retriedAfterCredentialRejection = false
+        while true {
+          do {
+            let response = try await SoyehtAPIClient.shared.createLocalTerminal(
+                request,
+                context: context
+            )
             let attachment = SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment(
                 conversationId: response.conversationId,
                 context: context
@@ -114,9 +124,24 @@ enum EnginePaneAttacher {
                 slaveTTYPath: response.slaveTTYPath
             )
             return .attached(reconnected: response.reconnected)
-        } catch {
+          } catch {
+            if !retriedAfterCredentialRejection,
+               isAuthenticationRejection(error) {
+                retriedAfterCredentialRejection = true
+                LocalEngineContext.invalidateVerification(context)
+                switch await LocalEngineContext.resolveDetailed() {
+                case .resolved(let refreshed):
+                    context = refreshed
+                    continue
+                case .engineNotAnsweringYet:
+                    return .failed(transient: true)
+                case .unavailable:
+                    return .failed(transient: false)
+                }
+            }
             logger.error("createLocalTerminal failed: \(error.localizedDescription, privacy: .public)")
             return .failed(transient: isTransient(error))
+          }
         }
     }
 }

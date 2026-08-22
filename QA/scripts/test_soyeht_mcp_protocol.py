@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run
 import hashlib
 import json
+import os
 import runpy
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -28,7 +30,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(MODULE["TOOLS"]), 44)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "6f25cf0c2f4a2e7bcde9a1691802e4803f60111ff56b618d56d69d3c3ed71981",
+            "7a93e6cf79fd9d5654d6fe1a1be3c7ba3d91f9370a5560468870692d76daad76",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -36,6 +38,80 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
+
+    def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
+        globals_ = MODULE["tool_open_file"].__globals__
+        original_choose_file = globals_["choose_file"]
+        original_open_shell = globals_["tool_open_shell"]
+        captured = {}
+        try:
+            globals_["choose_file"] = lambda _args: Path("/tmp/example.txt")
+
+            def fake_open_shell(args):
+                captured.update(args)
+                return {"status": "ok"}
+
+            globals_["tool_open_shell"] = fake_open_shell
+            result = MODULE["tool_open_file"]({"mode": "shell", "editor": "vim"})
+        finally:
+            globals_["choose_file"] = original_choose_file
+            globals_["tool_open_shell"] = original_open_shell
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["selectedFile"], "/tmp/example.txt")
+        self.assertEqual(captured["agent"], "shell")
+        self.assertEqual(captured["path"], "/tmp")
+        self.assertEqual(captured["command"], "vim /tmp/example.txt")
+
+    def test_file_ipc_request_and_directory_are_owner_only(self):
+        write_request = MODULE["write_request"]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            request = {"id": "permission-probe", "type": "list_windows", "payload": {}}
+            destination = write_request(root, request)
+
+            self.assertEqual(os.stat(destination.parent).st_mode & 0o777, 0o700)
+            self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
+            self.assertFalse((destination.parent / ".permission-probe.tmp").exists())
+
+    def test_file_ipc_response_is_consumed_after_successful_decode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / "Responses"
+            responses.mkdir()
+            response = responses / "consume-me.json"
+            response.write_text(json.dumps({"status": "ok"}), encoding="utf-8")
+
+            self.assertEqual(
+                MODULE["wait_response"](root, "consume-me", 0.1),
+                {"status": "ok"},
+            )
+            self.assertFalse(response.exists())
+
+    def test_legacy_launcher_without_profile_infers_the_owning_bundle(self):
+        foundation = MODULE["inferred_mcp_client_profile"]
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                foundation("/Applications/Soyeht.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "release",
+            )
+            self.assertEqual(
+                foundation("/Applications/Soyeht Dev.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "dev",
+            )
+            self.assertEqual(foundation("/tmp/worktree/scripts/soyeht_mcp_foundation.py"), "dev")
+
+    def test_signed_dev_builder_embeds_and_rechecks_binary_provenance(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        script = (repo_root / "scripts" / "build-install-soyeht-dev").read_text()
+        plist = (repo_root / "TerminalApp" / "SoyehtMac" / "Info.plist").read_text()
+
+        self.assertIn('SOYEHT_BUILD_GIT_COMMIT="$source_commit"', script)
+        self.assertIn("SoyehtBuildGitCommit", plist)
+        self.assertIn('installed_commit', script)
+        self.assertIn('installed_sha', script)
+        self.assertIn('trap restore_previous ERR', script)
+        self.assertNotIn('installed signature changed unexpectedly: expected $team_id, got $installed_team"\n  exit 1', script)
 
     def test_server_source_remains_split_into_bounded_domain_modules(self):
         scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
@@ -88,8 +164,9 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             globals_["write_request"] = original_write_request
             globals_["wait_response"] = original_wait_response
 
-        self.assertEqual(captured["payload"]["mcpClientContractVersion"], 2)
+        self.assertEqual(captured["payload"]["mcpClientContractVersion"], 3)
         self.assertEqual(captured["payload"]["mcpClientServerVersion"], "2.0.0")
+        self.assertEqual(captured["payload"]["mcpClientProfile"], "dev")
 
     def test_list_panes_describes_declared_agent_as_metadata(self):
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_panes")
@@ -921,7 +998,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             {"agent": "shell", "prompt": "printf ok"},
         ]
 
-        self.assertEqual(MODULE["creation_request_timeout"]({}, sessions), 240.0)
+        self.assertEqual(MODULE["creation_request_timeout"]({}, sessions), 261.5)
         self.assertEqual(
             MODULE["creation_request_timeout"]({"timeout": 17}, sessions),
             17.0,

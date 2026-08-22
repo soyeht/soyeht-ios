@@ -1,6 +1,25 @@
 import XCTest
 @testable import SoyehtMacDomain
 
+private final class InMemoryAgentLaunchOwnershipPersistence: AgentLaunchOwnershipPersisting {
+    var values: [Conversation.ID: String] = [:]
+    var rejectsSaves = false
+    var rejectsDeletes = false
+
+    func save(nonce: String, for paneID: Conversation.ID) -> Bool {
+        if rejectsSaves { return false }
+        values[paneID] = nonce
+        return true
+    }
+
+    func loadNonce(for paneID: Conversation.ID) -> String? { values[paneID] }
+    func deleteNonce(for paneID: Conversation.ID) -> Bool {
+        if rejectsDeletes { return false }
+        values[paneID] = nil
+        return true
+    }
+}
+
 @MainActor
 final class AgentMessagingCoreTests: XCTestCase {
     private func endpoint(
@@ -18,6 +37,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         channel: AgentMessageDeliveryChannel = .semanticInbox,
         requestsAttention: Bool = true,
         createdAt: Date = Date(timeIntervalSince1970: 100),
+        body: String = "  Review the plan.\r\nThanks.  ",
         mcpClientContractVersion: Int? = nil,
         mcpClientServerVersion: String? = nil
     ) -> AgentMessage {
@@ -25,7 +45,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             id: id,
             sender: sender,
             recipient: recipient,
-            body: "  Review the plan.\r\nThanks.  ",
+            body: body,
             channel: channel,
             requestsAttention: requestsAttention,
             createdAt: createdAt,
@@ -125,16 +145,84 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
-    func testDraftGateIgnoresTerminalControlSequences() {
+    func testOnlyExplicitEditControlsMayBypassAnExistingHumanDraft() {
+        XCTAssertTrue(AgentMessageDraftGate.automationCanMutateExistingHumanDraft(
+            text: String(bytes: [0x7F], encoding: .utf8)!,
+            isExplicitRawInput: true
+        ))
+        XCTAssertFalse(AgentMessageDraftGate.automationCanMutateExistingHumanDraft(
+            text: String(bytes: [0x15], encoding: .utf8)!,
+            isExplicitRawInput: true
+        ))
+        for payload in ["ls -la", "ls -la\n", "ls -la\r\n", "\u{1B}[A"] {
+            XCTAssertFalse(
+                AgentMessageDraftGate.automationCanMutateExistingHumanDraft(
+                    text: payload,
+                    isExplicitRawInput: true
+                ),
+                "unsafe automation payload bypassed the gate: \(payload.debugDescription)"
+            )
+        }
+        XCTAssertFalse(AgentMessageDraftGate.automationCanMutateExistingHumanDraft(
+            text: "ls -la",
+            isExplicitRawInput: false
+        ))
+        XCTAssertTrue(AgentMessageDraftGate.automationCanMutateExistingHumanDraft(
+            text: "\r",
+            isExplicitRawInput: true
+        ))
+    }
+
+    func testDraftGateDoesNotSwallowReturnAfterEscape() {
+        var gate = AgentMessageDraftGate()
+        gate.record(Data("abandoned".utf8))
+        gate.record(Data([0x1B, 0x0D]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testUncertainBrokerDraftStaysClosedEvenWhenPayloadEndsInNewline() {
+        var gate = AgentMessageDraftGate()
+        gate.record(Data("payload that looked complete\n".utf8))
+        XCTAssertTrue(gate.isClear)
+
+        gate.markUncertainTerminalDraft()
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data([0x7F]))
+        XCTAssertFalse(gate.isClear, "Backspace cannot prove a bracketed-paste draft was cleared")
+        gate.record(Data([0x15]))
+        XCTAssertFalse(gate.isClear, "Ctrl-U can leave a suffix when the cursor moved")
+        gate.record(Data([0x03]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testCursorMovementMakesBackspaceAndCtrlUConservativelyUncertain() {
+        var gate = AgentMessageDraftGate()
+        gate.record(Data("echo SAFE_SUFFIX".utf8))
+        gate.record(Data([0x1B, 0x5B, 0x44])) // Left arrow.
+        gate.record(Data(repeating: 0x7F, count: 16))
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data([0x15]))
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data([0x0D]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testDraftGateTreatsComposerControlSequencesAsUncertainEvenWhenCounterWasEmpty() {
         var gate = AgentMessageDraftGate()
 
         gate.record(Data([0x1B, 0x5B, 0x41])) // Up arrow.
-        gate.record(Data([0x1B, 0x4F, 0x50])) // SS3 F1.
-        gate.record(Data("\u{1B}[<0;42;8M".utf8)) // SGR mouse press.
-        gate.record(Data("\u{1B}]0;title\u{07}".utf8)) // OSC title.
-
-        XCTAssertTrue(gate.isClear)
+        XCTAssertFalse(gate.isClear, "Up can recall a history entry into an empty composer")
         XCTAssertEqual(gate.pendingByteCount, 0)
+        gate.record(Data([0x03]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data([0x1B, 0x4F, 0x50])) // SS3 F1 may be TUI-bound.
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data([0x03]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("\u{1B}]0;title\u{07}".utf8)) // OSC title is output-like metadata.
+        XCTAssertTrue(gate.isClear)
     }
 
     func testDraftGateCountsUTF8CharactersInsteadOfBytesWhenBackspacing() {
@@ -148,13 +236,25 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(gate.pendingByteCount, 0)
     }
 
-    func testDraftGateCountsBracketedPasteBodyButNotItsControlPackets() {
+    func testDraftGateTreatsBracketedPasteBodyAsOpaqueUntilSubmission() {
         var gate = AgentMessageDraftGate()
 
         gate.record(Data("\u{1B}[200~draft\u{1B}[201~".utf8))
         XCTAssertFalse(gate.isClear)
-        XCTAssertEqual(gate.pendingByteCount, 5)
+        XCTAssertEqual(gate.pendingByteCount, 0)
 
+        gate.record(Data([0x0D]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testBracketedPasteLineBreakDoesNotLookLikeAUserSubmission() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[200~".utf8))
+        gate.record(Data("echo one\necho two\r".utf8))
+        gate.record(Data("\u{1B}[201~".utf8))
+
+        XCTAssertFalse(gate.isClear)
         gate.record(Data([0x0D]))
         XCTAssertTrue(gate.isClear)
     }
@@ -188,10 +288,12 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         gate.record(Data("draft".utf8))
         gate.record(Data("\u{1B}[117;5u".utf8)) // Ctrl-U
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data("\u{1B}[99;5u".utf8)) // Ctrl-C
         XCTAssertTrue(gate.isClear)
     }
 
-    func testDraftGateIgnoresKittyNonTextKeysAndTextPreventingModifiers() {
+    func testDraftGateTreatsUnknownOrComposerControlsConservatively() {
         var gate = AgentMessageDraftGate()
 
         gate.record(Data("\u{1B}[57442;5u".utf8)) // left Control
@@ -200,8 +302,132 @@ final class AgentMessagingCoreTests: XCTestCase {
         gate.record(Data("\u{1B}[1;2A".utf8)) // shifted Up arrow
         gate.record(Data("\u{1B}[u".utf8)) // cursor restore
 
-        XCTAssertTrue(gate.isClear)
+        XCTAssertFalse(gate.isClear)
         XCTAssertEqual(gate.pendingByteCount, 0)
+
+        gate.record(Data([0x03]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("\u{1B}[I\u{1B}[O".utf8)) // focus in/out are transport metadata.
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testBracketedPasteCannotBeClosedByEmbeddedKittyReturnPacket() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[200~draft\u{1B}[13umore".utf8))
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data("\u{1B}[201~".utf8))
+        XCTAssertFalse(gate.isClear)
+        gate.record(Data([0x0D]))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testPresetTopologyBindsEveryNodeFromUserAssignedRoles() throws {
+        var graph = AgentOrchestrationPresets.plannerExecutorReviewer()
+        let planner = UUID()
+        let executor = UUID()
+        let reviewer = UUID()
+
+        try graph.bindAllRoleAssignments([
+            (reviewer, AgentRoleAssignment(template: AgentRoleTemplateCatalog.reviewer)),
+            (planner, AgentRoleAssignment(template: AgentRoleTemplateCatalog.planner)),
+            (executor, AgentRoleAssignment(template: AgentRoleTemplateCatalog.executor)),
+        ])
+
+        XCTAssertEqual(graph.nodes.first(where: { $0.id == "planner" })?.conversationID, planner)
+        XCTAssertEqual(graph.nodes.first(where: { $0.id == "executor" })?.conversationID, executor)
+        XCTAssertEqual(graph.nodes.first(where: { $0.id == "reviewer" })?.conversationID, reviewer)
+        XCTAssertFalse(graph.nodes.contains(where: { $0.conversationID == nil }))
+    }
+
+    func testPresetTopologyRefusesPartialActivation() {
+        var graph = AgentOrchestrationPresets.plannerExecutorReviewer()
+
+        XCTAssertThrowsError(try graph.bindAllRoleAssignments([
+            (UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.planner)),
+            (UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.executor)),
+        ])) { error in
+            XCTAssertEqual(
+                error as? AgentOrchestrationGraphError,
+                .noAvailableConversationForRole("Reviewer")
+            )
+        }
+    }
+
+    func testPresetTopologyRefusesAmbiguousExtraRoleCandidate() {
+        var graph = AgentOrchestrationPresets.executorReviewerLoop()
+        XCTAssertThrowsError(try graph.bindAllRoleAssignments([
+            (UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.executor)),
+            (UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.reviewer)),
+            (UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.reviewer)),
+        ])) { error in
+            XCTAssertEqual(
+                error as? AgentOrchestrationGraphError,
+                .ambiguousConversationsForRole("Reviewer")
+            )
+        }
+        XCTAssertTrue(graph.nodes.contains(where: { $0.conversationID == nil }))
+    }
+
+    func testRoleInstructionsAreBoundedBeforePersistenceOrLaunchEnvironment() {
+        let oversized = String(
+            repeating: "x",
+            count: AgentRoleTemplate.maximumInstructionsUTF8Bytes + 1
+        )
+        let assignment = AgentRoleAssignment(
+            roleName: "Reviewer",
+            instructions: oversized
+        )
+        XCTAssertTrue(
+            AgentOrchestrationValidator.validate(assignment: assignment)
+                .contains { $0.code == .fieldTooLong && $0.path == "role.instructions" }
+        )
+
+        var library = AgentRoleTemplateLibrary()
+        XCTAssertThrowsError(try library.save(.init(
+            id: "custom.oversized",
+            displayName: "Oversized",
+            instructions: oversized
+        )))
+    }
+
+    func testCouncilBindsTheExactNumberOfInterchangeableIdeators() throws {
+        var graph = AgentOrchestrationPresets.council(ideatorCount: 3)
+        let candidates = (0..<3).map { _ in
+            (UUID(), AgentRoleAssignment(roleName: "Ideator", instructions: "Independent proposal"))
+        } + [(UUID(), AgentRoleAssignment(template: AgentRoleTemplateCatalog.aggregator))]
+
+        try graph.bindAllRoleAssignments(candidates)
+        XCTAssertFalse(graph.nodes.contains(where: { $0.conversationID == nil }))
+        XCTAssertEqual(Set(graph.nodes.compactMap(\.conversationID)).count, 4)
+    }
+
+    func testEditingTheActivePresetPreservesGraphIdentityAndValidBindings() throws {
+        var original = AgentOrchestrationPresets.plannerExecutorReviewer()
+        let planner = UUID()
+        let executor = UUID()
+        let reviewer = UUID()
+        try original.bindAllRoleAssignments([
+            (planner, AgentRoleAssignment(template: AgentRoleTemplateCatalog.planner)),
+            (executor, AgentRoleAssignment(template: AgentRoleTemplateCatalog.executor)),
+            (reviewer, AgentRoleAssignment(template: AgentRoleTemplateCatalog.reviewer)),
+        ])
+
+        var edited = AgentOrchestrationPresets.graph(
+            for: .plannerExecutorReviewer,
+            reusing: original
+        )
+        try edited.bindAllRoleAssignments([
+            // Deliberately reverse candidate order: valid existing bindings
+            // must not move just because the settings pane was reopened.
+            (reviewer, AgentRoleAssignment(template: AgentRoleTemplateCatalog.reviewer)),
+            (executor, AgentRoleAssignment(template: AgentRoleTemplateCatalog.executor)),
+            (planner, AgentRoleAssignment(template: AgentRoleTemplateCatalog.planner)),
+        ])
+
+        XCTAssertEqual(edited.id, original.id)
+        XCTAssertEqual(edited.nodes, original.nodes)
     }
 
     func testInboxInsertIsDurableIdempotentAndNormalizesBody() throws {
@@ -241,6 +467,64 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         XCTAssertEqual(decoded.messages[0].mcpClientContractVersion, 2)
         XCTAssertEqual(decoded.messages[0].mcpClientServerVersion, "2.0.0")
+    }
+
+    func testFullPendingInboxRemainsReadableAndAcknowledgeableInBoundedPages() throws {
+        let recipient = endpoint(handle: "delia")
+        let sender = endpoint(handle: "caia")
+        var inbox = AgentMessageInbox()
+        for index in 0..<1_000 {
+            try inbox.enqueue(message(
+                sender: sender,
+                recipient: recipient,
+                createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
+                body: String(repeating: "x", count: 8_000) + "-\(index)"
+            ), recipientID: recipient.paneID)
+        }
+
+        var cursor: AgentMessage.ID?
+        var observed = 0
+        repeat {
+            let page = try inbox.page(
+                after: cursor,
+                unreadOnly: false,
+                maximumCount: 50,
+                maximumEncodedBytes: 256 * 1_024,
+                encodedSize: { try JSONEncoder().encode($0).count }
+            )
+            XCTAssertFalse(page.messages.isEmpty)
+            XCTAssertLessThanOrEqual(
+                try page.messages.reduce(0) {
+                    $0 + (try JSONEncoder().encode($1).count)
+                },
+                256 * 1_024
+            )
+            observed += page.messages.count
+            cursor = page.nextCursor
+            try inbox.acknowledge(page.messages.map(\.id))
+            if !page.hasMore { break }
+        } while true
+
+        XCTAssertEqual(observed, 1_000)
+        XCTAssertLessThanOrEqual(
+            inbox.messages.count,
+            AgentMessageInbox.completedRetentionLimit
+        )
+    }
+
+    func testInboxRejectsOversizedBodyBeforeMutation() throws {
+        let recipient = endpoint(handle: "delia")
+        let item = message(
+            sender: endpoint(handle: "caia"),
+            recipient: recipient,
+            body: String(repeating: "x", count: AgentMessageInbox.maximumMessageBodyUTF8Bytes + 1)
+        )
+        var inbox = AgentMessageInbox()
+
+        XCTAssertThrowsError(try inbox.enqueue(item, recipientID: recipient.paneID)) { error in
+            XCTAssertEqual(error as? AgentMessageInbox.MutationError, .bodyTooLarge)
+        }
+        XCTAssertTrue(inbox.messages.isEmpty)
     }
 
     func testInboxPrunesOnlyCompletedMessagesAndKeepsNewestCompleted() throws {
@@ -346,8 +630,75 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(inbox.messagesAwaitingDeferredTerminalDelivery.isEmpty)
         XCTAssertEqual(inbox.messagesWithUncertainDeferredTerminalDelivery.map(\.id), [item.id])
 
+        try inbox.resetDeferredTerminalDeliveryStarted(item.id)
+        XCTAssertEqual(inbox.messagesAwaitingDeferredTerminalDelivery.map(\.id), [item.id])
+        XCTAssertTrue(inbox.messagesWithUncertainDeferredTerminalDelivery.isEmpty)
+
+        XCTAssertTrue(try inbox.markDeferredTerminalDeliveryStarted(
+            item.id,
+            at: Date(timeIntervalSince1970: 115)
+        ))
+
         try inbox.markDeferredTerminalDelivered(item.id, at: Date(timeIntervalSince1970: 120))
         XCTAssertTrue(inbox.messagesWithUncertainDeferredTerminalDelivery.isEmpty)
+    }
+
+    func testRoleAssignmentControlDeliveryGatesEachExactRevisionUntilObserved() throws {
+        let workspaceID = UUID()
+        let target = Conversation(
+            handle: "@worker",
+            agent: .claw("codex"),
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "test")
+        )
+        let manager = Conversation(
+            handle: "@manager",
+            agent: .claw("claude"),
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "test")
+        )
+        let executor = try AgentRoleAssignmentDelivery.make(
+            target: target,
+            sender: manager,
+            assignment: .init(template: AgentRoleTemplateCatalog.executor)
+        )
+        let reviewer = try AgentRoleAssignmentDelivery.make(
+            target: target,
+            sender: manager,
+            assignment: .init(template: AgentRoleTemplateCatalog.reviewer)
+        )
+        var inbox = AgentMessageInbox()
+        try inbox.enqueue(executor.message, recipientID: target.id)
+        try inbox.enqueue(reviewer.message, recipientID: target.id)
+
+        XCTAssertTrue(inbox.hasUnobservedRoleAssignmentDelivery)
+        XCTAssertTrue(executor.prepared.payload.contains("Sent via Soyeht control plane"))
+        XCTAssertTrue(executor.prepared.payload.contains("Your assigned role is Executor"))
+        XCTAssertFalse(executor.prepared.payload.contains("Reply via Soyeht MCP"))
+
+        _ = try inbox.markDeferredTerminalDeliveryStarted(executor.message.id)
+        try inbox.markDeferredTerminalDelivered(executor.message.id)
+        XCTAssertTrue(
+            inbox.hasUnobservedRoleAssignmentDelivery,
+            "an ACK for an older role must not authorize a newer revision"
+        )
+
+        _ = try inbox.markDeferredTerminalDeliveryStarted(reviewer.message.id)
+        try inbox.markDeferredTerminalDelivered(reviewer.message.id)
+        XCTAssertFalse(inbox.hasUnobservedRoleAssignmentDelivery)
+
+        XCTAssertThrowsError(try AgentPaneInputPlanner.prepare(
+            target: target,
+            storedSender: endpoint(
+                paneID: target.id,
+                workspaceID: workspaceID,
+                handle: target.handle
+            ),
+            messageID: UUID(),
+            text: "ordinary self message",
+            appendNewline: true,
+            lineEnding: "enter"
+        ))
     }
 
     func testReadAttentionAndAcknowledgementHaveSeparateDurableStates() throws {
@@ -518,7 +869,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(decoded.effectiveAgentCommunicationPolicy, .open)
     }
 
-    func testExistingWorkspaceSnapshotPersistsInboxAndBothPolicyLevels() throws {
+    func testExistingWorkspaceSnapshotPersistsInboxAndPoliciesButNotLaunchBearer() throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("agent-messaging-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }
@@ -583,7 +934,7 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         let restoredConversation = try XCTUnwrap(restoredConversationStore.conversation(recipientID))
         XCTAssertEqual(restoredConversation.agentMessageInbox.messages.map(\.id), [item.id])
-        XCTAssertEqual(restoredConversation.agentLaunchOwnershipNonce, "persisted-launch-possession")
+        XCTAssertNil(restoredConversation.agentLaunchOwnershipNonce)
         XCTAssertTrue(
             restoredConversation.agentCommunicationPolicy.incoming.blockedPaneIDs
                 .contains(sender.paneID)
@@ -593,5 +944,124 @@ final class AgentMessagingCoreTests: XCTestCase {
                 .effectiveAgentCommunicationPolicy.incoming.allowsCrossWorkspace,
             false
         )
+    }
+
+    func testLaunchOwnershipMigratesOnceToProtectedPersistenceAndRevokes() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let paneID = UUID()
+        let conversation = Conversation(
+            id: paneID,
+            handle: "codex",
+            agent: .claw("codex"),
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString),
+            agentLaunchOwnershipNonce: "legacy-snapshot-nonce"
+        )
+
+        XCTAssertEqual(registry.rehydrate(from: [conversation]), [paneID])
+        XCTAssertEqual(registry.nonce(for: paneID), "legacy-snapshot-nonce")
+        XCTAssertEqual(persistence.values[paneID], "legacy-snapshot-nonce")
+        XCTAssertTrue(registry.validates(paneID: paneID, nonce: "legacy-snapshot-nonce"))
+
+        XCTAssertTrue(registry.prepareForLaunch(paneID: paneID))
+        XCTAssertNil(registry.nonce(for: paneID))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "legacy-snapshot-nonce"))
+
+        let afterRestart = AgentLaunchOwnershipRegistry(persistence: persistence)
+        _ = afterRestart.rehydrate(from: [conversation])
+        XCTAssertNil(afterRestart.nonce(for: paneID))
+        XCTAssertFalse(afterRestart.validates(paneID: paneID, nonce: "legacy-snapshot-nonce"))
+    }
+
+    func testLaunchOwnershipNeverAcceptsAMemoryOnlyBearer() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        persistence.rejectsSaves = true
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let paneID = UUID()
+
+        XCTAssertFalse(registry.register(paneID: paneID, nonce: "must-not-live-only-in-memory"))
+        XCTAssertNil(registry.nonce(for: paneID))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "must-not-live-only-in-memory"))
+    }
+
+    func testFailedRevocationPreservesOldOwnerSoCallerCanAbortReplacement() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let paneID = UUID()
+        XCTAssertTrue(registry.register(paneID: paneID, nonce: "current-owner"))
+
+        persistence.rejectsSaves = true
+        persistence.rejectsDeletes = true
+        XCTAssertFalse(registry.prepareForLaunch(paneID: paneID))
+        XCTAssertTrue(registry.validates(paneID: paneID, nonce: "current-owner"))
+
+        let afterRestart = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let conversation = Conversation(
+            id: paneID,
+            handle: "codex",
+            agent: .claw("codex"),
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+        _ = afterRestart.rehydrate(from: [conversation])
+        XCTAssertTrue(afterRestart.validates(paneID: paneID, nonce: "current-owner"))
+    }
+
+    func testFailedRevocationCanBeQuarantinedAfterRestoreAlreadyReplacedProcess() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let paneID = UUID()
+        XCTAssertTrue(registry.register(paneID: paneID, nonce: "old-owner"))
+
+        persistence.rejectsSaves = true
+        persistence.rejectsDeletes = true
+        XCTAssertFalse(registry.prepareForLaunch(paneID: paneID))
+        registry.quarantineInMemory(paneID: paneID)
+
+        XCTAssertNil(registry.nonce(for: paneID))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "old-owner"))
+    }
+
+    func testRevocationFallsBackToDurableDeletionWhenTombstoneWriteFails() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let paneID = UUID()
+        XCTAssertTrue(registry.register(paneID: paneID, nonce: "old-owner"))
+
+        persistence.rejectsSaves = true
+        XCTAssertTrue(registry.prepareForLaunch(paneID: paneID))
+        XCTAssertNil(persistence.values[paneID])
+        XCTAssertNil(registry.nonce(for: paneID))
+
+        let afterRestart = AgentLaunchOwnershipRegistry(persistence: persistence)
+        let conversation = Conversation(
+            id: paneID,
+            handle: "codex",
+            agent: .claw("codex"),
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+        _ = afterRestart.rehydrate(from: [conversation])
+        XCTAssertFalse(afterRestart.validates(paneID: paneID, nonce: "old-owner"))
+    }
+
+    func testShellConversationNeverRehydratesStaleAgentOwnership() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let paneID = UUID()
+        persistence.values[paneID] = "stale-agent-owner"
+        let shell = Conversation(
+            id: paneID,
+            handle: "shell",
+            agent: .shell,
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+        _ = registry.rehydrate(from: [shell])
+
+        XCTAssertNil(registry.nonce(for: paneID))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "stale-agent-owner"))
     }
 }

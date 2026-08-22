@@ -59,6 +59,8 @@ def tool_list_agent_messages(args):
     payload = with_source_context({
         "unreadOnly": bool(args.get("unreadOnly", False)),
         "markRead": bool(args.get("markRead", True)),
+        "afterMessageID": args.get("afterMessageID"),
+        "messageLimit": int(args.get("messageLimit", 20)),
     }, args)
     return submit_request(
         "list_agent_messages",
@@ -142,4 +144,3 @@ def tool_configure_agent_orchestration(args):
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 10.0),
     )
-

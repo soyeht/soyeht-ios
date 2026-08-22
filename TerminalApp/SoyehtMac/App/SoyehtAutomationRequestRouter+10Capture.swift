@@ -51,10 +51,10 @@ extension SoyehtAutomationRequestRouter {
     func handleCapturePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         let target = try automationTargetWindow(payload: payload, createIfMissing: false)
-        let targets = captureTargetArguments(payload, in: target)
+        let targets = try authorizedCaptureTargets(payload)
         let captured = try target.capturePanes(
-            conversationIDStrings: targets.conversationIDs,
-            handles: targets.handles,
+            conversationIDStrings: targets.map { $0.id.uuidString },
+            handles: [],
             mode: payload.captureMode,
             maxLines: payload.maxLines
         )
@@ -76,10 +76,10 @@ extension SoyehtAutomationRequestRouter {
     func handleCapturePaneRange(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
         let target = try automationTargetWindow(payload: payload, createIfMissing: false)
-        let targets = captureTargetArguments(payload, in: target)
+        let targets = try authorizedCaptureTargets(payload)
         let captured = try target.capturePaneRange(
-            conversationIDStrings: targets.conversationIDs,
-            handles: targets.handles,
+            conversationIDStrings: targets.map { $0.id.uuidString },
+            handles: [],
             mode: payload.captureMode,
             startLine: payload.startLine,
             lineCount: payload.lineCount,
@@ -115,5 +115,18 @@ extension SoyehtAutomationRequestRouter {
             return (conversationIDs, handles)
         }
         return ([source.conversation.id.uuidString], [])
+    }
+
+    private func authorizedCaptureTargets(
+        _ payload: SoyehtAutomationRequest.Payload
+    ) throws -> [Conversation] {
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
+        let hasExplicitTargets = !(payload.conversationIDs ?? []).isEmpty
+            || !(payload.handles ?? []).isEmpty
+        let targets = hasExplicitTargets ? try resolveAgentMessageTargets(payload) : [caller]
+        guard targets.allSatisfy({ $0.id == caller.id }) else {
+            throw SoyehtAutomationError.orchestrationManagerAuthorizationRequired
+        }
+        return targets
     }
 }

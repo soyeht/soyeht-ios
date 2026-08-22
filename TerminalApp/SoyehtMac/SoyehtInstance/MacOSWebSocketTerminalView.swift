@@ -191,12 +191,29 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
     var onUserInputData: ((Data) -> Void)?
+    var onUserInputOutcomeUnknown: ((Data) -> Void)?
+    enum BrokerSubmissionResult {
+        /// The initial paste never entered a local transport.
+        case rejectedBeforeWrite
+        /// The paste entered, but a requested Return did not.
+        case partiallyWritten
+        /// Every locally required byte was admitted.
+        case completed
+
+        var isCompleted: Bool {
+            if case .completed = self { return true }
+            return false
+        }
+    }
     private struct BrokerSubmission {
+        let id: UUID
         let text: String
         let submitWithEnter: Bool
         let forceBracketedPaste: Bool
+        let allowsBracketedPaste: Bool
         let focusBeforeSubmit: Bool
-        let completion: (() -> Void)?
+        let waitsForSemanticAcknowledgement: Bool
+        let completion: ((BrokerSubmissionResult) -> Void)?
     }
     private struct BufferedHumanInput {
         let data: Data
@@ -204,12 +221,26 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         /// group input was recorded there before entering this buffer and
         /// must not be reported again (which would mirror it recursively).
         let shouldNotifyDelegate: Bool
+        let accepted: (() -> Void)?
+        let outcomeUnknown: (() -> Void)?
     }
     private var activeBrokerSubmission: BrokerSubmission?
     private var queuedBrokerSubmissions: [BrokerSubmission] = []
     private var pendingBrokerEnterWorkItem: DispatchWorkItem?
     private var isDispatchingBrokerEnterKey = false
+    private var capturedBrokerEnterData: Data?
+    private var activeBrokerPasteWasAccepted = false
+    private var activeBrokerWriteWasAttempted = false
+    private var activeBrokerWriteOutcomeIsUnknown = false
     private var bufferedHumanInputDuringBrokerSubmission: [BufferedHumanInput] = []
+    /// A human write is not part of the draft gate until its asynchronous
+    /// transport receipt arrives. While one is pending, no broker transaction
+    /// may start or it could append an envelope before the gate sees the key.
+    private var pendingHumanWriteCount = 0
+    private var humanTransportGeneration = 0
+    private var humanWriteOutcomeUnknown = false
+    private var bufferedHumanRetryWorkItem: DispatchWorkItem?
+    private var isAwaitingSemanticAcknowledgement = false
     private var showsGroupInputCursor = false
     var onSelectionCopied: (() -> Void)?
     var onScrollToBottomVisibilityChanged: ((Bool) -> Void)?
@@ -283,7 +314,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // Re-attach only when something actually changed. Comparing the
         // URL alone (the original behaviour) would miss a server-kind
         // swap that flipped the cookie header on the same WS endpoint.
-        guard configuredURL != wsUrl || configuredCookieHeader != cookieHeader else { return }
+        if configuredURL == wsUrl, configuredCookieHeader == cookieHeader {
+            switch state {
+            case .connecting, .open, .reconnecting:
+                return
+            case .idle, .closed:
+                // An in-place agent switch reuses the conversation ID and
+                // therefore the WS URL after deliberately replacing the
+                // engine process. Same identity does not mean same live
+                // transport; reconnect from an idle/closed state.
+                break
+            }
+        }
         configuredURL = wsUrl
         configuredCookieHeader = cookieHeader
         self.isLocalHandoffSource = isLocalHandoffSource
@@ -320,10 +362,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 let code = (status >> 8) & 0xff
                 self.exitStatus = code
                 self.feed(text: "\r\n[shell exited: \(code)]\r\n")
+                self.cancelBrokerSubmissions()
                 self.localPTY = nil
                 self.setSessionActive(false)
             }
         }
+        flushBufferedHumanInputIfPossible()
         onConnectionEstablished?()
     }
 
@@ -364,7 +408,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// silently dropping the bytes there would make the phone session
     /// non-interactive.
     func writeToLocalSession(_ data: Data) {
-        sendInputData(data)
+        sendHumanInput(data)
     }
 
     /// Mirrors `writeToLocalSession`'s transport-agnostic dispatch —
@@ -412,6 +456,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     func disconnect(reapLocalProcessTree: Bool = false) {
+        humanTransportGeneration &+= 1
+        pendingHumanWriteCount = 0
+        humanWriteOutcomeUnknown = false
+        bufferedHumanRetryWorkItem?.cancel()
+        bufferedHumanRetryWorkItem = nil
+        cancelBrokerSubmissions()
+        // Buffered keys belong to the exact process/transport generation that
+        // accepted them. A configure/switch must never replay an old agent's
+        // draft into the replacement process. Transient WS reconnects do not
+        // call disconnect(), so same-session recovery still preserves input.
+        bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+        isAwaitingSemanticAcknowledgement = false
         localPTY?.close(reapDescendants: reapLocalProcessTree)
         localPTY = nil
         localReplayBuffer.removeAll(keepingCapacity: true)
@@ -446,6 +502,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
         let t = getTerminal()
         propagateResize(cols: t.cols, rows: t.rows, task: webSocketTask, force: true)
+        flushBufferedHumanInputIfPossible()
         onConnectionEstablished?()
     }
 
@@ -896,26 +953,165 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
         let bytes = Data(data)
-        if activeBrokerSubmission != nil, !isDispatchingBrokerEnterKey {
-            // Long bracketed pastes deliberately wait before Return so TUIs
-            // have time to consume the payload. Keep real keystrokes out of
-            // that interval: otherwise a character typed after the paste can
-            // become part of the agent message, or the delayed Return can
-            // submit the human's new draft. The bytes are replayed in order
-            // immediately after the broker submission completes.
-            bufferedHumanInputDuringBrokerSubmission.append(
-                BufferedHumanInput(data: bytes, shouldNotifyDelegate: true)
-            )
-            return
-        }
         if isDispatchingBrokerEnterKey {
             // This callback came from brokerSendEnterKey(), not the person at
-            // the keyboard. Do not report it as human input to the draft gate.
-            sendInputData(bytes)
+            // the keyboard. Capture SwiftTerm's mode-aware Return encoding;
+            // the broker writes it through its acknowledged transport path.
+            if capturedBrokerEnterData == nil { capturedBrokerEnterData = Data() }
+            capturedBrokerEnterData?.append(bytes)
             return
         }
-        onUserInputData?(bytes)
-        sendInputData(bytes)
+        sendHumanInput(bytes)
+    }
+
+    /// Single admission point for all user-originated terminal bytes:
+    /// keyboard, phone/QR, voice, drag/drop and mirrored group input. Human
+    /// bytes never enter between a broker paste and its delayed Return; they
+    /// are replayed in order after the transaction and reported to the pane's
+    /// draft gate only when a live transport actually accepts them.
+    @discardableResult
+    func sendHumanInput(
+        _ bytes: Data,
+        shouldNotifyDelegate: Bool = true,
+        accepted: (() -> Void)? = nil,
+        outcomeUnknown: (() -> Void)? = nil
+    ) -> Bool {
+        guard !bytes.isEmpty else { return true }
+        guard bytes.count <= NativePTY.maxPendingInputBytes else { return false }
+        if pendingHumanWriteCount == 0,
+           !bufferedHumanInputDuringBrokerSubmission.isEmpty,
+           bytes.allSatisfy({ $0 == 0x03 }),
+           hasWritableInputTransport {
+            // Explicit cancel is the escape hatch for a retryable human head
+            // that was rejected during a reconnect race.
+            bufferedHumanRetryWorkItem?.cancel()
+            bufferedHumanRetryWorkItem = nil
+            bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+        }
+        if humanWriteOutcomeUnknown, !isDispatchingBrokerEnterKey {
+            // A partial/unknown human write is recovered only by an explicit
+            // cancel. Continuing to drain text would guess where the old
+            // transport stopped and can reorder or submit the wrong draft.
+            guard bytes.allSatisfy({ $0 == 0x03 }), hasWritableInputTransport else {
+                bufferedHumanInputDuringBrokerSubmission.append(.init(
+                    data: bytes,
+                    shouldNotifyDelegate: shouldNotifyDelegate,
+                    accepted: accepted,
+                    outcomeUnknown: outcomeUnknown
+                ))
+                return true
+            }
+            bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+            humanWriteOutcomeUnknown = false
+        }
+        if (pendingHumanWriteCount > 0 || !bufferedHumanInputDuringBrokerSubmission.isEmpty),
+           !isDispatchingBrokerEnterKey {
+            guard hasWritableInputTransport else { return false }
+            bufferedHumanInputDuringBrokerSubmission.append(.init(
+                data: bytes,
+                shouldNotifyDelegate: shouldNotifyDelegate,
+                accepted: accepted,
+                outcomeUnknown: outcomeUnknown
+            ))
+            return true
+        }
+        if isAwaitingSemanticAcknowledgement, !isDispatchingBrokerEnterKey {
+            guard hasWritableInputTransport else { return false }
+            if bytes.allSatisfy({ $0 == 0x03 }) {
+                // Ctrl-C is the explicit escape hatch when a provider hook is
+                // missing. Cancel the uncertain injected draft and discard
+                // later buffered typing instead of replaying it out of order.
+                guard hasWritableInputTransport else { return false }
+                sendHumanInputDataAcknowledged(
+                    bytes,
+                    shouldNotifyDelegate: shouldNotifyDelegate,
+                    accepted: { [weak self] in
+                        self?.bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
+                        self?.isAwaitingSemanticAcknowledgement = false
+                        accepted?()
+                    },
+                    outcomeUnknown: outcomeUnknown
+                )
+                return true
+            }
+            if bytes.allSatisfy({ $0 == 0x0A || $0 == 0x0D }) {
+                // A human Return may submit an envelope whose synthetic
+                // Return was swallowed. Keep later text buffered until the
+                // authenticated working hook confirms the turn.
+                guard hasWritableInputTransport else { return false }
+                sendHumanInputDataAcknowledged(
+                    bytes,
+                    shouldNotifyDelegate: shouldNotifyDelegate,
+                    accepted: accepted,
+                    outcomeUnknown: outcomeUnknown
+                )
+                return true
+            }
+            bufferedHumanInputDuringBrokerSubmission.append(
+                BufferedHumanInput(
+                    data: bytes,
+                    shouldNotifyDelegate: shouldNotifyDelegate,
+                    accepted: accepted,
+                    outcomeUnknown: outcomeUnknown
+                )
+            )
+            return true
+        }
+        if activeBrokerSubmission != nil, !isDispatchingBrokerEnterKey {
+            guard hasWritableInputTransport else { return false }
+            bufferedHumanInputDuringBrokerSubmission.append(
+                BufferedHumanInput(
+                    data: bytes,
+                    shouldNotifyDelegate: shouldNotifyDelegate,
+                    accepted: accepted,
+                    outcomeUnknown: outcomeUnknown
+                )
+            )
+            return true
+        }
+        guard hasWritableInputTransport else { return false }
+        sendHumanInputDataAcknowledged(
+            bytes,
+            shouldNotifyDelegate: shouldNotifyDelegate,
+            accepted: accepted,
+            outcomeUnknown: outcomeUnknown
+        )
+        return true
+    }
+
+    private func sendHumanInputDataAcknowledged(
+        _ bytes: Data,
+        shouldNotifyDelegate: Bool,
+        accepted: (() -> Void)?,
+        outcomeUnknown: (() -> Void)?,
+        rejected: (() -> Void)? = nil
+    ) {
+        let generation = humanTransportGeneration
+        pendingHumanWriteCount += 1
+        sendBrokerInputData(bytes) { [weak self] receipt in
+            guard let self else { return }
+            guard self.humanTransportGeneration == generation else { return }
+            self.pendingHumanWriteCount = max(0, self.pendingHumanWriteCount - 1)
+            var mayContinueFIFO = false
+            switch receipt {
+            case .admitted:
+                if shouldNotifyDelegate { self.onUserInputData?(bytes) }
+                accepted?()
+                mayContinueFIFO = true
+            case .outcomeUnknown:
+                self.humanWriteOutcomeUnknown = true
+                if shouldNotifyDelegate { self.onUserInputOutcomeUnknown?(bytes) }
+                outcomeUnknown?()
+            case .rejectedBeforeWrite:
+                rejected?()
+            }
+            if mayContinueFIFO,
+               self.pendingHumanWriteCount == 0,
+               !self.humanWriteOutcomeUnknown {
+                self.flushBufferedHumanInputIfPossible()
+                self.startNextQueuedBrokerSubmissionIfNeeded()
+            }
+        }
     }
 
     /// Returns whether the bytes were accepted by a live transport. This is
@@ -994,10 +1190,54 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 
-    /// Public entry point for broker-inject (sidebar → pane). Sends `text`
-    /// through the WebSocket exactly as typed — no local echo.
-    func brokerSend(text: String) {
-        sendInputData(Data(text.utf8))
+    /// Broker-only transport path. Completion fires on the main actor only
+    /// after a local PTY accepted the bytes into its bounded queue or the
+    /// WebSocket send callback succeeded. Synchronous transport presence is
+    /// not a delivery acknowledgement.
+    private func sendBrokerInputData(
+        _ bytes: Data,
+        completion: @escaping (TransportWriteReceipt) -> Void
+    ) {
+        guard !bytes.isEmpty else {
+            completion(.admitted)
+            return
+        }
+        guard bytes.count <= NativePTY.maxPendingInputBytes else {
+            completion(.rejectedBeforeWrite)
+            return
+        }
+        if let pty = localPTY {
+            pty.write(bytes, completion: completion)
+            return
+        }
+        guard case .open = state, let task = webSocketTask else {
+            completion(.rejectedBeforeWrite)
+            return
+        }
+        sendQueue.async { [weak self, weak task] in
+            guard let self, let task else {
+                DispatchQueue.main.async { completion(.rejectedBeforeWrite) }
+                return
+            }
+            let message: URLSessionWebSocketTask.Message
+            if let text = String(data: bytes, encoding: .utf8),
+               let json = try? TerminalWireFrame.encodedString(
+                   TerminalWireFrame.Input(data: text)
+               ) {
+                message = .string(json)
+            } else {
+                message = .data(bytes)
+            }
+            task.send(message) { error in
+                DispatchQueue.main.async { [weak self] in
+                    guard self != nil else {
+                        completion(.outcomeUnknown)
+                        return
+                    }
+                    completion(error == nil ? .admitted : .outcomeUnknown)
+                }
+            }
+        }
     }
 
     /// Sends broker-injected text and optionally submits it through SwiftTerm's
@@ -1008,17 +1248,25 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         text: String,
         submitWithEnter: Bool,
         forceBracketedPaste: Bool = false,
+        allowsBracketedPaste: Bool = true,
         focusBeforeSubmit: Bool = true,
-        completion: (() -> Void)? = nil
+        waitsForSemanticAcknowledgement: Bool = false,
+        completion: ((BrokerSubmissionResult) -> Void)? = nil
     ) {
         let submission = BrokerSubmission(
+            id: UUID(),
             text: text,
             submitWithEnter: submitWithEnter,
             forceBracketedPaste: forceBracketedPaste,
+            allowsBracketedPaste: allowsBracketedPaste,
             focusBeforeSubmit: focusBeforeSubmit,
+            waitsForSemanticAcknowledgement: waitsForSemanticAcknowledgement,
             completion: completion
         )
-        guard activeBrokerSubmission == nil else {
+        guard activeBrokerSubmission == nil,
+              bufferedHumanInputDuringBrokerSubmission.isEmpty,
+              pendingHumanWriteCount == 0,
+              !humanWriteOutcomeUnknown else {
             queuedBrokerSubmissions.append(submission)
             return
         }
@@ -1030,6 +1278,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// because human bytes replayed at completion may close the draft gate.
     var isBrokerSubmissionInFlight: Bool {
         activeBrokerSubmission != nil
+            || isAwaitingSemanticAcknowledgement
+            || pendingHumanWriteCount > 0
+            || humanWriteOutcomeUnknown
+            || !bufferedHumanInputDuringBrokerSubmission.isEmpty
     }
 
     /// Synchronous admission signal for the pane-level arbiter. It means a
@@ -1048,77 +1300,205 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         activeBrokerSubmission = submission
         let pastePayload = AgentPaneInputPlanner.terminalPastePayload(
             submission.text,
-            bracketedPasteMode: submission.forceBracketedPaste || getTerminal().bracketedPasteMode
+            bracketedPasteMode: submission.allowsBracketedPaste
+                && (submission.forceBracketedPaste || getTerminal().bracketedPasteMode)
         )
-        brokerSend(text: pastePayload)
-        guard submission.submitWithEnter else {
-            finishBrokerSubmission(submitEnter: false)
-            return
+        activeBrokerWriteWasAttempted = true
+        sendBrokerInputData(Data(pastePayload.utf8)) { [weak self] receipt in
+            guard let self,
+                  self.activeBrokerSubmission?.id == submission.id else { return }
+            guard receipt == .admitted else {
+                self.activeBrokerWriteOutcomeIsUnknown = receipt == .outcomeUnknown
+                self.completeBrokerSubmission(submitEnter: false, enterAccepted: false)
+                return
+            }
+            self.activeBrokerPasteWasAccepted = true
+            guard submission.submitWithEnter else {
+                self.completeBrokerSubmission(submitEnter: false, enterAccepted: true)
+                return
+            }
+            let isLongPrompt = submission.text.count > 256 || submission.text.contains("\n")
+            let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.finishBrokerSubmission(submissionID: submission.id)
+            }
+            self.pendingBrokerEnterWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
-        let isLongPrompt = submission.text.count > 256 || submission.text.contains("\n")
-        let delay: DispatchTimeInterval = isLongPrompt ? .milliseconds(2_000) : .milliseconds(120)
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.finishBrokerSubmission(submitEnter: true)
-        }
-        pendingBrokerEnterWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
-    private func finishBrokerSubmission(submitEnter: Bool) {
-        guard let submission = activeBrokerSubmission else { return }
+    private func finishBrokerSubmission(submissionID: UUID) {
+        guard let submission = activeBrokerSubmission,
+              submission.id == submissionID else { return }
         pendingBrokerEnterWorkItem = nil
-        if submitEnter {
-            isDispatchingBrokerEnterKey = true
-            brokerSendEnterKey(focusBeforeSubmit: submission.focusBeforeSubmit)
-            isDispatchingBrokerEnterKey = false
+        isDispatchingBrokerEnterKey = true
+        capturedBrokerEnterData = nil
+        brokerSendEnterKey(focusBeforeSubmit: submission.focusBeforeSubmit)
+        isDispatchingBrokerEnterKey = false
+        guard let enterData = capturedBrokerEnterData, !enterData.isEmpty else {
+            completeBrokerSubmission(submitEnter: true, enterAccepted: false)
+            return
+        }
+        activeBrokerWriteWasAttempted = true
+        sendBrokerInputData(enterData) { [weak self] receipt in
+            guard let self,
+                  self.activeBrokerSubmission?.id == submissionID else { return }
+            self.activeBrokerWriteOutcomeIsUnknown = receipt == .outcomeUnknown
+            self.completeBrokerSubmission(
+                submitEnter: true,
+                enterAccepted: receipt == .admitted
+            )
+        }
+    }
+
+    private func completeBrokerSubmission(submitEnter: Bool, enterAccepted: Bool) {
+        guard let submission = activeBrokerSubmission else { return }
+        let result: BrokerSubmissionResult
+        if activeBrokerWriteOutcomeIsUnknown {
+            result = .partiallyWritten
+        } else if !activeBrokerPasteWasAccepted {
+            result = .rejectedBeforeWrite
+        } else if submitEnter && !enterAccepted {
+            result = .partiallyWritten
+        } else {
+            result = .completed
         }
         activeBrokerSubmission = nil
+        activeBrokerPasteWasAccepted = false
+        activeBrokerWriteWasAttempted = false
+        activeBrokerWriteOutcomeIsUnknown = false
+        capturedBrokerEnterData = nil
+        if submission.waitsForSemanticAcknowledgement {
+            if case .rejectedBeforeWrite = result {
+                // Nothing entered the composer.
+            } else {
+                isAwaitingSemanticAcknowledgement = true
+            }
+        }
+
+        // Tell the pane arbiter whether the automation paste/Return was
+        // admitted before replaying later human bytes. A partial result must
+        // first reconstruct the unfinished automation draft; the replay then
+        // appends the person's input to that draft through onUserInputData.
+        // The coordinator only schedules via the next main-run-loop turn, so
+        // no later broker submission can overtake this synchronous replay.
+        submission.completion?(result)
 
         // Keyboard bytes arrived after the paste, so preserve that ordering
         // while making the broker paste + Return atomic from the PTY's view.
-        if !bufferedHumanInputDuringBrokerSubmission.isEmpty {
-            let buffered = bufferedHumanInputDuringBrokerSubmission
-            bufferedHumanInputDuringBrokerSubmission.removeAll(keepingCapacity: true)
-            for input in buffered {
-                if input.shouldNotifyDelegate {
-                    onUserInputData?(input.data)
-                }
-                sendInputData(input.data)
-            }
+        if !isAwaitingSemanticAcknowledgement {
+            flushBufferedHumanInputIfPossible()
+            startNextQueuedBrokerSubmissionIfNeeded()
         }
-        submission.completion?()
+    }
+
+    func releaseHumanInputAfterSemanticAcknowledgement() {
+        guard isAwaitingSemanticAcknowledgement else { return }
+        isAwaitingSemanticAcknowledgement = false
+        flushBufferedHumanInputIfPossible()
         startNextQueuedBrokerSubmissionIfNeeded()
     }
 
+    /// Replays accepted user input in order. If the transport disappeared,
+    /// retain the unsent suffix for the next attachment instead of silently
+    /// dropping real keystrokes during reconnect/install churn.
+    private func flushBufferedHumanInputIfPossible() {
+        guard activeBrokerSubmission == nil,
+              !isAwaitingSemanticAcknowledgement,
+              pendingHumanWriteCount == 0,
+              !humanWriteOutcomeUnknown,
+              !bufferedHumanInputDuringBrokerSubmission.isEmpty,
+              hasWritableInputTransport else { return }
+        let input = bufferedHumanInputDuringBrokerSubmission.removeFirst()
+        sendHumanInputDataAcknowledged(
+            input.data,
+            shouldNotifyDelegate: input.shouldNotifyDelegate,
+            accepted: { [weak self] in
+                input.accepted?()
+                self?.flushBufferedHumanInputIfPossible()
+            },
+            outcomeUnknown: {
+                input.outcomeUnknown?()
+            },
+            rejected: { [weak self] in
+                guard let self else { return }
+                self.bufferedHumanInputDuringBrokerSubmission.insert(input, at: 0)
+                self.scheduleBufferedHumanInputRetry()
+            }
+        )
+    }
+
+    /// A bounded NativePTY queue can reject a write before accepting a byte.
+    /// Retry only that unchanged FIFO head after the writer has had a chance
+    /// to drain; a transport replacement cancels this generation explicitly.
+    private func scheduleBufferedHumanInputRetry() {
+        guard bufferedHumanRetryWorkItem == nil,
+              hasWritableInputTransport,
+              !bufferedHumanInputDuringBrokerSubmission.isEmpty else { return }
+        let generation = humanTransportGeneration
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.bufferedHumanRetryWorkItem = nil
+            guard self.humanTransportGeneration == generation else { return }
+            self.flushBufferedHumanInputIfPossible()
+        }
+        bufferedHumanRetryWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50), execute: item)
+    }
+
     private func startNextQueuedBrokerSubmissionIfNeeded() {
-        guard activeBrokerSubmission == nil, !queuedBrokerSubmissions.isEmpty else { return }
+        guard activeBrokerSubmission == nil,
+              bufferedHumanInputDuringBrokerSubmission.isEmpty,
+              pendingHumanWriteCount == 0,
+              !humanWriteOutcomeUnknown,
+              !queuedBrokerSubmissions.isEmpty else { return }
         startBrokerSubmission(queuedBrokerSubmissions.removeFirst())
     }
 
-    /// Public entry point for mirrored group input. Sends the already-encoded
-    /// terminal bytes without passing back through SwiftTerm's delegate path.
-    func brokerSend(data: Data) {
-        sendInputData(data)
+    /// Ends every queued transaction when its transport disappears. Paste
+    /// admission is not a TUI receipt, but a locally rejected paste/Return
+    /// must never be reported as delivered to the durable inbox.
+    private func cancelBrokerSubmissions() {
+        pendingBrokerEnterWorkItem?.cancel()
+        pendingBrokerEnterWorkItem = nil
+        let active = activeBrokerSubmission
+        let queued = queuedBrokerSubmissions
+        let pasteMayHaveBeenWritten = activeBrokerPasteWasAccepted
+            || activeBrokerWriteWasAttempted
+        activeBrokerSubmission = nil
+        activeBrokerPasteWasAccepted = false
+        activeBrokerWriteWasAttempted = false
+        activeBrokerWriteOutcomeIsUnknown = false
+        capturedBrokerEnterData = nil
+        queuedBrokerSubmissions.removeAll(keepingCapacity: true)
+        if let active {
+            active.completion?(
+                pasteMayHaveBeenWritten ? .partiallyWritten : .rejectedBeforeWrite
+            )
+        }
+        queued.forEach { $0.completion?(.rejectedBeforeWrite) }
     }
 
     /// Group input is still human input. Keep it outside an active
     /// paste/Return transaction and replay it afterward without notifying the
     /// delegate twice (PaneViewController already recorded it in the gate).
     @discardableResult
-    func brokerSendMirroredHumanInput(_ data: Data) -> Bool {
-        guard activeBrokerSubmission != nil else {
-            return sendInputData(data)
-        }
-        guard hasWritableInputTransport else { return false }
-        bufferedHumanInputDuringBrokerSubmission.append(
-            BufferedHumanInput(data: data, shouldNotifyDelegate: false)
+    func brokerSendMirroredHumanInput(
+        _ data: Data,
+        accepted: @escaping () -> Void,
+        outcomeUnknown: @escaping () -> Void
+    ) -> Bool {
+        sendHumanInput(
+            data,
+            shouldNotifyDelegate: false,
+            accepted: accepted,
+            outcomeUnknown: outcomeUnknown
         )
-        return true
     }
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active
     /// terminal modes such as Kitty keyboard enhancement decide the bytes.
-    func brokerSendEnterKey(focusBeforeSubmit: Bool = true) {
+    private func brokerSendEnterKey(focusBeforeSubmit: Bool = true) {
         if focusBeforeSubmit {
             window?.makeFirstResponder(self)
             doCommand(by: #selector(insertNewline(_:)))
@@ -1141,10 +1521,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Inserts text produced by macOS voice input into this terminal session.
     /// Newline characters are normalized to carriage returns because terminal
     /// programs expect Enter as CR, matching SwiftTerm's keyboard path.
-    func insertVoiceTranscription(_ text: String, focusAfterInsert: Bool = true) {
+    func insertVoiceTranscription(
+        _ text: String,
+        focusAfterInsert: Bool = true,
+        shouldNotifyDelegate: Bool = true,
+        accepted: (() -> Void)? = nil
+    ) {
         let normalized = text.replacingOccurrences(of: "\n", with: "\r")
         MacVoiceInputLog.write("terminal.insertVoiceTranscription rawLength=\(text.count), normalizedLength=\(normalized.count), transport=\(voiceInputTransportDescription), preview='\(Self.voicePreview(normalized))'")
-        sendInputString(normalized)
+        sendHumanInput(
+            Data(normalized.utf8),
+            shouldNotifyDelegate: shouldNotifyDelegate,
+            accepted: accepted
+        )
         if focusAfterInsert {
             window?.makeFirstResponder(self)
         }
@@ -1174,10 +1563,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     /// Sends raw string input to the server (bypasses the local terminal parser).
-    private func sendInputString(_ string: String) {
-        sendInputData(Data(string.utf8))
-    }
-
     // MARK: - Scroll Wheel
 
     /// Forward scroll events to the server as SGR mouse codes when the running process
@@ -1192,7 +1577,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             let pt  = convert(event.locationInWindow, from: nil)
             let col = max(1, min(Int(pt.x / cellW) + 1, t.cols))
             let row = max(1, min(Int((frame.height - pt.y) / cellH) + 1, t.rows))
-            sendInputString("\u{1b}[<\(button);\(col);\(row)M")
+            sendHumanInput(Data("\u{1b}[<\(button);\(col);\(row)M".utf8))
         } else {
             super.scrollWheel(with: event)
         }
@@ -1214,7 +1599,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 .readObjects(forClasses: [NSURL.self], options: opts) as? [URL],
               !urls.isEmpty else { return false }
         let text = urls.map { Self.shellQuote($0.path) }.joined(separator: " ") + " "
-        sendInputString(text)
+        sendHumanInput(Data(text.utf8))
         window?.makeFirstResponder(self)
         return true
     }

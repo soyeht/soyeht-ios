@@ -1,27 +1,34 @@
-//
-//  SoyehtAutomationRequestRouter domain extension
-//  Soyeht
-//
-
 import Cocoa
 import ApplicationServices
 import Darwin
 import os
 import SoyehtCore
-
+private struct StagedAgentMessageDelivery {
+    let target: Conversation
+    let sender: AgentMessageEndpoint
+    let recipient: AgentMessageEndpoint
+    let plan: AgentMessageDeliveryPlan
+    let message: AgentMessage
+    let pane: PaneViewController?
+    let prepared: AgentPaneInputPlanner.Prepared?
+}
 @MainActor
 extension SoyehtAutomationRequestRouter {
-    func handleSendPaneInput(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+    func handleSendPaneInput(_ request: SoyehtAutomationRequest) async throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let text = payload.text, !text.isEmpty else {
             throw SoyehtAutomationError.emptyPaneInput
         }
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
         let resolvedTargets = try resolveAgentMessageTargets(payload)
         if let agentTarget = resolvedTargets.first(where: { !$0.agent.isShell }) {
             throw SoyehtAutomationError.agentPaneRequiresMessageAgent(agentTarget.handle)
         }
+        guard resolvedTargets.allSatisfy({ $0.id == caller.id }) else {
+            throw SoyehtAutomationError.orchestrationManagerAuthorizationRequired
+        }
         let target = try automationTargetWindow(payload: payload)
-        let sent = try target.sendInputToPanes(
+        let sent = try await target.sendInputToPanes(
             conversationIDStrings: payload.conversationIDs ?? [],
             handles: payload.handles ?? [],
             text: text,
@@ -61,6 +68,32 @@ extension SoyehtAutomationRequestRouter {
         }
         let source = try resolveAuthenticatedAutomationSource(payload: payload)
         let targets = try resolveAgentMessageTargets(payload)
+        guard let unavailableTarget = targets.first(where: {
+            !$0.content.isTerminal
+                || $0.agent.isShell
+                || PaneStatusTracker.shared.launchOwnershipNonce(for: $0.id) == nil
+        }) else {
+            // Continue below only when every destination is a live,
+            // authenticated agent identity capable of reading/acking inbox.
+            return try handleEligibleAgentMessage(
+                request,
+                source: source,
+                targets: targets,
+                text: text
+            )
+        }
+        throw SoyehtAutomationError.orchestrationRequiresAgentPane(
+            unavailableTarget.id.uuidString
+        )
+    }
+
+    private func handleEligibleAgentMessage(
+        _ request: SoyehtAutomationRequest,
+        source: Conversation,
+        targets: [Conversation],
+        text: String
+    ) throws -> SoyehtAutomationResult {
+        let payload = request.payload
         let preference = try agentMessageDeliveryPreference(payload.deliveryPreference)
         let requestsAttention = payload.requestAttention ?? true
         let retryID = try payload.messageIDs?.first.map { raw -> AgentMessage.ID in
@@ -71,6 +104,18 @@ extension SoyehtAutomationRequestRouter {
         }
 
         var deliveries: [SoyehtAutomationResponse.AgentMessageDelivery] = []
+        var staged: [StagedAgentMessageDelivery] = []
+        var insertedMessageLocations: [(paneID: Conversation.ID, messageID: AgentMessage.ID)] = []
+        var stagedBatchPersisted = false
+        defer {
+            if !stagedBatchPersisted {
+                for location in insertedMessageLocations {
+                    _ = try? conversationStore.mutateAgentMessageInbox(location.paneID) { inbox in
+                        try inbox.removeUndelivered(location.messageID)
+                    }
+                }
+            }
+        }
         for target in targets where target.id != source.id {
             let sender = AgentMessageEndpoint(
                 paneID: source.id,
@@ -110,8 +155,42 @@ extension SoyehtAutomationRequestRouter {
                 ))
                 continue
             }
-            if source.workspaceID == target.workspaceID,
-               let graph = workspaceStore.workspace(source.workspaceID)?.orchestration?.activeGraph {
+            let graphWorkspaceIDs = source.workspaceID == target.workspaceID
+                ? [source.workspaceID]
+                : [source.workspaceID, target.workspaceID]
+            for graphWorkspaceID in graphWorkspaceIDs {
+                guard let graph = workspaceStore.workspace(graphWorkspaceID)?
+                    .orchestration?.activeGraph else { continue }
+                guard source.workspaceID == graphWorkspaceID,
+                      target.workspaceID == graphWorkspaceID else {
+                    deliveries.append(.init(
+                        messageID: retryID?.uuidString ?? "",
+                        conversationID: target.id.uuidString,
+                        workspaceID: target.workspaceID.uuidString,
+                        displayReference: recipient.displayLabel,
+                        channel: nil,
+                        status: "orchestration_denied_cross_workspace",
+                        writesToPTY: false,
+                        attentionRequested: false,
+                        policyDenials: ["orchestration_graph_cross_workspace"]
+                    ))
+                    break
+                }
+                guard !source.agentMessageInbox.hasUnobservedRoleAssignmentDelivery,
+                      !target.agentMessageInbox.hasUnobservedRoleAssignmentDelivery else {
+                    deliveries.append(.init(
+                        messageID: retryID?.uuidString ?? "",
+                        conversationID: target.id.uuidString,
+                        workspaceID: target.workspaceID.uuidString,
+                        displayReference: recipient.displayLabel,
+                        channel: nil,
+                        status: "orchestration_pending_role_delivery",
+                        writesToPTY: false,
+                        attentionRequested: false,
+                        policyDenials: ["orchestration_role_not_observed"]
+                    ))
+                    break
+                }
                 let flow = graph.flowPolicy(
                     from: source.id,
                     to: target.id,
@@ -129,7 +208,7 @@ extension SoyehtAutomationRequestRouter {
                         attentionRequested: false,
                         policyDenials: ["orchestration_graph_unbound_pane"]
                     ))
-                    continue
+                    break
                 }
                 if flow.authorization != .allow {
                 deliveries.append(.init(
@@ -145,16 +224,26 @@ extension SoyehtAutomationRequestRouter {
                     attentionRequested: false,
                     policyDenials: ["orchestration_graph_\(flow.authorization.rawValue)"]
                 ))
-                continue
+                    break
                 }
+            }
+            if deliveries.last?.conversationID == target.id.uuidString,
+               deliveries.last?.status.hasPrefix("orchestration_") == true {
+                continue
             }
 
             // No shipped provider hook can wake a dormant TUI and make it
             // pull an inbox item yet. Keep this false until an observed adapter
             // proves both halves; MCP availability alone is not delivery.
+            let structuredCapture = AgentConversationAdapterCapabilities
+                .capabilities(for: target.agent.displayName)
+                .structuredCapture
             let capabilities = AgentMessageDeliveryCapabilities(
                 canWakeAndReadSemanticInbox: false,
-                canReceiveDeferredTerminal: target.content.isTerminal,
+                // Without an authenticated user-turn hook there is no exact
+                // proof that the TUI accepted Return. Store + notify instead
+                // of injecting a relay that would wedge or risk splice.
+                canReceiveDeferredTerminal: target.content.isTerminal && structuredCapture,
                 canPresentAttention: true
             )
             let plan = AgentMessageDeliveryPlan.resolve(
@@ -173,7 +262,37 @@ extension SoyehtAutomationRequestRouter {
                 mcpClientContractVersion: payload.mcpClientContractVersion,
                 mcpClientServerVersion: payload.mcpClientServerVersion
             )
-            let inserted = try conversationStore.enqueueAgentMessage(message, in: target.id)
+            let livePane = LivePaneRegistry.shared.pane(for: target.id) as? PaneViewController
+            let prepared: AgentPaneInputPlanner.Prepared?
+            if plan.channel == .deferredTerminal, livePane != nil {
+                prepared = try AgentPaneInputPlanner.prepare(
+                    target: target,
+                    source: source,
+                    text: text,
+                    appendNewline: true,
+                    lineEnding: payload.lineEnding,
+                    requestEnvelope: true,
+                    requireAgentEnvelope: true,
+                    messageID: message.id
+                )
+            } else {
+                prepared = nil
+            }
+            let inserted: Bool
+            do {
+                inserted = try conversationStore.enqueueAgentMessage(message, in: target.id)
+            } catch let error as AgentMessageInbox.MutationError {
+                switch error {
+                case .bodyTooLarge:
+                    throw SoyehtAutomationError.agentMessageQuotaExceeded("message body exceeds 64 KiB")
+                case .pendingMessageLimitReached:
+                    throw SoyehtAutomationError.agentMessageQuotaExceeded("1,000 pending messages")
+                case .pendingByteLimitReached:
+                    throw SoyehtAutomationError.agentMessageQuotaExceeded("8 MiB of pending message bodies")
+                default:
+                    throw error
+                }
+            }
             if !inserted {
                 let existing = conversationStore.conversation(target.id)?
                     .agentMessageInbox.message(id: message.id)
@@ -200,45 +319,60 @@ extension SoyehtAutomationRequestRouter {
                 ))
                 continue
             }
+            insertedMessageLocations.append((target.id, message.id))
+            staged.append(.init(
+                target: target,
+                sender: sender,
+                recipient: recipient,
+                plan: plan,
+                message: message,
+                pane: livePane,
+                prepared: prepared
+            ))
+        }
 
-            var status: String
-            if plan.channel == .deferredTerminal,
-               let pane = LivePaneRegistry.shared.pane(for: target.id) as? PaneViewController {
-                let prepared = try AgentPaneInputPlanner.prepare(
-                    target: target,
-                    source: source,
-                    text: text,
-                    appendNewline: true,
-                    lineEnding: payload.lineEnding,
-                    requestEnvelope: true,
-                    requireAgentEnvelope: true
+        if !staged.isEmpty, !workspaceStore.flushPendingSave() {
+            throw SoyehtAutomationError.agentMessagePersistenceFailed
+        }
+        stagedBatchPersisted = true
+
+        // Only after the entire multi-target batch is durable may any PTY or
+        // notification side effect escape. A retry can therefore never
+        // duplicate target 1 because target 2 failed to persist.
+        for item in staged {
+            let status: String
+            if item.plan.channel == .deferredTerminal,
+               let pane = item.pane,
+               let prepared = item.prepared {
+                pane.enqueueDeferredAgentDelivery(
+                    messageID: item.message.id,
+                    prepared: prepared,
+                    requiresSemanticAcknowledgement: true
                 )
-                pane.enqueueDeferredAgentDelivery(messageID: message.id, prepared: prepared)
                 status = "queued_until_human_input_is_clear"
-            } else if plan.channel == .deferredTerminal {
+            } else if item.plan.channel == .deferredTerminal {
                 status = "stored_waiting_for_pane"
-            } else if plan.channel == .semanticInbox {
+            } else if item.plan.channel == .semanticInbox {
                 status = "stored_for_semantic_inbox"
             } else {
                 status = "stored_but_adapter_cannot_wake"
             }
-
-            if plan.requestsAttention || (plan.channel == nil && requestsAttention) {
+            if item.plan.requestsAttention || (item.plan.channel == nil && requestsAttention) {
                 AgentAttentionNotifier.shared.notifyAgentAttention(
-                    conversationID: target.id,
-                    handle: recipient.displayLabel,
-                    title: "Message from \(sender.displayLabel)",
+                    conversationID: item.target.id,
+                    handle: item.recipient.displayLabel,
+                    title: "Message from \(item.sender.displayLabel)",
                     message: text
                 )
             }
             deliveries.append(.init(
-                messageID: message.id.uuidString,
-                conversationID: target.id.uuidString,
-                workspaceID: target.workspaceID.uuidString,
-                displayReference: recipient.displayLabel,
-                channel: plan.channel?.rawValue,
+                messageID: item.message.id.uuidString,
+                conversationID: item.target.id.uuidString,
+                workspaceID: item.target.workspaceID.uuidString,
+                displayReference: item.recipient.displayLabel,
+                channel: item.plan.channel?.rawValue,
                 status: status,
-                writesToPTY: plan.writesToPTY,
+                writesToPTY: item.plan.writesToPTY,
                 attentionRequested: requestsAttention,
                 policyDenials: []
             ))
@@ -250,19 +384,47 @@ extension SoyehtAutomationRequestRouter {
     func handleListAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
         let unreadOnly = request.payload.unreadOnly ?? false
-        var messages = source.agentMessageInbox.messages
-            .filter { !unreadOnly || $0.isUnread }
-            .sorted { $0.createdAt < $1.createdAt }
+        let afterID = try request.payload.afterMessageID.map { raw -> AgentMessage.ID in
+            guard let id = UUID(uuidString: raw) else {
+                throw SoyehtAutomationError.invalidAgentMessageID(raw)
+            }
+            return id
+        }
+        let messageLimit = min(50, max(1, request.payload.messageLimit ?? 20))
+        let page = try source.agentMessageInbox.page(
+            after: afterID,
+            unreadOnly: unreadOnly,
+            maximumCount: messageLimit,
+            maximumEncodedBytes: 256 * 1_024,
+            encodedSize: { try JSONEncoder().encode(agentInboxMessage($0)).count }
+        )
+        var messages = page.messages
         if request.payload.markRead ?? true {
             let ids = messages.map(\.id)
+            let previousInbox = source.agentMessageInbox
             try conversationStore.mutateAgentMessageInbox(source.id) { inbox in
                 for id in ids { try inbox.markRead(id) }
+            }
+            guard workspaceStore.flushPendingSave() else {
+                _ = try? conversationStore.mutateAgentMessageInbox(source.id) { inbox in
+                    inbox = previousInbox
+                }
+                _ = workspaceStore.flushPendingSave()
+                throw SoyehtAutomationError.agentMessagePersistenceFailed
             }
             messages = conversationStore.conversation(source.id)?.agentMessageInbox.messages
                 .filter { ids.contains($0.id) }
                 .sorted { $0.createdAt < $1.createdAt } ?? messages
         }
-        return SoyehtAutomationResult(agentInboxMessages: messages.map(agentInboxMessage))
+        return SoyehtAutomationResult(
+            agentInboxMessages: messages.map(agentInboxMessage),
+            agentInboxPage: .init(
+                afterMessageID: afterID?.uuidString,
+                nextCursor: page.nextCursor?.uuidString,
+                hasMore: page.hasMore,
+                returnedCount: messages.count
+            )
+        )
     }
 
     func handleAckAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
@@ -273,8 +435,19 @@ extension SoyehtAutomationRequestRouter {
             }
             return id
         }
+        guard ids.count <= 500 else {
+            throw SoyehtAutomationError.agentMessageQuotaExceeded("acknowledgement batch exceeds 500 IDs")
+        }
+        let previousInbox = source.agentMessageInbox
         try conversationStore.mutateAgentMessageInbox(source.id) { inbox in
             try inbox.acknowledge(ids)
+        }
+        guard workspaceStore.flushPendingSave() else {
+            _ = try? conversationStore.mutateAgentMessageInbox(source.id) { inbox in
+                inbox = previousInbox
+            }
+            _ = workspaceStore.flushPendingSave()
+            throw SoyehtAutomationError.agentMessagePersistenceFailed
         }
         let updated = conversationStore.conversation(source.id)?.agentMessageInbox.messages
             .filter { ids.contains($0.id) } ?? []
@@ -311,148 +484,18 @@ extension SoyehtAutomationRequestRouter {
             })
         }
         conversationStore.updateAgentRequestedCommunicationPolicy(source.id, policy: policy)
+        guard workspaceStore.flushPendingSave() else {
+            conversationStore.updateAgentRequestedCommunicationPolicy(
+                source.id,
+                policy: source.agentRequestedCommunicationPolicy
+            )
+            _ = workspaceStore.flushPendingSave()
+            throw SoyehtAutomationError.agentMessagePersistenceFailed
+        }
         let userPolicy = conversationStore.conversation(source.id)?.agentCommunicationPolicy ?? .open
         let effective = AgentCommunicationPolicy.restricting(userPolicy, policy)
         return SoyehtAutomationResult(agentCommunicationPolicies: [
             agentCommunicationPolicyState(conversationID: source.id, policy: effective)
-        ])
-    }
-
-    func handleSetAgentRole(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let payload = request.payload
-        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
-        let targets: [Conversation]
-        if (payload.conversationIDs ?? []).isEmpty, (payload.handles ?? []).isEmpty {
-            targets = [source]
-        } else {
-            targets = try resolveAgentMessageTargets(payload)
-        }
-        let workspace = workspaceStore.workspace(source.workspaceID)
-        let templateID = payload.roleTemplateID?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let assignment: AgentRoleAssignment?
-        if templateID?.lowercased() == "none" {
-            assignment = nil
-        } else if let templateID, !templateID.isEmpty {
-            guard let template = workspace?.orchestration?.roleTemplates.template(id: templateID)
-                ?? AgentRoleTemplateCatalog.template(id: templateID) else {
-                throw SoyehtAutomationError.agentRoleTemplateNotFound(templateID)
-            }
-            assignment = AgentRoleAssignment(template: template)
-        } else if let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  let instructions = payload.roleInstructions?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !name.isEmpty, !instructions.isEmpty {
-            assignment = AgentRoleAssignment(roleName: name, instructions: instructions)
-        } else {
-            assignment = nil
-        }
-
-        var states: [SoyehtAutomationResponse.AgentRoleState] = []
-        for target in targets {
-            guard target.workspaceID == source.workspaceID else {
-                throw SoyehtAutomationError.orchestrationConversationOutsideWorkspace(target.id.uuidString)
-            }
-            conversationStore.updateRoleAssignment(target.id, roleAssignment: assignment)
-            let endpoint = AgentMessageEndpoint(
-                paneID: target.id,
-                workspaceID: target.workspaceID,
-                handle: target.handle
-            )
-            states.append(.init(
-                conversationID: target.id.uuidString,
-                displayReference: endpoint.displayLabel,
-                templateID: assignment?.templateID,
-                roleName: assignment?.roleName,
-                instructions: assignment?.instructions
-            ))
-        }
-        return SoyehtAutomationResult(agentRoles: states)
-    }
-
-    func handleSaveAgentRoleTemplate(
-        _ request: SoyehtAutomationRequest
-    ) throws -> SoyehtAutomationResult {
-        let payload = request.payload
-        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
-        let name = payload.roleName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let instructions = payload.roleInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let generatedSlug = name.lowercased()
-            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        let requestedID = payload.templateID?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let id = (requestedID?.isEmpty == false)
-            ? requestedID!
-            : "custom.\(generatedSlug)"
-        var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration
-            ?? WorkspaceOrchestration()
-        try orchestration.roleTemplates.save(.init(
-            id: id,
-            displayName: name,
-            instructions: instructions
-        ))
-        workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
-        return SoyehtAutomationResult(agentOrchestrations: [
-            agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
-        ])
-    }
-
-    func handleConfigureAgentOrchestration(
-        _ request: SoyehtAutomationRequest
-    ) throws -> SoyehtAutomationResult {
-        let payload = request.payload
-        let source = try resolveAuthorizedOrchestrationManager(payload: payload)
-        var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration
-            ?? WorkspaceOrchestration()
-        let rawPreset = payload.preset?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if rawPreset == nil || rawPreset == "" || rawPreset == "none" {
-            try orchestration.activateGraph(id: nil)
-            workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
-            return SoyehtAutomationResult(agentOrchestrations: [
-                agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
-            ])
-        }
-        let preset: AgentOrchestrationPreset
-        switch rawPreset {
-        case "council", "conselho": preset = .council
-        case "plannerexecutorreviewer", "plan-execute-review", "planner-executor-reviewer":
-            preset = .plannerExecutorReviewer
-        case "executorreviewerloop", "execute-review", "executor-reviewer-loop":
-            preset = .executorReviewerLoop
-        case .some(let value): throw SoyehtAutomationError.invalidOrchestrationPreset(value)
-        case nil: throw SoyehtAutomationError.invalidOrchestrationPreset("")
-        }
-
-        var graph = preset == .council
-            ? AgentOrchestrationPresets.council(ideatorCount: payload.ideatorCount ?? 3)
-            : AgentOrchestrationPresets.make(preset)
-        for (nodeID, rawConversationID) in payload.nodeBindings ?? [:] {
-            guard let conversationID = UUID(uuidString: rawConversationID),
-                  let conversation = conversationStore.conversation(conversationID),
-                  conversation.workspaceID == source.workspaceID else {
-                throw SoyehtAutomationError.orchestrationConversationOutsideWorkspace(rawConversationID)
-            }
-            try graph.bind(conversationID: conversationID, toNodeID: nodeID)
-        }
-
-        var used = Set(graph.nodes.compactMap(\.conversationID))
-        let workspaceConversations = conversationStore.conversations(in: source.workspaceID)
-        for node in graph.nodes where node.conversationID == nil {
-            let matches = workspaceConversations.filter {
-                !used.contains($0.id)
-                    && $0.roleAssignment?.roleName.caseInsensitiveCompare(node.role.roleName) == .orderedSame
-            }
-            if matches.count > 1 {
-                throw SoyehtAutomationError.ambiguousOrchestrationRoleBinding(node.role.roleName)
-            }
-            if let match = matches.first {
-                try graph.bind(conversationID: match.id, toNodeID: node.id)
-                used.insert(match.id)
-            }
-        }
-        try orchestration.saveGraph(graph)
-        try orchestration.activateGraph(id: graph.id)
-        workspaceStore.updateOrchestration(source.workspaceID, orchestration: orchestration)
-        return SoyehtAutomationResult(agentOrchestrations: [
-            agentOrchestrationState(workspaceID: source.workspaceID, orchestration: orchestration)
         ])
     }
 

@@ -1401,10 +1401,17 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         let terminals = store.conversations(in: myConv.workspaceID).filter { $0.content.isTerminal }
         guard let sibling = terminals.first else { return }
         guard let pvc = LivePaneRegistry.shared.pane(for: sibling.id) as? PaneViewController else { return }
-        pvc.terminalView.brokerSend(text: text)
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak pvc] in
-            pvc?.terminalView.brokerSendEnterKey()
-        }
+        let prepared = AgentPaneInputPlanner.terminalPayload(
+            text: text,
+            appendNewline: true,
+            lineEnding: "enter"
+        )
+        pvc.sendAutomationInputForDeferredDeliverySafety(
+            text: prepared.payload,
+            submitWithEnter: prepared.shouldSendEnterKey,
+            isExplicitRawInput: prepared.isExplicitRawInput,
+            allowsBracketedPaste: prepared.allowsBracketedPaste
+        )
     }
 
 }

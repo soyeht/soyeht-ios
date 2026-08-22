@@ -131,10 +131,12 @@ extension SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload) else {
-            throw SoyehtAutomationError.sourceIdentityUnavailable
-        }
-        let sourceAgent = source.conversation.agent.displayName.lowercased()
+        let authenticated = try resolveAuthenticatedAutomationSource(payload: payload)
+        let source = AutomationSourceResolution(
+            conversation: authenticated,
+            resolution: "authenticated_launch_nonce"
+        )
+        let sourceAgent = authenticated.agent.displayName.lowercased()
         let nativeSessionID = payload.nativeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
         let model = payload.model?.trimmingCharacters(in: .whitespacesAndNewlines)
         let effort = payload.reasoningEffort?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -146,6 +148,15 @@ extension SoyehtAutomationRequestRouter {
                 !($0?.isEmpty ?? true)
             }) else {
                 throw SoyehtAutomationError.emptyConversationEvent
+            }
+            guard authenticated.agentConversation.canRecordSession(
+                agent: sourceAgent,
+                nativeSessionID: nativeSessionID,
+                model: model,
+                reasoningEffort: effort,
+                variant: variant
+            ) else {
+                throw SoyehtAutomationError.conversationEventQuotaExceeded
             }
             conversationStore.recordAgentSession(
                 source.conversation.id,
@@ -168,7 +179,12 @@ extension SoyehtAutomationRequestRouter {
         guard let role = AgentConversationEvent.Role(rawValue: rawRole) else {
             throw SoyehtAutomationError.invalidConversationRole(rawRole)
         }
-        let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let submittedText = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let automationSubmissionID = AgentPaneInputPlanner
+            .automationSubmissionID(inSubmittedText: submittedText)
+        let text = AgentPaneInputPlanner.strippingAutomationSubmissionMarker(
+            from: submittedText
+        )
         guard !text.isEmpty else { throw SoyehtAutomationError.emptyConversationEvent }
         // Imported SAHP envelopes are transport, not new user turns. Hooks see
         // them at the provider boundary, so filter them again in the app even
@@ -184,6 +200,18 @@ extension SoyehtAutomationRequestRouter {
                 nativeSessionID: nativeSessionID
             ))
         }
+        guard authenticated.agentConversation.canRecordEvent(
+            text: text,
+            sourceAgent: sourceAgent,
+            sourceEventID: payload.sourceEventID,
+            nativeSessionID: nativeSessionID,
+            model: model,
+            reasoningEffort: effort,
+            variant: variant
+        ) else {
+            throw SoyehtAutomationError.conversationEventQuotaExceeded
+        }
+        let previousConversationState = authenticated.agentConversation
         let recorded = conversationStore.recordAgentConversationEvent(
             source.conversation.id,
             role: role,
@@ -196,6 +224,36 @@ extension SoyehtAutomationRequestRouter {
             variant: variant
         )
         guard let recorded else { throw SoyehtAutomationError.emptyConversationEvent }
+        // Reporter requests are one-way. Persist the canonical event before
+        // acknowledging a broker submission or letting the service remove the
+        // request file. On failure, restore memory and leave the request spool
+        // entry available for idempotent replay.
+        guard workspaceStore.flushPendingSave() else {
+            conversationStore.updateAgentConversation(
+                source.conversation.id,
+                state: previousConversationState
+            )
+            _ = workspaceStore.flushPendingSave()
+            throw SoyehtAutomationError.agentMessagePersistenceFailed
+        }
+        // A duplicate/stale provider event must not acknowledge a newer
+        // broker transaction. Only a newly recorded authenticated user turn
+        // can release the exact submission it contains.
+        if role == .user,
+           let pane = LivePaneRegistry.shared.pane(
+               for: source.conversation.id
+           ) as? PaneViewController {
+            if let automationSubmissionID {
+                pane.acknowledgeDeferredAutomationSubmissionFromHook(
+                    submissionID: automationSubmissionID
+                )
+            }
+            if let deliveryID = AgentPaneInputPlanner.deliveryMessageID(
+                inSubmittedText: submittedText
+            ) {
+                pane.acknowledgeDeferredAgentSubmissionFromHook(messageID: deliveryID)
+            }
+        }
         Self.logger.info(
             "conversation_event agent=\(sourceAgent, privacy: .public) role=\(rawRole, privacy: .public) sequence=\(recorded.sequence, privacy: .public) model=\(recorded.model ?? "unknown", privacy: .public) effort=\(recorded.reasoningEffort ?? "unknown", privacy: .public)"
         )
@@ -223,11 +281,9 @@ extension SoyehtAutomationRequestRouter {
     func handleGetConversationContext(
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
-        guard let source = try resolveAutomationSource(payload: request.payload) else {
-            throw SoyehtAutomationError.sourceIdentityUnavailable
-        }
-        guard let conversation = conversationStore.conversation(source.conversation.id) else {
-            throw SoyehtAutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        let authenticated = try resolveAuthenticatedAutomationSource(payload: request.payload)
+        guard let conversation = conversationStore.conversation(authenticated.id) else {
+            throw SoyehtAutomationError.sourceConversationNotFound(authenticated.id.uuidString)
         }
         let state = conversation.agentConversation
         let agent = conversation.agent.displayName.lowercased()
@@ -280,11 +336,9 @@ extension SoyehtAutomationRequestRouter {
     func handleAckConversationContext(
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
-        guard let source = try resolveAutomationSource(payload: request.payload) else {
-            throw SoyehtAutomationError.sourceIdentityUnavailable
-        }
-        guard let conversation = conversationStore.conversation(source.conversation.id) else {
-            throw SoyehtAutomationError.sourceConversationNotFound(source.conversation.id.uuidString)
+        let authenticated = try resolveAuthenticatedAutomationSource(payload: request.payload)
+        guard let conversation = conversationStore.conversation(authenticated.id) else {
+            throw SoyehtAutomationError.sourceConversationNotFound(authenticated.id.uuidString)
         }
         let requested = max(0, request.payload.throughSequence ?? 0)
         let lastSequence = conversation.agentConversation.lastSequence
@@ -294,11 +348,20 @@ extension SoyehtAutomationRequestRouter {
         let throughSequence = requested
         let agent = conversation.agent.displayName.lowercased()
         let previousSequence = conversation.agentConversation.bindings[agent]?.lastImportedSequence ?? 0
+        let previousState = conversation.agentConversation
         conversationStore.markAgentConversationImported(
             conversation.id,
             through: throughSequence,
             by: agent
         )
+        guard workspaceStore.flushPendingSave() else {
+            conversationStore.updateAgentConversation(
+                conversation.id,
+                state: previousState
+            )
+            _ = workspaceStore.flushPendingSave()
+            throw SoyehtAutomationError.agentMessagePersistenceFailed
+        }
         Self.logger.info(
             "context_ack agent=\(agent, privacy: .public) previous=\(previousSequence, privacy: .public) through=\(throughSequence, privacy: .public) last=\(lastSequence, privacy: .public)"
         )
@@ -318,9 +381,11 @@ extension SoyehtAutomationRequestRouter {
 
     func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload) else {
-            throw SoyehtAutomationError.sourceIdentityUnavailable
-        }
+        let authenticated = try resolveAuthenticatedAutomationSource(payload: payload)
+        let source = AutomationSourceResolution(
+            conversation: authenticated,
+            resolution: "authenticated_launch_nonce"
+        )
         let rawState = payload.state?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard Self.validAgentStates.contains(rawState) else {
             throw SoyehtAutomationError.invalidAgentState(rawState)
@@ -340,7 +405,8 @@ extension SoyehtAutomationRequestRouter {
                 message: message,
                 seq: payload.seq,
                 source: resolvedSource,
-                nonce: payload.nonce
+                nonce: payload.nonce,
+                turnSubmissionAcknowledged: payload.turnSubmissionAcknowledged == true
             )
         } else {
             outcome = (false, "agent_mismatch")
@@ -367,9 +433,11 @@ extension SoyehtAutomationRequestRouter {
 
     func handleRequestAttention(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        guard let source = try resolveAutomationSource(payload: payload) else {
-            throw SoyehtAutomationError.sourceIdentityUnavailable
-        }
+        let authenticated = try resolveAuthenticatedAutomationSource(payload: payload)
+        let source = AutomationSourceResolution(
+            conversation: authenticated,
+            resolution: "authenticated_launch_nonce"
+        )
         let kind = payload.attentionKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "question"
         let state: String
         switch kind {

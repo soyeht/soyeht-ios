@@ -21,32 +21,28 @@ extension SoyehtAutomationRequestRouter {
         guard LocalAgentCatalog.agent(named: agentName) != nil else {
             throw SoyehtAutomationError.unknownAgent(agentName)
         }
-        let target = try automationTargetWindow(payload: payload)
-        let conversationIDStrings = payload.conversationIDs ?? []
-        let handles = payload.handles ?? []
-        if conversationIDStrings.isEmpty && handles.isEmpty {
-            if let source = try resolveAutomationSource(payload: payload) {
-                return try await performAgentSwitch(
-                    on: target,
-                    conversationIDs: [source.conversation.id.uuidString],
-                    agentName: agentName,
-                    payload: payload
+        let caller = try resolveAuthenticatedAutomationSource(payload: payload)
+        let requestedIDs = payload.conversationIDs ?? []
+        let requestedHandles = payload.handles ?? []
+        let targets = requestedIDs.isEmpty && requestedHandles.isEmpty
+            ? [caller]
+            : try resolveAgentMessageTargets(payload)
+        for targetConversation in targets {
+            guard targetConversation.id == caller.id else {
+                throw SoyehtAutomationError.orchestrationManagerAuthorizationRequired
+            }
+            if workspaceStore.workspace(targetConversation.workspaceID)?
+                .orchestration?.activeGraph?.nodes
+                .contains(where: { $0.conversationID == targetConversation.id }) == true {
+                throw SoyehtAutomationError.orchestrationBoundPaneMutationDenied(
+                    targetConversation.id.uuidString
                 )
             }
-            guard let activePaneID = target.activePaneConversationID() else {
-                throw SoyehtAutomationError.emptyPaneInputTargets
-            }
-            return try await performAgentSwitch(
-                on: target,
-                conversationIDs: [activePaneID.uuidString],
-                agentName: agentName,
-                payload: payload
-            )
         }
+        let target = try automationTargetWindow(payload: payload)
         return try await performAgentSwitch(
             on: target,
-            conversationIDs: conversationIDStrings,
-            handles: handles,
+            conversationIDs: targets.map { $0.id.uuidString },
             agentName: agentName,
             payload: payload
         )

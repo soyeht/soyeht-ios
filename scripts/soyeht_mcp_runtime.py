@@ -97,6 +97,19 @@ def wait_for_initial_prompt_delivery(payload, response):
         unique = sorted(set(statuses))
         response["promptDeliveryStatus"] = unique[0] if len(unique) == 1 else "mixed"
         response["promptDeliveryStatuses"] = statuses
+        failed = [
+            status for status in statuses
+            if status in {"handshake_timeout", "acknowledgement_timeout", "pane_unavailable"}
+        ]
+        if failed:
+            raise RuntimeError(
+                "Soyeht created pane metadata but could not verify initial prompt delivery "
+                f"({', '.join(failed)}). Created targets: "
+                + json.dumps({
+                    "createdPanes": response.get("createdPanes") or [],
+                    "createdWorkspaces": response.get("createdWorkspaces") or [],
+                }, separators=(",", ":"))
+            )
     return response
 
 
@@ -110,10 +123,20 @@ def creation_request_timeout(args, sessions, default=DEFAULT_BATCH_CREATE_TIMEOU
         and str(session.get("agent") or "shell").strip().lower() != "shell"
     ]
     if prompt_sessions:
-        # Creation is currently serialized by the app. Each startup-aware
-        # agent handshake may legitimately consume most of its 90-second
-        # window before the prompt acknowledgement arrives.
-        return max(default, DEFAULT_AGENT_CREATE_TIMEOUT * len(prompt_sessions))
+        total = 0.0
+        for session in prompt_sessions:
+            prompt = str(session.get("prompt") or "")
+            explicit_delay_ms = session.get("promptDelayMs")
+            settle_ms = (
+                max(int(explicit_delay_ms), 1_500)
+                if explicit_delay_ms is not None
+                else max(initial_prompt_delay_ms(session.get("agent"), session.get("command")), 1_500)
+            )
+            ack_window = 20.0 if len(prompt) > 256 or "\n" in prompt else 8.0
+            # 3s command admission + 90s startup handshake + settle + three
+            # acknowledgement windows + two 2s Return retries + 5s IPC margin.
+            total += 3.0 + 90.0 + (settle_ms / 1_000.0) + (3 * ack_window) + 4.0 + 5.0
+        return max(default, total)
     return default
 
 
@@ -266,6 +289,7 @@ def submit_request_to_root(root, request_type, payload, timeout=DEFAULT_REQUEST_
     # distinguish this contract from an older launcher targeting the same app.
     payload.setdefault("mcpClientContractVersion", MCP_CLIENT_CONTRACT_VERSION)
     payload.setdefault("mcpClientServerVersion", SERVER_VERSION)
+    payload.setdefault("mcpClientProfile", MCP_CLIENT_PROFILE)
     request_id = str(uuid.uuid4())
     request = {
         "id": request_id,
@@ -422,5 +446,3 @@ def session_spec(
     if prompt_delay is not None:
         result["promptDelayMs"] = int(prompt_delay)
     return result
-
-

@@ -21,7 +21,32 @@ from soyeht_mcp_ipc import wait_response, write_request
 
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "2.0.0"
-MCP_CLIENT_CONTRACT_VERSION = 2
+MCP_CLIENT_CONTRACT_VERSION = 3
+
+
+def inferred_mcp_client_profile(module_path=None):
+    explicit = os.environ.get("SOYEHT_MCP_PROFILE")
+    if explicit is not None:
+        return explicit.strip().lower()
+    # Compatibility for launchers installed by older Soyeht builds. Those
+    # wrappers exec the bundled server without exporting a profile. The
+    # bundled module path is authoritative and keeps Release/Dev separated;
+    # a source checkout remains a development integration.
+    resolved_parts = {
+        part.casefold()
+        for part in Path(module_path or __file__).resolve().parts
+    }
+    if "soyeht.app" in resolved_parts:
+        return "release"
+    return "dev"
+
+
+MCP_CLIENT_PROFILE = inferred_mcp_client_profile()
+if MCP_CLIENT_PROFILE not in {"dev", "release"}:
+    raise RuntimeError(
+        "SOYEHT_MCP_PROFILE must be 'dev' or 'release' "
+        f"(got {MCP_CLIENT_PROFILE!r})."
+    )
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
@@ -77,7 +102,7 @@ FROM_HANDLE_PROPERTY = {
 }
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
-DEFAULT_AGENT_CREATE_TIMEOUT = 120.0
+DEFAULT_AGENT_CREATE_TIMEOUT = 180.0
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
     "*.md",
@@ -214,11 +239,14 @@ def default_automation_candidates():
     # subprocesses from agents that do not inherit SOYEHT_AUTOMATION_DIR
     # (notably Codex) can still route back to the Soyeht Dev pane that spawned
     # them by probing targetWindowID/sourceTTY.
-    roots = [
-        app_support / "Soyeht" / "Automation",
+    release_root = app_support / "Soyeht" / "Automation"
+    dev_roots = [
         app_support / "SoyehtDev" / "Automation",
         app_support / "Soyeht Dev" / "Automation",
     ]
+    roots = ([release_root, *dev_roots]
+             if MCP_CLIENT_PROFILE == "release"
+             else [*dev_roots, release_root])
     result = []
     seen = set()
     for root in roots:
@@ -485,5 +513,3 @@ def decorate_agent_directory(response, filtered_workspace_id=None):
         "Use safeReference ([name]) in commits, PRs, comments, and other prose."
     )
     return response
-
-

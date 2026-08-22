@@ -72,6 +72,10 @@ enum AppSupportDirectory {
             at: root,
             withIntermediateDirectories: true
         )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o700)],
+            ofItemAtPath: root.path
+        )
         return root
     }
 
@@ -95,6 +99,10 @@ enum AppSupportDirectory {
         try FileManager.default.createDirectory(
             at: dir,
             withIntermediateDirectories: true
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o700)],
+            ofItemAtPath: dir.path
         )
         return dir
     }

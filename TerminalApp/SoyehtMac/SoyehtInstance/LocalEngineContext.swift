@@ -51,6 +51,33 @@ enum LocalEngineContext {
     /// `EnginePaneAttacher`'s, so the app has one vocabulary for this.
     static let notAnsweringURLErrorCodes: Set<Int> = [-1001, -1004, -1005, -1009]
 
+    protocol IdentityPersisting {
+        func verifiedServerID() -> String?
+        func saveVerifiedServerID(_ serverID: String)
+        func clearVerifiedServerID()
+    }
+
+    struct DefaultsIdentityStore: IdentityPersisting {
+        private let defaults: UserDefaults
+        private let key = "verifiedLocalEngineServerID"
+
+        init(defaults: UserDefaults = .standard) {
+            self.defaults = defaults
+        }
+
+        func verifiedServerID() -> String? {
+            defaults.string(forKey: key)
+        }
+
+        func saveVerifiedServerID(_ serverID: String) {
+            defaults.set(serverID, forKey: key)
+        }
+
+        func clearVerifiedServerID() {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     /// - Returns: `true` when the failure means nothing answered yet.
     ///   `Could not connect to the server` (-1004) is the one measured on a
     ///   cold boot.
@@ -60,34 +87,21 @@ enum LocalEngineContext {
 
     static func resolveDetailed(
         store: SessionStore = .shared,
+        identity: IdentityPersisting = DefaultsIdentityStore(),
         autoPair: () async throws -> PairedServer = { try await TheyOSAutoPairService().autoPair() }
     ) async -> Resolution {
         let localHost = SoyehtInstallProfile.current.adminHost
-        if let existing = store.pairedServers.first(where: { $0.kind == .engine && $0.host == localHost }),
+        if let verifiedID = identity.verifiedServerID(),
+           let existing = store.pairedServers.first(where: { $0.kind == .engine && $0.id == verifiedID }),
            let context = store.context(for: existing.id) {
-            return .resolved(context)
+            return .resolved(pinnedToLocalHost(context, localHost: localHost))
         }
         do {
             let paired = try await autoPair()
             guard let context = store.context(for: paired.id) else { return .unavailable }
+            identity.saveVerifiedServerID(paired.id)
             return .resolved(pinnedToLocalHost(context, localHost: localHost))
         } catch {
-            // A successful self-pair is persisted with the engine's public
-            // hostname, not `adminHost`. On a later app launch the bootstrap
-            // endpoint can refuse a second pair even though that persisted
-            // credential still authenticates this same loopback engine. If
-            // there is exactly one engine credential, reuse it but pin only
-            // the transport to loopback. A stale/remote credential therefore
-            // fails locally at the API boundary; it can never execute on the
-            // remote host.
-            let credentialedEngines = store.pairedServers.compactMap { server -> ServerContext? in
-                guard server.kind == .engine else { return nil }
-                return store.context(for: server.id)
-            }
-            if credentialedEngines.count == 1, let existing = credentialedEngines.first {
-                logger.warning("local engine self-pair failed; retrying the sole persisted engine credential on loopback")
-                return .resolved(pinnedToLocalHost(existing, localHost: localHost))
-            }
             logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
             return isNotAnsweringYet(error) ? .engineNotAnsweringYet : .unavailable
         }
@@ -95,12 +109,27 @@ enum LocalEngineContext {
 
     static func resolve(
         store: SessionStore = .shared,
+        identity: IdentityPersisting = DefaultsIdentityStore(),
         autoPair: () async throws -> PairedServer = { try await TheyOSAutoPairService().autoPair() }
     ) async -> ServerContext? {
-        if case .resolved(let context) = await resolveDetailed(store: store, autoPair: autoPair) {
+        switch await resolveDetailed(store: store, identity: identity, autoPair: autoPair) {
+        case .resolved(let context):
             return context
+        case .engineNotAnsweringYet, .unavailable:
+            return nil
         }
-        return nil
+    }
+
+    /// A 401/403 from an identity previously accepted on loopback is positive
+    /// evidence that the credential rotated or was revoked. Forget it before
+    /// self-pairing again; otherwise every persistent-pane restore retries the
+    /// same dead token forever.
+    static func invalidateVerification(
+        _ context: ServerContext,
+        identity: IdentityPersisting = DefaultsIdentityStore()
+    ) {
+        guard identity.verifiedServerID() == context.server.id else { return }
+        identity.clearVerifiedServerID()
     }
 
     /// The real self-pair (`TheyOSAutoPairService`) records this Mac's engine

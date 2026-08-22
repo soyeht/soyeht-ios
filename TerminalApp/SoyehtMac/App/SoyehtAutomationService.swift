@@ -48,6 +48,10 @@ struct SoyehtAutomationRequest: Decodable {
         case openWeb = "open_web"
         case installApp = "install_app"
         case openApp = "open_app"
+
+        var isCreationAcknowledgementFastLane: Bool {
+            self == .reportAgentState || self == .reportAgentConversation
+        }
     }
 
     struct Payload: Decodable {
@@ -88,6 +92,8 @@ struct SoyehtAutomationRequest: Decodable {
         let requestAttention: Bool?
         let unreadOnly: Bool?
         let markRead: Bool?
+        let afterMessageID: String?
+        let messageLimit: Int?
         let incomingEnabled: Bool?
         let incomingAllowsCrossWorkspace: Bool?
         let outgoingEnabled: Bool?
@@ -98,6 +104,7 @@ struct SoyehtAutomationRequest: Decodable {
         let roleName: String?
         let roleInstructions: String?
         let templateID: String?
+        let mcpClientProfile: String?
         let preset: String?
         let ideatorCount: Int?
         let nodeBindings: [String: String]?
@@ -153,6 +160,7 @@ struct SoyehtAutomationRequest: Decodable {
         let seq: Int?
         let nonce: String?
         let reportSource: String?
+        let turnSubmissionAcknowledged: Bool?
         let attentionKind: String?
         let role: String?
         let nativeSessionID: String?
@@ -175,6 +183,10 @@ struct SoyehtAutomationRequest: Decodable {
 
     let id: String
     let type: RequestType
+    /// Hook reporters are one-way lifecycle signals. They deliberately do
+    /// not poll Responses, so writing one for every state transition would
+    /// leak files for the lifetime of the app.
+    let expectsResponse: Bool?
     let payload: Payload
 }
 
@@ -280,6 +292,13 @@ struct SoyehtAutomationResponse: Encodable {
         let terminalDeliveryState: String
         let mcpClientContractVersion: Int?
         let mcpClientServerVersion: String?
+    }
+
+    struct AgentInboxPage: Encodable {
+        let afterMessageID: String?
+        let nextCursor: String?
+        let hasMore: Bool
+        let returnedCount: Int
     }
 
     struct AgentCommunicationPolicyState: Encodable {
@@ -706,6 +725,7 @@ struct SoyehtAutomationResponse: Encodable {
     let sentPanes: [SentPane]
     var agentMessageDeliveries: [AgentMessageDelivery] = []
     var agentInboxMessages: [AgentInboxMessage] = []
+    var agentInboxPage: AgentInboxPage? = nil
     var agentCommunicationPolicies: [AgentCommunicationPolicyState] = []
     var agentRoles: [AgentRoleState] = []
     var agentOrchestrations: [AgentOrchestrationState] = []
@@ -745,6 +765,7 @@ struct SoyehtAutomationResult {
     var sentPanes: [SoyehtAutomationResponse.SentPane] = []
     var agentMessageDeliveries: [SoyehtAutomationResponse.AgentMessageDelivery] = []
     var agentInboxMessages: [SoyehtAutomationResponse.AgentInboxMessage] = []
+    var agentInboxPage: SoyehtAutomationResponse.AgentInboxPage? = nil
     var agentCommunicationPolicies: [SoyehtAutomationResponse.AgentCommunicationPolicyState] = []
     var agentRoles: [SoyehtAutomationResponse.AgentRoleState] = []
     var agentOrchestrations: [SoyehtAutomationResponse.AgentOrchestrationState] = []
@@ -868,7 +889,14 @@ final class SoyehtAutomationService {
     private var source: DispatchSourceFileSystemObject?
     private var directoryFD: CInt = -1
     private var inFlightRequestPaths: Set<String> = []
+    private var serializedRequestInFlight = false
+    private var responsesWrittenSinceCleanup = 0
     private static let maximumConcurrentRequests = 32
+    private static let maximumRequestBytes = 4 * 1024 * 1024
+    private static let maximumResponseBytes = 8 * 1024 * 1024
+    private static let staleResponseRetention: TimeInterval = 24 * 60 * 60
+    private static let maximumRetainedResponses = 512
+    private static let responseCleanupInterval = 64
 
     init(rootURL: URL, handler: @escaping Handler) {
         self.rootURL = rootURL
@@ -880,14 +908,21 @@ final class SoyehtAutomationService {
     func start() {
         guard source == nil else { return }
         do {
+            try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: requestURL, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: responseURL, withIntermediateDirectories: true)
+            for directory in [rootURL, requestURL, responseURL] {
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: NSNumber(value: 0o700)],
+                    ofItemAtPath: directory.path
+                )
+            }
         } catch {
             Self.logger.error("automation_start_failed mkdir error=\(error.localizedDescription, privacy: .public)")
             return
         }
 
-        processPendingRequests()
+        pruneResponses()
 
         directoryFD = open(requestURL.path, O_EVTONLY)
         guard directoryFD >= 0 else {
@@ -910,6 +945,10 @@ final class SoyehtAutomationService {
         }
         self.source = source
         source.resume()
+        // Install the watcher before the initial scan. A request renamed into
+        // place between a pre-watch scan and `resume()` would otherwise have
+        // no event to wake it until some unrelated later request arrived.
+        processPendingRequests()
         Self.logger.info("automation_ready root=\(self.rootURL.path, privacy: .public)")
     }
 
@@ -926,35 +965,102 @@ final class SoyehtAutomationService {
         do {
             files = try FileManager.default.contentsOfDirectory(
                 at: requestURL,
-                includingPropertiesForKeys: nil
+                includingPropertiesForKeys: [.contentModificationDateKey]
             )
             .filter {
                 $0.pathExtension == "json"
                     && !$0.lastPathComponent.hasPrefix(".")
                     && !inFlightRequestPaths.contains($0.path)
             }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .sorted {
+                let lhsDate = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                let rhsDate = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                if lhsDate != rhsDate { return lhsDate < rhsDate }
+                return $0.lastPathComponent < $1.lastPathComponent
+            }
         } catch {
             Self.logger.error("automation_scan_failed error=\(error.localizedDescription, privacy: .public)")
             return
         }
 
-        // Each request gets its own main-actor task. UI mutations remain
-        // serialized by actor isolation, but a long async creation may yield
-        // while waiting for an agent hook; report_agent_state and read-only
-        // probes must then run, otherwise the awaited ACK deadlocks behind the
-        // request that is waiting for it.
-        for file in files.prefix(capacity) {
-            inFlightRequestPaths.insert(file.path)
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                await self.processRequestFile(file)
-                self.inFlightRequestPaths.remove(file.path)
-                if self.hasPendingRequestFiles() {
-                    self.processPendingRequests()
+        var remainingCapacity = capacity
+        var launchedPaths = Set<String>()
+        // Only authenticated hook reports bypass the FIFO lane. They are the
+        // acknowledgements a long creation is awaiting; allowing arbitrary
+        // mutations to run here makes workspace/pane state reentrant.
+        for file in files where remainingCapacity > 0 {
+            guard requestType(at: file)?.isCreationAcknowledgementFastLane == true else {
+                continue
+            }
+            launchedPaths.insert(file.path)
+            launchRequest(file, serialized: false)
+            remainingCapacity -= 1
+        }
+        if remainingCapacity > 0,
+           !serializedRequestInFlight,
+           let next = files.first(where: { !launchedPaths.contains($0.path) }) {
+            serializedRequestInFlight = true
+            launchRequest(next, serialized: true)
+        }
+    }
+
+    private func requestType(at file: URL) -> SoyehtAutomationRequest.RequestType? {
+        guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size <= Self.maximumRequestBytes,
+              let data = try? Data(contentsOf: file),
+              let request = try? JSONDecoder().decode(SoyehtAutomationRequest.self, from: data)
+        else { return nil }
+        return request.type
+    }
+
+    private func launchRequest(_ file: URL, serialized: Bool) {
+        inFlightRequestPaths.insert(file.path)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let needsRetry = await self.processRequestFile(file)
+            self.inFlightRequestPaths.remove(file.path)
+            if serialized { self.serializedRequestInFlight = false }
+            if needsRetry {
+                // The canonical reporter request remains its own tiny WAL.
+                // Back off instead of hot-looping while persistence is
+                // unavailable; the deterministic sourceEventID makes replay
+                // idempotent after recovery or relaunch.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                    self?.processPendingRequests()
                 }
+            } else if self.hasPendingRequestFiles() {
+                self.processPendingRequests()
             }
         }
+    }
+
+    private func pruneResponses(now: Date = Date()) {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: responseURL,
+            includingPropertiesForKeys: [.contentModificationDateKey]
+        ) else { return }
+        let cutoff = now.addingTimeInterval(-Self.staleResponseRetention)
+        let datedFiles = files.compactMap { file -> (url: URL, modified: Date)? in
+            guard file.pathExtension == "json" else { return nil }
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate ?? .distantPast
+            return (file, modified)
+        }.sorted {
+            if $0.modified != $1.modified { return $0.modified < $1.modified }
+            return $0.url.lastPathComponent < $1.url.lastPathComponent
+        }
+        let freshFiles = datedFiles.filter { item in
+            guard item.modified < cutoff else { return true }
+            try? FileManager.default.removeItem(at: item.url)
+            return false
+        }
+        let overflow = max(0, freshFiles.count - Self.maximumRetainedResponses)
+        for item in freshFiles.prefix(overflow) {
+            try? FileManager.default.removeItem(at: item.url)
+        }
+        responsesWrittenSinceCleanup = 0
     }
 
     private func hasPendingRequestFiles() -> Bool {
@@ -965,14 +1071,28 @@ final class SoyehtAutomationService {
         return files.contains { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix(".") }
     }
 
-    private func processRequestFile(_ file: URL) async {
+    /// Returns true only when a canonical one-way conversation event must stay
+    /// in the request spool for a later durable retry.
+    private func processRequestFile(_ file: URL) async -> Bool {
+        var decodedRequest: SoyehtAutomationRequest?
         do {
+            let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= Self.maximumRequestBytes else {
+                try FileManager.default.removeItem(at: file)
+                Self.logger.error("automation_request_rejected oversized bytes=\(size)")
+                return false
+            }
             let data = try Data(contentsOf: file)
             let request = try JSONDecoder().decode(SoyehtAutomationRequest.self, from: data)
-            try FileManager.default.removeItem(at: file)
+            decodedRequest = request
+            let isDurableOneWayConversation = request.type == .reportAgentConversation
+                && request.expectsResponse == false
+            if !isDurableOneWayConversation {
+                try FileManager.default.removeItem(at: file)
+            }
 
             let result = try await handler(request)
-            writeResponse(SoyehtAutomationResponse(
+            writeResponseIfRequested(request, SoyehtAutomationResponse(
                 id: request.id,
                 status: "ok",
                 message: nil,
@@ -981,6 +1101,7 @@ final class SoyehtAutomationService {
                 sentPanes: result.sentPanes,
                 agentMessageDeliveries: result.agentMessageDeliveries,
                 agentInboxMessages: result.agentInboxMessages,
+                agentInboxPage: result.agentInboxPage,
                 agentCommunicationPolicies: result.agentCommunicationPolicies,
                 agentRoles: result.agentRoles,
                 agentOrchestrations: result.agentOrchestrations,
@@ -1011,10 +1132,26 @@ final class SoyehtAutomationService {
                 agentConversationContext: result.agentConversationContext,
                 agentConversationContextAcknowledged: result.agentConversationContextAcknowledged
             ))
+            if isDurableOneWayConversation {
+                try FileManager.default.removeItem(at: file)
+            }
+            return false
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
             Self.logger.error("automation_request_failed file=\(file.lastPathComponent, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+            if decodedRequest?.type == .reportAgentConversation,
+               decodedRequest?.expectsResponse == false,
+               let automationError = error as? SoyehtAutomationError,
+               case .agentMessagePersistenceFailed = automationError {
+                Self.logger.error("canonical_conversation_report_retained_for_retry file=\(file.lastPathComponent, privacy: .public)")
+                return true
+            }
             try? FileManager.default.removeItem(at: file)
+            // A malformed one-way request cannot be decoded, so its intent is
+            // unknowable and still gets a bounded diagnostic. A decoded
+            // reporter request remains truly one-way even when its handler
+            // rejects the event.
+            guard decodedRequest?.expectsResponse != false else { return false }
             writeResponse(SoyehtAutomationResponse(
                 id: fallbackID,
                 status: "error",
@@ -1048,25 +1185,61 @@ final class SoyehtAutomationService {
                 agentConversationContext: nil,
                 agentConversationContextAcknowledged: nil
             ))
+            return false
         }
+    }
+
+    private func writeResponseIfRequested(
+        _ request: SoyehtAutomationRequest,
+        _ response: SoyehtAutomationResponse
+    ) {
+        guard request.expectsResponse != false else { return }
+        writeResponse(response)
     }
 
     private func writeResponse(_ response: SoyehtAutomationResponse) {
         do {
+            guard let filename = Self.safeResponseFilename(for: response.id) else {
+                Self.logger.error("automation_response_rejected unsafe id")
+                return
+            }
             let encoder = JSONEncoder()
             encoder.outputFormatting = []
-            let data = try encoder.encode(response)
+            var data = try encoder.encode(response)
+            if data.count > Self.maximumResponseBytes {
+                data = try JSONSerialization.data(withJSONObject: [
+                    "id": response.id,
+                    "status": "error",
+                    "message": "Automation response exceeded the 8 MiB safety limit. Request a smaller page or capture range.",
+                ])
+            }
             let destination = responseURL
-                .appendingPathComponent(response.id)
-                .appendingPathExtension("json")
+                .appendingPathComponent(filename)
             try data.write(to: destination, options: .atomic)
             try FileManager.default.setAttributes(
                 [.posixPermissions: NSNumber(value: 0o600 as Int16)],
                 ofItemAtPath: destination.path
             )
+            responsesWrittenSinceCleanup += 1
+            if responsesWrittenSinceCleanup >= Self.responseCleanupInterval {
+                pruneResponses()
+            }
         } catch {
             Self.logger.error("automation_response_failed error=\(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    nonisolated static func safeResponseFilename(for requestID: String) -> String? {
+        guard !requestID.isEmpty,
+              requestID.utf8.count <= 128,
+              requestID.unicodeScalars.allSatisfy({ scalar in
+                  scalar.isASCII && (
+                      CharacterSet.alphanumerics.contains(scalar)
+                          || scalar.value == 45
+                          || scalar.value == 95
+                  )
+              }) else { return nil }
+        return requestID + ".json"
     }
 
     nonisolated static func defaultRootURL() throws -> URL {

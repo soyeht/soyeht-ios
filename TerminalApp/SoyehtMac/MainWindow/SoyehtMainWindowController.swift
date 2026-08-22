@@ -307,12 +307,28 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case agentSwitchRequiresTerminalPane(Conversation.ID)
         case agentSwitchRequiresLocalPane(Conversation.ID)
         case agentSwitchSourceChanged(Conversation.ID)
+        case agentSwitchRequiresGraphReconfiguration(Conversation.ID)
         case appInstallNotFound(String)
+        case launchOwnershipPersistenceUnavailable
+        case persistentAgentSessionFreshLaunchUnavailable
+        case agentHandoffTooLarge(Conversation.ID, Int)
+        case paneInputRejected(Conversation.ID)
+        case paneInputPartiallyWritten(Conversation.ID)
 
         var errorDescription: String? {
             switch self {
             case .missingConversationStore:
                 return "Conversation store is not available."
+            case .launchOwnershipPersistenceUnavailable:
+                return "Soyeht could not durably rotate this pane's agent ownership credential. The existing process was left unchanged; fix Keychain access and retry."
+            case .persistentAgentSessionFreshLaunchUnavailable:
+                return "Soyeht found an unexpected older process for this new agent launch and could not replace it safely. No prompt was injected; close the stale pane and retry."
+            case .agentHandoffTooLarge(let id, let bytes):
+                return "The structured handoff for pane \(id.uuidString) is \(bytes) bytes and cannot fit in one terminal submission. Configure MCP context for the target agent or reduce the retained conversation before switching. The current agent was left unchanged."
+            case .paneInputRejected(let id):
+                return "Pane input was rejected before any byte was written: \(id.uuidString). Retry after the pane transport reconnects."
+            case .paneInputPartiallyWritten(let id):
+                return "Pane input may have been partially written: \(id.uuidString). Inspect the pane before retrying to avoid duplicate input."
             case .paneUnavailable(let id):
                 return "Pane did not become available for local agent startup: \(id.uuidString)"
             case .paneCaptureUnavailable(let id):
@@ -400,6 +416,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Remote mirror panes do not support in-place agent switching: \(id.uuidString)"
             case .agentSwitchSourceChanged(let id):
                 return "Pane changed while the agent switch was being prepared: \(id.uuidString)"
+            case .agentSwitchRequiresGraphReconfiguration(let id):
+                return "Pane is bound in the active orchestration graph. Reconfigure or deactivate the graph before switching it: \(id.uuidString)"
             case .appInstallNotFound(let id):
                 return "App installation not found: \(id)"
             }
@@ -1626,7 +1644,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         sourceTTY: String? = nil,
         forceAgentEnvelope: Bool = false,
         requireAgentEnvelope: Bool = false
-    ) throws -> [SentPaneInputResult] {
+    ) async throws -> [SentPaneInputResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
@@ -1645,7 +1663,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let explicitSourceProvided = !(sourceConversationIDString?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
             || !(sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
         let inferredTTYSourceProvided = Self.normalizedTTYName(sourceTTY) != nil
-        return try sendResolvedInput(
+        return try await sendResolvedInput(
             to: targets,
             appendNewline: appendNewline,
             lineEnding: lineEnding,
@@ -1680,18 +1698,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         appendNewline: Bool,
         lineEnding: String?,
         textForTarget: (Conversation) throws -> AgentPaneInputPlanner.Prepared
-    ) throws -> [SentPaneInputResult] {
-        let sent = try targets.compactMap { conv -> SentPaneInputResult? in
-            guard conv.content.isTerminal else { return nil }
+    ) async throws -> [SentPaneInputResult] {
+        var sent: [SentPaneInputResult] = []
+        for conv in targets {
+            guard conv.content.isTerminal else { continue }
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
-                return nil
+                continue
             }
             let prepared = try textForTarget(conv)
-            pane.sendAutomationInputForDeferredDeliverySafety(
-                text: prepared.payload,
-                submitWithEnter: prepared.shouldSendEnterKey
-            )
-            return SentPaneInputResult(
+            let receipt = await withCheckedContinuation { continuation in
+                pane.sendAutomationInputForDeferredDeliverySafety(
+                    text: prepared.payload,
+                    submitWithEnter: prepared.shouldSendEnterKey,
+                    isExplicitRawInput: prepared.isExplicitRawInput,
+                    allowsBracketedPaste: prepared.allowsBracketedPaste,
+                    completion: { continuation.resume(returning: $0) }
+                )
+            }
+            switch receipt {
+            case .completed:
+                break
+            case .rejectedBeforeWrite:
+                throw LocalAgentWorkspaceError.paneInputRejected(conv.id)
+            case .partiallyWritten:
+                throw LocalAgentWorkspaceError.paneInputPartiallyWritten(conv.id)
+            }
+            sent.append(SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
@@ -1699,7 +1731,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 sourceHandle: prepared.source?.handle,
                 envelopeApplied: prepared.envelopeApplied,
                 envelopeReason: prepared.envelopeReason
-            )
+            ))
         }
         guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
         return sent
@@ -2464,6 +2496,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
               store.workspace(destination, isInWindow: destinationOwner.windowID) else {
             throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(destination)
         }
+        guard store.canTransferPaneAcrossWorkspaces(paneID, from: source) else {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresGraphReconfiguration(paneID)
+        }
 
         let finalHandle: String?
         if sourceWorkspace.layout.leafCount <= 1 {
@@ -2690,7 +2725,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         let captureMode = try Self.normalizedCaptureMode(mode)
         let requestedStart = max(0, startLine ?? 0)
-        let requestedCount = max(1, lineCount ?? 120)
+        let requestedCount = min(5_000, max(1, lineCount ?? 120))
         return try targets.map { conv in
             guard conv.content.isTerminal,
                   let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
@@ -2705,7 +2740,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 range = start..<end
             } else {
                 let start = min(requestedStart, lines.count)
-                let end = min(lines.count, start + requestedCount)
+                let end = start + min(requestedCount, lines.count - start)
                 range = start..<end
             }
             let selected = Array(lines[range]).joined(separator: "\n")
@@ -3737,25 +3772,26 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
               conv.commander == initialConversation.commander else {
             throw LocalAgentWorkspaceError.agentSwitchSourceChanged(paneID)
         }
-        guard let conversationState = convStore.mutateAgentConversation(paneID, { state in
-            // Advance the source only across a contiguous run of its own
-            // events. An unacknowledged MCP gap must survive for a retry.
-            state.markContiguousLocalEventsImported(by: previousAgent)
-            if usesCustomCommand {
-                // A command override launches a fresh process and must not
-                // reuse prior native session or import cursor metadata.
-                state.resetForFreshSession(agent: target.name)
-            }
-            if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !instruction.isEmpty {
-                _ = state.recordEvent(
-                    role: .user,
-                    text: instruction,
-                    sourceAgent: "soyeht"
-                )
-            }
-        }) else {
-            throw LocalAgentWorkspaceError.conversationNotFound(paneID)
+        if store.workspace(conv.workspaceID)?.orchestration?.activeGraph?.nodes
+            .contains(where: { $0.conversationID == paneID }) == true {
+            throw LocalAgentWorkspaceError.agentSwitchRequiresGraphReconfiguration(paneID)
+        }
+        var conversationState = conv.agentConversation
+        // Advance the source only across a contiguous run of its own events.
+        // An unacknowledged MCP gap must survive for a retry.
+        conversationState.markContiguousLocalEventsImported(by: previousAgent)
+        if usesCustomCommand {
+            // A command override launches a fresh process and must not reuse
+            // prior native session or import cursor metadata.
+            conversationState.resetForFreshSession(agent: target.name)
+        }
+        if let instruction = customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !instruction.isEmpty {
+            _ = conversationState.recordEvent(
+                role: .user,
+                text: instruction,
+                sourceAgent: "soyeht"
+            )
         }
         let sourceBinding = conversationState.bindings[previousAgent]
         let targetEvents = conversationState.eventsNotImported(by: target.name)
@@ -3773,18 +3809,63 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 events: targetEvents,
                 throughSequence: throughSequence
             )
+        if let prompt {
+            let promptBytes = prompt.utf8.count
+            // Reserve framing space for bracketed-paste control bytes and the
+            // mode-aware Return. This check happens before grant revocation or
+            // process teardown, so a fallback handoff that cannot enter the
+            // bounded transport leaves the current agent untouched.
+            guard promptBytes <= NativePTY.maxPendingInputBytes - 4_096 else {
+                throw LocalAgentWorkspaceError.agentHandoffTooLarge(paneID, promptBytes)
+            }
+        }
         let nativeResumeBinding = !usesCustomCommand && targetCapabilities.nativeResume
             ? targetBinding
             : nil
         let didResumeNativeSession = nativeResumeBinding?.nativeSessionID != nil
+
+        var orchestrationBeforeManagerRevocation: WorkspaceOrchestration?
+        if var orchestration = store.workspace(conv.workspaceID)?.orchestration,
+           orchestration.canManageRolesAndTopology(paneID) {
+            let previous = orchestration
+            orchestrationBeforeManagerRevocation = previous
+            orchestration.setManagementAuthorization(for: paneID, isAuthorized: false)
+            store.updateOrchestration(conv.workspaceID, orchestration: orchestration)
+            guard store.flushPendingSave() else {
+                store.updateOrchestration(conv.workspaceID, orchestration: previous)
+                _ = store.flushPendingSave()
+                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+            }
+        }
 
         // 2. Tear down the current process: engine sessions are reaped
         // immediately (the switch is deliberate — no undo window), local
         // PTYs are closed directly.
         switch conv.commander {
         case .engineLocal(let engineConversationID):
-            await DeferredEngineSessionReaper.reapNow(engineConversationID: engineConversationID)
+            guard await DeferredEngineSessionReaper.reapNow(
+                engineConversationID: engineConversationID,
+                paneID: paneID
+            ) else {
+                if let previous = orchestrationBeforeManagerRevocation {
+                    store.updateOrchestration(conv.workspaceID, orchestration: previous)
+                    guard store.flushPendingSave() else {
+                        PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: paneID)
+                        if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+                            pane.terminalView.disconnect()
+                        }
+                        throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+                    }
+                }
+                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+            }
+            if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+                pane.terminalView.disconnect()
+            }
         case .native:
+            guard PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID) else {
+                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+            }
             if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
                 pane.terminalView.disconnect(reapLocalProcessTree: true)
             }
@@ -3795,12 +3876,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard AgentSwitchEligibility.isPendingLocalBridge(conv.commander) else {
                 throw LocalAgentWorkspaceError.agentSwitchRequiresLocalPane(paneID)
             }
+            guard PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID) else {
+                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+            }
         }
 
         // 3. Keep the conversation identity (same handle/pane); only the
         // agent changes. Commander drops to the bridge value until the new
         // attach flips it to `.engineLocal`/`.native`.
+        convStore.updateAgentConversation(paneID, state: conversationState)
         convStore.updateFields(paneID, handle: conv.handle, agent: .claw(target.name))
+        convStore.updateAgentRequestedCommunicationPolicy(paneID, policy: .open)
         convStore.updateCommander(
             paneID,
             commander: AgentSwitchEligibility.pendingLocalBridge
@@ -3830,11 +3916,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 guard !usesMCPContext else { return }
                 // Merge against the latest store value: target startup hooks
                 // may already have added session metadata while it booted.
+                let previous = convStore.conversation(paneID)?.agentConversation
                 convStore.markAgentConversationImported(
                     paneID,
                     through: throughSequence,
                     by: target.name
                 )
+                guard self.store.flushPendingSave() else {
+                    if let previous {
+                        convStore.updateAgentConversation(paneID, state: previous)
+                        _ = self.store.flushPendingSave()
+                    }
+                    throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+                }
             }
         )
 
@@ -3868,7 +3962,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         promptSourceConversationIDString: String?,
         promptSourceHandle: String?,
         promptSourceTTY: String?,
-        onPromptDelivered: (@MainActor () -> Void)? = nil
+        onPromptDelivered: (@MainActor () throws -> Void)? = nil
     ) async throws -> InitialPromptDeliveryStatus {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -3891,11 +3985,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let waitsForStartupHandshake = isAgentLaunch
             && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
         let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
-        PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
-        convStore.updateAgentLaunchOwnershipNonce(paneID, nonce: launchNonce)
+        guard PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID) else {
+            throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+        }
+        pane.prepareDeferredDeliveryForTerminalTransportReplacement()
         conversation = convStore.conversation(paneID)
         if let launchNonce {
-            PaneStatusTracker.shared.registerLaunchOwnership(paneID: paneID, nonce: launchNonce)
+            guard PaneStatusTracker.shared.registerLaunchOwnership(
+                paneID: paneID,
+                nonce: launchNonce
+            ) else {
+                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+            }
             if waitsForStartupHandshake {
                 PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
             }
@@ -3922,7 +4023,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // have worked with it off.
         let attachedViaEngine: Bool
         if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation {
-            attachedViaEngine = await attachEnginePane(
+            attachedViaEngine = try await attachEnginePane(
                 paneID: paneID,
                 conversation: conversation,
                 launchNonce: launchNonce,
@@ -3955,6 +4056,26 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
             pane.terminalView.configureLocal(pty: pty)
         }
+        // Commander/agent/ownership must reach the durable snapshot before
+        // bootstrap bytes, relays or a successful automation response can
+        // expose the new process. A failed save otherwise resurrects the old
+        // identity after relaunch while the new bearer/process survives.
+        guard store.flushPendingSave() else {
+            if let current = convStore.conversation(paneID),
+               case .engineLocal(let engineConversationID) = current.commander {
+                _ = await DeferredEngineSessionReaper.reapNow(
+                    engineConversationID: engineConversationID,
+                    paneID: paneID
+                )
+            }
+            _ = PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
+            PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: paneID)
+            pane.terminalView.disconnect(reapLocalProcessTree: true)
+            throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+        }
+        // From this point automation may bootstrap the newly attached shell,
+        // but durable agent relays remain held until launch readiness below.
+        pane.markTerminalTransportAttachedForBootstrapAutomation()
         PaneStatusTracker.shared.nudgeRecompute()
         let plannedPrompt = try initialPromptPayload(
             for: paneID,
@@ -3975,23 +4096,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 appendNewline: true,
                 lineEnding: "crlf"
             )
-            pane.terminalView.brokerSend(
+            pane.sendAutomationInputForDeferredDeliverySafety(
                 text: prepared.payload,
-                submitWithEnter: prepared.shouldSendEnterKey
+                submitWithEnter: prepared.shouldSendEnterKey,
+                isExplicitRawInput: prepared.isExplicitRawInput,
+                allowsBracketedPaste: prepared.allowsBracketedPaste,
+                isBootstrap: true
             )
-        }
-
-        guard let plannedPrompt else {
-            Self.logger.info(
-                "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(waitsForStartupHandshake ? "expected" : "turn_bound_or_none")"
-            )
-            return .notRequested
         }
 
         if waitsForStartupHandshake {
-            // Hold the automation response until the launch handshake and the
-            // prompt acknowledgement resolve. This is the real delivery ACK
-            // consumed by MCP; no client-side fixed sleep is required.
+            // A startup-capable reporter is the readiness proof even when no
+            // initial prompt was requested. Releasing a pre-switch durable
+            // relay after mere local command admission could feed it to the
+            // transient shell while the agent process is still starting.
             let deadline = Date().addingTimeInterval(90)
             while Date() < deadline {
                 guard LivePaneRegistry.shared.pane(for: paneID) != nil else {
@@ -4011,7 +4129,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             }
             let settleMs = max(1500, promptDelayMs ?? 0)
             try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
-        } else {
+        } else if plannedPrompt != nil || isAgentLaunch {
+            // Turn-bound agents cannot emit a hook until their first turn.
+            // Use the catalogued launch settle budget before allowing that
+            // first durable relay to become the turn; it remains protected by
+            // the relay's own semantic acknowledgement afterward.
             let delay = UInt64(AgentPaneInputPlanner.initialPromptDelayMilliseconds(
                 initialCommand: preparedInitialCommand,
                 explicitDelayMs: promptDelayMs
@@ -4019,22 +4141,33 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             try await Task.sleep(nanoseconds: delay)
         }
 
+        guard let plannedPrompt else {
+            pane.markTerminalTransportReadyForDeferredAgentDelivery()
+            Self.logger.info(
+                "local pane started pane=\(paneID.uuidString, privacy: .public) viaEngine=\(attachedViaEngine) handshake=\(waitsForStartupHandshake ? "acknowledged" : "turn_bound_or_none")"
+            )
+            return .notRequested
+        }
+
         guard LivePaneRegistry.shared.pane(for: paneID) != nil else {
             return .paneUnavailable
         }
         if conversation?.agent.isShell == true {
-            pane.terminalView.brokerSend(
+            pane.sendAutomationInputForDeferredDeliverySafety(
                 text: plannedPrompt.payload,
                 submitWithEnter: plannedPrompt.shouldSendEnterKey,
+                isExplicitRawInput: false,
+                allowsBracketedPaste: true,
                 forceBracketedPaste: true,
-                focusBeforeSubmit: false
+                isBootstrap: true
             )
+            pane.markTerminalTransportReadyForDeferredAgentDelivery()
             return .submittedUnverified
         }
         let promptAcknowledged = await Self.deliverAgentPromptWithAcknowledgement(
             paneID: paneID,
             expectedReportSource: expectedReportSource,
-            terminalView: pane.terminalView,
+            pane: pane,
             payload: plannedPrompt.payload,
             shouldSendEnterKey: plannedPrompt.shouldSendEnterKey
         )
@@ -4042,7 +4175,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             if waitsForStartupHandshake {
                 PaneStatusTracker.shared.markHandshakeDelivered(paneID: paneID)
             }
-            onPromptDelivered?()
+            try onPromptDelivered?()
+            pane.markTerminalTransportReadyForDeferredAgentDelivery()
             return .acknowledged
         }
         if waitsForStartupHandshake {
@@ -4051,6 +4185,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         Self.logger.error(
             "agent_prompt_delivery_failed pane=\(paneID.uuidString, privacy: .public) no acknowledgement after retries"
         )
+        pane.markTerminalDraftUnknownAfterUnverifiedAutomationSubmission()
+        pane.markTerminalTransportReadyForDeferredAgentDelivery()
         return .acknowledgementTimeout
     }
 
@@ -4062,12 +4198,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private static func deliverAgentPromptWithAcknowledgement(
         paneID: Conversation.ID,
         expectedReportSource: String?,
-        terminalView: MacOSWebSocketTerminalView,
+        pane: PaneViewController,
         payload: String,
         shouldSendEnterKey: Bool
     ) async -> Bool {
         guard let expectedReportSource else { return false }
-        let baseline = PaneStatusTracker.shared.lastWorkingReportAt(
+        let baseline = PaneStatusTracker.shared.lastTurnSubmissionAcknowledgedAt(
             for: paneID,
             source: expectedReportSource
         ) ?? .distantPast
@@ -4077,11 +4213,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // that the TUI did not receive the text. Retrying the payload would
         // create duplicate real user turns; later attempts may only resubmit
         // the already-buffered editor with a raw carriage return.
-        terminalView.brokerSend(
+        pane.sendAutomationInputForDeferredDeliverySafety(
             text: payload,
             submitWithEnter: shouldSendEnterKey,
+            isExplicitRawInput: false,
+            allowsBracketedPaste: true,
             forceBracketedPaste: true,
-            focusBeforeSubmit: false
+            isBootstrap: true
         )
         for attempt in 1...3 {
             let deadline = Date().addingTimeInterval(
@@ -4097,7 +4235,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 } catch {
                     return false
                 }
-                if let last = PaneStatusTracker.shared.lastWorkingReportAt(
+                if let last = PaneStatusTracker.shared.lastTurnSubmissionAcknowledgedAt(
                     for: paneID,
                     source: expectedReportSource
                 ), last > baseline {
@@ -4109,7 +4247,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     "agent_prompt_resubmit pane=\(paneID.uuidString, privacy: .public) attempt=\(attempt) no fresh report after delivery"
                 )
                 if shouldSendEnterKey {
-                    terminalView.brokerSend(text: "\r")
+                    pane.sendAutomationInputForDeferredDeliverySafety(
+                        text: "\r",
+                        submitWithEnter: false,
+                        isExplicitRawInput: true,
+                        allowsBracketedPaste: false,
+                        isBootstrap: true
+                    )
                 }
                 do {
                     try await Task.sleep(nanoseconds: 2_000_000_000)
@@ -4136,8 +4280,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         rows: Int,
         pane: PaneViewController,
         convStore: ConversationStore
-    ) async -> Bool {
-        switch await EnginePaneAttacher.attach(
+    ) async throws -> Bool {
+        let firstOutcome = await EnginePaneAttacher.attach(
             conversation: conversation,
             launchNonce: launchNonce,
             cwd: cwd,
@@ -4146,14 +4290,45 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             rows: rows,
             terminalView: pane.terminalView,
             convStore: convStore
-        ) {
-        case .attached:
-            // Always a fresh spawn in practice (a brand-new pane's
-            // conversation_id has never been seen by the engine before),
-            // so `reconnected` isn't interesting to log here — restore
-            // (`PaneViewController.restoreEnginePaneIfNeeded`) is where it
-            // actually distinguishes an outcome worth telling apart.
+        )
+        switch firstOutcome {
+        case .attached(reconnected: false):
             return true
+        case .attached(reconnected: true):
+            // A lost earlier response can leave a process under the same
+            // conversation id. This is a NEW launch with a newly rotated
+            // nonce: never bootstrap the old process under stale environment.
+            pane.terminalView.disconnect()
+            EngineSessionTTYRegistry.remove(conversationID: conversation.id.uuidString)
+            guard let context = await LocalEngineContext.resolve() else {
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
+            }
+            do {
+                try await SoyehtAPIClient.shared.deleteLocalTerminal(
+                    conversationId: conversation.id.uuidString,
+                    context: context
+                )
+            } catch {
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
+            }
+            switch await EnginePaneAttacher.attach(
+                conversation: conversation,
+                launchNonce: launchNonce,
+                cwd: cwd,
+                loginPath: loginPath,
+                cols: cols,
+                rows: rows,
+                terminalView: pane.terminalView,
+                convStore: convStore
+            ) {
+            case .attached(reconnected: false):
+                return true
+            case .attached(reconnected: true):
+                pane.terminalView.disconnect()
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
+            case .failed:
+                return false
+            }
         case .failed:
             Self.logger.warning("persistent local pane: engine attach failed; falling back to NativePTY")
             return false
@@ -4180,11 +4355,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.invalidPromptMode(promptMode ?? "")
         }
         guard mode.resolvesToMessage(for: target) else {
-            return AgentPaneInputPlanner.terminalPayload(
+            let prepared = AgentPaneInputPlanner.terminalPayload(
                 text: prompt,
                 appendNewline: true,
                 lineEnding: "enter"
             )
+            return (prepared.payload, prepared.shouldSendEnterKey)
         }
         let source = try sourceConversation(
             sourceConversationIDString: sourceConversationIDString,
@@ -4344,7 +4520,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             // isLocalHandoffSource: true counterpart) — its QR/Continue-on-
             // iPhone flow is the separate, server-driven generateContinueQR
             // mechanism, so this pane's replay buffer would just go unused.
+            pane.prepareDeferredDeliveryForTerminalTransportReplacement()
             pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader, isLocalHandoffSource: false)
+            if attachSessionId != nil {
+                // Reattaching an existing remote/tmux session can inherit a
+                // composer draft that this new in-memory gate never saw.
+                pane.markTerminalDraftUnknownAfterPersistentTransportReattach()
+            }
+            pane.markTerminalTransportReadyForDeferredAgentDelivery()
             Self.logger.info("terminal configured for conv=\(conversationID.uuidString, privacy: .public) session=\(sessionId, privacy: .public) kind=\(activeKind.rawValue, privacy: .public)")
         } else {
             Self.logger.warning("no live pane for conv=\(conversationID.uuidString, privacy: .public)")
