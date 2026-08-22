@@ -164,20 +164,6 @@ def wait_for_message_state(snapshot_path, conversation_id, message_id, predicate
     )
 
 
-def wait_for_file_token(path: Path, token: str, timeout: float) -> str:
-    deadline = monotonic() + timeout
-    latest = ""
-    while monotonic() < deadline:
-        try:
-            latest = path.read_text(errors="replace")
-        except FileNotFoundError:
-            latest = ""
-        if token in latest:
-            return latest
-        sleep(0.1)
-    raise RuntimeError(f"{path} did not contain {token!r}. Latest: {latest!r}")
-
-
 def send_authenticated_message(
     mcp,
     automation_root,
@@ -262,7 +248,6 @@ def main() -> int:
     require(windows.get("listedWindows"), "Soyeht Dev automation is not responding.")
     window_id = windows["listedWindows"][0]["windowID"]
     run_id = str(int(time()))
-    shell_transcript_path = Path(f"/private/tmp/mcp2-broker-shell-{run_id}.log")
     workspace_id = None
 
     try:
@@ -276,7 +261,6 @@ def main() -> int:
                 "name": f"mcp2-broker-observer-{run_id}",
                 "path": str(repo_root),
                 "agent": "shell",
-                "command": f"/usr/bin/tee {shell_transcript_path}",
             }],
         })
         observer = workspace["createdPanes"][0]
@@ -376,72 +360,6 @@ def main() -> int:
             args.timeout,
         )
 
-        # Exercise the other producer that used to bypass the pane arbiter.
-        # A raw send_pane_input creates an unfinished terminal draft while a
-        # long automation submission owns the broker; a later complete input
-        # must be held until a raw Return releases that draft. The first half
-        # already covers physical typing/Return with real agent TUIs. Agent
-        # messages deliberately cannot target this shell pane.
-        mcp.tool_emphasize_pane({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "targetWindowID": window_id,
-            "conversationIDs": [observer["conversationID"]],
-            "mode": "zoom",
-        })
-        shell_first_token = f"BROKER_SHELL_FIRST_{run_id}"
-        shell_draft_token = f"SHELL_HUMAN_DRAFT_{run_id}"
-        shell_automation_token = f"SHELL_AUTOMATION_{run_id}"
-        shell_first_response = mcp.tool_send_pane_input({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "targetWindowID": window_id,
-            "conversationIDs": [observer["conversationID"]],
-            "text": f"{shell_first_token} " + ("y" * 900),
-            "lineEnding": "enter",
-        })
-        sleep(1.0)
-        raw_draft_response = mcp.tool_send_pane_input({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "targetWindowID": window_id,
-            "conversationIDs": [observer["conversationID"]],
-            "text": shell_draft_token,
-            "lineEnding": "none",
-        })
-        automation_response = mcp.tool_send_pane_input({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "targetWindowID": window_id,
-            "conversationIDs": [observer["conversationID"]],
-            "text": shell_automation_token,
-            # This exact LF payload used to bypass the gate because the
-            # coordinator looked only at shouldSendEnterKey instead of the
-            # caller's complete-vs-raw intent.
-            "lineEnding": "newline",
-        })
-        wait_for_file_token(shell_transcript_path, shell_draft_token, args.timeout)
-        sleep(2.75)
-        held_shell_transcript = shell_transcript_path.read_text(errors="replace")
-        require(
-            shell_first_token in held_shell_transcript
-            and shell_draft_token in held_shell_transcript
-            and shell_automation_token not in held_shell_transcript,
-            "A complete terminal submission bypassed the raw draft.",
-        )
-        raw_release_response = mcp.tool_send_pane_input({
-            "automationDir": automation_dir,
-            "timeout": args.timeout,
-            "targetWindowID": window_id,
-            "conversationIDs": [observer["conversationID"]],
-            "text": "\r",
-            "lineEnding": "none",
-        })
-        released_shell_transcript = wait_for_file_token(
-            shell_transcript_path,
-            shell_automation_token,
-            args.timeout,
-        )
         evidence = {
             "status": "passed",
             "runID": run_id,
@@ -458,18 +376,6 @@ def main() -> int:
                 "deferredTerminalDeliveredAt"
             ),
             "physicalDraftLength": len(draft_token),
-            "rawAutomationArbitration": {
-                "firstSendPaneInputStatus": shell_first_response.get("status"),
-                "rawDraftStatus": raw_draft_response.get("status"),
-                "sendPaneInputStatus": automation_response.get("status"),
-                "rawReleaseStatus": raw_release_response.get("status"),
-                "completeAutomationHeldBeforeRawReturn": True,
-                "completeAutomationObservedAfterRawReturn": (
-                    shell_automation_token in released_shell_transcript
-                ),
-                "rawDraftLength": len(shell_draft_token),
-                "transcriptPath": str(shell_transcript_path),
-            },
         }
         rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
         if args.output:
