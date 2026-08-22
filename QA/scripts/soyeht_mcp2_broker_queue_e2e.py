@@ -164,6 +164,20 @@ def wait_for_message_state(snapshot_path, conversation_id, message_id, predicate
     )
 
 
+def wait_for_file_token(path: Path, token: str, timeout: float) -> str:
+    deadline = monotonic() + timeout
+    latest = ""
+    while monotonic() < deadline:
+        try:
+            latest = path.read_text(errors="replace")
+        except FileNotFoundError:
+            latest = ""
+        if token in latest:
+            return latest
+        sleep(0.1)
+    raise RuntimeError(f"{path} did not contain {token!r}. Latest: {latest!r}")
+
+
 def send_authenticated_message(
     mcp,
     automation_root,
@@ -248,6 +262,7 @@ def main() -> int:
     require(windows.get("listedWindows"), "Soyeht Dev automation is not responding.")
     window_id = windows["listedWindows"][0]["windowID"]
     run_id = str(int(time()))
+    shell_transcript_path = Path(f"/private/tmp/mcp2-broker-shell-{run_id}.log")
     workspace_id = None
 
     try:
@@ -261,7 +276,7 @@ def main() -> int:
                 "name": f"mcp2-broker-observer-{run_id}",
                 "path": str(repo_root),
                 "agent": "shell",
-                "command": "/bin/cat",
+                "command": f"/usr/bin/tee {shell_transcript_path}",
             }],
         })
         observer = workspace["createdPanes"][0]
@@ -362,10 +377,11 @@ def main() -> int:
         )
 
         # Exercise the other producer that used to bypass the pane arbiter.
-        # Raw send_pane_input simulates an unfinished terminal draft while an
-        # agent relay owns the broker; a later complete send_pane_input must be
-        # held until a raw Return releases that draft. The first half of this
-        # test already covers actual physical typing/Return with agent TUIs.
+        # A raw send_pane_input creates an unfinished terminal draft while a
+        # long automation submission owns the broker; a later complete input
+        # must be held until a raw Return releases that draft. The first half
+        # already covers physical typing/Return with real agent TUIs. Agent
+        # messages deliberately cannot target this shell pane.
         mcp.tool_emphasize_pane({
             "automationDir": automation_dir,
             "timeout": args.timeout,
@@ -373,23 +389,17 @@ def main() -> int:
             "conversationIDs": [observer["conversationID"]],
             "mode": "zoom",
         })
-        shell_message_id = str(uuid.uuid4())
-        shell_second_message_id = str(uuid.uuid4())
-        shell_relay_token = f"BROKER_SHELL_RELAY_{run_id}"
+        shell_first_token = f"BROKER_SHELL_FIRST_{run_id}"
         shell_draft_token = f"SHELL_HUMAN_DRAFT_{run_id}"
         shell_automation_token = f"SHELL_AUTOMATION_{run_id}"
-        shell_delivery = send_authenticated_message(
-            mcp,
-            automation_root,
-            window_id,
-            codex,
-            codex_nonce,
-            observer,
-            shell_message_id,
-            f"{shell_relay_token} Não responda; este é um teste de arbitragem. "
-            + ("y" * 900),
-            args.timeout,
-        )
+        shell_first_response = mcp.tool_send_pane_input({
+            "automationDir": automation_dir,
+            "timeout": args.timeout,
+            "targetWindowID": window_id,
+            "conversationIDs": [observer["conversationID"]],
+            "text": f"{shell_first_token} " + ("y" * 900),
+            "lineEnding": "enter",
+        })
         sleep(1.0)
         raw_draft_response = mcp.tool_send_pane_input({
             "automationDir": automation_dir,
@@ -410,33 +420,13 @@ def main() -> int:
             # caller's complete-vs-raw intent.
             "lineEnding": "newline",
         })
-        shell_second_delivery = send_authenticated_message(
-            mcp,
-            automation_root,
-            window_id,
-            claude,
-            claude_nonce,
-            observer,
-            shell_second_message_id,
-            f"BROKER_SHELL_SECOND_{run_id} Não responda; aguarde o draft raw.",
-            args.timeout,
-        )
-        shell_relay = wait_for_message_state(
-            snapshot_path,
-            observer["conversationID"],
-            shell_message_id,
-            lambda item: item.get("deferredTerminalDeliveredAt") is not None,
-            args.timeout,
-        )
+        wait_for_file_token(shell_transcript_path, shell_draft_token, args.timeout)
         sleep(2.75)
-        held_shell_second = snapshot_message(
-            snapshot_path,
-            observer["conversationID"],
-            shell_second_message_id,
-        )
+        held_shell_transcript = shell_transcript_path.read_text(errors="replace")
         require(
-            held_shell_second is not None
-            and held_shell_second.get("deferredTerminalDeliveredAt") is None,
+            shell_first_token in held_shell_transcript
+            and shell_draft_token in held_shell_transcript
+            and shell_automation_token not in held_shell_transcript,
             "A complete terminal submission bypassed the raw draft.",
         )
         raw_release_response = mcp.tool_send_pane_input({
@@ -447,11 +437,9 @@ def main() -> int:
             "text": "\r",
             "lineEnding": "none",
         })
-        released_shell_second = wait_for_message_state(
-            snapshot_path,
-            observer["conversationID"],
-            shell_second_message_id,
-            lambda item: item.get("deferredTerminalDeliveredAt") is not None,
+        released_shell_transcript = wait_for_file_token(
+            shell_transcript_path,
+            shell_automation_token,
             args.timeout,
         )
         evidence = {
@@ -471,21 +459,16 @@ def main() -> int:
             ),
             "physicalDraftLength": len(draft_token),
             "rawAutomationArbitration": {
-                "agentRelayPlan": shell_delivery,
-                "secondAgentRelayPlan": shell_second_delivery,
-                "agentRelayDeliveredAt": shell_relay.get(
-                    "deferredTerminalDeliveredAt"
-                ),
+                "firstSendPaneInputStatus": shell_first_response.get("status"),
                 "rawDraftStatus": raw_draft_response.get("status"),
                 "sendPaneInputStatus": automation_response.get("status"),
                 "rawReleaseStatus": raw_release_response.get("status"),
                 "completeAutomationHeldBeforeRawReturn": True,
-                "completeAutomationDrainedBeforeSecondRelay": True,
-                "secondAgentRelayDeliveredBeforeRawReturn": False,
-                "secondAgentRelayDeliveredAfterRawReturnAt": released_shell_second.get(
-                    "deferredTerminalDeliveredAt"
+                "completeAutomationObservedAfterRawReturn": (
+                    shell_automation_token in released_shell_transcript
                 ),
                 "rawDraftLength": len(shell_draft_token),
+                "transcriptPath": str(shell_transcript_path),
             },
         }
         rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"
