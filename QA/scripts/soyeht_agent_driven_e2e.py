@@ -902,9 +902,13 @@ def run_typing_collision(
     # case. The dynamic capture below proves that the ordinary keystrokes did
     # reach the intended composer.
 
-    # pt-BR multibyte characters reproduce the original byte-vs-character
-    # DraftGate defect while Backspace clears one visible character per key.
-    unfinished_draft = f"{draft_token} café ação reply only OK"
+    # Keep the window-server keyboard ring layout-independent. Accented input
+    # produced through System Events on a US keyboard uses dead-key modifier
+    # chords, which correctly puts the conservative cursor gate into an
+    # uncertain state and is not equivalent to a direct pt-BR keystroke. The
+    # UTF-8 scalar/backspace invariant is covered separately by DraftGate
+    # tests; this ring isolates ordinary typing, deletion and relay release.
+    unfinished_draft = f"{draft_token} draft reply only OK"
     if input_mode == "physicalKeyboard":
         # Generate ordinary keyboard events, not bracketed paste. The scenario
         # under test is a person typing and then deleting the draft one key at
