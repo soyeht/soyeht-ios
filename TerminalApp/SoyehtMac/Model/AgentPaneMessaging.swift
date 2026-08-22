@@ -6,8 +6,12 @@ enum AgentPaneEnvironment {
     static let handleKey = "SOYEHT_HANDLE"
     static let automationDirKey = "SOYEHT_AUTOMATION_DIR"
     static let launchNonceKey = "SOYEHT_LAUNCH_NONCE"
+    static let mcpProfileKey = "SOYEHT_MCP_PROFILE"
     static let agentNameKey = "SOYEHT_AGENT_NAME"
     static let transcriptPathKey = "SOYEHT_AGENT_TRANSCRIPT_PATH"
+    static let roleNameKey = "SOYEHT_ROLE_NAME"
+    static let roleInstructionsKey = "SOYEHT_ROLE_INSTRUCTIONS"
+    static let roleTemplateIDKey = "SOYEHT_ROLE_TEMPLATE_ID"
 
     static func values(
         for conversation: Conversation,
@@ -19,12 +23,22 @@ enum AgentPaneEnvironment {
             conversationIDKey: conversation.id.uuidString,
             handleKey: conversation.handle,
             agentNameKey: conversation.agent.rawValue,
+            mcpProfileKey: profile.kind.rawValue,
         ]
         if let automationDir = automationDirectoryPath(environment: environment, profile: profile) {
             values[automationDirKey] = automationDir
         }
         if let launchNonce, !launchNonce.isEmpty {
             values[launchNonceKey] = launchNonce
+        }
+        if let role = conversation.roleAssignment,
+           AgentOrchestrationValidator.validate(assignment: role)
+            .allSatisfy({ $0.severity != .error }) {
+            values[roleNameKey] = role.roleName
+            values[roleInstructionsKey] = role.instructions
+            if let templateID = role.templateID {
+                values[roleTemplateIDKey] = templateID
+            }
         }
         if conversation.agent.rawValue == "devin",
            let transcripts = try? AppSupportDirectory.subdirectory("AgentTranscripts") {
@@ -65,6 +79,59 @@ enum AgentPaneEnvironment {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.path
     }
+}
+
+/// A role mutation is not complete merely because its snapshot changed: an
+/// already-running TUI cannot observe updated launch environment variables.
+/// This durable, acknowledged delivery puts the new revision into the same
+/// no-splice FIFO used by ordinary agent messages before a configured graph
+/// can admit later work.
+struct AgentRoleAssignmentDelivery {
+    let targetID: Conversation.ID
+    let message: AgentMessage
+    let prepared: AgentPaneInputPlanner.Prepared
+
+    static func make(
+        target: Conversation,
+        sender: Conversation,
+        assignment: AgentRoleAssignment?
+    ) throws -> Self {
+        var contextTarget = target
+        contextTarget.roleAssignment = assignment
+        let senderEndpoint = AgentMessageEndpoint(
+            paneID: AgentMessageEndpoint.soyehtControlPlanePaneID,
+            workspaceID: target.workspaceID,
+            handle: "@soyeht-control"
+        )
+        let recipient = AgentMessageEndpoint(
+            paneID: target.id,
+            workspaceID: target.workspaceID,
+            handle: target.handle
+        )
+        let body: String
+        if let assignment {
+            body = "Soyeht role assignment updated by user-authorized orchestrator \(AgentMessageEndpoint(paneID: sender.id, workspaceID: sender.workspaceID, handle: sender.handle).displayLabel). Your role is \(assignment.roleName). Apply these instructions now: \(assignment.instructions)"
+        } else {
+            body = "Soyeht role assignment cleared by a user-authorized orchestrator. Stop applying the previous Soyeht role instructions."
+        }
+        let message = AgentMessage(
+            sender: senderEndpoint,
+            recipient: recipient,
+            body: body,
+            channel: .deferredTerminal,
+            requestsAttention: true
+        )
+        let prepared = try AgentPaneInputPlanner.prepare(
+            target: contextTarget,
+            storedSender: senderEndpoint,
+            messageID: message.id,
+            text: message.body,
+            appendNewline: true,
+            lineEnding: "enter"
+        )
+        return Self(targetID: target.id, message: message, prepared: prepared)
+    }
+
 }
 
 /// Startup hooks are not uniformly emitted when a CLI first paints its TUI.
@@ -185,9 +252,17 @@ struct AgentConversationAdapterCapabilities: Equatable {
                 modelMetadata: true,
                 reasoningEffortMetadata: true
             )
-        case "qwen", "antigravity", "pi", "droid", "kilo", "cursor", "copilot", "grok", "kimi", "devin":
+        case "qwen", "pi", "droid", "kilo", "cursor", "copilot", "grok", "kimi", "devin":
             return Self(
                 structuredCapture: true,
+                nativeResume: false,
+                mcpContext: false,
+                modelMetadata: true,
+                reasoningEffortMetadata: true
+            )
+        case "antigravity", "agy":
+            return Self(
+                structuredCapture: false,
                 nativeResume: false,
                 mcpContext: false,
                 modelMetadata: true,
@@ -358,6 +433,15 @@ enum AgentPaneInputPlanner {
         let text: String
         let payload: String
         let shouldSendEnterKey: Bool
+        /// True only when the caller explicitly requested an unterminated raw
+        /// write (`lineEnding=none` or `appendNewline=false`). Complete input
+        /// modes such as LF/CRLF must not become indistinguishable from raw
+        /// control bytes after payload construction.
+        let isExplicitRawInput: Bool
+        /// Raw/data terminators (none, LF, CRLF) must reach the PTY exactly.
+        /// Wrapping LF/CRLF in bracketed paste turns their newline into
+        /// composer content in many TUIs instead of a submission.
+        let allowsBracketedPaste: Bool
         let source: Conversation?
         let envelopeApplied: Bool
         let envelopeReason: String
@@ -370,7 +454,8 @@ enum AgentPaneInputPlanner {
         appendNewline: Bool,
         lineEnding: String?,
         requestEnvelope: Bool,
-        requireAgentEnvelope: Bool
+        requireAgentEnvelope: Bool,
+        messageID: AgentMessage.ID? = nil
     ) throws -> Prepared {
         if requireAgentEnvelope, source == nil {
             throw Error.sourceRequired
@@ -388,7 +473,12 @@ enum AgentPaneInputPlanner {
         let envelopeApplied: Bool
         let envelopeReason: String
         if shouldEnvelope, let source {
-            outgoingText = agentMessageEnvelope(source: source, target: target, text: text)
+            outgoingText = agentMessageEnvelope(
+                source: source,
+                target: target,
+                text: text,
+                messageID: messageID
+            )
             envelopeApplied = true
             envelopeReason = "applied"
         } else {
@@ -414,9 +504,48 @@ enum AgentPaneInputPlanner {
             text: outgoingText,
             payload: terminalInput.payload,
             shouldSendEnterKey: terminalInput.shouldSendEnterKey,
+            isExplicitRawInput: terminalInput.isExplicitRawInput,
+            allowsBracketedPaste: terminalInput.allowsBracketedPaste,
             source: source,
             envelopeApplied: envelopeApplied,
             envelopeReason: envelopeReason
+        )
+    }
+
+    /// Rebuilds a persisted relay after the sender pane has closed. Routing
+    /// identity is carried by the durable endpoint, so delivery does not
+    /// depend on a live `Conversation` that may no longer exist.
+    static func prepare(
+        target: Conversation,
+        storedSender: AgentMessageEndpoint,
+        messageID: AgentMessage.ID,
+        text: String,
+        appendNewline: Bool,
+        lineEnding: String?
+    ) throws -> Prepared {
+        guard storedSender.paneID != target.id else {
+            throw Error.cannotTargetSource(storedSender.handle)
+        }
+        let outgoingText = agentMessageEnvelope(
+            sender: storedSender,
+            target: target,
+            text: text,
+            messageID: messageID
+        )
+        let terminalInput = terminalPayload(
+            text: outgoingText,
+            appendNewline: appendNewline,
+            lineEnding: lineEnding
+        )
+        return Prepared(
+            text: outgoingText,
+            payload: terminalInput.payload,
+            shouldSendEnterKey: terminalInput.shouldSendEnterKey,
+            isExplicitRawInput: terminalInput.isExplicitRawInput,
+            allowsBracketedPaste: terminalInput.allowsBracketedPaste,
+            source: nil,
+            envelopeApplied: true,
+            envelopeReason: "restored_from_durable_sender"
         )
     }
 
@@ -424,7 +553,12 @@ enum AgentPaneInputPlanner {
         text: String,
         appendNewline: Bool,
         lineEnding: String?
-    ) -> (payload: String, shouldSendEnterKey: Bool) {
+    ) -> (
+        payload: String,
+        shouldSendEnterKey: Bool,
+        isExplicitRawInput: Bool,
+        allowsBracketedPaste: Bool
+    ) {
         let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
         if case .enterKey = terminator {
             // The message is delivered as keystrokes into the destination
@@ -437,19 +571,22 @@ enum AgentPaneInputPlanner {
             // closes that popup so the Enter submits the message intact.
             // Verified against Claude Code, Codex, and opencode.
             // See docs/bug-interagent-message-input-hijack.md.
-            return (submitSafeText(text), true)
+            return (submitSafeText(text), true, false, true)
         }
         let needsTerminator = !text.hasSuffix("\n") && !text.hasSuffix("\r")
         guard needsTerminator else {
-            return (text, false)
+            if case .none = terminator {
+                return (text, false, true, false)
+            }
+            return (text, false, false, false)
         }
         switch terminator {
         case .none:
-            return (text, false)
+            return (text, false, true, false)
         case .text(let value):
-            return (text + value, false)
+            return (text + value, false, false, false)
         case .enterKey:
-            return (text, true)
+            return (text, true, false, true)
         }
     }
 
@@ -508,11 +645,102 @@ enum AgentPaneInputPlanner {
         return "\u{001B}[200~\(text)\u{001B}[201~"
     }
 
-    private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
+    static let deliveryIDPrefix = "Soyeht-Delivery-ID: "
+    static let automationSubmissionIDPrefix = "Soyeht-Automation-ID: "
+
+    static func deliveryMessageID(inSubmittedText text: String) -> AgentMessage.ID? {
+        guard let range = text.range(of: deliveryIDPrefix) else { return nil }
+        let suffix = text[range.upperBound...]
+        let raw = suffix.prefix(while: { $0.isHexDigit || $0 == "-" })
+        return UUID(uuidString: String(raw))
+    }
+
+    static func automationSubmissionID(inSubmittedText text: String) -> UUID? {
+        guard let range = text.range(of: automationSubmissionIDPrefix, options: .backwards) else {
+            return nil
+        }
+        let suffix = text[range.upperBound...]
+        let raw = suffix.prefix(while: { $0.isHexDigit || $0 == "-" })
+        guard let id = UUID(uuidString: String(raw)),
+              suffix.dropFirst(raw.count).trimmingCharacters(in: .whitespacesAndNewlines) == "]"
+        else { return nil }
+        return id
+    }
+
+    static func automationSubmissionPayload(_ text: String, id: UUID) -> String {
+        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // One printable line is one semantic turn even when bracketed-paste
+        // mode is absent or stale. Newlines here could submit the body and the
+        // marker as separate turns, falsely acknowledging the wrong one.
+        return "\(body) [\(automationSubmissionIDPrefix)\(id.uuidString)]"
+    }
+
+    static func strippingAutomationSubmissionMarker(from text: String) -> String {
+        guard let range = text.range(of: automationSubmissionIDPrefix, options: .backwards),
+              automationSubmissionID(inSubmittedText: text) != nil,
+              range.lowerBound > text.startIndex else {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let bracket = text.index(before: range.lowerBound)
+        guard text[bracket] == "[" else {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return String(text[..<bracket]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func agentMessageEnvelope(
+        source: Conversation,
+        target: Conversation,
+        text: String,
+        messageID: AgentMessage.ID?
+    ) -> String {
+        agentMessageEnvelope(
+            sender: AgentMessageEndpoint(
+                paneID: source.id,
+                workspaceID: source.workspaceID,
+                handle: source.handle
+            ),
+            target: target,
+            text: text,
+            messageID: messageID
+        )
+    }
+
+    private static func agentMessageEnvelope(
+        sender: AgentMessageEndpoint,
+        target: Conversation,
+        text: String,
+        messageID: AgentMessage.ID?
+    ) -> String {
         let body = text
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: .newlines)
             .joined(separator: " ")
-        return "Sent via Soyeht. From: \(source.handle) (conversationID: \(source.id.uuidString)). To: \(target.handle) (conversationID: \(target.id.uuidString)). Reply via Soyeht MCP send_pane_input or message_agent to handles=[\"\(source.handle)\"] or conversationIDs=[\"\(source.id.uuidString)\"], lineEnding=enter. Request: \(body)"
+        let recipient = AgentMessageEndpoint(
+            paneID: target.id,
+            workspaceID: target.workspaceID,
+            handle: target.handle
+        )
+        let roleContext: String
+        if let role = target.roleAssignment,
+           AgentOrchestrationValidator.validate(assignment: role)
+            .allSatisfy({ $0.severity != .error }) {
+            let instructions = role.instructions
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .newlines)
+                .joined(separator: " ")
+            roleContext = " Your assigned role is \(role.roleName): \(instructions)"
+        } else {
+            roleContext = ""
+        }
+        // UUIDs are the routing authority. Bracketed labels are display-only
+        // and remain safe when an agent copies the envelope into GitHub.
+        let mcpServer = SoyehtInstallProfile.current.mcpConfigKey
+        let receipt = messageID.map { " \(deliveryIDPrefix)\($0.uuidString)." } ?? ""
+        if sender.paneID == AgentMessageEndpoint.soyehtControlPlanePaneID,
+           sender.handle == "soyeht-control" {
+            return "Sent via Soyeht control plane. To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) No reply is required. Instruction: \(body)"
+        }
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }

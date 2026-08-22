@@ -12,14 +12,14 @@ import XCTest
 /// (subclasses SwiftTerm's `TerminalView`), so these are source-guard tests,
 /// same pattern as the other `PersistentPanes*SourceGuardTests` files.
 final class PersistentPanesHandoffSourceGuardTests: XCTestCase {
-    func testWriteToLocalSessionDispatchesThroughTransportAgnosticSendInputData() throws {
+    func testWriteToLocalSessionDispatchesThroughAtomicHumanInputAdmission() throws {
         let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
         let method = try slice(
             source,
             from: "func writeToLocalSession(_ data: Data) {",
             to: "func resizeLocalSession(cols: Int, rows: Int) {"
         )
-        XCTAssertTrue(method.contains("sendInputData(data)"))
+        XCTAssertTrue(method.contains("sendHumanInput(data)"))
         XCTAssertFalse(method.contains("localPTY?.write"), "must not bypass the WS branch for engine-local panes")
     }
 

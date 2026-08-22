@@ -1,0 +1,153 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787327670",
+  "status": "passed",
+  "typingCollisions": [
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809020557.484944,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "macOS Accessibility keystrokes plus physical Return",
+      "recipientAgent": "opencode",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "968D99F2-B806-4641-AFC0-FC515C58F536",
+        "declaredAgent": "opencode",
+        "handle": "@e2e-draft-target-opencode-1787327670-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "pid": 59039,
+        "ppid": 58947
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "codex",
+      "senderPane": {
+        "conversationID": "BA287A46-C121-4B29-B592-9481203E6A78",
+        "handle": "@e2e-draft-sender-codex-1787327670-1",
+        "name": "e2e-draft-sender-codex-1787327670-1",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 57220,
+        "ppid": 3021
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    },
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809020686.938126,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "macOS Accessibility keystrokes plus physical Return",
+      "recipientAgent": "claude",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "4C7DE8AE-A97C-45EF-B8C8-100651A3484E",
+        "declaredAgent": "claude",
+        "handle": "@e2e-draft-target-claude-1787327670-2",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "recipientProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "pid": 67369,
+        "ppid": 67259
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "opencode",
+      "senderPane": {
+        "conversationID": "C737B367-D2DB-44E4-A066-0030CCDE84C8",
+        "handle": "@e2e-draft-sender-opencode-1787327670-2",
+        "name": "e2e-draft-sender-opencode-1787327670-2",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 64783,
+        "ppid": 64665
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    },
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterEnter": 809020838.208447,
+      "deliveryTimestampBeforeEnter": null,
+      "inputSimulation": "macOS Accessibility keystrokes plus physical Return",
+      "recipientAgent": "codex",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "4C937CB9-4774-45E7-B6DC-30DECDEA0637",
+        "declaredAgent": "codex",
+        "handle": "@e2e-draft-target-codex-1787327670-3",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "pid": 75805,
+        "ppid": 3021
+      },
+      "relayAbsentBeforeEnter": true,
+      "relayObservedAfterEnter": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "claude",
+      "senderPane": {
+        "conversationID": "FB903061-02FA-4B31-96B2-C4F72F789557",
+        "handle": "@e2e-draft-sender-claude-1787327670-3",
+        "name": "e2e-draft-sender-claude-1787327670-3",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "96D3B1BB-583A-4FCA-8B7B-907E888AEE9F"
+      },
+      "senderProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 73922,
+        "ppid": 73836
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    }
+  ]
+}

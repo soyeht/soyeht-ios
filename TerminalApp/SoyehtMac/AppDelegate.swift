@@ -77,6 +77,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         AppEnvironment.conversationStore = conversationStore
         workspaceStore.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
             begin: { [weak self] transfers in
+                // The transfer bridge is invoked for forward, undo and redo.
+                // Keep canonical Conversation.workspaceID in the same
+                // transaction as the workspace layouts; controller-only
+                // reassignment misses UndoManager closures and leaves routing
+                // policy scoped to the wrong workspace.
+                for transfer in transfers where transfer.source != transfer.destination {
+                    self?.conversationStore.reassignWorkspace(
+                        transfer.paneID,
+                        to: transfer.destination
+                    )
+                }
                 self?.preparePaneTransfers(transfers)
             }
         ))
@@ -100,6 +111,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 ids.forEach { conversationStore?.remove($0) }
             }
         ))
+        // Engine panes persist independently of their lazy workspace views.
+        // Restore every live launch credential now so agents in inactive
+        // workspaces remain authenticated immediately after app relaunch.
+        let migratedLegacyOwnershipPaneIDs = PaneStatusTracker.shared.rehydratePersistentLaunchOwnership(
+            from: conversationStore.all
+        )
+        if !migratedLegacyOwnershipPaneIDs.isEmpty {
+            let legacyByPane = Dictionary(uniqueKeysWithValues:
+                migratedLegacyOwnershipPaneIDs.compactMap { paneID in
+                    conversationStore.conversation(paneID)?.agentLaunchOwnershipNonce.map {
+                        (paneID, $0)
+                    }
+                }
+            )
+            migratedLegacyOwnershipPaneIDs.forEach {
+                conversationStore.updateAgentLaunchOwnershipNonce($0, nonce: nil)
+            }
+            if !workspaceStore.flushPendingSave() {
+                for (paneID, legacy) in legacyByPane {
+                    conversationStore.updateAgentLaunchOwnershipNonce(paneID, nonce: legacy)
+                }
+                _ = workspaceStore.flushPendingSave()
+            }
+        }
         Typography.bootstrap()
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
@@ -151,6 +186,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         Task { [weak self] in
             await self?.openInitialWindow()
         }
+
+        #if DEBUG
+        // An explicit launch argument lets signed Dev installs register their
+        // own TCC identity without turning every ordinary development launch
+        // into a permission prompt. This is also usable when UI automation is
+        // not trusted yet, so the menu item cannot be clicked programmatically.
+        if ProcessInfo.processInfo.arguments.contains("--request-agent-visual-permissions") {
+            DispatchQueue.main.async { [weak self] in
+                self?.runAgentVisualPermissionsFlow()
+            }
+        }
+        #endif
 
         #if DEBUG
         // Cursor-policy audit: after the initial window paints, walk the

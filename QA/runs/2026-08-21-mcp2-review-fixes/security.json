@@ -1,0 +1,63 @@
+{
+  "app": {
+    "bundleID": "com.soyeht.mac.dev",
+    "commit": "c9a1bf6a",
+    "installation": "/Applications/Soyeht Dev.app",
+    "signedTeamID": "W7677A5BK2"
+  },
+  "cases": [
+    {
+      "case": "legacy-agent-write",
+      "expected": "rejected",
+      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787359639. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "result": "rejected"
+    },
+    {
+      "case": "spoof-policy-without-launch-nonce",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "owning-pane-valid-launch-nonce",
+      "expected": "accepted",
+      "result": "accepted"
+    },
+    {
+      "case": "agent-message-cannot-use-line-ending-none",
+      "expected": "rejected",
+      "message": "Agent messages must be complete submissions with lineEnding=enter; received: none. Use send_pane_input for intentional raw terminal input.",
+      "result": "rejected"
+    },
+    {
+      "case": "valid-other-pane-nonce-cannot-spoof-owner",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "old-contract-sensitive-write",
+      "expected": "rejected",
+      "message": "Soyeht Dev rejected MCP client contract 1; agent creation and messaging require contract 2. Use the soyeht-dev integration instead of the soyeht Release integration.",
+      "result": "rejected"
+    },
+    {
+      "activeWorkspaceID": "472774A7-69DA-41A1-BECF-774C4FB69335",
+      "agentWorkspaceID": "33B5A148-6A86-4344-ACE4-3A1168F68521",
+      "case": "inactive-workspace-launch-ownership-survives-app-restart",
+      "expected": "accepted",
+      "result": "accepted"
+    }
+  ],
+  "createdAgents": {
+    "codex": {
+      "conversationID": "28924E59-5E9D-4BA7-96B0-DFBF05331EA5",
+      "handle": "@mcp2-security-codex-1787359639"
+    },
+    "opencode": {
+      "conversationID": "F127C515-DC39-42C2-AE78-2498086243DA",
+      "handle": "@mcp2-security-opencode-1787359639"
+    }
+  },
+  "status": "passed"
+}

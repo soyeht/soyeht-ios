@@ -38,6 +38,26 @@ final class PersistentPanesAutomationTTYSourceGuardTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+        if relativePath == "App/SoyehtAutomationRequestRouter.swift" {
+            let routerFiles = [
+                "SoyehtAutomationRequestRouter.swift",
+                "SoyehtAutomationRequestRouter+01Resolution.swift",
+                "SoyehtAutomationRequestRouter+02Creation.swift",
+                "SoyehtAutomationRequestRouter+03AgentMessaging.swift",
+                "SoyehtAutomationRequestRouter+04Layout.swift",
+                "SoyehtAutomationRequestRouter+05ConversationContext.swift",
+                "SoyehtAutomationRequestRouter+06AgentSwitch.swift",
+                "SoyehtAutomationRequestRouter+07DirectoryIdentity.swift",
+                "SoyehtAutomationRequestRouter+08Content.swift",
+                "SoyehtAutomationRequestRouter+09Lifecycle.swift",
+                "SoyehtAutomationRequestRouter+10Capture.swift",
+            ]
+            let appDirectory = terminalApp.appendingPathComponent("SoyehtMac/App")
+            let combined = try routerFiles.map {
+                try String(contentsOf: appDirectory.appendingPathComponent($0), encoding: .utf8)
+            }.joined(separator: "\n")
+            return combined.replacingOccurrences(of: "\n    func ", with: "\n    private func ")
+        }
         let url = terminalApp.appendingPathComponent("SoyehtMac").appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
     }

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import os
+import Darwin
 
 /// Single source of truth for Workspaces. Persists to JSON at
 /// Application Support/Soyeht/workspaces.json (synchronous load at launch,
@@ -16,6 +17,10 @@ final class WorkspaceStore {
 
     @ObservationIgnored
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "workspace.store")
+    /// A normal snapshot is only a few MiB even at all MCP 2.0 collection
+    /// limits. Bound the read before JSONDecoder materializes attacker- or
+    /// corruption-controlled arrays from a legacy snapshot.
+    private static let maximumSnapshotBytes = 64 * 1024 * 1024
 
     struct RestorableWindowSession: Equatable {
         let windowID: String
@@ -139,8 +144,10 @@ final class WorkspaceStore {
     @ObservationIgnored
     private var conversationBridge: ConversationBridge?
 
-    /// Optional UI bridge for preserving live panes while layout mutations
-    /// move leaves between workspaces. Domain tests leave this nil.
+    /// Host bridge for moving both live pane ownership and canonical
+    /// Conversation.workspaceID while layout mutations transfer leaves.
+    /// It is called by forward, undo and redo paths. Domain tests may leave it
+    /// nil when no ConversationStore is attached.
     struct PaneTransfer: Hashable {
         let paneID: Conversation.ID
         let source: Workspace.ID
@@ -340,6 +347,19 @@ final class WorkspaceStore {
         postChange()
     }
 
+    /// Store a workspace-level messaging policy for the future Preferences/UI
+    /// surface. `nil` restores the open default without changing old snapshot
+    /// semantics.
+    func updateAgentCommunicationPolicy(
+        _ policy: AgentCommunicationPolicy?,
+        for workspaceID: Workspace.ID
+    ) {
+        guard var workspace = workspaces[workspaceID] else { return }
+        workspace.agentCommunicationPolicy = policy
+        workspaces[workspaceID] = workspace
+        postChange()
+    }
+
     @discardableResult
     func detachWorkspace(_ id: Workspace.ID, fromWindow windowID: String) -> Bool {
         let before = workspaceOrder(in: windowID)
@@ -378,6 +398,16 @@ final class WorkspaceStore {
         workspaces[id] = ws
         postChange()
         return ws.name
+    }
+
+    /// Persist or clear the workspace's saved role templates and graphs.
+    /// Validation stays explicit so an editor can display all issues before
+    /// choosing whether to save a draft.
+    func updateOrchestration(_ id: Workspace.ID, orchestration: WorkspaceOrchestration?) {
+        guard var workspace = workspaces[id], workspace.orchestration != orchestration else { return }
+        workspace.orchestration = orchestration
+        workspaces[id] = workspace
+        postChange()
     }
 
     /// Workspace names are global user-facing identifiers. Keep them unique
@@ -537,11 +567,9 @@ final class WorkspaceStore {
     ///   leaf vertically. If the destination is a single leaf, the result
     ///   is a 2-leaf vertical split; deeper trees get a new split on the
     ///   rightmost leaf.
-    /// - `ConversationStore.reassignWorkspace` must be called separately
-    ///   by the host to migrate the `Conversation.workspaceID` and preserve
-    ///   global handle uniqueness. This keeps the store's responsibility
-    ///   narrow (layout + conversations[] lists) and the ConversationStore's
-    ///   responsibility narrow (metadata).
+    /// - The host's `PaneTransferBridge` migrates
+    ///   `Conversation.workspaceID` together with the live pane for forward,
+    ///   undo and redo operations.
     @discardableResult
     func movePane(
         paneID: Conversation.ID,
@@ -552,6 +580,7 @@ final class WorkspaceStore {
         guard source != destination,
               var src = workspaces[source],
               var dst = workspaces[destination],
+              canTransferPaneAcrossWorkspaces(paneID, from: source),
               src.layout.contains(paneID),
               let reducedSource = src.layout.closing(paneID),
               reducedSource.leafCount >= 1 // guard against moving the only leaf
@@ -597,6 +626,24 @@ final class WorkspaceStore {
             }
         }
         return true
+    }
+
+    /// Moving a graph node or a user-authorized topology manager changes the
+    /// workspace boundary that gives its bindings and grant meaning. Require
+    /// the user to deactivate/reconfigure that topology first; silently
+    /// carrying UUID bindings across workspaces would turn a stale edge into a
+    /// cross-workspace authorization.
+    func canTransferPaneAcrossWorkspaces(
+        _ paneID: Conversation.ID,
+        from workspaceID: Workspace.ID
+    ) -> Bool {
+        guard let orchestration = workspaces[workspaceID]?.orchestration else {
+            return true
+        }
+        if orchestration.authorizedManagerPaneIDs.contains(paneID) { return false }
+        return orchestration.activeGraph?.nodes.contains(where: {
+            $0.conversationID == paneID
+        }) != true
     }
 
     /// Dock/rearrange a pane via drag-and-drop. `targetPaneID` is the leaf
@@ -653,6 +700,8 @@ final class WorkspaceStore {
 
         guard var src = workspaces[source],
               var dst = workspaces[destination],
+              canTransferPaneAcrossWorkspaces(paneID, from: source),
+              (zone != .center || canTransferPaneAcrossWorkspaces(targetPaneID, from: destination)),
               src.layout.contains(paneID),
               dst.layout.contains(targetPaneID) else { return false }
 
@@ -1151,6 +1200,14 @@ final class WorkspaceStore {
         //      data by half-reading a schema we don't understand.
         let data: Data
         do {
+            let size = try storageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= Self.maximumSnapshotBytes else {
+                backupCorruptedFile(
+                    nil,
+                    reason: "snapshot exceeds \(Self.maximumSnapshotBytes) byte limit (\(size) bytes)"
+                )
+                return
+            }
             data = try Data(contentsOf: storageURL)
         } catch {
             // File-missing is the expected path on first launch; anything
@@ -1274,7 +1331,7 @@ final class WorkspaceStore {
 
     /// Rename an unreadable snapshot file to `<name>.bak-<unixts>` so the
     /// next save can safely overwrite the original path. Logs the reason.
-    private func backupCorruptedFile(_ data: Data, reason: String) {
+    private func backupCorruptedFile(_ data: Data?, reason: String) {
         let ts = Int(Date().timeIntervalSince1970)
         let name = storageURL.lastPathComponent
         let backupURL = storageURL
@@ -1285,8 +1342,18 @@ final class WorkspaceStore {
         // original.
         do {
             try FileManager.default.moveItem(at: storageURL, to: backupURL)
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: backupURL.path
+            )
         } catch {
-            try? data.write(to: backupURL, options: .atomic)
+            if let data {
+                try? data.write(to: backupURL, options: .atomic)
+            }
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: backupURL.path
+            )
         }
         Self.logger.error(
             "snapshot_reseed reason=\(reason, privacy: .public) backup=\(backupURL.path, privacy: .public)"
@@ -1307,12 +1374,13 @@ final class WorkspaceStore {
     /// final snapshot (built on main) is written. Guarantees the last write
     /// reflects the latest user state, even if an older async save was
     /// still in flight when the user quit.
-    func flushPendingSave() {
+    @discardableResult
+    func flushPendingSave() -> Bool {
         pendingSave?.cancel()
         pendingSave = nil
         let snap = buildSnapshot()
         let url = storageURL
-        saveQueue.sync {
+        return saveQueue.sync {
             Self.persistSnapshot(snap, to: url)
         }
     }
@@ -1321,7 +1389,7 @@ final class WorkspaceStore {
         let snap = buildSnapshot()
         let url = storageURL
         saveQueue.async {
-            Self.persistSnapshot(snap, to: url)
+            _ = Self.persistSnapshot(snap, to: url)
         }
     }
 
@@ -1356,18 +1424,36 @@ final class WorkspaceStore {
         }
     }
 
-    nonisolated private static func persistSnapshot(_ snap: Snapshot, to url: URL) {
+    @discardableResult
+    nonisolated private static func persistSnapshot(_ snap: Snapshot, to url: URL) -> Bool {
+        var temporaryURL: URL?
         do {
+            let parent = url.deletingLastPathComponent()
             try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(),
+                at: parent,
                 withIntermediateDirectories: true
             )
             let enc = JSONEncoder()
             enc.outputFormatting = [.sortedKeys]
             let data = try enc.encode(snap)
-            try data.write(to: url, options: .atomic)
+            let candidate = parent.appendingPathComponent(
+                ".\(url.lastPathComponent).\(UUID().uuidString).tmp"
+            )
+            temporaryURL = candidate
+            try data.write(to: candidate, options: .withoutOverwriting)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: candidate.path
+            )
+            guard Darwin.rename(candidate.path, url.path) == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            temporaryURL = nil
+            return true
         } catch {
+            if let temporaryURL { try? FileManager.default.removeItem(at: temporaryURL) }
             logger.error("save_failed error=\(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

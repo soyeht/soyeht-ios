@@ -244,7 +244,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         )
         XCTAssertEqual(attempt.components(separatedBy: "return false").count - 1, 3,
                        "as três saídas de falha (sem store, sem pane viva, attach falhado) têm de devolver false para o chamador reconstruir")
-        guard let attachedAt = attempt.range(of: "guard case .attached = outcome else { return false }"),
+        guard let attachedAt = attempt.range(of: "guard case .attached(let reconnected) = outcome else { return false }"),
               let successAt = attempt.range(of: "return true") else {
             return XCTFail("a promoção deixou de exigir um attach bem-sucedido antes de reclamar sucesso")
         }

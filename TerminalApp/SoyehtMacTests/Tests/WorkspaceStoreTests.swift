@@ -17,6 +17,64 @@ final class WorkspaceStoreTests: XCTestCase {
         )
     }
 
+    func testPersistedWorkspaceSnapshotIsOwnerOnlyAfterAtomicReplacement() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Soyeht-private-store-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("workspaces.json")
+        let store = WorkspaceStore(storageURL: url)
+
+        _ = store.add(makeLeafWorkspace())
+        store.flushPendingSave()
+        let firstMode = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
+        ).intValue
+
+        _ = store.add(makeLeafWorkspace())
+        store.flushPendingSave()
+        let replacedMode = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
+        ).intValue
+
+        XCTAssertEqual(firstMode & 0o777, 0o600)
+        XCTAssertEqual(replacedMode & 0o777, 0o600)
+    }
+
+    func testFlushPendingSaveReportsPersistenceFailure() throws {
+        let blocker = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Soyeht-store-blocker-\(UUID().uuidString)")
+        try Data("not a directory".utf8).write(to: blocker)
+        defer { try? FileManager.default.removeItem(at: blocker) }
+        let store = WorkspaceStore(
+            storageURL: blocker.appendingPathComponent("workspaces.json")
+        )
+        _ = store.add(makeLeafWorkspace())
+
+        XCTAssertFalse(store.flushPendingSave())
+    }
+
+    func testOversizedSnapshotIsRejectedBeforeReadingAndBackedUp() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Soyeht-oversized-store-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("workspaces.json")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: 64 * 1024 * 1024 + 1)
+        try handle.close()
+
+        let store = WorkspaceStore(storageURL: url)
+
+        XCTAssertTrue(store.orderedWorkspaces.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertTrue(
+            try FileManager.default.contentsOfDirectory(atPath: directory.path)
+                .contains(where: { $0.hasPrefix("workspaces.json.bak-") })
+        )
+    }
+
     func testAddAndOrdering() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let a = store.add(makeLeafWorkspace())
@@ -780,9 +838,15 @@ final class WorkspaceStoreTests: XCTestCase {
 
     func testMovePaneBeginsPaneTransferForMoveUndoAndRedo() {
         let store = WorkspaceStore(storageURL: makeTempURL())
+        let conversations = ConversationStore()
         var transfers: [[WorkspaceStore.PaneTransfer]] = []
         store.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
-            begin: { transfers.append($0) }
+            begin: { batch in
+                transfers.append(batch)
+                for transfer in batch {
+                    conversations.reassignWorkspace(transfer.paneID, to: transfer.destination)
+                }
+            }
         ))
 
         let paneID = UUID()
@@ -791,11 +855,21 @@ final class WorkspaceStoreTests: XCTestCase {
             children: [.leaf(UUID()), .leaf(paneID)]
         )))
         let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: UUID()))
+        _ = conversations.add(Conversation(
+            id: paneID,
+            handle: "@moving",
+            agent: .claw("codex"),
+            workspaceID: src.id,
+            commander: .mirror(instanceID: "test")
+        ))
         let undoManager = UndoManager()
 
         XCTAssertTrue(store.movePane(paneID: paneID, from: src.id, to: dst.id, undoManager: undoManager))
+        XCTAssertEqual(conversations.conversation(paneID)?.workspaceID, dst.id)
         undoManager.undo()
+        XCTAssertEqual(conversations.conversation(paneID)?.workspaceID, src.id)
         undoManager.redo()
+        XCTAssertEqual(conversations.conversation(paneID)?.workspaceID, dst.id)
 
         XCTAssertEqual(transfers, [
             [.init(paneID: paneID, source: src.id, destination: dst.id)],
@@ -822,6 +896,54 @@ final class WorkspaceStoreTests: XCTestCase {
             children: [.leaf(UUID()), .leaf(paneID)]
         )))
         XCTAssertFalse(store.movePane(paneID: paneID, from: ws.id, to: ws.id))
+    }
+
+    func testMovePaneRejectsActiveGraphNodeAcrossWorkspaceBoundary() throws {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let paneID = UUID()
+        let src = store.add(Workspace(name: "A", kind: .adhoc, layout: .split(
+            axis: .vertical, ratio: 0.5,
+            children: [.leaf(UUID()), .leaf(paneID)]
+        )))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: UUID()))
+        var orchestration = WorkspaceOrchestration()
+        let graph = AgentOrchestrationGraph(
+            title: "Bound",
+            nodes: [.init(
+                id: "reviewer",
+                conversationID: paneID,
+                role: .init(template: AgentRoleTemplateCatalog.reviewer)
+            )],
+            edges: []
+        )
+        try orchestration.saveGraph(graph)
+        try orchestration.activateGraph(id: graph.id)
+        store.updateOrchestration(src.id, orchestration: orchestration)
+
+        XCTAssertFalse(store.movePane(paneID: paneID, from: src.id, to: dst.id))
+        XCTAssertTrue(store.workspace(src.id)!.layout.contains(paneID))
+        XCTAssertFalse(store.workspace(dst.id)!.layout.contains(paneID))
+    }
+
+    func testDockSwapRejectsAuthorizedManagerOnEitherSide() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let moving = UUID()
+        let target = UUID()
+        let src = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: moving))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+        var orchestration = WorkspaceOrchestration()
+        orchestration.setManagementAuthorization(for: target, isAuthorized: true)
+        store.updateOrchestration(dst.id, orchestration: orchestration)
+
+        XCTAssertFalse(store.dockPane(
+            paneID: moving,
+            from: src.id,
+            to: dst.id,
+            targetPaneID: target,
+            zone: .center
+        ))
+        XCTAssertEqual(store.workspace(src.id)?.layout, .leaf(moving))
+        XCTAssertEqual(store.workspace(dst.id)?.layout, .leaf(target))
     }
 
     // MARK: - Pane docking
@@ -897,15 +1019,35 @@ final class WorkspaceStoreTests: XCTestCase {
 
     func testDockPaneAcrossWorkspacesBeginsPaneTransferForDockUndoAndRedo() {
         let store = WorkspaceStore(storageURL: makeTempURL())
+        let conversations = ConversationStore()
         var transfers: [Set<WorkspaceStore.PaneTransfer>] = []
         store.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
-            begin: { transfers.append(Set($0)) }
+            begin: { batch in
+                transfers.append(Set(batch))
+                for transfer in batch {
+                    conversations.reassignWorkspace(transfer.paneID, to: transfer.destination)
+                }
+            }
         ))
 
         let moving = UUID()
         let target = UUID()
         let src = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: moving))
         let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+        _ = conversations.add(Conversation(
+            id: moving,
+            handle: "@moving",
+            agent: .claw("codex"),
+            workspaceID: src.id,
+            commander: .mirror(instanceID: "test")
+        ))
+        _ = conversations.add(Conversation(
+            id: target,
+            handle: "@target",
+            agent: .claw("claude"),
+            workspaceID: dst.id,
+            commander: .mirror(instanceID: "test")
+        ))
         let undoManager = UndoManager()
 
         XCTAssertTrue(store.dockPane(
@@ -916,8 +1058,14 @@ final class WorkspaceStoreTests: XCTestCase {
             zone: .center,
             undoManager: undoManager
         ))
+        XCTAssertEqual(conversations.conversation(moving)?.workspaceID, dst.id)
+        XCTAssertEqual(conversations.conversation(target)?.workspaceID, src.id)
         undoManager.undo()
+        XCTAssertEqual(conversations.conversation(moving)?.workspaceID, src.id)
+        XCTAssertEqual(conversations.conversation(target)?.workspaceID, dst.id)
         undoManager.redo()
+        XCTAssertEqual(conversations.conversation(moving)?.workspaceID, dst.id)
+        XCTAssertEqual(conversations.conversation(target)?.workspaceID, src.id)
 
         let forward = Set([
             WorkspaceStore.PaneTransfer(paneID: moving, source: src.id, destination: dst.id),

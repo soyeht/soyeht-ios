@@ -1,0 +1,59 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787337940",
+  "status": "passed",
+  "typingCollisions": [
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterRelease": 809030853.827944,
+      "deliveryTimestampBeforeRelease": null,
+      "draftReleaseAction": "ctrl-c",
+      "inputSimulation": "macOS Accessibility UTF-8 paste plus physical ctrl-c",
+      "recipientAgent": "claude",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "F3C7EAE5-23E4-4051-AC95-708DD587BF34",
+        "declaredAgent": "claude",
+        "handle": "@e2e-draft-target-claude-1787337940-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "90BF6BBB-22DE-410F-9C1C-E4CC01ED4624"
+      },
+      "recipientProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "pid": 32630,
+        "ppid": 32515
+      },
+      "relayAbsentBeforeRelease": true,
+      "relayObservedAfterRelease": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "opencode",
+      "senderPane": {
+        "conversationID": "ED86F5A0-9D40-4715-9F8A-8F477796CCC7",
+        "handle": "@e2e-draft-sender-opencode-1787337940-1",
+        "name": "e2e-draft-sender-opencode-1787337940-1",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "90BF6BBB-22DE-410F-9C1C-E4CC01ED4624"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 29838,
+        "ppid": 29755
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    }
+  ]
+}

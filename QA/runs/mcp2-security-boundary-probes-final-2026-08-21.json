@@ -1,0 +1,39 @@
+{
+  "app": {
+    "bundleID": "com.soyeht.mac.dev",
+    "commit": "96ca078c",
+    "installation": "/Applications/Soyeht Dev.app",
+    "signedTeamID": "W7677A5BK2"
+  },
+  "cases": [
+    {
+      "case": "legacy-agent-write",
+      "expected": "rejected",
+      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787344040. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "result": "rejected"
+    },
+    {
+      "case": "spoof-policy-without-launch-nonce",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "old-contract-sensitive-write",
+      "expected": "rejected",
+      "message": "Soyeht Dev rejected MCP client contract 1; agent creation and messaging require contract 2. Use the soyeht-dev integration instead of the soyeht Release integration.",
+      "result": "rejected"
+    }
+  ],
+  "createdAgents": {
+    "codex": {
+      "conversationID": "8C8122A8-EF40-4DBF-A41A-67F20D9642B8",
+      "handle": "@mcp2-security-codex-1787344040"
+    },
+    "opencode": {
+      "conversationID": "8900A632-BF10-473B-BAA4-98829E377ABC",
+      "handle": "@mcp2-security-opencode-1787344040"
+    }
+  },
+  "status": "passed"
+}

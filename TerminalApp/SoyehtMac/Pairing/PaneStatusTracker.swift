@@ -48,6 +48,7 @@ final class PaneStatusTracker {
     private var agentStateReports: [Conversation.ID: AgentStateReport] = [:]
     private var lastAcceptedReportAtBySource: [Conversation.ID: [String: Date]] = [:]
     private var lastAcceptedWorkingReportAtBySource: [Conversation.ID: [String: Date]] = [:]
+    private var lastAcceptedTurnSubmissionAtBySource: [Conversation.ID: [String: Date]] = [:]
     private var lastMcpActivityAt: [Conversation.ID: Date] = [:]
 
     // MARK: - Launch handshake
@@ -66,7 +67,7 @@ final class PaneStatusTracker {
         case delivered
     }
 
-    private var expectedHandshakeNonce: [Conversation.ID: String] = [:]
+    private let launchOwnership = AgentLaunchOwnershipRegistry()
     private var handshakeStates: [Conversation.ID: HandshakeState] = [:]
 
     /// Clears runtime evidence that belongs to the previous process before a
@@ -74,22 +75,84 @@ final class PaneStatusTracker {
     /// from a handshake-gated agent to a turn-bound one can surface the old
     /// launch as `delivered`, and the old agent's semantic state remains
     /// visible until the replacement emits its first report.
-    func prepareForAgentLaunch(paneID: Conversation.ID) {
-        expectedHandshakeNonce[paneID] = nil
+    @discardableResult
+    func prepareForAgentLaunch(paneID: Conversation.ID) -> Bool {
+        guard launchOwnership.prepareForLaunch(paneID: paneID) else {
+            statusLogger.error("launch ownership revocation failed pane=\(paneID.uuidString, privacy: .public)")
+            return false
+        }
         handshakeStates[paneID] = nil
         agentStateReports[paneID] = nil
         lastAcceptedReportAtBySource[paneID] = nil
         lastAcceptedWorkingReportAtBySource[paneID] = nil
+        lastAcceptedTurnSubmissionAtBySource[paneID] = nil
+        lastMcpActivityAt[paneID] = nil
+        return true
+    }
+
+    func quarantineAgentLaunchOwnership(paneID: Conversation.ID) {
+        launchOwnership.quarantineInMemory(paneID: paneID)
+        handshakeStates[paneID] = nil
+        agentStateReports[paneID] = nil
+        lastAcceptedReportAtBySource[paneID] = nil
+        lastAcceptedWorkingReportAtBySource[paneID] = nil
+        lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 
     func expectHandshake(paneID: Conversation.ID, nonce: String) {
-        expectedHandshakeNonce[paneID] = nonce
+        guard launchOwnership.validates(paneID: paneID, nonce: nonce) else {
+            statusLogger.error("refusing handshake expectation without persisted ownership pane=\(paneID.uuidString, privacy: .public)")
+            return
+        }
         handshakeStates[paneID] = .pending
+    }
+
+    /// Every launched agent receives a possession credential, including
+    /// turn-bound CLIs (Codex, etc.) that cannot emit a startup hook until
+    /// after their first prompt. Handshake timing and request ownership are
+    /// separate concerns.
+    @discardableResult
+    func registerLaunchOwnership(paneID: Conversation.ID, nonce: String) -> Bool {
+        let persisted = launchOwnership.register(paneID: paneID, nonce: nonce)
+        if !persisted {
+            statusLogger.error("launch ownership Keychain persistence failed pane=\(paneID.uuidString, privacy: .public)")
+        }
+        return persisted
+    }
+
+    /// Rebuild possession expectations before any workspace pane is
+    /// materialized. Persistent engine processes outlive the app and can send
+    /// MCP requests while their workspace is still an unopened tab; tying
+    /// this restoration to PaneViewController creation makes authentication
+    /// depend on a human visiting that workspace.
+    func rehydratePersistentLaunchOwnership(from conversations: [Conversation]) -> [Conversation.ID] {
+        launchOwnership.rehydrate(from: conversations)
+    }
+
+    func launchOwnershipNonce(for paneID: Conversation.ID) -> String? {
+        launchOwnership.nonce(for: paneID)
+    }
+
+    @discardableResult
+    func restoreLaunchOwnership(paneID: Conversation.ID, nonce: String) -> Bool {
+        let restored = launchOwnership.restore(paneID: paneID, nonce: nonce)
+        if !restored {
+            quarantineAgentLaunchOwnership(paneID: paneID)
+            statusLogger.error("launch ownership rollback failed pane=\(paneID.uuidString, privacy: .public)")
+        }
+        return restored
     }
 
     func handshakeState(for paneID: Conversation.ID) -> HandshakeState {
         handshakeStates[paneID] ?? .notExpected
+    }
+
+    /// Proves that an automation mutation came from the process currently
+    /// launched in this pane. Conversation IDs and handles are public routing
+    /// metadata; only the per-launch nonce is a possession credential.
+    func validatesLaunchOwnership(paneID: Conversation.ID, nonce: String?) -> Bool {
+        launchOwnership.validates(paneID: paneID, nonce: nonce)
     }
 
     func markHandshakeTimeout(paneID: Conversation.ID) {
@@ -119,6 +182,16 @@ final class PaneStatusTracker {
     /// prompt was actually submitted by the target TUI.
     func lastWorkingReportAt(for paneID: Conversation.ID, source: String) -> Date? {
         lastAcceptedWorkingReportAtBySource[paneID]?[source]
+    }
+
+    /// Only hooks that explicitly observed the provider accepting a user turn
+    /// may acknowledge prompt delivery. Generic `working` tool activity is
+    /// liveness evidence, not proof that the pending prompt was submitted.
+    func lastTurnSubmissionAcknowledgedAt(
+        for paneID: Conversation.ID,
+        source: String
+    ) -> Date? {
+        lastAcceptedTurnSubmissionAtBySource[paneID]?[source]
     }
 
     /// Last known wire fingerprint of each pane, used to emit deltas only on
@@ -248,11 +321,10 @@ final class PaneStatusTracker {
         message: String?,
         seq: Int?,
         source: String,
-        nonce: String? = nil
+        nonce: String? = nil,
+        turnSubmissionAcknowledged: Bool = false
     ) -> (accepted: Bool, reason: String?) {
-        if let nonce, !nonce.isEmpty,
-           let expected = expectedHandshakeNonce[paneID],
-           nonce == expected,
+        if launchOwnership.validates(paneID: paneID, nonce: nonce),
            handshakeStates[paneID] == .pending {
             handshakeStates[paneID] = .satisfied
         }
@@ -277,6 +349,9 @@ final class PaneStatusTracker {
         lastAcceptedReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
         if state == "working" {
             lastAcceptedWorkingReportAtBySource[paneID, default: [:]][source] = incoming.reportedAt
+        }
+        if turnSubmissionAcknowledged {
+            lastAcceptedTurnSubmissionAtBySource[paneID, default: [:]][source] = incoming.reportedAt
         }
         return (true, nil)
     }
@@ -304,6 +379,7 @@ final class PaneStatusTracker {
         agentStateReports[paneID] = nil
         lastAcceptedReportAtBySource[paneID] = nil
         lastAcceptedWorkingReportAtBySource[paneID] = nil
+        lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
     }
 
@@ -412,11 +488,11 @@ final class PaneStatusTracker {
         for idString in removed {
             if let uuid = UUID(uuidString: idString) {
                 forgetAutomationState(paneID: uuid)
-                // Handshake entries survive transient live-registry dips
-                // (engine attach); they are only dropped once the
-                // conversation itself is gone.
+                // A missing conversation can still be inside the persistent
+                // pane undo window. Ownership is revoked only by the
+                // irreversible engine reaper (or an explicit switch), never
+                // by this presence diff.
                 if AppEnvironment.conversationStore?.conversation(uuid) == nil {
-                    expectedHandshakeNonce[uuid] = nil
                     handshakeStates[uuid] = nil
                 }
             }

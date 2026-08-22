@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "agents": [
+    {"name":"claude","displayName":"Claude Code","command":"claude","modelFlag":"--model"},
+    {"name":"codex","displayName":"Codex","command":"codex","modelFlag":"--model","defaultProfile":"codex-yolo"},
+    {"name":"opencode","displayName":"OpenCode","command":"opencode","modelFlag":"--model","defaultProfile":"opencode-auto"},
+    {"name":"qwen","displayName":"Qwen Code","command":"qwen","modelFlag":"--model"},
+    {"name":"antigravity","displayName":"Antigravity","command":"agy","modelFlag":"--model"},
+    {"name":"pi","displayName":"Pi","command":"pi","modelFlag":"--model"},
+    {"name":"droid","displayName":"Droid","command":"droid","modelFlag":"--model"},
+    {"name":"kilo","displayName":"Kilo Code","command":"kilo","modelFlag":"--model"},
+    {"name":"cursor","displayName":"Cursor","command":"cursor-agent","modelFlag":"--model"},
+    {"name":"copilot","displayName":"Copilot CLI","command":"copilot","modelFlag":"--model"},
+    {"name":"grok","displayName":"Grok","command":"grok","modelFlag":"--model"},
+    {"name":"kimi","displayName":"Kimi","command":"kimi","modelFlag":"--model"},
+    {"name":"devin","displayName":"Devin","command":"devin","modelFlag":"--model"},
+    {"name":"qoder","displayName":"Qoder","command":"qodercli","modelFlag":"--model"}
+  ],
+  "launchProfiles": {
+    "codex-yolo": {"agentID":"codex","args":["--yolo"]},
+    "opencode-auto": {"agentID":"opencode","args":["--auto"]}
+  }
+}

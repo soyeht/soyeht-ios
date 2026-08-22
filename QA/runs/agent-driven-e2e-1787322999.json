@@ -1,0 +1,55 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787322999",
+  "status": "passed",
+  "typingCollision": {
+    "completionObservedInSenderTranscript": true,
+    "deliveryTimestampAfterEnter": 809015856.85219,
+    "deliveryTimestampBeforeEnter": null,
+    "inputSimulation": "send_pane_input without Enter through the shared onUserInputData draft gate",
+    "recipientAgent": "opencode",
+    "recipientFocusedForHumanSimulation": true,
+    "recipientPane": {
+      "conversationID": "F16A4B7B-21D2-40D6-80FB-92D79C38042B",
+      "declaredAgent": "opencode",
+      "handle": "@e2e-draft-target-opencode-1787322999",
+      "isActive": false,
+      "isActiveWorkspace": true,
+      "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+      "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+      "workspaceID": "B5163D41-02C7-41AD-B259-BD008CD06116"
+    },
+    "recipientProcess": {
+      "command": "/opt/homebrew/bin/opencode --auto",
+      "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+      "pid": 99891,
+      "ppid": 99797
+    },
+    "relayAbsentBeforeEnter": true,
+    "relayObservedAfterEnter": true,
+    "replyContractVersion": 2,
+    "replyServerVersion": "2.0.0",
+    "requestContractVersion": 2,
+    "requestServerVersion": "2.0.0",
+    "senderAgent": "codex",
+    "senderPane": {
+      "conversationID": "11359F6F-272A-4F4F-B7F8-072695B17B74",
+      "handle": "@e2e-draft-sender-codex-1787322999",
+      "name": "e2e-draft-sender-codex-1787322999",
+      "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+      "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+      "workspaceID": "B5163D41-02C7-41AD-B259-BD008CD06116"
+    },
+    "senderProcess": {
+      "command": "/opt/homebrew/bin/codex --yolo",
+      "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+      "pid": 98081,
+      "ppid": 3021
+    },
+    "status": "passed",
+    "unfinishedDraftInputAccepted": true,
+    "unfinishedDraftVisibleInDynamicCapture": false
+  }
+}

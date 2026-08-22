@@ -37,7 +37,8 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
             to: "\n}\n\n@MainActor\nprivate final class PaneErrorContentViewController"
         )
         XCTAssertTrue(endEngineSession.contains("case .engineLocal(let engineConversationID) = conversation.commander"))
-        XCTAssertTrue(endEngineSession.contains("DeferredEngineSessionReaper.scheduleReap(engineConversationID: engineConversationID)"))
+        XCTAssertTrue(endEngineSession.contains("DeferredEngineSessionReaper.scheduleReap("))
+        XCTAssertTrue(endEngineSession.contains("paneID: conversationID"))
         // Must NOT delete inline — that would kill the session before the undo
         // window elapses, so undo could never reconnect.
         XCTAssertFalse(endEngineSession.contains("deleteLocalTerminal"), "close must defer, not delete inline")
@@ -51,12 +52,14 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         let source = try macSource("SoyehtInstance/DeferredEngineSessionReaper.swift")
         let performReap = try slice(
             source,
-            from: "private static func performReap(engineConversationID: String) async {",
+            from: "private static func performReap(",
             to: "\n    }\n}"
         )
         XCTAssertTrue(performReap.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
         XCTAssertTrue(performReap.contains("LocalEngineContext.resolve()"))
         XCTAssertTrue(performReap.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+        XCTAssertTrue(performReap.contains("PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)"))
+        XCTAssertFalse(performReap.contains("quarantineAgentLaunchOwnership(paneID: paneID)"))
 
         // Cancellation re-check (PR #325 review, Finding 1): a ⌘Z that lands
         // after the 15s sleep but before the DELETE is sent must still abort the
@@ -66,7 +69,7 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         // a re-adopted session is never torn down.
         let resolveIdx = try XCTUnwrap(performReap.range(of: "LocalEngineContext.resolve()"))
         let cancelIdx = try XCTUnwrap(
-            performReap.range(of: "if Task.isCancelled { return }"),
+            performReap.range(of: "if Task.isCancelled { return false }"),
             "performReap must re-check cancellation before the destructive delete"
         )
         let deleteIdx = try XCTUnwrap(performReap.range(of: "deleteLocalTerminal"))
@@ -80,23 +83,36 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         // The reap only runs after sleeping the undo window.
         let scheduleReap = try slice(
             source,
-            from: "static func scheduleReap(engineConversationID: String) {",
+            from: "static func scheduleReap(engineConversationID: String, paneID: Conversation.ID) {",
             to: "\n    }\n"
         )
         XCTAssertTrue(scheduleReap.contains("Task.sleep(nanoseconds: Self.undoWindowNanoseconds)"))
+        XCTAssertTrue(scheduleReap.contains("guard !existing.state.committed"))
+    }
+
+    func testPresenceDiffDoesNotRevokeOwnershipInsideUndoWindow() throws {
+        let source = try macSource("Pairing/PaneStatusTracker.swift")
+        let recompute = try slice(
+            source,
+            from: "private func recomputeAndBroadcast() {",
+            to: "private func scheduleSnapshotBroadcast()"
+        )
+        XCTAssertTrue(recompute.contains("forgetAutomationState(paneID: uuid)"))
+        XCTAssertFalse(recompute.contains("launchOwnership.prepareForLaunch"))
+        XCTAssertFalse(recompute.contains("quarantineInMemory"))
     }
 
     /// The reattach path must cancel a pending reap so undo reconnects the
     /// still-alive session instead of the reaper deleting it out from under a
     /// pane the user just brought back.
-    func testRestoreCancelsPendingReap() throws {
+    func testRestoreSettlesPendingReap() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
         let restore = try slice(
             source,
             from: "private func restoreEnginePaneIfNeeded(for conv: Conversation) {",
-            to: "isRestoringLocalShell = true"
+            to: "let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath"
         )
-        XCTAssertTrue(restore.contains("DeferredEngineSessionReaper.cancelReap(engineConversationID: initialEngineConversationID)"))
+        XCTAssertTrue(restore.contains("DeferredEngineSessionReaper.settlePendingReapBeforeReuse("))
     }
 
     /// The regression surface a future refactor would actually hit: unlike

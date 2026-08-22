@@ -6,7 +6,7 @@ import Foundation
 /// The catalog maps a stable agent id (also the `AgentType.claw` name used
 /// in the ConversationStore) to the CLI binary that launches it.
 enum LocalAgentCatalog {
-    struct Agent: Identifiable, Equatable {
+    struct Agent: Codable, Identifiable, Equatable {
         /// Stable id / claw name ("claude", "cursor").
         let name: String
         /// Menu label ("Claude Code").
@@ -14,26 +14,53 @@ enum LocalAgentCatalog {
         /// Default launch command (binary name; flags may be appended by
         /// `AgentLaunchCommandBuilder.prepare`).
         let command: String
+        let modelFlag: String
+        let defaultProfile: String?
 
         var id: String { name }
     }
 
-    static let all: [Agent] = [
-        Agent(name: "claude", displayName: "Claude Code", command: "claude"),
-        Agent(name: "codex", displayName: "Codex", command: "codex"),
-        Agent(name: "opencode", displayName: "OpenCode", command: "opencode"),
-        Agent(name: "qwen", displayName: "Qwen Code", command: "qwen"),
-        Agent(name: "antigravity", displayName: "Antigravity", command: "agy"),
-        Agent(name: "pi", displayName: "Pi", command: "pi"),
-        Agent(name: "droid", displayName: "Droid", command: "droid"),
-        Agent(name: "kilo", displayName: "Kilo Code", command: "kilo"),
-        Agent(name: "cursor", displayName: "Cursor", command: "cursor-agent"),
-        Agent(name: "copilot", displayName: "Copilot CLI", command: "copilot"),
-        Agent(name: "grok", displayName: "Grok", command: "grok"),
-        Agent(name: "kimi", displayName: "Kimi", command: "kimi"),
-        Agent(name: "devin", displayName: "Devin", command: "devin"),
-        Agent(name: "qoder", displayName: "Qoder", command: "qodercli"),
-    ]
+    struct LaunchProfile: Codable, Equatable {
+        let agentID: String
+        let args: [String]
+    }
+
+    private struct Document: Codable {
+        let schemaVersion: Int
+        let agents: [Agent]
+        let launchProfiles: [String: LaunchProfile]
+    }
+
+    private static let document: Document = {
+        let bundled = Bundle.main.url(
+            forResource: "LocalAgentCatalog",
+            withExtension: "json"
+        )
+        let sourceTree = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("LocalAgentCatalog.json")
+        let workingDirectory = URL(
+            fileURLWithPath: FileManager.default.currentDirectoryPath,
+            isDirectory: true
+        )
+        let candidates = [
+            bundled,
+            Optional(sourceTree),
+            Optional(workingDirectory.appendingPathComponent("../SoyehtMac/LocalAgentCatalog.json")),
+            Optional(workingDirectory.appendingPathComponent("TerminalApp/SoyehtMac/LocalAgentCatalog.json")),
+        ].compactMap { $0 }
+        guard let value = candidates.lazy.compactMap({ url -> Document? in
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(Document.self, from: data)
+        }).first(where: { $0.schemaVersion == 1 && !$0.agents.isEmpty }) else {
+            preconditionFailure("LocalAgentCatalog.json is missing or invalid")
+        }
+        return value
+    }()
+
+    static let all: [Agent] = document.agents
+    static let launchProfiles: [String: LaunchProfile] = document.launchProfiles
 
     /// Agents whose CLI binary can be located on this Mac.
     static func availableAgents() -> [Agent] {

@@ -1,0 +1,330 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [
+    {
+      "childAgent": "opencode",
+      "childPane": {
+        "conversationID": "1F7524BC-EF4A-479F-B216-B62D2CA396EA",
+        "declaredAgent": "opencode",
+        "handle": "@e2e-child-opencode-1787343464-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "childProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "pid": 75681,
+        "ppid": 75549
+      },
+      "childStoleFocus": false,
+      "completionMarker": "E2E-FLOW-OK-1787343464-1 E2E-REPLY-1787343464-1",
+      "completionObservedInParentTranscript": true,
+      "parentAgent": "codex",
+      "parentPane": {
+        "conversationID": "FFDCF076-18B0-4F4C-9A7F-064272C3DF59",
+        "handle": "@e2e-parent-codex-1787343464",
+        "name": "e2e-parent-codex-1787343464",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 72436,
+        "ppid": 3021
+      },
+      "parentRequest": {
+        "attentionRequestedAt": 809036327.695828,
+        "body": "Responda a mim com exatamente E2E-REPLY-1787343464-1",
+        "channel": "deferredTerminal",
+        "createdAt": 809036327.695828,
+        "id": "6FB1166C-690E-49BC-B060-0E75119664D8",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "6FB1166C-690E-49BC-B060-0E75119664D8",
+        "recipient": {
+          "handle": "e2e-child-opencode-1787343464-1",
+          "paneID": "1F7524BC-EF4A-479F-B216-B62D2CA396EA",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "1F7524BC-EF4A-479F-B216-B62D2CA396EA",
+        "recipientReference": "e2e-child-opencode-1787343464-1",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-parent-codex-1787343464",
+          "paneID": "FFDCF076-18B0-4F4C-9A7F-064272C3DF59",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "FFDCF076-18B0-4F4C-9A7F-064272C3DF59",
+        "senderReference": "e2e-parent-codex-1787343464",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentTranscriptTail": "les\": [],\n        \"agentWorkspaceGroups\": [],\n        \"arrangedPaneLayouts\": [], \"capturedPanes\": [],\n        \"closedPanes\": [], \"...\n\n\u2022 Called\n  \u2514 soyeht-dev.get_pane_status({\"conversationIDs\":\n        [\"1F7524BC-EF4A-479F-B216-\n        B62D2CA396EA\"],\"targetWindowID\":\"D02E2B24-DB4F-\n        4BE0-ADF4-7B51BBAE7D7E\",\"timeout\":15})\n    {\"adjustedPaneFonts\": [],\n        \"agentCommunicationPolicies\": [],\n        \"agentInboxMessages\": [],\n        \"agentMessageDeliveries\": [],\n        \"agentOrchestrations\": [], \"agentRoles\": [],\n        \"agentWorkspaceGroups\": [],\n        \"arrangedPaneLayouts\": [], \"capturedPanes\": [],\n        \"closedPanes\": [], \"...\n\n\u2022 Called\n  \u2514 soyeht-dev.capture_pane({\"conversationIDs\":\n        [\"1F7524BC-EF4A-479F-B216-\n        B62D2CA396EA\"],\"targetWindowID\":\"D02E2B24-DB4F-\n        4BE0-ADF4-\n        7B51BBAE7D7E\",\"mode\":\"all\",\"maxLines\":80,\"timeout\n        \":15})\n    {\"adjustedPaneFonts\": [],\n        \"agentCommunicationPolicies\": [],\n        \"agentInboxMessages\": [],\n        \"agentMessageDeliveries\": [],\n        \"agentOrchestrations\": [], \"agentRoles\": [],\n        \"agentWorkspaceGroups\": [],\n        \"arrangedPaneLayouts\": [], \"capturedPanes\":\n        [{\"conversationID\": \"1F7...\n\n\n\u203a Sent via Soyeht. From: [e2e-child-opencode-1787343464-\n  1] (conversationID: 1F7524BC-EF4A-479F-B216-\n  B62D2CA396EA). To: [e2e-parent-codex-1787343464]\n  (conversationID: FFDCF076-18B0-4F4C-9A7F-\n  064272C3DF59). Reply via Soyeht MCP soyeht-\n  dev.message_agent to conversationIDs=[\"1F7524BC-EF4A-\n  479F-B216-B62D2CA396EA\"], lineEnding=enter. Request:\n  E2E-REPLY-1787343464-1\n\n\n\u2022 E2E-FLOW-OK-1787343464-1 E2E-REPLY-1787343464-1\n\n\u2500 Worked for 1m 02s \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n \n \n\u203a Ask Codex to do anything\n \n  gpt-5.6-sol xhigh \u00b7 /private/tmp/iSoyehtTerm-mcp2-orch\u2026",
+      "promptVocabularyAudit": {
+        "forbiddenFragments": [
+          "message_agent",
+          "open_agent_pane",
+          "send_pane_input",
+          "soyeht-dev",
+          "mcp",
+          "nome da fun\u00e7\u00e3o",
+          "nome da ferramenta"
+        ],
+        "status": "passed"
+      },
+      "reply": {
+        "attentionRequestedAt": 809036335.454043,
+        "body": "E2E-REPLY-1787343464-1",
+        "channel": "deferredTerminal",
+        "createdAt": 809036335.454043,
+        "id": "EF12709A-1C19-440C-AD8E-BDA6D6B3ACE9",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "EF12709A-1C19-440C-AD8E-BDA6D6B3ACE9",
+        "recipient": {
+          "handle": "e2e-parent-codex-1787343464",
+          "paneID": "FFDCF076-18B0-4F4C-9A7F-064272C3DF59",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "FFDCF076-18B0-4F4C-9A7F-064272C3DF59",
+        "recipientReference": "e2e-parent-codex-1787343464",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-child-opencode-1787343464-1",
+          "paneID": "1F7524BC-EF4A-479F-B216-B62D2CA396EA",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "1F7524BC-EF4A-479F-B216-B62D2CA396EA",
+        "senderReference": "e2e-child-opencode-1787343464-1",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "requestedDirectory": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos, abra uma nova pane com opencode neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/QA, e d\u00ea a ela o nome e2e-child-opencode-1787343464-1. Depois fale com esse agente e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E-REPLY-1787343464-1. Aguarde a resposta dele. S\u00f3 ent\u00e3o responda aqui com exatamente E2E-FLOW-OK-1787343464-1 E2E-REPLY-1787343464-1."
+    },
+    {
+      "childAgent": "claude",
+      "childPane": {
+        "conversationID": "617407F6-1312-4CBF-BADF-79F6C52EE838",
+        "declaredAgent": "claude",
+        "handle": "@e2e-child-claude-1787343464-2",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "childProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+        "pid": 75646,
+        "ppid": 75532
+      },
+      "childStoleFocus": false,
+      "completionMarker": "E2E-FLOW-OK-1787343464-2 E2E-REPLY-1787343464-2",
+      "completionObservedInParentTranscript": true,
+      "parentAgent": "opencode",
+      "parentPane": {
+        "conversationID": "46801746-1BB5-4B66-9E83-53E1B654257B",
+        "handle": "@e2e-parent-opencode-1787343464",
+        "name": "e2e-parent-opencode-1787343464",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 73890,
+        "ppid": 73804
+      },
+      "parentRequest": {
+        "attentionRequestedAt": 809036327.488929,
+        "body": "Por favor, responda a mim com exatamente: E2E-REPLY-1787343464-2",
+        "channel": "deferredTerminal",
+        "createdAt": 809036327.488929,
+        "deferredTerminalDeliveredAt": 809036330.264521,
+        "deferredTerminalDeliveryStartedAt": 809036328.252196,
+        "id": "0F3786AC-0C92-454A-9D37-FB68258E7038",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "0F3786AC-0C92-454A-9D37-FB68258E7038",
+        "recipient": {
+          "handle": "e2e-child-claude-1787343464-2",
+          "paneID": "617407F6-1312-4CBF-BADF-79F6C52EE838",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "617407F6-1312-4CBF-BADF-79F6C52EE838",
+        "recipientReference": "e2e-child-claude-1787343464-2",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-parent-opencode-1787343464",
+          "paneID": "46801746-1BB5-4B66-9E83-53E1B654257B",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "46801746-1BB5-4B66-9E83-53E1B654257B",
+        "senderReference": "e2e-parent-opencode-1787343464",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentTranscriptTail": "                                    \n  \u2503  (no output)                                              \n  \u2503                                                           \n                                                              \n  \u2503                                                           \n  \u2503  Sent via Soyeht. From: [e2e-child-claude-1787343464-2]   \n  \u2503  (conversationID: 617407F6-1312-4CBF-BADF-79F6C52EE838).  \n  \u2503   To: [e2e-parent-opencode-1787343464] (conversationID:   \n  \u2503  46801746-1BB5-4B66-9E83-53E1B654257B). Reply via         \n  \u2503  Soyeht MCP soyeht-dev.message_agent to                   \n  \u2503  conversationIDs=[\"617407F6-1312-4CBF-BADF-               \n  \u2503  79F6C52EE838\"], lineEnding=enter. Request: E2E-REPLY-    \n  \u2503  1787343464-2                                             \n  \u2503                                                           \n                                                              \n     + Thought: 2.4s                                          \n                                                              \n     E2E-FLOW-OK-1787343464-2 E2E-REPLY-1787343464-2          \n                                                              \n     \u25a3  Build \u00b7 GLM-5.3 \u00b7 11.1s                               \n                                                              \n  \u2503                                                           \n  \u2503                                                           \n  \u2503                                                           \n  \u2503  Build auto \u00b7 GLM-5.3 Z.AI Coding Plan \u00b7 high             \n  \u2579\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580  \n   /private/tmp/iSoyehtTerm-mcp2-     58.8K (6%ctrl+p         \n   orchestration                               commands       \n                                                              ",
+      "promptVocabularyAudit": {
+        "forbiddenFragments": [
+          "message_agent",
+          "open_agent_pane",
+          "send_pane_input",
+          "soyeht-dev",
+          "mcp",
+          "nome da fun\u00e7\u00e3o",
+          "nome da ferramenta"
+        ],
+        "status": "passed"
+      },
+      "reply": {
+        "attentionRequestedAt": 809036349.940271,
+        "body": "E2E-REPLY-1787343464-2",
+        "channel": "deferredTerminal",
+        "createdAt": 809036349.940271,
+        "deferredTerminalDeliveryStartedAt": 809036350.702078,
+        "id": "2F704B7C-6302-4700-A994-CA8138DBF22B",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "2F704B7C-6302-4700-A994-CA8138DBF22B",
+        "recipient": {
+          "handle": "e2e-parent-opencode-1787343464",
+          "paneID": "46801746-1BB5-4B66-9E83-53E1B654257B",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "46801746-1BB5-4B66-9E83-53E1B654257B",
+        "recipientReference": "e2e-parent-opencode-1787343464",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-child-claude-1787343464-2",
+          "paneID": "617407F6-1312-4CBF-BADF-79F6C52EE838",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "617407F6-1312-4CBF-BADF-79F6C52EE838",
+        "senderReference": "e2e-child-claude-1787343464-2",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "requestedDirectory": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos, abra uma nova pane com claude neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/docs, e d\u00ea a ela o nome e2e-child-claude-1787343464-2. Depois fale com esse agente e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E-REPLY-1787343464-2. Aguarde a resposta dele. S\u00f3 ent\u00e3o responda aqui com exatamente E2E-FLOW-OK-1787343464-2 E2E-REPLY-1787343464-2."
+    },
+    {
+      "childAgent": "codex",
+      "childPane": {
+        "conversationID": "8B1D108C-9107-4291-B36D-5852ADF4EBDE",
+        "declaredAgent": "codex",
+        "handle": "@e2e-child-codex-1787343464-3",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "childProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "pid": 77360,
+        "ppid": 3021
+      },
+      "childStoleFocus": false,
+      "completionMarker": "E2E-FLOW-OK-1787343464-3 E2E-REPLY-1787343464-3",
+      "completionObservedInParentTranscript": true,
+      "parentAgent": "claude",
+      "parentPane": {
+        "conversationID": "0AACB7FC-7C44-4D3B-88BF-E862C63EA1D4",
+        "handle": "@e2e-parent-claude-1787343464",
+        "name": "e2e-parent-claude-1787343464",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 74756,
+        "ppid": 74655
+      },
+      "parentRequest": {
+        "attentionRequestedAt": 809036364.472183,
+        "body": "Ol\u00e1! Este \u00e9 um teste E2E de comunica\u00e7\u00e3o entre agentes. Por favor, responda para mim (@e2e-parent-claude-1787343464) usando a ferramenta message_agent do Soyeht, com uma mensagem contendo exatamente este texto e nada mais: E2E-REPLY-1787343464-3",
+        "channel": "deferredTerminal",
+        "createdAt": 809036364.472183,
+        "id": "C8662331-82F4-4746-9122-A474EA79124F",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "C8662331-82F4-4746-9122-A474EA79124F",
+        "recipient": {
+          "handle": "e2e-child-codex-1787343464-3",
+          "paneID": "8B1D108C-9107-4291-B36D-5852ADF4EBDE",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "8B1D108C-9107-4291-B36D-5852ADF4EBDE",
+        "recipientReference": "e2e-child-codex-1787343464-3",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-parent-claude-1787343464",
+          "paneID": "0AACB7FC-7C44-4D3B-88BF-E862C63EA1D4",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "0AACB7FC-7C44-4D3B-88BF-E862C63EA1D4",
+        "senderReference": "e2e-parent-claude-1787343464",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "parentTranscriptTail": "soyeht iSoyehtTerm-mcp2-orchestration $ /Users/macstudio/.l\nocal/bin/claude\n \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.239\n\u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Fable5withxhigheffort\u00b7ClaudeMax\n \u259d\u259d\u259d\u259d/private/tmp/iSoyehtTerm-mcp2-orchestration\n\n\n\u276f Sem alterar arquivos, abra uma nova pane com codex neste \n  mesmo workspace, no diret\u00f3rio exato                      \n  /private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp, \n  e d\u00ea a ela o nome e2e-child-codex-1787343464-3. Depois   \n  fale com esse agente e pe\u00e7a que ele responda a voc\u00ea com  \n  exatamente E2E-REPLY-1787343464-3. Aguarde a resposta    \n  dele. S\u00f3 ent\u00e3o responda aqui com exatamente              \n  E2E-FLOW-OK-1787343464-3 E2E-REPLY-1787343464-3.         \n\n\u23fa Vou carregar as ferramentas do Soyeht Dev e identificaro\nworkspaceatualantesdeabrirapanecomocodex.\n\n\u23fa Ferramentas carregadas. Agora vou identificarmeu\ncontexto(workspaceeidentidadederemetente)paraabrir\n  a pane no mesmo workspace.\n\n  Called soyeht-dev (ctrl+o to expand)\n\n\u23fa Estou na pane @e2e-parent-claude-1787343464,workspace\n\"agentdriven\".Abrindoapanedocodexnessemesmo\n  workspace.\n\n  Called soyeht-dev (ctrl+o to expand)\n\n\u23fa Pane criada (@e2e-child-codex-1787343464-3,codex--yolo,\nnodiret\u00f3riocerto).Agoraenvioamensagempedindoa\n  resposta exata.\n\n\u23fa Calling soyeht-dev\u2026 (ctrl+o to expand)\n\n\u00b7 Ruminating\u2026 (57s \u00b7 still thinking with xhigh effort)\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u276f\u00a0\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n--INSERT\u23f5\u23f5automodeon (shift+tabtocycle)\u00b7\u2190fo\u2026\n--\n\n\n\n\n\n",
+      "promptVocabularyAudit": {
+        "forbiddenFragments": [
+          "message_agent",
+          "open_agent_pane",
+          "send_pane_input",
+          "soyeht-dev",
+          "mcp",
+          "nome da fun\u00e7\u00e3o",
+          "nome da ferramenta"
+        ],
+        "status": "passed"
+      },
+      "reply": {
+        "attentionRequestedAt": 809036377.167917,
+        "body": "E2E-REPLY-1787343464-3",
+        "channel": "deferredTerminal",
+        "createdAt": 809036377.167917,
+        "id": "A36928B2-CC4F-4092-A627-C161821B0B4D",
+        "mcpClientContractVersion": 2,
+        "mcpClientServerVersion": "2.0.0",
+        "messageID": "A36928B2-CC4F-4092-A627-C161821B0B4D",
+        "recipient": {
+          "handle": "e2e-parent-claude-1787343464",
+          "paneID": "0AACB7FC-7C44-4D3B-88BF-E862C63EA1D4",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "recipientConversationID": "0AACB7FC-7C44-4D3B-88BF-E862C63EA1D4",
+        "recipientReference": "e2e-parent-claude-1787343464",
+        "recipientWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C",
+        "sender": {
+          "handle": "e2e-child-codex-1787343464-3",
+          "paneID": "8B1D108C-9107-4291-B36D-5852ADF4EBDE",
+          "workspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+        },
+        "senderConversationID": "8B1D108C-9107-4291-B36D-5852ADF4EBDE",
+        "senderReference": "e2e-child-codex-1787343464-3",
+        "senderWorkspaceID": "4D95BA78-F643-44B0-B541-9D308EC5119C"
+      },
+      "requestedDirectory": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos, abra uma nova pane com codex neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp, e d\u00ea a ela o nome e2e-child-codex-1787343464-3. Depois fale com esse agente e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E-REPLY-1787343464-3. Aguarde a resposta dele. S\u00f3 ent\u00e3o responda aqui com exatamente E2E-FLOW-OK-1787343464-3 E2E-REPLY-1787343464-3."
+    }
+  ],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787343464",
+  "status": "passed",
+  "typingCollisions": []
+}

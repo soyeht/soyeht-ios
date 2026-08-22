@@ -1,0 +1,59 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787337809",
+  "status": "passed",
+  "typingCollisions": [
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterRelease": 809030715.556222,
+      "deliveryTimestampBeforeRelease": null,
+      "draftReleaseAction": "ctrl-u",
+      "inputSimulation": "macOS Accessibility UTF-8 paste plus physical ctrl-u",
+      "recipientAgent": "opencode",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "AF40956D-8CE4-494E-BC3F-751FE6775EA9",
+        "declaredAgent": "opencode",
+        "handle": "@e2e-draft-target-opencode-1787337809-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "CD4572D8-F78F-457C-9D8C-7E51DDA6FB68"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/opencode --auto",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
+        "pid": 22428,
+        "ppid": 21577
+      },
+      "relayAbsentBeforeRelease": true,
+      "relayObservedAfterRelease": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "codex",
+      "senderPane": {
+        "conversationID": "59DAAF56-7B93-4C64-92A5-4B08A97A174F",
+        "handle": "@e2e-draft-sender-codex-1787337809-1",
+        "name": "e2e-draft-sender-codex-1787337809-1",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "CD4572D8-F78F-457C-9D8C-7E51DDA6FB68"
+      },
+      "senderProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 18120,
+        "ppid": 3021
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    }
+  ]
+}

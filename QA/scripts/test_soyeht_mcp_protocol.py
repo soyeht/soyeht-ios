@@ -1,5 +1,12 @@
 #!/usr/bin/env -S uv run
+import hashlib
+import json
+import os
 import runpy
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -10,15 +17,162 @@ MODULE = runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts" / "s
 
 class SoyehtMCPProtocolTests(unittest.TestCase):
     def setUp(self):
-        MODULE["handle_message"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
-        self.sleep_patch = patch.object(MODULE["time"], "sleep", lambda _seconds: None)
-        self.sleep_patch.start()
-
-    def tearDown(self):
-        self.sleep_patch.stop()
+        MODULE["parent_process_environment"].__globals__["_PARENT_PROCESS_ENVIRONMENT"] = {}
 
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
+
+    def test_tools_list_contract_matches_reviewed_mcp2_golden(self):
+        encoded = json.dumps(
+            MODULE["TOOLS"],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+        self.assertEqual(len(MODULE["TOOLS"]), 44)
+        self.assertEqual(
+            hashlib.sha256(encoded).hexdigest(),
+            "7a93e6cf79fd9d5654d6fe1a1be3c7ba3d91f9370a5560468870692d76daad76",
+        )
+
+    def test_tool_registry_has_exactly_one_handler_per_schema(self):
+        schema_names = [tool["name"] for tool in MODULE["TOOLS"]]
+
+        self.assertEqual(len(schema_names), len(set(schema_names)))
+        self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
+
+    def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
+        globals_ = MODULE["tool_open_file"].__globals__
+        original_choose_file = globals_["choose_file"]
+        original_open_shell = globals_["tool_open_shell"]
+        captured = {}
+        try:
+            globals_["choose_file"] = lambda _args: Path("/tmp/example.txt")
+
+            def fake_open_shell(args):
+                captured.update(args)
+                return {"status": "ok"}
+
+            globals_["tool_open_shell"] = fake_open_shell
+            result = MODULE["tool_open_file"]({"mode": "shell", "editor": "vim"})
+        finally:
+            globals_["choose_file"] = original_choose_file
+            globals_["tool_open_shell"] = original_open_shell
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["selectedFile"], "/tmp/example.txt")
+        self.assertEqual(captured["agent"], "shell")
+        self.assertEqual(captured["path"], "/tmp")
+        self.assertEqual(captured["command"], "vim /tmp/example.txt")
+
+    def test_file_ipc_request_and_directory_are_owner_only(self):
+        write_request = MODULE["write_request"]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            request = {"id": "permission-probe", "type": "list_windows", "payload": {}}
+            destination = write_request(root, request)
+
+            self.assertEqual(os.stat(destination.parent).st_mode & 0o777, 0o700)
+            self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
+            self.assertFalse((destination.parent / ".permission-probe.tmp").exists())
+
+    def test_file_ipc_response_is_consumed_after_successful_decode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / "Responses"
+            responses.mkdir()
+            response = responses / "consume-me.json"
+            response.write_text(json.dumps({"status": "ok"}), encoding="utf-8")
+
+            self.assertEqual(
+                MODULE["wait_response"](root, "consume-me", 0.1),
+                {"status": "ok"},
+            )
+            self.assertFalse(response.exists())
+
+    def test_legacy_launcher_without_profile_infers_the_owning_bundle(self):
+        foundation = MODULE["inferred_mcp_client_profile"]
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                foundation("/Applications/Soyeht.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "release",
+            )
+            self.assertEqual(
+                foundation("/Applications/Soyeht Dev.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "dev",
+            )
+            self.assertEqual(foundation("/tmp/worktree/scripts/soyeht_mcp_foundation.py"), "dev")
+
+    def test_empty_profile_override_is_treated_as_unset(self):
+        foundation = MODULE["inferred_mcp_client_profile"]
+        with patch.dict(os.environ, {"SOYEHT_MCP_PROFILE": "  "}, clear=True):
+            self.assertEqual(
+                foundation("/Applications/Soyeht.app/Contents/Resources/soyeht_mcp_foundation.py"),
+                "release",
+            )
+
+    def test_signed_dev_builder_embeds_and_rechecks_binary_provenance(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        script = (repo_root / "scripts" / "build-install-soyeht-dev").read_text()
+        plist = (repo_root / "TerminalApp" / "SoyehtMac" / "Info.plist").read_text()
+
+        self.assertIn('SOYEHT_BUILD_GIT_COMMIT="$source_commit"', script)
+        self.assertIn("SoyehtBuildGitCommit", plist)
+        self.assertIn('installed_commit', script)
+        self.assertIn('installed_sha', script)
+        self.assertIn('trap restore_previous ERR', script)
+        self.assertNotIn('installed signature changed unexpectedly: expected $team_id, got $installed_team"\n  exit 1', script)
+
+    def test_server_source_remains_split_into_bounded_domain_modules(self):
+        scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+        entrypoint = scripts_dir / "soyeht-mcp"
+        modules = sorted(scripts_dir.glob("soyeht_mcp_*.py"))
+
+        self.assertLessEqual(len(entrypoint.read_text().splitlines()), 300)
+        self.assertGreaterEqual(len(modules), 10)
+        oversized = {
+            module.name: len(module.read_text().splitlines())
+            for module in modules
+            if len(module.read_text().splitlines()) > 600
+        }
+        self.assertEqual(oversized, {})
+
+    def test_bundled_server_does_not_write_bytecode_beside_signed_resources(self):
+        scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+        catalog = (
+            Path(__file__).resolve().parents[2]
+            / "TerminalApp/SoyehtMac/LocalAgentCatalog.json"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            bundle_resources = Path(temporary)
+            shutil.copy2(scripts_dir / "soyeht-mcp", bundle_resources / "soyeht-mcp")
+            shutil.copy2(catalog, bundle_resources / catalog.name)
+            for module in scripts_dir.glob("soyeht_mcp_*.py"):
+                shutil.copy2(module, bundle_resources / module.name)
+
+            completed = subprocess.run(
+                [sys.executable, str(bundle_resources / "soyeht-mcp")],
+                input="",
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertFalse((bundle_resources / "__pycache__").exists())
+
+    def test_bundle_loading_e2e_harnesses_never_mutate_signed_resources(self):
+        qa_scripts = Path(__file__).resolve().parent
+        for name in (
+            "soyeht_agent_driven_e2e.py",
+            "soyeht_mcp2_broker_queue_e2e.py",
+            "soyeht_mcp2_security_probes.py",
+        ):
+            source = (qa_scripts / name).read_text()
+            loader_offset = source.index("loader = importlib.machinery.SourceFileLoader")
+            guard_offset = source.index("sys.dont_write_bytecode = True")
+            self.assertLess(guard_offset, loader_offset, name)
 
     def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
         transport = MODULE["StdioTransport"]
@@ -34,6 +188,32 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             MODULE["signal"].SIGHUP,
             MODULE["signal"].SIG_IGN,
         )
+
+    def test_every_request_identifies_the_new_mcp_client_contract(self):
+        captured = {}
+        globals_ = MODULE["submit_request_to_root"].__globals__
+        original_write_request = globals_["write_request"]
+        original_wait_response = globals_["wait_response"]
+        try:
+            def fake_write_request(_root, request):
+                captured.update(request)
+                return Path("/tmp/request.json")
+
+            globals_["write_request"] = fake_write_request
+            globals_["wait_response"] = lambda _root, _request_id, _timeout: {"status": "ok"}
+
+            MODULE["submit_request_to_root"](
+                Path("/tmp/automation"),
+                "message_agent",
+                {"text": "hello"},
+            )
+        finally:
+            globals_["write_request"] = original_write_request
+            globals_["wait_response"] = original_wait_response
+
+        self.assertEqual(captured["payload"]["mcpClientContractVersion"], 3)
+        self.assertEqual(captured["payload"]["mcpClientServerVersion"], "2.0.0")
+        self.assertEqual(captured["payload"]["mcpClientProfile"], "dev")
 
     def test_list_panes_describes_declared_agent_as_metadata(self):
         tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_panes")
@@ -62,10 +242,22 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(prompt_mode["enum"], ["auto", "message", "raw"])
         self.assertIn("agent message", prompt_mode["description"])
         self.assertIn("raw", prompt_mode["description"])
-        for name in ("open_panes", "open_shell", "open_workspace", "create_worktree_panes", "agent_race_panes"):
+        for name in ("open_panes", "open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
             self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
+
+    def test_agent_catalog_is_loaded_from_the_app_owned_json(self):
+        document = __import__("json").loads(
+            (Path(__file__).resolve().parents[2] / "TerminalApp" / "SoyehtMac" / "LocalAgentCatalog.json")
+            .read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            list(MODULE["AGENT_CATALOG"]),
+            [entry["name"] for entry in document["agents"]],
+        )
+        self.assertEqual(MODULE["LAUNCH_PROFILES"], document["launchProfiles"])
 
     def test_message_agent_handler_is_registered_and_fail_closed_by_schema(self):
         self.assertIn("message_agent", MODULE["TOOL_HANDLERS"])
@@ -75,6 +267,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("never creates panes", tool["description"])
         self.assertIn("fromHandle", tool["inputSchema"]["properties"])
         self.assertIn("fromConversationID", tool["inputSchema"]["properties"])
+        self.assertIn("deliveryPreference", tool["inputSchema"]["properties"])
+
+        for name in (
+            "list_agent_messages",
+            "ack_agent_messages",
+            "set_agent_communication_policy",
+            "set_agent_role",
+            "save_agent_role_template",
+            "configure_agent_orchestration",
+        ):
+            self.assertIn(name, MODULE["TOOL_HANDLERS"])
+            self.assertTrue(any(tool["name"] == name for tool in MODULE["TOOLS"]))
 
     def test_agent_directory_tools_are_registered_for_multi_agent_routing(self):
         self.assertIn("identify_agent", MODULE["TOOL_HANDLERS"])
@@ -88,6 +292,105 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("agent/pane directory", directory["description"])
         self.assertIn("messageTarget", directory["description"])
         self.assertIn("Never create a new pane", directory["description"])
+
+    def test_open_agent_pane_catalog_matches_the_app_catalog(self):
+        expected = {
+            "claude": "claude",
+            "codex": "codex",
+            "opencode": "opencode",
+            "qwen": "qwen",
+            "antigravity": "agy",
+            "pi": "pi",
+            "droid": "droid",
+            "kilo": "kilo",
+            "cursor": "cursor-agent",
+            "copilot": "copilot",
+            "grok": "grok",
+            "kimi": "kimi",
+            "devin": "devin",
+            "qoder": "qodercli",
+        }
+
+        self.assertEqual(
+            {agent_id: entry["executable"] for agent_id, entry in MODULE["AGENT_CATALOG"].items()},
+            expected,
+        )
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "open_agent_pane")
+        self.assertEqual(set(tool["inputSchema"]["properties"]["agentID"]["enum"]), set(expected))
+        self.assertEqual(tool["inputSchema"]["required"], ["agentID"])
+        self.assertIn("live child process argv", tool["description"])
+        self.assertIn("not proof", tool["description"])
+
+    def test_launch_profiles_are_agent_specific_and_default_for_codex_and_opencode(self):
+        with patch.object(MODULE["shutil"], "which", lambda executable: f"/mock/bin/{executable}"):
+            codex = MODULE["build_agent_launch"]("codex")
+            opencode = MODULE["build_agent_launch"]("opencode")
+            base = MODULE["build_agent_launch"]("codex", profile="base")
+            quoted = MODULE["build_agent_launch"](
+                "qwen",
+                profile="base",
+                args=["value with spaces", "$(must-not-execute)"],
+            )
+
+        self.assertEqual(codex["profile"], "codex-yolo")
+        self.assertEqual(codex["expectedArgv"], ["/mock/bin/codex", "--yolo"])
+        self.assertEqual(opencode["profile"], "opencode-auto")
+        self.assertEqual(opencode["expectedArgv"], ["/mock/bin/opencode", "--auto"])
+        self.assertEqual(base["profile"], "base")
+        self.assertEqual(base["expectedArgv"], ["/mock/bin/codex"])
+        self.assertEqual(MODULE["shlex"].split(quoted["command"]), quoted["expectedArgv"])
+
+        with self.assertRaisesRegex(RuntimeError, "belongs to agentID"):
+            MODULE["build_agent_launch"]("claude", profile="codex-yolo")
+        with self.assertRaisesRegex(RuntimeError, "silently substituting"):
+            MODULE["build_agent_launch"]("not-real")
+
+    def test_open_agent_pane_forwards_exact_launch_contract_and_requires_real_argv_e2e(self):
+        captured = {}
+        globals_ = MODULE["tool_open_agent_pane"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok", "createdPanes": [{"declaredAgent": "codex"}]}
+
+            globals_["submit_request"] = fake_submit_request
+            with patch.object(MODULE["shutil"], "which", lambda executable: f"/mock/bin/{executable}"):
+                result = MODULE["tool_open_agent_pane"]({
+                    "agentID": "codex",
+                    "cwd": ".",
+                    "workspace": "22222222-2222-2222-2222-222222222222",
+                    "model": "gpt-5.6",
+                    "args": ["--search"],
+                    "name": "exact-agent-pane-name",
+                    "prompt": None,
+                })
+        finally:
+            globals_["submit_request"] = original_submit
+
+        expected_argv = ["/mock/bin/codex", "--yolo", "--model", "gpt-5.6", "--search"]
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertEqual(captured["payload"]["workspaceID"], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(captured["payload"]["agent"], "codex")
+        self.assertFalse(captured["payload"]["activateCreatedPane"])
+        self.assertEqual(captured["payload"]["paneNameStyle"], "verbatim")
+        self.assertEqual(captured["payload"]["panes"][0]["name"], "exact-agent-pane-name")
+        self.assertEqual(captured["payload"]["panes"][0]["agent"], "codex")
+        self.assertEqual(captured["payload"]["command"], "/mock/bin/codex --yolo --model gpt-5.6 --search")
+        self.assertEqual(result["launchContract"]["expectedArgv"], expected_argv)
+        self.assertEqual(result["launchContract"]["profile"], "codex-yolo")
+        self.assertTrue(result["argvVerification"]["required"])
+        self.assertEqual(result["argvVerification"]["status"], "unverified")
+        self.assertIn("not proof", result["argvVerification"]["acceptance"])
+
+    def test_open_agent_pane_rejects_conflicting_workspace_aliases(self):
+        with self.assertRaisesRegex(RuntimeError, "workspace and workspaceID must match"):
+            MODULE["tool_open_agent_pane"]({
+                "agentID": "codex",
+                "workspace": "workspace-a",
+                "workspaceID": "workspace-b",
+            })
 
     def test_concrete_tty_path_rejects_generic_dev_tty(self):
         self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))
@@ -236,8 +539,9 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_send_pane_input_forwards_source_tty_and_keeps_text_raw(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -247,7 +551,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {}, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -256,7 +560,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
@@ -309,6 +613,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
+                "SOYEHT_LAUNCH_NONCE": "launch-proof",
             }, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -322,14 +627,36 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
+        self.assertEqual(captured["payload"]["nonce"], "launch-proof")
         self.assertNotIn("sourceTTY", captured["payload"])
+
+    def test_explicit_source_still_forwards_launch_nonce_from_environment(self):
+        payload = {}
+        globals_ = MODULE["with_source_context"].__globals__
+        original_tty = globals_["current_tty"]
+        try:
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            with patch.dict("os.environ", {"SOYEHT_LAUNCH_NONCE": "launch-proof"}, clear=True):
+                MODULE["with_source_context"](payload, {
+                    "fromConversationID": "22222222-2222-2222-2222-222222222222",
+                    "fromHandle": "@claimed-source",
+                })
+        finally:
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(payload["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
+        self.assertEqual(payload["sourceHandle"], "@claimed-source")
+        self.assertEqual(payload["nonce"], "launch-proof")
+        self.assertNotIn("sourceTTY", payload)
 
     def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
+        environment_globals = MODULE["source_environment_for_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
-        original_parent_env = globals_["parent_process_environment"]
+        original_tty = source_globals["current_tty"]
+        original_parent_env = environment_globals["parent_process_environment"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -337,8 +664,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
-            globals_["parent_process_environment"] = lambda: {
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
+            environment_globals["parent_process_environment"] = lambda: {
                 "SOYEHT_CONVERSATION_ID": "33333333-3333-3333-3333-333333333333",
                 "SOYEHT_HANDLE": "@parent-codex",
             }
@@ -349,8 +676,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
-            globals_["parent_process_environment"] = original_parent_env
+            source_globals["current_tty"] = original_tty
+            environment_globals["parent_process_environment"] = original_parent_env
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
@@ -471,9 +798,11 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_explicit_automation_dir_uses_matching_parent_source_environment(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
+        environment_globals = MODULE["source_environment_for_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
-        original_parent_env = globals_["parent_process_environment"]
+        original_tty = source_globals["current_tty"]
+        original_parent_env = environment_globals["parent_process_environment"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -482,8 +811,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: None
-            globals_["parent_process_environment"] = lambda: {
+            source_globals["current_tty"] = lambda: None
+            environment_globals["parent_process_environment"] = lambda: {
                 "SOYEHT_AUTOMATION_DIR": "/Users/test/Library/Application Support/SoyehtDev/Automation",
                 "SOYEHT_CONVERSATION_ID": "44444444-4444-4444-4444-444444444444",
                 "SOYEHT_HANDLE": "@dev-codex",
@@ -496,8 +825,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
-            globals_["parent_process_environment"] = original_parent_env
+            source_globals["current_tty"] = original_tty
+            environment_globals["parent_process_environment"] = original_parent_env
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
@@ -562,17 +891,25 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             globals_["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["request_type"], "send_agent_message")
         self.assertEqual(captured["payload"]["handles"], ["@reviewer"])
         self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
-        self.assertTrue(captured["payload"]["forceAgentEnvelope"])
-        self.assertTrue(captured["payload"]["requireAgentEnvelope"])
+        self.assertEqual(captured["payload"]["deliveryPreference"], "automatic")
+        self.assertTrue(captured["payload"]["requestAttention"])
         self.assertEqual(captured["payload"]["lineEnding"], "enter")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
 
     def test_message_agent_refuses_to_create_or_guess_target(self):
         with self.assertRaisesRegex(RuntimeError, "requires handles or conversationIDs"):
             MODULE["tool_message_agent"]({"text": "please review"})
+
+    def test_message_agent_rejects_raw_unsubmitted_terminal_input(self):
+        with self.assertRaisesRegex(RuntimeError, "complete message"):
+            MODULE["tool_message_agent"]({
+                "handles": ["@reviewer"],
+                "text": "please review",
+                "lineEnding": "none",
+            })
 
     def test_open_shell_agent_prompt_defaults_to_message_mode_with_source(self):
         captured = {}
@@ -605,8 +942,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "message")
         self.assertEqual(captured["payload"]["panes"][0]["prompt"], "please review this")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
-        self.assertEqual(result["promptDeliveryStatus"], "waited")
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_open_shell_raw_prompt_mode_preserves_literal_agent_input(self):
         captured = {}
@@ -633,7 +969,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 15_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 18_000)
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_open_shell_codex_prompt_waits_for_default_delivery_delay(self):
         captured = {}
@@ -658,7 +994,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["payload"]["promptMode"], "message")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 8_000)
-        self.assertEqual(result["promptDeliveryWaitMs"], 11_000)
+        self.assertNotIn("promptDeliveryWaitMs", result)
 
     def test_shell_prompt_defaults_to_raw_mode(self):
         captured = {}
@@ -682,7 +1018,48 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptMode"], "raw")
         self.assertEqual(captured["payload"]["panes"][0]["promptDelayMs"], 1_500)
-        self.assertEqual(result["promptDeliveryWaitMs"], 1_500)
+        self.assertNotIn("promptDeliveryWaitMs", result)
+
+    def test_prompt_delivery_summary_uses_app_ack_without_sleeping(self):
+        response = {
+            "status": "ok",
+            "createdPanes": [
+                {"promptDeliveryStatus": "acknowledged"},
+                {"promptDeliveryStatus": "acknowledged"},
+            ],
+        }
+
+        result = MODULE["wait_for_initial_prompt_delivery"]({}, response)
+
+        self.assertEqual(result["promptDeliveryStatus"], "acknowledged")
+        self.assertEqual(
+            result["promptDeliveryStatuses"],
+            ["acknowledged", "acknowledged"],
+        )
+        self.assertNotIn("promptDeliveryWaitMs", result)
+
+    def test_agent_creation_timeout_scales_with_real_prompt_acknowledgements(self):
+        sessions = [
+            {"agent": "codex", "prompt": "review"},
+            {"agent": "opencode", "prompt": "review"},
+            {"agent": "shell", "prompt": "printf ok"},
+        ]
+
+        self.assertEqual(MODULE["creation_request_timeout"]({}, sessions), 261.5)
+        self.assertEqual(
+            MODULE["creation_request_timeout"]({"timeout": 17}, sessions),
+            17.0,
+        )
+        self.assertEqual(
+            MODULE["creation_request_timeout"]({}, [{"agent": "shell", "prompt": "ls"}]),
+            MODULE["DEFAULT_BATCH_CREATE_TIMEOUT"],
+        )
+
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "open_agent_pane")
+        self.assertEqual(
+            tool["inputSchema"]["properties"]["timeout"]["default"],
+            MODULE["DEFAULT_AGENT_CREATE_TIMEOUT"],
+        )
 
     def test_identify_agent_forwards_explicit_source(self):
         captured = {}
@@ -738,6 +1115,64 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["sourceConversationID"], "11111111-1111-1111-1111-111111111111")
         self.assertEqual(captured["payload"]["workspaceIDs"], ["22222222-2222-2222-2222-222222222222"])
         self.assertEqual(captured["payload"]["targetWindowID"], "window-a")
+
+    def test_list_agents_is_global_grouped_and_marks_callers_workspace_first(self):
+        globals_ = MODULE["tool_list_agents"].__globals__
+        original_submit = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=10.0):
+                self.assertNotIn("workspaceIDs", payload)
+                return {
+                    "status": "ok",
+                    "sourceIdentity": {
+                        "workspaceID": "workspace-current",
+                        "workspaceName": "Current Team",
+                        "handle": "@delia",
+                    },
+                    "activeContext": {
+                        "workspaceID": "workspace-other",
+                        "workspaceName": "Other",
+                    },
+                    "listedAgents": [
+                        {
+                            "conversationID": "other-id",
+                            "workspaceID": "workspace-other",
+                            "workspaceName": "Other",
+                            "handle": "@remote",
+                            "messageTarget": {"handles": ["@remote"]},
+                            "replyInstructions": "legacy @remote instructions",
+                        },
+                        {
+                            "conversationID": "current-id",
+                            "workspaceID": "workspace-current",
+                            "workspaceName": "Current Team",
+                            "handle": "@caia",
+                            "messageTarget": {"handles": ["@caia"]},
+                            "replyInstructions": "legacy @caia instructions",
+                        },
+                    ],
+                }
+
+            globals_["submit_request"] = fake_submit_request
+            result = MODULE["tool_list_agents"]({"fromHandle": "@delia"})
+        finally:
+            globals_["submit_request"] = original_submit
+
+        self.assertEqual(result["directoryScope"], "global")
+        self.assertEqual(result["currentWorkspace"]["workspaceID"], "workspace-current")
+        self.assertEqual(result["currentWorkspace"]["resolution"], "sourceIdentity")
+        self.assertEqual(result["workspaceGroups"][0]["workspaceID"], "workspace-current")
+        self.assertTrue(result["workspaceGroups"][0]["sameWorkspace"])
+        by_id = {agent["conversationID"]: agent for agent in result["listedAgents"]}
+        self.assertTrue(by_id["current-id"]["sameWorkspace"])
+        self.assertTrue(by_id["current-id"]["currentWorkspace"])
+        self.assertEqual(by_id["current-id"]["displayReference"], "[caia]")
+        self.assertEqual(by_id["current-id"]["routingHandle"], "@caia")
+        self.assertFalse(by_id["other-id"]["sameWorkspace"])
+        self.assertEqual(by_id["other-id"]["displayReference"], "[remote]")
+        self.assertNotIn("@remote", by_id["other-id"]["replyInstructions"])
+        self.assertEqual(result["sourceIdentity"]["displayReference"], "[delia]")
+        self.assertIn("Legacy @handles", result["routingCompatibility"])
 
     def test_move_pane_forwards_source_and_destination_windows(self):
         captured = {}
@@ -808,6 +1243,44 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_open_panes_requires_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
             MODULE["tool_open_panes"]({"panes": [{"path": "."}]})
+
+    def test_legacy_open_panes_honors_each_agent_profile_without_stealing_focus(self):
+        captured = {}
+        globals_ = MODULE["tool_open_panes"].__globals__
+        original = globals_["submit_request"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            MODULE["tool_open_panes"]({
+                "panes": [{"name": "requested-opencode", "path": ".", "agent": "opencode"}],
+            })
+        finally:
+            globals_["submit_request"] = original
+
+        self.assertEqual(captured["request_type"], "create_worktree_panes")
+        self.assertFalse(captured["payload"]["activateCreatedPane"])
+        self.assertEqual(captured["payload"]["panes"][0]["agent"], "opencode")
+        self.assertIn("opencode", captured["payload"]["panes"][0]["command"])
+        self.assertIn("--auto", captured["payload"]["panes"][0]["command"])
+
+    def test_legacy_open_panes_keeps_plain_shell_focus_behavior(self):
+        captured = {}
+        globals_ = MODULE["tool_open_panes"].__globals__
+        original = globals_["submit_request"]
+        try:
+            globals_["submit_request"] = lambda request_type, payload, **kwargs: captured.setdefault("payload", payload) or {"status": "ok"}
+            MODULE["tool_open_panes"]({
+                "agent": "shell",
+                "panes": [{"name": "shell", "path": ".", "agent": "shell"}],
+            })
+        finally:
+            globals_["submit_request"] = original
+
+        self.assertTrue(captured["payload"]["activateCreatedPane"])
 
     def test_open_workspace_requires_pane_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):

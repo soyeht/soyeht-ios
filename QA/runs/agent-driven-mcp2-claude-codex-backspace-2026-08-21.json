@@ -1,0 +1,59 @@
+{
+  "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
+  "flows": [],
+  "kind": "real-agent-behavioral-ring",
+  "runID": "1787337426",
+  "status": "passed",
+  "typingCollisions": [
+    {
+      "completionObservedInSenderTranscript": true,
+      "deliveryTimestampAfterRelease": 809030536.124074,
+      "deliveryTimestampBeforeRelease": null,
+      "draftReleaseAction": "backspace",
+      "inputSimulation": "macOS Accessibility UTF-8 paste plus physical backspace",
+      "recipientAgent": "codex",
+      "recipientFocusedForHumanSimulation": true,
+      "recipientPane": {
+        "conversationID": "14B66329-F989-49F2-A2F8-4C4E83827802",
+        "declaredAgent": "codex",
+        "handle": "@e2e-draft-target-codex-1787337426-1",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "7C0DE64E-6825-4D01-A6CD-A000E8A406CD"
+      },
+      "recipientProcess": {
+        "command": "/opt/homebrew/bin/codex --yolo",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
+        "pid": 93176,
+        "ppid": 3021
+      },
+      "relayAbsentBeforeRelease": true,
+      "relayObservedAfterRelease": true,
+      "replyContractVersion": 2,
+      "replyServerVersion": "2.0.0",
+      "requestContractVersion": 2,
+      "requestServerVersion": "2.0.0",
+      "senderAgent": "claude",
+      "senderPane": {
+        "conversationID": "F643E72C-E99B-4C26-9780-886F96E91AEB",
+        "handle": "@e2e-draft-sender-claude-1787337426-1",
+        "name": "e2e-draft-sender-claude-1787337426-1",
+        "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "promptDeliveryStatus": "acknowledged",
+        "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
+        "workspaceID": "7C0DE64E-6825-4D01-A6CD-A000E8A406CD"
+      },
+      "senderProcess": {
+        "command": "/Users/macstudio/.local/bin/claude",
+        "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
+        "pid": 90690,
+        "ppid": 90582
+      },
+      "status": "passed",
+      "unfinishedDraftInputAccepted": true,
+      "unfinishedDraftVisibleInDynamicCapture": true
+    }
+  ]
+}

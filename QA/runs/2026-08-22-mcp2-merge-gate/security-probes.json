@@ -1,0 +1,148 @@
+{
+  "app": {
+    "binarySHA256": "66aa4967d7bb4dceb54acc49c45929296e3dc27c33ac86d7ad13e39b0c4180e1",
+    "bundleID": "com.soyeht.mac.dev",
+    "commit": "4bd8febc4b6d2262685c9a1d4407ef47e540eb5a",
+    "installation": "/Applications/Soyeht Dev.app",
+    "mcpBundleSHA256": "1a709b98b7fa648379761141669db11a192eb86457dce440b7e67e2f99c6f6f9",
+    "mcpFiles": [
+      "LocalAgentCatalog.json",
+      "soyeht-mcp",
+      "soyeht_mcp_catalog.py",
+      "soyeht_mcp_foundation.py",
+      "soyeht_mcp_ipc.py",
+      "soyeht_mcp_runtime.py",
+      "soyeht_mcp_schema.py",
+      "soyeht_mcp_schema_creation.py",
+      "soyeht_mcp_schema_directory.py",
+      "soyeht_mcp_schema_layout.py",
+      "soyeht_mcp_schema_messaging.py",
+      "soyeht_mcp_tools_content.py",
+      "soyeht_mcp_tools_creation.py",
+      "soyeht_mcp_tools_directory.py",
+      "soyeht_mcp_tools_layout.py",
+      "soyeht_mcp_tools_messaging.py"
+    ],
+    "signedTeamID": "W7677A5BK2",
+    "teamID": "W7677A5BK2"
+  },
+  "cases": [
+    {
+      "case": "legacy-agent-write",
+      "expected": "rejected",
+      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787409962. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "result": "rejected"
+    },
+    {
+      "case": "spoof-policy-without-launch-nonce",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "owning-pane-valid-launch-nonce",
+      "expected": "accepted",
+      "result": "accepted"
+    },
+    {
+      "case": "cross-pane-nonce-get_conversation_context",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "cross-pane-nonce-ack_conversation_context",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "cross-pane-nonce-report_agent_state",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "cross-pane-nonce-report_agent_conversation",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "cross-pane-nonce-request_attention",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "owning-pane-context-read",
+      "expected": "accepted",
+      "result": "accepted"
+    },
+    {
+      "case": "agent-message-cannot-use-line-ending-none",
+      "expected": "rejected",
+      "message": "Agent messages must be complete submissions with lineEnding=enter; received: none. Use send_pane_input for intentional raw terminal input.",
+      "result": "rejected"
+    },
+    {
+      "case": "valid-other-pane-nonce-cannot-spoof-owner",
+      "expected": "rejected",
+      "message": "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment.",
+      "result": "rejected"
+    },
+    {
+      "case": "old-contract-sensitive-write",
+      "expected": "rejected",
+      "message": "Soyeht rejected MCP client contract 2; automation mutations require contract 3. Reinstall this app's MCP integration.",
+      "result": "rejected"
+    },
+    {
+      "case": "omitted-agent-default-codex-still-requires-current-contract",
+      "expected": "rejected",
+      "message": "Soyeht rejected MCP client contract 2; automation mutations require contract 3. Reinstall this app's MCP integration.",
+      "result": "rejected"
+    },
+    {
+      "case": "wrong-profile-sensitive-write",
+      "expected": "rejected",
+      "message": "Soyeht rejected MCP profile release; this app accepts the dev integration. Reinstall or select the matching MCP server.",
+      "result": "rejected"
+    },
+    {
+      "activeWorkspaceID": "D3CCA99C-B7F1-4705-8E02-5313119D459B",
+      "agentWorkspaceID": "3C93CBA2-D78C-4B06-92CE-C1548321CD89",
+      "case": "inactive-workspace-launch-ownership-survives-app-restart",
+      "expected": "accepted",
+      "result": "accepted"
+    },
+    {
+      "captureTail": "\u2500\u256f\n\n  Tip: New Use /fast to enable our fastest inference with increased plan usage.\n\n\u2022 You have 1 usage limit reset available. Run /usage to use one.\n\n\u26a0 MCP client for `xcode` failed to start: MCP startup failed: handshaking with MCP server failed: connection closed: initialize response\n\n\u26a0 MCP client for `xcode` failed to start: MCP startup failed: handshaking with MCP server failed: connection closed: initialize response\n\n\u26a0 MCP startup incomplete (failed: xcode)\n \n \n\u203a\n MCP2_REATTACH_KEYBOARD_1787409962\n \n  gpt-5.6-sol xhigh \u00b7 /private/tmp/iSoyehtTerm-mcp2-orchestration\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "case": "persistent-reattach-keeps-physical-keyboard-live",
+      "expected": "typed bytes visible before explicit cancel",
+      "result": "accepted",
+      "token": "MCP2_REATTACH_KEYBOARD_1787409962"
+    }
+  ],
+  "cleanup": [
+    {
+      "status": "closed_via_ui",
+      "workspaceID": "D3CCA99C-B7F1-4705-8E02-5313119D459B"
+    },
+    {
+      "status": "closed_via_ui",
+      "workspaceID": "3C93CBA2-D78C-4B06-92CE-C1548321CD89"
+    }
+  ],
+  "createdAgents": {
+    "codex": {
+      "conversationID": "D5483DD8-DC6F-4059-9BBD-669F3FBEEEEA",
+      "handle": "@mcp2-security-codex-1787409962"
+    },
+    "opencode": {
+      "conversationID": "D62E3B68-AEC2-4817-848C-C5B6D0E835FC",
+      "handle": "@mcp2-security-opencode-1787409962"
+    }
+  },
+  "status": "passed"
+}

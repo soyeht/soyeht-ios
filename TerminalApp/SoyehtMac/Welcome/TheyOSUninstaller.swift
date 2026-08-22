@@ -585,7 +585,12 @@ final class TheyOSUninstaller: ObservableObject {
         // Clear only the current install profile's keychain namespaces. Soyeht
         // Dev must not delete shipping pairing or household state.
         let profile = SoyehtInstallProfile.current
-        for service in [profile.mobileKeychainService, profile.keychainService, profile.householdKeychainService] {
+        for service in [
+            profile.mobileKeychainService,
+            profile.keychainService,
+            profile.keychainService + ".agent-launch-ownership",
+            profile.householdKeychainService,
+        ] {
             deleteGenericPasswordService(service, dataProtection: true)
             deleteGenericPasswordService(service, dataProtection: false)
         }

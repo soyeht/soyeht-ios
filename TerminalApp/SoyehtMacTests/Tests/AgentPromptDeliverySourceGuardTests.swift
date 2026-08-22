@@ -11,10 +11,11 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
         )
         XCTAssertEqual(
             attach.components(separatedBy: "deliverAgentPromptWithAcknowledgement(").count - 1,
-            2
+            1
         )
-        XCTAssertTrue(attach.contains("if promptAcknowledged {\n                            onPromptDelivered?()"))
-        XCTAssertTrue(attach.contains("turn_bound_agent_prompt_delivery_failed"))
+        XCTAssertTrue(attach.contains("if promptAcknowledged {"))
+        XCTAssertTrue(attach.contains("onPromptDelivered?()"))
+        XCTAssertTrue(attach.contains("agent_prompt_delivery_failed"))
     }
 
     func testAcknowledgementRetriesAndRequiresFreshWorkingReport() throws {
@@ -26,14 +27,14 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
         )
         XCTAssertTrue(helper.contains("for attempt in 1...3"))
         XCTAssertTrue(helper.contains("source: expectedReportSource"))
-        XCTAssertTrue(helper.contains("lastWorkingReportAt"))
+        XCTAssertTrue(helper.contains("lastTurnSubmissionAcknowledgedAt"))
         XCTAssertTrue(helper.contains("last > baseline"))
         XCTAssertTrue(helper.contains("guard !Task.isCancelled"))
         XCTAssertEqual(
             helper.components(separatedBy: "text: payload,").count - 1,
             1
         )
-        XCTAssertFalse(helper.contains("lastReportAt("))
+        XCTAssertFalse(helper.contains("lastWorkingReportAt"))
     }
 
     func testRetrySubmitsBufferedPromptWithoutPastingItTwice() throws {
@@ -43,7 +44,9 @@ final class AgentPromptDeliverySourceGuardTests: XCTestCase {
             from: "private static func deliverAgentPromptWithAcknowledgement(",
             to: "/// Attempts to spawn/reattach the pane's shell"
         )
-        XCTAssertTrue(helper.contains("terminalView.brokerSend(text: \"\\r\")"))
+        XCTAssertTrue(helper.contains("pane.sendAutomationInputForDeferredDeliverySafety("))
+        XCTAssertTrue(helper.contains("text: \"\\r\""))
+        XCTAssertTrue(helper.contains("isExplicitRawInput: true"))
         XCTAssertFalse(helper.contains("expectedReportSource == \"hook:kimi\""))
     }
 

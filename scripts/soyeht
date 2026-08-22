@@ -18,6 +18,7 @@ PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
+MCP_CLIENT_CONTRACT_VERSION = 3
 
 
 def run(cmd, cwd=None, check=True):
@@ -67,6 +68,23 @@ def default_automation_root():
     return Path.home() / "Library" / "Application Support" / "Soyeht" / "Automation"
 
 
+def automation_profile(root):
+    explicit = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
+    if explicit:
+        if explicit not in ("dev", "release"):
+            raise SystemExit("SOYEHT_MCP_PROFILE must be 'dev' or 'release'.")
+        return explicit
+    components = {part.lower() for part in Path(root).expanduser().parts}
+    if "soyehtdev" in components:
+        return "dev"
+    if "soyeht" in components:
+        return "release"
+    raise SystemExit(
+        "Cannot infer the Soyeht profile from --automation-dir. "
+        "Set SOYEHT_MCP_PROFILE=dev or SOYEHT_MCP_PROFILE=release."
+    )
+
+
 def default_agent_command(agent):
     if str(agent).strip().lower() == "shell":
         return ""
@@ -105,19 +123,41 @@ def ensure_directory(path):
 def write_request(root, request):
     requests_dir = root / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(requests_dir, 0o700)
     tmp = requests_dir / f".{request['id']}.tmp"
     dest = requests_dir / f"{request['id']}.json"
-    tmp.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    descriptor = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(request, handle, indent=2, sort_keys=True)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
     os.replace(tmp, dest)
     return dest
 
 
 def wait_response(root, request_id, timeout):
-    response = root / "Responses" / f"{request_id}.json"
+    responses_dir = root / "Responses"
+    responses_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(responses_dir, 0o700)
+    response = responses_dir / f"{request_id}.json"
     deadline = time.time() + timeout
     while time.time() < deadline:
         if response.exists():
-            return json.loads(response.read_text(encoding="utf-8"))
+            try:
+                decoded = json.loads(response.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                time.sleep(0.05)
+                continue
+            try:
+                response.unlink()
+            except FileNotFoundError:
+                pass
+            return decoded
         time.sleep(0.25)
     return None
 
@@ -169,11 +209,16 @@ def submit(payload, args, request_type="create_worktree_workspaces"):
 def submit_request(payload, request_type, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT, no_wait=False):
     request_id = str(uuid.uuid4())
     root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
+    payload = dict(payload)
+    payload.setdefault("mcpClientContractVersion", MCP_CLIENT_CONTRACT_VERSION)
+    payload.setdefault("mcpClientProfile", automation_profile(root))
     request = {
         "id": request_id,
         "type": request_type,
         "payload": payload,
     }
+    if no_wait:
+        request["expectsResponse"] = False
     request_file = write_request(root, request)
 
     if no_wait:

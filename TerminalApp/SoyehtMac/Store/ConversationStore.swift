@@ -100,6 +100,15 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Assign or clear a semantic role without changing the pane handle or
+    /// agent process identity.
+    func updateRoleAssignment(_ id: Conversation.ID, roleAssignment: AgentRoleAssignment?) {
+        guard var conv = conversations[id], conv.roleAssignment != roleAssignment else { return }
+        conv.roleAssignment = roleAssignment
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Hydrate an existing placeholder conversation in-place (keeping the same
     /// identity) with a new handle + agent. Used by the in-pane empty-state
     /// picker flow (driQx → RgdJh) where the leaf `Conversation.ID` must
@@ -115,6 +124,65 @@ final class ConversationStore {
     func updateAgentConversation(_ id: Conversation.ID, state: AgentConversationState) {
         guard var conv = conversations[id] else { return }
         conv.agentConversation = state
+        conversations[id] = conv
+        postChange()
+    }
+
+    /// Persist the credential together with the pane whose process owns it.
+    /// This is deliberately not exposed by directory/status responses.
+    func updateAgentLaunchOwnershipNonce(_ id: Conversation.ID, nonce: String?) {
+        guard var conv = conversations[id], conv.agentLaunchOwnershipNonce != nonce else { return }
+        conv.agentLaunchOwnershipNonce = nonce
+        conversations[id] = conv
+        postChange()
+    }
+
+    /// Persist one idempotent inbox insertion. The route/policy decision must
+    /// be made before this mutation; this method additionally guarantees that
+    /// a message cannot be written into the wrong pane's inbox.
+    @discardableResult
+    func enqueueAgentMessage(
+        _ message: AgentMessage,
+        in id: Conversation.ID
+    ) throws -> Bool {
+        guard var conv = conversations[id] else {
+            throw AgentMessageInbox.MutationError.wrongRecipient
+        }
+        let inserted = try conv.agentMessageInbox.enqueue(message, recipientID: id)
+        guard inserted else { return false }
+        conversations[id] = conv
+        postChange()
+        return true
+    }
+
+    @discardableResult
+    func mutateAgentMessageInbox(
+        _ id: Conversation.ID,
+        _ mutation: (inout AgentMessageInbox) throws -> Void
+    ) rethrows -> AgentMessageInbox? {
+        guard var conv = conversations[id] else { return nil }
+        try mutation(&conv.agentMessageInbox)
+        conversations[id] = conv
+        postChange()
+        return conv.agentMessageInbox
+    }
+
+    func updateAgentCommunicationPolicy(
+        _ id: Conversation.ID,
+        policy: AgentCommunicationPolicy
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentCommunicationPolicy = policy
+        conversations[id] = conv
+        postChange()
+    }
+
+    func updateAgentRequestedCommunicationPolicy(
+        _ id: Conversation.ID,
+        policy: AgentCommunicationPolicy
+    ) {
+        guard var conv = conversations[id] else { return }
+        conv.agentRequestedCommunicationPolicy = policy
         conversations[id] = conv
         postChange()
     }

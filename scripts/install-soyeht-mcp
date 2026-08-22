@@ -55,6 +55,7 @@ set -euo pipefail
 
 BASE_MCP=$quoted_source_mcp
 SOYEHT_GIT_COMMON_DIR=$quoted_source_git_common_dir
+export SOYEHT_MCP_PROFILE=$identity
 
 repo_root="\$(git -C "\${PWD:-.}" rev-parse --show-toplevel 2>/dev/null || true)"
 repo_git_common_dir=""

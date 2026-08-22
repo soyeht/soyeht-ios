@@ -11,10 +11,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import sys
 from time import sleep, time
 
 
 def load_mcp(repo_root: Path):
+    sys.dont_write_bytecode = True
     module_path = repo_root / "scripts" / "soyeht-mcp"
     loader = importlib.machinery.SourceFileLoader("soyeht_mcp", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)

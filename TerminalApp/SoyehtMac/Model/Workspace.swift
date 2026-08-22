@@ -37,6 +37,16 @@ struct Workspace: Codable, Identifiable, Hashable {
     /// Migrates from pre-v3 snapshots automatically because Codable
     /// synthesizes `nil` for missing optional fields.
     var groupID: Group.ID?
+    /// Optional keeps pre-MCP-2 snapshots byte/schema compatible. `nil` means
+    /// the deny-dominant evaluator's open policy.
+    var agentCommunicationPolicy: AgentCommunicationPolicy?
+
+    var effectiveAgentCommunicationPolicy: AgentCommunicationPolicy {
+        agentCommunicationPolicy ?? .open
+    }
+    /// Optional role templates and orchestration graphs. Legacy workspaces do
+    /// not contain this key and therefore decode with orchestration disabled.
+    var orchestration: WorkspaceOrchestration?
 
     /// Conversation IDs that belong to this workspace, in the depth-first
     /// structural order defined by `layout.leafIDs`. Fase 4.2: derived, not
@@ -47,6 +57,7 @@ struct Workspace: Codable, Identifiable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case id, name, kind, branch, layout, activePaneID, createdAt, groupID
+        case agentCommunicationPolicy, orchestration
         // `conversations` intentionally omitted — older snapshots that wrote
         // the field are handled by the custom `init(from:)` below, which
         // simply ignores unknown keys by virtue of not decoding them.
@@ -60,7 +71,9 @@ struct Workspace: Codable, Identifiable, Hashable {
         layout: PaneNode,
         activePaneID: Conversation.ID? = nil,
         createdAt: Date = Date(),
-        groupID: Group.ID? = nil
+        groupID: Group.ID? = nil,
+        agentCommunicationPolicy: AgentCommunicationPolicy? = nil,
+        orchestration: WorkspaceOrchestration? = nil
     ) {
         self.id = id
         self.name = name
@@ -70,6 +83,8 @@ struct Workspace: Codable, Identifiable, Hashable {
         self.activePaneID = activePaneID
         self.createdAt = createdAt
         self.groupID = groupID
+        self.agentCommunicationPolicy = agentCommunicationPolicy
+        self.orchestration = orchestration
     }
 
     /// Canonical seed factory. Kept post-Fase-4.2 because `make(seedLeaf:)`
