@@ -3,6 +3,9 @@ import hashlib
 import json
 import os
 import runpy
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -126,6 +129,30 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             if len(module.read_text().splitlines()) > 600
         }
         self.assertEqual(oversized, {})
+
+    def test_bundled_server_does_not_write_bytecode_beside_signed_resources(self):
+        scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+        catalog = (
+            Path(__file__).resolve().parents[2]
+            / "TerminalApp/SoyehtMac/LocalAgentCatalog.json"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            bundle_resources = Path(temporary)
+            shutil.copy2(scripts_dir / "soyeht-mcp", bundle_resources / "soyeht-mcp")
+            shutil.copy2(catalog, bundle_resources / catalog.name)
+            for module in scripts_dir.glob("soyeht_mcp_*.py"):
+                shutil.copy2(module, bundle_resources / module.name)
+
+            completed = subprocess.run(
+                [sys.executable, str(bundle_resources / "soyeht-mcp")],
+                input="",
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertFalse((bundle_resources / "__pycache__").exists())
 
     def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
         transport = MODULE["StdioTransport"]

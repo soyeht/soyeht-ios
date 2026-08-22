@@ -17,6 +17,9 @@ from time import monotonic, sleep, time
 
 
 def load_mcp(module_path: Path):
+    # SourceFileLoader otherwise writes __pycache__ into the signed bundle and
+    # makes the provenance check invalidate the artifact it is measuring.
+    sys.dont_write_bytecode = True
     loader = importlib.machinery.SourceFileLoader("soyeht_mcp2_security_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
@@ -156,9 +159,34 @@ def bundle_provenance(app_path: Path) -> dict:
 
 
 def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
+    return authenticated_request(
+        root,
+        mcp,
+        "set_agent_communication_policy",
+        pane,
+        nonce,
+        window_id,
+        timeout,
+        **policy,
+    )
+
+
+def authenticated_request(
+    root,
+    mcp,
+    request_type,
+    pane,
+    nonce,
+    window_id,
+    timeout,
+    *,
+    check_status=False,
+    **fields,
+):
+    """Submit as a real launched agent, not as the external probe process."""
     return mcp.submit_request_to_root(
         root,
-        "set_agent_communication_policy",
+        request_type,
         {
             "targetWindowID": window_id,
             "sourceConversationID": pane["conversationID"],
@@ -167,10 +195,10 @@ def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
             "mcpClientContractVersion": 3,
             "mcpClientProfile": "dev",
             "mcpClientServerVersion": "2.0.0-security-probe",
-            **policy,
+            **fields,
         },
         timeout=timeout,
-        check_status=False,
+        check_status=check_status,
     )
 
 
@@ -336,14 +364,19 @@ def main() -> int:
             expect_runtime_rejection(
                 "legacy-agent-write",
                 "Low-level send_pane_input cannot write to agent pane",
-                lambda: mcp.tool_send_pane_input({
-                    "automationDir": automation_dir,
-                    "timeout": args.timeout,
-                    "targetWindowID": window_id,
-                    "conversationIDs": [opencode["conversationID"]],
-                    "text": "MCP2_LEGACY_WRITE_MUST_NOT_APPEAR",
-                    "lineEnding": "none",
-                }),
+                lambda: authenticated_request(
+                    root,
+                    mcp,
+                    "send_pane_input",
+                    codex,
+                    codex_nonce,
+                    window_id,
+                    args.timeout,
+                    check_status=True,
+                    conversationIDs=[opencode["conversationID"]],
+                    text="MCP2_LEGACY_WRITE_MUST_NOT_APPEAR",
+                    lineEnding="none",
+                ),
             ),
             expect_runtime_rejection(
                 "spoof-policy-without-launch-nonce",
