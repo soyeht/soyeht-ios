@@ -601,6 +601,27 @@ def process_cwd(pid: int):
     return None
 
 
+def process_launch_nonce(pid: int, conversation_id: str, timeout: float) -> str:
+    """Read the just-observed agent's QA credential without persisting it."""
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        command = subprocess.run(
+            ["/bin/ps", "eww", "-p", str(pid), "-o", "command="],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).stdout
+        if f"SOYEHT_CONVERSATION_ID={conversation_id}" in command:
+            match = re.search(r"(?:^|\s)SOYEHT_LAUNCH_NONCE=([^\s]+)", command)
+            if match:
+                return match.group(1)
+        sleep(0.2)
+    raise RuntimeError(
+        f"Observed agent process {pid} never exposed the launch credential for "
+        f"{conversation_id}."
+    )
+
+
 def command_matches(command: str, expected_argv):
     try:
         tokens = shlex.split(command)
@@ -637,15 +658,28 @@ def observe_process(baseline, expected_argv, expected_cwd: Path, timeout):
     )
 
 
-def capture_text(mcp, pane, automation_dir, timeout):
-    response = mcp.tool_capture_pane({
-        "automationDir": automation_dir,
-        "timeout": timeout,
-        "conversationIDs": [pane["conversationID"]],
-        "targetWindowID": pane["windowID"],
-        "mode": "all",
-        "maxLines": 220,
-    })
+def capture_text(mcp, pane, nonce, automation_dir, timeout):
+    # capture_pane is intentionally self-only. The white-box harness uses the
+    # nonce of the exact PID whose argv/cwd it already proved; the secret is
+    # never written to the evidence document.
+    response = mcp.submit_request_to_root(
+        Path(automation_dir),
+        "capture_pane",
+        {
+            "targetWindowID": pane["windowID"],
+            "sourceConversationID": pane["conversationID"],
+            "sourceHandle": pane["handle"],
+            "nonce": nonce,
+            "conversationIDs": [pane["conversationID"]],
+            "mode": "all",
+            "maxLines": 220,
+            "mcpClientContractVersion": 3,
+            "mcpClientProfile": "dev",
+            "mcpClientServerVersion": "2.0.0-agent-driven-e2e",
+        },
+        timeout=timeout,
+        check_status=True,
+    )
     return "\n".join(item.get("text", "") for item in response.get("capturedPanes", [])).replace("\x00", "")
 
 
@@ -732,11 +766,11 @@ def wait_for_deferred_terminal_delivery(mcp, recipient, message_id, automation_d
     )
 
 
-def wait_for_parent_completion(mcp, parent, marker, automation_dir, timeout):
+def wait_for_parent_completion(mcp, parent, nonce, marker, automation_dir, timeout):
     deadline = monotonic() + timeout
     latest = ""
     while monotonic() < deadline:
-        latest = capture_text(mcp, parent, automation_dir, timeout)
+        latest = capture_text(mcp, parent, nonce, automation_dir, timeout)
         normalized = " ".join(latest.split())
         if marker in normalized:
             return latest
@@ -747,11 +781,11 @@ def wait_for_parent_completion(mcp, parent, marker, automation_dir, timeout):
     )
 
 
-def wait_for_transcript_token(mcp, pane, token, automation_dir, timeout):
+def wait_for_transcript_token(mcp, pane, nonce, token, automation_dir, timeout):
     deadline = monotonic() + timeout
     latest = ""
     while monotonic() < deadline:
-        latest = capture_text(mcp, pane, automation_dir, timeout)
+        latest = capture_text(mcp, pane, nonce, automation_dir, timeout)
         if token in latest:
             return latest
         sleep(0.5)
@@ -764,6 +798,7 @@ def wait_for_transcript_token(mcp, pane, token, automation_dir, timeout):
 def wait_for_transcript_token_count(
     mcp,
     pane,
+    nonce,
     token,
     minimum_count,
     automation_dir,
@@ -772,7 +807,7 @@ def wait_for_transcript_token_count(
     deadline = monotonic() + timeout
     latest = ""
     while monotonic() < deadline:
-        latest = capture_text(mcp, pane, automation_dir, timeout)
+        latest = capture_text(mcp, pane, nonce, automation_dir, timeout)
         if latest.count(token) >= minimum_count:
             return latest
         sleep(0.5)
@@ -834,6 +869,11 @@ def run_typing_collision(
         repo_root,
         timeout,
     )
+    sender_nonce = process_launch_nonce(
+        sender_process["pid"],
+        sender["conversationID"],
+        timeout,
+    )
     recipient, _ = wait_for_child_pane(
         mcp,
         observer,
@@ -849,13 +889,26 @@ def run_typing_collision(
         recipient_directory,
         timeout,
     )
-    wait_for_transcript_token(mcp, sender, ready_token, automation_dir, timeout)
+    recipient_nonce = process_launch_nonce(
+        recipient_process["pid"],
+        recipient["conversationID"],
+        timeout,
+    )
+    wait_for_transcript_token(
+        mcp,
+        sender,
+        sender_nonce,
+        ready_token,
+        automation_dir,
+        timeout,
+    )
     # The launch prompt itself contains the token once. Requiring a second
     # occurrence proves that the real agent answered and returned from a full
     # turn instead of merely echoing broker input during startup.
     wait_for_transcript_token_count(
         mcp,
         recipient,
+        recipient_nonce,
         recipient_ready_token,
         2,
         automation_dir,
@@ -918,7 +971,13 @@ def run_typing_collision(
             f"Synthetic human draft was not accepted by the real {recipient_agent} pane.",
         )
     sleep(0.75)
-    initial_draft_capture = capture_text(mcp, recipient, automation_dir, timeout)
+    initial_draft_capture = capture_text(
+        mcp,
+        recipient,
+        recipient_nonce,
+        automation_dir,
+        timeout,
+    )
     require(
         draft_token in initial_draft_capture,
         f"{input_mode} input did not reach the focused {recipient_agent} pane. "
@@ -967,7 +1026,13 @@ def run_typing_collision(
         timeout,
     )
     sleep(1.5)
-    held_capture = capture_text(mcp, recipient, automation_dir, timeout)
+    held_capture = capture_text(
+        mcp,
+        recipient,
+        recipient_nonce,
+        automation_dir,
+        timeout,
+    )
     require(
         relay_token not in held_capture,
         f"MCP relay spliced into a real {recipient_agent} agent's unfinished draft.",
@@ -1020,12 +1085,19 @@ def run_typing_collision(
         released_capture = wait_for_transcript_token(
             mcp,
             recipient,
+            recipient_nonce,
             relay_token,
             automation_dir,
             release_timeout,
         )
     except RuntimeError as exc:
-        post_release_capture = capture_text(mcp, recipient, automation_dir, timeout)
+        post_release_capture = capture_text(
+            mcp,
+            recipient,
+            recipient_nonce,
+            automation_dir,
+            timeout,
+        )
         post_release_message = inbox_message(
             mcp,
             recipient,
@@ -1058,6 +1130,7 @@ def run_typing_collision(
     wait_for_transcript_token(
         mcp,
         sender,
+        sender_nonce,
         completion_prefix,
         automation_dir,
         timeout,
@@ -1303,6 +1376,11 @@ def main() -> int:
                 repo_root,
                 args.timeout,
             )
+            parent_nonce = process_launch_nonce(
+                parent_process["pid"],
+                parent["conversationID"],
+                args.timeout,
+            )
             child, pane_inventory = wait_for_child_pane(
                 mcp,
                 observer,
@@ -1337,6 +1415,7 @@ def main() -> int:
             completion = wait_for_parent_completion(
                 mcp,
                 parent,
+                parent_nonce,
                 record["marker"],
                 automation_dir,
                 args.timeout,
