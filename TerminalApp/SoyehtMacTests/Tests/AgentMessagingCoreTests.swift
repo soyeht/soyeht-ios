@@ -287,6 +287,30 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
+    func testDraftGateCountsObservedKittyKeypadCharacters() {
+        var gate = AgentMessageDraftGate()
+
+        // System Events can encode ordinary numeric text through keypad
+        // functional codepoints. These exact packets were captured from the
+        // signed-app physical collision ring.
+        gate.record(Data("\u{1B}[101:69;2u".utf8)) // shifted E
+        gate.record(Data("\u{1B}[57401u".utf8)) // keypad 2
+        gate.record(Data("\u{1B}[57409u".utf8)) // keypad decimal
+        XCTAssertEqual(gate.pendingByteCount, 3)
+        XCTAssertFalse(gate.hasUncertainTerminalDraft)
+
+        gate.record(Data(repeating: 0x7F, count: 3))
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testDraftGateTreatsKittyKeypadEnterAsSubmission() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[57400u".utf8))
+        gate.record(Data("\u{1B}[57414u".utf8))
+        XCTAssertTrue(gate.isClear)
+    }
+
     func testDraftGateTreatsUnknownOrComposerControlsConservatively() {
         var gate = AgentMessageDraftGate()
 

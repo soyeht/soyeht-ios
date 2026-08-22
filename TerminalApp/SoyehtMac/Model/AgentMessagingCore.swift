@@ -406,6 +406,24 @@ struct AgentMessageDraftGate: Equatable {
         case 8, 127:
             pendingByteCount = max(0, pendingByteCount - 1)
             return true
+        case 57399...57413, 57415, 57416:
+            // Kitty reports keypad digits and printable operators as private
+            // functional-key codepoints rather than their visible Unicode
+            // scalar. They still add exactly one composer character. Treating
+            // them as unknown leaves hasUncertainTerminalDraft set forever
+            // after the user visibly erases the line with Backspace.
+            let textPreventingModifierMask = (1 << 1) | (1 << 2) | (1 << 3)
+                | (1 << 4) | (1 << 5)
+            guard rawModifiers & textPreventingModifierMask == 0 else {
+                markCursorStateUncertain()
+                return true
+            }
+            pendingByteCount += 1
+            return true
+        case 57414: // keypad Enter
+            pendingByteCount = 0
+            hasUncertainTerminalDraft = false
+            return true
         default:
             break
         }
