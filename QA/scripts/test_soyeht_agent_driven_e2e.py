@@ -38,17 +38,13 @@ class NaturalUserPromptTests(unittest.TestCase):
             recipient_directory=Path("/tmp/projeto"),
             recipient_ready_token="PRONTO",
             ready_token="PANE_PRONTA",
-        )
-        follow_up = RUNNER.natural_collision_message_prompt(
-            recipient_name="revisor",
             relay_token="RESPOSTA_EXATA",
             completion_prefix="CONCLUIDO",
         )
 
         self.assertIn("abra uma nova pane com claude", setup)
-        self.assertIn("Fale com o agente revisor", follow_up)
+        self.assertIn("fale com o agente revisor", setup)
         self.assertImplementationBlind(setup)
-        self.assertImplementationBlind(follow_up)
 
     def test_prompt_guard_rejects_tool_name_leakage(self):
         for prompt in (

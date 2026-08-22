@@ -279,6 +279,11 @@ end run
 
 
 def release_physical_draft(action, draft_length, expected_window_id):
+    # Autonomous agents may surface another application while the user keeps
+    # composing in Soyeht. Re-establish and verify the exact AX window at the
+    # last possible moment; the active pane remains zoomed and retains its
+    # first responder. Never send destructive Backspaces based on stale focus.
+    raise_soyeht_dev_window(expected_window_id)
     expected_identifier = f"com.soyeht.mac.mainwindow.{expected_window_id}"
     script = r'''
 on run argv
@@ -309,7 +314,7 @@ on run argv
   end tell
 end run
 '''
-    subprocess.run(
+    completed = subprocess.run(
         [
             "/usr/bin/osascript",
             "-e",
@@ -318,10 +323,15 @@ end run
             str(draft_length),
             expected_identifier,
         ],
-        check=True,
         capture_output=True,
         text=True,
     )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "unknown AX error"
+        raise RuntimeError(
+            f"Could not release physical draft in exact Soyeht Dev window "
+            f"{expected_window_id}: {detail}"
+        )
 
 
 def click_soyeht_dev_target(expected_window_id):
