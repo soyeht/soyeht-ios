@@ -154,6 +154,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertFalse((bundle_resources / "__pycache__").exists())
 
+    def test_bundle_loading_e2e_harnesses_never_mutate_signed_resources(self):
+        qa_scripts = Path(__file__).resolve().parent
+        for name in (
+            "soyeht_agent_driven_e2e.py",
+            "soyeht_mcp2_broker_queue_e2e.py",
+            "soyeht_mcp2_security_probes.py",
+        ):
+            source = (qa_scripts / name).read_text()
+            loader_offset = source.index("loader = importlib.machinery.SourceFileLoader")
+            guard_offset = source.index("sys.dont_write_bytecode = True")
+            self.assertLess(guard_offset, loader_offset, name)
+
     def test_main_ignores_pane_group_sighup_before_reading_stdio(self):
         transport = MODULE["StdioTransport"]
         original_read_messages = transport.read_messages

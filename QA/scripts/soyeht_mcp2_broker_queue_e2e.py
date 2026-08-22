@@ -25,6 +25,8 @@ import soyeht_agent_driven_e2e as physical
 
 
 def load_mcp(module_path: Path):
+    # Never invalidate a signed app bundle merely by loading its MCP resources.
+    sys.dont_write_bytecode = True
     loader = importlib.machinery.SourceFileLoader("soyeht_mcp2_broker_queue_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)

@@ -102,6 +102,8 @@ def natural_collision_message_prompt(recipient_name, relay_token, completion_pre
 
 
 def load_mcp(module_path: Path):
+    # Never invalidate a signed app bundle merely by loading its MCP resources.
+    sys.dont_write_bytecode = True
     loader = importlib.machinery.SourceFileLoader("soyeht_agent_driven_e2e_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)

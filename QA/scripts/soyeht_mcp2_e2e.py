@@ -20,10 +20,12 @@ import json
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 from time import monotonic, sleep, time
 
 
 def load_mcp(repo_root: Path):
+    sys.dont_write_bytecode = True
     module_path = repo_root / "scripts" / "soyeht-mcp"
     loader = importlib.machinery.SourceFileLoader("soyeht_mcp2_e2e_module", str(module_path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
