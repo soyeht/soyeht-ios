@@ -2,8 +2,8 @@
 
 Date: 2026-08-22  
 Platform: macOS, signed `/Applications/Soyeht Dev.app`  
-Verified source commit: `556701d56413349c9c264da71e54d94a8daef128`  
-App binary SHA-256: `ae5444b77fed6d27216eb1dd61d2a4e4b9db46ac1fd728078b24d20cc8d192ae`  
+Verified source commit: `4bd8febc4b6d2262685c9a1d4407ef47e540eb5a`
+App binary SHA-256: `66aa4967d7bb4dceb54acc49c45929296e3dc27c33ac86d7ad13e39b0c4180e1`
 MCP bundle SHA-256: `1a709b98b7fa648379761141669db11a192eb86457dce440b7e67e2f99c6f6f9`  
 Signing team: `W7677A5BK2`
 
@@ -28,7 +28,8 @@ durable snapshot; no runner treated cleanup failure as a warning.
 | MCP protocol suite | **64/64 passed** | `python3 -m unittest QA/scripts/test_soyeht_mcp_protocol.py` |
 | Behavioral-harness unit tests | **4/4 passed** | `python3 -m unittest test_soyeht_agent_driven_e2e.py` in `QA/scripts` |
 | macOS app build/install | **passed** | clean Developer ID build; embedded commit and post-install hashes verified |
-| Security boundary probes | **15/15 passed** | [security-probes.json](security-probes.json) |
+| Repository quick gate | **passed with assisted follow-ups** | [gate report](../2026-08-22-codex-gate-quick-2/gate-report.md) |
+| Security boundary probes | **16/16 passed** | [security-probes.json](security-probes.json) |
 | Natural-language agent collaboration | **3/3 passed** | [natural-collaboration.json](natural-collaboration.json) |
 | Physical Backspace collision ring | **3/3 passed** | [physical-backspace-ring.json](physical-backspace-ring.json) |
 | Broker queue/draft arbitration | **passed** | [broker-queue.json](broker-queue.json) |
@@ -80,13 +81,24 @@ draft was present, and was delivered only after the physical Return. This
 prevents semantic-ACK success from being misreported as proof of terminal
 queue release.
 
+### Persistent reattach keyboard
+
+The security runner left the agent workspace inactive, restarted the signed
+app while its Codex process survived, proved launch ownership was rehydrated
+before the workspace was materialized, and then focused that restored pane.
+Accessibility keyboard events typed a unique unfinished token which appeared
+in dynamic terminal capture before an explicit Ctrl-C cancelled it. This
+separately proves that clean persistent reattach remains fail-closed for agent
+relays without making the person's keyboard silent.
+
 ## Security probes
 
-The 15 runtime probes covered legacy raw writes to agent panes, absent and
+The 16 runtime probes covered legacy raw writes to agent panes, absent and
 cross-pane launch nonces, a valid owner nonce, authenticated context access,
 forbidden incomplete agent-message endings, old MCP contract rejection,
 wrong Dev/Release profile rejection, and launch-ownership restoration for an
-agent in an inactive workspace after app restart.
+agent in an inactive workspace after app restart. The sixteenth case is the
+physical-keyboard-after-reattach proof described above.
 
 ## Assisted/manual follow-ups
 

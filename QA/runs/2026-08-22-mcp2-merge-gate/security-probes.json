@@ -1,8 +1,8 @@
 {
   "app": {
-    "binarySHA256": "ae5444b77fed6d27216eb1dd61d2a4e4b9db46ac1fd728078b24d20cc8d192ae",
+    "binarySHA256": "66aa4967d7bb4dceb54acc49c45929296e3dc27c33ac86d7ad13e39b0c4180e1",
     "bundleID": "com.soyeht.mac.dev",
-    "commit": "556701d56413349c9c264da71e54d94a8daef128",
+    "commit": "4bd8febc4b6d2262685c9a1d4407ef47e540eb5a",
     "installation": "/Applications/Soyeht Dev.app",
     "mcpBundleSHA256": "1a709b98b7fa648379761141669db11a192eb86457dce440b7e67e2f99c6f6f9",
     "mcpFiles": [
@@ -30,7 +30,7 @@
     {
       "case": "legacy-agent-write",
       "expected": "rejected",
-      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787407597. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
+      "message": "Low-level send_pane_input cannot write to agent pane @mcp2-security-opencode-1787409962. Use message_agent so communication policy, durable inbox, and deferred delivery are enforced.",
       "result": "rejected"
     },
     {
@@ -110,31 +110,38 @@
       "result": "rejected"
     },
     {
-      "activeWorkspaceID": "C01164BF-E0A7-49E7-9906-C405B0142C71",
-      "agentWorkspaceID": "4AF53FB3-FAB7-459F-AEE6-552B70AB0656",
+      "activeWorkspaceID": "D3CCA99C-B7F1-4705-8E02-5313119D459B",
+      "agentWorkspaceID": "3C93CBA2-D78C-4B06-92CE-C1548321CD89",
       "case": "inactive-workspace-launch-ownership-survives-app-restart",
       "expected": "accepted",
       "result": "accepted"
+    },
+    {
+      "captureTail": "\u2500\u256f\n\n  Tip: New Use /fast to enable our fastest inference with increased plan usage.\n\n\u2022 You have 1 usage limit reset available. Run /usage to use one.\n\n\u26a0 MCP client for `xcode` failed to start: MCP startup failed: handshaking with MCP server failed: connection closed: initialize response\n\n\u26a0 MCP client for `xcode` failed to start: MCP startup failed: handshaking with MCP server failed: connection closed: initialize response\n\n\u26a0 MCP startup incomplete (failed: xcode)\n \n \n\u203a\n MCP2_REATTACH_KEYBOARD_1787409962\n \n  gpt-5.6-sol xhigh \u00b7 /private/tmp/iSoyehtTerm-mcp2-orchestration\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "case": "persistent-reattach-keeps-physical-keyboard-live",
+      "expected": "typed bytes visible before explicit cancel",
+      "result": "accepted",
+      "token": "MCP2_REATTACH_KEYBOARD_1787409962"
     }
   ],
   "cleanup": [
     {
       "status": "closed_via_ui",
-      "workspaceID": "C01164BF-E0A7-49E7-9906-C405B0142C71"
+      "workspaceID": "D3CCA99C-B7F1-4705-8E02-5313119D459B"
     },
     {
       "status": "closed_via_ui",
-      "workspaceID": "4AF53FB3-FAB7-459F-AEE6-552B70AB0656"
+      "workspaceID": "3C93CBA2-D78C-4B06-92CE-C1548321CD89"
     }
   ],
   "createdAgents": {
     "codex": {
-      "conversationID": "767FE869-02E4-4DD1-9EBA-BB6DFA23E007",
-      "handle": "@mcp2-security-codex-1787407597"
+      "conversationID": "D5483DD8-DC6F-4059-9BBD-669F3FBEEEEA",
+      "handle": "@mcp2-security-codex-1787409962"
     },
     "opencode": {
-      "conversationID": "88F7D21A-F1D7-4D36-8EF4-FAA0AA6183AF",
-      "handle": "@mcp2-security-opencode-1787407597"
+      "conversationID": "D62E3B68-AEC2-4817-848C-C5B6D0E835FC",
+      "handle": "@mcp2-security-opencode-1787409962"
     }
   },
   "status": "passed"

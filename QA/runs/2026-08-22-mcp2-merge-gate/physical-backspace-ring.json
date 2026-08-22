@@ -2,12 +2,12 @@
   "automationDir": "/Users/macstudio/Library/Application Support/SoyehtDev/Automation",
   "cleanup": {
     "status": "closed_via_ui",
-    "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+    "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
   },
   "flows": [],
   "installedApp": {
-    "binarySHA256": "ae5444b77fed6d27216eb1dd61d2a4e4b9db46ac1fd728078b24d20cc8d192ae",
-    "commit": "556701d56413349c9c264da71e54d94a8daef128",
+    "binarySHA256": "66aa4967d7bb4dceb54acc49c45929296e3dc27c33ac86d7ad13e39b0c4180e1",
+    "commit": "4bd8febc4b6d2262685c9a1d4407ef47e540eb5a",
     "mcpBundleSHA256": "1a709b98b7fa648379761141669db11a192eb86457dce440b7e67e2f99c6f6f9",
     "mcpFiles": [
       "LocalAgentCatalog.json",
@@ -30,12 +30,12 @@
     "teamID": "W7677A5BK2"
   },
   "kind": "real-agent-behavioral-ring",
-  "runID": "1787407126",
+  "runID": "1787410188",
   "status": "passed",
   "typingCollisions": [
     {
       "completionObservedInSenderTranscript": true,
-      "deliveryTimestampAfterRelease": 809100018.813704,
+      "deliveryTimestampAfterRelease": 809103086.750804,
       "deliveryTimestampBeforeRelease": null,
       "draftReleaseAction": "backspace",
       "inputSimulation": "macOS Accessibility typing plus physical backspace",
@@ -54,20 +54,20 @@
       "recipientAgent": "opencode",
       "recipientFocusedForHumanSimulation": true,
       "recipientPane": {
-        "conversationID": "1219CFB5-A631-483E-8A8F-BF63C24B89EE",
+        "conversationID": "C6447C0D-159E-43C5-A6C3-A0DECD864CB4",
         "declaredAgent": "opencode",
-        "handle": "@e2e-draft-target-opencode-1787407126-1",
+        "handle": "@e2e-draft-target-opencode-1787410188-1",
         "isActive": false,
         "isActiveWorkspace": true,
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "recipientProcess": {
         "command": "/opt/homebrew/bin/opencode --auto",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/QA",
-        "pid": 32378,
-        "ppid": 32292
+        "pid": 3543,
+        "ppid": 3458
       },
       "relayAbsentBeforeRelease": true,
       "relayObservedAfterRelease": true,
@@ -78,30 +78,30 @@
       "senderAgent": "codex",
       "senderCompletionObservation": null,
       "senderPane": {
-        "conversationID": "63E0ED8F-25DD-4AAE-8845-1AFFD37CC36C",
-        "handle": "@e2e-draft-sender-codex-1787407126-1",
-        "name": "e2e-draft-sender-codex-1787407126-1",
+        "conversationID": "5064842F-79CC-4269-8F44-3AF35DCEB022",
+        "handle": "@e2e-draft-sender-codex-1787410188-1",
+        "name": "e2e-draft-sender-codex-1787410188-1",
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
         "promptDeliveryStatus": "acknowledged",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "senderProcess": {
         "command": "/opt/homebrew/bin/codex --yolo",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
-        "pid": 30158,
+        "pid": 1181,
         "ppid": 3021
       },
       "status": "passed",
       "unfinishedDraftInputAccepted": true,
       "unfinishedDraftVisibleInDynamicCapture": true,
       "userPrompts": {
-        "setup": "Sem alterar arquivos, abra uma nova pane com opencode neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/QA, e d\u00ea a ela o nome e2e-draft-target-opencode-1787407126-1. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787407126_1 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787407126_1 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-opencode-1787407126-1 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_1. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787407126-1 E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_1."
+        "setup": "Sem alterar arquivos, abra uma nova pane com opencode neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/QA, e d\u00ea a ela o nome e2e-draft-target-opencode-1787410188-1. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787410188_1 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787410188_1 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-opencode-1787410188-1 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_1. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787410188-1 E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_1."
       }
     },
     {
       "completionObservedInSenderTranscript": true,
-      "deliveryTimestampAfterRelease": 809100163.617378,
+      "deliveryTimestampAfterRelease": 809103218.178556,
       "deliveryTimestampBeforeRelease": null,
       "draftReleaseAction": "backspace",
       "inputSimulation": "macOS Accessibility typing plus physical backspace",
@@ -120,20 +120,20 @@
       "recipientAgent": "claude",
       "recipientFocusedForHumanSimulation": true,
       "recipientPane": {
-        "conversationID": "DFEB269C-3DBC-4393-80CF-6BBF384F1187",
+        "conversationID": "7C8BEA5C-30CF-450D-9223-43614635CD62",
         "declaredAgent": "claude",
-        "handle": "@e2e-draft-target-claude-1787407126-2",
+        "handle": "@e2e-draft-target-claude-1787410188-2",
         "isActive": false,
         "isActiveWorkspace": true,
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "recipientProcess": {
         "command": "/Users/macstudio/.local/bin/claude",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/docs",
-        "pid": 36320,
-        "ppid": 36217
+        "pid": 6754,
+        "ppid": 6652
       },
       "relayAbsentBeforeRelease": true,
       "relayObservedAfterRelease": true,
@@ -144,30 +144,30 @@
       "senderAgent": "opencode",
       "senderCompletionObservation": null,
       "senderPane": {
-        "conversationID": "C48830A3-3A30-4C41-821B-73711F75CEC9",
-        "handle": "@e2e-draft-sender-opencode-1787407126-2",
-        "name": "e2e-draft-sender-opencode-1787407126-2",
+        "conversationID": "7D7B8837-7510-4585-BAFD-5F91FE13CB47",
+        "handle": "@e2e-draft-sender-opencode-1787410188-2",
+        "name": "e2e-draft-sender-opencode-1787410188-2",
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
         "promptDeliveryStatus": "acknowledged",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "senderProcess": {
         "command": "/opt/homebrew/bin/opencode --auto",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
-        "pid": 34925,
-        "ppid": 34823
+        "pid": 5574,
+        "ppid": 5487
       },
       "status": "passed",
       "unfinishedDraftInputAccepted": true,
       "unfinishedDraftVisibleInDynamicCapture": true,
       "userPrompts": {
-        "setup": "Sem alterar arquivos, abra uma nova pane com claude neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/docs, e d\u00ea a ela o nome e2e-draft-target-claude-1787407126-2. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787407126_2 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787407126_2 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-claude-1787407126-2 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_2. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787407126-2 E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_2."
+        "setup": "Sem alterar arquivos, abra uma nova pane com claude neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/docs, e d\u00ea a ela o nome e2e-draft-target-claude-1787410188-2. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787410188_2 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787410188_2 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-claude-1787410188-2 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_2. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787410188-2 E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_2."
       }
     },
     {
       "completionObservedInSenderTranscript": true,
-      "deliveryTimestampAfterRelease": 809100310.75758,
+      "deliveryTimestampAfterRelease": 809103367.78748,
       "deliveryTimestampBeforeRelease": null,
       "draftReleaseAction": "backspace",
       "inputSimulation": "macOS Accessibility typing plus physical backspace",
@@ -186,19 +186,19 @@
       "recipientAgent": "codex",
       "recipientFocusedForHumanSimulation": true,
       "recipientPane": {
-        "conversationID": "BC72B08F-E64B-4A26-9DE0-1359AF8F7F97",
+        "conversationID": "50877E23-7337-4D68-89AC-7BFA68181CC2",
         "declaredAgent": "codex",
-        "handle": "@e2e-draft-target-codex-1787407126-3",
+        "handle": "@e2e-draft-target-codex-1787410188-3",
         "isActive": false,
         "isActiveWorkspace": true,
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "recipientProcess": {
         "command": "/opt/homebrew/bin/codex --yolo",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp",
-        "pid": 43612,
+        "pid": 12412,
         "ppid": 3021
       },
       "relayAbsentBeforeRelease": true,
@@ -210,25 +210,25 @@
       "senderAgent": "claude",
       "senderCompletionObservation": null,
       "senderPane": {
-        "conversationID": "4E4B5EE1-7239-4C30-9BA2-867B69550AE6",
-        "handle": "@e2e-draft-sender-claude-1787407126-3",
-        "name": "e2e-draft-sender-claude-1787407126-3",
+        "conversationID": "3ADFDFDA-E399-4EE0-854B-A667A5AA4BB3",
+        "handle": "@e2e-draft-sender-claude-1787410188-3",
+        "name": "e2e-draft-sender-claude-1787410188-3",
         "path": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
         "promptDeliveryStatus": "acknowledged",
         "windowID": "D02E2B24-DB4F-4BE0-ADF4-7B51BBAE7D7E",
-        "workspaceID": "02C121E2-1B29-44D4-A823-5EB85E180CDF"
+        "workspaceID": "BFA96D10-1A78-4350-AD42-E3458FEB8B68"
       },
       "senderProcess": {
         "command": "/Users/macstudio/.local/bin/claude",
         "cwd": "/private/tmp/iSoyehtTerm-mcp2-orchestration",
-        "pid": 39893,
-        "ppid": 39792
+        "pid": 11245,
+        "ppid": 11129
       },
       "status": "passed",
       "unfinishedDraftInputAccepted": true,
       "unfinishedDraftVisibleInDynamicCapture": true,
       "userPrompts": {
-        "setup": "Sem alterar arquivos, abra uma nova pane com codex neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp, e d\u00ea a ela o nome e2e-draft-target-codex-1787407126-3. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787407126_3 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787407126_3 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-codex-1787407126-3 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_3. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787407126-3 E2E_DEFERRED_REAL_AGENT_REPLY_1787407126_3."
+        "setup": "Sem alterar arquivos, abra uma nova pane com codex neste mesmo workspace, no diret\u00f3rio exato /private/tmp/iSoyehtTerm-mcp2-orchestration/TerminalApp, e d\u00ea a ela o nome e2e-draft-target-codex-1787410188-3. Ao abrir a pane, pe\u00e7a ao novo agente que responda somente E2E_DRAFT_RECIPIENT_READY_1787410188_3 e aguarde. Quando a pane estiver pronta, diga aqui E2E_DRAFT_CHILD_READY_1787410188_3 sem encerrar seu trabalho. Em seguida aguarde 15 segundos sem trazer outra pane para a frente. Depois desse intervalo, fale com o agente e2e-draft-target-codex-1787410188-3 e pe\u00e7a que ele responda a voc\u00ea com exatamente E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_3. Aguarde a resposta dele e ent\u00e3o diga aqui exatamente E2E-DRAFT-COLLISION-OK-1787410188-3 E2E_DEFERRED_REAL_AGENT_REPLY_1787410188_3."
       }
     }
   ]
