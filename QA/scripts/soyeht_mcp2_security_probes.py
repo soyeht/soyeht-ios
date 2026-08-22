@@ -93,6 +93,20 @@ def persisted_launch_nonce(snapshot_path: Path, conversation_id: str, timeout: f
     )
 
 
+def require_persistent_engine_owner(snapshot_path: Path, conversation_id: str):
+    snapshot = json.loads(snapshot_path.read_text())
+    conversation = next(
+        item
+        for item in snapshot.get("conversations", [])
+        if item.get("id") == conversation_id
+    )
+    require(
+        "engineLocal" in (conversation.get("commander") or {}),
+        "Restart ownership requires an engineLocal pane; the local engine "
+        f"fell back to a non-persistent PTY for {conversation_id}.",
+    )
+
+
 def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
     return mcp.submit_request_to_root(
         root,
@@ -112,13 +126,39 @@ def policy_request(root, mcp, pane, nonce, window_id, timeout, **policy):
 
 
 def restart_dev_and_wait(mcp, automation_dir, timeout):
+    original_pids = {
+        int(line)
+        for line in subprocess.run(
+            ["/usr/bin/pgrep", "-x", "Soyeht Dev"],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        if line.strip()
+    }
     subprocess.run(
         ["/usr/bin/osascript", "-e", 'tell application id "com.soyeht.mac.dev" to quit'],
         check=False,
         capture_output=True,
         text=True,
     )
-    sleep(1.0)
+    quit_deadline = monotonic() + timeout
+    while monotonic() < quit_deadline:
+        running = {
+            int(line)
+            for line in subprocess.run(
+                ["/usr/bin/pgrep", "-x", "Soyeht Dev"],
+                check=False,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+            if line.strip()
+        }
+        if not original_pids.intersection(running):
+            break
+        sleep(0.1)
+    else:
+        raise RuntimeError("Soyeht Dev did not terminate before the restart probe.")
     subprocess.run(["/usr/bin/open", "-na", "/Applications/Soyeht Dev.app"], check=True)
     deadline = monotonic() + timeout
     latest_error = None
@@ -223,6 +263,8 @@ def main() -> int:
         opencode = opened["opencode"]
         codex_nonce = persisted_launch_nonce(snapshot_path, codex["conversationID"], args.timeout)
         opencode_nonce = persisted_launch_nonce(snapshot_path, opencode["conversationID"], args.timeout)
+        require_persistent_engine_owner(snapshot_path, codex["conversationID"])
+        require_persistent_engine_owner(snapshot_path, opencode["conversationID"])
         cases = [
             expect_runtime_rejection(
                 "legacy-agent-write",

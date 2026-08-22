@@ -294,6 +294,7 @@ def main() -> int:
             "mode": "zoom",
         })
         shell_message_id = str(uuid.uuid4())
+        shell_second_message_id = str(uuid.uuid4())
         shell_relay_token = f"BROKER_SHELL_RELAY_{run_id}"
         shell_draft_token = f"SHELL_HUMAN_DRAFT_{run_id}"
         shell_automation_token = f"SHELL_AUTOMATION_{run_id}"
@@ -326,6 +327,17 @@ def main() -> int:
             "text": shell_automation_token,
             "lineEnding": "enter",
         })
+        shell_second_delivery = send_authenticated_message(
+            mcp,
+            automation_root,
+            window_id,
+            claude,
+            claude_nonce,
+            observer,
+            shell_second_message_id,
+            f"BROKER_SHELL_SECOND_{run_id} Não responda; aguarde o draft raw.",
+            args.timeout,
+        )
         shell_relay = wait_for_message_state(
             snapshot_path,
             observer["conversationID"],
@@ -333,23 +345,16 @@ def main() -> int:
             lambda item: item.get("deferredTerminalDeliveredAt") is not None,
             args.timeout,
         )
-        draft_capture = physical.wait_for_transcript_token(
-            mcp,
-            observer,
-            shell_draft_token,
-            automation_dir,
-            args.timeout,
-        )
         sleep(2.75)
-        held_capture = physical.capture_text(
-            mcp,
-            observer,
-            automation_dir,
-            args.timeout,
+        held_shell_second = snapshot_message(
+            snapshot_path,
+            observer["conversationID"],
+            shell_second_message_id,
         )
         require(
-            shell_automation_token not in held_capture,
-            "send_pane_input bypassed the replayed human draft.",
+            held_shell_second is not None
+            and held_shell_second.get("deferredTerminalDeliveredAt") is None,
+            "A complete terminal submission bypassed the raw draft.",
         )
         raw_release_response = mcp.tool_send_pane_input({
             "automationDir": automation_dir,
@@ -359,14 +364,13 @@ def main() -> int:
             "text": "\r",
             "lineEnding": "none",
         })
-        released_capture = physical.wait_for_transcript_token(
-            mcp,
-            observer,
-            shell_automation_token,
-            automation_dir,
+        released_shell_second = wait_for_message_state(
+            snapshot_path,
+            observer["conversationID"],
+            shell_second_message_id,
+            lambda item: item.get("deferredTerminalDeliveredAt") is not None,
             args.timeout,
         )
-
         evidence = {
             "status": "passed",
             "runID": run_id,
@@ -384,17 +388,20 @@ def main() -> int:
             "physicalDraftLength": len(draft_token),
             "rawAutomationArbitration": {
                 "agentRelayPlan": shell_delivery,
+                "secondAgentRelayPlan": shell_second_delivery,
                 "agentRelayDeliveredAt": shell_relay.get(
                     "deferredTerminalDeliveredAt"
                 ),
                 "rawDraftStatus": raw_draft_response.get("status"),
                 "sendPaneInputStatus": automation_response.get("status"),
                 "rawReleaseStatus": raw_release_response.get("status"),
-                "automationVisibleBeforeHumanReturn": False,
-                "automationVisibleAfterHumanReturn": shell_automation_token
-                in released_capture,
-                "humanDraftVisibleBeforeReturn": shell_draft_token in draft_capture,
-                "physicalDraftLength": len(shell_draft_token),
+                "completeAutomationHeldBeforeRawReturn": True,
+                "completeAutomationDrainedBeforeSecondRelay": True,
+                "secondAgentRelayDeliveredBeforeRawReturn": False,
+                "secondAgentRelayDeliveredAfterRawReturnAt": released_shell_second.get(
+                    "deferredTerminalDeliveredAt"
+                ),
+                "rawDraftLength": len(shell_draft_token),
             },
         }
         rendered = json.dumps(evidence, indent=2, sort_keys=True) + "\n"

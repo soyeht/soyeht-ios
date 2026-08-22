@@ -12,7 +12,9 @@ not only against model metadata or source-code assertions.
    bootstrap, before lazy workspace views are materialized. The runtime probe
    leaves the agent in an inactive workspace, restarts the app into a separate
    parking workspace, and authenticates the inactive agent without opening its
-   tab.
+   tab. The local-engine resolver also reuses the sole persisted engine
+   credential on loopback when a redundant repair-pair is rejected; it fails
+   closed rather than guessing when multiple engine credentials exist.
 2. **Batch acknowledgement is atomic with respect to pruning.** IDs are
    deduplicated and preflighted before mutation, the batch is applied once, and
    completed records are pruned once afterward. Retention age now starts at
@@ -37,18 +39,23 @@ not only against model metadata or source-code assertions.
 ## Executed evidence
 
 - Python MCP protocol suite: **56 passed**.
-- Swift package suite: **840 executed, 5 skipped, 0 failures**.
+- Swift package suite: **842 executed, 5 skipped, 0 failures**.
 - Signed Debug app build/install: **passed**, Team ID `W7677A5BK2`.
 - External-controller E2E with Codex, Claude, and OpenCode: **passed**; observed
   `codex --yolo`, `claude`, and `opencode --auto` in the requested directory.
-- Security-boundary probe against signed build `146f14ce`: **7/7 passed**,
+- Security-boundary probe against the signed build recorded in
+  `security.json`: **7/7 passed**,
   including cross-pane nonce rejection, complete-message enforcement, and
-  launch ownership after app restart. Raw evidence: `security.json`.
-- Deterministic broker-queue collision: **passed**. Codex sent the first relay,
-  Claude sent the second, OpenCode held a physical human draft, and the second
-  relay remained undelivered until physical Return. Raw evidence:
-  `broker-queue.json`; the scenario also passed again after the final signed
-  install.
+  launch ownership in an inactive workspace after app restart. The probe
+  refuses to claim this result unless the tested panes are engine-owned and
+  persistent. Raw evidence: `security.json`.
+- Deterministic broker-queue collision: **passed in both producer paths**.
+  Codex sent the first relay, Claude sent the second, OpenCode held a physical
+  human draft, and the second relay remained undelivered until physical
+  Return. A second phase mixed a durable relay with raw and complete
+  `send_pane_input`: the complete submission stayed held behind the raw draft,
+  raw Return released it, and the next relay drained only afterward. Raw
+  evidence: `broker-queue.json`.
 - Natural-language physical ring: Codex-to-OpenCode and OpenCode-to-Claude
   passed. Claude-to-Codex preserved the draft and correctly retained the relay,
   but the Accessibility harness's first synthetic Return did not submit the

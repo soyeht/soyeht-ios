@@ -72,6 +72,22 @@ enum LocalEngineContext {
             guard let context = store.context(for: paired.id) else { return .unavailable }
             return .resolved(pinnedToLocalHost(context, localHost: localHost))
         } catch {
+            // A successful self-pair is persisted with the engine's public
+            // hostname, not `adminHost`. On a later app launch the bootstrap
+            // endpoint can refuse a second pair even though that persisted
+            // credential still authenticates this same loopback engine. If
+            // there is exactly one engine credential, reuse it but pin only
+            // the transport to loopback. A stale/remote credential therefore
+            // fails locally at the API boundary; it can never execute on the
+            // remote host.
+            let credentialedEngines = store.pairedServers.compactMap { server -> ServerContext? in
+                guard server.kind == .engine else { return nil }
+                return store.context(for: server.id)
+            }
+            if credentialedEngines.count == 1, let existing = credentialedEngines.first {
+                logger.warning("local engine self-pair failed; retrying the sole persisted engine credential on loopback")
+                return .resolved(pinnedToLocalHost(existing, localHost: localHost))
+            }
             logger.error("local engine self-pair failed: \(error.localizedDescription, privacy: .public)")
             return isNotAnsweringYet(error) ? .engineNotAnsweringYet : .unavailable
         }

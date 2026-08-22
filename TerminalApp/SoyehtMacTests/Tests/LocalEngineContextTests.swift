@@ -117,6 +117,60 @@ final class LocalEngineContextTests: XCTestCase {
         XCTAssertEqual(context?.server.kind, .engine)
         XCTAssertEqual(context?.server.id, "self-tailnet")
     }
+
+    /// A later launch cannot assume that the one-time bootstrap pairing can
+    /// be redeemed again. Reuse the sole persisted engine credential, but
+    /// never its public host: the local-terminal request must still go only
+    /// to this Mac's loopback engine.
+    func testPersistedTailnetCredentialSurvivesRejectedRepairPairing() async {
+        let store = makeIsolatedSessionStore()
+        let localHost = SoyehtInstallProfile.current.adminHost
+        let tailnetRow = PairedServer(
+            id: "persisted-self-tailnet",
+            host: "https://mac-alpha.example.ts.net",
+            name: "this-mac",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            kind: .engine
+        )
+        store.addServer(tailnetRow, token: "persisted-token")
+
+        let context = await LocalEngineContext.resolve(store: store) {
+            throw NSError(domain: "test", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "already paired"])
+        }
+
+        XCTAssertEqual(context?.host, localHost)
+        XCTAssertEqual(context?.token, "persisted-token")
+        XCTAssertEqual(context?.server.id, "persisted-self-tailnet")
+    }
+
+    func testRejectedRepairDoesNotGuessBetweenMultipleEngineCredentials() async {
+        let store = makeIsolatedSessionStore()
+        for id in ["engine-a", "engine-b"] {
+            store.addServer(
+                PairedServer(
+                    id: id,
+                    host: "https://\(id).example.ts.net",
+                    name: id,
+                    role: nil,
+                    pairedAt: Date(),
+                    expiresAt: nil,
+                    kind: .engine
+                ),
+                token: "token-\(id)"
+            )
+        }
+
+        let resolution = await LocalEngineContext.resolveDetailed(store: store) {
+            throw NSError(domain: "test", code: 500)
+        }
+
+        guard case .unavailable = resolution else {
+            return XCTFail("multiple engine credentials must fail closed; came \(resolution)")
+        }
+    }
     // MARK: - "Nothing answered yet" is not "there is nothing"
     //
     // MEASURED on a cold boot, 2026-08-20. The app started at 11:27:08 and
