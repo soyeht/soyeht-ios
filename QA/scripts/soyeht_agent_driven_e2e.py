@@ -64,9 +64,11 @@ def require_natural_user_prompt(prompt: str):
 
 def natural_collaboration_prompt(child_agent, child_name, directory, token, completion_prefix):
     prompt = (
-        f"Sem alterar arquivos, abra uma nova pane com {child_agent} neste mesmo workspace, "
-        f"no diretório exato {directory}, e dê a ela o nome {child_name}. "
-        f"Depois fale com esse agente e peça que ele responda a você com exatamente {token}. "
+        f"Sem alterar arquivos, primeiro abra uma nova pane com {child_agent} neste mesmo "
+        f"workspace, no diretório exato {directory}, e dê a ela o nome {child_name}. "
+        "Abra a pane sem dar uma tarefa inicial e confirme que ela apareceu. "
+        f"Depois que ela já estiver aberta, em uma segunda ação separada, fale com esse "
+        f"agente e peça que ele responda a você com exatamente {token}. "
         f"Aguarde a resposta dele. Só então responda aqui com exatamente "
         f"{completion_prefix} {token}."
     )
