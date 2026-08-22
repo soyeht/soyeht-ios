@@ -4,7 +4,6 @@ import XCTest
 private final class InMemoryAgentLaunchOwnershipPersistence: AgentLaunchOwnershipPersisting {
     var values: [Conversation.ID: String] = [:]
     var rejectsSaves = false
-    var rejectsDeletes = false
 
     func save(nonce: String, for paneID: Conversation.ID) -> Bool {
         if rejectsSaves { return false }
@@ -13,11 +12,6 @@ private final class InMemoryAgentLaunchOwnershipPersistence: AgentLaunchOwnershi
     }
 
     func loadNonce(for paneID: Conversation.ID) -> String? { values[paneID] }
-    func deleteNonce(for paneID: Conversation.ID) -> Bool {
-        if rejectsDeletes { return false }
-        values[paneID] = nil
-        return true
-    }
 }
 
 @MainActor
@@ -992,7 +986,6 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(registry.register(paneID: paneID, nonce: "current-owner"))
 
         persistence.rejectsSaves = true
-        persistence.rejectsDeletes = true
         XCTAssertFalse(registry.prepareForLaunch(paneID: paneID))
         XCTAssertTrue(registry.validates(paneID: paneID, nonce: "current-owner"))
 
@@ -1015,35 +1008,11 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(registry.register(paneID: paneID, nonce: "old-owner"))
 
         persistence.rejectsSaves = true
-        persistence.rejectsDeletes = true
         XCTAssertFalse(registry.prepareForLaunch(paneID: paneID))
         registry.quarantineInMemory(paneID: paneID)
 
         XCTAssertNil(registry.nonce(for: paneID))
         XCTAssertFalse(registry.validates(paneID: paneID, nonce: "old-owner"))
-    }
-
-    func testRevocationFallsBackToDurableDeletionWhenTombstoneWriteFails() {
-        let persistence = InMemoryAgentLaunchOwnershipPersistence()
-        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
-        let paneID = UUID()
-        XCTAssertTrue(registry.register(paneID: paneID, nonce: "old-owner"))
-
-        persistence.rejectsSaves = true
-        XCTAssertTrue(registry.prepareForLaunch(paneID: paneID))
-        XCTAssertNil(persistence.values[paneID])
-        XCTAssertNil(registry.nonce(for: paneID))
-
-        let afterRestart = AgentLaunchOwnershipRegistry(persistence: persistence)
-        let conversation = Conversation(
-            id: paneID,
-            handle: "codex",
-            agent: .claw("codex"),
-            workspaceID: UUID(),
-            commander: .engineLocal(conversationID: paneID.uuidString)
-        )
-        _ = afterRestart.rehydrate(from: [conversation])
-        XCTAssertFalse(afterRestart.validates(paneID: paneID, nonce: "old-owner"))
     }
 
     func testShellConversationNeverRehydratesStaleAgentOwnership() {

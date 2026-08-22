@@ -1,13 +1,10 @@
 import Foundation
-import Security
 import SoyehtCore
 
 protocol AgentLaunchOwnershipPersisting {
     @discardableResult
     func save(nonce: String, for paneID: Conversation.ID) -> Bool
     func loadNonce(for paneID: Conversation.ID) -> String?
-    @discardableResult
-    func deleteNonce(for paneID: Conversation.ID) -> Bool
 }
 
 struct AgentLaunchOwnershipKeychainStore: AgentLaunchOwnershipPersisting {
@@ -21,17 +18,11 @@ struct AgentLaunchOwnershipKeychainStore: AgentLaunchOwnershipPersisting {
 
     @discardableResult
     func save(nonce: String, for paneID: Conversation.ID) -> Bool {
-        keychain.saveDataProtectionOnlyString(nonce, account: account(for: paneID))
+        keychain.saveString(nonce, account: account(for: paneID))
     }
 
     func loadNonce(for paneID: Conversation.ID) -> String? {
-        keychain.loadDataProtectionOnlyString(account: account(for: paneID))
-    }
-
-    @discardableResult
-    func deleteNonce(for paneID: Conversation.ID) -> Bool {
-        let status = keychain.deleteStatus(account: account(for: paneID))
-        return status == errSecSuccess || status == errSecItemNotFound
+        keychain.loadString(account: account(for: paneID))
     }
 }
 
@@ -49,10 +40,12 @@ final class AgentLaunchOwnershipRegistry {
 
     @discardableResult
     func prepareForLaunch(paneID: Conversation.ID) -> Bool {
-        // This store is Data-Protection-only: a failed tombstone write followed
-        // by deletion cannot reveal a legacy fallback on the next launch.
-        guard persistence.save(nonce: Self.revokedMarker, for: paneID)
-            || persistence.deleteNonce(for: paneID) else {
+        // Never replace a live process unless its old bearer has first been
+        // durably tombstoned. Deletion is not a safe fallback: a Developer-ID
+        // build may use the login Keychain when the Data Protection Keychain
+        // entitlement is unavailable, and deleting only one namespace could
+        // make an old bearer valid again after relaunch.
+        guard persistence.save(nonce: Self.revokedMarker, for: paneID) else {
             // Keep the previous in-memory owner authoritative and let the
             // caller abort before spawning a replacement. Continuing would
             // create a split-brain where the old durable bearer can revive.

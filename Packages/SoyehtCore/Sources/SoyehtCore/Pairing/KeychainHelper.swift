@@ -111,42 +111,6 @@ public struct KeychainHelper: Sendable {
         return save(data, account: account)
     }
 
-    /// Stores only in the Data Protection keychain. Possession credentials
-    /// must never fall back to a legacy login-keychain row that a later
-    /// revocation cannot delete without UI/ACL interaction.
-    @discardableResult
-    public func saveDataProtectionOnlyString(_ value: String, account: String) -> Bool {
-        guard let data = value.data(using: .utf8) else { return false }
-        let existing = baseQuery(account: account)
-        let attrs: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: accessibility,
-        ]
-        let updateStatus = SecItemUpdate(existing as CFDictionary, attrs as CFDictionary)
-        if updateStatus == errSecSuccess { return true }
-        guard updateStatus == errSecItemNotFound else {
-            keychainErrorLog("update failed (data-protection-only) account=\(account) status=\(updateStatus)")
-            return false
-        }
-
-        var insertion = existing
-        insertion[kSecValueData as String] = data
-        insertion[kSecAttrAccessible as String] = accessibility
-        let addStatus = SecItemAdd(insertion as CFDictionary, nil)
-        if addStatus == errSecSuccess { return true }
-        if addStatus == errSecDuplicateItem {
-            // Another writer inserted the row after our not-found check.
-            return update(
-                existing,
-                data: data,
-                account: account,
-                label: "data-protection-only duplicate"
-            )
-        }
-        keychainErrorLog("save failed (data-protection-only) account=\(account) status=\(addStatus)")
-        return false
-    }
-
     public func load(account: String) -> Data? {
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
@@ -183,21 +147,6 @@ public struct KeychainHelper: Sendable {
 
     public func loadString(account: String) -> String? {
         guard let data = load(account: account) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    /// Reads only the Data Protection keychain, matching
-    /// `saveDataProtectionOnlyString` and deliberately ignoring legacy rows.
-    public func loadDataProtectionOnlyString(account: String) -> String? {
-        var query = baseQuery(account: account)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        #if os(macOS)
-        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-        #endif
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
