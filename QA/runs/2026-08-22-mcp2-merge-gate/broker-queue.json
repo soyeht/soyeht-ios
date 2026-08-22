@@ -1,0 +1,68 @@
+{
+  "agents": {
+    "firstSender": "codex",
+    "recipient": "opencode",
+    "secondSender": "claude"
+  },
+  "cleanup": {
+    "status": "closed_via_ui",
+    "workspaceID": "3716BA12-62DF-404E-ABA8-0E83A154DCB4"
+  },
+  "deliveryPlans": [
+    {
+      "attentionRequested": false,
+      "channel": "deferredTerminal",
+      "conversationID": "F8DCA588-50C8-4600-B39D-DABA403FB4CA",
+      "displayReference": "[mcp2-broker-opencode-1787407525]",
+      "messageID": "144D4FD3-B146-4B6A-BEB5-91067D299CF2",
+      "policyDenials": [],
+      "status": "queued_until_human_input_is_clear",
+      "workspaceID": "3716BA12-62DF-404E-ABA8-0E83A154DCB4",
+      "writesToPTY": true
+    },
+    {
+      "attentionRequested": false,
+      "channel": "deferredTerminal",
+      "conversationID": "F8DCA588-50C8-4600-B39D-DABA403FB4CA",
+      "displayReference": "[mcp2-broker-opencode-1787407525]",
+      "messageID": "02091EBD-15E5-4E6B-9CF4-9FA6DFD6DCA4",
+      "policyDenials": [],
+      "status": "queued_until_human_input_is_clear",
+      "workspaceID": "3716BA12-62DF-404E-ABA8-0E83A154DCB4",
+      "writesToPTY": true
+    }
+  ],
+  "firstDeliveredAt": 809100365.170548,
+  "installedApp": {
+    "binarySHA256": "ae5444b77fed6d27216eb1dd61d2a4e4b9db46ac1fd728078b24d20cc8d192ae",
+    "commit": "556701d56413349c9c264da71e54d94a8daef128",
+    "mcpBundleSHA256": "1a709b98b7fa648379761141669db11a192eb86457dce440b7e67e2f99c6f6f9",
+    "mcpFiles": [
+      "LocalAgentCatalog.json",
+      "soyeht-mcp",
+      "soyeht_mcp_catalog.py",
+      "soyeht_mcp_foundation.py",
+      "soyeht_mcp_ipc.py",
+      "soyeht_mcp_runtime.py",
+      "soyeht_mcp_schema.py",
+      "soyeht_mcp_schema_creation.py",
+      "soyeht_mcp_schema_directory.py",
+      "soyeht_mcp_schema_layout.py",
+      "soyeht_mcp_schema_messaging.py",
+      "soyeht_mcp_tools_content.py",
+      "soyeht_mcp_tools_creation.py",
+      "soyeht_mcp_tools_directory.py",
+      "soyeht_mcp_tools_layout.py",
+      "soyeht_mcp_tools_messaging.py"
+    ],
+    "teamID": "W7677A5BK2"
+  },
+  "physicalDraftLength": 22,
+  "runID": "1787407525",
+  "secondDeliveredAfterHumanReturnAt": 809100388.282863,
+  "secondDeliveredBeforeHumanReturn": false,
+  "secondDeliveryMode": "deferredTerminal",
+  "secondSemanticInboxAcknowledgedAt": null,
+  "secondSemanticInboxAcknowledgedBeforeHumanReturn": false,
+  "status": "passed"
+}
