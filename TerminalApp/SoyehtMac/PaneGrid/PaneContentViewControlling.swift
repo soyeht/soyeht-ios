@@ -4,9 +4,14 @@ struct PaneHeaderAccessories: OptionSet {
     let rawValue: Int
 
     static let qr = PaneHeaderAccessories(rawValue: 1 << 0)
+    /// Retired from the visible pane header in favor of the orchestrator
+    /// toggle. Keep the bit temporarily so the remaining handoff code can be
+    /// removed in a dedicated cleanup without conflating that deletion with
+    /// the header-control change.
     static let openOnIPhone = PaneHeaderAccessories(rawValue: 1 << 1)
+    static let orchestrationManager = PaneHeaderAccessories(rawValue: 1 << 2)
 
-    static let terminalDefault: PaneHeaderAccessories = [.qr, .openOnIPhone]
+    static let terminalDefault: PaneHeaderAccessories = [.qr, .orchestrationManager]
     static let specialDefault: PaneHeaderAccessories = []
 }
 
