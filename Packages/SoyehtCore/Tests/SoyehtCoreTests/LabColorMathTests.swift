@@ -80,7 +80,7 @@ struct AgentIdentityTests {
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
         let sunk = surface.lightness - 9
         let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
-        let hues = [-60.0, -30.0, 30.0, 60.0].map { anchor + $0 }
+        let hues = [317.0, 7.0, 137.0, 187.0]
         let chroma = min(28, hues.map {
             LabColorMath.maxChroma(lightness: lightness, hue: $0)
         }.min() ?? 28)
@@ -173,16 +173,33 @@ struct AgentIdentityTests {
         }
     }
 
-    /// Every slot stays within the theme's own tone. This is the property the
-    /// complementary tetrad could not have: it seated half of each set on the
-    /// far side of the wheel, so a green theme handed out red and pink plates.
-    @Test func everySlotStaysInTheThemesTone() {
+    /// The hues are the same everywhere, so an agent keeps its color across
+    /// themes. What varies is the tone, which each theme sets.
+    @Test func theHuesAreStableAcrossThemes() {
+        let reference = identity(for: TerminalColorTheme.neoMilk).prefix(4)
+            .map { LabColorMath.lch(of: $0).hue }
         for theme in TerminalColorTheme.builtInThemes {
-            let accent = LabColorMath.lch(of: theme.appPalette.accentHex).hue
-            for plate in identity(for: theme).prefix(4) {
+            for (expected, plate) in zip(reference, identity(for: theme).prefix(4)) {
                 let hue = LabColorMath.lch(of: plate).hue
-                let arc = abs(((hue - accent) + 180).truncatingRemainder(dividingBy: 360) - 180)
-                #expect(arc <= 62, "\(theme.id) plate \(plate) sits \(arc)° off the accent")
+                let drift = abs(((hue - expected) + 180).truncatingRemainder(dividingBy: 360) - 180)
+                // 5, not 0: reducing chroma to fit the gamut nudges the hue a
+                // degree or two at the extremes of lightness. Imperceptible,
+                // and the alternative is clipping a channel, which shifts it
+                // much further.
+                #expect(drift < 5, "\(theme.id) plate \(plate) drifted \(drift)° off the shared hue")
+            }
+        }
+    }
+
+    /// ...and the tone really is the theme's: a light theme's plates sit high
+    /// and saturated, a dark theme's low and muted, from the same four hues.
+    @Test func theToneFollowsTheTheme() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
+            for plate in identity(for: theme).prefix(4) {
+                let lightness = LabColorMath.lch(of: plate).lightness
+                #expect(abs(lightness - surface) <= 20,
+                        "\(theme.id) plate \(plate) is \(lightness) against a surface at \(surface)")
             }
         }
     }

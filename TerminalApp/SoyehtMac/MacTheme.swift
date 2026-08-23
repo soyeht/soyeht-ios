@@ -124,29 +124,25 @@ enum MacTheme {
 
     /// Per-pane header identity colors: the pill an agent's name sits on.
     ///
-    /// Four hues on an ANALOGOUS arc, ±60° and ±30° around the theme's accent.
-    /// They were a split-complementary tetrad, and that was the wrong harmony:
-    /// a complementary scheme puts half its members on the far side of the
-    /// wheel by construction, so a green theme handed out pink and red plates
-    /// 175° from its own face. An arc keeps every slot in the theme's tone,
-    /// which is the whole point of deriving them per theme at all.
+    /// Four FIXED hues — violet, rose, green, cyan — the same on every theme,
+    /// in that order. An agent keeps its color when the theme changes, which
+    /// is what lets the color mean the agent rather than the theme.
     ///
-    /// It also fixes the ordering. Anchoring a tetrad on each theme's accent
-    /// started the sequence at a different place on the wheel for every theme;
-    /// walking one arc in one direction means the set reads in the same order
-    /// everywhere — cool themes run cyan, blue, violet, rose, and warm ones
-    /// their own equivalent.
+    /// Two earlier attempts anchored the set on each theme's accent, and both
+    /// were wrong the same way: anchoring rotates the sequence, so the order
+    /// came out different on every theme. It only looked right on Pale Mist
+    /// and Misty Blue, whose accents happen to sit where these four fall — and
+    /// re-anchoring to "fix" the other six is what broke those two.
     ///
-    /// All four share one lightness and one chroma, which is what makes a set
-    /// look designed rather than assembled: hue is the only variable the eye
-    /// has to sort.
+    /// What follows the theme is the TONE, not the hue. Lightness and chroma
+    /// are the theme's own register, so the same violet is a pale lilac on
+    /// Sunlit Chartreuse (L* 76, C* 28) and a deep plum on Deep Forest (L* 14,
+    /// C* 16). All four share that register, which is what makes them read as
+    /// one set.
     ///
     /// The fifth is the theme's own selection color taken a shade deeper. It
-    /// is the only slot derived from a role the theme already defines, so it
-    /// belongs to the theme more than the other four, which are deliberately
-    /// spread for variety. The tetrad starts 30° off the accent rather than on
-    /// it precisely because the selection already sits there — starting at 0°
-    /// put two near-identical blues in Midnight Teal's set.
+    /// is the only slot whose hue comes from the theme, which is why it is the
+    /// one a pane wears by default.
     ///
     /// The plate sinks 9 L* below the card. The previous set sank 5 at C* 10
     /// and had effectively vanished: the header became a band of text with no
@@ -156,7 +152,6 @@ enum MacTheme {
     static var neoHeaderPastels: [NSColor] {
         let palette = appPalette
         let surface = LabColorMath.lch(of: palette.surfaceHex)
-        let anchor = LabColorMath.lch(of: palette.accentHex).hue
         let sunk = surface.lightness - 9
         // A face too dark to sink into steps up — but to where color is
         // actually possible, not by a fixed amount. soyehtDark is pure black,
@@ -164,7 +159,7 @@ enum MacTheme {
         // five slots collapse into one.
         let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
 
-        let hues = [-60.0, -30.0, 30.0, 60.0].map { anchor + $0 }
+        let hues = [317.0, 7.0, 137.0, 187.0]
         // One chroma every hue in the set can actually reach, so the four read
         // as siblings instead of one washed-out member beside three vivid ones.
         let chroma = min(28, hues.map {
