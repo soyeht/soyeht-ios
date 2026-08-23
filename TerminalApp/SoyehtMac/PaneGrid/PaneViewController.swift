@@ -687,6 +687,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         configureContent(for: conv)
         resumePersistedDeferredAgentDeliveries(for: conv)
         bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
+        refreshOrchestrationManagerHeaderState(for: conv)
         restoreLocalShellIfNeeded(for: conv)
         restoreEnginePaneIfNeeded(for: conv)
         updateEmptyStateVisibility()
@@ -1312,6 +1313,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         header.onOpenOnIPhoneTapped = { [weak self] in
             self?.presentOpenOnIPhone()
         }
+        header.onOrchestrationManagerToggleRequested = { [weak self] isAuthorized in
+            self?.setOrchestrationManagementAuthorizationFromHeader(isAuthorized)
+        }
         header.onSplitVerticalTapped = { [weak self] in
             self?.dispatchToGrid { grid in grid.splitPaneVertical(nil) }
         }
@@ -1491,7 +1495,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         click.delaysPrimaryMouseButtonEvents = false
         // Same failure mode as the workspace tab: without a delegate, this
         // pane-wide click recognizer swallows mouseDown destined for the
-        // header's split (`|`, `—`), close (`X`), QR and open-on-iPhone
+        // header's split (`|`, `—`), close (`X`), QR and orchestrator
         // NSButtons — the user saw "buttons don't work" whenever the pane
         // wasn't yet focused. Delegate below declines the gesture when the
         // hit lands inside the header area so NSButtons get the event.
