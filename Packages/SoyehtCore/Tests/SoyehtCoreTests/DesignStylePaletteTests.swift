@@ -52,10 +52,15 @@ struct AppPaletteChromeOverrideTests {
 
         #expect(milk.backgroundHex != palette.backgroundHex)
 
-        // Even the darkest face wears one color across chrome and screen.
-        for preset in TerminalColorTheme.designStylePresets where preset.id != "neoMilk" {
-            #expect(preset.appPalette.surfaceHex == preset.backgroundHex,
-                    "\(preset.id) splits its pane into two tones")
+        // A pane wears ONE color: its card and the terminal screen inside it
+        // are the same, on every built-in theme. Only the canvas differs, and
+        // that is the corridor between panes — the step that makes a card read
+        // as raised in the first place. Midnight Teal briefly broke this to
+        // buy its depth roles room, and the seam was worse than the shallow
+        // recess it bought.
+        for theme in TerminalColorTheme.builtInThemes {
+            #expect(theme.appPalette.surfaceHex == theme.backgroundHex,
+                    "\(theme.id) splits its pane into two tones")
         }
     }
 
