@@ -58,14 +58,28 @@ struct LabColorMathTests {
 
 @Suite("Header pastels")
 struct HeaderPastelTests {
+    /// WCAG ratio. The palette keeps its own copy private, and widening that
+    /// API just to assert on it would be the tail wagging the dog.
+    static func contrast(_ a: String, _ b: String) -> Double {
+        func luminance(_ hex: String) -> Double {
+            let (r, g, bl) = ColorTheme.rgb8(from: hex)
+            func channel(_ value: UInt8) -> Double {
+                let c = Double(value) / 255
+                return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+            }
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(bl)
+        }
+        let first = luminance(a), second = luminance(b)
+        return (max(first, second) + 0.05) / (min(first, second) + 0.05)
+    }
+
     /// Rebuilt here rather than reached through MacTheme, which is AppKit-only.
     private func pastels(for theme: TerminalColorTheme) -> [String] {
         let palette = theme.appPalette
         let chrome = LabColorMath.lch(of: palette.surfaceHex)
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let lightness = palette.isDark
-            ? min(92, chrome.lightness + 13)
-            : max(30, chrome.lightness - 5)
+        let sunk = chrome.lightness - 5
+        let lightness = sunk >= 14 ? sunk : chrome.lightness + 6
         return (0..<8).map { index in
             LabColorMath.hex(LabColorMath.LCh(
                 lightness: lightness,
@@ -75,15 +89,43 @@ struct HeaderPastelTests {
         }
     }
 
-    /// The bug this replaced: mixing 76% into white put the pill 65 L* above
-    /// a dark theme's chrome — a near-white band across the pane.
-    @Test func darkThemesNeverGetAGlaringPill() {
-        for preset in TerminalColorTheme.designStylePresets where preset.appPalette.isDark {
+    /// The pill is a plate the name sits on, never a light source. Mixing 76%
+    /// into white put it 65 L* above a dark theme's chrome; stepping up by a
+    /// measured amount still left a lit bar, because the direction was the
+    /// problem. It sinks on every theme that has room to sink.
+    @Test func noThemeGetsAPillBrighterThanItsSurface() {
+        for preset in TerminalColorTheme.designStylePresets {
             let chrome = LabColorMath.lch(of: preset.appPalette.surfaceHex).lightness
+            guard chrome - 5 >= 14 else { continue }   // too dark to sink into
             for pastel in pastels(for: preset) {
                 let lightness = LabColorMath.lch(of: pastel).lightness
-                #expect(lightness - chrome < 20, "\(preset.id) pill \(pastel) blows out")
-                #expect(lightness < 55, "\(preset.id) pill \(pastel) is not a dark-theme pastel")
+                #expect(lightness < chrome, "\(preset.id) pill \(pastel) is brighter than its surface")
+                #expect(chrome - lightness < 12, "\(preset.id) pill \(pastel) sinks too far")
+            }
+        }
+    }
+
+    /// The one surface with no room below it steps up, but by a whisper.
+    @Test func theDarkestSurfaceStepsUpOnlySlightly() {
+        let teal = TerminalColorTheme.neoMidnightTeal
+        let chrome = LabColorMath.lch(of: teal.appPalette.surfaceHex).lightness
+        #expect(chrome - 5 < 14, "Midnight Teal now has room to sink; drop this case")
+        for pastel in pastels(for: teal) {
+            let lightness = LabColorMath.lch(of: pastel).lightness
+            #expect(lightness > chrome)
+            #expect(lightness - chrome < 10, "\(pastel) is a band, not a whisper")
+        }
+    }
+
+    /// Dark themes carry a near-white ink, so sinking the plate also buys
+    /// readability: the agent name renders at 62% alpha over it.
+    @Test func darkThemeAgentNamesStayLegible() {
+        for preset in TerminalColorTheme.designStylePresets where preset.appPalette.isDark {
+            let ink = preset.appPalette.textPrimaryHex
+            for pastel in pastels(for: preset) {
+                let blended = HexColorMath.mix(pastel, ink, t: 0.62)
+                #expect(Self.contrast(blended, pastel) > 4.0,
+                        "\(preset.id) agent name on \(pastel) is \(blended)")
             }
         }
     }

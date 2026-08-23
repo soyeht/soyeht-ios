@@ -123,24 +123,30 @@ enum MacTheme {
     /// pills across the grid).
     ///
     /// A pastel is low chroma plus a SMALL step off the surface it floats on,
-    /// so the step has to follow the theme's tone. The previous recipe mixed
-    /// each color 76% into white, which hard-codes "light": on a light theme
-    /// that lands 5 L* under the chrome, but on a dark one it lands 65 L*
-    /// ABOVE it — a near-white band across a dark pane. Here a light theme
-    /// steps 5 L* down and a dark theme 13 up, and neither leaves the muted
-    /// band.
+    /// and the step goes DOWN. The original recipe mixed each color 76% into
+    /// white, which hard-codes "light": a dark theme got a pill 65 L* above
+    /// its chrome, a near-white band across the pane. Stepping up by a
+    /// measured amount instead only shrank that band — the pill still read as
+    /// a lit bar on a dark pane, because the direction was the problem, not
+    /// the distance. Going down works on every tone: the pill becomes a plate
+    /// the name sits on, never a light source. It also buys contrast on dark
+    /// themes, where the ink is near-white — the agent name climbs from about
+    /// 3:1 to better than 5:1.
+    ///
+    /// A surface already too dark to sink a plate into steps slightly up
+    /// instead, since that is the only direction left. Only the darkest theme
+    /// takes that path.
     ///
     /// The hues are even steps anchored on the theme's accent, so the set
-    /// belongs to its theme. They replace the four semantic roles, which also
-    /// spent the palette's danger color on identity — leaving the header no
-    /// color vocabulary left for actual state.
+    /// belongs to its theme. They replace the four semantic roles, which
+    /// collided across the panes on screen and spent the palette's danger
+    /// color on identity, leaving the header no vocabulary for actual state.
     static var neoHeaderPastels: [NSColor] {
         let palette = appPalette
         let chrome = LabColorMath.lch(of: palette.surfaceHex)
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let lightness = palette.isDark
-            ? min(92, chrome.lightness + 13)
-            : max(30, chrome.lightness - 5)
+        let sunk = chrome.lightness - 5
+        let lightness = sunk >= 14 ? sunk : chrome.lightness + 6
         let step = 360.0 / Double(neoHeaderPastelCount)
         return (0..<neoHeaderPastelCount).map { index in
             nsColor(LabColorMath.hex(LabColorMath.LCh(
