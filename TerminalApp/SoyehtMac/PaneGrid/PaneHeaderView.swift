@@ -422,7 +422,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             // landed on the same pastel, and so did most same-length names,
             // which is what made the assignment look arbitrary.
             let pastels = MacTheme.neoHeaderPastels
-            let pastel = pastels[Self.pastelIndex(for: handle, count: pastels.count)]
+            let slot = Self.pastelIndex(for: handle, count: pastels.count)
+            let pastel = pastels[slot]
             layer?.cornerRadius = bounds.height / 2
             layer?.backgroundColor = pastel.cgColor
             MacSurface.Shadow(
@@ -433,7 +434,10 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             ).apply(to: layer)
             dividerView.isHidden = true
             agentDot.isHidden = false
-            agentDot.layer?.backgroundColor = MacTheme.textPrimary.withAlphaComponent(0.8).cgColor
+            // The dot, not the plate, is what tells the panes apart. A plate
+            // dark enough not to glare has no lightness left to carry a hue,
+            // so it stays a quiet tint and the color lives here.
+            agentDot.layer?.backgroundColor = MacTheme.neoHeaderDots[slot].cgColor
         } else {
             layer?.cornerRadius = 0
             MacSurface.Shadow.clear(layer)

@@ -147,12 +147,50 @@ enum MacTheme {
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
         let sunk = chrome.lightness - 5
         let lightness = sunk >= 14 ? sunk : chrome.lightness + 6
-        let step = 360.0 / Double(neoHeaderPastelCount)
-        return (0..<neoHeaderPastelCount).map { index in
+        return neoHeaderHues.map { hue in
             nsColor(LabColorMath.hex(LabColorMath.LCh(
                 lightness: lightness,
-                chroma: 20,
-                hue: anchor + Double(index) * step
+                chroma: 10,
+                hue: hue
+            )))
+        }
+    }
+
+    /// The hue wheel the header pastels and their dots share, anchored on the
+    /// theme's accent so the set belongs to its theme.
+    private static var neoHeaderHues: [Double] {
+        let anchor = LabColorMath.lch(of: appPalette.accentHex).hue
+        let step = 360.0 / Double(neoHeaderPastelCount)
+        return (0..<neoHeaderPastelCount).map { anchor + Double($0) * step }
+    }
+
+    /// The agent dot, which is what actually carries a pane's identity.
+    ///
+    /// The plate cannot: on a dark theme it has to sit below its surface to
+    /// avoid glaring, and at L* 18 nothing is a pastel — every hue collapses
+    /// into the same dark sludge. Colorfulness needs lightness, and a dark
+    /// plate has none to spend. So the plate stays a quiet tint and the hue
+    /// moves to the dot, which is 8pt and can be as vivid as it likes without
+    /// lighting anything up.
+    ///
+    /// Its lightness is an offset from the PLATE, not an absolute: a fixed
+    /// value looks even until a mid-tone theme arrives, and Misty Blue's plate
+    /// sits at L* 61, which left the dot 16 L* away and invisible. Offsetting
+    /// keeps the same separation on every theme. It is not searched per hue
+    /// either — chasing maximum chroma drags each hue to wherever its own
+    /// gamut peaks, and the cyan dot drifted out of contrast while the others
+    /// held.
+    static var neoHeaderDots: [NSColor] {
+        let palette = appPalette
+        let plate = LabColorMath.lch(of: palette.surfaceHex).lightness
+        let sunk = plate - 5
+        let plateLightness = sunk >= 14 ? sunk : plate + 6
+        let lightness = min(88, max(16, plateLightness + (palette.isDark ? 50 : -32)))
+        return neoHeaderHues.map { hue in
+            nsColor(LabColorMath.hex(LabColorMath.LCh(
+                lightness: lightness,
+                chroma: min(60, LabColorMath.maxChroma(lightness: lightness, hue: hue)),
+                hue: hue
             )))
         }
     }

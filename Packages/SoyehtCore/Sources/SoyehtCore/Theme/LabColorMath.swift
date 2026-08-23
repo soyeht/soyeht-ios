@@ -52,6 +52,14 @@ public enum LabColorMath {
         return srgb(lightness, low, hue) ?? clipped(lightness, low, hue)
     }
 
+    /// The most chroma sRGB can show at this lightness and hue. The gamut is
+    /// strongly anisotropic, so this varies by a factor of four across the
+    /// hue circle and is the reason a fixed "saturation" produces wildly
+    /// uneven colorfulness.
+    public static func maxChroma(lightness: Double, hue: Double) -> Double {
+        lch(of: hex(LCh(lightness: lightness, chroma: 200, hue: hue))).chroma
+    }
+
     /// The same color at a different lightness, keeping chroma and hue: a
     /// surface under more or less light, rather than a surface mixed with
     /// paint.
