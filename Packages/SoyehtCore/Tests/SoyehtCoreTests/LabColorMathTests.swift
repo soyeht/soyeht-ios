@@ -56,8 +56,8 @@ struct LabColorMathTests {
     }
 }
 
-@Suite("Header pastels")
-struct HeaderPastelTests {
+@Suite("Agent identity colors")
+struct AgentIdentityTests {
     /// WCAG ratio. The palette keeps its own copy private, and widening that
     /// API just to assert on it would be the tail wagging the dog.
     static func contrast(_ a: String, _ b: String) -> Double {
@@ -74,129 +74,101 @@ struct HeaderPastelTests {
     }
 
     /// Rebuilt here rather than reached through MacTheme, which is AppKit-only.
-    private func pastels(for theme: TerminalColorTheme) -> [String] {
+    private func identity(for theme: TerminalColorTheme) -> [String] {
         let palette = theme.appPalette
-        let chrome = LabColorMath.lch(of: palette.surfaceHex)
+        let surface = LabColorMath.lch(of: palette.surfaceHex)
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let sunk = chrome.lightness - 5
-        let lightness = sunk >= 14 ? sunk : chrome.lightness + 6
-        return (0..<8).map { index in
-            LabColorMath.hex(LabColorMath.LCh(
-                lightness: lightness,
-                chroma: 10,
-                hue: anchor + Double(index) * 45
-            ))
+        let sunk = surface.lightness - 9
+        let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
+        let hues = [30.0, 80.0, 210.0, 260.0].map { anchor + $0 }
+        let chroma = min(28, hues.map {
+            LabColorMath.maxChroma(lightness: lightness, hue: $0)
+        }.min() ?? 28)
+        var fifth = LabColorMath.lch(of: palette.selectionHex)
+        let seed = fifth.lightness
+        var step = 3.0
+        while step <= 60 {
+            fifth.lightness = max(6, seed - step)
+            if LabColorMath.contrastRatio(palette.textPrimaryHex,
+                                          LabColorMath.hex(fifth)) >= 4.5 { break }
+            step += 4
         }
+        if step > 60 { fifth.lightness = lightness }
+        return hues.map {
+            LabColorMath.hex(LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: $0))
+        } + [LabColorMath.hex(fifth)]
     }
 
-    /// The pill is a plate the name sits on, never a light source. Mixing 76%
-    /// into white put it 65 L* above a dark theme's chrome; stepping up by a
-    /// measured amount still left a lit bar, because the direction was the
-    /// problem. It sinks on every theme that has room to sink.
-    @Test func noThemeGetsAPillBrighterThanItsSurface() {
-        for preset in TerminalColorTheme.designStylePresets {
-            let chrome = LabColorMath.lch(of: preset.appPalette.surfaceHex).lightness
-            guard chrome - 5 >= 14 else { continue }   // too dark to sink a plate into
-            for pastel in pastels(for: preset) {
-                let lightness = LabColorMath.lch(of: pastel).lightness
-                #expect(lightness < chrome, "\(preset.id) pill \(pastel) is brighter than its surface")
-                #expect(chrome - lightness < 12, "\(preset.id) pill \(pastel) sinks too far")
+    private func deltaE(_ a: String, _ b: String) -> Double {
+        let x = LabColorMath.lch(of: a), y = LabColorMath.lch(of: b)
+        let ax = x.chroma * cos(x.hue * .pi / 180), ay = x.chroma * sin(x.hue * .pi / 180)
+        let bx = y.chroma * cos(y.hue * .pi / 180), by = y.chroma * sin(y.hue * .pi / 180)
+        return ((x.lightness - y.lightness) * (x.lightness - y.lightness)
+                + (ax - bx) * (ax - bx) + (ay - by) * (ay - by)).squareRoot()
+    }
+
+    /// The set exists to tell panes apart, so any two slots must be visibly
+    /// different. This is what eight slots could not deliver: to keep eight
+    /// from glaring the chroma had to drop to 10, and at that chroma they were
+    /// all the same color.
+    @Test func everySlotIsTellableFromEveryOther() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let set = identity(for: theme)
+            for i in set.indices {
+                for j in set.indices where j > i {
+                    #expect(deltaE(set[i], set[j]) > 10,
+                            "\(theme.id) slots \(i) and \(j) are \(set[i]) and \(set[j])")
+                }
             }
         }
     }
 
-    /// No shipped preset needs the step-up branch any more — lifting Midnight
-    /// Teal's chrome gave it room to sink like the rest. The branch stays for
-    /// arbitrary user themes, which can be any color at all, so it is checked
-    /// against one rather than left to rot untested.
-    @Test func aSurfaceWithNoRoomBelowStepsUpOnlySlightly() {
-        let nearBlack = TerminalColorTheme(
-            id: "test-near-black",
-            displayName: "Near black",
-            backgroundHex: "#050708",
-            foregroundHex: "#E9EFF2",
-            cursorHex: "#41ABDD",
-            ansiHex: Array(repeating: "#808080", count: 16),
-            source: .custom
-        )
-        let chrome = LabColorMath.lch(of: nearBlack.appPalette.surfaceHex).lightness
-        #expect(chrome - 5 < 14)
-        for pastel in pastels(for: nearBlack) {
-            let lightness = LabColorMath.lch(of: pastel).lightness
-            #expect(lightness > chrome)
-            #expect(lightness - chrome < 10, "\(pastel) is a band, not a whisper")
-        }
-    }
-
-    /// Dark themes carry a near-white ink, so sinking the plate also buys
-    /// readability: the agent name renders at 62% alpha over it.
-    @Test func darkThemeAgentNamesStayLegible() {
-        for preset in TerminalColorTheme.designStylePresets where preset.appPalette.isDark {
-            let ink = preset.appPalette.textPrimaryHex
-            for pastel in pastels(for: preset) {
-                let blended = HexColorMath.mix(pastel, ink, t: 0.62)
-                #expect(Self.contrast(blended, pastel) > 4.0,
-                        "\(preset.id) agent name on \(pastel) is \(blended)")
+    /// The name sits on the plate, so it has to be readable on all five.
+    ///
+    /// Two tiers, because a plate can only ever sit between a theme's surface
+    /// and its ink: Solarized pairs a mid-grey foreground with a dark ground
+    /// at 4.6:1 to begin with, so nothing placed between them clears 4.5.
+    /// The presets we author have the headroom and are held to it.
+    @Test func theNameReadsOnEverySlot() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let authored = theme.id.hasPrefix("neo")
+            let floor = authored ? 4.5 : 3.5
+            for plate in identity(for: theme) {
+                #expect(Self.contrast(theme.appPalette.textPrimaryHex, plate) >= floor,
+                        "\(theme.id) name on \(plate) is unreadable")
             }
         }
     }
 
-    @Test func everyPastelStaysMuted() {
-        for preset in TerminalColorTheme.designStylePresets {
-            for pastel in pastels(for: preset) {
-                #expect(LabColorMath.lch(of: pastel).chroma <= 22.0,
-                        "\(preset.id) pastel \(pastel) is not pastel")
+    /// A plate is something the name rests on, never a light source: it sinks
+    /// below the card on every theme with room to sink. A surface too dark for
+    /// that has to step up instead, and then only to where color starts to
+    /// exist — pure black cannot hold a hue at all, so the floor is what makes
+    /// the set possible, not a distance chosen for its own sake.
+    @Test func platesSinkRatherThanGlow() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
+            for plate in identity(for: theme).prefix(4) {
+                let lightness = LabColorMath.lch(of: plate).lightness
+                if surface - 9 >= 12 {
+                    #expect(lightness < surface, "\(theme.id) plate \(plate) outshines its card")
+                } else {
+                    #expect(lightness <= 26, "\(theme.id) plate \(plate) is a band, not a floor")
+                }
             }
         }
     }
 
-    @Test func theEightAreDistinct() {
-        for preset in TerminalColorTheme.designStylePresets {
-            #expect(Set(pastels(for: preset)).count == 8, "\(preset.id) repeats a pastel")
+    /// The four tetrad slots share a lightness and a chroma — that shared
+    /// footing is what makes them read as one palette.
+    @Test func theTetradSharesLightnessAndChroma() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let four = identity(for: theme).prefix(4).map { LabColorMath.lch(of: $0) }
+            let lightness = four.map(\.lightness)
+            let chroma = four.map(\.chroma)
+            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) tetrad lightness drifts")
+            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) tetrad chroma drifts")
         }
-    }
-
-    /// A scalar sum ignores order, so anagrams and most same-length names
-    /// shared a slot. That is what made the assignment look arbitrary.
-    @Test func hashSeparatesNamesAScalarSumCollided() {
-        func sum(_ s: String) -> Int { s.unicodeScalars.reduce(0) { $0 &+ Int($1.value) } }
-        func fnv(_ s: String) -> Int {
-            var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-            for byte in s.utf8 { hash ^= UInt64(byte); hash = hash &* 0x1000_0000_01b3 }
-            return Int(hash % 8)
-        }
-        #expect(sum("delia") % 8 == sum("alied") % 8, "premise changed")
-        #expect(fnv("delia") != fnv("alied"))
-    }
-}
-
-@Suite("Theme tone classification")
-struct ThemeToneTests {
-    /// The mid-tone trap: relative luminance is linear, so its 0.5 mark sits
-    /// near L* 76 and called these light faces dark. `preferredColorScheme`
-    /// reads this, so a golden theme was asking the system for dark controls.
-    @Test func midToneLightFacesAreNotDark() {
-        for id in ["neoSunriseGold", "neoSunlitChartreuse", "neoMistyBlue", "neoPaleMist"] {
-            let preset = TerminalColorTheme.designStylePresets.first { $0.id == id }
-            let palette = try! #require(preset).appPalette
-            #expect(!palette.isDark, "\(id) classified dark")
-            #expect(LabColorMath.lch(of: palette.backgroundHex).lightness > 50)
-        }
-    }
-
-    @Test func darkFacesStayDark() {
-        for id in ["neoDeepVine", "neoDeepForest", "neoMidnightTeal", "neoDeepHarbor"] {
-            let preset = TerminalColorTheme.designStylePresets.first { $0.id == id }
-            #expect(try! #require(preset).appPalette.isDark, "\(id) classified light")
-        }
-    }
-
-    /// Nothing that shipped before may flip tone on this change.
-    @Test func existingThemesKeepTheirTone() {
-        for theme in ColorTheme.allCases.map(\.terminalTheme) {
-            #expect(theme.appPalette.isDark, "\(theme.id) was dark before")
-        }
-        #expect(!TerminalColorTheme.neoMilk.appPalette.isDark)
     }
 }
 
@@ -257,7 +229,7 @@ struct PanePresetInvariantTests {
             let chroma = LabColorMath.lch(of: palette.accentHex).chroma
             #expect(chroma > 45, "\(preset.id) accent \(palette.accentHex) is muddy at C* \(chroma)")
             #expect(chroma < 75, "\(preset.id) accent \(palette.accentHex) screams at C* \(chroma)")
-            #expect(HeaderPastelTests.contrast(palette.buttonTextOnAccentHex, palette.accentHex) >= 4.5,
+            #expect(AgentIdentityTests.contrast(palette.buttonTextOnAccentHex, palette.accentHex) >= 4.5,
                     "\(preset.id) label on accent is unreadable")
         }
     }

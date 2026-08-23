@@ -434,10 +434,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             ).apply(to: layer)
             dividerView.isHidden = true
             agentDot.isHidden = false
-            // The dot, not the plate, is what tells the panes apart. A plate
-            // dark enough not to glare has no lightness left to carry a hue,
-            // so it stays a quiet tint and the color lives here.
-            agentDot.layer?.backgroundColor = MacTheme.neoHeaderDots[slot].cgColor
+            // Plain ink again. The dot carried the identity only while the
+            // plate was too washed out to do it; now that the plate is a real
+            // color, a second colored element beside it competes for the same
+            // job.
+            agentDot.layer?.backgroundColor = MacTheme.textPrimary.withAlphaComponent(0.8).cgColor
         } else {
             layer?.cornerRadius = 0
             MacSurface.Shadow.clear(layer)

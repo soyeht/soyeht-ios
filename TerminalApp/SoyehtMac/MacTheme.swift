@@ -114,85 +114,85 @@ enum MacTheme {
         nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
     }
 
-    /// How many distinct header pastels exist. Eight rather than the previous
-    /// four: the pill identifies an agent, and with four the panes on screen
-    /// collided constantly.
-    static let neoHeaderPastelCount = 8
+    /// How many agent identity colors a theme carries.
+    ///
+    /// Five, down from eight. Eight forced the chroma down to 10 to keep the
+    /// set from glaring, and at that chroma eight hues are impossible to tell
+    /// apart — the count was defeating its own purpose. Halving it doubles the
+    /// spacing, so each color can carry C* 20-28 and still sit quietly.
+    static let neoHeaderPastelCount = 5
 
-    /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
-    /// pills across the grid).
+    /// Per-pane header identity colors: the pill an agent's name sits on.
     ///
-    /// A pastel is low chroma plus a SMALL step off the surface it floats on,
-    /// and the step goes DOWN. The original recipe mixed each color 76% into
-    /// white, which hard-codes "light": a dark theme got a pill 65 L* above
-    /// its chrome, a near-white band across the pane. Stepping up by a
-    /// measured amount instead only shrank that band — the pill still read as
-    /// a lit bar on a dark pane, because the direction was the problem, not
-    /// the distance. Going down works on every tone: the pill becomes a plate
-    /// the name sits on, never a light source. It also buys contrast on dark
-    /// themes, where the ink is near-white — the agent name climbs from about
-    /// 3:1 to better than 5:1.
+    /// Four hues are a split-complementary tetrad off the theme's accent, not
+    /// an even cross — two analogous pairs facing each other read as a chosen
+    /// palette, while 4×90° reads as a color wheel. Nothing lands closer than
+    /// 50° to its neighbour. All four share one lightness and one chroma,
+    /// which is what makes a set look designed rather than assembled: hue is
+    /// the only variable the eye has to sort.
     ///
-    /// A surface already too dark to sink a plate into steps slightly up
-    /// instead, since that is the only direction left. Only the darkest theme
-    /// takes that path.
+    /// The fifth is the theme's own selection color taken a shade deeper. It
+    /// is the only slot derived from a role the theme already defines, so it
+    /// belongs to the theme more than the other four, which are deliberately
+    /// spread for variety. The tetrad starts 30° off the accent rather than on
+    /// it precisely because the selection already sits there — starting at 0°
+    /// put two near-identical blues in Midnight Teal's set.
     ///
-    /// The hues are even steps anchored on the theme's accent, so the set
-    /// belongs to its theme. They replace the four semantic roles, which
-    /// collided across the panes on screen and spent the palette's danger
-    /// color on identity, leaving the header no vocabulary for actual state.
+    /// The plate sinks 9 L* below the card. The previous set sank 5 at C* 10
+    /// and had effectively vanished: the header became a band of text with no
+    /// pill, which is what lost the agent's identity — not contrast, which was
+    /// already 6:1 to 12:1 throughout. A surface too dark to sink a plate into
+    /// steps up instead, the only direction left to it.
     static var neoHeaderPastels: [NSColor] {
         let palette = appPalette
-        let chrome = LabColorMath.lch(of: palette.surfaceHex)
+        let surface = LabColorMath.lch(of: palette.surfaceHex)
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let sunk = chrome.lightness - 5
-        let lightness = sunk >= 14 ? sunk : chrome.lightness + 6
-        return neoHeaderHues.map { hue in
-            nsColor(LabColorMath.hex(LabColorMath.LCh(
-                lightness: lightness,
-                chroma: 10,
-                hue: hue
-            )))
-        }
+        let sunk = surface.lightness - 9
+        // A face too dark to sink into steps up — but to where color is
+        // actually possible, not by a fixed amount. soyehtDark is pure black,
+        // and a flat +8 landed at L* 8, where sRGB holds almost no chroma and
+        // five slots collapse into one.
+        let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
+
+        let hues = [30.0, 80.0, 210.0, 260.0].map { anchor + $0 }
+        // One chroma every hue in the set can actually reach, so the four read
+        // as siblings instead of one washed-out member beside three vivid ones.
+        let chroma = min(28, hues.map {
+            LabColorMath.maxChroma(lightness: lightness, hue: $0)
+        }.min() ?? 28)
+
+        let selection = LabColorMath.lch(of: palette.selectionHex)
+        return (hues.map { hue in
+            LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue)
+        } + [Self.readableSelectionPlate(selection,
+                                         ink: palette.textPrimaryHex,
+                                         fallback: lightness)])
+            .map { nsColor(LabColorMath.hex($0)) }
     }
 
-    /// The hue wheel the header pastels and their dots share, anchored on the
-    /// theme's accent so the set belongs to its theme.
-    private static var neoHeaderHues: [Double] {
-        let anchor = LabColorMath.lch(of: appPalette.accentHex).hue
-        let step = 360.0 / Double(neoHeaderPastelCount)
-        return (0..<neoHeaderPastelCount).map { anchor + Double($0) * step }
-    }
-
-    /// The agent dot, which is what actually carries a pane's identity.
+    /// The fifth slot: the theme's selection color, a touch deeper.
     ///
-    /// The plate cannot: on a dark theme it has to sit below its surface to
-    /// avoid glaring, and at L* 18 nothing is a pastel — every hue collapses
-    /// into the same dark sludge. Colorfulness needs lightness, and a dark
-    /// plate has none to spend. So the plate stays a quiet tint and the hue
-    /// moves to the dot, which is 8pt and can be as vivid as it likes without
-    /// lighting anything up.
-    ///
-    /// Its lightness is an offset from the PLATE, not an absolute: a fixed
-    /// value looks even until a mid-tone theme arrives, and Misty Blue's plate
-    /// sits at L* 61, which left the dot 16 L* away and invisible. Offsetting
-    /// keeps the same separation on every theme. It is not searched per hue
-    /// either — chasing maximum chroma drags each hue to wherever its own
-    /// gamut peaks, and the cyan dot drifted out of contrast while the others
-    /// held.
-    static var neoHeaderDots: [NSColor] {
-        let palette = appPalette
-        let plate = LabColorMath.lch(of: palette.surfaceHex).lightness
-        let sunk = plate - 5
-        let plateLightness = sunk >= 14 ? sunk : plate + 6
-        let lightness = min(88, max(16, plateLightness + (palette.isDark ? 50 : -32)))
-        return neoHeaderHues.map { hue in
-            nsColor(LabColorMath.hex(LabColorMath.LCh(
-                lightness: lightness,
-                chroma: min(60, LabColorMath.maxChroma(lightness: lightness, hue: hue)),
-                hue: hue
-            )))
+    /// A theme that never pins a selection inherits its cursor, which is a
+    /// vivid accent — soyehtDark's is a green at L* 62, and the near-white ink
+    /// on top of it reads at 1.2:1. So the deepening continues past the first
+    /// three points if it has to, until the name is legible; if the hue cannot
+    /// get there at all, the slot joins the tetrad's lightness and keeps only
+    /// its hue.
+    private static func readableSelectionPlate(
+        _ selection: LabColorMath.LCh,
+        ink: String,
+        fallback: Double
+    ) -> LabColorMath.LCh {
+        var candidate = selection
+        var step = 3.0
+        while step <= 60 {
+            candidate.lightness = max(6, selection.lightness - step)
+            let hex = LabColorMath.hex(candidate)
+            if LabColorMath.contrastRatio(ink, hex) >= 4.5 { return candidate }
+            step += 4
         }
+        candidate.lightness = fallback
+        return candidate
     }
 
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).

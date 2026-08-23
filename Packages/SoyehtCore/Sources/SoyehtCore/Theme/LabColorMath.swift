@@ -60,6 +60,17 @@ public enum LabColorMath {
         lch(of: hex(LCh(lightness: lightness, chroma: 200, hue: hue))).chroma
     }
 
+    /// WCAG contrast ratio. Defined on relative luminance, not on L*, which
+    /// is why it lives beside the Lab math rather than inside it.
+    public static func contrastRatio(_ a: String, _ b: String) -> Double {
+        func luminance(_ hex: String) -> Double {
+            let (r, g, b) = ColorTheme.rgb8(from: hex)
+            return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+        }
+        let first = luminance(a), second = luminance(b)
+        return (max(first, second) + 0.05) / (min(first, second) + 0.05)
+    }
+
     /// The same color at a different lightness, keeping chroma and hue: a
     /// surface under more or less light, rather than a surface mixed with
     /// paint.
