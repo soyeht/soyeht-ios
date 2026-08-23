@@ -66,6 +66,21 @@ final class GapSplitViewController: NSSplitViewController {
             name: NSSplitView.didResizeSubviewsNotification,
             object: splitView
         )
+        // The cover is painted with the canvas color, so it goes stale the
+        // moment the theme changes: a theme switch relays out nothing here,
+        // and the divider keeps wearing the previous palette's canvas as a
+        // 1px line between the panes. Every other chrome view already
+        // restyles on this notification.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    @objc private func preferencesDidChange() {
+        updateDividerCover()
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
