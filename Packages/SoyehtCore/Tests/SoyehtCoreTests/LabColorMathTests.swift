@@ -73,38 +73,10 @@ struct AgentIdentityTests {
         return (max(first, second) + 0.05) / (min(first, second) + 0.05)
     }
 
-    /// Rebuilt here rather than reached through MacTheme, which is AppKit-only.
+    /// The shipped implementation, not a copy of it. A copy is what let the
+    /// plate lightness floor land in the tests and never in the app.
     private func identity(for theme: TerminalColorTheme) -> [String] {
-        let palette = theme.appPalette
-        let surface = LabColorMath.lch(of: palette.surfaceHex)
-        let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let sunk = surface.lightness - 9
-        let lightness = sunk >= 12 ? max(sunk, 19) : max(surface.lightness + 8, 18)
-        let hues = [317.0, 7.0, 137.0, 187.0]
-        let chroma = min(28, hues.map {
-            LabColorMath.maxChroma(lightness: lightness, hue: $0)
-        }.min() ?? 28)
-        var fifth = LabColorMath.lch(of: palette.selectionHex)
-        let seed = fifth.lightness
-        var step = 3.0
-        while step <= 60 {
-            fifth.lightness = max(6, seed - step)
-            if LabColorMath.contrastRatio(palette.textPrimaryHex,
-                                          LabColorMath.hex(fifth)) >= 4.5 { break }
-            step += 4
-        }
-        if step > 60 { fifth.lightness = lightness }
-        return hues.map { hue in
-            var plate = LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue)
-            let direction: Double = surface.lightness < 50 ? 1 : -1
-            var step = 0.0
-            while LabColorMath.distance(palette.surfaceHex, LabColorMath.hex(plate)) < 12, step < 30 {
-                step += 2
-                plate.lightness = lightness + direction * step
-                plate.chroma = min(28, LabColorMath.maxChroma(lightness: plate.lightness, hue: hue))
-            }
-            return LabColorMath.hex(plate)
-        } + [LabColorMath.hex(fifth)]
+        AgentIdentityPalette.plates(for: theme.appPalette)
     }
 
     private func deltaE(_ a: String, _ b: String) -> Double {

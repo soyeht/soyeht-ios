@@ -115,110 +115,17 @@ enum MacTheme {
     }
 
     /// How many agent identity colors a theme carries.
-    ///
-    /// Five, down from eight. Eight forced the chroma down to 10 to keep the
-    /// set from glaring, and at that chroma eight hues are impossible to tell
-    /// apart — the count was defeating its own purpose. Halving it doubles the
-    /// spacing, so each color can carry C* 20-28 and still sit quietly.
-    static let neoHeaderPastelCount = 5
+    static var neoHeaderPastelCount: Int { AgentIdentityPalette.slotCount }
 
-    /// Per-pane header identity colors: the pill an agent's name sits on.
+    /// Per-pane header identity colors: the plate an agent's name sits on.
     ///
-    /// Four FIXED hues — violet, rose, green, cyan — the same on every theme,
-    /// in that order. An agent keeps its color when the theme changes, which
-    /// is what lets the color mean the agent rather than the theme.
-    ///
-    /// Two earlier attempts anchored the set on each theme's accent, and both
-    /// were wrong the same way: anchoring rotates the sequence, so the order
-    /// came out different on every theme. It only looked right on Pale Mist
-    /// and Misty Blue, whose accents happen to sit where these four fall — and
-    /// re-anchoring to "fix" the other six is what broke those two.
-    ///
-    /// What follows the theme is the TONE, not the hue. Lightness and chroma
-    /// are the theme's own register, so the same violet is a pale lilac on
-    /// Sunlit Chartreuse (L* 76, C* 28) and a deep plum on Deep Forest (L* 14,
-    /// C* 16). All four share that register, which is what makes them read as
-    /// one set.
-    ///
-    /// The fifth is the theme's own selection color taken a shade deeper. It
-    /// is the only slot whose hue comes from the theme, which is why it is the
-    /// one a pane wears by default.
-    ///
-    /// The plate sinks 9 L* below the card. The previous set sank 5 at C* 10
-    /// and had effectively vanished: the header became a band of text with no
-    /// pill, which is what lost the agent's identity — not contrast, which was
-    /// already 6:1 to 12:1 throughout. A surface too dark to sink a plate into
-    /// steps up instead, the only direction left to it.
+    /// Derived in `AgentIdentityPalette`, in the core, so the tests exercise
+    /// the code the app runs. It used to live here with the test suite keeping
+    /// its own copy of the algorithm, and the two drifted: a lightness floor
+    /// reached the copy and never reached this one, so the suite stayed green
+    /// while the app shipped the colors the floor existed to fix.
     static var neoHeaderPastels: [NSColor] {
-        let palette = appPalette
-        let surface = LabColorMath.lch(of: palette.surfaceHex)
-        let sunk = surface.lightness - 9
-        // A face too dark to sink into steps up — but to where color is
-        // actually possible, not by a fixed amount. soyehtDark is pure black,
-        // and a flat +8 landed at L* 8, where sRGB holds almost no chroma and
-        // five slots collapse into one.
-        let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
-
-        let hues = [317.0, 7.0, 137.0, 187.0]
-        // One chroma every hue in the set can actually reach, so the four read
-        // as siblings instead of one washed-out member beside three vivid ones.
-        let chroma = min(28, hues.map {
-            LabColorMath.maxChroma(lightness: lightness, hue: $0)
-        }.min() ?? 28)
-
-        let selection = LabColorMath.lch(of: palette.selectionHex)
-        return (hues.map { hue in
-            Self.plateClear(of: palette.surfaceHex,
-                            at: LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue))
-        } + [Self.readableSelectionPlate(selection,
-                                         ink: palette.textPrimaryHex,
-                                         fallback: lightness)])
-            .map { nsColor(LabColorMath.hex($0)) }
-    }
-
-    /// A plate whose hue is the theme's own hue would sit on top of its
-    /// surface — Deep Forest's green landed ΔE 5.6 from its green card and
-    /// simply vanished. The offender steps clear, upward on a dark theme and
-    /// downward on a light one, since that is the direction each has chroma
-    /// in. Only a slot that actually collides moves; the rest keep the shared
-    /// lightness that makes the set read as a set.
-    private static func plateClear(of surface: String, at plate: LabColorMath.LCh) -> LabColorMath.LCh {
-        var candidate = plate
-        let surfaceLightness = LabColorMath.lch(of: surface).lightness
-        let direction: Double = surfaceLightness < 50 ? 1 : -1
-        var step = 0.0
-        while LabColorMath.distance(surface, LabColorMath.hex(candidate)) < 12, step < 30 {
-            step += 2
-            candidate.lightness = plate.lightness + direction * step
-            candidate.chroma = min(28, LabColorMath.maxChroma(lightness: candidate.lightness,
-                                                              hue: plate.hue))
-        }
-        return candidate
-    }
-
-    /// The fifth slot: the theme's selection color, a touch deeper.
-    ///
-    /// A theme that never pins a selection inherits its cursor, which is a
-    /// vivid accent — soyehtDark's is a green at L* 62, and the near-white ink
-    /// on top of it reads at 1.2:1. So the deepening continues past the first
-    /// three points if it has to, until the name is legible; if the hue cannot
-    /// get there at all, the slot joins the tetrad's lightness and keeps only
-    /// its hue.
-    private static func readableSelectionPlate(
-        _ selection: LabColorMath.LCh,
-        ink: String,
-        fallback: Double
-    ) -> LabColorMath.LCh {
-        var candidate = selection
-        var step = 3.0
-        while step <= 60 {
-            candidate.lightness = max(6, selection.lightness - step)
-            let hex = LabColorMath.hex(candidate)
-            if LabColorMath.contrastRatio(ink, hex) >= 4.5 { return candidate }
-            step += 4
-        }
-        candidate.lightness = fallback
-        return candidate
+        AgentIdentityPalette.plates(for: appPalette).map(nsColor)
     }
 
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
