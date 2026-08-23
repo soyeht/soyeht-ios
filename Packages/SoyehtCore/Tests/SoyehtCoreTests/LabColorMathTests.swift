@@ -96,6 +96,7 @@ struct HeaderPastelTests {
     @Test func noThemeGetsAPillBrighterThanItsSurface() {
         for preset in TerminalColorTheme.designStylePresets {
             let chrome = LabColorMath.lch(of: preset.appPalette.surfaceHex).lightness
+            guard chrome - 5 >= 14 else { continue }   // too dark to sink a plate into
             for pastel in pastels(for: preset) {
                 let lightness = LabColorMath.lch(of: pastel).lightness
                 #expect(lightness < chrome, "\(preset.id) pill \(pastel) is brighter than its surface")
@@ -212,12 +213,21 @@ struct PanePresetInvariantTests {
     @Test func elevationHoldsTheCanvasChroma() {
         for preset in panePresets {
             let palette = preset.appPalette
-            let canvas = LabColorMath.lch(of: palette.backgroundHex).chroma
+            let canvas = LabColorMath.lch(of: palette.backgroundHex)
             for (role, hex) in [("well", palette.borderHex),
                                 ("shadow", preset.neoStyleColors.shadowDarkHex),
                                 ("bloom", preset.neoStyleColors.shadowLightHex)] {
-                let drift = abs(LabColorMath.lch(of: hex).chroma - canvas)
-                #expect(drift < 3.0, "\(preset.id) \(role) drifted \(drift) from the canvas chroma")
+                let role_ = LabColorMath.lch(of: hex)
+                // A role can only carry the canvas's chroma where its own
+                // lightness has room for it. Near black there is almost none —
+                // Midnight Teal's shadow sits at L* 3, where sRGB holds under
+                // 8 units of chroma at any hue — so the invariant is measured
+                // against what the gamut actually offers there.
+                let reachable = min(canvas.chroma,
+                                    LabColorMath.maxChroma(lightness: role_.lightness,
+                                                           hue: canvas.hue))
+                #expect(abs(role_.chroma - reachable) < 3.0,
+                        "\(preset.id) \(role) holds \(role_.chroma), could hold \(reachable)")
             }
         }
     }

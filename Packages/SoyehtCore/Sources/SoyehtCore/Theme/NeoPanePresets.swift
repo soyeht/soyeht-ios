@@ -224,23 +224,27 @@ public extension TerminalColorTheme {
         neoPanePreset(
             id: "neoMidnightTeal",
             displayName: "Neo · Midnight Teal",
-            // The one face with no room under it: L* 13.7 leaves 13 units to
-            // black, so a recess measured 4 L* and the shadow pair collapsed
-            // into it. The chrome lifts to L* 23 where the roles fit; the
-            // screen keeps the authored color exactly.
-            surface: "#1E3B48",
-            screen: "#062635",
-            canvas: "#15323F",
-            hover: "#2A4654",
-            well: "#052531",
+            // Chrome and screen are the same color here, as on every other
+            // pane preset. Lifting the chrome clear of the screen gave the
+            // depth roles more room, but it split the pane into two visibly
+            // different tones — and a pane reading as ONE surface is the
+            // premise this whole set is built on. The recess it bought was not
+            // worth the seam. The cost is paid in chroma instead: at L* 3.7
+            // the well and shadow are effectively black rather than tinted
+            // teal. The STEP survives — 9.7 L* from face to well, against 9.9
+            // to 10.2 on the other dark faces.
+            surface: "#062635",
+            canvas: "#00202E",
+            hover: "#133140",
+            well: "#001019",
             ink: "#E9EFF2",
             inkSecondary: "#AEBAC0",
             inkMuted: "#8C9CA3",
-            accent: "#81A6FF",
-            buttonTextOnAccent: "#001F46",
-            shadowDark: "#03232F",
-            shadowLight: "#2E4A58",
-            selection: "#3C5B7F",
+            accent: "#7FA7FF",
+            buttonTextOnAccent: "#001F45",
+            shadowDark: "#000F18",
+            shadowLight: "#1A3746",
+            selection: "#2A4D72",
             ansi: [
                 "#010507", "#EF4444", "#00D9A3", "#F59E0B",
                 "#5452FF", "#C100C0", "#00A5B2", "#AEBAC0",
