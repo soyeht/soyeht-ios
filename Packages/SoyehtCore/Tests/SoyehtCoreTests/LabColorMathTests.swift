@@ -96,7 +96,6 @@ struct HeaderPastelTests {
     @Test func noThemeGetsAPillBrighterThanItsSurface() {
         for preset in TerminalColorTheme.designStylePresets {
             let chrome = LabColorMath.lch(of: preset.appPalette.surfaceHex).lightness
-            guard chrome - 5 >= 14 else { continue }   // too dark to sink into
             for pastel in pastels(for: preset) {
                 let lightness = LabColorMath.lch(of: pastel).lightness
                 #expect(lightness < chrome, "\(preset.id) pill \(pastel) is brighter than its surface")
@@ -105,47 +104,26 @@ struct HeaderPastelTests {
         }
     }
 
-    /// The one surface with no room below it steps up, but by a whisper.
-    @Test func theDarkestSurfaceStepsUpOnlySlightly() {
-        let teal = TerminalColorTheme.neoMidnightTeal
-        let chrome = LabColorMath.lch(of: teal.appPalette.surfaceHex).lightness
-        #expect(chrome - 5 < 14, "Midnight Teal now has room to sink; drop this case")
-        for pastel in pastels(for: teal) {
+    /// No shipped preset needs the step-up branch any more — lifting Midnight
+    /// Teal's chrome gave it room to sink like the rest. The branch stays for
+    /// arbitrary user themes, which can be any color at all, so it is checked
+    /// against one rather than left to rot untested.
+    @Test func aSurfaceWithNoRoomBelowStepsUpOnlySlightly() {
+        let nearBlack = TerminalColorTheme(
+            id: "test-near-black",
+            displayName: "Near black",
+            backgroundHex: "#050708",
+            foregroundHex: "#E9EFF2",
+            cursorHex: "#41ABDD",
+            ansiHex: Array(repeating: "#808080", count: 16),
+            source: .custom
+        )
+        let chrome = LabColorMath.lch(of: nearBlack.appPalette.surfaceHex).lightness
+        #expect(chrome - 5 < 14)
+        for pastel in pastels(for: nearBlack) {
             let lightness = LabColorMath.lch(of: pastel).lightness
             #expect(lightness > chrome)
             #expect(lightness - chrome < 10, "\(pastel) is a band, not a whisper")
-        }
-    }
-
-    /// The plate is a quiet tint, so the hue it cannot carry moves to the dot.
-    private func dots(for theme: TerminalColorTheme) -> [String] {
-        let palette = theme.appPalette
-        let anchor = LabColorMath.lch(of: palette.accentHex).hue
-        let chrome = LabColorMath.lch(of: palette.surfaceHex).lightness
-        let sunk = chrome - 5
-        let plate = sunk >= 14 ? sunk : chrome + 6
-        let lightness = min(88, max(16, plate + (palette.isDark ? 50 : -32)))
-        return (0..<8).map { index in
-            let hue = anchor + Double(index) * 45
-            return LabColorMath.hex(LabColorMath.LCh(
-                lightness: lightness,
-                chroma: min(60, LabColorMath.maxChroma(lightness: lightness, hue: hue)),
-                hue: hue
-            ))
-        }
-    }
-
-    /// A dark plate has no lightness to spend on colorfulness — at L* 18 every
-    /// hue collapses to the same sludge — so the dot is what has to be vivid,
-    /// and it has to read against the plate on every theme.
-    @Test func dotsAreVividAndReadOnTheirPlate() {
-        for preset in TerminalColorTheme.designStylePresets {
-            for (plate, dot) in zip(pastels(for: preset), dots(for: preset)) {
-                #expect(LabColorMath.lch(of: dot).chroma > 18,
-                        "\(preset.id) dot \(dot) is not vivid")
-                #expect(Self.contrast(dot, plate) > 2.5,
-                        "\(preset.id) dot \(dot) vanishes on plate \(plate)")
-            }
         }
     }
 

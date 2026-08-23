@@ -35,9 +35,9 @@ struct AppPaletteChromeOverrideTests {
     }
 
     /// Preset themes may pin a chrome palette that diverges from the terminal
-    /// screen colors. Milk is the reference light terminal, and it is now the
-    /// only preset exercising the divergence: the pane-color presets all wear
-    /// one color across chrome and screen.
+    /// screen colors. Milk is the reference light terminal; Midnight Teal is
+    /// the one pane-color preset that needs the divergence, its face sitting
+    /// too near black for the neumorphic roles to fit beneath it.
     @Test func presetOverridesDivergeChromeFromTerminal() {
         let milk = TerminalColorTheme.neoMilk
         let palette = milk.appPalette
@@ -50,8 +50,10 @@ struct AppPaletteChromeOverrideTests {
 
         #expect(milk.backgroundHex != palette.backgroundHex)
 
+        // The screen keeps the authored color; the chrome lifts clear of it.
         let teal = TerminalColorTheme.neoMidnightTeal
-        #expect(teal.appPalette.surfaceHex == teal.backgroundHex)
+        #expect(teal.backgroundHex == "#062635")
+        #expect(teal.appPalette.surfaceHex == "#1E3B48")
         #expect(teal.appPalette.isDark)
     }
 

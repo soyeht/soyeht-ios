@@ -19,10 +19,16 @@ import Foundation
 /// reads as one surface rather than a frame around a differently-colored screen.
 public extension TerminalColorTheme {
     /// Builds a preset whose chrome and terminal screen share one surface color.
+    /// - Parameter screen: the terminal background, when it must differ from
+    ///   the chrome. Only a face too near black to carve a recess into needs
+    ///   this: the authored color stays on the screen, which is the area the
+    ///   user actually reads, and the chrome lifts to where the neumorphic
+    ///   roles have room to exist.
     private static func neoPanePreset(
         id: String,
         displayName: String,
         surface: String,
+        screen: String? = nil,
         canvas: String,
         hover: String,
         well: String,
@@ -39,7 +45,7 @@ public extension TerminalColorTheme {
         TerminalColorTheme(
             id: id,
             displayName: displayName,
-            backgroundHex: surface,
+            backgroundHex: screen ?? surface,
             foregroundHex: ink,
             cursorHex: accent,
             selectionBackgroundHex: selection,
@@ -199,17 +205,22 @@ public extension TerminalColorTheme {
         neoPanePreset(
             id: "neoMidnightTeal",
             displayName: "Neo · Midnight Teal",
-            surface: "#062635",
-            canvas: "#051E2A",
-            hover: "#0D2C3B",
-            well: "#04161F",
+            // The one face with no room under it: L* 13.7 leaves 13 units to
+            // black, so a recess measured 4 L* and the shadow pair collapsed
+            // into it. The chrome lifts to L* 23 where the roles fit; the
+            // screen keeps the authored color exactly.
+            surface: "#1E3B48",
+            screen: "#062635",
+            canvas: "#15323F",
+            hover: "#25414E",
+            well: "#052531",
             ink: "#E9EFF2",
             inkSecondary: "#AEBAC0",
             inkMuted: "#8C9CA3",
             accent: "#41ABDD",
             buttonTextOnAccent: "#11242C",
-            shadowDark: "#020A0D",
-            shadowLight: "#193644",
+            shadowDark: "#03232F",
+            shadowLight: "#2E4A58",
             selection: "#184E67",
             ansi: [
                 "#010507", "#EF4444", "#00D9A3", "#F59E0B",
