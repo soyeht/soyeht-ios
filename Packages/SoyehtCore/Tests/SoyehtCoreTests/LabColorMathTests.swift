@@ -243,9 +243,10 @@ struct PanePresetInvariantTests {
         }
     }
 
-    /// The pair Caio picked as best: 16.7 L* down and 9.0 up on a light face,
-    /// 7.3 and 10.7 on a dark one. A dark canvas has little room beneath it
-    /// and plenty above, so the weighting flips rather than scaling.
+    /// The distances the shipped presets were tuned to: 16.7 L* down and 9.0
+    /// up on a light face, 7.3 and 10.7 on a dark one. A dark canvas has
+    /// little room beneath it and plenty above, so the weighting flips rather
+    /// than scaling.
     @Test func theShadowPairCastsTheApprovedDistance() {
         for preset in panePresets {
             let palette = preset.appPalette
@@ -259,9 +260,9 @@ struct PanePresetInvariantTests {
     }
 
     /// Chroma is what separates an accent that belongs to its theme from mud
-    /// or a scream — a fixed HSL saturation gave yellow-green C* 99 and dark
-    /// blue C* 40, which was exactly the split between the two Caio approved
-    /// and the six he rejected.
+    /// or a scream. A fixed HSL saturation gave yellow-green C* 99 and dark
+    /// blue C* 40, and that split is exactly where the accents divided into
+    /// the ones that read well and the ones that did not.
     @Test func accentsHoldChromaAndCarryReadableLabels() {
         for preset in panePresets {
             let palette = preset.appPalette
