@@ -27,7 +27,11 @@ import Foundation
 ///   warm 40° or cool 290°, because sRGB's gamut is anisotropic and those are
 ///   the only regions holding deep chroma — at Lab hue 255 nothing above C* 48
 ///   exists at any lightness. Lightness then bends into whatever band the hue
-///   can carry. Checked against the preset nobody has faulted: the rule
+///   can carry, and that band is drawn at C* 48 rather than 52: the tighter
+///   figure left one narrow band around the cool pole that Midnight Teal and
+///   Deep Harbor both clamped into, landing on the same blue despite starting
+///   21° apart. Widening it lets each reach a hue where its OWN target
+///   lightness exists. Checked against the preset nobody has faulted: the rule
 ///   reproduces neoMilk's authored #5B7CFA as #5F84F6.
 ///
 /// Face and terminal screen are the same color (the `neoMilk` model), so a pane
@@ -232,11 +236,11 @@ public extension TerminalColorTheme {
             ink: "#E9EFF2",
             inkSecondary: "#AEBAC0",
             inkMuted: "#8C9CA3",
-            accent: "#65A1FF",
-            buttonTextOnAccent: "#111C2C",
+            accent: "#81A6FF",
+            buttonTextOnAccent: "#001F46",
             shadowDark: "#03232F",
             shadowLight: "#2E4A58",
-            selection: "#224B72",
+            selection: "#3C5B7F",
             ansi: [
                 "#010507", "#EF4444", "#00D9A3", "#F59E0B",
                 "#5452FF", "#C100C0", "#00A5B2", "#AEBAC0",
@@ -284,11 +288,11 @@ public extension TerminalColorTheme {
             ink: "#E9F0F2",
             inkSecondary: "#AEBCC0",
             inkMuted: "#8C9DA3",
-            accent: "#65A1FF",
-            buttonTextOnAccent: "#111C2C",
+            accent: "#19B2FF",
+            buttonTextOnAccent: "#002237",
             shadowDark: "#112F37",
             shadowLight: "#3B5861",
-            selection: "#3C6385",
+            selection: "#266885",
             ansi: [
                 "#192A30", "#F15D5D", "#00D9A3", "#F59E0B",
                 "#8280FF", "#FB00FA", "#00A5B2", "#AEBCC0",

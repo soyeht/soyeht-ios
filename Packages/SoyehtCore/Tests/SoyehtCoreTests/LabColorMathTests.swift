@@ -251,4 +251,20 @@ struct PanePresetInvariantTests {
                     "\(preset.id) label on accent is unreadable")
         }
     }
+
+    /// Two themes must never wear the same accent. The cool pole is a narrow
+    /// band of usable chroma, and Midnight Teal and Deep Harbor both clamped
+    /// into it — 21° apart at the source, identical at the output.
+    @Test func noTwoPresetsShareAnAccent() {
+        let accents = TerminalColorTheme.designStylePresets.map(\.appPalette.accentHex)
+        #expect(Set(accents).count == accents.count, "duplicate accent in \(accents)")
+
+        for (first, second) in [("neoMidnightTeal", "neoDeepHarbor")] {
+            let a = TerminalColorTheme.designStylePresets.first { $0.id == first }!.appPalette.accentHex
+            let b = TerminalColorTheme.designStylePresets.first { $0.id == second }!.appPalette.accentHex
+            let separation = abs(((LabColorMath.lch(of: a).hue - LabColorMath.lch(of: b).hue) + 180)
+                .truncatingRemainder(dividingBy: 360) - 180)
+            #expect(separation > 15, "\(first) and \(second) are \(separation)° apart")
+        }
+    }
 }
