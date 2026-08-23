@@ -80,7 +80,7 @@ struct AgentIdentityTests {
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
         let sunk = surface.lightness - 9
         let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
-        let hues = [30.0, 80.0, 210.0, 260.0].map { anchor + $0 }
+        let hues = [-60.0, -30.0, 30.0, 60.0].map { anchor + $0 }
         let chroma = min(28, hues.map {
             LabColorMath.maxChroma(lightness: lightness, hue: $0)
         }.min() ?? 28)
@@ -108,15 +108,17 @@ struct AgentIdentityTests {
     }
 
     /// The set exists to tell panes apart, so any two slots must be visibly
-    /// different. This is what eight slots could not deliver: to keep eight
-    /// from glaring the chroma had to drop to 10, and at that chroma they were
-    /// all the same color.
+    /// different. Well above the ~2 unit threshold of perception, but not the
+    /// 10 an earlier version asserted: that figure was only reachable by
+    /// spreading the set across the whole hue wheel, which is exactly what
+    /// pushed half of every theme's slots out of its tone. A dark face caps
+    /// the chroma an analogous arc can carry, and 7 is what it buys.
     @Test func everySlotIsTellableFromEveryOther() {
         for theme in TerminalColorTheme.builtInThemes {
             let set = identity(for: theme)
             for i in set.indices {
                 for j in set.indices where j > i {
-                    #expect(deltaE(set[i], set[j]) > 10,
+                    #expect(deltaE(set[i], set[j]) > 7,
                             "\(theme.id) slots \(i) and \(j) are \(set[i]) and \(set[j])")
                 }
             }
@@ -159,17 +161,33 @@ struct AgentIdentityTests {
         }
     }
 
-    /// The four tetrad slots share a lightness and a chroma — that shared
+    /// The four arc slots share a lightness and a chroma — that shared
     /// footing is what makes them read as one palette.
-    @Test func theTetradSharesLightnessAndChroma() {
+    @Test func theArcSharesLightnessAndChroma() {
         for theme in TerminalColorTheme.builtInThemes {
             let four = identity(for: theme).prefix(4).map { LabColorMath.lch(of: $0) }
             let lightness = four.map(\.lightness)
             let chroma = four.map(\.chroma)
-            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) tetrad lightness drifts")
-            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) tetrad chroma drifts")
+            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) arc lightness drifts")
+            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) arc chroma drifts")
         }
     }
+
+    /// Every slot stays within the theme's own tone. This is the property the
+    /// complementary tetrad could not have: it seated half of each set on the
+    /// far side of the wheel, so a green theme handed out red and pink plates.
+    @Test func everySlotStaysInTheThemesTone() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let accent = LabColorMath.lch(of: theme.appPalette.accentHex).hue
+            for plate in identity(for: theme).prefix(4) {
+                let hue = LabColorMath.lch(of: plate).hue
+                let arc = abs(((hue - accent) + 180).truncatingRemainder(dividingBy: 360) - 180)
+                #expect(arc <= 62, "\(theme.id) plate \(plate) sits \(arc)° off the accent")
+            }
+        }
+    }
+
+
 }
 
 @Suite("Pane preset invariants")

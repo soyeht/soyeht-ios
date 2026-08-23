@@ -124,12 +124,22 @@ enum MacTheme {
 
     /// Per-pane header identity colors: the pill an agent's name sits on.
     ///
-    /// Four hues are a split-complementary tetrad off the theme's accent, not
-    /// an even cross — two analogous pairs facing each other read as a chosen
-    /// palette, while 4×90° reads as a color wheel. Nothing lands closer than
-    /// 50° to its neighbour. All four share one lightness and one chroma,
-    /// which is what makes a set look designed rather than assembled: hue is
-    /// the only variable the eye has to sort.
+    /// Four hues on an ANALOGOUS arc, ±60° and ±30° around the theme's accent.
+    /// They were a split-complementary tetrad, and that was the wrong harmony:
+    /// a complementary scheme puts half its members on the far side of the
+    /// wheel by construction, so a green theme handed out pink and red plates
+    /// 175° from its own face. An arc keeps every slot in the theme's tone,
+    /// which is the whole point of deriving them per theme at all.
+    ///
+    /// It also fixes the ordering. Anchoring a tetrad on each theme's accent
+    /// started the sequence at a different place on the wheel for every theme;
+    /// walking one arc in one direction means the set reads in the same order
+    /// everywhere — cool themes run cyan, blue, violet, rose, and warm ones
+    /// their own equivalent.
+    ///
+    /// All four share one lightness and one chroma, which is what makes a set
+    /// look designed rather than assembled: hue is the only variable the eye
+    /// has to sort.
     ///
     /// The fifth is the theme's own selection color taken a shade deeper. It
     /// is the only slot derived from a role the theme already defines, so it
@@ -154,7 +164,7 @@ enum MacTheme {
         // five slots collapse into one.
         let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
 
-        let hues = [30.0, 80.0, 210.0, 260.0].map { anchor + $0 }
+        let hues = [-60.0, -30.0, 30.0, 60.0].map { anchor + $0 }
         // One chroma every hue in the set can actually reach, so the four read
         // as siblings instead of one washed-out member beside three vivid ones.
         let chroma = min(28, hues.map {
