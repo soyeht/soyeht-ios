@@ -84,7 +84,12 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     var onQRTapped: (() -> Void)?
+    /// TODO(remove-open-on-iphone-header-code): The visible iPhone button was
+    /// retired in favor of the orchestrator toggle. Keep this callback and its
+    /// handoff implementation until the remaining non-header entry points are
+    /// audited and the legacy path can be deleted in one safe cleanup.
     var onOpenOnIPhoneTapped: (() -> Void)?
+    var onOrchestrationManagerToggleRequested: ((Bool) -> Void)?
     var onSplitVerticalTapped: (() -> Void)?
     var onSplitHorizontalTapped: (() -> Void)?
     var onCloseTapped: (() -> Void)?
@@ -102,11 +107,27 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// Opens role/template assignment and workspace orchestration presets.
     var onOrchestrationSettingsRequested: (() -> Void)?
 
-    /// Kept for API compatibility with the existing pane controller. The
-    /// design does not permanently reserve space for this affordance, so the
-    /// button only appears when the action is actually available.
+    /// Retired header state kept temporarily with the dormant handoff action.
+    /// It no longer controls any view in `buttonsStack`; see the removal TODO
+    /// above before deleting the remaining non-header handoff path.
     var isOpenOnIPhoneEnabled: Bool = false {
         didSet { applyOpenOnIPhoneState() }
+    }
+
+    /// User-owned workspace privilege represented by the header toggle. This
+    /// is deliberately independent from the pane's assigned role: an
+    /// Aggregator is not automatically a manager, and a manager may hold any
+    /// role.
+    var isOrchestrationManager: Bool = false {
+        didSet { applyOrchestrationManagerState() }
+    }
+
+    /// Shell and special-content panes cannot exercise authenticated MCP
+    /// orchestration authority. Keep the control visible on terminal panes so
+    /// the disabled state remains discoverable without granting a false
+    /// capability.
+    var canToggleOrchestrationManager: Bool = false {
+        didSet { applyOrchestrationManagerState() }
     }
 
     /// Gates the QR "Continue on iPhone" button. The handoff endpoint
@@ -184,6 +205,15 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         tint: PaneHeaderView.iconTint,
         accessibility: "Show QR hand-off"
     )
+    private lazy var orchestrationManagerButton: NSButton = {
+        let button = Self.makeIconButton(
+            glyph: .orchestrator,
+            tint: Self.iconTint,
+            accessibility: "Toggle agent orchestrator privilege"
+        )
+        button.setButtonType(.toggle)
+        return button
+    }()
     private let splitVButton = PaneHeaderView.makeIconButton(
         glyph: .columns,
         tint: PaneHeaderView.iconTint,
@@ -206,11 +236,12 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// button would leave an empty floating chip in the stack).
     private lazy var openOnIPhoneChip = Self.makeChip(around: openOnIPhoneButton)
     private lazy var qrChip = Self.makeChip(around: qrButton)
+    private lazy var orchestrationManagerChip = Self.makeChip(around: orchestrationManagerButton)
     private lazy var splitVChip = Self.makeChip(around: splitVButton)
     private lazy var splitHChip = Self.makeChip(around: splitHButton)
     private lazy var closeChip = Self.makeChip(around: closeButton)
     private var allChips: [MacStyledSurfaceView] {
-        [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip]
+        [qrChip, orchestrationManagerChip, splitVChip, splitHChip, closeChip]
     }
 
     private static let chipSize: CGFloat = 22
@@ -229,7 +260,15 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     private lazy var buttonsStack: NSStackView = {
-        let stack = NSStackView(views: [openOnIPhoneChip, qrChip, splitVChip, splitHChip, closeChip])
+        // The iPhone handoff control is intentionally absent. Its dormant code
+        // remains marked above for a dedicated, safe removal later.
+        let stack = NSStackView(views: [
+            qrChip,
+            orchestrationManagerChip,
+            splitVChip,
+            splitHChip,
+            closeChip,
+        ])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 4
@@ -351,6 +390,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func wireActions() {
         qrButton.target = self;              qrButton.action = #selector(qrTapped)
         openOnIPhoneButton.target = self;    openOnIPhoneButton.action = #selector(openOnIPhoneTapped)
+        orchestrationManagerButton.target = self
+        orchestrationManagerButton.action = #selector(orchestrationManagerTapped)
         splitVButton.target = self;          splitVButton.action = #selector(splitVTapped)
         splitHButton.target = self;          splitHButton.action = #selector(splitHTapped)
         closeButton.target = self;           closeButton.action = #selector(closeTapped)
@@ -365,6 +406,25 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             ? String(localized: "pane.header.button.qr.tooltip.enabled", defaultValue: "Continue this pane on a paired iPhone", comment: "Tooltip on the QR-handoff button when the active server can issue continue-QR tokens.")
             : String(localized: "pane.header.button.qr.tooltip.disabled", defaultValue: "Continue on iPhone isn't available on Linux servers", comment: "Tooltip on the QR-handoff button when the active server is an admin host that cannot issue continue-QR tokens.")
         applyOpenOnIPhoneState()
+        applyOrchestrationManagerState()
+    }
+
+    private func applyOrchestrationManagerState() {
+        let canShow = headerAccessories.contains(.orchestrationManager)
+        orchestrationManagerChip.isHidden = !canShow
+        orchestrationManagerButton.isEnabled = canShow && canToggleOrchestrationManager
+        orchestrationManagerButton.state = isOrchestrationManager ? .on : .off
+        orchestrationManagerButton.image = HeaderGlyph.orchestrator.image(
+            tint: isOrchestrationManager ? Self.accentBlue : Self.iconTint
+        )
+        orchestrationManagerButton.toolTip = canToggleOrchestrationManager
+            ? (isOrchestrationManager
+                ? "Turn off this agent's orchestrator privilege"
+                : "Turn on this agent's orchestrator privilege")
+            : "Start an authenticated agent in this pane before granting orchestrator privilege"
+        orchestrationManagerButton.setAccessibilityValue(
+            isOrchestrationManager ? "On" : "Off"
+        )
     }
 
     private func applyOpenOnIPhoneState() {
@@ -471,6 +531,9 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     @objc private func qrTapped()            { onQRTapped?() }
     @objc private func openOnIPhoneTapped()  { onOpenOnIPhoneTapped?() }
+    @objc private func orchestrationManagerTapped() {
+        onOrchestrationManagerToggleRequested?(orchestrationManagerButton.state == .on)
+    }
     @objc private func splitVTapped()        { onSplitVerticalTapped?() }
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
@@ -684,6 +747,9 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func refreshButtonImages() {
         openOnIPhoneButton.image = HeaderGlyph.iphone.image(tint: Self.iconTint)
         qrButton.image = HeaderGlyph.qrCode.image(tint: Self.iconTint)
+        orchestrationManagerButton.image = HeaderGlyph.orchestrator.image(
+            tint: isOrchestrationManager ? Self.accentBlue : Self.iconTint
+        )
         splitVButton.image = HeaderGlyph.columns.image(tint: Self.iconTint)
         splitHButton.image = HeaderGlyph.rows.image(tint: Self.iconTint)
         closeButton.image = HeaderGlyph.close.image(tint: Self.iconTint)
@@ -693,6 +759,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private enum HeaderGlyph {
         case iphone
         case qrCode
+        case orchestrator
         case columns
         case rows
         case close
@@ -738,6 +805,24 @@ final class PaneHeaderView: NSView, NSDraggingSource {
                     NSRect(x: 9.4, y: 1.2, width: 1.3, height: 1.3),
                     NSRect(x: 6.0, y: 1.2, width: 1.3, height: 1.3),
                 ].forEach { NSBezierPath(rect: $0).fill() }
+
+            case .orchestrator:
+                // Hub-and-spoke: one authorized manager coordinating three
+                // graph nodes. The active state is conveyed by the accent tint.
+                let links = NSBezierPath()
+                links.move(to: NSPoint(x: 6, y: 6))
+                links.line(to: NSPoint(x: 2.2, y: 9.2))
+                links.move(to: NSPoint(x: 6, y: 6))
+                links.line(to: NSPoint(x: 9.8, y: 9.2))
+                links.move(to: NSPoint(x: 6, y: 6))
+                links.line(to: NSPoint(x: 6, y: 1.5))
+                links.lineWidth = roundedLineWidth
+                links.lineCapStyle = .round
+                links.stroke()
+                NSBezierPath(ovalIn: NSRect(x: 4.25, y: 4.25, width: 3.5, height: 3.5)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 1.1, y: 8.1, width: 2.2, height: 2.2)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 8.7, y: 8.1, width: 2.2, height: 2.2)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 4.9, y: 0.4, width: 2.2, height: 2.2)).fill()
 
             case .columns:
                 let left = NSBezierPath(roundedRect: NSRect(x: 1.2, y: 1.6, width: 3.8, height: 8.8), xRadius: 0.9, yRadius: 0.9)

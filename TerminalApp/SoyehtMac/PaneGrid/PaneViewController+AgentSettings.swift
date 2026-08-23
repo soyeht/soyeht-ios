@@ -2,6 +2,80 @@ import AppKit
 
 @MainActor
 extension PaneViewController {
+    func refreshOrchestrationManagerHeaderState(for suppliedConversation: Conversation? = nil) {
+        guard let conversationStore = AppEnvironment.conversationStore,
+              let workspaceStore = AppEnvironment.workspaceStore,
+              let conversation = suppliedConversation
+                ?? conversationStore.conversation(conversationID) else {
+            header.isOrchestrationManager = false
+            header.canToggleOrchestrationManager = false
+            return
+        }
+        header.isOrchestrationManager = workspaceStore.workspace(conversation.workspaceID)?
+            .orchestration?
+            .canManageRolesAndTopology(conversationID) == true
+        header.canToggleOrchestrationManager = conversation.content.isTerminal
+            && !conversation.agent.isShell
+            && PaneStatusTracker.shared.launchOwnershipNonce(for: conversationID) != nil
+    }
+
+    func setOrchestrationManagementAuthorizationFromHeader(_ isAuthorized: Bool) {
+        guard let conversationStore = AppEnvironment.conversationStore,
+              let workspaceStore = AppEnvironment.workspaceStore,
+              let conversation = conversationStore.conversation(conversationID),
+              conversation.content.isTerminal,
+              !conversation.agent.isShell else {
+            refreshOrchestrationManagerHeaderState()
+            return
+        }
+
+        let previousOrchestration = workspaceStore.workspace(conversation.workspaceID)?.orchestration
+        var orchestration = previousOrchestration ?? WorkspaceOrchestration()
+        orchestration.setManagementAuthorization(
+            for: conversationID,
+            isAuthorized: isAuthorized
+        )
+
+        guard !isAuthorized || orchestration.canManageRolesAndTopology(conversationID) else {
+            refreshOrchestrationManagerHeaderState(for: conversation)
+            presentOrchestrationManagerToggleError(
+                "This workspace already has the maximum number of authorized orchestrators."
+            )
+            return
+        }
+
+        workspaceStore.updateOrchestration(
+            conversation.workspaceID,
+            orchestration: orchestration
+        )
+        guard workspaceStore.flushPendingSave() else {
+            workspaceStore.updateOrchestration(
+                conversation.workspaceID,
+                orchestration: previousOrchestration
+            )
+            _ = workspaceStore.flushPendingSave()
+            refreshOrchestrationManagerHeaderState(for: conversation)
+            presentOrchestrationManagerToggleError(
+                "Soyeht couldn't save the orchestrator privilege. The previous setting was restored."
+            )
+            return
+        }
+        refreshOrchestrationManagerHeaderState(for: conversation)
+    }
+
+    private func presentOrchestrationManagerToggleError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Couldn't update orchestrator privilege"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        if let window = view.window {
+            alert.beginSheetModal(for: window) { _ in }
+        } else {
+            alert.runModal()
+        }
+    }
+
     func presentAgentMessagingSettings() {
         guard let store = AppEnvironment.conversationStore,
               let conversation = store.conversation(conversationID),
@@ -181,6 +255,7 @@ extension PaneViewController {
                     _ = workspaceStore.flushPendingSave()
                     throw SoyehtAutomationError.agentMessagePersistenceFailed
                 }
+                self.refreshOrchestrationManagerHeaderState(for: conversation)
                 roleDelivery.map(PaneViewController.enqueueRoleAssignmentDeliveryIfLive)
             } catch {
                 let errorAlert = NSAlert(error: error)
@@ -198,4 +273,3 @@ extension PaneViewController {
         }
     }
 }
-
