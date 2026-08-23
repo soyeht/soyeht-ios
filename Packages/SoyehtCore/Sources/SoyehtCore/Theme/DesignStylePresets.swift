@@ -10,7 +10,7 @@ import Foundation
 /// exist so the marquee looks are exact.
 public extension TerminalColorTheme {
     static var designStylePresets: [TerminalColorTheme] {
-        [neoMilk, neoMidnight, neoCream]
+        [neoMilk, neoMidnight, neoCream] + neoPanePresets
     }
 
     private static let neoANSI: [String] = [
