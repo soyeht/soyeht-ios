@@ -135,8 +135,19 @@ public struct SoyehtAppPalette: Equatable, Sendable {
         ]
     }
 
+    /// Whether the chrome reads as a dark theme.
+    ///
+    /// Perceptual lightness, not relative luminance. Luminance is linear, so
+    /// its 0.5 mark sits at roughly L* 76: every mid-tone surface between L*
+    /// 50 and 76 was classified dark while plainly reading light. That went
+    /// unnoticed while every theme was near-white or near-black, and broke as
+    /// soon as mid-tone faces arrived — a light golden theme was telling the
+    /// system to render its controls in dark appearance.
+    ///
+    /// `relativeLuminance` stays as-is for contrast: WCAG ratios are defined
+    /// on luminance, and that use is correct.
     public var isDark: Bool {
-        Self.relativeLuminance(backgroundHex) < 0.5
+        LabColorMath.lch(of: backgroundHex).lightness < 50
     }
 
     private static let bodyTextMinimumContrast = 4.5

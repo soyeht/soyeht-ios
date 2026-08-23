@@ -114,16 +114,41 @@ enum MacTheme {
         nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
     }
 
+    /// How many distinct header pastels exist. Eight rather than the previous
+    /// four: the pill identifies an agent, and with four the panes on screen
+    /// collided constantly.
+    static let neoHeaderPastelCount = 8
+
     /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
-    /// pills across the grid). Derived from the theme's semantic colors so
-    /// every palette produces coherent pastels.
+    /// pills across the grid).
+    ///
+    /// A pastel is low chroma plus a SMALL step off the surface it floats on,
+    /// so the step has to follow the theme's tone. The previous recipe mixed
+    /// each color 76% into white, which hard-codes "light": on a light theme
+    /// that lands 5 L* under the chrome, but on a dark one it lands 65 L*
+    /// ABOVE it — a near-white band across a dark pane. Here a light theme
+    /// steps 5 L* down and a dark theme 13 up, and neither leaves the muted
+    /// band.
+    ///
+    /// The hues are even steps anchored on the theme's accent, so the set
+    /// belongs to its theme. They replace the four semantic roles, which also
+    /// spent the palette's danger color on identity — leaving the header no
+    /// color vocabulary left for actual state.
     static var neoHeaderPastels: [NSColor] {
-        [
-            appPalette.accentHex,
-            appPalette.successHex,
-            appPalette.dangerHex,
-            appPalette.warningHex,
-        ].map { nsColor(HexColorMath.mix($0, "#FFFFFF", t: 0.76)) }
+        let palette = appPalette
+        let chrome = LabColorMath.lch(of: palette.surfaceHex)
+        let anchor = LabColorMath.lch(of: palette.accentHex).hue
+        let lightness = palette.isDark
+            ? min(92, chrome.lightness + 13)
+            : max(30, chrome.lightness - 5)
+        let step = 360.0 / Double(neoHeaderPastelCount)
+        return (0..<neoHeaderPastelCount).map { index in
+            nsColor(LabColorMath.hex(LabColorMath.LCh(
+                lightness: lightness,
+                chroma: 20,
+                hue: anchor + Double(index) * step
+            )))
+        }
     }
 
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).

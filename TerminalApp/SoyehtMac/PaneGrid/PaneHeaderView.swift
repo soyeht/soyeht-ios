@@ -397,6 +397,17 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         applyFocusStyle()
     }
 
+    /// Deterministic, launch-stable pastel slot for an agent handle.
+    static func pastelIndex(for handle: String, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in handle.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x1000_0000_01b3
+        }
+        return Int(hash % UInt64(count))
+    }
+
     /// Reference anatomy: in neo the header is a pastel accent PILL floating
     /// inside the light frame, casting its own tinted soft shadow; classic
     /// keeps the flat full-width strip.
@@ -404,11 +415,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         let neo = MacSurface.style == .neomorphic
         if neo {
             // Stable per-pane pastel (reference rotates blue/green/pink/
-            // yellow across the grid). String.hashValue is seeded per
-            // launch, so key off the scalar sum instead.
+            // yellow across the grid). String.hashValue is seeded per launch,
+            // so the pill would change color on every restart; this hashes the
+            // name itself instead. It is FNV-1a rather than a scalar sum
+            // because a sum ignores order and spacing — "delia" and "alied"
+            // landed on the same pastel, and so did most same-length names,
+            // which is what made the assignment look arbitrary.
             let pastels = MacTheme.neoHeaderPastels
-            let key = handle.unicodeScalars.reduce(0) { ($0 &+ Int($1.value)) }
-            let pastel = pastels[key % pastels.count]
+            let pastel = pastels[Self.pastelIndex(for: handle, count: pastels.count)]
             layer?.cornerRadius = bounds.height / 2
             layer?.backgroundColor = pastel.cgColor
             MacSurface.Shadow(
