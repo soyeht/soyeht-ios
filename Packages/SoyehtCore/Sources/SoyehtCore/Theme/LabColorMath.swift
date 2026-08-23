@@ -60,6 +60,17 @@ public enum LabColorMath {
         lch(of: hex(LCh(lightness: lightness, chroma: 200, hue: hue))).chroma
     }
 
+    /// Straight CIE76 distance in Lab. Coarse next to CIEDE2000, but the
+    /// question here is only "can these be told apart", where roughly 2 units
+    /// is the threshold of noticing and the answers sit far above it.
+    public static func distance(_ a: String, _ b: String) -> Double {
+        let x = lch(of: a), y = lch(of: b)
+        let ax = x.chroma * cos(x.hue * .pi / 180), ay = x.chroma * sin(x.hue * .pi / 180)
+        let bx = y.chroma * cos(y.hue * .pi / 180), by = y.chroma * sin(y.hue * .pi / 180)
+        let dl = x.lightness - y.lightness
+        return (dl * dl + (ax - bx) * (ax - bx) + (ay - by) * (ay - by)).squareRoot()
+    }
+
     /// WCAG contrast ratio. Defined on relative luminance, not on L*, which
     /// is why it lives beside the Lab math rather than inside it.
     public static func contrastRatio(_ a: String, _ b: String) -> Double {

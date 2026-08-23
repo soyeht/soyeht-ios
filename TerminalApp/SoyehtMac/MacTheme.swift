@@ -168,11 +168,32 @@ enum MacTheme {
 
         let selection = LabColorMath.lch(of: palette.selectionHex)
         return (hues.map { hue in
-            LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue)
+            Self.plateClear(of: palette.surfaceHex,
+                            at: LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue))
         } + [Self.readableSelectionPlate(selection,
                                          ink: palette.textPrimaryHex,
                                          fallback: lightness)])
             .map { nsColor(LabColorMath.hex($0)) }
+    }
+
+    /// A plate whose hue is the theme's own hue would sit on top of its
+    /// surface — Deep Forest's green landed ΔE 5.6 from its green card and
+    /// simply vanished. The offender steps clear, upward on a dark theme and
+    /// downward on a light one, since that is the direction each has chroma
+    /// in. Only a slot that actually collides moves; the rest keep the shared
+    /// lightness that makes the set read as a set.
+    private static func plateClear(of surface: String, at plate: LabColorMath.LCh) -> LabColorMath.LCh {
+        var candidate = plate
+        let surfaceLightness = LabColorMath.lch(of: surface).lightness
+        let direction: Double = surfaceLightness < 50 ? 1 : -1
+        var step = 0.0
+        while LabColorMath.distance(surface, LabColorMath.hex(candidate)) < 12, step < 30 {
+            step += 2
+            candidate.lightness = plate.lightness + direction * step
+            candidate.chroma = min(28, LabColorMath.maxChroma(lightness: candidate.lightness,
+                                                              hue: plate.hue))
+        }
+        return candidate
     }
 
     /// The fifth slot: the theme's selection color, a touch deeper.

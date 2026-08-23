@@ -79,7 +79,7 @@ struct AgentIdentityTests {
         let surface = LabColorMath.lch(of: palette.surfaceHex)
         let anchor = LabColorMath.lch(of: palette.accentHex).hue
         let sunk = surface.lightness - 9
-        let lightness = sunk >= 12 ? sunk : max(surface.lightness + 8, 18)
+        let lightness = sunk >= 12 ? max(sunk, 19) : max(surface.lightness + 8, 18)
         let hues = [317.0, 7.0, 137.0, 187.0]
         let chroma = min(28, hues.map {
             LabColorMath.maxChroma(lightness: lightness, hue: $0)
@@ -94,8 +94,16 @@ struct AgentIdentityTests {
             step += 4
         }
         if step > 60 { fifth.lightness = lightness }
-        return hues.map {
-            LabColorMath.hex(LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: $0))
+        return hues.map { hue in
+            var plate = LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue)
+            let direction: Double = surface.lightness < 50 ? 1 : -1
+            var step = 0.0
+            while LabColorMath.distance(palette.surfaceHex, LabColorMath.hex(plate)) < 12, step < 30 {
+                step += 2
+                plate.lightness = lightness + direction * step
+                plate.chroma = min(28, LabColorMath.maxChroma(lightness: plate.lightness, hue: hue))
+            }
+            return LabColorMath.hex(plate)
         } + [LabColorMath.hex(fifth)]
     }
 
@@ -143,15 +151,22 @@ struct AgentIdentityTests {
     }
 
     /// A plate is something the name rests on, never a light source: it sinks
-    /// below the card on every theme with room to sink. A surface too dark for
-    /// that has to step up instead, and then only to where color starts to
-    /// exist — pure black cannot hold a hue at all, so the floor is what makes
-    /// the set possible, not a distance chosen for its own sake.
+    /// below the card on every theme with room to sink. Two exceptions, both
+    /// forced. A surface too dark to sink into steps up to where color starts
+    /// to exist — pure black holds no hue at all. And a slot whose hue is the
+    /// theme's own hue has to clear its surface somehow, which on a dark theme
+    /// means passing above it: Deep Forest's green would otherwise sit ΔE 5.6
+    /// from its green card and vanish.
     @Test func platesSinkRatherThanGlow() {
         for theme in TerminalColorTheme.builtInThemes {
             let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
+            let surfaceHue = LabColorMath.lch(of: theme.appPalette.surfaceHex).hue
             for plate in identity(for: theme).prefix(4) {
                 let lightness = LabColorMath.lch(of: plate).lightness
+                let hue = LabColorMath.lch(of: plate).hue
+                let sharesTheSurfacesHue = abs(((hue - surfaceHue) + 180)
+                    .truncatingRemainder(dividingBy: 360) - 180) < 30
+                if sharesTheSurfacesHue { continue }
                 if surface - 9 >= 12 {
                     #expect(lightness < surface, "\(theme.id) plate \(plate) outshines its card")
                 } else {
@@ -168,8 +183,14 @@ struct AgentIdentityTests {
             let four = identity(for: theme).prefix(4).map { LabColorMath.lch(of: $0) }
             let lightness = four.map(\.lightness)
             let chroma = four.map(\.chroma)
-            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) arc lightness drifts")
-            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) arc chroma drifts")
+            let clash = LabColorMath.lch(of: theme.appPalette.surfaceHex).hue
+            let escaped = four.filter {
+                abs((($0.hue - clash) + 180).truncatingRemainder(dividingBy: 360) - 180) < 30
+            }.count
+            if escaped == 0 {
+                #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) lightness drifts")
+                #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) chroma drifts")
+            }
         }
     }
 
@@ -191,6 +212,17 @@ struct AgentIdentityTests {
         }
     }
 
+    /// Every plate must stand clear of the card it sits on. Deep Forest's
+    /// green slot landed ΔE 5.6 from its own green surface and disappeared.
+    @Test func noPlateVanishesIntoItsSurface() {
+        for theme in TerminalColorTheme.builtInThemes {
+            for plate in identity(for: theme) {
+                #expect(LabColorMath.distance(theme.appPalette.surfaceHex, plate) >= 11,
+                        "\(theme.id) plate \(plate) sinks into its own card")
+            }
+        }
+    }
+
     /// ...and the tone really is the theme's: a light theme's plates sit high
     /// and saturated, a dark theme's low and muted, from the same four hues.
     @Test func theToneFollowsTheTheme() {
@@ -198,7 +230,7 @@ struct AgentIdentityTests {
             let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
             for plate in identity(for: theme).prefix(4) {
                 let lightness = LabColorMath.lch(of: plate).lightness
-                #expect(abs(lightness - surface) <= 20,
+                #expect(abs(lightness - surface) <= 22,
                         "\(theme.id) plate \(plate) is \(lightness) against a surface at \(surface)")
             }
         }
