@@ -198,3 +198,57 @@ struct ThemeToneTests {
         #expect(!TerminalColorTheme.neoMilk.appPalette.isDark)
     }
 }
+
+@Suite("Pane preset invariants")
+struct PanePresetInvariantTests {
+    private var panePresets: [TerminalColorTheme] {
+        TerminalColorTheme.designStylePresets.filter { $0.id != "neoMilk" }
+    }
+
+    /// A shadow is the same material under less light. Scaling sRGB channels
+    /// bleeds chroma out with the lightness — it cost Sunlit Chartreuse 12
+    /// units and left grey lying on a colored surface — so the elevation
+    /// ladder is derived at constant chroma instead.
+    @Test func elevationHoldsTheCanvasChroma() {
+        for preset in panePresets {
+            let palette = preset.appPalette
+            let canvas = LabColorMath.lch(of: palette.backgroundHex).chroma
+            for (role, hex) in [("well", palette.borderHex),
+                                ("shadow", preset.neoStyleColors.shadowDarkHex),
+                                ("bloom", preset.neoStyleColors.shadowLightHex)] {
+                let drift = abs(LabColorMath.lch(of: hex).chroma - canvas)
+                #expect(drift < 3.0, "\(preset.id) \(role) drifted \(drift) from the canvas chroma")
+            }
+        }
+    }
+
+    /// The pair Caio picked as best: 16.7 L* down and 9.0 up on a light face,
+    /// 7.3 and 10.7 on a dark one. A dark canvas has little room beneath it
+    /// and plenty above, so the weighting flips rather than scaling.
+    @Test func theShadowPairCastsTheApprovedDistance() {
+        for preset in panePresets {
+            let palette = preset.appPalette
+            let canvas = LabColorMath.lch(of: palette.backgroundHex).lightness
+            let down = canvas - LabColorMath.lch(of: preset.neoStyleColors.shadowDarkHex).lightness
+            let up = LabColorMath.lch(of: preset.neoStyleColors.shadowLightHex).lightness - canvas
+            let expected = palette.isDark ? (down: 7.3, up: 10.7) : (down: 16.7, up: 9.0)
+            #expect(abs(down - expected.down) < 1.5, "\(preset.id) casts \(down) down")
+            #expect(abs(up - expected.up) < 1.5, "\(preset.id) casts \(up) up")
+        }
+    }
+
+    /// Chroma is what separates an accent that belongs to its theme from mud
+    /// or a scream — a fixed HSL saturation gave yellow-green C* 99 and dark
+    /// blue C* 40, which was exactly the split between the two Caio approved
+    /// and the six he rejected.
+    @Test func accentsHoldChromaAndCarryReadableLabels() {
+        for preset in panePresets {
+            let palette = preset.appPalette
+            let chroma = LabColorMath.lch(of: palette.accentHex).chroma
+            #expect(chroma > 45, "\(preset.id) accent \(palette.accentHex) is muddy at C* \(chroma)")
+            #expect(chroma < 75, "\(preset.id) accent \(palette.accentHex) screams at C* \(chroma)")
+            #expect(HeaderPastelTests.contrast(palette.buttonTextOnAccentHex, palette.accentHex) >= 4.5,
+                    "\(preset.id) label on accent is unreadable")
+        }
+    }
+}
