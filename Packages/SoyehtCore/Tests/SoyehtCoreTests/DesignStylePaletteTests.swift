@@ -34,9 +34,10 @@ struct AppPaletteChromeOverrideTests {
         #expect(palette.accentHex == theme.cursorHex)
     }
 
-    /// Preset themes may pin a chrome palette that diverges from the
-    /// terminal screen colors. Milk is a light terminal (reference look);
-    /// Midnight exercises the light-chrome-around-dark-terminal divergence.
+    /// Preset themes may pin a chrome palette that diverges from the terminal
+    /// screen colors. Milk is the reference light terminal, and it is now the
+    /// only preset exercising the divergence: the pane-color presets all wear
+    /// one color across chrome and screen.
     @Test func presetOverridesDivergeChromeFromTerminal() {
         let milk = TerminalColorTheme.neoMilk
         let palette = milk.appPalette
@@ -47,9 +48,11 @@ struct AppPaletteChromeOverrideTests {
         #expect(milk.backgroundHex == "#E8EDF4")
         #expect(!palette.isDark)
 
-        let midnight = TerminalColorTheme.neoMidnight
-        #expect(midnight.backgroundHex == "#101216")
-        #expect(midnight.appPalette.backgroundHex == "#23262C")
+        #expect(milk.backgroundHex != palette.backgroundHex)
+
+        let teal = TerminalColorTheme.neoMidnightTeal
+        #expect(teal.appPalette.surfaceHex == teal.backgroundHex)
+        #expect(teal.appPalette.isDark)
     }
 
     /// Overridden chrome must still produce readable text — the WCAG search

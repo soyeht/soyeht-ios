@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Each one is built from a single authored color — the pane's dominant surface,
 /// the color the user actually stares at — with every other role derived from
-/// it using the invariants measured on `neoMilk` / `neoCream` / `neoMidnight`:
+/// it using the invariants measured on the reference `neoMilk` preset (and on
+/// the retired Cream and Midnight presets it shipped beside):
 ///
 /// - elevation is a lightness delta from the face: canvas −0.030, hover ∓0.050,
 ///   well −0.066, dark shadow −0.205 (light) / −0.088 (dark), bloom +0.067;

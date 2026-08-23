@@ -27,6 +27,9 @@ final class WorkspaceTabView: NSView {
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
     private let pillBackdrop = MacStyledSurfaceView()
+    /// Recess for the active tab. Sits above the fill and below the label, so
+    /// the cavity's walls fall on the pill and not on its text.
+    private let pillWell = MacInnerWellShadowView()
     /// Reference tab anatomy: little folder glyph before the title (neo
     /// only — zero width in classic so layout is pixel-identical there).
     private let folderIcon = NSImageView()
@@ -108,6 +111,15 @@ final class WorkspaceTabView: NSView {
             pillBackdrop.leadingAnchor.constraint(equalTo: leadingAnchor),
             pillBackdrop.trailingAnchor.constraint(equalTo: trailingAnchor),
             pillBackdrop.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
+        pillWell.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pillWell)
+        NSLayoutConstraint.activate([
+            pillWell.topAnchor.constraint(equalTo: topAnchor),
+            pillWell.leadingAnchor.constraint(equalTo: leadingAnchor),
+            pillWell.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pillWell.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
         setAccessibilityRole(.button)
@@ -306,11 +318,24 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.cornerRadius = 9
             let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
             let radius = min(bounds.height / 2, 18)
+            // Pressing changes DEPTH and nothing else: same box, same radius,
+            // the raised pair simply turns inward. The active tab used to swap
+            // in a smaller outward pair (3/6 against the idle 4/8), which
+            // shrinks the pill rather than sinking it — it read as a different
+            // control, not the same one pushed in.
             pillBackdrop.applyStyle(
                 fill: fill,
                 cornerRadius: radius,
-                shadows: isActive ? MacSurface.Shadows.raisedTabSet : MacSurface.Shadows.raisedSmallSet
+                shadows: isActive ? [] : MacSurface.Shadows.raisedSmallSet
             )
+            pillWell.isHidden = !isActive
+            if isActive {
+                pillWell.applyStyle(
+                    cornerRadius: radius,
+                    dark: MacSurface.Shadows.innerWellDark,
+                    light: MacSurface.Shadows.innerWellLight
+                )
+            }
             layer?.backgroundColor = fill.cgColor
             layer?.cornerRadius = radius
             // Setting cornerRadius on the backing layer makes AppKit flip
@@ -328,6 +353,7 @@ final class WorkspaceTabView: NSView {
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             bottomStroke.isHidden = true
         } else if isActive {
+            pillWell.isHidden = true
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0
@@ -344,6 +370,7 @@ final class WorkspaceTabView: NSView {
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = false
         } else {
+            pillWell.isHidden = true
             // Use the top-bar base colour instead of `.clear` so the view
             // stays opaque — AppKit's titlebar-drag logic only honors
             // `mouseDownCanMoveWindow = false` when the hit view is opaque.

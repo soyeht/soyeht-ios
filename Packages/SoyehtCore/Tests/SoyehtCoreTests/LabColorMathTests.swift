@@ -132,7 +132,7 @@ struct ThemeToneTests {
     }
 
     @Test func darkFacesStayDark() {
-        for id in ["neoMidnight", "neoDeepVine", "neoDeepForest", "neoMidnightTeal", "neoDeepHarbor"] {
+        for id in ["neoDeepVine", "neoDeepForest", "neoMidnightTeal", "neoDeepHarbor"] {
             let preset = TerminalColorTheme.designStylePresets.first { $0.id == id }
             #expect(try! #require(preset).appPalette.isDark, "\(id) classified light")
         }
@@ -144,7 +144,5 @@ struct ThemeToneTests {
             #expect(theme.appPalette.isDark, "\(theme.id) was dark before")
         }
         #expect(!TerminalColorTheme.neoMilk.appPalette.isDark)
-        #expect(!TerminalColorTheme.neoCream.appPalette.isDark)
-        #expect(TerminalColorTheme.neoMidnight.appPalette.isDark)
     }
 }
