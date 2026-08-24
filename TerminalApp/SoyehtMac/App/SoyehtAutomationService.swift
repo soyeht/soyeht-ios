@@ -37,6 +37,8 @@ struct SoyehtAutomationRequest: Decodable {
         case listAgents = "list_agents"
         case reportAgentState = "report_agent_state"
         case reportAgentConversation = "report_agent_conversation"
+        case claimAgentRuntime = "claim_agent_runtime"
+        case releaseAgentRuntime = "release_agent_runtime"
         case getConversationContext = "get_conversation_context"
         case ackConversationContext = "ack_conversation_context"
         case requestAttention = "request_attention"
@@ -159,6 +161,9 @@ struct SoyehtAutomationRequest: Decodable {
         let message: String?
         let seq: Int?
         let nonce: String?
+        let runtimeAgent: String?
+        let runtimeInstanceID: String?
+        let runtimeProcessID: Int?
         let reportSource: String?
         let turnSubmissionAcknowledged: Bool?
         let attentionKind: String?
@@ -496,6 +501,7 @@ struct SoyehtAutomationResponse: Encodable {
         let roleInstructions: String?
         let path: String
         let declaredAgent: String
+        let activeRuntimeAgent: String?
         let windowID: String?
         let resolution: String
         let replyTarget: MessageAgentArguments
@@ -512,6 +518,7 @@ struct SoyehtAutomationResponse: Encodable {
         let roleInstructions: String?
         let path: String
         let declaredAgent: String
+        let activeRuntimeAgent: String?
         let status: String
         let isLive: Bool
         let isAttachable: Bool

@@ -159,10 +159,34 @@ def with_source_context(payload, args=None):
         or soyeht_environment_value("SOYEHT_LAUNCH_NONCE")
     if launch_nonce:
         payload["nonce"] = launch_nonce
+    if MCP_RUNTIME_AGENT and MCP_RUNTIME_INSTANCE_ID:
+        payload["runtimeAgent"] = MCP_RUNTIME_AGENT
+        payload["runtimeInstanceID"] = MCP_RUNTIME_INSTANCE_ID
+        payload["runtimeProcessID"] = os.getpid()
     tty = current_tty()
     if tty and not from_conversation_id and not from_handle:
         payload["sourceTTY"] = tty
     return payload
+
+
+def synchronize_runtime_identity(active=True, timeout=5.0):
+    """Claim/release a manually launched CLI without changing pane style."""
+    if not MCP_RUNTIME_AGENT or not MCP_RUNTIME_INSTANCE_ID:
+        return None
+    payload = with_source_context({
+        "runtimeAgent": MCP_RUNTIME_AGENT,
+        "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
+        "runtimeProcessID": os.getpid(),
+    })
+    if not payload.get("nonce") or not (
+        payload.get("sourceConversationID") or payload.get("sourceHandle")
+    ):
+        return None
+    return submit_request(
+        "claim_agent_runtime" if active else "release_agent_runtime",
+        payload,
+        timeout=timeout,
+    )
 
 
 def ensure_git_worktree(repo, name, base, root, create=True):

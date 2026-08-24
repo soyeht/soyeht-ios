@@ -97,7 +97,9 @@ extension PaneDeferredAgentDeliveryCoordinator {
             guard input.submitWithEnter,
                   !input.isBootstrap,
                   let target = AppEnvironment.conversationStore?.conversation(conversationID),
-                  !target.agent.isShell else { return false }
+                  PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(
+                      for: target
+                  ) else { return false }
             return true
         }()
         let previousGate = agentMessageDraftGate
@@ -278,7 +280,11 @@ extension PaneDeferredAgentDeliveryCoordinator {
             if !isTerminalTransportReadyForAgentDelivery, !input.isBootstrap { return false }
         }
         if case .agent = submission {
-            guard isTerminalTransportReadyForAgentDelivery else { return false }
+            guard isTerminalTransportReadyForAgentDelivery,
+                  let target = AppEnvironment.conversationStore?.conversation(conversationID),
+                  PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(
+                      for: target
+                  ) else { return false }
             if let state = PaneStatusTracker.shared.agentStateReport(for: conversationID)?.state,
                state == "working" || state == "blocked" { return false }
         }

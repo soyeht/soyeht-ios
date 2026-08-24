@@ -272,7 +272,7 @@ enum AIAgentIntegrator {
         let server = [
             "type": "stdio",
             "command": launcherURL.path,
-            "args": [String](),
+            "args": ["--runtime-agent", "claude"],
         ] as [String: Any]
         let serverData = try JSONSerialization.data(withJSONObject: server, options: [.sortedKeys])
         guard let serverJSON = String(data: serverData, encoding: .utf8) else {
@@ -327,7 +327,7 @@ enum AIAgentIntegrator {
         let block = """
         [mcp_servers.\(launcherKey)]
         command = "\(launcherURL.path)"
-        args = []
+        args = ["--runtime-agent", "codex"]
         enabled = true
         required = false
 
@@ -364,7 +364,7 @@ enum AIAgentIntegrator {
         var mcp = (root["mcp"] as? [String: Any]) ?? [:]
         mcp[launcherKey] = [
             "type": "local",
-            "command": [launcherURL.path],
+            "command": [launcherURL.path, "--runtime-agent", "opencode"],
             "enabled": true,
         ] as [String: Any]
         root["mcp"] = mcp

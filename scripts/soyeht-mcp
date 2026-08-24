@@ -159,6 +159,11 @@ def handle_message(message):
         return None
 
     if method == "initialize":
+        if MCP_RUNTIME_AGENT:
+            try:
+                synchronize_runtime_identity(active=True)
+            except Exception as exc:
+                print(f"{SERVER_NAME}: runtime identity claim failed: {exc}", file=sys.stderr)
         protocol = params.get("protocolVersion", "2024-11-05")
         return response(message_id, {
             "protocolVersion": protocol,
@@ -186,6 +191,8 @@ def handle_message(message):
         if handler is None:
             return response(message_id, tool_result({"error": f"Unknown tool: {name}"}, is_error=True))
         try:
+            if MCP_RUNTIME_AGENT:
+                synchronize_runtime_identity(active=True)
             return response(message_id, tool_result(handler(arguments)))
         except Exception as exc:
             print(f"{SERVER_NAME}: tool {name} failed: {exc}", file=sys.stderr)
@@ -206,14 +213,21 @@ def main():
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
     transport = StdioTransport()
-    for message in transport.read_messages():
-        try:
-            reply = handle_message(message)
-        except Exception as exc:
-            print(f"{SERVER_NAME}: request failed: {exc}", file=sys.stderr)
-            reply = error_response(message.get("id"), -32603, str(exc))
-        if reply is not None:
-            transport.write_message(reply)
+    try:
+        for message in transport.read_messages():
+            try:
+                reply = handle_message(message)
+            except Exception as exc:
+                print(f"{SERVER_NAME}: request failed: {exc}", file=sys.stderr)
+                reply = error_response(message.get("id"), -32603, str(exc))
+            if reply is not None:
+                transport.write_message(reply)
+    finally:
+        if MCP_RUNTIME_AGENT:
+            try:
+                synchronize_runtime_identity(active=False, timeout=1.0)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

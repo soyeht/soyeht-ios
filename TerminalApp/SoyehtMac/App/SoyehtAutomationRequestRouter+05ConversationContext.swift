@@ -131,12 +131,14 @@ extension SoyehtAutomationRequestRouter {
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        let authenticated = try resolveAuthenticatedAutomationSource(payload: payload)
+        let authenticated = try resolveAuthenticatedAgentReportSource(payload: payload)
         let source = AutomationSourceResolution(
             conversation: authenticated,
             resolution: "authenticated_launch_nonce"
         )
-        let sourceAgent = authenticated.agent.displayName.lowercased()
+        let sourceAgent = PaneStatusTracker.shared.effectiveAgentName(
+            for: authenticated
+        ) ?? authenticated.agent.displayName.lowercased()
         let nativeSessionID = payload.nativeSessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
         let model = payload.model?.trimmingCharacters(in: .whitespacesAndNewlines)
         let effort = payload.reasoningEffort?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -286,7 +288,8 @@ extension SoyehtAutomationRequestRouter {
             throw SoyehtAutomationError.sourceConversationNotFound(authenticated.id.uuidString)
         }
         let state = conversation.agentConversation
-        let agent = conversation.agent.displayName.lowercased()
+        let agent = PaneStatusTracker.shared.effectiveAgentName(for: conversation)
+            ?? conversation.agent.displayName.lowercased()
         let acknowledged = state.bindings[agent]?.lastImportedSequence ?? 0
         let requestedAfter = max(0, request.payload.afterSequence ?? acknowledged)
         let afterSequence = max(acknowledged, requestedAfter)
@@ -346,7 +349,8 @@ extension SoyehtAutomationRequestRouter {
             throw SoyehtAutomationError.invalidConversationSequence(requested, lastSequence)
         }
         let throughSequence = requested
-        let agent = conversation.agent.displayName.lowercased()
+        let agent = PaneStatusTracker.shared.effectiveAgentName(for: conversation)
+            ?? conversation.agent.displayName.lowercased()
         let previousSequence = conversation.agentConversation.bindings[agent]?.lastImportedSequence ?? 0
         let previousState = conversation.agentConversation
         conversationStore.markAgentConversationImported(
@@ -381,7 +385,9 @@ extension SoyehtAutomationRequestRouter {
 
     func handleReportAgentState(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        let authenticated = try resolveAuthenticatedAutomationSource(payload: payload)
+        let reportSource = payload.reportSource?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedSource = (reportSource?.isEmpty ?? true) ? "self_report" : reportSource!
+        let authenticated = try resolveAuthenticatedAgentReportSource(payload: payload)
         let source = AutomationSourceResolution(
             conversation: authenticated,
             resolution: "authenticated_launch_nonce"
@@ -392,12 +398,13 @@ extension SoyehtAutomationRequestRouter {
         }
         let trimmedMessage = payload.message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = (trimmedMessage?.isEmpty ?? true) ? nil : trimmedMessage
-        let reportSource = payload.reportSource?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedSource = (reportSource?.isEmpty ?? true) ? "self_report" : reportSource!
+        let effectiveAgent = PaneStatusTracker.shared.effectiveAgentName(
+            for: source.conversation
+        ) ?? source.conversation.agent.rawValue
         let outcome: (accepted: Bool, reason: String?)
         if AgentStateReportAttribution.accepts(
             reportSource: resolvedSource,
-            currentAgent: source.conversation.agent.rawValue
+            currentAgent: effectiveAgent
         ) {
             outcome = PaneStatusTracker.shared.recordAgentStateReport(
                 paneID: source.conversation.id,

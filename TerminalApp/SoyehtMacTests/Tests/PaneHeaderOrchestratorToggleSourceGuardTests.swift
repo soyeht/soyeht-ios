@@ -28,8 +28,8 @@ final class PaneHeaderOrchestratorToggleSourceGuardTests: XCTestCase {
         XCTAssertTrue(controller.contains("orchestration.setManagementAuthorization("))
         XCTAssertTrue(controller.contains("workspaceStore.flushPendingSave()"))
         XCTAssertTrue(controller.contains("previousOrchestration"))
-        XCTAssertTrue(controller.contains("!conversation.agent.isShell"))
-        XCTAssertTrue(controller.contains("launchOwnershipNonce(for: conversationID) != nil"))
+        XCTAssertTrue(controller.contains("hasAuthenticatedAgentRuntime"))
+        XCTAssertFalse(controller.contains("convStore.updateFields(\n            conversation.id,\n            handle: conversation.handle,\n            agent:"))
     }
 
     func testRetiredIPhoneHeaderCodeIsExplicitlyMarkedForSafeRemoval() throws {

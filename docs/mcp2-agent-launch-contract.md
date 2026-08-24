@@ -77,3 +77,23 @@ Human-readable references use `displayReference`, formatted as `[name]`.
 Legacy `@handle` values and conversation UUIDs remain available for routing in
 `messageTarget`, but must not be copied into commits, PRs, GitHub comments, or
 other prose.
+
+## Agents started in ordinary split panes
+
+A terminal created with the normal split controls remains a `shell` pane for
+its entire lifetime. Starting `codex`, `claude`, or `opencode` inside it must
+not switch the pane to the managed-agent input path or change mouse reporting,
+scrollback, keyboard handling, selection, paste, or mobile input behavior.
+
+Every ordinary terminal process receives a pane-scoped launch nonce. The MCP
+configuration for each supported CLI identifies its runtime separately; its
+MCP subprocess claims the pane with that nonce, a per-process instance ID, PID,
+and process start time. The app uses this authenticated runtime identity for
+messaging, inbox access, roles, orchestration and the header privilege toggle,
+without changing `Conversation.agent == shell`.
+
+The runtime claim is stored in the profile-scoped Keychain so a persistent
+engine session remains addressable after the app restarts. Rehydration accepts
+the claim only while the exact PID and process start time still match. Normal
+exit revokes it; a dead or recycled PID fails closed. A plain shell with no
+active claim cannot act as or receive messages as an agent.

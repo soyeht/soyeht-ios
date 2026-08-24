@@ -68,6 +68,7 @@ final class PaneStatusTracker {
     }
 
     private let launchOwnership = AgentLaunchOwnershipRegistry()
+    private let runtimeIdentity = AgentRuntimeIdentityRegistry()
     private var handshakeStates: [Conversation.ID: HandshakeState] = [:]
 
     /// Clears runtime evidence that belongs to the previous process before a
@@ -87,6 +88,7 @@ final class PaneStatusTracker {
         lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
+        runtimeIdentity.clear(paneID: paneID)
         return true
     }
 
@@ -98,6 +100,7 @@ final class PaneStatusTracker {
         lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
+        runtimeIdentity.clear(paneID: paneID)
     }
 
     func expectHandshake(paneID: Conversation.ID, nonce: String) {
@@ -127,7 +130,9 @@ final class PaneStatusTracker {
     /// this restoration to PaneViewController creation makes authentication
     /// depend on a human visiting that workspace.
     func rehydratePersistentLaunchOwnership(from conversations: [Conversation]) -> [Conversation.ID] {
-        launchOwnership.rehydrate(from: conversations)
+        let migrated = launchOwnership.rehydrate(from: conversations)
+        runtimeIdentity.rehydrate(from: conversations)
+        return migrated
     }
 
     func launchOwnershipNonce(for paneID: Conversation.ID) -> String? {
@@ -153,6 +158,64 @@ final class PaneStatusTracker {
     /// metadata; only the per-launch nonce is a possession credential.
     func validatesLaunchOwnership(paneID: Conversation.ID, nonce: String?) -> Bool {
         launchOwnership.validates(paneID: paneID, nonce: nonce)
+    }
+
+    /// Adopts an MCP runtime inside an ordinary split-created shell without
+    /// changing the pane's declared type or terminal interaction policy.
+    @discardableResult
+    func claimRuntimeIdentity(
+        paneID: Conversation.ID,
+        agentName: String,
+        instanceID: String,
+        processID: Int,
+        nonce: String?
+    ) -> Bool {
+        guard launchOwnership.validates(paneID: paneID, nonce: nonce) else { return false }
+        return runtimeIdentity.claim(
+            paneID: paneID,
+            agentName: agentName,
+            instanceID: instanceID,
+            processID: processID
+        ) != nil
+    }
+
+    @discardableResult
+    func releaseRuntimeIdentity(
+        paneID: Conversation.ID,
+        instanceID: String,
+        nonce: String?
+    ) -> Bool {
+        guard launchOwnership.validates(paneID: paneID, nonce: nonce) else { return false }
+        return runtimeIdentity.release(paneID: paneID, instanceID: instanceID)
+    }
+
+    func runtimeIdentityClaim(for paneID: Conversation.ID) -> AgentRuntimeIdentityClaim? {
+        runtimeIdentity.claim(for: paneID)
+    }
+
+    func validatesRuntimeIdentity(
+        paneID: Conversation.ID,
+        agentName: String?,
+        instanceID: String?
+    ) -> Bool {
+        runtimeIdentity.validates(
+            paneID: paneID,
+            agentName: agentName,
+            instanceID: instanceID
+        )
+    }
+
+    func effectiveAgentName(for conversation: Conversation) -> String? {
+        if !conversation.agent.isShell {
+            return conversation.agent.rawValue
+        }
+        return runtimeIdentity.claim(for: conversation.id)?.agentName
+    }
+
+    func hasAuthenticatedAgentRuntime(for conversation: Conversation) -> Bool {
+        conversation.content.isTerminal
+            && launchOwnership.nonce(for: conversation.id) != nil
+            && effectiveAgentName(for: conversation) != nil
     }
 
     func markHandshakeTimeout(paneID: Conversation.ID) {

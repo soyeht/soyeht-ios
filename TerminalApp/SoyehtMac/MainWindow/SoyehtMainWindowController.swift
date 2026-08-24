@@ -3971,10 +3971,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.paneUnavailable(paneID)
         }
 
-        // Agent panes launched with a command get a per-launch nonce. The
-        // installed state reporters echo it back; the first matching report
-        // is the handshake that gates the initial prompt (no fixed sleeps,
-        // no prompt leaked into a shell when the agent fails to boot).
+        // Every terminal process gets a per-launch pane credential. Managed
+        // agent panes use it immediately; a normal split-created shell keeps
+        // its shell interaction style and may later lend the credential to a
+        // manually started CLI's MCP runtime claim. The installed state
+        // reporters echo it back; for managed launches the first matching
+        // report is also the handshake that gates the initial prompt.
         // Agents with no startup hook (e.g. agy) are exempt and use the
         // legacy timed prompt delivery instead.
         var conversation = convStore.conversation(paneID)
@@ -3984,22 +3986,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             && (conversation?.agent.isShell ?? true) == false
         let waitsForStartupHandshake = isAgentLaunch
             && AgentLaunchCommandBuilder.supportsStartupHandshake(agentName: conversation?.agent.displayName)
-        let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil
+        let launchNonce = UUID().uuidString
         guard PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID) else {
             throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
         }
         pane.prepareDeferredDeliveryForTerminalTransportReplacement()
         conversation = convStore.conversation(paneID)
-        if let launchNonce {
-            guard PaneStatusTracker.shared.registerLaunchOwnership(
-                paneID: paneID,
-                nonce: launchNonce
-            ) else {
-                throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
-            }
-            if waitsForStartupHandshake {
-                PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
-            }
+        guard PaneStatusTracker.shared.registerLaunchOwnership(
+            paneID: paneID,
+            nonce: launchNonce
+        ) else {
+            throw LocalAgentWorkspaceError.launchOwnershipPersistenceUnavailable
+        }
+        if waitsForStartupHandshake {
+            PaneStatusTracker.shared.expectHandshake(paneID: paneID, nonce: launchNonce)
         }
 
         // Seed PTY with the terminal's current geometry so the first prompt

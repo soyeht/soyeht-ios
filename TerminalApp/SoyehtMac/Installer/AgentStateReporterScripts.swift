@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 24
+    static let version = 25
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v24). Do not edit.
+# Managed by Soyeht (agent-state integration v25). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -446,7 +446,7 @@ def main():
     # Some Claude-compatible CLIs also load the user's global Claude hooks.
     # Ignore a reporter whose integration identity does not match the agent
     # Soyeht actually launched in this pane.
-    if declared_agent and report_agent != declared_agent:
+    if declared_agent and declared_agent != "shell" and report_agent != declared_agent:
         return 0
     try:
         raw = sys.stdin.read()

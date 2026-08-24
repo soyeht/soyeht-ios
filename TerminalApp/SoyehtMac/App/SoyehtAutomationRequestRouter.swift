@@ -197,6 +197,10 @@ final class SoyehtAutomationRequestRouter {
             return try handleReportAgentState(request)
         case .reportAgentConversation:
             return try handleReportAgentConversation(request)
+        case .claimAgentRuntime:
+            return try handleClaimAgentRuntime(request)
+        case .releaseAgentRuntime:
+            return try handleReleaseAgentRuntime(request)
         case .getConversationContext:
             return try handleGetConversationContext(request)
         case .ackConversationContext:

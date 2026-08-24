@@ -42,6 +42,36 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
 
+    def test_runtime_agent_argument_is_explicit_and_rejects_unknown_clients(self):
+        parse = MODULE["requested_runtime_agent"]
+        self.assertEqual(parse(["--runtime-agent", "codex"]), "codex")
+        self.assertEqual(parse(["--runtime-agent=claude"]), "claude")
+        self.assertIsNone(parse([]))
+        with self.assertRaisesRegex(RuntimeError, "Unknown Soyeht MCP runtime agent"):
+            parse(["--runtime-agent", "not-real"])
+
+    def test_manual_runtime_context_carries_instance_and_live_process_proof(self):
+        function = MODULE["with_source_context"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "opencode"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-instance"
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "pane-id",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                payload = function({})
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+
+        self.assertEqual(payload["runtimeAgent"], "opencode")
+        self.assertEqual(payload["runtimeInstanceID"], "runtime-instance")
+        self.assertEqual(payload["runtimeProcessID"], os.getpid())
+        self.assertEqual(payload["nonce"], "pane-proof")
+
     def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
         globals_ = MODULE["tool_open_file"].__globals__
         original_choose_file = globals_["choose_file"]

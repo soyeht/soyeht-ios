@@ -1222,7 +1222,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
-    func testTurnBoundAgentsReceiveLaunchOwnershipWithoutWaitingForStartupHook() throws {
+    func testEveryTerminalReceivesPaneOwnershipWithoutForcingAgentHandshake() throws {
         let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let attach = try slice(
             controller,
@@ -1233,7 +1233,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
         XCTAssertTrue(attach.contains("let isAgentLaunch = preparedInitialCommand != nil"))
         XCTAssertTrue(attach.contains("let waitsForStartupHandshake = isAgentLaunch"))
-        XCTAssertTrue(attach.contains("let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil"))
+        XCTAssertTrue(attach.contains("let launchNonce = UUID().uuidString"))
         XCTAssertTrue(attach.contains("registerLaunchOwnership("))
         XCTAssertTrue(attach.contains("paneID: paneID"))
         XCTAssertTrue(attach.contains("nonce: launchNonce"))
@@ -1273,7 +1273,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(attach.contains("registerLaunchOwnership("))
         XCTAssertTrue(attach.contains("nonce: launchNonce"))
         XCTAssertFalse(restore.contains("liveConversation.agentLaunchOwnershipNonce"))
-        XCTAssertTrue(restore.contains("launchNonce: nil"))
+        XCTAssertTrue(restore.contains("launchNonce: previousLaunchNonce"))
         XCTAssertFalse(restore.contains("prepareForAgentLaunch(paneID: conversationID)"))
         XCTAssertTrue(restore.contains("guard previousLaunchNonce != nil else"))
         XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))

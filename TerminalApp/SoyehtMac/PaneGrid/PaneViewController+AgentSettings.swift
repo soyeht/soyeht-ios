@@ -14,17 +14,17 @@ extension PaneViewController {
         header.isOrchestrationManager = workspaceStore.workspace(conversation.workspaceID)?
             .orchestration?
             .canManageRolesAndTopology(conversationID) == true
-        header.canToggleOrchestrationManager = conversation.content.isTerminal
-            && !conversation.agent.isShell
-            && PaneStatusTracker.shared.launchOwnershipNonce(for: conversationID) != nil
+        header.canToggleOrchestrationManager = PaneStatusTracker.shared
+            .hasAuthenticatedAgentRuntime(for: conversation)
     }
 
     func setOrchestrationManagementAuthorizationFromHeader(_ isAuthorized: Bool) {
         guard let conversationStore = AppEnvironment.conversationStore,
               let workspaceStore = AppEnvironment.workspaceStore,
               let conversation = conversationStore.conversation(conversationID),
-              conversation.content.isTerminal,
-              !conversation.agent.isShell else {
+              PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(
+                  for: conversation
+              ) else {
             refreshOrchestrationManagerHeaderState()
             return
         }
@@ -194,9 +194,7 @@ extension PaneViewController {
                     let roleCandidates = conversationStore.all
                         .filter {
                             $0.workspaceID == conversation.workspaceID
-                                && $0.content.isTerminal
-                                && !$0.agent.isShell
-                                && PaneStatusTracker.shared.launchOwnershipNonce(for: $0.id) != nil
+                                && PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(for: $0)
                         }
                         .sorted { left, right in
                             if left.id == self.conversationID { return true }

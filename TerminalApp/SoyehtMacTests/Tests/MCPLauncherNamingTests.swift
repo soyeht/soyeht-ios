@@ -171,6 +171,18 @@ final class MCPLauncherNamingTests: XCTestCase {
         XCTAssertTrue(source.contains("SoyehtInstallProfile.current.mcpLauncherFilename"))
     }
 
+    func testEachSupportedCLIIdentifiesItsRuntimeWithoutWrappingThePaneShell() throws {
+        let source = try macSource("Installer/AIAgentIntegrator.swift")
+        XCTAssertTrue(source.contains("[\"--runtime-agent\", \"claude\"]"))
+        XCTAssertTrue(source.contains("args = [\"--runtime-agent\", \"codex\"]"))
+        XCTAssertTrue(source.contains(
+            "[launcherURL.path, \"--runtime-agent\", \"opencode\"]"
+        ))
+        XCTAssertFalse(source.contains("SOYEHT_AGENT_NAME=codex"))
+        XCTAssertFalse(source.contains("SOYEHT_AGENT_NAME=claude"))
+        XCTAssertFalse(source.contains("SOYEHT_AGENT_NAME=opencode"))
+    }
+
     func testUninstallerRemovesEveryConfigKeyFromEveryAgent() throws {
         let source = try macSource("Welcome/TheyOSUninstaller.swift")
         XCTAssertTrue(source.contains("for mcpKey in SoyehtInstallProfile.allMCPConfigKeys"))

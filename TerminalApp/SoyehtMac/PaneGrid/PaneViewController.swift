@@ -831,6 +831,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conv.id)
             return
         }
+        let launchNonce = UUID().uuidString
+        guard PaneStatusTracker.shared.registerLaunchOwnership(
+            paneID: conv.id,
+            nonce: launchNonce
+        ) else {
+            PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conv.id)
+            return
+        }
         guard persistDowngradedShellIdentity(for: conv, convStore: convStore),
               let restoredConversation = convStore.conversation(conv.id) else {
             PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conv.id)
@@ -873,7 +881,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             // on the first attempt and never waits.
             if SoyehtFeatureFlags.persistentLocalPanesEnabled,
                await self.upgradedRestoredPaneToEngine(
-                   conversationID: conversationID, cwd: url, loginPath: loginPath, cols: cols, rows: rows
+                   conversationID: conversationID,
+                   launchNonce: launchNonce,
+                   cwd: url,
+                   loginPath: loginPath,
+                   cols: cols,
+                   rows: rows
                ) {
                 return
             }
@@ -885,7 +898,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     cols: cols,
                     rows: rows,
                     loginPath: loginPath,
-                    extraEnvironment: AgentPaneEnvironment.values(for: restoredConversation)
+                    extraEnvironment: AgentPaneEnvironment.values(
+                        for: restoredConversation,
+                        launchNonce: launchNonce
+                    )
                 )
                 AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
                 self.terminalView.configureLocal(pty: pty)
@@ -1012,7 +1028,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     // the engine session is gone, the idempotent create starts
                     // a plain shell, which must never inherit the old agent's
                     // possession credential.
-                    launchNonce: nil,
+                    // Existing engine sessions keep their inherited value;
+                    // if the broker must recreate a dead normal shell, inject
+                    // the same pane credential so a manually launched agent
+                    // can reclaim MCP without changing terminal behavior.
+                    launchNonce: previousLaunchNonce,
                     cwd: url,
                     loginPath: loginPath,
                     cols: cols,
@@ -1089,7 +1109,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     rows: rows,
                     loginPath: loginPath,
                     extraEnvironment: AgentPaneEnvironment.values(
-                        for: convStore.conversation(conversationID) ?? conv
+                        for: convStore.conversation(conversationID) ?? conv,
+                        launchNonce: previousLaunchNonce
                     )
                 )
                 convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
@@ -1117,6 +1138,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     ///   was changed and the caller falls back.
     private func upgradedRestoredPaneToEngine(
         conversationID: Conversation.ID,
+        launchNonce: String,
         cwd: URL,
         loginPath: String?,
         cols: Int,
@@ -1130,6 +1152,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
             outcome = await EnginePaneAttacher.attach(
                 conversation: liveConversation,
+                launchNonce: launchNonce,
                 cwd: cwd,
                 loginPath: loginPath,
                 cols: cols,
