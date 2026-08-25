@@ -48,3 +48,9 @@ QA/scripts/__pycache__/
 
 # Pencil design files — kept local only
 *.pen
+
+# Release-time secrets and the per-release appcast asset. Neither belongs
+# in the repository: .env.release names the signing identity, and the
+# appcast is uploaded as an asset of its own tag.
+.env.release
+appcast.xml
