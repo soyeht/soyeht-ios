@@ -212,13 +212,51 @@ public struct TerminalColorTheme: Codable, Identifiable, Equatable, Sendable {
         return "#\(raw.uppercased())"
     }
 
+    /// The keys this app reserves for its own chrome, in their exact
+    /// spelling. `extraHexColors` is otherwise a free-form bag folded into a
+    /// canonical shape on save, and these are the entries that must come back
+    /// out of it byte for byte, because every reader looks them up literally.
+    ///
+    /// `agent.<n>` is open-ended, so it is matched by shape below rather than
+    /// listed here.
+    public static let reservedRoleKeys: Set<String> = [
+        "app.background", "app.surface", "app.hover", "app.border",
+        "app.textPrimary", "app.textSecondary", "app.textMuted",
+        "app.accent", "app.buttonTextOnAccent",
+        "neo.surface", "neo.well", "neo.shadowDark", "neo.shadowLight",
+        "neo.wellShadow", "neo.wellRim", "neo.wellLip", "neo.accentShadow",
+    ]
+
+    static func isReservedRoleKey(_ key: String) -> Bool {
+        if reservedRoleKeys.contains(key) { return true }
+        guard key.hasPrefix("agent.") else { return false }
+        let index = key.dropFirst("agent.".count)
+        return !index.isEmpty && index.allSatisfy(\.isNumber)
+    }
+
+    /// Folds an arbitrary key from an imported file into the shape this app
+    /// stores metadata under — EXCEPT a reserved role key, which is already
+    /// canonical and passes through untouched.
+    ///
+    /// The folding lowercases and turns anything non-alphanumeric into a
+    /// dash, which is right for a stray `Ansi Bright Black` out of someone
+    /// else's file and destroys every role this app defines: `neo.surface`
+    /// became `neo-surface`, and `neo.shadowDark` became `neo-shadowdark`,
+    /// neither of which anything reads. A theme therefore lost every role it
+    /// stated the moment it was saved. Customising Neo · Deep Harbor and
+    /// pressing Save produced a byte-identical copy whose raised surface came
+    /// back as the fixed fallback `#31333E` rather than its own `#2B4851`,
+    /// whose five agent plates came back empty, and which the neomorphic
+    /// style would no longer wear at all.
     public static func normalizedMetadataKey(_ value: String) -> String {
-        let lowered = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isReservedRoleKey(trimmed) { return trimmed }
+        let lowered = trimmed.lowercased()
         var result = ""
         var previousWasDash = false
 
         for scalar in lowered.unicodeScalars {
-            if CharacterSet.alphanumerics.contains(scalar) {
+            if CharacterSet.alphanumerics.contains(scalar) || scalar == "." {
                 result.unicodeScalars.append(scalar)
                 previousWasDash = false
             } else if !previousWasDash {
@@ -227,7 +265,7 @@ public struct TerminalColorTheme: Codable, Identifiable, Equatable, Sendable {
             }
         }
 
-        return result.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return result.trimmingCharacters(in: CharacterSet(charactersIn: "-."))
     }
 
     private static func normalizedOptionalHex(_ value: String?) throws -> String? {
@@ -286,5 +324,16 @@ public extension ColorTheme {
         case .monokai: return "Monokai"
         case .highContrast: return "High Contrast"
         }
+    }
+}
+
+public extension TerminalColorTheme {
+    /// Whether the terminal SCREEN is dark — the surface text actually lands
+    /// on, which is not always the chrome around it.
+    ///
+    /// Perceptual lightness, not relative luminance: luminance is linear and
+    /// its midpoint sits near L* 76, which called every mid-tone face dark.
+    var isDarkBackground: Bool {
+        LabColorMath.lch(of: backgroundHex).lightness < 50
     }
 }

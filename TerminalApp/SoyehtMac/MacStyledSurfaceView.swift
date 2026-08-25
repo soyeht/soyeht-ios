@@ -12,13 +12,26 @@ import AppKit
 final class MacInnerWellShadowView: NSView {
     private let darkRing = CAShapeLayer()
     private let lightRing = CAShapeLayer()
+    /// The lip rides its own ring so it can be hidden on the themes that
+    /// state none, and so it sits behind the other two rather than over them.
+    private let lipRing = CAShapeLayer()
     private var radius: CGFloat = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.masksToBounds = true
-        for ring in [darkRing, lightRing] {
+        // Stacking order is the whole design. Each ring surrounds the hole on
+        // all four sides, so its blur bleeds onto the two sides its offset
+        // moves it away from: the rim lightens the top-left as well as the
+        // bottom-right, and whichever ring is in front wins there. CSS lists
+        // the well's shadows dark-first and the first box-shadow in a list is
+        // the frontmost, so the dark side belongs ON TOP of the rim. Added
+        // back to front here, since a later sublayer is nearer the viewer.
+        // The other way round the rim's bleed lifted the top-left from L*
+        // 12.9 to 18.9 against a well of 18.9 — the recess had no dark edge
+        // at all, which is why a pressed tab read as a flat darker pill.
+        for ring in [lipRing, lightRing, darkRing] {
             ring.fillRule = .evenOdd
             ring.fillColor = NSColor.black.cgColor
             layer?.addSublayer(ring)
@@ -29,14 +42,51 @@ final class MacInnerWellShadowView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    func applyStyle(cornerRadius: CGFloat, dark: MacSurface.Shadow, light: MacSurface.Shadow) {
+    /// The ring's edge is held `seamGuard` outside the clip, which shifts
+    /// every shadow it casts that far back out. Callers state the offset the
+    /// design states; the guard is this view's own business and it pays for
+    /// it here. Left unpaid, a stated offset of 3 landed as 2 — a third of
+    /// the recess gone before the blur is applied.
+    private func guarded(_ spec: MacSurface.Shadow) -> MacSurface.Shadow {
+        // Only an axis that MOVES needs paying back. A zero component means
+        // the ring already sits `seamGuard` outside on both of that axis's
+        // edges and the two cancel; adding to it would push the shadow off
+        // one side and make a shadow the design asked to be symmetric come
+        // out lopsided.
+        func repay(_ value: CGFloat) -> CGFloat {
+            value == 0 ? 0 : value + seamGuard * (value < 0 ? -1 : 1)
+        }
+        var out = spec
+        out.offset = CGSize(width: repay(spec.offset.width), height: repay(spec.offset.height))
+        return out
+    }
+
+    /// The cavity's inner edge must NOT land on the clip: they would be the
+    /// same curve, both antialiased, and the boundary pixel would take
+    /// roughly half the clip's coverage of a black fill — a dark hairline
+    /// tracing the pill, which reads as a stroke rather than a recess.
+    private let seamGuard: CGFloat = 1
+
+    func applyStyle(
+        cornerRadius: CGFloat,
+        dark: MacSurface.Shadow,
+        light: MacSurface.Shadow,
+        lip: MacSurface.Shadow? = nil
+    ) {
         radius = cornerRadius
         layer?.cornerRadius = cornerRadius
-        for (ring, spec) in [(darkRing, dark), (lightRing, light)] {
+        for (ring, spec) in [(darkRing, guarded(dark)), (lightRing, guarded(light))] {
             ring.shadowColor = spec.color.cgColor
             ring.shadowOpacity = spec.opacity
             ring.shadowOffset = spec.offset
             ring.shadowRadius = spec.radius
+        }
+        lipRing.isHidden = lip == nil
+        if let lip = lip.map(guarded) {
+            lipRing.shadowColor = lip.color.cgColor
+            lipRing.shadowOpacity = lip.opacity
+            lipRing.shadowOffset = lip.offset
+            lipRing.shadowRadius = lip.radius
         }
         needsLayout = true
     }
@@ -46,27 +96,28 @@ final class MacInnerWellShadowView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         // The cavity is an opaque ring clipped to the rounded bounds, so only
-        // the shadow it throws inward survives. Its inner edge must NOT land
-        // on the clip: they would be the same curve, both antialiased, and the
-        // boundary pixel would take roughly half the clip's coverage of a
-        // black fill — a dark hairline tracing the pill, which reads as a
-        // stroke rather than a recess. Holding the edge a point outside keeps
-        // the fill wholly beyond the clip; the shadow starts a point further
-        // out, which is nothing against its blur.
-        let seamGuard: CGFloat = 1
-        let inner = bounds.insetBy(dx: -seamGuard, dy: -seamGuard)
-        let ringPath = CGMutablePath()
-        ringPath.addRect(inner.insetBy(dx: -80, dy: -80))
-        ringPath.addPath(CGPath(
-            roundedRect: inner,
-            cornerWidth: min(radius + seamGuard, inner.width / 2),
-            cornerHeight: min(radius + seamGuard, inner.height / 2),
-            transform: nil
-        ))
-        for ring in [darkRing, lightRing] {
-            ring.frame = bounds
-            ring.path = ringPath
+        // the shadow it throws inward survives. Holding its edge `seamGuard`
+        // outside keeps the fill wholly beyond the clip; `guarded(_:)` pays
+        // the offset back.
+        func ring(outsetBy outset: CGFloat) -> CGPath {
+            let inner = bounds.insetBy(dx: -outset, dy: -outset)
+            let path = CGMutablePath()
+            path.addRect(inner.insetBy(dx: -80, dy: -80))
+            path.addPath(CGPath(
+                roundedRect: inner,
+                cornerWidth: min(radius + outset, inner.width / 2),
+                cornerHeight: min(radius + outset, inner.height / 2),
+                transform: nil
+            ))
+            return path
         }
+        let ringPath = ring(outsetBy: seamGuard)
+        for layer in [darkRing, lightRing] {
+            layer.frame = bounds
+            layer.path = ringPath
+        }
+        lipRing.frame = bounds
+        lipRing.path = ringPath
         CATransaction.commit()
     }
 }
@@ -83,14 +134,13 @@ final class MacStyledSurfaceView: NSView {
     var passesThroughHits = false
 
     private var shadowLayers: [CALayer] = []
-    private let surfaceLayer = CAGradientLayer()
+    private let surfaceLayer = CALayer()
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         passesThroughHits ? nil : super.hitTest(point)
     }
 
     private var fillColor: NSColor = .clear
-    private var gradientColors: (start: NSColor, end: NSColor)?
     private var radius: CGFloat = 0
     private var borderColor: NSColor?
     private var borderWidth: CGFloat = 0
@@ -114,14 +164,12 @@ final class MacStyledSurfaceView: NSView {
 
     func applyStyle(
         fill: NSColor,
-        gradient: (start: NSColor, end: NSColor)? = nil,
         cornerRadius: CGFloat,
         border: NSColor? = nil,
         borderWidth: CGFloat = 0,
         shadows: [MacSurface.Shadow] = []
     ) {
         fillColor = fill
-        gradientColors = gradient
         radius = cornerRadius
         borderColor = border
         self.borderWidth = borderWidth
@@ -146,18 +194,10 @@ final class MacStyledSurfaceView: NSView {
         // Surface sits above its shadows but below any subview layers.
         layer?.insertSublayer(surfaceLayer, at: UInt32(shadowLayers.count))
 
-        // The generator-style diagonal surface gradient (CSS 145deg,
-        // top-left -> bottom-right in unflipped layer coordinates). Flat
-        // fill when no gradient is requested.
-        if let gradientColors {
-            surfaceLayer.backgroundColor = nil
-            surfaceLayer.colors = [gradientColors.start.cgColor, gradientColors.end.cgColor]
-            surfaceLayer.startPoint = CGPoint(x: 0.09, y: 0.91)
-            surfaceLayer.endPoint = CGPoint(x: 0.91, y: 0.09)
-        } else {
-            surfaceLayer.colors = nil
-            surfaceLayer.backgroundColor = fillColor.cgColor
-        }
+        // Flat fill. This layer used to be a CAGradientLayer that could take
+        // a 145-degree pair; the surfaces it painted are one colour in the
+        // reviewed design, and no caller passed a pair any more.
+        surfaceLayer.backgroundColor = fillColor.cgColor
         surfaceLayer.cornerRadius = radius
         surfaceLayer.borderColor = borderColor?.cgColor
         surfaceLayer.borderWidth = borderWidth

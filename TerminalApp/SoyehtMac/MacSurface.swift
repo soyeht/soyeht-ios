@@ -98,6 +98,25 @@ enum MacSurface {
         var offset: CGSize
         var radius: CGFloat
 
+        /// A shadow stated the way the reviewed design states it, in CSS
+        /// `box-shadow` terms.
+        ///
+        /// A CSS blur of B and a CALayer `shadowRadius` of B are NOT the same
+        /// shadow: CSS blurs with a standard deviation of B/2, CALayer with B.
+        /// Every neo spec here was written by reading a blur off the design
+        /// and assigning it to `radius`, so every one rendered at twice the
+        /// softness it was drawn at — measured against the reviewed pill, a
+        /// radius of 8 put the shadow's darkest point 4.2 L* short and spread
+        /// what was left across twice the distance, which is the mush.
+        static func neo(
+            color: NSColor,
+            opacity: Float = 1,
+            offset: CGSize,
+            blur: CGFloat
+        ) -> Shadow {
+            Shadow(color: color, opacity: opacity, offset: offset, radius: blur / 2)
+        }
+
         func apply(to layer: CALayer?) {
             guard let layer else { return }
             layer.shadowColor = color.cgColor
@@ -125,15 +144,6 @@ enum MacSurface {
         // to the background, never from low alpha. Offsets are in unflipped
         // AppKit layer coordinates (negative height casts downward).
 
-        /// Dual pair for floating panels (sidebar, drawer). 9pt offset /
-        /// 18pt blur — the classic "9px 9px 18px" raised-card recipe, right
-        /// for isolated surfaces with lots of canvas around them.
-        static var neoDark: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 9, height: -9), radius: 18)
-        }
-        static var neoLight: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -9, height: 9), radius: 18)
-        }
 
         /// Single ambient lift for DARK cards on the light canvas (terminal
         /// screens). Neumorphic tinted pairs belong to light surfaces only —
@@ -154,20 +164,28 @@ enum MacSurface {
         /// the sizes come from the same pair the raised chips use so a pressed
         /// control keeps the depth budget of the released one.
         static var innerWellDark: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6)
+            Shadow.neo(color: MacTheme.neoWellShadow, offset: CGSize(width: 3, height: -3), blur: 6)
         }
         static var innerWellLight: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 7)
+            Shadow.neo(color: MacTheme.neoWellRim, offset: CGSize(width: -3, height: 3), blur: 7)
+        }
+        /// The lip: one hard point along the well's top-left inner edge, no
+        /// blur, where the surface breaks. Only the dark faces state one —
+        /// a light face's rim already reads as an edge.
+        static var innerWellLip: Shadow? {
+            MacTheme.neoWellLip.map {
+                Shadow.neo(color: $0, offset: CGSize(width: 1, height: -1), blur: 0)
+            }
         }
 
         /// Dual pair for compact controls (chips, pills, small buttons).
         /// The reference uses 4/8 across all its chrome chips and pills
         /// (sidebar chip, idle tabs, Spaces pill, plus button).
         static var neoDarkSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 4, height: -4), radius: 8)
+            Shadow.neo(color: MacTheme.neoShadowDark, offset: CGSize(width: 4, height: -4), blur: 8)
         }
         static var neoLightSmall: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -4, height: 4), radius: 8)
+            Shadow.neo(color: MacTheme.neoShadowLight, offset: CGSize(width: -4, height: 4), blur: 8)
         }
 
         /// Pane cards carry NO layer shadows in either style: per-pane
@@ -185,8 +203,8 @@ enum MacSurface {
         /// Miniature pair for ~22pt header chips (generator ratios scaled).
         static var raisedMicroSet: [Shadow] {
             neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 5),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 5),
+                Shadow.neo(color: MacTheme.neoShadowDark, offset: CGSize(width: 3, height: -3), blur: 5),
+                Shadow.neo(color: MacTheme.neoShadowLight, offset: CGSize(width: -3, height: 3), blur: 5),
             ] : []
         }
 
@@ -194,7 +212,7 @@ enum MacSurface {
         /// Colored glow behind accent-filled pills (the Claws button).
         static var accentGlowSet: [Shadow] {
             neo ? [
-                Shadow(color: MacTheme.neoAccentShadow.withAlphaComponent(0.35), opacity: 1, offset: CGSize(width: 5, height: -5), radius: 12),
+                Shadow.neo(color: MacTheme.neoAccentShadow.withAlphaComponent(0.35), offset: CGSize(width: 5, height: -5), blur: 12),
             ] : []
         }
 
@@ -218,7 +236,7 @@ enum MacSurface {
         /// Workspace tab lifted out of the strip while dragging.
         static var tabLift: Shadow {
             neo
-                ? Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 0, height: -8), radius: 16)
+                ? Shadow.neo(color: MacTheme.neoShadowDark, offset: CGSize(width: 0, height: -8), blur: 16)
                 : Shadow(color: MacTheme.surfaceDeep, opacity: 1, offset: CGSize(width: 0, height: -8), radius: 24)
         }
         /// Floating sidebar panel casting right onto the workspace (classic).

@@ -88,20 +88,14 @@ struct MacClawCardView: View {
 
     private var neo: Bool { MacSurface.style == .neomorphic }
 
-    /// Generator-style convex surface in neo (SwiftUI does the dual shadows
-    /// natively via the two `.shadow` modifiers above, which resolve to
-    /// `.clear` in classic); flat themed fill otherwise.
+    /// Flat themed fill. The neo branch used a convex gradient built by
+    /// lightening and darkening the surface; the gradient was removed because
+    /// it existed nowhere in the reviewed design, and a colour nobody approved
+    /// should not be on screen.
     @ViewBuilder private var cardBackground: some View {
         if neo {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: MacTheme.neoConvexStart),
-                    Color(nsColor: MacTheme.neoConvexEnd),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .opacity(hovering ? 0.9 : 1)
+            Color(nsColor: MacTheme.neoSurface)
+                .opacity(hovering ? 0.9 : 1)
         } else {
             hovering ? MacClawStoreTheme.bgRowHover : MacClawStoreTheme.bgCard
         }

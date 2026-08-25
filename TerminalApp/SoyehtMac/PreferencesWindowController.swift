@@ -269,7 +269,11 @@ class PreferencesViewController: NSViewController {
 
     private func populateThemes() {
         themePopUp.removeAllItems()
-        themes = TerminalThemeStore.shared.allThemes()
+        // Only themes the active style can actually wear. Neomorphic paints
+        // roles an ordinary theme does not state, and nothing invents them,
+        // so offering one would offer a broken pane.
+        themes = DesignStyle.themes(for: DesignStyle.active,
+                                    from: TerminalThemeStore.shared.allThemes())
         for theme in themes {
             themePopUp.addItem(withTitle: themeMenuTitle(theme))
             themePopUp.lastItem?.representedObject = theme
@@ -343,7 +347,23 @@ class PreferencesViewController: NSViewController {
         guard let theme = themePopUp.selectedItem?.representedObject as? TerminalColorTheme else { return }
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
+        // The active style is a function of the theme — a theme stating the
+        // roles neomorphic paints brings it back, one that does not sends it
+        // to classic. Both popups have to say what the app is actually doing,
+        // and the theme list itself changes with the style. Without this the
+        // whole chrome could switch to neomorphic while Style still read
+        // Classic, and the themes the user could no longer choose stayed in
+        // the list until the window was reopened.
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+    }
+
+    /// Re-reads both popups from what the app resolves, and reselects. Style
+    /// and theme constrain each other, so a change to either can move the
+    /// other and can change which themes are offered at all.
+    private func refreshStyleAndThemeLists() {
+        populateThemes()
+        loadCurrentValues()
         updateDeleteButton()
     }
 
@@ -351,6 +371,22 @@ class PreferencesViewController: NSViewController {
         guard let raw = stylePopUp.selectedItem?.representedObject as? String,
               let style = DesignStyle(rawValue: raw) else { return }
         DesignStyle.setActive(style)
+        // A style only wears the themes that state the roles it paints, so
+        // picking one can mean the current theme no longer applies. Move to a
+        // theme the style does wear rather than leaving the picker showing a
+        // style the app has quietly refused: `DesignStyle.active` falls back
+        // to classic in that case, and the choice would look like it did
+        // nothing at all.
+        if !style.canWear(TerminalColorTheme.active),
+           let wearable = DesignStyle.themes(
+               for: style, from: TerminalThemeStore.shared.allThemes()).first {
+            TerminalThemeStore.shared.setActiveTheme(id: wearable.id)
+            // Forcing a theme has to carry the cursor with it, the way every
+            // other theme-setting path here does. Left out, the cursor kept
+            // the previous theme's colour until the picker was touched again.
+            prefs.cursorColorHex = wearable.cursorHex
+        }
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
@@ -527,10 +563,14 @@ class PreferencesViewController: NSViewController {
     }
 
     private func selectAndApplyTheme(_ theme: TerminalColorTheme) {
-        populateThemes()
+        // Apply BEFORE repopulating. The theme decides the style and the style
+        // decides which themes are listed, so building the list first builds it
+        // from the outgoing state: importing a theme while neomorphic left the
+        // popup listing the nine neo themes with the new one absent, showing
+        // whichever happened to be first while the app ran the imported one.
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
-        loadCurrentValues()
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 

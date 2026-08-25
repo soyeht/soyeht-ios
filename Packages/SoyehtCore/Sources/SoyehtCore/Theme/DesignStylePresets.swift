@@ -47,7 +47,18 @@ public extension TerminalColorTheme {
                 "neo.well": "#D8DEE8",
                 "neo.shadowDark": "#A6B4C8",
                 "neo.shadowLight": "#FFFFFF",
+                // A light face's well takes the card's own pair — the two are
+                // the same colour here, stated rather than inherited.
+                "neo.wellShadow": "#A6B4C8",
+                "neo.wellRim": "#FFFFFF",
                 "neo.accentShadow": "#5B7CFA",
+                // This theme's four original agent plates, pinned. They used
+                // to be derived, so they moved every time the derivation
+                // changed, despite having been reviewed long before.
+                "agent.0": "#D8E0FE",
+                "agent.1": "#CDE7DD",
+                "agent.2": "#F6D6DB",
+                "agent.3": "#EEE3CD",
             ]
         )
     }

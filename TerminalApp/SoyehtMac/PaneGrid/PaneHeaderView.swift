@@ -421,17 +421,23 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             // because a sum ignores order and spacing — "delia" and "alied"
             // landed on the same pastel, and so did most same-length names,
             // which is what made the assignment look arbitrary.
+            // A theme states its plates or it has none, and `DesignStyle`
+            // keeps this style off a theme with none. Checked here anyway:
+            // this used to index straight into the array, so any future gap
+            // between the two would be a trap rather than a plain header.
             let pastels = MacTheme.neoHeaderPastels
-            let slot = Self.pastelIndex(for: handle, count: pastels.count)
-            let pastel = pastels[slot]
             layer?.cornerRadius = bounds.height / 2
-            layer?.backgroundColor = pastel.cgColor
-            MacSurface.Shadow(
-                color: pastel.withAlphaComponent(0.6),
-                opacity: 1,
-                offset: CGSize(width: 3, height: -3),
-                radius: 8
-            ).apply(to: layer)
+            if pastels.isEmpty {
+                layer?.backgroundColor = Self.headerFill.cgColor
+            } else {
+                let slot = Self.pastelIndex(for: handle, count: pastels.count)
+                layer?.backgroundColor = pastels[slot].cgColor
+            }
+            // The plate casts NOTHING. It used to drop a shadow of its own
+            // colour at 0.6 alpha, which is a tone nobody chose: it comes out
+            // of the plate multiplied by whatever sits behind it. The reviewed
+            // design gives the plate a fill and a radius and no shadow.
+            MacSurface.Shadow.clear(layer)
             dividerView.isHidden = true
             agentDot.isHidden = false
             // Plain ink again. The dot carried the identity only while the

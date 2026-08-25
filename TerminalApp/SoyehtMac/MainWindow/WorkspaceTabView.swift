@@ -40,7 +40,6 @@ final class WorkspaceTabView: NSView {
     private var tabHeightConstraint: NSLayoutConstraint?
     /// Neo surface curvature: sits above the tab's opaque fill (kept for
     /// titlebar-drag hit routing) and below the label/badge subview layers.
-    private let pillGradient = CAGradientLayer()
     private var isActive: Bool = false
     /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
     /// short-circuit when the value hasn't changed. NSTextField's
@@ -97,8 +96,6 @@ final class WorkspaceTabView: NSView {
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
-        pillGradient.isHidden = true
-        layer?.insertSublayer(pillGradient, at: 0)
 
         // Neo pill shadows live on a pass-through backdrop behind the tab's
         // own opaque layer (dual shadows need their own layers, and the tab
@@ -333,7 +330,8 @@ final class WorkspaceTabView: NSView {
                 pillWell.applyStyle(
                     cornerRadius: radius,
                     dark: MacSurface.Shadows.innerWellDark,
-                    light: MacSurface.Shadows.innerWellLight
+                    light: MacSurface.Shadows.innerWellLight,
+                    lip: MacSurface.Shadows.innerWellLip
                 )
             }
             layer?.backgroundColor = fill.cgColor
@@ -343,8 +341,7 @@ final class WorkspaceTabView: NSView {
             // shadow layers at the tab edge — the pill renders shadowless.
             clipsToBounds = false
             // Reference pills are FLAT fills (`tjIxf`): depth comes from the
-            // shadow pair alone, no surface gradient.
-            pillGradient.isHidden = true
+            // shadow pair alone.
             label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
             label.font = isActive
                 ? MacTypography.NSFonts.workspaceTabTitleActive
@@ -361,7 +358,6 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
             countBadge.layer?.cornerRadius = MacSurface.Radius.badge
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
-            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             clipsToBounds = true
             layer?.backgroundColor = Self.activeFill.cgColor
@@ -383,7 +379,6 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
             countBadge.layer?.cornerRadius = MacSurface.Radius.badge
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
-            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             clipsToBounds = true
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
