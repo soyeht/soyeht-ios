@@ -517,6 +517,26 @@ def wait_for_delivery(recipient, message_id, delivered, timeout):
     )
 
 
+def wait_for_message_channel(recipient, message_id, expected_channel, timeout):
+    deadline = monotonic() + timeout
+    latest = None
+    while monotonic() < deadline:
+        latest = next(
+            (
+                item for item in inbox_messages(recipient)
+                if item.get("messageID") == message_id
+            ),
+            None,
+        )
+        if latest and latest.get("channel") == expected_channel:
+            return latest
+        sleep(0.25)
+    raise RuntimeError(
+        f"Message {message_id} channel did not become {expected_channel!r}: "
+        f"{latest!r}"
+    )
+
+
 def physical_tui_input_smoke(
     mcp, observer, workspace_id, window_id, pane, input_point,
     automation_dir, timeout,
@@ -872,14 +892,14 @@ def main():
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
-        if request.get("channel") == "semanticInbox":
-            # A capable CLI reads the durable inbox out-of-band. It must be
-            # able to reply while the human draft stays in the composer, and
-            # the terminal must never receive relay bytes for this message.
-            reply = wait_for_message(sender, recipient, relay_token, args.timeout)
-            delivered = held
-        else:
-            reply = None
+        # OpenCode is an inbox-capable participant in this ring. The message
+        # can be enqueued initially as deferred-terminal and then claimed by
+        # its MCP adapter. Wait for that durable transition rather than making
+        # a decision from a stale first snapshot.
+        semantic = wait_for_message_channel(
+            recipient, request["messageID"], "semanticInbox", args.timeout
+        )
+        reply = wait_for_message(sender, recipient, relay_token, args.timeout)
         focus_pane_for_physical_input(
             mcp,
             observer,
@@ -891,26 +911,20 @@ def main():
             args.timeout,
         )
         common.release_physical_draft("backspace", len(draft), window_id)
-        if request.get("channel") == "semanticInbox":
-            delivered = wait_for_delivery(
-                recipient, request["messageID"], False, args.timeout
-            )
-        else:
-            delivered = wait_for_delivery(
-                recipient, request["messageID"], True, args.timeout
-            )
-            reply = wait_for_message(sender, recipient, relay_token, args.timeout)
+        delivered = wait_for_delivery(
+            recipient, request["messageID"], False, args.timeout
+        )
         evidence["typingCollision"] = {
             "status": "passed",
             "senderAgent": "codex",
             "recipientAgent": "opencode",
-            "channel": request.get("channel"),
+            "channel": semantic.get("channel"),
             "physicalDraft": draft,
             "heldBeforeBackspace": held.get("deferredTerminalDeliveredAt") is None,
             "terminalBytesInjected": bool(
                 delivered.get("deferredTerminalDeliveredAt")
             ),
-            "expectedTerminalDelivery": request.get("channel") != "semanticInbox",
+            "expectedTerminalDelivery": False,
             "replyMessageID": reply.get("messageID"),
         }
 
