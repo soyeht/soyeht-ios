@@ -136,7 +136,8 @@ on run argv
           set bestDistance to 1000000
           repeat with elementRef in elements
             try
-              if role of elementRef is "AXButton" then
+              set candidateRole to role of elementRef
+              if candidateRole is "AXButton" or candidateRole is "AXCheckBox" then
                 set candidateDescription to value of attribute "AXDescription" of elementRef as text
                 if candidateDescription is expectedDescription then
                   set {buttonX, buttonY} to position of elementRef
