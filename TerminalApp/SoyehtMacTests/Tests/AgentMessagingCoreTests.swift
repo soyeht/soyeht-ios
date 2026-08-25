@@ -1260,8 +1260,11 @@ final class AgentMessagingCoreTests: XCTestCase {
             return
         }
         if childPID == 0 {
-            _ = pause()
-            _exit(0)
+            // XCTest and other domain tests may install process-wide signal
+            // handlers or launch subprocesses concurrently. A single pause()
+            // can therefore return for an unrelated caught signal and let the
+            // child exit before the parent reads its kernel TTY identity.
+            while true { _ = pause() }
         }
         defer {
             if masterFD >= 0 { close(masterFD) }
@@ -1286,13 +1289,19 @@ final class AgentMessagingCoreTests: XCTestCase {
             processID: Int(childPID),
             expectedTTYDevice: expectedDevice &+ 1
         ))
-        XCTAssertNotNil(registry.claim(
-            paneID: paneID,
-            agentName: "claude",
-            instanceID: "matching-real-pty",
-            processID: Int(childPID),
-            expectedTTYDevice: expectedDevice
-        ))
+        let deadline = Date().addingTimeInterval(1)
+        var matchingClaim: AgentRuntimeIdentityClaim?
+        repeat {
+            matchingClaim = registry.claim(
+                paneID: paneID,
+                agentName: "claude",
+                instanceID: "matching-real-pty",
+                processID: Int(childPID),
+                expectedTTYDevice: expectedDevice
+            )
+            if matchingClaim == nil { usleep(10_000) }
+        } while matchingClaim == nil && Date() < deadline
+        XCTAssertNotNil(matchingClaim)
     }
 
     func testManualRuntimeClaimExpiresWhenOwningMCPProcessDies() {

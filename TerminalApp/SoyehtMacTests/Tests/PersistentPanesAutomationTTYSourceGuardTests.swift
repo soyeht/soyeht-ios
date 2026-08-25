@@ -12,21 +12,21 @@ import XCTest
 final class PersistentPanesAutomationTTYSourceGuardTests: XCTestCase {
     func testTTYFallbackChecksEngineSessionRegistryAlongsideLocalPTY() throws {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
-        let resolveAutomationSource = try slice(
+        let automationTTYPath = try slice(
             source,
-            from: "private func resolveAutomationSource(",
-            to: "private func sourceIdentity("
+            from: "private func automationTTYPath(",
+            to: "private func automationTTYDevice("
         )
-        XCTAssertTrue(resolveAutomationSource.contains("pane.terminalView.localPTYSlaveTTYPathForAutomation"))
+        XCTAssertTrue(automationTTYPath.contains("livePane?.terminalView.localPTYSlaveTTYPathForAutomation"))
         // FIX-3 (independent review): the registry lookup must key off the
         // engine's own echoed conversation_id, stored on
         // .engineLocal(conversationID:) — NOT re-derived from
         // conversation.id.uuidString (fragile: happens to match today only
         // because the engine echoes the UUID byte-for-byte).
-        XCTAssertTrue(resolveAutomationSource.contains("if case .engineLocal(let id) = conversation.commander { return id }"))
-        XCTAssertTrue(resolveAutomationSource.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)"))
+        XCTAssertTrue(automationTTYPath.contains("if case .engineLocal(let id) = conversation.commander { return id }"))
+        XCTAssertTrue(automationTTYPath.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)"))
         XCTAssertFalse(
-            resolveAutomationSource.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: conversation.id.uuidString)"),
+            automationTTYPath.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: conversation.id.uuidString)"),
             "must not re-derive the engine's conversation_id from Conversation.id.uuidString"
         )
     }

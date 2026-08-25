@@ -811,18 +811,25 @@ def main():
                 args.timeout,
                 input_points[agent_name],
             )
-            directory_row = wait_for_runtime_agent(
-                mcp,
-                observer,
-                workspace_id,
-                pane["conversationID"],
-                agent_name,
-                automation_dir,
-                args.timeout,
-            )
             process = observed_cli_process(
                 pane["conversationID"], agent_name, repo_root, args.timeout
             )
+            try:
+                directory_row = wait_for_runtime_agent(
+                    mcp,
+                    observer,
+                    workspace_id,
+                    pane["conversationID"],
+                    agent_name,
+                    automation_dir,
+                    args.timeout,
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    f"{exc} The CLI process was already observed with "
+                    f"pid={process['pid']}, cwd={process['cwd']!r}, and "
+                    f"launchNoncePresent={process['launchNoncePresent']}."
+                ) from exc
             require(
                 process["launchNoncePresent"],
                 f"Manual {agent_name} did not inherit SOYEHT_LAUNCH_NONCE.",
