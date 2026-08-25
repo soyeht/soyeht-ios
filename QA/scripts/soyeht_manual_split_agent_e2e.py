@@ -110,54 +110,56 @@ on run argv
   tell application id "com.soyeht.mac.dev" to activate
   delay 0.25
   tell application "System Events" to tell process "Soyeht Dev"
-    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
-    perform action "AXRaise" of targetWindow
-    -- Raising or reconciling a split can invalidate the AXUIElement proxy
-    -- while keeping the same stable window identifier.  Always reacquire it.
-    delay 0.15
-    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
-    set elements to entire contents of targetWindow
-    set labelCenterY to missing value
-    repeat with elementRef in elements
+    repeat 40 times
       try
-        if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
-          set {labelX, labelY} to position of elementRef
-          set {labelW, labelH} to size of elementRef
-          set labelCenterY to labelY + (labelH / 2)
-          exit repeat
-        end if
-      end try
-    end repeat
-    if labelCenterY is missing value then error "Pane label not found: " & expectedLabel
-
-    set bestButton to missing value
-    set bestDistance to 1000000
-    repeat with elementRef in elements
-      try
-        if role of elementRef is "AXButton" then
-          set candidateDescription to value of attribute "AXDescription" of elementRef as text
-          if candidateDescription is expectedDescription then
-            set {buttonX, buttonY} to position of elementRef
-            set {buttonW, buttonH} to size of elementRef
-            set distanceY to (buttonY + (buttonH / 2)) - labelCenterY
-            if distanceY < 0 then set distanceY to -distanceY
-            if distanceY < bestDistance then
-              set bestDistance to distanceY
-              set bestButton to elementRef
+        set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+        perform action "AXRaise" of targetWindow
+        -- Raising or reconciling a split can invalidate the AXUIElement proxy
+        -- while keeping the same stable window identifier. Always reacquire it.
+        delay 0.1
+        set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+        set elements to entire contents of targetWindow
+        set labelCenterY to missing value
+        repeat with elementRef in elements
+          try
+            if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
+              set {labelX, labelY} to position of elementRef
+              set {labelW, labelH} to size of elementRef
+              set labelCenterY to labelY + (labelH / 2)
+              exit repeat
             end if
+          end try
+        end repeat
+
+        if labelCenterY is not missing value then
+          set bestButton to missing value
+          set bestDistance to 1000000
+          repeat with elementRef in elements
+            try
+              if role of elementRef is "AXButton" then
+                set candidateDescription to value of attribute "AXDescription" of elementRef as text
+                if candidateDescription is expectedDescription then
+                  set {buttonX, buttonY} to position of elementRef
+                  set {buttonW, buttonH} to size of elementRef
+                  set distanceY to (buttonY + (buttonH / 2)) - labelCenterY
+                  if distanceY < 0 then set distanceY to -distanceY
+                  if distanceY < bestDistance then
+                    set bestDistance to distanceY
+                    set bestButton to elementRef
+                  end if
+                end if
+              end if
+            end try
+          end repeat
+          if bestButton is not missing value and bestDistance <= 32 then
+            perform action "AXPress" of bestButton
+            return "pressed"
           end if
         end if
       end try
+      delay 0.1
     end repeat
-    if bestButton is missing value then error "Header button not found: " & expectedDescription
-    if bestDistance > 32 then error "Header button belongs to another pane"
-    perform action "AXPress" of bestButton
-    delay 0.2
-    try
-      return value of attribute "AXValue" of bestButton as text
-    on error
-      return "pressed"
-    end try
+    error "Pane header action did not become available: " & expectedLabel & " / " & expectedDescription
   end tell
 end run
 '''
@@ -228,6 +230,7 @@ def rename_pane(mcp, observer, pane, new_name, automation_dir, timeout):
         **observer_args(observer, automation_dir, timeout),
         "conversationIDs": [pane["conversationID"]],
         "newName": new_name,
+        "paneNameStyle": "verbatim",
     })
     deadline = monotonic() + timeout
     while monotonic() < deadline:
