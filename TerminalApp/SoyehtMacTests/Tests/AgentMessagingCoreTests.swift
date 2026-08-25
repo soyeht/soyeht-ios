@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 @testable import SoyehtMacDomain
 
@@ -1247,6 +1248,50 @@ final class AgentMessagingCoreTests: XCTestCase {
             paneID: paneID,
             agentName: "claude",
             instanceID: "owning-pane"
+        ))
+    }
+
+    func testManualRuntimeClaimReadsTheOwningPTYFromTheKernel() throws {
+        var masterFD: Int32 = -1
+        var slaveName = [CChar](repeating: 0, count: Int(PATH_MAX))
+        let childPID = forkpty(&masterFD, &slaveName, nil, nil)
+        guard childPID >= 0 else {
+            XCTFail("forkpty failed with errno \(errno)")
+            return
+        }
+        if childPID == 0 {
+            _ = pause()
+            _exit(0)
+        }
+        defer {
+            if masterFD >= 0 { close(masterFD) }
+            _ = kill(childPID, SIGTERM)
+            var status: Int32 = 0
+            _ = waitpid(childPID, &status, 0)
+        }
+
+        var slaveStatus = stat()
+        let path = String(cString: slaveName)
+        XCTAssertEqual(stat(path, &slaveStatus), 0, "stat failed for \(path)")
+        let expectedDevice = UInt32(truncatingIfNeeded: slaveStatus.st_rdev)
+        let paneID = UUID()
+        let registry = AgentRuntimeIdentityRegistry(
+            persistence: InMemoryAgentRuntimeIdentityPersistence()
+        )
+
+        XCTAssertNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-real-pty",
+            processID: Int(childPID),
+            expectedTTYDevice: expectedDevice &+ 1
+        ))
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "matching-real-pty",
+            processID: Int(childPID),
+            expectedTTYDevice: expectedDevice
         ))
     }
 
