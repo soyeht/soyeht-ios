@@ -152,15 +152,14 @@ extension SoyehtAutomationRequestRouter {
     }
 
     /// A normal managed pane always uses its per-launch nonce. An ordinary
-    /// split-created shell additionally proves the active MCP runtime. For a
-    /// legacy persistent shell whose process predates nonce injection, the
-    /// TTY-bound runtime claim is the possession credential; this narrow
-    /// fallback disappears automatically as soon as the pane has a nonce.
+    /// split-created shell additionally proves the active MCP runtime. A shell
+    /// whose process predates nonce injection must be recreated: TTY identity
+    /// alone cannot authenticate its separate lifecycle reporter hooks.
     func authenticatesAutomationSource(
         _ source: Conversation,
         payload: SoyehtAutomationRequest.Payload
     ) -> Bool {
-        let launchCredentialIsValid = PaneStatusTracker.shared
+        var launchCredentialIsValid = PaneStatusTracker.shared
             .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
         guard source.agent.isShell else { return launchCredentialIsValid }
         var runtimeIdentityIsValid = PaneStatusTracker.shared.validatesRuntimeIdentity(
@@ -169,13 +168,11 @@ extension SoyehtAutomationRequestRouter {
             instanceID: payload.runtimeInstanceID
         )
         if !runtimeIdentityIsValid {
-            // MCP servers started before runtime claims were available remain
-            // alive across app updates. Their next ordinary tool call already
-            // carries the same runtime PID/instance metadata as an explicit
-            // claim. Adopt it here so a persistent manual pane recovers without
-            // restarting or typing into the user's shell. Never replace an
-            // existing live claim, and let claimRuntimeIdentity enforce the
-            // launch-bearer/legacy split plus exact controlling-TTY binding.
+            // A current MCP runtime can outlive an app restart. Its next tool
+            // call carries the same PID/instance metadata as an explicit claim,
+            // allowing adoption without typing into the user's shell. An MCP
+            // process from a pre-feature build carries none of these fields and
+            // must be restarted; it cannot be upgraded by code changed on disk.
             guard PaneStatusTracker.shared.runtimeIdentityClaim(for: source.id) == nil,
                   let runtimeAgent = payload.runtimeAgent?.trimmingCharacters(
                     in: .whitespacesAndNewlines
@@ -194,10 +191,10 @@ extension SoyehtAutomationRequestRouter {
                     expectedTTYDevice: expectedTTYDevice
                   ) else { return false }
             runtimeIdentityIsValid = true
+            launchCredentialIsValid = PaneStatusTracker.shared
+                .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
         }
-        guard runtimeIdentityIsValid else { return false }
-        return launchCredentialIsValid
-            || PaneStatusTracker.shared.launchOwnershipNonce(for: source.id) == nil
+        return runtimeIdentityIsValid && launchCredentialIsValid
     }
 
     func resolveAutomationSource(
@@ -289,8 +286,8 @@ extension SoyehtAutomationRequestRouter {
               PaneStatusTracker.shared.validatesLaunchOwnership(
                   paneID: source.id,
                   nonce: payload.nonce
-              ) || PaneStatusTracker.shared.launchOwnershipNonce(for: source.id) == nil,
-              AgentStateReportAttribution.accepts(
+              ),
+              AgentStateReportAttribution.acceptsAuthenticatedHook(
                   reportSource: reportSource,
                   currentAgent: runtimeAgent
               ) else {
@@ -299,10 +296,36 @@ extension SoyehtAutomationRequestRouter {
         return source
     }
 
+    /// A user grants manager authority to the agent currently authenticated in
+    /// a normal shell, not to every future program that may reuse that pane.
+    /// Revoke the durable pane grant whenever the runtime instance changes or
+    /// exits. If the workspace snapshot cannot be saved, revoke launch
+    /// ownership too so stale on-disk authority cannot become usable after a
+    /// restart.
+    func revokeShellRuntimeOrchestrationAuthorization(
+        for source: Conversation
+    ) throws {
+        guard source.agent.isShell,
+              var orchestration = workspaceStore.workspace(source.workspaceID)?.orchestration,
+              orchestration.canManageRolesAndTopology(source.id) else { return }
+        orchestration.setManagementAuthorization(for: source.id, isAuthorized: false)
+        workspaceStore.updateOrchestration(
+            source.workspaceID,
+            orchestration: orchestration
+        )
+        guard workspaceStore.flushPendingSave() else {
+            if !PaneStatusTracker.shared.prepareForAgentLaunch(paneID: source.id) {
+                PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: source.id)
+            }
+            throw SoyehtAutomationError.orchestrationManagerAuthorizationPersistenceFailed
+        }
+    }
+
     func handleClaimAgentRuntime(
         _ request: SoyehtAutomationRequest
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
+        let previousRuntimeClaim: AgentRuntimeIdentityClaim?
         guard let source = try resolveAutomationSource(payload: payload)?.conversation,
               let runtimeAgent = payload.runtimeAgent?.trimmingCharacters(
                   in: .whitespacesAndNewlines
@@ -314,6 +337,7 @@ extension SoyehtAutomationRequestRouter {
               let expectedTTYDevice = automationTTYDevice(for: source) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
+        previousRuntimeClaim = PaneStatusTracker.shared.runtimeIdentityClaim(for: source.id)
         if source.agent.isShell {
             guard PaneStatusTracker.shared.claimRuntimeIdentity(
                 paneID: source.id,
@@ -324,6 +348,9 @@ extension SoyehtAutomationRequestRouter {
                 expectedTTYDevice: expectedTTYDevice
             ) else {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            if previousRuntimeClaim?.instanceID != runtimeInstanceID {
+                try revokeShellRuntimeOrchestrationAuthorization(for: source)
             }
         } else {
             guard source.agent.rawValue.lowercased() == runtimeAgent,
@@ -350,6 +377,15 @@ extension SoyehtAutomationRequestRouter {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         if source.agent.isShell {
+            guard authenticatesAutomationSource(source, payload: payload),
+                  PaneStatusTracker.shared.validatesRuntimeIdentity(
+                      paneID: source.id,
+                      agentName: payload.runtimeAgent,
+                      instanceID: runtimeInstanceID
+                  ) else {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            try revokeShellRuntimeOrchestrationAuthorization(for: source)
             guard PaneStatusTracker.shared.releaseRuntimeIdentity(
                 paneID: source.id,
                 instanceID: runtimeInstanceID,

@@ -179,6 +179,19 @@ def synchronize_runtime_identity(
     """Claim/release a manually launched CLI without changing pane style."""
     if not MCP_RUNTIME_AGENT or not MCP_RUNTIME_INSTANCE_ID:
         return None
+    # The same installed MCP configuration is intentionally available when a
+    # CLI runs in Terminal.app, iTerm, CI, or another host. `--runtime-agent`
+    # describes the client integration; it is not proof that this particular
+    # process belongs to a Soyeht pane. Only attempt the possession handshake
+    # after inheriting stable pane metadata. Otherwise a harmless read such as
+    # list_windows would fail before its handler merely because the external
+    # terminal's TTY cannot resolve to a Soyeht pane.
+    source_environment = source_environment_for_context()
+    if not (
+        source_environment.get("SOYEHT_CONVERSATION_ID")
+        or source_environment.get("SOYEHT_HANDLE")
+    ):
+        return None
     payload = with_source_context({
         "runtimeAgent": MCP_RUNTIME_AGENT,
         "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,

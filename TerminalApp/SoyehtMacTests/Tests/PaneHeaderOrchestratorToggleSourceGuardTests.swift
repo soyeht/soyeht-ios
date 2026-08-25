@@ -45,6 +45,40 @@ final class PaneHeaderOrchestratorToggleSourceGuardTests: XCTestCase {
         ))
     }
 
+    func testManualRuntimeTransitionsRevokePaneOrchestratorPrivilege() throws {
+        let router = try macSource(
+            "App/SoyehtAutomationRequestRouter+07DirectoryIdentity.swift"
+        )
+        let claim = try slice(
+            router,
+            from: "func handleClaimAgentRuntime(",
+            to: "func handleReleaseAgentRuntime("
+        )
+        let release = try slice(
+            router,
+            from: "func handleReleaseAgentRuntime(",
+            to: "/// Creation requests"
+        )
+
+        XCTAssertTrue(claim.contains(
+            "previousRuntimeClaim?.instanceID != runtimeInstanceID"
+        ))
+        XCTAssertTrue(claim.contains(
+            "revokeShellRuntimeOrchestrationAuthorization(for: source)"
+        ))
+        XCTAssertTrue(release.contains(
+            "revokeShellRuntimeOrchestrationAuthorization(for: source)"
+        ))
+        XCTAssertLessThan(
+            try XCTUnwrap(release.range(
+                of: "revokeShellRuntimeOrchestrationAuthorization(for: source)"
+            )?.lowerBound),
+            try XCTUnwrap(release.range(
+                of: "releaseRuntimeIdentity("
+            )?.lowerBound)
+        )
+    }
+
     private func slice(_ source: String, from start: String, to end: String) throws -> String {
         let startRange = try XCTUnwrap(source.range(of: start))
         let endRange = try XCTUnwrap(

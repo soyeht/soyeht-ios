@@ -671,7 +671,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(inbox.message(id: expiredCompleted.id))
     }
 
-    func testInboxAcknowledgementDoesNotSuppressUnstartedTerminalFallback() throws {
+    func testInboxAcknowledgementSuppressesUnstartedTerminalFallback() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(
             sender: endpoint(handle: "caia"),
@@ -683,8 +683,8 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         try inbox.acknowledge(item.id)
 
-        XCTAssertEqual(inbox.message(id: item.id)?.channel, .deferredTerminal)
-        XCTAssertEqual(inbox.messagesAwaitingDeferredTerminalDelivery.map(\.id), [item.id])
+        XCTAssertEqual(inbox.message(id: item.id)?.channel, .semanticInbox)
+        XCTAssertTrue(inbox.messagesAwaitingDeferredTerminalDelivery.isEmpty)
         XCTAssertNotNil(inbox.message(id: item.id)?.acknowledgedAt)
     }
 
@@ -1163,7 +1163,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertFalse(registry.validates(paneID: paneID, nonce: "old-owner"))
     }
 
-    func testPersistentShellRehydratesPaneOwnershipWithoutBecomingAnAgent() {
+    func testPersistentShellDoesNotRehydratePotentiallyStalePaneOwnership() {
         let persistence = InMemoryAgentLaunchOwnershipPersistence()
         let paneID = UUID()
         persistence.values[paneID] = "pane-owner"
@@ -1178,9 +1178,32 @@ final class AgentMessagingCoreTests: XCTestCase {
         let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
         _ = registry.rehydrate(from: [shell])
 
-        XCTAssertEqual(registry.nonce(for: paneID), "pane-owner")
-        XCTAssertTrue(registry.validates(paneID: paneID, nonce: "pane-owner"))
+        XCTAssertNil(registry.nonce(for: paneID))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "pane-owner"))
         XCTAssertTrue(shell.agent.isShell)
+    }
+
+    func testShellReportAttributionRequiresExactHookAgent() {
+        XCTAssertTrue(AgentStateReportAttribution.accepts(
+            reportSource: "self_report",
+            currentAgent: "codex"
+        ))
+        XCTAssertTrue(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "hook:codex",
+            currentAgent: "Codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "",
+            currentAgent: "codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "manual",
+            currentAgent: "codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "hook:claude",
+            currentAgent: "codex"
+        ))
     }
 
     func testManualRuntimeClaimIsPaneScopedInstanceScopedAndReleasable() {

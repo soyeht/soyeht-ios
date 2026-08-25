@@ -175,23 +175,34 @@ final class PaneStatusTracker {
             paneID: paneID,
             nonce: nonce
         )
-        // Shells created before manual-runtime authentication shipped have no
-        // bearer in their already-running environment. They cannot be
-        // retroactively mutated without visibly typing into or restarting the
-        // user's terminal. Bootstrap only that legacy state by proving the
-        // MCP process is attached to this pane's exact controlling TTY. Once
-        // a pane has a launch bearer, a missing/wrong nonce never falls back.
-        let isTTYBoundLegacyBootstrap = launchOwnership.nonce(for: paneID) == nil
-        guard launchCredentialIsValid || isTTYBoundLegacyBootstrap else {
-            return false
-        }
-        return runtimeIdentity.claim(
+        let hasRegisteredLaunchCredential = launchOwnership.nonce(for: paneID) != nil
+        let bootstrapNonce = nonce?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A persistent manual shell retains its injected environment while the
+        // app restarts, but shell Keychain rows are deliberately not trusted at
+        // startup: an older app may have downgraded a dead managed process to a
+        // fresh shell without revoking that row. Re-adopt only after BOTH the
+        // new MCP proves the pane's exact controlling TTY and presents a real
+        // nonce inherited by that shell. A pre-feature shell with no nonce must
+        // be recreated; accepting TTY alone would also make its hook reports
+        // unauthenticated and spoofable.
+        guard launchCredentialIsValid
+                || (!hasRegisteredLaunchCredential && !(bootstrapNonce ?? "").isEmpty)
+        else { return false }
+        guard runtimeIdentity.claim(
             paneID: paneID,
             agentName: agentName,
             instanceID: instanceID,
             processID: processID,
             expectedTTYDevice: expectedTTYDevice
-        ) != nil
+        ) != nil else { return false }
+        if !hasRegisteredLaunchCredential {
+            guard let bootstrapNonce,
+                  launchOwnership.register(paneID: paneID, nonce: bootstrapNonce) else {
+                runtimeIdentity.clear(paneID: paneID)
+                return false
+            }
+        }
+        return true
     }
 
     @discardableResult

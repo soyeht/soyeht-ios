@@ -158,6 +158,18 @@ enum AgentStateReportAttribution {
         let reportedAgent = String(normalizedSource.dropFirst("hook:".count))
         return reportedAgent == currentAgent.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+
+    /// A report emitted on behalf of a runtime discovered inside an ordinary
+    /// shell must come from the installed per-agent hook. Managed panes may
+    /// still self-report through the authenticated MCP tool, but a shell's
+    /// runtime process and its reporter are separate processes; requiring the
+    /// exact hook label prevents another process in that shell from fabricating
+    /// semantic acknowledgements for the active agent.
+    static func acceptsAuthenticatedHook(reportSource: String, currentAgent: String) -> Bool {
+        let normalizedSource = reportSource.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedSource.hasPrefix("hook:") else { return false }
+        return accepts(reportSource: normalizedSource, currentAgent: currentAgent)
+    }
 }
 
 /// Serializes semantic conversation events for an agent switch. The JSON

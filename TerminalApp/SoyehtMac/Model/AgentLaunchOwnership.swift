@@ -91,7 +91,8 @@ final class AgentLaunchOwnershipRegistry {
     func rehydrate(from conversations: [Conversation]) -> [Conversation.ID] {
         var migratedLegacyPaneIDs: [Conversation.ID] = []
         for conversation in conversations {
-            guard case .engineLocal = conversation.commander,
+            guard !conversation.agent.isShell,
+                  case .engineLocal = conversation.commander,
                   conversation.content.isTerminal else { continue }
             if let persisted = persistence.loadNonce(for: conversation.id), !persisted.isEmpty {
                 expectedByPane[conversation.id] = persisted

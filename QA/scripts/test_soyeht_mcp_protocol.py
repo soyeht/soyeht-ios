@@ -72,7 +72,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["runtimeProcessID"], os.getpid())
         self.assertEqual(payload["nonce"], "pane-proof")
 
-    def test_manual_runtime_claim_bootstraps_a_legacy_shell_without_nonce(self):
+    def test_manual_runtime_claim_never_invents_a_missing_launch_nonce(self):
         function = MODULE["synchronize_runtime_identity"]
         globals_ = function.__globals__
         previous_agent = globals_["MCP_RUNTIME_AGENT"]
@@ -81,7 +81,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         captured = {}
         try:
             globals_["MCP_RUNTIME_AGENT"] = "claude"
-            globals_["MCP_RUNTIME_INSTANCE_ID"] = "legacy-runtime-instance"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "nonce-less-runtime-instance"
 
             def fake_submit(request_type, payload, timeout):
                 captured.update({
@@ -93,8 +93,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
             globals_["submit_request"] = fake_submit
             with patch.dict(os.environ, {
-                "SOYEHT_CONVERSATION_ID": "legacy-pane-id",
-                "SOYEHT_HANDLE": "@legacy-pane",
+                "SOYEHT_CONVERSATION_ID": "nonce-less-pane-id",
+                "SOYEHT_HANDLE": "@nonce-less-pane",
                 "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-automation",
             }, clear=True):
                 result = function(active=True)
@@ -107,14 +107,37 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["requestType"], "claim_agent_runtime")
         self.assertEqual(
             captured["payload"]["sourceConversationID"],
-            "legacy-pane-id",
+            "nonce-less-pane-id",
         )
         self.assertEqual(
             captured["payload"]["runtimeInstanceID"],
-            "legacy-runtime-instance",
+            "nonce-less-runtime-instance",
         )
         self.assertEqual(captured["payload"]["runtimeProcessID"], os.getpid())
         self.assertNotIn("nonce", captured["payload"])
+
+    def test_global_runtime_agent_skips_claim_outside_a_soyeht_pane(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        submissions = []
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "external-terminal-runtime"
+            globals_["submit_request"] = lambda *args, **kwargs: submissions.append(
+                (args, kwargs)
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+
+        self.assertIsNone(result)
+        self.assertEqual(submissions, [])
 
     def test_manual_runtime_claim_retries_only_the_bounded_bootstrap(self):
         function = MODULE["synchronize_runtime_identity"]

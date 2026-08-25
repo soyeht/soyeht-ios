@@ -701,12 +701,16 @@ struct AgentMessageInbox: Codable, Hashable {
         let uniqueIDs = ids.filter { seen.insert($0).inserted }
         let indices = try uniqueIDs.map(messageIndex)
         for index in indices {
-            // ACK records responsibility for durable inbox state; it does not
-            // prove that a dormant TUI was awakened. A message selected for
-            // terminal fallback must keep that channel until the authenticated
-            // submission receipt arrives. Otherwise a client that inspects
-            // and acknowledges inbox context during an earlier turn can cancel
-            // the only transport capable of starting the requested new turn.
+            // Once a capable client explicitly reads and accepts responsibility
+            // for an unstarted fallback, injecting the same request into its TUI
+            // would duplicate work. Reclassify only before the at-most-once
+            // terminal claim starts; a started/uncertain write never changes
+            // channel merely because it was acknowledged.
+            if messages[index].channel == .deferredTerminal,
+               messages[index].deferredTerminalDeliveryStartedAt == nil,
+               messages[index].deferredTerminalDeliveredAt == nil {
+                messages[index].channel = .semanticInbox
+            }
             if messages[index].readAt == nil { messages[index].readAt = date }
             if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
         }
