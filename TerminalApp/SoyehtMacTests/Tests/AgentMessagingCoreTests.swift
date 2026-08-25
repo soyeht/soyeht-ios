@@ -670,7 +670,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(inbox.message(id: expiredCompleted.id))
     }
 
-    func testInboxAcknowledgementSupersedesUnstartedTerminalFallback() throws {
+    func testInboxAcknowledgementDoesNotSuppressUnstartedTerminalFallback() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(
             sender: endpoint(handle: "caia"),
@@ -682,8 +682,8 @@ final class AgentMessagingCoreTests: XCTestCase {
 
         try inbox.acknowledge(item.id)
 
-        XCTAssertEqual(inbox.message(id: item.id)?.channel, .semanticInbox)
-        XCTAssertTrue(inbox.messagesAwaitingDeferredTerminalDelivery.isEmpty)
+        XCTAssertEqual(inbox.message(id: item.id)?.channel, .deferredTerminal)
+        XCTAssertEqual(inbox.messagesAwaitingDeferredTerminalDelivery.map(\.id), [item.id])
         XCTAssertNotNil(inbox.message(id: item.id)?.acknowledgedAt)
     }
 
@@ -822,19 +822,23 @@ final class AgentMessagingCoreTests: XCTestCase {
             sender: manager,
             assignment: .init(template: AgentRoleTemplateCatalog.reviewer)
         )
+        var executorMessage = executor.message
+        executorMessage.channel = .semanticInbox
+        var reviewerMessage = reviewer.message
+        reviewerMessage.channel = .semanticInbox
         var inbox = AgentMessageInbox()
-        try inbox.enqueue(executor.message, recipientID: target.id)
-        try inbox.enqueue(reviewer.message, recipientID: target.id)
+        try inbox.enqueue(executorMessage, recipientID: target.id)
+        try inbox.enqueue(reviewerMessage, recipientID: target.id)
 
-        try inbox.acknowledge(executor.message.id)
-        XCTAssertEqual(inbox.message(id: executor.message.id)?.channel, .semanticInbox)
+        try inbox.acknowledge(executorMessage.id)
+        XCTAssertEqual(inbox.message(id: executorMessage.id)?.channel, .semanticInbox)
         XCTAssertTrue(
             inbox.hasUnobservedRoleAssignmentDelivery,
             "acknowledging the older semantic revision must not authorize the newer role"
         )
 
-        try inbox.acknowledge(reviewer.message.id)
-        XCTAssertEqual(inbox.message(id: reviewer.message.id)?.channel, .semanticInbox)
+        try inbox.acknowledge(reviewerMessage.id)
+        XCTAssertEqual(inbox.message(id: reviewerMessage.id)?.channel, .semanticInbox)
         XCTAssertFalse(inbox.hasUnobservedRoleAssignmentDelivery)
     }
 

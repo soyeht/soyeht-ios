@@ -700,18 +700,12 @@ struct AgentMessageInbox: Codable, Hashable {
         let uniqueIDs = ids.filter { seen.insert($0).inserted }
         let indices = try uniqueIDs.map(messageIndex)
         for index in indices {
-            // An explicit inbox acknowledgement is a semantic receipt. If no
-            // terminal byte has crossed the at-most-once claim yet, cancel
-            // that fallback by recording the channel that actually delivered
-            // the message. Otherwise a capable agent can read/ack from MCP
-            // and later receive the same body a second time through its PTY.
-            // Once terminal delivery has started we cannot reclassify safely:
-            // bytes may already be present in the TUI composer.
-            if messages[index].channel == .deferredTerminal,
-               messages[index].deferredTerminalDeliveryStartedAt == nil,
-               messages[index].deferredTerminalDeliveredAt == nil {
-                messages[index].channel = .semanticInbox
-            }
+            // ACK records responsibility for durable inbox state; it does not
+            // prove that a dormant TUI was awakened. A message selected for
+            // terminal fallback must keep that channel until the authenticated
+            // submission receipt arrives. Otherwise a client that inspects
+            // and acknowledges inbox context during an earlier turn can cancel
+            // the only transport capable of starting the requested new turn.
             if messages[index].readAt == nil { messages[index].readAt = date }
             if messages[index].acknowledgedAt == nil { messages[index].acknowledgedAt = date }
         }
