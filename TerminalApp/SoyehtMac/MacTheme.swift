@@ -125,7 +125,7 @@ enum MacTheme {
     /// reached the copy and never reached this one, so the suite stayed green
     /// while the app shipped the colors the floor existed to fix.
     static var neoHeaderPastels: [NSColor] {
-        AgentIdentityPalette.plates(for: appPalette).map(nsColor)
+        AgentIdentityPalette.plates(for: TerminalColorTheme.active).map(nsColor)
     }
 
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).

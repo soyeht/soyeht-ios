@@ -30,6 +30,20 @@ public enum AgentIdentityPalette {
     /// a light theme and a deep plum on a dark one, and all four share that
     /// register — which is what makes them read as one set rather than four
     /// unrelated colors.
+    /// A theme's pinned plates, if it has them. A reviewed palette is DATA,
+    /// not the output of a rule: the derivation below exists for themes that
+    /// arrive without colours of their own, and must never restate one that
+    /// was chosen deliberately.
+    public static func pinnedPlates(in theme: TerminalColorTheme) -> [String]? {
+        let pinned = (0..<slotCount).compactMap { theme.extraHexColors["agent.\($0)"] }
+        return pinned.count == slotCount ? pinned : nil
+    }
+
+    /// The five plates for a theme: its own if it pins them, derived if not.
+    public static func plates(for theme: TerminalColorTheme) -> [String] {
+        pinnedPlates(in: theme) ?? plates(for: theme.appPalette)
+    }
+
     public static func plates(for palette: SoyehtAppPalette) -> [String] {
         let surface = LabColorMath.lch(of: palette.surfaceHex)
         let lightness = plateLightness(surface: surface.lightness)

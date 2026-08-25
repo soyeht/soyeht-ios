@@ -359,3 +359,55 @@ struct PanePresetInvariantTests {
         }
     }
 }
+
+@Suite("Approved colors")
+struct ApprovedColorTests {
+    /// The reviewed palette, transcribed from the specimen page it was signed
+    /// off on. These are not expected outputs of a rule — they are the colors
+    /// themselves, and the app must show exactly them.
+    ///
+    /// They were derived at runtime until now, so every threshold in
+    /// `AgentIdentityPalette` could move a color that had already been
+    /// approved, and rounding alone put 11 of the 40 a unit away from the page
+    /// they were approved on. Pinning them makes the derivation a fallback for
+    /// themes that arrive without colors of their own.
+    static let approved: [String: [String]] = [
+        "neoSunriseGold": ["#BE9ECC", "#DB96A4", "#90B386", "#63B7AE", "#D59746"],
+        "neoDeepVine": ["#392840", "#47232C", "#1A3915", "#003531", "#6B5F2A"],
+        "neoSunlitChartreuse": ["#D1AFDE", "#EEA8B5", "#A1C497", "#75C9C0", "#CAB550"],
+        "neoDeepForest": ["#392840", "#47232C", "#3A5A33", "#003531", "#46632A"],
+        "neoMistyBlue": ["#9E7FAB", "#B97785", "#719368", "#41978F", "#5E89A6"],
+        "neoMidnightTeal": ["#402D48", "#4F2831", "#253920", "#003C37", "#22466A"],
+        "neoPaleMist": ["#C3A2D1", "#E19BA9", "#94B88A", "#68BCB3", "#91AAC4"],
+        "neoDeepHarbor": ["#3B2942", "#49252D", "#21351D", "#003733", "#1C617D"],
+    ]
+
+    @Test func everyApprovedColorIsExactlyWhatShips() {
+        for (id, expected) in Self.approved {
+            let theme = try! #require(TerminalColorTheme.designStylePresets.first { $0.id == id })
+            #expect(AgentIdentityPalette.plates(for: theme) == expected,
+                    "\(id) ships \(AgentIdentityPalette.plates(for: theme)), approved \(expected)")
+        }
+    }
+
+    /// The pinned path must be the one taken. Without this, deleting the
+    /// `agent.*` keys would fall through to derivation and the test above
+    /// could still pass by coincidence on some themes.
+    @Test func everyPanePresetPinsItsOwnColors() {
+        for preset in TerminalColorTheme.designStylePresets where preset.id != "neoMilk" {
+            #expect(AgentIdentityPalette.pinnedPlates(in: preset) != nil,
+                    "\(preset.id) has no pinned colors and would be derived")
+        }
+    }
+
+    /// A theme with no colors of its own still gets a set.
+    @Test func themesWithoutPinnedColorsStillGetThem() {
+        let imported = TerminalColorTheme(
+            id: "imported", displayName: "Imported",
+            backgroundHex: "#002B36", foregroundHex: "#839496", cursorHex: "#5B7CFA",
+            selectionBackgroundHex: "#073642",
+            ansiHex: Array(repeating: "#808080", count: 16), source: .imported)
+        #expect(AgentIdentityPalette.pinnedPlates(in: imported) == nil)
+        #expect(AgentIdentityPalette.plates(for: imported).count == AgentIdentityPalette.slotCount)
+    }
+}

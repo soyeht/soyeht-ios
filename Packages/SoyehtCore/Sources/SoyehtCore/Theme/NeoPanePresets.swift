@@ -59,6 +59,7 @@ public extension TerminalColorTheme {
         shadowDark: String,
         shadowLight: String,
         selection: String,
+        identity: [String],
         ansi: [String]
     ) -> TerminalColorTheme {
         TerminalColorTheme(
@@ -85,6 +86,18 @@ public extension TerminalColorTheme {
                 "neo.shadowDark": shadowDark,
                 "neo.shadowLight": shadowLight,
                 "neo.accentShadow": accent,
+                // The five agent identity plates, pinned rather than derived.
+                // Every other role in this file is a literal already; these
+                // were the one exception, recomputed on every read, so a
+                // change to a threshold in AgentIdentityPalette silently moved
+                // colours that had been reviewed and approved. Derivation is
+                // now what a theme falls back to when it has none of its own,
+                // which is every imported and user theme.
+                "agent.0": identity[0],
+                "agent.1": identity[1],
+                "agent.2": identity[2],
+                "agent.3": identity[3],
+                "agent.4": identity[4],
             ]
         )
     }
@@ -106,6 +119,13 @@ public extension TerminalColorTheme {
             shadowDark: "#B38531",
             shadowLight: "#FFCA73",
             selection: "#DE9F4E",
+            identity: [
+                "#BE9ECC",
+                "#DB96A4",
+                "#90B386",
+                "#63B7AE",
+                "#D59746",
+            ],
             ansi: [
                 "#332B1F", "#C72D45", "#247859", "#876422",
                 "#2768C7", "#864DC7", "#247484", "#84755B",
@@ -132,6 +152,13 @@ public extension TerminalColorTheme {
             shadowDark: "#22240F",
             shadowLight: "#4A4C35",
             selection: "#736631",
+            identity: [
+                "#392840",
+                "#47232C",
+                "#1A3915",
+                "#003531",
+                "#6B5F2A",
+            ],
             ansi: [
                 "#1D1E12", "#EF4747", "#00D9A3", "#F59E0B",
                 "#7573FF", "#EA00E9", "#00A5B2", "#BFC0AE",
@@ -158,6 +185,13 @@ public extension TerminalColorTheme {
             shadowDark: "#A2A13C",
             shadowLight: "#ECE77F",
             selection: "#D3BD58",
+            identity: [
+                "#D1AFDE",
+                "#EEA8B5",
+                "#A1C497",
+                "#75C9C0",
+                "#CAB550",
+            ],
             ansi: [
                 "#33321F", "#D44158", "#288664", "#977026",
                 "#3275D7", "#915ECC", "#298192", "#88865E",
@@ -184,6 +218,13 @@ public extension TerminalColorTheme {
             shadowDark: "#0B240B",
             shadowLight: "#324C32",
             selection: "#4D6A31",
+            identity: [
+                "#392840",
+                "#47232C",
+                "#3A5A33",
+                "#003531",
+                "#46632A",
+            ],
             ansi: [
                 "#101C10", "#EF4444", "#00D9A3", "#F59E0B",
                 "#6F6DFF", "#E100E0", "#00A5B2", "#AEC0AE",
@@ -210,6 +251,13 @@ public extension TerminalColorTheme {
             shadowDark: "#517480",
             shadowLight: "#93B7C5",
             selection: "#6691AE",
+            identity: [
+                "#9E7FAB",
+                "#B97785",
+                "#719368",
+                "#41978F",
+                "#5E89A6",
+            ],
             ansi: [
                 "#1F2E33", "#9C2336", "#1C5D46", "#694E1A",
                 "#1E519B", "#6B35A8", "#1C5A66", "#4A626B",
@@ -245,6 +293,13 @@ public extension TerminalColorTheme {
             shadowDark: "#000F18",
             shadowLight: "#1A3746",
             selection: "#2A4D72",
+            identity: [
+                "#402D48",
+                "#4F2831",
+                "#253920",
+                "#003C37",
+                "#22466A",
+            ],
             ansi: [
                 "#010507", "#EF4444", "#00D9A3", "#F59E0B",
                 "#5452FF", "#C100C0", "#00A5B2", "#AEBAC0",
@@ -271,6 +326,13 @@ public extension TerminalColorTheme {
             shadowDark: "#8C9395",
             shadowLight: "#D1D9DB",
             selection: "#99B2CC",
+            identity: [
+                "#C3A2D1",
+                "#E19BA9",
+                "#94B88A",
+                "#68BCB3",
+                "#91AAC4",
+            ],
             ansi: [
                 "#1F2F33", "#CE2E48", "#257C5C", "#8B6823",
                 "#286CCD", "#8952C8", "#257887", "#5E8089",
@@ -297,6 +359,13 @@ public extension TerminalColorTheme {
             shadowDark: "#112F37",
             shadowLight: "#3B5861",
             selection: "#266885",
+            identity: [
+                "#3B2942",
+                "#49252D",
+                "#21351D",
+                "#003733",
+                "#1C617D",
+            ],
             ansi: [
                 "#192A30", "#F15D5D", "#00D9A3", "#F59E0B",
                 "#8280FF", "#FB00FA", "#00A5B2", "#AEBCC0",
