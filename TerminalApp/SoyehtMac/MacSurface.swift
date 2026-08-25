@@ -143,14 +143,21 @@ enum MacSurface {
             Shadow(color: .black, opacity: 0.10, offset: CGSize(width: 0, height: -2), radius: 8)
         }
 
-        /// Inner pair for the terminal well (generator `inset`): the cavity's
-        /// top-left inner edge sits in shadow, the bottom-right inner edge
-        /// catches light. Neutral colors — the well content is dark.
+        /// Inner pair for a recess: the cavity's top-left inner edge sits in
+        /// shadow, the bottom-right inner edge catches light.
+        ///
+        /// Theme-tinted, not literal black and white. Black at 0.45 carves 37
+        /// L* out of Milk's well and only 3.5 out of a dark theme's, while the
+        /// 0.16 white does the reverse — so on a dark theme the pair's weights
+        /// ran backwards and the only surviving cue was a bright rim, which
+        /// reads as RAISED. The tinted pair tracks the surface instead, and
+        /// the sizes come from the same pair the raised chips use so a pressed
+        /// control keeps the depth budget of the released one.
         static var innerWellDark: Shadow {
-            Shadow(color: .black, opacity: 0.45, offset: CGSize(width: 6, height: -6), radius: 12)
+            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6)
         }
         static var innerWellLight: Shadow {
-            Shadow(color: .white, opacity: 0.16, offset: CGSize(width: -4, height: 4), radius: 10)
+            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 7)
         }
 
         /// Dual pair for compact controls (chips, pills, small buttons).
@@ -183,13 +190,6 @@ enum MacSurface {
             ] : []
         }
 
-        /// Slightly tighter pair for the active (pressed-looking) tab pill.
-        static var raisedTabSet: [Shadow] {
-            neo ? [
-                Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6),
-                Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 6),
-            ] : []
-        }
 
         /// Colored glow behind accent-filled pills (the Claws button).
         static var accentGlowSet: [Shadow] {

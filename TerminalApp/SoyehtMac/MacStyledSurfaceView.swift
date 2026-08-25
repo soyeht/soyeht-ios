@@ -45,12 +45,22 @@ final class MacInnerWellShadowView: NSView {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        // The cavity is an opaque ring clipped to the rounded bounds, so only
+        // the shadow it throws inward survives. Its inner edge must NOT land
+        // on the clip: they would be the same curve, both antialiased, and the
+        // boundary pixel would take roughly half the clip's coverage of a
+        // black fill — a dark hairline tracing the pill, which reads as a
+        // stroke rather than a recess. Holding the edge a point outside keeps
+        // the fill wholly beyond the clip; the shadow starts a point further
+        // out, which is nothing against its blur.
+        let seamGuard: CGFloat = 1
+        let inner = bounds.insetBy(dx: -seamGuard, dy: -seamGuard)
         let ringPath = CGMutablePath()
-        ringPath.addRect(bounds.insetBy(dx: -80, dy: -80))
+        ringPath.addRect(inner.insetBy(dx: -80, dy: -80))
         ringPath.addPath(CGPath(
-            roundedRect: bounds,
-            cornerWidth: min(radius, bounds.width / 2),
-            cornerHeight: min(radius, bounds.height / 2),
+            roundedRect: inner,
+            cornerWidth: min(radius + seamGuard, inner.width / 2),
+            cornerHeight: min(radius + seamGuard, inner.height / 2),
             transform: nil
         ))
         for ring in [darkRing, lightRing] {

@@ -114,16 +114,18 @@ enum MacTheme {
         nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
     }
 
-    /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
-    /// pills across the grid). Derived from the theme's semantic colors so
-    /// every palette produces coherent pastels.
+    /// How many agent identity colors a theme carries.
+    static var neoHeaderPastelCount: Int { AgentIdentityPalette.slotCount }
+
+    /// Per-pane header identity colors: the plate an agent's name sits on.
+    ///
+    /// Derived in `AgentIdentityPalette`, in the core, so the tests exercise
+    /// the code the app runs. It used to live here with the test suite keeping
+    /// its own copy of the algorithm, and the two drifted: a lightness floor
+    /// reached the copy and never reached this one, so the suite stayed green
+    /// while the app shipped the colors the floor existed to fix.
     static var neoHeaderPastels: [NSColor] {
-        [
-            appPalette.accentHex,
-            appPalette.successHex,
-            appPalette.dangerHex,
-            appPalette.warningHex,
-        ].map { nsColor(HexColorMath.mix($0, "#FFFFFF", t: 0.76)) }
+        AgentIdentityPalette.plates(for: TerminalColorTheme.active).map(nsColor)
     }
 
     /// Convex surface gradient (generator style: `linear-gradient(145deg)`).

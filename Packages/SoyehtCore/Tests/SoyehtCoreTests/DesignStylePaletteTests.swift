@@ -34,9 +34,12 @@ struct AppPaletteChromeOverrideTests {
         #expect(palette.accentHex == theme.cursorHex)
     }
 
-    /// Preset themes may pin a chrome palette that diverges from the
-    /// terminal screen colors. Milk is a light terminal (reference look);
-    /// Midnight exercises the light-chrome-around-dark-terminal divergence.
+    /// Preset themes may pin a chrome palette that diverges from the terminal
+    /// screen colors. Milk is the reference light terminal, and it is the only
+    /// preset that does: a pane-color preset wears ONE color across chrome and
+    /// screen, which is the premise the whole set is built on. Midnight Teal
+    /// was briefly lifted clear of its screen to buy its depth roles room, and
+    /// the two visible tones were worse than the shallow recess they bought.
     @Test func presetOverridesDivergeChromeFromTerminal() {
         let milk = TerminalColorTheme.neoMilk
         let palette = milk.appPalette
@@ -47,9 +50,18 @@ struct AppPaletteChromeOverrideTests {
         #expect(milk.backgroundHex == "#E8EDF4")
         #expect(!palette.isDark)
 
-        let midnight = TerminalColorTheme.neoMidnight
-        #expect(midnight.backgroundHex == "#101216")
-        #expect(midnight.appPalette.backgroundHex == "#23262C")
+        #expect(milk.backgroundHex != palette.backgroundHex)
+
+        // A pane wears ONE color: its card and the terminal screen inside it
+        // are the same, on every built-in theme. Only the canvas differs, and
+        // that is the corridor between panes — the step that makes a card read
+        // as raised in the first place. Midnight Teal briefly broke this to
+        // buy its depth roles room, and the seam was worse than the shallow
+        // recess it bought.
+        for theme in TerminalColorTheme.builtInThemes {
+            #expect(theme.appPalette.surfaceHex == theme.backgroundHex,
+                    "\(theme.id) splits its pane into two tones")
+        }
     }
 
     /// Overridden chrome must still produce readable text — the WCAG search
