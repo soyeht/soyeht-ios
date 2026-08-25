@@ -139,6 +139,46 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(submissions, [])
 
+    def test_manual_runtime_claim_uses_nonce_and_tty_when_client_strips_pane_labels(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        previous_tty = globals_["current_tty"]
+        captured = {}
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "tty-runtime-instance"
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+
+            def fake_submit(request_type, payload, timeout):
+                captured.update({
+                    "requestType": request_type,
+                    "payload": payload,
+                    "timeout": timeout,
+                })
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            with patch.dict(os.environ, {
+                "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-automation",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+            globals_["current_tty"] = previous_tty
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(captured["requestType"], "claim_agent_runtime")
+        self.assertEqual(captured["payload"]["nonce"], "pane-proof")
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
+        self.assertNotIn("sourceConversationID", captured["payload"])
+        self.assertNotIn("sourceHandle", captured["payload"])
+
     def test_manual_runtime_claim_retries_only_the_bounded_bootstrap(self):
         function = MODULE["synchronize_runtime_identity"]
         globals_ = function.__globals__

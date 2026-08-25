@@ -187,9 +187,17 @@ def synchronize_runtime_identity(
     # list_windows would fail before its handler merely because the external
     # terminal's TTY cannot resolve to a Soyeht pane.
     source_environment = source_environment_for_context()
+    inherited_launch_nonce = source_environment.get("SOYEHT_LAUNCH_NONCE") \
+        or soyeht_environment_value("SOYEHT_LAUNCH_NONCE")
     if not (
         source_environment.get("SOYEHT_CONVERSATION_ID")
         or source_environment.get("SOYEHT_HANDLE")
+        # Some MCP clients preserve the pane bearer but intentionally strip
+        # descriptive labels from the child server environment. In that case
+        # the controlling TTY still resolves the pane and the nonce proves
+        # possession. An external Terminal/iTerm process has neither, so the
+        # global MCP configuration remains a harmless read-only integration.
+        or inherited_launch_nonce
     ):
         return None
     payload = with_source_context({
