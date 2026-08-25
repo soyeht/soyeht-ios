@@ -952,13 +952,14 @@ def main():
             # its final answer and returns to the composer. A real user waits
             # for that transition before typing the next instruction; make the
             # physical test preserve the same boundary.
-            wait_for_agent_idle(
-                mcp,
-                observer,
-                sender["conversationID"],
-                automation_dir,
-                args.timeout,
-            )
+            if index > 1:
+                wait_for_agent_idle(
+                    mcp,
+                    observer,
+                    sender["conversationID"],
+                    automation_dir,
+                    args.timeout,
+                )
             prompt = natural_prompt(
                 "Sem alterar arquivos e sem criar agentes, subagentes ou panes, "
                 f"envie uma mensagem para o agente [{recipient['handle'].removeprefix('@')}] "
