@@ -163,11 +163,39 @@ extension SoyehtAutomationRequestRouter {
         let launchCredentialIsValid = PaneStatusTracker.shared
             .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
         guard source.agent.isShell else { return launchCredentialIsValid }
-        guard PaneStatusTracker.shared.validatesRuntimeIdentity(
+        var runtimeIdentityIsValid = PaneStatusTracker.shared.validatesRuntimeIdentity(
             paneID: source.id,
             agentName: payload.runtimeAgent,
             instanceID: payload.runtimeInstanceID
-        ) else { return false }
+        )
+        if !runtimeIdentityIsValid {
+            // MCP servers started before runtime claims were available remain
+            // alive across app updates. Their next ordinary tool call already
+            // carries the same runtime PID/instance metadata as an explicit
+            // claim. Adopt it here so a persistent manual pane recovers without
+            // restarting or typing into the user's shell. Never replace an
+            // existing live claim, and let claimRuntimeIdentity enforce the
+            // launch-bearer/legacy split plus exact controlling-TTY binding.
+            guard PaneStatusTracker.shared.runtimeIdentityClaim(for: source.id) == nil,
+                  let runtimeAgent = payload.runtimeAgent?.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                  ).lowercased(),
+                  LocalAgentCatalog.agent(named: runtimeAgent) != nil,
+                  let runtimeInstanceID = payload.runtimeInstanceID,
+                  !runtimeInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let runtimeProcessID = payload.runtimeProcessID,
+                  let expectedTTYDevice = automationTTYDevice(for: source),
+                  PaneStatusTracker.shared.claimRuntimeIdentity(
+                    paneID: source.id,
+                    agentName: runtimeAgent,
+                    instanceID: runtimeInstanceID,
+                    processID: runtimeProcessID,
+                    nonce: payload.nonce,
+                    expectedTTYDevice: expectedTTYDevice
+                  ) else { return false }
+            runtimeIdentityIsValid = true
+        }
+        guard runtimeIdentityIsValid else { return false }
         return launchCredentialIsValid
             || PaneStatusTracker.shared.launchOwnershipNonce(for: source.id) == nil
     }
