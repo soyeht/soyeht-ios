@@ -274,12 +274,80 @@ def wait_for_active_pane(
     raise RuntimeError(f"Physical click did not focus split pane {pane_id}.")
 
 
+def capture_pane_input_point(window_id, pane_label):
+    """Capture a stable terminal point before a CLI changes its pane title."""
+    expected_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
+    visible_label = str(pane_label).removeprefix("@")
+    script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  set expectedLabel to item 2 of argv
+  tell application id "com.soyeht.mac.dev" to activate
+  delay 0.25
+  tell application "System Events" to tell process "Soyeht Dev"
+    repeat 40 times
+      try
+        set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+        perform action "AXRaise" of targetWindow
+        delay 0.1
+        set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+        set elements to entire contents of targetWindow
+        repeat with elementRef in elements
+          try
+            if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
+              set {elementX, elementY} to position of elementRef
+              set {elementWidth, elementHeight} to size of elementRef
+              return ((elementX + (elementWidth / 2)) as text) & "," & ((elementY + elementHeight + 32) as text)
+            end if
+          end try
+        end repeat
+      end try
+      delay 0.1
+    end repeat
+    error "Visible pane label was not found: " & expectedLabel
+  end tell
+end run
+'''
+    completed = subprocess.run(
+        ["/usr/bin/osascript", "-e", script, expected_identifier, visible_label],
+        capture_output=True,
+        text=True,
+    )
+    require(
+        completed.returncode == 0,
+        f"Could not capture terminal point for {visible_label!r}: "
+        f"{completed.stderr.strip() or completed.stdout.strip()}",
+    )
+    try:
+        return tuple(float(value) for value in completed.stdout.strip().split(","))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Invalid terminal point for {visible_label!r}: {completed.stdout!r}"
+        ) from exc
+
+
+def click_pane_input_point(window_id, point):
+    """Focus an ordinary split without relying on a mutable agent title."""
+    try:
+        import Quartz
+    except ImportError as exc:
+        raise RuntimeError("PyObjC Quartz is required for physical input.") from exc
+
+    common.raise_soyeht_dev_window(window_id)
+    for event_type in (Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp):
+        event = Quartz.CGEventCreateMouseEvent(
+            None, event_type, point, Quartz.kCGMouseButtonLeft
+        )
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+        sleep(0.05)
+    sleep(0.15)
+
+
 def launch_cli_physically(
     mcp, observer, workspace_id, pane, command, cwd, window_id,
-    automation_dir, timeout,
+    automation_dir, timeout, input_point,
 ):
-    common.raise_soyeht_dev_window(window_id)
-    common.click_soyeht_dev_pane(window_id, pane["handle"])
+    click_pane_input_point(window_id, input_point)
     wait_for_active_pane(
         mcp,
         observer,
@@ -390,10 +458,9 @@ def wait_for_message(recipient, sender, token, timeout):
     )
 
 
-def send_natural_request(pane, window_id, prompt):
+def send_natural_request(pane, window_id, prompt, input_point):
     natural_prompt(prompt)
-    common.raise_soyeht_dev_window(window_id)
-    common.click_soyeht_dev_pane(window_id, pane["handle"])
+    click_pane_input_point(window_id, input_point)
     common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
 
 
@@ -417,47 +484,15 @@ def wait_for_delivery(recipient, message_id, delivered, timeout):
     )
 
 
-def physical_tui_input_smoke(window_id, pane):
+def physical_tui_input_smoke(window_id, pane, input_point):
     """Send mouse, wheel, and navigation keys through the macOS event path."""
     try:
         import Quartz
     except ImportError as exc:
         raise RuntimeError("PyObjC Quartz is required for physical input smoke.") from exc
 
-    common.raise_soyeht_dev_window(window_id)
-    common.click_soyeht_dev_pane(window_id, pane["handle"])
-    expected_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
-    visible_label = pane["handle"].removeprefix("@")
-    point_script = r'''
-on run argv
-  set expectedIdentifier to item 1 of argv
-  set expectedLabel to item 2 of argv
-  tell application "System Events" to tell process "Soyeht Dev"
-    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
-    set elements to entire contents of targetWindow
-    repeat with elementRef in elements
-      try
-        if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
-          set {labelX, labelY} to position of elementRef
-          set {labelW, labelH} to size of elementRef
-          return ((labelX + 100) as text) & "," & ((labelY + labelH + 70) as text)
-        end if
-      end try
-    end repeat
-    error "Pane label not found"
-  end tell
-end run
-'''
-    point_result = subprocess.run(
-        [
-            "/usr/bin/osascript", "-e", point_script,
-            expected_identifier, visible_label,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    point = tuple(float(value) for value in point_result.stdout.strip().split(","))
+    click_pane_input_point(window_id, input_point)
+    point = input_point
     for event_type in (Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp):
         event = Quartz.CGEventCreateMouseEvent(
             None, event_type, point, Quartz.kCGMouseButtonLeft
@@ -659,6 +694,11 @@ def main():
             require(pane.get("declaredAgent") == "shell", "Split pane was not a shell.")
             manual_panes[agent_name] = pane
 
+        input_points = {
+            agent_name: capture_pane_input_point(window_id, pane["handle"])
+            for agent_name, pane in manual_panes.items()
+        }
+
         for agent_name, command in agent_specs:
             pane = manual_panes[agent_name]
             typed = launch_cli_physically(
@@ -671,6 +711,7 @@ def main():
                 window_id,
                 automation_dir,
                 args.timeout,
+                input_points[agent_name],
             )
             directory_row = wait_for_runtime_agent(
                 mcp,
@@ -727,7 +768,9 @@ def main():
                 f"Peca que ele responda a voce com exatamente {token}. "
                 "Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
             )
-            send_natural_request(sender, window_id, prompt)
+            send_natural_request(
+                sender, window_id, prompt, input_points[sender_name]
+            )
             request = wait_for_message(recipient, sender, token, args.timeout)
             reply = wait_for_message(sender, recipient, token, args.timeout)
             evidence["collaboration"].append({
@@ -745,8 +788,7 @@ def main():
         recipient = manual_panes["opencode"]
         sender = manual_panes["codex"]
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
-        common.raise_soyeht_dev_window(window_id)
-        common.click_soyeht_dev_pane(window_id, recipient["handle"])
+        click_pane_input_point(window_id, input_points["opencode"])
         common.type_through_macos_keyboard(draft, window_id, submit_with_return=False)
         relay_token = f"SPLIT-COLLISION-{run_id}"
         collision_prompt = natural_prompt(
@@ -755,11 +797,12 @@ def main():
             "visivel deste mesmo workspace do Soyeht. "
             f"Peca que ele responda exatamente {relay_token} e aguarde a resposta dessa pane."
         )
-        send_natural_request(sender, window_id, collision_prompt)
+        send_natural_request(
+            sender, window_id, collision_prompt, input_points["codex"]
+        )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
-        common.raise_soyeht_dev_window(window_id)
-        common.click_soyeht_dev_pane(window_id, recipient["handle"])
+        click_pane_input_point(window_id, input_points["opencode"])
         common.release_physical_draft("backspace", len(draft), window_id)
         delivered = wait_for_delivery(recipient, request["messageID"], True, args.timeout)
         reply = wait_for_message(sender, recipient, relay_token, args.timeout)
@@ -777,7 +820,7 @@ def main():
         # still declared shell, which is the product invariant that retains
         # normal terminal mouse reporting and scroll behavior.
         evidence["normalPaneInputSmoke"] = physical_tui_input_smoke(
-            window_id, manual_panes["opencode"]
+            window_id, manual_panes["opencode"], input_points["opencode"]
         )
         final_row = wait_for_runtime_agent(
             mcp,
