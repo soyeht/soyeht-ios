@@ -293,3 +293,14 @@ public extension ColorTheme {
         }
     }
 }
+
+public extension TerminalColorTheme {
+    /// Whether the terminal SCREEN is dark — the surface text actually lands
+    /// on, which is not always the chrome around it.
+    ///
+    /// Perceptual lightness, not relative luminance: luminance is linear and
+    /// its midpoint sits near L* 76, which called every mid-tone face dark.
+    var isDarkBackground: Bool {
+        LabColorMath.lch(of: backgroundHex).lightness < 50
+    }
+}

@@ -949,7 +949,8 @@ final class NativePTY {
         // styling from TERM/COLORTERM and TTY detection.
         var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
             inherited: inheritedEnvironment,
-            cwdPath: cwd.path
+            cwdPath: cwd.path,
+            isDarkBackground: TerminalColorTheme.active.isDarkBackground
         )
         if !usesDebugShellOverride {
             envDict["SHELL"] = shell
