@@ -28,6 +28,9 @@ public extension TerminalColorTheme {
         buttonTextOnAccent: String,
         shadowDark: String,
         shadowLight: String,
+        wellShadow: String,
+        wellRim: String,
+        wellLip: String? = nil,
         selection: String,
         identity: [String],
         ansi: [String]
@@ -55,6 +58,8 @@ public extension TerminalColorTheme {
                 "neo.well": well,
                 "neo.shadowDark": shadowDark,
                 "neo.shadowLight": shadowLight,
+                "neo.wellShadow": wellShadow,
+                "neo.wellRim": wellRim,
                 "neo.accentShadow": accent,
                 // The five agent identity plates, pinned rather than derived.
                 // Every other role in this file is a literal already; these
@@ -68,7 +73,7 @@ public extension TerminalColorTheme {
                 "agent.2": identity[2],
                 "agent.3": identity[3],
                 "agent.4": identity[4],
-            ]
+            ].merging(wellLip.map { ["neo.wellLip": $0] } ?? [:]) { current, _ in current }
         )
     }
 
@@ -88,6 +93,8 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#FFFFFF",
             shadowDark: "#B38531",
             shadowLight: "#FFCA73",
+            wellShadow: "#B38531",
+            wellRim: "#FFCA73",
             selection: "#DE9F4E",
             identity: [
                 "#BE9ECC",
@@ -121,6 +128,9 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#2C2511",
             shadowDark: "#22240F",
             shadowLight: "#4A4C35",
+            wellShadow: "#131400",
+            wellRim: "#3F412A",
+            wellLip: "#060700",
             selection: "#736631",
             identity: [
                 "#392840",
@@ -154,6 +164,8 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#FFFFFF",
             shadowDark: "#A2A13C",
             shadowLight: "#ECE77F",
+            wellShadow: "#A2A13C",
+            wellRim: "#ECE77F",
             selection: "#D3BD58",
             identity: [
                 "#D1AFDE",
@@ -187,6 +199,9 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#252C11",
             shadowDark: "#0B240B",
             shadowLight: "#324C32",
+            wellShadow: "#001200",
+            wellRim: "#264126",
+            wellLip: "#000100",
             selection: "#4D6A31",
             identity: [
                 "#392840",
@@ -220,6 +235,8 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#FFFFFF",
             shadowDark: "#517480",
             shadowLight: "#93B7C5",
+            wellShadow: "#517480",
+            wellRim: "#93B7C5",
             selection: "#6691AE",
             identity: [
                 "#9E7FAB",
@@ -262,6 +279,9 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#001F45",
             shadowDark: "#000F18",
             shadowLight: "#1A3746",
+            wellShadow: "#000104",
+            wellRim: "#0B2A39",
+            wellLip: "#000104",
             selection: "#2A4D72",
             identity: [
                 "#402D48",
@@ -295,6 +315,8 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#FFFFFF",
             shadowDark: "#8C9395",
             shadowLight: "#D1D9DB",
+            wellShadow: "#8C9395",
+            wellRim: "#D1D9DB",
             selection: "#99B2CC",
             identity: [
                 "#C3A2D1",
@@ -328,6 +350,9 @@ public extension TerminalColorTheme {
             buttonTextOnAccent: "#002237",
             shadowDark: "#112F37",
             shadowLight: "#3B5861",
+            wellShadow: "#001E26",
+            wellRim: "#304D56",
+            wellLip: "#00151B",
             selection: "#266885",
             identity: [
                 "#3B2942",

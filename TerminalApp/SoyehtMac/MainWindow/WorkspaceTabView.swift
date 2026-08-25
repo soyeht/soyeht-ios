@@ -330,7 +330,8 @@ final class WorkspaceTabView: NSView {
                 pillWell.applyStyle(
                     cornerRadius: radius,
                     dark: MacSurface.Shadows.innerWellDark,
-                    light: MacSurface.Shadows.innerWellLight
+                    light: MacSurface.Shadows.innerWellLight,
+                    lip: MacSurface.Shadows.innerWellLip
                 )
             }
             layer?.backgroundColor = fill.cgColor

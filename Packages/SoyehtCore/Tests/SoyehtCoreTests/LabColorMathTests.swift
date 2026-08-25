@@ -111,19 +111,64 @@ struct AgentIdentityTests {
     }
 }
 
-@Suite("verifica")
-struct Verifica { @Test func dump() {
-    for t in TerminalColorTheme.builtInThemes {
-        print("V|\(t.id)|\(AgentIdentityPalette.plates(for: t).joined(separator: " "))")
-    }
-} }
 
-@Suite("captura")
-struct Captura { @Test func agora() {
-    for t in TerminalColorTheme.builtInThemes {
-        let n = t.neoStyleColors
-        let convexStart = HexColorMath.lighten(n.raisedSurfaceHex, by: 0.35)
-        let convexEnd = HexColorMath.darken(n.raisedSurfaceHex, by: 0.08)
-        print("CAP|\(t.id)|\(n.raisedSurfaceHex)|\(n.wellHex)|\(n.shadowDarkHex)|\(n.shadowLightHex)|\(n.accentShadowHex)|\(convexStart)|\(convexEnd)")
+@Suite("Neumorphic roles")
+struct NeoRoleTests {
+    /// Every built-in theme states all five neo roles plus the well's pair.
+    /// A role a theme leaves out falls back to another theme's value or to a
+    /// fixed default, and either way the theme stops controlling its own look.
+    @Test func everyBuiltInThemeStatesEveryRole() {
+        for theme in TerminalColorTheme.builtInThemes {
+            for role in ["neo.surface", "neo.well", "neo.shadowDark",
+                         "neo.shadowLight", "neo.wellShadow", "neo.wellRim"] {
+                #expect(theme.extraHexColors[role] != nil, "\(theme.id) states no \(role)")
+            }
+        }
     }
-} }
+
+    /// The eight pane faces, transcribed from the reviewed specimen page.
+    /// The well carries its OWN pair: identical to the card's on a light
+    /// face, deeper and dimmer on a dark one, where reusing the card's pair
+    /// leaves the cavity with no visible edge.
+    @Test func thePaneFacesCarryTheReviewedWell() {
+        let reviewed: [String: (shadow: String, rim: String, lip: String?)] = [
+            "neoSunriseGold":      ("#B38531", "#FFCA73", nil),
+            "neoDeepVine":         ("#131400", "#3F412A", "#060700"),
+            "neoSunlitChartreuse": ("#A2A13C", "#ECE77F", nil),
+            "neoDeepForest":       ("#001200", "#264126", "#000100"),
+            "neoMistyBlue":        ("#517480", "#93B7C5", nil),
+            "neoMidnightTeal":     ("#000104", "#0B2A39", "#000104"),
+            "neoPaleMist":         ("#8C9395", "#D1D9DB", nil),
+            "neoDeepHarbor":       ("#001E26", "#304D56", "#00151B"),
+        ]
+        for (id, expected) in reviewed {
+            let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
+            let neo = theme.neoStyleColors
+            #expect(neo.wellShadowHex == expected.shadow, "\(id) well shadow")
+            #expect(neo.wellRimHex == expected.rim, "\(id) well rim")
+            #expect(neo.wellLipHex == expected.lip, "\(id) well lip")
+        }
+    }
+
+    /// The lip is the dark faces' alone. A light face's rim already reads as
+    /// an edge, and a hard line there would draw itself instead of the recess.
+    @Test func onlyTheDarkFacesCarryALip() {
+        for theme in TerminalColorTheme.builtInThemes where theme.neoStyleColors.wellLipHex != nil {
+            #expect(LabColorMath.lch(of: theme.neoStyleColors.raisedSurfaceHex).lightness < 50,
+                    "\(theme.id) is a light face and states a lip")
+        }
+    }
+
+    /// A theme carrying no well roles takes the card's pair — a value it
+    /// already states, never one computed from it.
+    @Test func aThemeWithoutWellRolesTakesItsCardPair() {
+        let imported = TerminalColorTheme(
+            id: "imported", displayName: "Imported",
+            backgroundHex: "#002B36", foregroundHex: "#839496", cursorHex: "#5B7CFA",
+            ansiHex: Array(repeating: "#808080", count: 16), source: .imported)
+        let neo = imported.neoStyleColors
+        #expect(neo.wellShadowHex == neo.shadowDarkHex)
+        #expect(neo.wellRimHex == neo.shadowLightHex)
+        #expect(neo.wellLipHex == nil)
+    }
+}

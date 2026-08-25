@@ -18,6 +18,19 @@ public struct NeoStyleColors: Equatable, Sendable {
     public let wellHex: String
     public let shadowDarkHex: String
     public let shadowLightHex: String
+    /// The well's OWN shadow pair, separate from the card's.
+    ///
+    /// On a light face the two are the same colour and this changes nothing.
+    /// On a dark one they cannot be: the card's dark side has the whole range
+    /// down to black to work with, while the well is already near the floor,
+    /// so reusing the card's pair leaves a cavity with no visible edge — the
+    /// muddy dark well. The well sinks with a deeper shadow and a dimmer rim.
+    public let wellShadowHex: String
+    public let wellRimHex: String
+    /// A hard one-point line along the well's top-left inner edge — the lip
+    /// the surface breaks at. Only the dark faces carry one; on a light face
+    /// the rim already reads as an edge. `nil` means the theme states none.
+    public let wellLipHex: String?
     /// Colored glow behind accent-filled elements. Stored opaque; apply
     /// alpha (~0.35) at the call site.
     public let accentShadowHex: String
@@ -28,6 +41,9 @@ public struct NeoStyleColors: Equatable, Sendable {
         wellHex = extra["neo.well"] ?? Self.fallback.well
         shadowDarkHex = extra["neo.shadowDark"] ?? Self.fallback.shadowDark
         shadowLightHex = extra["neo.shadowLight"] ?? Self.fallback.shadowLight
+        wellShadowHex = extra["neo.wellShadow"] ?? shadowDarkHex
+        wellRimHex = extra["neo.wellRim"] ?? shadowLightHex
+        wellLipHex = extra["neo.wellLip"]
         accentShadowHex = extra["neo.accentShadow"] ?? theme.appPalette.accentHex
     }
 

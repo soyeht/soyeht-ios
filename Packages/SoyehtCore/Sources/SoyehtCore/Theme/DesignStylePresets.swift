@@ -47,6 +47,10 @@ public extension TerminalColorTheme {
                 "neo.well": "#D8DEE8",
                 "neo.shadowDark": "#A6B4C8",
                 "neo.shadowLight": "#FFFFFF",
+                // A light face's well takes the card's own pair — the two are
+                // the same colour here, stated rather than inherited.
+                "neo.wellShadow": "#A6B4C8",
+                "neo.wellRim": "#FFFFFF",
                 "neo.accentShadow": "#5B7CFA",
                 // As quatro cores de agente originais deste tema, fixadas.
                 // Eram derivadas e mudavam sempre que o codigo de derivacao

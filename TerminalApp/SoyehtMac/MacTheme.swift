@@ -98,6 +98,12 @@ enum MacTheme {
     static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
     /// Up-left soft highlight cast by a raised surface.
     static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
+    /// The well's own shadow pair, and the hard lip along its top-left edge.
+    /// Same colours as the card's pair on a light face; deeper and dimmer on
+    /// a dark one, where reusing the card's pair leaves the cavity edgeless.
+    static var neoWellShadow: NSColor { nsColor(neoColors.wellShadowHex) }
+    static var neoWellRim: NSColor { nsColor(neoColors.wellRimHex) }
+    static var neoWellLip: NSColor? { neoColors.wellLipHex.map(nsColor) }
     /// Colored glow behind accent-filled controls (apply alpha at call site).
     static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
 

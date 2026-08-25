@@ -154,10 +154,18 @@ enum MacSurface {
         /// the sizes come from the same pair the raised chips use so a pressed
         /// control keeps the depth budget of the released one.
         static var innerWellDark: Shadow {
-            Shadow(color: MacTheme.neoShadowDark, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6)
+            Shadow(color: MacTheme.neoWellShadow, opacity: 1, offset: CGSize(width: 3, height: -3), radius: 6)
         }
         static var innerWellLight: Shadow {
-            Shadow(color: MacTheme.neoShadowLight, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 7)
+            Shadow(color: MacTheme.neoWellRim, opacity: 1, offset: CGSize(width: -3, height: 3), radius: 7)
+        }
+        /// The lip: one hard point along the well's top-left inner edge, no
+        /// blur, where the surface breaks. Only the dark faces state one —
+        /// a light face's rim already reads as an edge.
+        static var innerWellLip: Shadow? {
+            MacTheme.neoWellLip.map {
+                Shadow(color: $0, opacity: 1, offset: CGSize(width: 1, height: -1), radius: 0)
+            }
         }
 
         /// Dual pair for compact controls (chips, pills, small buttons).

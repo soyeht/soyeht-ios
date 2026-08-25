@@ -12,6 +12,11 @@ import AppKit
 final class MacInnerWellShadowView: NSView {
     private let darkRing = CAShapeLayer()
     private let lightRing = CAShapeLayer()
+    /// The lip rides its own ring because it is drawn differently: no blur,
+    /// and its edge must sit ON the clip rather than a point outside it (see
+    /// `seamGuard`), which is only safe with a clear fill and an explicit
+    /// shadowPath — nothing of the shape itself is ever rasterised.
+    private let lipRing = CAShapeLayer()
     private var radius: CGFloat = 0
 
     override init(frame frameRect: NSRect) {
@@ -23,13 +28,21 @@ final class MacInnerWellShadowView: NSView {
             ring.fillColor = NSColor.black.cgColor
             layer?.addSublayer(ring)
         }
+        lipRing.fillRule = .evenOdd
+        lipRing.fillColor = NSColor.clear.cgColor
+        layer?.addSublayer(lipRing)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    func applyStyle(cornerRadius: CGFloat, dark: MacSurface.Shadow, light: MacSurface.Shadow) {
+    func applyStyle(
+        cornerRadius: CGFloat,
+        dark: MacSurface.Shadow,
+        light: MacSurface.Shadow,
+        lip: MacSurface.Shadow? = nil
+    ) {
         radius = cornerRadius
         layer?.cornerRadius = cornerRadius
         for (ring, spec) in [(darkRing, dark), (lightRing, light)] {
@@ -37,6 +50,13 @@ final class MacInnerWellShadowView: NSView {
             ring.shadowOpacity = spec.opacity
             ring.shadowOffset = spec.offset
             ring.shadowRadius = spec.radius
+        }
+        lipRing.isHidden = lip == nil
+        if let lip {
+            lipRing.shadowColor = lip.color.cgColor
+            lipRing.shadowOpacity = lip.opacity
+            lipRing.shadowOffset = lip.offset
+            lipRing.shadowRadius = lip.radius
         }
         needsLayout = true
     }
@@ -54,19 +74,31 @@ final class MacInnerWellShadowView: NSView {
         // the fill wholly beyond the clip; the shadow starts a point further
         // out, which is nothing against its blur.
         let seamGuard: CGFloat = 1
-        let inner = bounds.insetBy(dx: -seamGuard, dy: -seamGuard)
-        let ringPath = CGMutablePath()
-        ringPath.addRect(inner.insetBy(dx: -80, dy: -80))
-        ringPath.addPath(CGPath(
-            roundedRect: inner,
-            cornerWidth: min(radius + seamGuard, inner.width / 2),
-            cornerHeight: min(radius + seamGuard, inner.height / 2),
-            transform: nil
-        ))
-        for ring in [darkRing, lightRing] {
-            ring.frame = bounds
-            ring.path = ringPath
+        func ring(outsetBy outset: CGFloat) -> CGPath {
+            let inner = bounds.insetBy(dx: -outset, dy: -outset)
+            let path = CGMutablePath()
+            path.addRect(inner.insetBy(dx: -80, dy: -80))
+            path.addPath(CGPath(
+                roundedRect: inner,
+                cornerWidth: min(radius + outset, inner.width / 2),
+                cornerHeight: min(radius + outset, inner.height / 2),
+                transform: nil
+            ))
+            return path
         }
+        let ringPath = ring(outsetBy: seamGuard)
+        for layer in [darkRing, lightRing] {
+            layer.frame = bounds
+            layer.path = ringPath
+        }
+        // The lip is one point wide and unblurred, so the seam guard would
+        // consume it whole: its hard edge would land exactly on the clip and
+        // nothing would survive inside. It sits flush instead, which it can
+        // afford because its fill is clear — the hairline the guard exists to
+        // suppress is a fill artefact, and this ring never fills anything.
+        lipRing.frame = bounds
+        lipRing.path = ring(outsetBy: 0)
+        lipRing.shadowPath = lipRing.path
         CATransaction.commit()
     }
 }
