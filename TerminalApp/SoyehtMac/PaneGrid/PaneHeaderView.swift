@@ -426,12 +426,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             let pastel = pastels[slot]
             layer?.cornerRadius = bounds.height / 2
             layer?.backgroundColor = pastel.cgColor
-            MacSurface.Shadow(
-                color: pastel.withAlphaComponent(0.6),
-                opacity: 1,
-                offset: CGSize(width: 3, height: -3),
-                radius: 8
-            ).apply(to: layer)
+            // The plate casts NOTHING. It used to drop a shadow of its own
+            // colour at 0.6 alpha, which is a tone nobody chose: it comes out
+            // of the plate multiplied by whatever sits behind it. The reviewed
+            // design gives the plate a fill and a radius and no shadow.
+            MacSurface.Shadow.clear(layer)
             dividerView.isHidden = true
             agentDot.isHidden = false
             // Plain ink again. The dot carried the identity only while the

@@ -83,14 +83,13 @@ final class MacStyledSurfaceView: NSView {
     var passesThroughHits = false
 
     private var shadowLayers: [CALayer] = []
-    private let surfaceLayer = CAGradientLayer()
+    private let surfaceLayer = CALayer()
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         passesThroughHits ? nil : super.hitTest(point)
     }
 
     private var fillColor: NSColor = .clear
-    private var gradientColors: (start: NSColor, end: NSColor)?
     private var radius: CGFloat = 0
     private var borderColor: NSColor?
     private var borderWidth: CGFloat = 0
@@ -114,14 +113,12 @@ final class MacStyledSurfaceView: NSView {
 
     func applyStyle(
         fill: NSColor,
-        gradient: (start: NSColor, end: NSColor)? = nil,
         cornerRadius: CGFloat,
         border: NSColor? = nil,
         borderWidth: CGFloat = 0,
         shadows: [MacSurface.Shadow] = []
     ) {
         fillColor = fill
-        gradientColors = gradient
         radius = cornerRadius
         borderColor = border
         self.borderWidth = borderWidth
@@ -146,18 +143,10 @@ final class MacStyledSurfaceView: NSView {
         // Surface sits above its shadows but below any subview layers.
         layer?.insertSublayer(surfaceLayer, at: UInt32(shadowLayers.count))
 
-        // The generator-style diagonal surface gradient (CSS 145deg,
-        // top-left -> bottom-right in unflipped layer coordinates). Flat
-        // fill when no gradient is requested.
-        if let gradientColors {
-            surfaceLayer.backgroundColor = nil
-            surfaceLayer.colors = [gradientColors.start.cgColor, gradientColors.end.cgColor]
-            surfaceLayer.startPoint = CGPoint(x: 0.09, y: 0.91)
-            surfaceLayer.endPoint = CGPoint(x: 0.91, y: 0.09)
-        } else {
-            surfaceLayer.colors = nil
-            surfaceLayer.backgroundColor = fillColor.cgColor
-        }
+        // Flat fill. This layer used to be a CAGradientLayer that could take
+        // a 145-degree pair; the surfaces it painted are one colour in the
+        // reviewed design, and no caller passed a pair any more.
+        surfaceLayer.backgroundColor = fillColor.cgColor
         surfaceLayer.cornerRadius = radius
         surfaceLayer.borderColor = borderColor?.cgColor
         surfaceLayer.borderWidth = borderWidth
