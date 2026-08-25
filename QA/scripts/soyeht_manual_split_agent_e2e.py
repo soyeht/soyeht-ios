@@ -652,11 +652,16 @@ def send_natural_request(
         mcp, observer, pane["conversationID"], automation_dir, timeout
     )
     previous_activity = before and before.get("lastMcpActivityAt")
-    focus_pane_without_terminal_mouse(
+    # Ordinary split panes deliberately preserve terminal mouse reporting.
+    # Locate the pane from its current visible header on every turn and click
+    # its live terminal just like a user; cached grid coordinates become stale
+    # as successive splits resize the layout.
+    common.click_soyeht_dev_pane(window_id, pane["handle"])
+    wait_for_active_pane(
         mcp,
         observer,
         workspace_id,
-        pane,
+        pane["conversationID"],
         automation_dir,
         timeout,
     )
@@ -1073,14 +1078,21 @@ def main():
             args.timeout,
         )
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
-        focus_pane_without_terminal_mouse(
+        # A physical click is part of the normal OpenCode experience and may
+        # conservatively make the draft gate uncertain. Clear that uncertainty
+        # with the same physical Ctrl-C a user would use before starting the
+        # deliberate unfinished draft.
+        common.click_soyeht_dev_pane(window_id, recipient["handle"])
+        wait_for_active_pane(
             mcp,
             observer,
             workspace_id,
-            recipient,
+            recipient["conversationID"],
             automation_dir,
             args.timeout,
         )
+        common.release_physical_draft("ctrl-c", 0, window_id)
+        sleep(0.25)
         # Activating a pane through automation does not necessarily make the
         # containing macOS window frontmost. Re-raise and verify the exact
         # disposable window immediately before physical typing so another app
@@ -1110,11 +1122,17 @@ def main():
             held.get("channel") == "deferredTerminal",
             "A client without proven wake capability suppressed terminal fallback.",
         )
-        focus_pane_without_terminal_mouse(
+        common.raise_soyeht_dev_window(window_id)
+        mcp.tool_emphasize_pane({
+            **observer_args(observer, automation_dir, args.timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "zoom",
+        })
+        wait_for_active_pane(
             mcp,
             observer,
             workspace_id,
-            recipient,
+            recipient["conversationID"],
             automation_dir,
             args.timeout,
         )
@@ -1123,6 +1141,11 @@ def main():
             recipient, request["messageID"], True, args.timeout
         )
         reply = wait_for_message(sender, recipient, relay_token, args.timeout)
+        mcp.tool_emphasize_pane({
+            **observer_args(observer, automation_dir, args.timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "unzoom",
+        })
         evidence["typingCollision"] = {
             "status": "passed",
             "senderAgent": "codex",
