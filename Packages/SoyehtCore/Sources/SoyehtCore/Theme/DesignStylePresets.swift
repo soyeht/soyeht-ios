@@ -52,9 +52,9 @@ public extension TerminalColorTheme {
                 "neo.wellShadow": "#A6B4C8",
                 "neo.wellRim": "#FFFFFF",
                 "neo.accentShadow": "#5B7CFA",
-                // As quatro cores de agente originais deste tema, fixadas.
-                // Eram derivadas e mudavam sempre que o codigo de derivacao
-                // mudava, apesar de terem sido aprovadas ha muito.
+                // This theme's four original agent plates, pinned. They used
+                // to be derived, so they moved every time the derivation
+                // changed, despite having been reviewed long before.
                 "agent.0": "#D8E0FE",
                 "agent.1": "#CDE7DD",
                 "agent.2": "#F6D6DB",
