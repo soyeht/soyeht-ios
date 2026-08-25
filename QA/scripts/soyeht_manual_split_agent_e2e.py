@@ -417,6 +417,24 @@ def wait_for_runtime_agent(
     )
 
 
+def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
+    """Start the collision scenario from a real, settled TUI composer."""
+    deadline = monotonic() + timeout
+    latest = None
+    while monotonic() < deadline:
+        response = mcp.tool_get_pane_status({
+            **observer_args(observer, automation_dir, timeout),
+            "conversationIDs": [pane_id],
+        })
+        latest = next(iter(response.get("paneStatuses", [])), None)
+        if latest and latest.get("agentState") == "idle":
+            return latest
+        sleep(0.25)
+    raise RuntimeError(
+        f"Agent pane {pane_id} did not become idle before physical typing: {latest!r}"
+    )
+
+
 def observed_cli_process(pane_id, agent_name, expected_cwd, timeout):
     """Prove a real CLI process without persisting its environment/secrets."""
     deadline = monotonic() + timeout
@@ -840,6 +858,13 @@ def main():
         # Real unfinished user input in OpenCode must hold a Codex relay.
         recipient = manual_panes["opencode"]
         sender = manual_panes["codex"]
+        settled_recipient = wait_for_agent_idle(
+            mcp,
+            observer,
+            recipient["conversationID"],
+            automation_dir,
+            args.timeout,
+        )
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
         focus_pane_for_physical_input(
             mcp,
@@ -903,6 +928,7 @@ def main():
             ),
             "expectedTerminalDelivery": True,
             "replyMessageID": reply.get("messageID"),
+            "recipientStateBeforeDraft": settled_recipient.get("agentState"),
         }
 
         # Exercise the native event path after authentication. The pane is

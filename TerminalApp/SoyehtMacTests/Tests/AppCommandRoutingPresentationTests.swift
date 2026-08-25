@@ -1329,6 +1329,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "func brokerSendMirroredHumanInput(",
             to: "func brokerSendEnterKey("
         )
+        let resume = try slice(
+            paneController,
+            from: "func resumePersistedDeferredAgentDeliveries(",
+            to: "\n    }\n}"
+        )
 
         XCTAssertTrue(flush.contains("!terminalView.isBrokerSubmissionInFlight"))
         XCTAssertTrue(flush.contains("terminalView.canAcceptBrokerSubmission"))
@@ -1343,6 +1348,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(coordinator.contains("promoteDraftReleaseControlIfNeeded()"))
         XCTAssertTrue(coordinator.contains("func agentStateDidChange()"))
         XCTAssertTrue(paneController.contains("agentStateDidChangeForDeferredDelivery"))
+        XCTAssertTrue(resume.contains("PaneStatusTracker.shared.effectiveAgentName(for: target)"))
+        XCTAssertTrue(resume.contains(".capabilities(for: effectiveAgent)"))
         XCTAssertTrue(contextRouter.contains("pane.agentStateDidChangeForDeferredDelivery()"))
         XCTAssertTrue(coordinator.contains("case .partiallyWritten:"))
         XCTAssertTrue(coordinator.contains("submitsWithEnter: false"))

@@ -582,9 +582,10 @@ struct AgentMessageInbox: Codable, Hashable {
     /// its already-running process has not observed. A terminal fallback is
     /// observed only after the authenticated submission hook marks that exact
     /// delivery. A capable client may instead acknowledge the exact durable
-    /// inbox revision before terminal delivery starts; in that case ACK is the
-    /// semantic observation and cancels the fallback. An older observation
-    /// can never clear a newer control message.
+    /// inbox revision only when that message was selected for semantic inbox
+    /// delivery. A deferred terminal fallback remains pending until its exact
+    /// authenticated submission receipt arrives. An older observation can
+    /// never clear a newer control message.
     var hasUnobservedRoleAssignmentDelivery: Bool {
         messages.contains {
             guard $0.isRoleAssignmentControlDelivery else { return false }

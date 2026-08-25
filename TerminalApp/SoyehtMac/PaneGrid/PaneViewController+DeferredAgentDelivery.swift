@@ -110,8 +110,10 @@ extension PaneViewController {
         guard target.content.isTerminal else { return }
         deferredAgentDeliveryCoordinator
             .reconcileSemanticInboxAcknowledgements(target.agentMessageInbox)
+        let effectiveAgent = PaneStatusTracker.shared.effectiveAgentName(for: target)
+            ?? target.agent.displayName
         guard AgentConversationAdapterCapabilities
-            .capabilities(for: target.agent.displayName)
+            .capabilities(for: effectiveAgent)
             .structuredCapture else { return }
         for message in target.agentMessageInbox.messagesAwaitingDeferredTerminalDelivery {
             guard !deferredAgentDeliveryCoordinator.containsPendingMessage(message.id),
