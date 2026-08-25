@@ -1,4 +1,5 @@
 from soyeht_mcp_foundation import *
+from time import sleep
 
 def with_name_styles(payload, args):
     if args.get("nameStyle"):
@@ -169,7 +170,12 @@ def with_source_context(payload, args=None):
     return payload
 
 
-def synchronize_runtime_identity(active=True, timeout=5.0):
+def synchronize_runtime_identity(
+    active=True,
+    timeout=5.0,
+    attempts=1,
+    retry_delay=0.05,
+):
     """Claim/release a manually launched CLI without changing pane style."""
     if not MCP_RUNTIME_AGENT or not MCP_RUNTIME_INSTANCE_ID:
         return None
@@ -184,11 +190,17 @@ def synchronize_runtime_identity(active=True, timeout=5.0):
         or payload.get("sourceTTY")
     ):
         return None
-    return submit_request(
-        "claim_agent_runtime" if active else "release_agent_runtime",
-        payload,
-        timeout=timeout,
-    )
+    request_type = "claim_agent_runtime" if active else "release_agent_runtime"
+    attempt_count = max(1, int(attempts)) if active else 1
+    last_error = None
+    for attempt in range(attempt_count):
+        try:
+            return submit_request(request_type, payload, timeout=timeout)
+        except Exception as exc:
+            last_error = exc
+            if attempt + 1 < attempt_count:
+                sleep(max(0.0, float(retry_delay)))
+    raise last_error
 
 
 def ensure_git_worktree(repo, name, base, root, create=True):

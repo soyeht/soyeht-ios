@@ -161,7 +161,16 @@ def handle_message(message):
     if method == "initialize":
         if MCP_RUNTIME_AGENT:
             try:
-                synchronize_runtime_identity(active=True)
+                # A manually started CLI can initialize its MCP server a few
+                # milliseconds before the app can observe the final child
+                # PID-to-controlling-TTY relationship. Retry only this
+                # possession bootstrap; normal tool calls remain single-shot.
+                synchronize_runtime_identity(
+                    active=True,
+                    timeout=1.5,
+                    attempts=4,
+                    retry_delay=0.05,
+                )
             except Exception as exc:
                 print(f"{SERVER_NAME}: runtime identity claim failed: {exc}", file=sys.stderr)
         protocol = params.get("protocolVersion", "2024-11-05")

@@ -116,6 +116,51 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["runtimeProcessID"], os.getpid())
         self.assertNotIn("nonce", captured["payload"])
 
+    def test_manual_runtime_claim_retries_only_the_bounded_bootstrap(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        previous_sleep = globals_["sleep"]
+        attempts = []
+        delays = []
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "opencode"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-instance"
+
+            def fake_submit(request_type, payload, timeout):
+                attempts.append((request_type, timeout))
+                if len(attempts) < 3:
+                    raise RuntimeError("pane tty not observable yet")
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            globals_["sleep"] = delays.append
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "pane-id",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                result = function(
+                    active=True,
+                    timeout=1.5,
+                    attempts=4,
+                    retry_delay=0.05,
+                )
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+            globals_["sleep"] = previous_sleep
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(attempts, [
+            ("claim_agent_runtime", 1.5),
+            ("claim_agent_runtime", 1.5),
+            ("claim_agent_runtime", 1.5),
+        ])
+        self.assertEqual(delays, [0.05, 0.05])
+
     def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
         globals_ = MODULE["tool_open_file"].__globals__
         original_choose_file = globals_["choose_file"]
