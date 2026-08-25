@@ -320,6 +320,15 @@ final class WindowChromeViewController: NSViewController {
         PerfTrace.interval("chrome.resizeSync") {
             vc.synchronizeTerminalSizes()
         }
+        // The card lighting IS rebuilt on reveal, unlike the theme below.
+        // It is an overlay computed from which panes are visible, and every
+        // path that rebuilds it can run while this container is hidden — at
+        // which point it correctly finds no visible panes and clears itself.
+        // Revealing does not move anything, so without this the workspace
+        // comes back flat and stays flat until the user resizes something.
+        PerfTrace.interval("chrome.cardLighting") {
+            vc.refreshCardLightingAfterReveal()
+        }
         // Theme is NOT reapplied on container swap. `preferencesDidChange`
         // already drives `applyTheme()` for every cached container when the
         // user changes preferences, so doing it here was pure waste — and it
