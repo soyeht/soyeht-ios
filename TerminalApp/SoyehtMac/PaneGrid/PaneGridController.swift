@@ -59,9 +59,14 @@ private final class GridLightingView: NSView {
         // read BRIGHTER than the card face at the lit edges (reference:
         // bloom #F5F6F9 against face #E8EDF4), which is what makes the
         // top-left corner look elevated.
+        // 5/10 at FULL opacity on both sides, as reviewed. The dark side
+        // used to run at 0.55, a weight tuned when the only neo theme was
+        // Milk and its shadow was one untinted blue-grey. Every face states
+        // its own pair now, and half-covering it produces a tone nobody
+        // chose: the authored shadow composited over the canvas behind it.
         let specs: [(NSColor, Float, CGSize, CGFloat)] = [
-            (MacTheme.neoShadowDark, 0.55, CGSize(width: 4, height: -4), 9),
-            (MacTheme.neoShadowLight, 1.0, CGSize(width: -4, height: 4), 9),
+            (MacTheme.neoShadowDark, 1.0, CGSize(width: 5, height: -5), 10),
+            (MacTheme.neoShadowLight, 1.0, CGSize(width: -5, height: 5), 10),
         ]
         for rect in cardRects {
             let cardPath = CGPath(
