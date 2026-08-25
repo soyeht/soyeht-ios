@@ -468,7 +468,7 @@ end run
                 continue
             point = (
                 element_x + element_width * 0.5,
-                element_y + element_height * 0.5,
+                element_y + element_height + 32.0,
             )
             mouse_down = Quartz.CGEventCreateMouseEvent(
                 None,

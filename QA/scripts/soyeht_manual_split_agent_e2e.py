@@ -248,9 +248,38 @@ def rename_pane(mcp, observer, pane, new_name, automation_dir, timeout):
     raise RuntimeError(f"Pane {pane['conversationID']} was not renamed to {new_name}.")
 
 
-def launch_cli_physically(pane, command, cwd, window_id):
+def wait_for_active_pane(
+    mcp, observer, workspace_id, pane_id, automation_dir, timeout
+):
+    deadline = monotonic() + min(timeout, 10.0)
+    while monotonic() < deadline:
+        panes = list_workspace_panes(
+            mcp, observer, workspace_id, automation_dir, timeout
+        )
+        target = next(
+            (item for item in panes if item.get("conversationID") == pane_id),
+            None,
+        )
+        if target and target.get("isActive") is True:
+            return
+        sleep(0.1)
+    raise RuntimeError(f"Physical click did not focus split pane {pane_id}.")
+
+
+def launch_cli_physically(
+    mcp, observer, workspace_id, pane, command, cwd, window_id,
+    automation_dir, timeout,
+):
     common.raise_soyeht_dev_window(window_id)
     common.click_soyeht_dev_pane(window_id, pane["handle"])
+    wait_for_active_pane(
+        mcp,
+        observer,
+        workspace_id,
+        pane["conversationID"],
+        automation_dir,
+        timeout,
+    )
     shell_line = f"cd {shlex.quote(str(cwd))} && {command}"
     common.type_through_macos_keyboard(
         shell_line,
@@ -624,7 +653,17 @@ def main():
 
         for agent_name, command in agent_specs:
             pane = manual_panes[agent_name]
-            typed = launch_cli_physically(pane, command, repo_root, window_id)
+            typed = launch_cli_physically(
+                mcp,
+                observer,
+                workspace_id,
+                pane,
+                command,
+                repo_root,
+                window_id,
+                automation_dir,
+                args.timeout,
+            )
             directory_row = wait_for_runtime_agent(
                 mcp,
                 observer,
