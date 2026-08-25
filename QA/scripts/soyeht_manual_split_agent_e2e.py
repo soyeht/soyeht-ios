@@ -275,7 +275,7 @@ def wait_for_active_pane(
 
 
 def capture_pane_input_point(window_id, pane_label):
-    """Capture a stable terminal point before a CLI changes its pane title."""
+    """Capture a stable composer point before a CLI changes its pane title."""
     expected_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
     visible_label = str(pane_label).removeprefix("@")
     script = r'''
@@ -291,13 +291,18 @@ on run argv
         perform action "AXRaise" of targetWindow
         delay 0.1
         set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+        set {windowX, windowY} to position of targetWindow
+        set {windowWidth, windowHeight} to size of targetWindow
         set elements to entire contents of targetWindow
         repeat with elementRef in elements
           try
             if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
               set {elementX, elementY} to position of elementRef
               set {elementWidth, elementHeight} to size of elementRef
-              return ((elementX + (elementWidth div 2)) as text) & "," & ((elementY + elementHeight + 32) as text)
+              -- Clicking just below the header can activate a TUI message
+              -- action through real mouse reporting. Target the lower
+              -- composer area, like a user clicking before typing.
+              return ((elementX + 100) as text) & "," & ((windowY + windowHeight - 130) as text)
             end if
           end try
         end repeat
@@ -343,9 +348,9 @@ def click_pane_input_point(window_id, point):
     sleep(0.15)
 
 
-def launch_cli_physically(
-    mcp, observer, workspace_id, pane, command, cwd, window_id,
-    automation_dir, timeout, input_point,
+def focus_pane_for_physical_input(
+    mcp, observer, workspace_id, pane, window_id, input_point,
+    automation_dir, timeout,
 ):
     click_pane_input_point(window_id, input_point)
     wait_for_active_pane(
@@ -353,6 +358,22 @@ def launch_cli_physically(
         observer,
         workspace_id,
         pane["conversationID"],
+        automation_dir,
+        timeout,
+    )
+
+
+def launch_cli_physically(
+    mcp, observer, workspace_id, pane, command, cwd, window_id,
+    automation_dir, timeout, input_point,
+):
+    focus_pane_for_physical_input(
+        mcp,
+        observer,
+        workspace_id,
+        pane,
+        window_id,
+        input_point,
         automation_dir,
         timeout,
     )
@@ -458,9 +479,21 @@ def wait_for_message(recipient, sender, token, timeout):
     )
 
 
-def send_natural_request(pane, window_id, prompt, input_point):
+def send_natural_request(
+    mcp, observer, workspace_id, pane, window_id, prompt, input_point,
+    automation_dir, timeout,
+):
     natural_prompt(prompt)
-    click_pane_input_point(window_id, input_point)
+    focus_pane_for_physical_input(
+        mcp,
+        observer,
+        workspace_id,
+        pane,
+        window_id,
+        input_point,
+        automation_dir,
+        timeout,
+    )
     common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
 
 
@@ -484,14 +517,26 @@ def wait_for_delivery(recipient, message_id, delivered, timeout):
     )
 
 
-def physical_tui_input_smoke(window_id, pane, input_point):
+def physical_tui_input_smoke(
+    mcp, observer, workspace_id, window_id, pane, input_point,
+    automation_dir, timeout,
+):
     """Send mouse, wheel, and navigation keys through the macOS event path."""
     try:
         import Quartz
     except ImportError as exc:
         raise RuntimeError("PyObjC Quartz is required for physical input smoke.") from exc
 
-    click_pane_input_point(window_id, input_point)
+    focus_pane_for_physical_input(
+        mcp,
+        observer,
+        workspace_id,
+        pane,
+        window_id,
+        input_point,
+        automation_dir,
+        timeout,
+    )
     point = input_point
     for event_type in (Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp):
         event = Quartz.CGEventCreateMouseEvent(
@@ -769,7 +814,15 @@ def main():
                 "Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
             )
             send_natural_request(
-                sender, window_id, prompt, input_points[sender_name]
+                mcp,
+                observer,
+                workspace_id,
+                sender,
+                window_id,
+                prompt,
+                input_points[sender_name],
+                automation_dir,
+                args.timeout,
             )
             request = wait_for_message(recipient, sender, token, args.timeout)
             reply = wait_for_message(sender, recipient, token, args.timeout)
@@ -788,7 +841,16 @@ def main():
         recipient = manual_panes["opencode"]
         sender = manual_panes["codex"]
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
-        click_pane_input_point(window_id, input_points["opencode"])
+        focus_pane_for_physical_input(
+            mcp,
+            observer,
+            workspace_id,
+            recipient,
+            window_id,
+            input_points["opencode"],
+            automation_dir,
+            args.timeout,
+        )
         common.type_through_macos_keyboard(draft, window_id, submit_with_return=False)
         relay_token = f"SPLIT-COLLISION-{run_id}"
         collision_prompt = natural_prompt(
@@ -798,11 +860,28 @@ def main():
             f"Peca que ele responda exatamente {relay_token} e aguarde a resposta dessa pane."
         )
         send_natural_request(
-            sender, window_id, collision_prompt, input_points["codex"]
+            mcp,
+            observer,
+            workspace_id,
+            sender,
+            window_id,
+            collision_prompt,
+            input_points["codex"],
+            automation_dir,
+            args.timeout,
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
-        click_pane_input_point(window_id, input_points["opencode"])
+        focus_pane_for_physical_input(
+            mcp,
+            observer,
+            workspace_id,
+            recipient,
+            window_id,
+            input_points["opencode"],
+            automation_dir,
+            args.timeout,
+        )
         common.release_physical_draft("backspace", len(draft), window_id)
         delivered = wait_for_delivery(recipient, request["messageID"], True, args.timeout)
         reply = wait_for_message(sender, recipient, relay_token, args.timeout)
@@ -820,7 +899,14 @@ def main():
         # still declared shell, which is the product invariant that retains
         # normal terminal mouse reporting and scroll behavior.
         evidence["normalPaneInputSmoke"] = physical_tui_input_smoke(
-            window_id, manual_panes["opencode"], input_points["opencode"]
+            mcp,
+            observer,
+            workspace_id,
+            window_id,
+            manual_panes["opencode"],
+            input_points["opencode"],
+            automation_dir,
+            args.timeout,
         )
         final_row = wait_for_runtime_agent(
             mcp,
