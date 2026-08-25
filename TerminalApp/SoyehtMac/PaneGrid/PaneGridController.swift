@@ -64,9 +64,13 @@ private final class GridLightingView: NSView {
         // Milk and its shadow was one untinted blue-grey. Every face states
         // its own pair now, and half-covering it produces a tone nobody
         // chose: the authored shadow composited over the canvas behind it.
-        let specs: [(NSColor, Float, CGSize, CGFloat)] = [
-            (MacTheme.neoShadowDark, 1.0, CGSize(width: 5, height: -5), 10),
-            (MacTheme.neoShadowLight, 1.0, CGSize(width: -5, height: 5), 10),
+        // Reviewed as 5/10 at full opacity on both sides. `blur` here is the
+        // CSS number; CALayer wants half of it (see MacSurface.Shadow.neo).
+        let specs = [
+            MacSurface.Shadow.neo(color: MacTheme.neoShadowDark,
+                                  offset: CGSize(width: 5, height: -5), blur: 10),
+            MacSurface.Shadow.neo(color: MacTheme.neoShadowLight,
+                                  offset: CGSize(width: -5, height: 5), blur: 10),
         ]
         for rect in cardRects {
             let cardPath = CGPath(
@@ -75,15 +79,12 @@ private final class GridLightingView: NSView {
                 cornerHeight: cornerRadius,
                 transform: nil
             )
-            for (color, opacity, offset, blur) in specs {
+            for spec in specs {
                 let shadowLayer = CALayer()
                 shadowLayer.frame = bounds
                 shadowLayer.masksToBounds = false
                 shadowLayer.shadowPath = cardPath
-                shadowLayer.shadowColor = color.cgColor
-                shadowLayer.shadowOpacity = opacity
-                shadowLayer.shadowOffset = offset
-                shadowLayer.shadowRadius = blur
+                spec.apply(to: shadowLayer)
 
                 // Mask the caster's own rect out of its shadow: the shadow
                 // may fall on neighbors and canvas, never on its own card.
