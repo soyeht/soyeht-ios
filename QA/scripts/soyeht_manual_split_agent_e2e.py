@@ -297,7 +297,7 @@ on run argv
             if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
               set {elementX, elementY} to position of elementRef
               set {elementWidth, elementHeight} to size of elementRef
-              return ((elementX + (elementWidth / 2)) as text) & "," & ((elementY + elementHeight + 32) as text)
+              return ((elementX + (elementWidth div 2)) as text) & "," & ((elementY + elementHeight + 32) as text)
             end if
           end try
         end repeat
