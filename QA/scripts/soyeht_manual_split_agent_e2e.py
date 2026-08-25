@@ -919,6 +919,11 @@ def main():
             automation_dir,
             args.timeout,
         )
+        # Activating a pane through automation does not necessarily make the
+        # containing macOS window frontmost. Re-raise and verify the exact
+        # disposable window immediately before physical typing so another app
+        # cannot turn this safety check into a flaky false failure.
+        common.raise_soyeht_dev_window(window_id)
         common.type_through_macos_keyboard(draft, window_id, submit_with_return=False)
         relay_token = f"SPLIT-COLLISION-{run_id}"
         collision_prompt = natural_prompt(
