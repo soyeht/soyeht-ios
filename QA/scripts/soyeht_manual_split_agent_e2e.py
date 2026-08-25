@@ -363,6 +363,32 @@ def focus_pane_for_physical_input(
     )
 
 
+def focus_pane_without_terminal_mouse(
+    mcp, observer, workspace_id, pane, automation_dir, timeout
+):
+    """Focus a composer without sending a TUI mouse-reporting packet.
+
+    Mouse reporting is deliberately preserved in ordinary shell panes. A
+    physical click inside OpenCode may therefore move or activate its TUI and
+    must conservatively make the draft gate uncertain. For the specific
+    letter-by-letter abandonment scenario, focus through pane chrome state and
+    keep the only terminal input under test to printable keys + Backspaces.
+    """
+    mcp.tool_emphasize_pane({
+        **observer_args(observer, automation_dir, timeout),
+        "conversationIDs": [pane["conversationID"]],
+        "mode": "unzoom",
+    })
+    wait_for_active_pane(
+        mcp,
+        observer,
+        workspace_id,
+        pane["conversationID"],
+        automation_dir,
+        timeout,
+    )
+
+
 def launch_cli_physically(
     mcp, observer, workspace_id, pane, command, cwd, window_id,
     automation_dir, timeout, input_point,
@@ -866,13 +892,11 @@ def main():
             args.timeout,
         )
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
-        focus_pane_for_physical_input(
+        focus_pane_without_terminal_mouse(
             mcp,
             observer,
             workspace_id,
             recipient,
-            window_id,
-            input_points["opencode"],
             automation_dir,
             args.timeout,
         )
@@ -901,13 +925,11 @@ def main():
             held.get("channel") == "deferredTerminal",
             "A client without proven wake capability suppressed terminal fallback.",
         )
-        focus_pane_for_physical_input(
+        focus_pane_without_terminal_mouse(
             mcp,
             observer,
             workspace_id,
             recipient,
-            window_id,
-            input_points["opencode"],
             automation_dir,
             args.timeout,
         )
@@ -929,6 +951,7 @@ def main():
             "expectedTerminalDelivery": True,
             "replyMessageID": reply.get("messageID"),
             "recipientStateBeforeDraft": settled_recipient.get("agentState"),
+            "focusAvoidedTerminalMousePacket": True,
         }
 
         # Exercise the native event path after authentication. The pane is
