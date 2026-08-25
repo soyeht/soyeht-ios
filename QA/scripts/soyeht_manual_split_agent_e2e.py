@@ -519,7 +519,10 @@ def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
             "conversationIDs": [pane_id],
         })
         latest = next(iter(response.get("paneStatuses", [])), None)
-        if latest and latest.get("agentState") == "idle":
+        # get_pane_status publishes the current value as `status`; accept the
+        # older `agentState` spelling only for compatibility with prior builds.
+        state = latest and (latest.get("status") or latest.get("agentState"))
+        if state == "idle":
             return latest
         sleep(0.25)
     raise RuntimeError(
@@ -537,7 +540,8 @@ def wait_for_agent_working(mcp, observer, pane_id, automation_dir, timeout):
             "conversationIDs": [pane_id],
         })
         latest = next(iter(response.get("paneStatuses", [])), None)
-        if latest and latest.get("agentState") == "working":
+        state = latest and (latest.get("status") or latest.get("agentState"))
+        if state == "working":
             return latest
         sleep(0.1)
     raise RuntimeError(
