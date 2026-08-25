@@ -57,4 +57,3 @@ Mouse and scroll are exercised separately in step 8.
 The quick gate's remaining follow-ups are its standard assisted macOS checks
 (Auth & Session, Tab Management, Local Shell, and Soyeht Terminal), listed in
 [the generated gate report](../2026-08-24-codex-gate-quick-2/gate-report.md).
-

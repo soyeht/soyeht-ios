@@ -27,7 +27,7 @@ swift-crypto - https://github.com/apple/swift-crypto.git @ 3.15.1
 swift-secp256k1 - https://github.com/GigaBitcoin/secp256k1.swift.git @ 0.23.2
 swift-nio - https://github.com/apple/swift-nio.git @ 2.92.2
 BLAKE3 - https://github.com/JoshBashed/blake3-swift.git @ 0.2.2
-note: Using codesigning identity override: 
+note: Using codesigning identity override:
 note: Building targets in dependency order
 note: Target dependency graph (57 targets)
 [swift-nio_NIOPosix] Processing empty-swift-nio_NIOPosix.plist
