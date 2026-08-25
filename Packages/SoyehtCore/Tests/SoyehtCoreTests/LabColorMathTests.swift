@@ -172,3 +172,38 @@ struct NeoRoleTests {
         #expect(neo.wellLipHex == nil)
     }
 }
+
+@Suite("Terminal greyscale")
+struct TerminalGreyscaleTests {
+    /// Bright-black, white, bright-white: each one further from the screen
+    /// than the last, so a program stepping up the greyscale gets a
+    /// direction. Slot 0 is left out — black is the most visible tone a light
+    /// face owns and the least visible a dark one owns, which is correct on
+    /// both and belongs to no single ordering.
+    ///
+    /// The four light faces used to double back at the top: bright-white came
+    /// out DARKER than white — 6.6:1 against 2.5:1 on Sunrise Gold — so bold
+    /// white text, which prompts and TUIs lean on, rendered darker than plain
+    /// white. Slots 7 and 8 were also swapped against the dark faces, which
+    /// left "white" as the least visible tone the theme owns.
+    @Test func theGreyscaleRunsOneWayOnEveryFace() {
+        for preset in TerminalColorTheme.designStylePresets where preset.id != "neoMilk" {
+            let ansi = preset.ansiHex
+            let ramp = [ansi[8], ansi[7], ansi[15]].map {
+                LabColorMath.distance(preset.backgroundHex, $0)
+            }
+            #expect(ramp == ramp.sorted(), "\(preset.id) doubles back: \(ramp)")
+        }
+    }
+
+    /// Slots 7 and 15 are the ones ordinary output lands on. Neither may be
+    /// the washed tone.
+    @Test func whiteAndBrightWhiteStayReadable() {
+        for preset in TerminalColorTheme.designStylePresets where preset.id != "neoMilk" {
+            for slot in [7, 15] {
+                #expect(LabColorMath.contrastRatio(preset.ansiHex[slot], preset.backgroundHex) >= 3,
+                        "\(preset.id) ansi[\(slot)]")
+            }
+        }
+    }
+}
