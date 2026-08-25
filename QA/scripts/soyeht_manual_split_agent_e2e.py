@@ -527,6 +527,25 @@ def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
     )
 
 
+def wait_for_agent_working(mcp, observer, pane_id, automation_dir, timeout):
+    """Prove that physical input started a turn in the exact sender pane."""
+    deadline = monotonic() + timeout
+    latest = None
+    while monotonic() < deadline:
+        response = mcp.tool_get_pane_status({
+            **observer_args(observer, automation_dir, timeout),
+            "conversationIDs": [pane_id],
+        })
+        latest = next(iter(response.get("paneStatuses", [])), None)
+        if latest and latest.get("agentState") == "working":
+            return latest
+        sleep(0.1)
+    raise RuntimeError(
+        f"Physical keyboard input did not start a turn in agent pane {pane_id}: "
+        f"{latest!r}"
+    )
+
+
 def observed_cli_process(pane_id, agent_name, expected_cwd, timeout):
     """Prove a real CLI process without persisting its environment/secrets."""
     deadline = monotonic() + timeout
@@ -600,9 +619,16 @@ def wait_for_message(recipient, sender, token, timeout):
 
 def send_natural_request(
     mcp, observer, workspace_id, pane, window_id, prompt, automation_dir,
-    timeout, transcript_token, process_pid,
+    timeout,
 ):
     natural_prompt(prompt)
+    wait_for_agent_idle(
+        mcp,
+        observer,
+        pane["conversationID"],
+        automation_dir,
+        timeout,
+    )
     focus_pane_without_terminal_mouse(
         mcp,
         observer,
@@ -612,19 +638,15 @@ def send_natural_request(
         timeout,
     )
     common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
-    # Prove that the physical keyboard reached the requested composer before
-    # waiting on agent behavior. The nonce is read only from the already
-    # observed PID and remains in memory; it is never serialized to evidence.
-    nonce = common.process_launch_nonce(
-        process_pid,
-        pane["conversationID"],
-        timeout,
-    )
-    common.wait_for_transcript_token(
+    # `capture_pane` is intentionally self-only and a manually typed shell
+    # requires the MCP runtime's ephemeral instance ID in addition to its
+    # launch nonce. An external E2E must not impersonate that runtime. Instead,
+    # prove the exact physical prompt was submitted by observing the requested
+    # pane transition from idle to working before accepting any MCP behavior.
+    wait_for_agent_working(
         mcp,
-        pane,
-        nonce,
-        transcript_token,
+        observer,
+        pane["conversationID"],
         automation_dir,
         timeout,
     )
@@ -844,7 +866,6 @@ def main():
             ("opencode", "opencode --auto"),
         ]
         manual_panes = {}
-        process_pids = {}
         known_ids = {observer["conversationID"]}
         for agent_name, _ in agent_specs:
             press_header_button(
@@ -895,7 +916,6 @@ def main():
             process = observed_cli_process(
                 pane["conversationID"], agent_name, repo_root, args.timeout
             )
-            process_pids[agent_name] = process["pid"]
             startup_confirmation = confirm_startup_gate_if_runtime_is_pending(
                 mcp,
                 observer,
@@ -998,8 +1018,6 @@ def main():
                 prompt,
                 automation_dir,
                 args.timeout,
-                token,
-                process_pids[sender_name],
             )
             request = wait_for_message(recipient, sender, token, args.timeout)
             reply = wait_for_message(sender, recipient, token, args.timeout)
@@ -1055,8 +1073,6 @@ def main():
             collision_prompt,
             automation_dir,
             args.timeout,
-            relay_token,
-            process_pids["codex"],
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
