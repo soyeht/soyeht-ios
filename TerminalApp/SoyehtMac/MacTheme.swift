@@ -101,16 +101,10 @@ enum MacTheme {
     /// Colored glow behind accent-filled controls (apply alpha at call site).
     static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
 
-    /// How many agent identity colors a theme carries.
-    static var neoHeaderPastelCount: Int { AgentIdentityPalette.slotCount }
-
     /// Per-pane header identity colors: the plate an agent's name sits on.
     ///
-    /// Derived in `AgentIdentityPalette`, in the core, so the tests exercise
-    /// the code the app runs. It used to live here with the test suite keeping
-    /// its own copy of the algorithm, and the two drifted: a lightness floor
-    /// reached the copy and never reached this one, so the suite stayed green
-    /// while the app shipped the colors the floor existed to fix.
+    /// Read from the theme, never computed. A theme states four or five and
+    /// keeps the count it states.
     static var neoHeaderPastels: [NSColor] {
         AgentIdentityPalette.plates(for: TerminalColorTheme.active).map(nsColor)
     }
