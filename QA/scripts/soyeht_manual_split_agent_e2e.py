@@ -173,6 +173,50 @@ end run
     return completed.stdout.strip()
 
 
+def start_shell_in_visible_empty_pane(window_id):
+    """Complete the ordinary Split-button flow through its session picker."""
+    expected_identifier = f"com.soyeht.mac.mainwindow.{window_id}"
+    script = r'''
+on run argv
+  set expectedIdentifier to item 1 of argv
+  tell application id "com.soyeht.mac.dev" to activate
+  delay 0.25
+  tell application "System Events" to tell process "Soyeht Dev"
+    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
+    perform action "AXRaise" of targetWindow
+    repeat 40 times
+      set matches to {}
+      set elements to entire contents of targetWindow
+      repeat with elementRef in elements
+        try
+          if role of elementRef is "AXButton" and description of elementRef is "Start bash session" then
+            set end of matches to elementRef
+          end if
+        end try
+      end repeat
+      if (count of matches) is 1 then
+        perform action "AXPress" of item 1 of matches
+        return "started"
+      end if
+      if (count of matches) > 1 then error "More than one empty-pane shell action is visible"
+      delay 0.1
+    end repeat
+    error "The empty-pane shell action did not appear"
+  end tell
+end run
+'''
+    completed = subprocess.run(
+        ["/usr/bin/osascript", "-e", script, expected_identifier],
+        capture_output=True,
+        text=True,
+    )
+    require(
+        completed.returncode == 0,
+        "Could not start the ordinary shell selected after Split: "
+        f"{completed.stderr.strip() or completed.stdout.strip()}",
+    )
+
+
 def rename_pane(mcp, observer, pane, new_name, automation_dir, timeout):
     mcp.tool_rename_panes({
         **observer_args(observer, automation_dir, timeout),
@@ -547,6 +591,7 @@ def main():
                 observer["handle"],
                 "Split pane vertically",
             )
+            start_shell_in_visible_empty_pane(window_id)
             pane = wait_for_new_split_pane(
                 mcp,
                 observer,
