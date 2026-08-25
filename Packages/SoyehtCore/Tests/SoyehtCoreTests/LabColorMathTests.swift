@@ -115,11 +115,25 @@ struct ReviewedFaceTests {
     /// Every colour the reviewed specimen page shows, for all eight faces,
     /// transcribed off the page and asserted against what the app resolves.
     ///
-    /// This is the whole point of the freeze, so it is a full snapshot rather
-    /// than a sample: any hex that moves for any reason — a new derivation, an
-    /// edit to a preset, a role quietly falling back to another theme's value
-    /// — fails here by name. The eight faces were reviewed and approved; code
-    /// does not get to restate them.
+    /// # This test is not a wall. Read this before working around it.
+    ///
+    /// It exists to stop the app changing these colours BY ITSELF — a
+    /// derivation, a fallback, a role quietly resolving to some other theme's
+    /// value. It has happened repeatedly, always silently, and always to
+    /// palettes that had already been signed off.
+    ///
+    /// It is NOT here to stop the owner changing his mind. He picks these
+    /// colours by looking at them, and he is allowed to pick different ones
+    /// whenever he wants.
+    ///
+    /// **If he asked for a colour change and this test fails, that is the
+    /// test working.** Update the table below to the new values in the same
+    /// commit, say in the message which colours moved and that he asked, and
+    /// carry on. Do not weaken the test, do not skip a theme, do not add a
+    /// tolerance.
+    ///
+    /// **If this test fails and nobody asked for a colour change, something
+    /// in the code is restyling his themes.** That is the bug. Find it.
     struct Face {
         let screen, canvas, surface, well, shadowDark, shadowLight: String
         let wellShadow, wellRim: String
@@ -236,6 +250,12 @@ struct ReviewedFaceTests {
             ]),
     ]
 
+    /// Printed on every failure, because whoever reads it next will not have
+    /// this file's history and the wrong reaction is the tempting one.
+    static let whatToDo = """
+        If the owner asked for this colour change: update the table in         ReviewedFaceTests to the new values in this same commit and say so in         the message. That is the intended way through this test.         If nobody asked: the code is restyling his themes on its own — find         that, do not edit the table.
+        """
+
     @Test func everyReviewedColourSurvivesTheCode() {
         for (id, face) in Self.reviewed {
             let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
@@ -257,13 +277,15 @@ struct ReviewedFaceTests {
                 ("selection", theme.selectionBackgroundHex ?? "", face.selection),
             ]
             for (role, got, want) in checks {
-                #expect(got.uppercased() == want.uppercased(), "\(id) \(role): \(got) != \(want)")
+                #expect(got.uppercased() == want.uppercased(),
+                        "\(id) \(role) is \(got), reviewed as \(want). \(Self.whatToDo)")
             }
-            #expect(neo.wellLipHex?.uppercased() == face.wellLip?.uppercased(), "\(id) wellLip")
+            #expect(neo.wellLipHex?.uppercased() == face.wellLip?.uppercased(),
+                    "\(id) wellLip. \(Self.whatToDo)")
             #expect(AgentIdentityPalette.plates(for: theme).map { $0.uppercased() }
-                    == face.plates.map { $0.uppercased() }, "\(id) plates")
+                    == face.plates.map { $0.uppercased() }, "\(id) plates. \(Self.whatToDo)")
             #expect(theme.ansiHex.map { $0.uppercased() }
-                    == face.ansi.map { $0.uppercased() }, "\(id) ansi")
+                    == face.ansi.map { $0.uppercased() }, "\(id) ansi. \(Self.whatToDo)")
         }
     }
 
