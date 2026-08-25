@@ -389,10 +389,16 @@ def focus_pane_without_terminal_mouse(
     letter-by-letter abandonment scenario, focus through pane chrome state and
     keep the only terminal input under test to printable keys + Backspaces.
     """
+    # A pane may be logically active while its terminal is not AppKit's first
+    # responder (for example after pressing a header button). Raise the exact
+    # disposable window first, then use zoom: this is the same product path a
+    # user gets by emphasizing a pane and it explicitly makes that terminal
+    # the first responder without sending a mouse-reporting packet to the TUI.
+    common.raise_soyeht_dev_window(pane["windowID"])
     mcp.tool_emphasize_pane({
         **observer_args(observer, automation_dir, timeout),
         "conversationIDs": [pane["conversationID"]],
-        "mode": "unzoom",
+        "mode": "zoom",
     })
     wait_for_active_pane(
         mcp,
@@ -593,21 +599,35 @@ def wait_for_message(recipient, sender, token, timeout):
 
 
 def send_natural_request(
-    mcp, observer, workspace_id, pane, window_id, prompt, input_point,
-    automation_dir, timeout,
+    mcp, observer, workspace_id, pane, window_id, prompt, automation_dir,
+    timeout, transcript_token, process_pid,
 ):
     natural_prompt(prompt)
-    focus_pane_for_physical_input(
+    focus_pane_without_terminal_mouse(
         mcp,
         observer,
         workspace_id,
         pane,
-        window_id,
-        input_point,
         automation_dir,
         timeout,
     )
     common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
+    # Prove that the physical keyboard reached the requested composer before
+    # waiting on agent behavior. The nonce is read only from the already
+    # observed PID and remains in memory; it is never serialized to evidence.
+    nonce = common.process_launch_nonce(
+        process_pid,
+        pane["conversationID"],
+        timeout,
+    )
+    common.wait_for_transcript_token(
+        mcp,
+        pane,
+        nonce,
+        transcript_token,
+        automation_dir,
+        timeout,
+    )
 
 
 def wait_for_delivery(recipient, message_id, delivered, timeout):
@@ -824,6 +844,7 @@ def main():
             ("opencode", "opencode --auto"),
         ]
         manual_panes = {}
+        process_pids = {}
         known_ids = {observer["conversationID"]}
         for agent_name, _ in agent_specs:
             press_header_button(
@@ -874,6 +895,7 @@ def main():
             process = observed_cli_process(
                 pane["conversationID"], agent_name, repo_root, args.timeout
             )
+            process_pids[agent_name] = process["pid"]
             startup_confirmation = confirm_startup_gate_if_runtime_is_pending(
                 mcp,
                 observer,
@@ -974,9 +996,10 @@ def main():
                 sender,
                 window_id,
                 prompt,
-                input_points[sender_name],
                 automation_dir,
                 args.timeout,
+                token,
+                process_pids[sender_name],
             )
             request = wait_for_message(recipient, sender, token, args.timeout)
             reply = wait_for_message(sender, recipient, token, args.timeout)
@@ -1030,9 +1053,10 @@ def main():
             sender,
             window_id,
             collision_prompt,
-            input_points["codex"],
             automation_dir,
             args.timeout,
+            relay_token,
+            process_pids["codex"],
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
