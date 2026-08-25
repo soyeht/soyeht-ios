@@ -45,7 +45,7 @@ public enum AgentIdentityPalette {
                 plate: LabColorMath.LCh(lightness: lightness, chroma: chroma, hue: hue)
             ))
         }
-        return four + [themeSlot(palette, fallback: lightness)]
+        return four + [themeSlot(palette, siblings: four, fallback: lightness)]
     }
 
     /// The plate sinks 9 L* below the card — enough to read as something the
@@ -91,22 +91,48 @@ public enum AgentIdentityPalette {
     /// the only slot whose hue comes from the theme, which is why it is the
     /// one a pane wears by default.
     ///
-    /// A theme that never pins a selection inherits its cursor, which is a
-    /// vivid accent: one house theme's is a green at L* 62, and near-white ink
-    /// on it reads at 1.2:1. So the deepening continues past the first three
-    /// points until the name is legible, and if the hue cannot get there at
-    /// all the slot falls back to the others' lightness, keeping only its hue.
-    private static func themeSlot(_ palette: SoyehtAppPalette, fallback: Double) -> String {
-        var candidate = LabColorMath.lch(of: palette.selectionHex)
-        let seed = candidate.lightness
-        var step = 3.0
-        while step <= 60 {
-            candidate.lightness = max(6, seed - step)
-            let hex = LabColorMath.hex(candidate)
-            if LabColorMath.contrastRatio(palette.textPrimaryHex, hex) >= 4.5 { return hex }
-            step += 4
+    /// It has to satisfy everything the other four do — readable, clear of the
+    /// card, clear of its siblings — and it used to satisfy only the first.
+    /// That held on the built-in presets and failed on every imported one: an
+    /// imported theme pins no `app.*` chrome, so its surface IS its background,
+    /// and the iTerm2 convention makes a selection a lifted neighbour of that
+    /// background. Near-white ink clears 4.5:1 against such a selection on the
+    /// first probe, so the search returned immediately, three points from where
+    /// it started and heading toward the card. Solarized Dark landed ΔE 1.97
+    /// from its own surface — invisible, against this file's own floor of 12.
+    ///
+    /// Deepening is the preference, not the requirement, so the search tries
+    /// downward first and reverses only if nothing down there works: on a dark
+    /// theme "deeper" walks straight into the background it must stay clear of.
+    private static func themeSlot(
+        _ palette: SoyehtAppPalette,
+        siblings: [String],
+        fallback: Double
+    ) -> String {
+        let seed = LabColorMath.lch(of: palette.selectionHex)
+        for direction in [-1.0, 1.0] {
+            var step = 3.0
+            while step <= 60 {
+                var candidate = seed
+                candidate.lightness = min(96, max(6, seed.lightness + direction * step))
+                let hex = LabColorMath.hex(candidate)
+                if LabColorMath.contrastRatio(palette.textPrimaryHex, hex) >= 4.5,
+                   LabColorMath.distance(palette.surfaceHex, hex) >= 12,
+                   siblings.allSatisfy({ LabColorMath.distance($0, hex) >= 8 }) {
+                    return hex
+                }
+                step += 4
+            }
         }
+        // Nothing on the selection's hue satisfies all three at once — a
+        // mid-grey foreground like Solarized's leaves very little lightness
+        // where it reads at all. Join the others at the shared lightness,
+        // keeping the hue that made this slot the theme's own, and push it
+        // clear of the card the same way they are. Landing here must still
+        // produce a visible plate; the earlier version returned this point
+        // unchecked, which put Solarized ΔE 8.1 from its own surface.
+        var candidate = seed
         candidate.lightness = fallback
-        return LabColorMath.hex(candidate)
+        return LabColorMath.hex(clearOfSurface(palette.surfaceHex, plate: candidate))
     }
 }

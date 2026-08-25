@@ -153,15 +153,84 @@ struct AgentIdentityTests {
     @Test func theArcSharesLightnessAndChroma() {
         for theme in TerminalColorTheme.builtInThemes {
             let four = identity(for: theme).prefix(4).map { LabColorMath.lch(of: $0) }
-            let lightness = four.map(\.lightness)
-            let chroma = four.map(\.chroma)
-            let clash = LabColorMath.lch(of: theme.appPalette.surfaceHex).hue
-            let escaped = four.filter {
-                abs((($0.hue - clash) + 180).truncatingRemainder(dividingBy: 360) - 180) < 30
-            }.count
-            if escaped == 0 {
-                #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) lightness drifts")
-                #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) chroma drifts")
+            // Exempt the slot that had to escape, not the theme. Detected by
+            // its lightness rather than by hue proximity to the surface: on a
+            // pure black or white card `atan2(0, 0)` is 0°, so the hue-7 slot
+            // read as "shares the surface's hue" on a surface that has none,
+            // and any such theme opted out of this assertion entirely.
+            let shared = AgentIdentityPalette.plateLightness(
+                surface: LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness)
+            let held = four.filter { abs($0.lightness - shared) <= 0.5 }
+            #expect(held.count >= 3, "\(theme.id) moved \(4 - held.count) of four slots")
+            let lightness = held.map(\.lightness)
+            let chroma = held.map(\.chroma)
+            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) lightness drifts")
+            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) chroma drifts")
+        }
+    }
+
+    /// Pins the plate lightness itself. Reverting the L* 19 floor moves Deep
+    /// Vine to 16 and Deep Forest to 14 — the exact colors that shipped once
+    /// while the suite stayed green — and until this existed, every other
+    /// assertion still passed with them: the sunk arm only checked that a
+    /// plate was darker than its card, which 16 and 14 both are.
+    @Test func theFloorHoldsThePlateOutOfTheMud() {
+        #expect(AgentIdentityPalette.plateLightness(surface: 25) == 19)   // Deep Vine
+        #expect(AgentIdentityPalette.plateLightness(surface: 23) == 19)   // Deep Forest
+        #expect(AgentIdentityPalette.plateLightness(surface: 28.8) == 19.8)
+        #expect(AgentIdentityPalette.plateLightness(surface: 93.6) == 84.6)
+        // Too dark to sink into: steps up to where colour is possible at all.
+        #expect(AgentIdentityPalette.plateLightness(surface: 13.7) == 21.7)
+        #expect(AgentIdentityPalette.plateLightness(surface: 0) == 18)
+        // Never below the floor, from any surface, ever.
+        for surface in stride(from: 0.0, through: 100.0, by: 0.5) {
+            #expect(AgentIdentityPalette.plateLightness(surface: surface) >= 18,
+                    "surface \(surface) sank to \(AgentIdentityPalette.plateLightness(surface: surface))")
+        }
+    }
+
+    /// The invariants have to hold on IMPORTED themes, not just the nine we
+    /// author. An import pins no `app.*` chrome, so its surface is its
+    /// background, and the iTerm2 convention makes a selection a lifted
+    /// neighbour of that background — the case where the fifth slot used to
+    /// land ΔE 1.97 from the card and vanish. Every assertion above ran only
+    /// over `builtInThemes`, which is why nothing caught it.
+    @Test func theInvariantsHoldOnImportedThemes() {
+        let schemes = [
+            ("Solarized Dark", "#002B36", "#073642", "#839496"),
+            ("Material",       "#263238", "#314549", "#EEFFFF"),
+            ("Cobalt2",        "#132738", "#18354F", "#FFFFFF"),
+            ("One Dark",       "#282C34", "#3E4451", "#ABB2BF"),
+            ("PaperColor",     "#EEEEEE", "#E4E4E4", "#444444"),
+            ("Gruvbox Dark",   "#282828", "#3C3836", "#EBDBB2"),
+            ("Nord",           "#2E3440", "#434C5E", "#D8DEE9"),
+            ("Pure black",     "#000000", "#000000", "#FFFFFF"),
+            ("Pure white",     "#FFFFFF", "#FFFFFF", "#000000"),
+        ]
+        for (name, background, selection, foreground) in schemes {
+            let theme = TerminalColorTheme(
+                id: name.lowercased().replacingOccurrences(of: " ", with: "-"),
+                displayName: name,
+                backgroundHex: background,
+                foregroundHex: foreground,
+                cursorHex: "#5B7CFA",
+                selectionBackgroundHex: selection,
+                ansiHex: Array(repeating: "#808080", count: 16),
+                source: .imported
+            )
+            let palette = theme.appPalette
+            let plates = AgentIdentityPalette.plates(for: palette)
+            #expect(plates.count == AgentIdentityPalette.slotCount)
+
+            for plate in plates {
+                #expect(LabColorMath.distance(palette.surfaceHex, plate) >= 11,
+                        "\(name): \(plate) sinks into its own card")
+            }
+            for i in plates.indices {
+                for j in plates.indices where j > i {
+                    #expect(deltaE(plates[i], plates[j]) > 7,
+                            "\(name): slots \(i) and \(j) are \(plates[i]) and \(plates[j])")
+                }
             }
         }
     }
