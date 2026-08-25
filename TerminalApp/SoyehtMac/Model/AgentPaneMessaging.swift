@@ -741,6 +741,6 @@ enum AgentPaneInputPlanner {
            sender.handle == "soyeht-control" {
             return "Sent via Soyeht control plane. To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) No reply is required. Instruction: \(body)"
         }
-        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) This is an inter-agent request: do not answer only in this pane, because a local response does not reach the sender. Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }
