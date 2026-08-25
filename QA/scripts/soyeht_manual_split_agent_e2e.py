@@ -947,6 +947,18 @@ def main():
             sender = manual_panes[sender_name]
             recipient = manual_panes[recipient_name]
             token = f"SPLIT-E2E-{run_id}-{index}"
+            # Inbox persistence can prove that the previous reply exists a
+            # fraction of a second before the sender TUI finishes rendering
+            # its final answer and returns to the composer. A real user waits
+            # for that transition before typing the next instruction; make the
+            # physical test preserve the same boundary.
+            wait_for_agent_idle(
+                mcp,
+                observer,
+                sender["conversationID"],
+                automation_dir,
+                args.timeout,
+            )
             prompt = natural_prompt(
                 "Sem alterar arquivos e sem criar agentes, subagentes ou panes, "
                 f"envie uma mensagem para o agente [{recipient['handle'].removeprefix('@')}] "
