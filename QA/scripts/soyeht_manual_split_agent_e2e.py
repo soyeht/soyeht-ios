@@ -391,14 +391,20 @@ def focus_pane_without_terminal_mouse(
     """
     # A pane may be logically active while its terminal is not AppKit's first
     # responder (for example after pressing a header button). Raise the exact
-    # disposable window first, then use zoom: this is the same product path a
-    # user gets by emphasizing a pane and it explicitly makes that terminal
-    # the first responder without sending a mouse-reporting packet to the TUI.
+    # disposable window first, then cycle through zoom and back to the grid.
+    # Zoom explicitly makes that terminal the first responder without sending
+    # a mouse-reporting packet to the TUI; unzoom immediately restores every
+    # recipient pane before any inter-agent delivery can be attempted.
     common.raise_soyeht_dev_window(pane["windowID"])
     mcp.tool_emphasize_pane({
         **observer_args(observer, automation_dir, timeout),
         "conversationIDs": [pane["conversationID"]],
         "mode": "zoom",
+    })
+    mcp.tool_emphasize_pane({
+        **observer_args(observer, automation_dir, timeout),
+        "conversationIDs": [pane["conversationID"]],
+        "mode": "unzoom",
     })
     wait_for_active_pane(
         mcp,
