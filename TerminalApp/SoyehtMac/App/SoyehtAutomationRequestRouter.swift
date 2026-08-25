@@ -83,9 +83,9 @@ final class SoyehtAutomationRequestRouter {
     ) async throws -> SoyehtAutomationResult {
         try validateMCPClientContract(request)
         if let source = try? resolveAutomationSource(payload: request.payload),
-           PaneStatusTracker.shared.validatesLaunchOwnership(
-               paneID: source.conversation.id,
-               nonce: request.payload.nonce
+           authenticatesAutomationSource(
+               source.conversation,
+               payload: request.payload
            ) {
             PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
         }

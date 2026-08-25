@@ -484,10 +484,19 @@ def observed_cli_process(pane_id, agent_name, expected_cwd, timeout):
                 continue
             cwd = common.process_cwd(pid)
             if cwd == expected_cwd:
+                environment_keys = {
+                    token.split("=", 1)[0]
+                    for token in head[1].split()
+                    if "=" in token
+                }
                 return {
                     "pid": pid,
                     "cwd": cwd,
                     "agentCommandObserved": agent_name,
+                    "launchNoncePresent": "SOYEHT_LAUNCH_NONCE" in environment_keys,
+                    "claudeChildSessionPresent": (
+                        "CLAUDE_CODE_CHILD_SESSION" in environment_keys
+                    ),
                     "environmentRedacted": True,
                 }
         sleep(0.4)
@@ -814,6 +823,16 @@ def main():
             process = observed_cli_process(
                 pane["conversationID"], agent_name, repo_root, args.timeout
             )
+            require(
+                process["launchNoncePresent"],
+                f"Manual {agent_name} did not inherit SOYEHT_LAUNCH_NONCE.",
+            )
+            if agent_name == "claude":
+                require(
+                    not process["claudeChildSessionPresent"],
+                    "Manual Claude inherited CLAUDE_CODE_CHILD_SESSION and "
+                    "disabled transcript saving.",
+                )
             evidence["panes"].append({
                 "agent": agent_name,
                 "createdBy": "visible Split pane vertically button",

@@ -184,15 +184,18 @@ final class AgentRuntimeIdentityRegistry {
     private var claimsByPane: [Conversation.ID: AgentRuntimeIdentityClaim] = [:]
     private let isProcessAlive: (Int32) -> Bool
     private let processStartTime: (Int32) -> (seconds: UInt64, microseconds: UInt64)?
+    private let processTTYDevice: (Int32) -> UInt32?
     private let persistence: AgentRuntimeIdentityPersisting
 
     init(
         isProcessAlive: @escaping (Int32) -> Bool = AgentRuntimeIdentityRegistry.defaultProcessLiveness,
         processStartTime: @escaping (Int32) -> (seconds: UInt64, microseconds: UInt64)? = AgentRuntimeIdentityRegistry.defaultProcessStartTime,
+        processTTYDevice: @escaping (Int32) -> UInt32? = AgentRuntimeIdentityRegistry.defaultProcessTTYDevice,
         persistence: AgentRuntimeIdentityPersisting = AgentRuntimeIdentityKeychainStore()
     ) {
         self.isProcessAlive = isProcessAlive
         self.processStartTime = processStartTime
+        self.processTTYDevice = processTTYDevice
         self.persistence = persistence
     }
 
@@ -219,12 +222,30 @@ final class AgentRuntimeIdentityRegistry {
         return (info.pbi_start_tvsec, info.pbi_start_tvusec)
     }
 
+    private static func defaultProcessTTYDevice(_ processID: Int32) -> UInt32? {
+        var info = proc_bsdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
+            soyeht_agent_runtime_proc_pidinfo(
+                processID,
+                Int32(PROC_PIDTBSDINFO),
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written == MemoryLayout<proc_bsdinfo>.size,
+              info.e_tdev != 0,
+              info.e_tdev != UInt32.max else { return nil }
+        return info.e_tdev
+    }
+
     @discardableResult
     func claim(
         paneID: Conversation.ID,
         agentName: String,
         instanceID: String,
-        processID: Int
+        processID: Int,
+        expectedTTYDevice: UInt32? = nil
     ) -> AgentRuntimeIdentityClaim? {
         let normalizedAgent = agentName
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -238,6 +259,11 @@ final class AgentRuntimeIdentityRegistry {
               processID <= Int(Int32.max),
               isProcessAlive(Int32(processID)),
               let startedAt = processStartTime(Int32(processID)) else { return nil }
+        if let expectedTTYDevice {
+            guard processTTYDevice(Int32(processID)) == expectedTTYDevice else {
+                return nil
+            }
+        }
         let claim = AgentRuntimeIdentityClaim(
             agentName: normalizedAgent,
             instanceID: normalizedInstance,

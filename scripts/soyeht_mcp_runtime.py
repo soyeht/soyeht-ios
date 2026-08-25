@@ -178,8 +178,10 @@ def synchronize_runtime_identity(active=True, timeout=5.0):
         "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
         "runtimeProcessID": os.getpid(),
     })
-    if not payload.get("nonce") or not (
-        payload.get("sourceConversationID") or payload.get("sourceHandle")
+    if not (
+        payload.get("sourceConversationID")
+        or payload.get("sourceHandle")
+        or payload.get("sourceTTY")
     ):
         return None
     return submit_request(

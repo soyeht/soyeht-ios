@@ -72,6 +72,50 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["runtimeProcessID"], os.getpid())
         self.assertEqual(payload["nonce"], "pane-proof")
 
+    def test_manual_runtime_claim_bootstraps_a_legacy_shell_without_nonce(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        captured = {}
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "claude"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "legacy-runtime-instance"
+
+            def fake_submit(request_type, payload, timeout):
+                captured.update({
+                    "requestType": request_type,
+                    "payload": payload,
+                    "timeout": timeout,
+                })
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "legacy-pane-id",
+                "SOYEHT_HANDLE": "@legacy-pane",
+                "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-automation",
+            }, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(captured["requestType"], "claim_agent_runtime")
+        self.assertEqual(
+            captured["payload"]["sourceConversationID"],
+            "legacy-pane-id",
+        )
+        self.assertEqual(
+            captured["payload"]["runtimeInstanceID"],
+            "legacy-runtime-instance",
+        )
+        self.assertEqual(captured["payload"]["runtimeProcessID"], os.getpid())
+        self.assertNotIn("nonce", captured["payload"])
+
     def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
         globals_ = MODULE["tool_open_file"].__globals__
         original_choose_file = globals_["choose_file"]

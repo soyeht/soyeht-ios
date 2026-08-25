@@ -1213,6 +1213,43 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(registry.claim(for: paneID))
     }
 
+    func testManualRuntimeClaimRequiresTheOwningPaneTTY() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { $0 == 4242 },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            persistence: persistence
+        )
+        let paneID = UUID()
+
+        XCTAssertNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-pane",
+            processID: 4242,
+            expectedTTYDevice: 88
+        ))
+        XCTAssertFalse(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-pane"
+        ))
+
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "owning-pane",
+            processID: 4242,
+            expectedTTYDevice: 77
+        ))
+        XCTAssertTrue(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "owning-pane"
+        ))
+    }
+
     func testManualRuntimeClaimExpiresWhenOwningMCPProcessDies() {
         var live = true
         let persistence = InMemoryAgentRuntimeIdentityPersistence()

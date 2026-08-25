@@ -128,6 +128,50 @@ extension SoyehtAutomationRequestRouter {
         let isAttachable: Bool
     }
 
+    func automationTTYPath(for conversation: Conversation) -> String? {
+        let engineConversationID: String? = {
+            if case .engineLocal(let id) = conversation.commander { return id }
+            return nil
+        }()
+        let livePane = LivePaneRegistry.shared.pane(
+            for: conversation.id
+        ) as? PaneViewController
+        return livePane?.terminalView.localPTYSlaveTTYPathForAutomation
+            ?? engineConversationID.flatMap {
+                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
+            }
+    }
+
+    func automationTTYDevice(for conversation: Conversation) -> UInt32? {
+        guard let ttyPath = automationTTYPath(for: conversation) else {
+            return nil
+        }
+        var metadata = stat()
+        guard stat(ttyPath, &metadata) == 0 else { return nil }
+        return UInt32(metadata.st_rdev)
+    }
+
+    /// A normal managed pane always uses its per-launch nonce. An ordinary
+    /// split-created shell additionally proves the active MCP runtime. For a
+    /// legacy persistent shell whose process predates nonce injection, the
+    /// TTY-bound runtime claim is the possession credential; this narrow
+    /// fallback disappears automatically as soon as the pane has a nonce.
+    func authenticatesAutomationSource(
+        _ source: Conversation,
+        payload: SoyehtAutomationRequest.Payload
+    ) -> Bool {
+        let launchCredentialIsValid = PaneStatusTracker.shared
+            .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
+        guard source.agent.isShell else { return launchCredentialIsValid }
+        guard PaneStatusTracker.shared.validatesRuntimeIdentity(
+            paneID: source.id,
+            agentName: payload.runtimeAgent,
+            instanceID: payload.runtimeInstanceID
+        ) else { return false }
+        return launchCredentialIsValid
+            || PaneStatusTracker.shared.launchOwnershipNonce(for: source.id) == nil
+    }
+
     func resolveAutomationSource(
         payload: SoyehtAutomationRequest.Payload
     ) throws -> AutomationSourceResolution? {
@@ -157,9 +201,6 @@ extension SoyehtAutomationRequestRouter {
             return nil
         }
         for conversation in convStore.all where conversation.content.isTerminal {
-            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController else {
-                continue
-            }
             // `.native` panes answer directly (NativePTY.slaveTTYPath).
             // `.engineLocal` has no local PTY object to ask — its TTY path
             // comes from the engine's create response, cached in
@@ -176,12 +217,7 @@ extension SoyehtAutomationRequestRouter {
             // not a guarantee; record/remove are keyed by the response
             // value everywhere else (EnginePaneAttacher), so the lookup
             // must match.
-            let engineConversationID: String? = {
-                if case .engineLocal(let id) = conversation.commander { return id }
-                return nil
-            }()
-            let candidateTTY = pane.terminalView.localPTYSlaveTTYPathForAutomation
-                ?? engineConversationID.flatMap { EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0) }
+            let candidateTTY = automationTTYPath(for: conversation)
             guard let paneTTY = normalizedTTYName(candidateTTY), paneTTY == tty else {
                 continue
             }
@@ -196,20 +232,8 @@ extension SoyehtAutomationRequestRouter {
         guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
             throw SoyehtAutomationError.agentMessageSourceRequired
         }
-        guard PaneStatusTracker.shared.validatesLaunchOwnership(
-            paneID: source.id,
-            nonce: payload.nonce
-        ) else {
+        guard authenticatesAutomationSource(source, payload: payload) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
-        }
-        if source.agent.isShell {
-            guard PaneStatusTracker.shared.validatesRuntimeIdentity(
-                paneID: source.id,
-                agentName: payload.runtimeAgent,
-                instanceID: payload.runtimeInstanceID
-            ) else {
-                throw SoyehtAutomationError.unauthenticatedAgentSource
-            }
         }
         return source
     }
@@ -217,19 +241,27 @@ extension SoyehtAutomationRequestRouter {
     func resolveAuthenticatedAgentReportSource(
         payload: SoyehtAutomationRequest.Payload
     ) throws -> Conversation {
-        guard let source = try resolveAutomationSource(payload: payload)?.conversation,
-              PaneStatusTracker.shared.validatesLaunchOwnership(
-                  paneID: source.id,
-                  nonce: payload.nonce
-              ) else {
+        guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
-        guard source.agent.isShell else { return source }
+        guard source.agent.isShell else {
+            guard PaneStatusTracker.shared.validatesLaunchOwnership(
+                paneID: source.id,
+                nonce: payload.nonce
+            ) else {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            return source
+        }
         let reportSource = payload.reportSource?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard let runtimeAgent = PaneStatusTracker.shared.runtimeIdentityClaim(
             for: source.id
         )?.agentName,
+              PaneStatusTracker.shared.validatesLaunchOwnership(
+                  paneID: source.id,
+                  nonce: payload.nonce
+              ) || PaneStatusTracker.shared.launchOwnershipNonce(for: source.id) == nil,
               AgentStateReportAttribution.accepts(
                   reportSource: reportSource,
                   currentAgent: runtimeAgent
@@ -244,17 +276,14 @@ extension SoyehtAutomationRequestRouter {
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload)?.conversation,
-              PaneStatusTracker.shared.validatesLaunchOwnership(
-                  paneID: source.id,
-                  nonce: payload.nonce
-              ),
               let runtimeAgent = payload.runtimeAgent?.trimmingCharacters(
                   in: .whitespacesAndNewlines
               ).lowercased(),
               LocalAgentCatalog.agent(named: runtimeAgent) != nil,
               let runtimeInstanceID = payload.runtimeInstanceID,
               !runtimeInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let runtimeProcessID = payload.runtimeProcessID else {
+              let runtimeProcessID = payload.runtimeProcessID,
+              let expectedTTYDevice = automationTTYDevice(for: source) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         if source.agent.isShell {
@@ -263,12 +292,19 @@ extension SoyehtAutomationRequestRouter {
                 agentName: runtimeAgent,
                 instanceID: runtimeInstanceID,
                 processID: runtimeProcessID,
-                nonce: payload.nonce
+                nonce: payload.nonce,
+                expectedTTYDevice: expectedTTYDevice
             ) else {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
             }
-        } else if source.agent.rawValue.lowercased() != runtimeAgent {
-            throw SoyehtAutomationError.unauthenticatedAgentSource
+        } else {
+            guard source.agent.rawValue.lowercased() == runtimeAgent,
+                  PaneStatusTracker.shared.validatesLaunchOwnership(
+                      paneID: source.id,
+                      nonce: payload.nonce
+                  ) else {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
         }
         if let pane = LivePaneRegistry.shared.pane(for: source.id) as? PaneViewController {
             pane.refreshOrchestrationManagerHeaderState(for: source)
@@ -282,19 +318,22 @@ extension SoyehtAutomationRequestRouter {
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let source = try resolveAutomationSource(payload: payload)?.conversation,
-              PaneStatusTracker.shared.validatesLaunchOwnership(
-                  paneID: source.id,
-                  nonce: payload.nonce
-              ),
               let runtimeInstanceID = payload.runtimeInstanceID else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         if source.agent.isShell {
-            _ = PaneStatusTracker.shared.releaseRuntimeIdentity(
+            guard PaneStatusTracker.shared.releaseRuntimeIdentity(
                 paneID: source.id,
                 instanceID: runtimeInstanceID,
                 nonce: payload.nonce
-            )
+            ) else {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+        } else if !PaneStatusTracker.shared.validatesLaunchOwnership(
+            paneID: source.id,
+            nonce: payload.nonce
+        ) {
+            throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         if let pane = LivePaneRegistry.shared.pane(for: source.id) as? PaneViewController {
             pane.refreshOrchestrationManagerHeaderState(for: source)

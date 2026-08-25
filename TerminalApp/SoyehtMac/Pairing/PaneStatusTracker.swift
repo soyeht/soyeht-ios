@@ -168,14 +168,29 @@ final class PaneStatusTracker {
         agentName: String,
         instanceID: String,
         processID: Int,
-        nonce: String?
+        nonce: String?,
+        expectedTTYDevice: UInt32
     ) -> Bool {
-        guard launchOwnership.validates(paneID: paneID, nonce: nonce) else { return false }
+        let launchCredentialIsValid = launchOwnership.validates(
+            paneID: paneID,
+            nonce: nonce
+        )
+        // Shells created before manual-runtime authentication shipped have no
+        // bearer in their already-running environment. They cannot be
+        // retroactively mutated without visibly typing into or restarting the
+        // user's terminal. Bootstrap only that legacy state by proving the
+        // MCP process is attached to this pane's exact controlling TTY. Once
+        // a pane has a launch bearer, a missing/wrong nonce never falls back.
+        let isTTYBoundLegacyBootstrap = launchOwnership.nonce(for: paneID) == nil
+        guard launchCredentialIsValid || isTTYBoundLegacyBootstrap else {
+            return false
+        }
         return runtimeIdentity.claim(
             paneID: paneID,
             agentName: agentName,
             instanceID: instanceID,
-            processID: processID
+            processID: processID,
+            expectedTTYDevice: expectedTTYDevice
         ) != nil
     }
 
@@ -185,7 +200,11 @@ final class PaneStatusTracker {
         instanceID: String,
         nonce: String?
     ) -> Bool {
-        guard launchOwnership.validates(paneID: paneID, nonce: nonce) else { return false }
+        if launchOwnership.nonce(for: paneID) != nil {
+            guard launchOwnership.validates(paneID: paneID, nonce: nonce) else {
+                return false
+            }
+        }
         return runtimeIdentity.release(paneID: paneID, instanceID: instanceID)
     }
 
@@ -213,9 +232,11 @@ final class PaneStatusTracker {
     }
 
     func hasAuthenticatedAgentRuntime(for conversation: Conversation) -> Bool {
-        conversation.content.isTerminal
-            && launchOwnership.nonce(for: conversation.id) != nil
-            && effectiveAgentName(for: conversation) != nil
+        guard conversation.content.isTerminal else { return false }
+        if conversation.agent.isShell {
+            return runtimeIdentity.claim(for: conversation.id) != nil
+        }
+        return launchOwnership.nonce(for: conversation.id) != nil
     }
 
     func markHandshakeTimeout(paneID: Conversation.ID) {
