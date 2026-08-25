@@ -48,6 +48,13 @@ public extension TerminalColorTheme {
                 "neo.shadowDark": "#A6B4C8",
                 "neo.shadowLight": "#FFFFFF",
                 "neo.accentShadow": "#5B7CFA",
+                // As quatro cores de agente originais deste tema, fixadas.
+                // Eram derivadas e mudavam sempre que o codigo de derivacao
+                // mudava, apesar de terem sido aprovadas ha muito.
+                "agent.0": "#D8E0FE",
+                "agent.1": "#CDE7DD",
+                "agent.2": "#F6D6DB",
+                "agent.3": "#EEE3CD",
             ]
         )
     }

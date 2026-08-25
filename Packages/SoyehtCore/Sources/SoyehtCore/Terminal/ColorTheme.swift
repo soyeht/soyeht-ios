@@ -142,3 +142,53 @@ public enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
         )
     }
 }
+
+public extension ColorTheme {
+    /// As quatro cores de agente deste tema, fixadas como dado.
+    ///
+    /// Eram derivadas dos papeis semanticos em tempo de execucao, entao cada
+    /// mudanca no codigo de derivacao restilizava temas que ja estavam
+    /// aprovados. Cor aprovada e dado.
+    var agentPlates: [String] {
+        switch self {
+        case .soyehtDark: return ["#C6EEE1", "#C2F6E9", "#FBD2D2", "#FDE8C4"]
+        case .solarizedDark: return ["#E2E7C2", "#E2E7C2", "#F7CECD", "#EDE3C2"]
+        case .dracula: return ["#D5FEDF", "#D5FEDF", "#FFD6D6", "#FCFEE3"]
+        case .monokai: return ["#EAF8CD", "#E2EDCC", "#F1CBD8", "#EDEDCC"]
+        case .highContrast: return ["#C2FFC2", "#C2FFC2", "#FFC2C2", "#FFFFC2"]
+        }
+    }
+}
+
+public extension ColorTheme {
+    /// Os papeis neumorficos deste tema, fixados como dado.
+    ///
+    /// Eram calculados a partir do fundo em tempo de execucao. Qualquer ajuste
+    /// nesse calculo restilizava temas ja aprovados sem que ninguem pedisse.
+    /// Estes valores sao exatamente os que o calculo produzia — nada mudou de
+    /// aparencia ao fixa-los.
+    var neoRoles: [String: String] {
+        switch self {
+        case .soyehtDark:
+            return ["neo.surface": "#0A0A0A", "neo.well": "#000000",
+                    "neo.shadowDark": "#000000", "neo.shadowLight": "#141414",
+                    "neo.accentShadow": "#10B981"]
+        case .solarizedDark:
+            return ["neo.surface": "#0A333E", "neo.well": "#00232C",
+                    "neo.shadowDark": "#00181E", "neo.shadowLight": "#143C46",
+                    "neo.accentShadow": "#859900"]
+        case .dracula:
+            return ["neo.surface": "#31333E", "neo.well": "#21222C",
+                    "neo.shadowDark": "#16171E", "neo.shadowLight": "#393B46",
+                    "neo.accentShadow": "#50FA7B"]
+        case .monokai:
+            return ["neo.surface": "#30312B", "neo.well": "#20211C",
+                    "neo.shadowDark": "#151613", "neo.shadowLight": "#383934",
+                    "neo.accentShadow": "#A6E22E"]
+        case .highContrast:
+            return ["neo.surface": "#0A0A0A", "neo.well": "#000000",
+                    "neo.shadowDark": "#000000", "neo.shadowLight": "#141414",
+                    "neo.accentShadow": "#00FF00"]
+        }
+    }
+}

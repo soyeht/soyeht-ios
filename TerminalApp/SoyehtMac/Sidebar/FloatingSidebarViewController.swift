@@ -87,7 +87,6 @@ final class FloatingSidebarViewController: NSViewController {
         let neo = MacSurface.style == .neomorphic
         root.applyStyle(
             fill: MacTheme.sidebarBg,
-            gradient: neo ? (MacTheme.neoConvexStart, MacTheme.neoConvexEnd) : nil,
             cornerRadius: neo ? MacSurface.Radius.panel : 0,
             shadows: MacSurface.Shadows.sidebarPanelSet
         )

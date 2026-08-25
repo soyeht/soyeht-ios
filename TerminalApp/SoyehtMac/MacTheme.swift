@@ -96,23 +96,10 @@ enum MacTheme {
     static var neoWell: NSColor { nsColor(neoColors.wellHex) }
     /// Down-right soft shadow cast by a raised surface.
     static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
-    /// Softened dark shadow for DARK surfaces on the light canvas (terminal
-    /// screens): the full-strength tint hugs a dark edge like a smudge, so
-    /// it is blended halfway toward the canvas — the card's own contrast
-    /// plus the white rim do the separating.
-    static var neoShadowDarkSoft: NSColor {
-        nsColor(HexColorMath.mix(neoColors.shadowDarkHex, appPalette.backgroundHex, t: 0.55))
-    }
     /// Up-left soft highlight cast by a raised surface.
     static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
     /// Colored glow behind accent-filled controls (apply alpha at call site).
     static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
-
-    /// Pane header pill (reference: pastel accent tint floating inside the
-    /// light frame, e.g. `#D9E4FA` on the blue variant).
-    static var neoHeaderPill: NSColor {
-        nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
-    }
 
     /// How many agent identity colors a theme carries.
     static var neoHeaderPastelCount: Int { AgentIdentityPalette.slotCount }
@@ -128,14 +115,6 @@ enum MacTheme {
         AgentIdentityPalette.plates(for: TerminalColorTheme.active).map(nsColor)
     }
 
-    /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
-    /// Light source top-left, so a raised surface is lighter at the start
-    /// and settles slightly darker at the bottom-right.
-    static var neoConvexStart: NSColor { nsColor(HexColorMath.lighten(neoColors.raisedSurfaceHex, by: 0.35)) }
-    static var neoConvexEnd: NSColor { nsColor(HexColorMath.darken(neoColors.raisedSurfaceHex, by: 0.08)) }
-    /// Concave (pressed) variant — same pair, reversed.
-    static var neoConcaveStart: NSColor { neoConvexEnd }
-    static var neoConcaveEnd: NSColor { neoConvexStart }
 }
 
 private extension NSColor {

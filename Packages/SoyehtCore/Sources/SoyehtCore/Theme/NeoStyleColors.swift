@@ -1,13 +1,18 @@
 import Foundation
 
-/// Neumorphism-specific color roles.
+/// Neumorphism-specific colour roles: the raised surface, the recessed well,
+/// the light/dark shadow pair and the accent glow.
 ///
-/// Neumorphic depth comes from a raised surface near the background color plus
-/// a pair of soft shadows (dark cast down-right, light cast up-left) and
-/// recessed "wells". These roles don't exist in `SoyehtAppPalette`, so they are
-/// derived here from the chrome background — or taken verbatim from a curated
-/// preset via reserved `extraHexColors` keys (`neo.surface`, `neo.well`,
-/// `neo.shadowDark`, `neo.shadowLight`, `neo.accentShadow`).
+/// **Every one of these is read, never computed.** A theme states them under
+/// the reserved `neo.*` keys and this type hands them back.
+///
+/// They used to be derived from the chrome background — lighten by 0.35, darken
+/// by 0.26, and so on — for any theme that did not pin them. Five themes never
+/// pinned them, so each adjustment to those constants restyled themes whose
+/// colours had been chosen and approved, with nothing in the code or the tests
+/// marking it as a change. Approved colour is data. A theme that ships without
+/// these keys gets the neutral fallback below, which reads nothing from the
+/// theme and so cannot drift with it.
 public struct NeoStyleColors: Equatable, Sendable {
     public let raisedSurfaceHex: String
     public let wellHex: String
@@ -18,22 +23,20 @@ public struct NeoStyleColors: Equatable, Sendable {
     public let accentShadowHex: String
 
     public init(theme: TerminalColorTheme) {
-        let palette = theme.appPalette
         let extra = theme.extraHexColors
-        let background = palette.backgroundHex
-        let isDark = palette.isDark
-
-        raisedSurfaceHex = extra["neo.surface"]
-            ?? (isDark ? HexColorMath.lighten(background, by: 0.04)
-                       : HexColorMath.lighten(background, by: 0.35))
-        wellHex = extra["neo.well"]
-            ?? HexColorMath.darken(background, by: isDark ? 0.18 : 0.06)
-        shadowDarkHex = extra["neo.shadowDark"]
-            ?? HexColorMath.darken(background, by: isDark ? 0.45 : 0.26)
-        shadowLightHex = extra["neo.shadowLight"]
-            ?? (isDark ? HexColorMath.lighten(background, by: 0.08) : "#FFFFFF")
-        accentShadowHex = extra["neo.accentShadow"] ?? palette.accentHex
+        raisedSurfaceHex = extra["neo.surface"] ?? Self.fallback.surface
+        wellHex = extra["neo.well"] ?? Self.fallback.well
+        shadowDarkHex = extra["neo.shadowDark"] ?? Self.fallback.shadowDark
+        shadowLightHex = extra["neo.shadowLight"] ?? Self.fallback.shadowLight
+        accentShadowHex = extra["neo.accentShadow"] ?? theme.appPalette.accentHex
     }
+
+    /// Used only by a theme that states none of its own — an imported or user
+    /// theme. Fixed, and identical for every such theme.
+    static let fallback = (
+        surface: "#31333E", well: "#21222C",
+        shadowDark: "#16171E", shadowLight: "#393B46"
+    )
 }
 
 public extension TerminalColorTheme {

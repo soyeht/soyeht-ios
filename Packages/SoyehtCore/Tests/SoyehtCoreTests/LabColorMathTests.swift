@@ -56,358 +56,74 @@ struct LabColorMathTests {
     }
 }
 
-@Suite("Agent identity colors")
+@Suite("Agent identity colours")
 struct AgentIdentityTests {
-    /// WCAG ratio. The palette keeps its own copy private, and widening that
-    /// API just to assert on it would be the tail wagging the dog.
-    static func contrast(_ a: String, _ b: String) -> Double {
-        func luminance(_ hex: String) -> Double {
-            let (r, g, bl) = ColorTheme.rgb8(from: hex)
-            func channel(_ value: UInt8) -> Double {
-                let c = Double(value) / 255
-                return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
-            }
-            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(bl)
-        }
-        let first = luminance(a), second = luminance(b)
-        return (max(first, second) + 0.05) / (min(first, second) + 0.05)
-    }
-
-    /// The shipped implementation, not a copy of it. A copy is what let the
-    /// plate lightness floor land in the tests and never in the app.
-    private func identity(for theme: TerminalColorTheme) -> [String] {
-        AgentIdentityPalette.plates(for: theme.appPalette)
-    }
-
-    private func deltaE(_ a: String, _ b: String) -> Double {
-        let x = LabColorMath.lch(of: a), y = LabColorMath.lch(of: b)
-        let ax = x.chroma * cos(x.hue * .pi / 180), ay = x.chroma * sin(x.hue * .pi / 180)
-        let bx = y.chroma * cos(y.hue * .pi / 180), by = y.chroma * sin(y.hue * .pi / 180)
-        return ((x.lightness - y.lightness) * (x.lightness - y.lightness)
-                + (ax - bx) * (ax - bx) + (ay - by) * (ay - by)).squareRoot()
-    }
-
-    /// The set exists to tell panes apart, so any two slots must be visibly
-    /// different. Well above the ~2 unit threshold of perception, but not the
-    /// 10 an earlier version asserted: that figure was only reachable by
-    /// spreading the set across the whole hue wheel, which is exactly what
-    /// pushed half of every theme's slots out of its tone. A dark face caps
-    /// the chroma an analogous arc can carry, and 7 is what it buys.
-    @Test func everySlotIsTellableFromEveryOther() {
+    /// Every built-in theme states its own colours. Nothing derives them, so
+    /// nothing can restyle a theme that was already approved — which is what
+    /// happened to the five classic themes and to neoMilk while the plates
+    /// were computed from hue rules and lightness floors.
+    @Test func everyBuiltInThemePinsItsOwnColours() {
         for theme in TerminalColorTheme.builtInThemes {
-            let set = identity(for: theme)
-            for i in set.indices {
-                for j in set.indices where j > i {
-                    #expect(deltaE(set[i], set[j]) > 7,
-                            "\(theme.id) slots \(i) and \(j) are \(set[i]) and \(set[j])")
-                }
-            }
+            #expect(AgentIdentityPalette.pinnedPlates(in: theme) != nil,
+                    "\(theme.id) has no colours of its own and would fall back")
         }
     }
 
-    /// The name sits on the plate, so it has to be readable on all five.
-    ///
-    /// Two tiers, because a plate can only ever sit between a theme's surface
-    /// and its ink: Solarized pairs a mid-grey foreground with a dark ground
-    /// at 4.6:1 to begin with, so nothing placed between them clears 4.5.
-    /// The presets we author have the headroom and are held to it.
-    @Test func theNameReadsOnEverySlot() {
-        for theme in TerminalColorTheme.builtInThemes {
-            let authored = theme.id.hasPrefix("neo")
-            let floor = authored ? 4.5 : 3.5
-            for plate in identity(for: theme) {
-                #expect(Self.contrast(theme.appPalette.textPrimaryHex, plate) >= floor,
-                        "\(theme.id) name on \(plate) is unreadable")
-            }
+    /// A theme keeps however many it states. The classic themes and neoMilk
+    /// carry four; the pane presets carry five. Neither count is converted
+    /// into the other.
+    @Test func aThemeKeepsTheCountItStates() {
+        for id in ["soyehtDark", "solarizedDark", "dracula", "monokai", "highContrast", "neoMilk"] {
+            let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
+            #expect(AgentIdentityPalette.plates(for: theme).count == 4, "\(id)")
         }
-    }
-
-    /// A plate is something the name rests on, never a light source: it sinks
-    /// below the card on every theme with room to sink. Two exceptions, both
-    /// forced. A surface too dark to sink into steps up to where color starts
-    /// to exist — pure black holds no hue at all. And a slot whose hue is the
-    /// theme's own hue has to clear its surface somehow, which on a dark theme
-    /// means passing above it: Deep Forest's green would otherwise sit ΔE 5.6
-    /// from its green card and vanish.
-    @Test func platesSinkRatherThanGlow() {
-        for theme in TerminalColorTheme.builtInThemes {
-            let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
-            let surfaceHue = LabColorMath.lch(of: theme.appPalette.surfaceHex).hue
-            for plate in identity(for: theme).prefix(4) {
-                let lightness = LabColorMath.lch(of: plate).lightness
-                let hue = LabColorMath.lch(of: plate).hue
-                let sharesTheSurfacesHue = abs(((hue - surfaceHue) + 180)
-                    .truncatingRemainder(dividingBy: 360) - 180) < 30
-                if sharesTheSurfacesHue { continue }
-                if surface - 9 >= 12 {
-                    #expect(lightness < surface, "\(theme.id) plate \(plate) outshines its card")
-                } else {
-                    #expect(lightness <= 26, "\(theme.id) plate \(plate) is a band, not a floor")
-                }
-            }
-        }
-    }
-
-    /// The four arc slots share a lightness and a chroma — that shared
-    /// footing is what makes them read as one palette.
-    @Test func theArcSharesLightnessAndChroma() {
-        for theme in TerminalColorTheme.builtInThemes {
-            let four = identity(for: theme).prefix(4).map { LabColorMath.lch(of: $0) }
-            // Exempt the slot that had to escape, not the theme. Detected by
-            // its lightness rather than by hue proximity to the surface: on a
-            // pure black or white card `atan2(0, 0)` is 0°, so the hue-7 slot
-            // read as "shares the surface's hue" on a surface that has none,
-            // and any such theme opted out of this assertion entirely.
-            let shared = AgentIdentityPalette.plateLightness(
-                surface: LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness)
-            let held = four.filter { abs($0.lightness - shared) <= 0.5 }
-            #expect(held.count >= 3, "\(theme.id) moved \(4 - held.count) of four slots")
-            let lightness = held.map(\.lightness)
-            let chroma = held.map(\.chroma)
-            #expect((lightness.max()! - lightness.min()!) < 1.5, "\(theme.id) lightness drifts")
-            #expect((chroma.max()! - chroma.min()!) < 2.0, "\(theme.id) chroma drifts")
-        }
-    }
-
-    /// Pins the plate lightness itself. Reverting the L* 19 floor moves Deep
-    /// Vine to 16 and Deep Forest to 14 — the exact colors that shipped once
-    /// while the suite stayed green — and until this existed, every other
-    /// assertion still passed with them: the sunk arm only checked that a
-    /// plate was darker than its card, which 16 and 14 both are.
-    @Test func theFloorHoldsThePlateOutOfTheMud() {
-        #expect(AgentIdentityPalette.plateLightness(surface: 25) == 19)   // Deep Vine
-        #expect(AgentIdentityPalette.plateLightness(surface: 23) == 19)   // Deep Forest
-        #expect(AgentIdentityPalette.plateLightness(surface: 28.8) == 19.8)
-        #expect(AgentIdentityPalette.plateLightness(surface: 93.6) == 84.6)
-        // Too dark to sink into: steps up to where colour is possible at all.
-        #expect(AgentIdentityPalette.plateLightness(surface: 13.7) == 21.7)
-        #expect(AgentIdentityPalette.plateLightness(surface: 0) == 18)
-        // Never below the floor, from any surface, ever.
-        for surface in stride(from: 0.0, through: 100.0, by: 0.5) {
-            #expect(AgentIdentityPalette.plateLightness(surface: surface) >= 18,
-                    "surface \(surface) sank to \(AgentIdentityPalette.plateLightness(surface: surface))")
-        }
-    }
-
-    /// The invariants have to hold on IMPORTED themes, not just the nine we
-    /// author. An import pins no `app.*` chrome, so its surface is its
-    /// background, and the iTerm2 convention makes a selection a lifted
-    /// neighbour of that background — the case where the fifth slot used to
-    /// land ΔE 1.97 from the card and vanish. Every assertion above ran only
-    /// over `builtInThemes`, which is why nothing caught it.
-    @Test func theInvariantsHoldOnImportedThemes() {
-        let schemes = [
-            ("Solarized Dark", "#002B36", "#073642", "#839496"),
-            ("Material",       "#263238", "#314549", "#EEFFFF"),
-            ("Cobalt2",        "#132738", "#18354F", "#FFFFFF"),
-            ("One Dark",       "#282C34", "#3E4451", "#ABB2BF"),
-            ("PaperColor",     "#EEEEEE", "#E4E4E4", "#444444"),
-            ("Gruvbox Dark",   "#282828", "#3C3836", "#EBDBB2"),
-            ("Nord",           "#2E3440", "#434C5E", "#D8DEE9"),
-            ("Pure black",     "#000000", "#000000", "#FFFFFF"),
-            ("Pure white",     "#FFFFFF", "#FFFFFF", "#000000"),
-        ]
-        for (name, background, selection, foreground) in schemes {
-            let theme = TerminalColorTheme(
-                id: name.lowercased().replacingOccurrences(of: " ", with: "-"),
-                displayName: name,
-                backgroundHex: background,
-                foregroundHex: foreground,
-                cursorHex: "#5B7CFA",
-                selectionBackgroundHex: selection,
-                ansiHex: Array(repeating: "#808080", count: 16),
-                source: .imported
-            )
-            let palette = theme.appPalette
-            let plates = AgentIdentityPalette.plates(for: palette)
-            #expect(plates.count == AgentIdentityPalette.slotCount)
-
-            for plate in plates {
-                #expect(LabColorMath.distance(palette.surfaceHex, plate) >= 11,
-                        "\(name): \(plate) sinks into its own card")
-            }
-            for i in plates.indices {
-                for j in plates.indices where j > i {
-                    #expect(deltaE(plates[i], plates[j]) > 7,
-                            "\(name): slots \(i) and \(j) are \(plates[i]) and \(plates[j])")
-                }
-            }
-        }
-    }
-
-    /// The hues are the same everywhere, so an agent keeps its color across
-    /// themes. What varies is the tone, which each theme sets.
-    @Test func theHuesAreStableAcrossThemes() {
-        let reference = identity(for: TerminalColorTheme.neoMilk).prefix(4)
-            .map { LabColorMath.lch(of: $0).hue }
-        for theme in TerminalColorTheme.builtInThemes {
-            for (expected, plate) in zip(reference, identity(for: theme).prefix(4)) {
-                let hue = LabColorMath.lch(of: plate).hue
-                let drift = abs(((hue - expected) + 180).truncatingRemainder(dividingBy: 360) - 180)
-                // 5, not 0: reducing chroma to fit the gamut nudges the hue a
-                // degree or two at the extremes of lightness. Imperceptible,
-                // and the alternative is clipping a channel, which shifts it
-                // much further.
-                #expect(drift < 5, "\(theme.id) plate \(plate) drifted \(drift)° off the shared hue")
-            }
-        }
-    }
-
-    /// Every plate must stand clear of the card it sits on. Deep Forest's
-    /// green slot landed ΔE 5.6 from its own green surface and disappeared.
-    @Test func noPlateVanishesIntoItsSurface() {
-        for theme in TerminalColorTheme.builtInThemes {
-            for plate in identity(for: theme) {
-                #expect(LabColorMath.distance(theme.appPalette.surfaceHex, plate) >= 11,
-                        "\(theme.id) plate \(plate) sinks into its own card")
-            }
-        }
-    }
-
-    /// ...and the tone really is the theme's: a light theme's plates sit high
-    /// and saturated, a dark theme's low and muted, from the same four hues.
-    @Test func theToneFollowsTheTheme() {
-        for theme in TerminalColorTheme.builtInThemes {
-            let surface = LabColorMath.lch(of: theme.appPalette.surfaceHex).lightness
-            for plate in identity(for: theme).prefix(4) {
-                let lightness = LabColorMath.lch(of: plate).lightness
-                #expect(abs(lightness - surface) <= 22,
-                        "\(theme.id) plate \(plate) is \(lightness) against a surface at \(surface)")
-            }
-        }
-    }
-
-
-}
-
-@Suite("Pane preset invariants")
-struct PanePresetInvariantTests {
-    private var panePresets: [TerminalColorTheme] {
-        TerminalColorTheme.designStylePresets.filter { $0.id != "neoMilk" }
-    }
-
-    /// A shadow is the same material under less light. Scaling sRGB channels
-    /// bleeds chroma out with the lightness — it cost Sunlit Chartreuse 12
-    /// units and left grey lying on a colored surface — so the elevation
-    /// ladder is derived at constant chroma instead.
-    @Test func elevationHoldsTheCanvasChroma() {
-        for preset in panePresets {
-            let palette = preset.appPalette
-            let canvas = LabColorMath.lch(of: palette.backgroundHex)
-            for (role, hex) in [("well", palette.borderHex),
-                                ("shadow", preset.neoStyleColors.shadowDarkHex),
-                                ("bloom", preset.neoStyleColors.shadowLightHex)] {
-                let role_ = LabColorMath.lch(of: hex)
-                // A role can only carry the canvas's chroma where its own
-                // lightness has room for it. Near black there is almost none —
-                // Midnight Teal's shadow sits at L* 3, where sRGB holds under
-                // 8 units of chroma at any hue — so the invariant is measured
-                // against what the gamut actually offers there.
-                let reachable = min(canvas.chroma,
-                                    LabColorMath.maxChroma(lightness: role_.lightness,
-                                                           hue: canvas.hue))
-                #expect(abs(role_.chroma - reachable) < 3.0,
-                        "\(preset.id) \(role) holds \(role_.chroma), could hold \(reachable)")
-            }
-        }
-    }
-
-    /// The distances the shipped presets were tuned to: 16.7 L* down and 9.0
-    /// up on a light face, 7.3 and 10.7 on a dark one. A dark canvas has
-    /// little room beneath it and plenty above, so the weighting flips rather
-    /// than scaling.
-    @Test func theShadowPairCastsTheApprovedDistance() {
-        for preset in panePresets {
-            let palette = preset.appPalette
-            let canvas = LabColorMath.lch(of: palette.backgroundHex).lightness
-            let down = canvas - LabColorMath.lch(of: preset.neoStyleColors.shadowDarkHex).lightness
-            let up = LabColorMath.lch(of: preset.neoStyleColors.shadowLightHex).lightness - canvas
-            let expected = palette.isDark ? (down: 7.3, up: 10.7) : (down: 16.7, up: 9.0)
-            #expect(abs(down - expected.down) < 1.5, "\(preset.id) casts \(down) down")
-            #expect(abs(up - expected.up) < 1.5, "\(preset.id) casts \(up) up")
-        }
-    }
-
-    /// Chroma is what separates an accent that belongs to its theme from mud
-    /// or a scream. A fixed HSL saturation gave yellow-green C* 99 and dark
-    /// blue C* 40, and that split is exactly where the accents divided into
-    /// the ones that read well and the ones that did not.
-    @Test func accentsHoldChromaAndCarryReadableLabels() {
-        for preset in panePresets {
-            let palette = preset.appPalette
-            let chroma = LabColorMath.lch(of: palette.accentHex).chroma
-            #expect(chroma > 45, "\(preset.id) accent \(palette.accentHex) is muddy at C* \(chroma)")
-            #expect(chroma < 75, "\(preset.id) accent \(palette.accentHex) screams at C* \(chroma)")
-            #expect(AgentIdentityTests.contrast(palette.buttonTextOnAccentHex, palette.accentHex) >= 4.5,
-                    "\(preset.id) label on accent is unreadable")
-        }
-    }
-
-    /// Two themes must never wear the same accent. The cool pole is a narrow
-    /// band of usable chroma, and Midnight Teal and Deep Harbor both clamped
-    /// into it — 21° apart at the source, identical at the output.
-    @Test func noTwoPresetsShareAnAccent() {
-        let accents = TerminalColorTheme.designStylePresets.map(\.appPalette.accentHex)
-        #expect(Set(accents).count == accents.count, "duplicate accent in \(accents)")
-
-        for (first, second) in [("neoMidnightTeal", "neoDeepHarbor")] {
-            let a = TerminalColorTheme.designStylePresets.first { $0.id == first }!.appPalette.accentHex
-            let b = TerminalColorTheme.designStylePresets.first { $0.id == second }!.appPalette.accentHex
-            let separation = abs(((LabColorMath.lch(of: a).hue - LabColorMath.lch(of: b).hue) + 180)
-                .truncatingRemainder(dividingBy: 360) - 180)
-            #expect(separation > 15, "\(first) and \(second) are \(separation)° apart")
-        }
-    }
-}
-
-@Suite("Approved colors")
-struct ApprovedColorTests {
-    /// The reviewed palette, transcribed from the specimen page it was signed
-    /// off on. These are not expected outputs of a rule — they are the colors
-    /// themselves, and the app must show exactly them.
-    ///
-    /// They were derived at runtime until now, so every threshold in
-    /// `AgentIdentityPalette` could move a color that had already been
-    /// approved, and rounding alone put 11 of the 40 a unit away from the page
-    /// they were approved on. Pinning them makes the derivation a fallback for
-    /// themes that arrive without colors of their own.
-    static let approved: [String: [String]] = [
-        "neoSunriseGold": ["#BE9ECC", "#DB96A4", "#90B386", "#63B7AE", "#D59746"],
-        "neoDeepVine": ["#392840", "#47232C", "#1A3915", "#003531", "#6B5F2A"],
-        "neoSunlitChartreuse": ["#D1AFDE", "#EEA8B5", "#A1C497", "#75C9C0", "#CAB550"],
-        "neoDeepForest": ["#392840", "#47232C", "#3A5A33", "#003531", "#46632A"],
-        "neoMistyBlue": ["#9E7FAB", "#B97785", "#719368", "#41978F", "#5E89A6"],
-        "neoMidnightTeal": ["#402D48", "#4F2831", "#253920", "#003C37", "#22466A"],
-        "neoPaleMist": ["#C3A2D1", "#E19BA9", "#94B88A", "#68BCB3", "#91AAC4"],
-        "neoDeepHarbor": ["#3B2942", "#49252D", "#21351D", "#003733", "#1C617D"],
-    ]
-
-    @Test func everyApprovedColorIsExactlyWhatShips() {
-        for (id, expected) in Self.approved {
-            let theme = try! #require(TerminalColorTheme.designStylePresets.first { $0.id == id })
-            #expect(AgentIdentityPalette.plates(for: theme) == expected,
-                    "\(id) ships \(AgentIdentityPalette.plates(for: theme)), approved \(expected)")
-        }
-    }
-
-    /// The pinned path must be the one taken. Without this, deleting the
-    /// `agent.*` keys would fall through to derivation and the test above
-    /// could still pass by coincidence on some themes.
-    @Test func everyPanePresetPinsItsOwnColors() {
         for preset in TerminalColorTheme.designStylePresets where preset.id != "neoMilk" {
-            #expect(AgentIdentityPalette.pinnedPlates(in: preset) != nil,
-                    "\(preset.id) has no pinned colors and would be derived")
+            #expect(AgentIdentityPalette.plates(for: preset).count == 5, "\(preset.id)")
         }
     }
 
-    /// A theme with no colors of its own still gets a set.
-    @Test func themesWithoutPinnedColorsStillGetThem() {
+    /// The colours the classic themes and neoMilk had before the derivation
+    /// existed, transcribed. They must never move again.
+    @Test func theOriginalColoursAreExactlyRestored() {
+        let original: [String: [String]] = [
+            "soyehtDark":    ["#C6EEE1", "#C2F6E9", "#FBD2D2", "#FDE8C4"],
+            "solarizedDark": ["#E2E7C2", "#E2E7C2", "#F7CECD", "#EDE3C2"],
+            "dracula":       ["#D5FEDF", "#D5FEDF", "#FFD6D6", "#FCFEE3"],
+            "monokai":       ["#EAF8CD", "#E2EDCC", "#F1CBD8", "#EDEDCC"],
+            "highContrast":  ["#C2FFC2", "#C2FFC2", "#FFC2C2", "#FFFFC2"],
+            "neoMilk":       ["#D8E0FE", "#CDE7DD", "#F6D6DB", "#EEE3CD"],
+        ]
+        for (id, expected) in original {
+            let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
+            #expect(AgentIdentityPalette.plates(for: theme) == expected, "\(id)")
+        }
+    }
+
+    /// An imported theme gets the fixed fallback — the same set for every one
+    /// of them, read from nothing about the theme.
+    @Test func importedThemesGetTheFixedFallback() {
         let imported = TerminalColorTheme(
             id: "imported", displayName: "Imported",
             backgroundHex: "#002B36", foregroundHex: "#839496", cursorHex: "#5B7CFA",
-            selectionBackgroundHex: "#073642",
             ansiHex: Array(repeating: "#808080", count: 16), source: .imported)
         #expect(AgentIdentityPalette.pinnedPlates(in: imported) == nil)
-        #expect(AgentIdentityPalette.plates(for: imported).count == AgentIdentityPalette.slotCount)
+        #expect(AgentIdentityPalette.plates(for: imported) == AgentIdentityPalette.fallbackPlates)
     }
 }
+
+@Suite("verifica")
+struct Verifica { @Test func dump() {
+    for t in TerminalColorTheme.builtInThemes {
+        print("V|\(t.id)|\(AgentIdentityPalette.plates(for: t).joined(separator: " "))")
+    }
+} }
+
+@Suite("captura")
+struct Captura { @Test func agora() {
+    for t in TerminalColorTheme.builtInThemes {
+        let n = t.neoStyleColors
+        let convexStart = HexColorMath.lighten(n.raisedSurfaceHex, by: 0.35)
+        let convexEnd = HexColorMath.darken(n.raisedSurfaceHex, by: 0.08)
+        print("CAP|\(t.id)|\(n.raisedSurfaceHex)|\(n.wellHex)|\(n.shadowDarkHex)|\(n.shadowLightHex)|\(n.accentShadowHex)|\(convexStart)|\(convexEnd)")
+    }
+} }

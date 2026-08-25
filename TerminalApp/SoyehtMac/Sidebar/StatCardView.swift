@@ -30,7 +30,6 @@ final class StatCardView: NSView {
             ])
             backdrop.applyStyle(
                 fill: MacTheme.neoSurface,
-                gradient: (MacTheme.neoConvexStart, MacTheme.neoConvexEnd),
                 cornerRadius: MacSurface.Radius.card,
                 shadows: MacSurface.Shadows.raisedSmallSet
             )
