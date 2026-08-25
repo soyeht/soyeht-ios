@@ -373,7 +373,7 @@ struct AgentIdentityTests {
     }
 
     /// A theme the style wears has to have plates to hand out.
-    @Test func everyWorntThemeHasPlates() {
+    @Test func everyWornThemeHasPlates() {
         for theme in TerminalColorTheme.builtInThemes where DesignStyle.neomorphic.canWear(theme) {
             #expect(AgentIdentityPalette.plates(for: theme).count >= 4, "\(theme.id)")
         }
@@ -390,6 +390,68 @@ struct AgentIdentityTests {
             "neoDeepForest", "neoMistyBlue", "neoMidnightTeal", "neoPaleMist",
             "neoDeepHarbor",
         ], "worn: \(worn.sorted())")
+    }
+
+    /// Every role the gate names is load-bearing: drop any ONE of them from a
+    /// theme that otherwise states them all and neomorphic must refuse it.
+    ///
+    /// The theme-set test above cannot show this. The five terminal themes
+    /// state no roles at all and the nine presets state every one, so that
+    /// test passes just as happily with a gate weakened to a single role —
+    /// verified by weakening it, which left all 1242 green.
+    @Test func droppingAnySingleRoleMakesAThemeUnwearable() {
+        let complete = try! #require(
+            TerminalColorTheme.builtInThemes.first { $0.id == "neoDeepHarbor" })
+        #expect(DesignStyle.neomorphic.canWear(complete))
+        // Named here, NOT read from the gate. Iterating the gate's own list
+        // is what made the first version of this test worthless: weaken the
+        // gate to one role and the loop dutifully tests that one role and
+        // passes. These are the roles neomorphic chrome actually paints, and
+        // the list is the assertion.
+        let mustState = [
+            "neo.surface", "neo.well", "neo.shadowDark", "neo.shadowLight",
+            "neo.wellShadow", "neo.wellRim", "neo.accentShadow",
+            "app.background", "app.surface", "app.accent",
+            "app.textPrimary", "app.textSecondary", "app.textMuted",
+            "agent.0", "agent.1", "agent.2", "agent.3",
+        ]
+        for role in mustState {
+            var roles = complete.extraHexColors
+            roles.removeValue(forKey: role)
+            let missing = TerminalColorTheme(
+                id: "missing-\(role)", displayName: "missing", backgroundHex: complete.backgroundHex,
+                foregroundHex: complete.foregroundHex, cursorHex: complete.cursorHex,
+                ansiHex: complete.ansiHex, source: .imported, extraHexColors: roles)
+            #expect(!DesignStyle.neomorphic.canWear(missing),
+                    "neomorphic wears a theme stating no \(role)")
+        }
+    }
+
+    /// Saving a theme must not lose a single role. `validated()` folds keys
+    /// into a canonical shape and used to fold the app's own out of
+    /// existence: it lowercased and de-dotted, so `neo.surface` became
+    /// `neo-surface` and `neo.shadowDark` became `neo-shadowdark`. Nothing
+    /// reads either. Customising a neo preset and pressing Save produced a
+    /// byte-identical copy the style would no longer wear.
+    @Test func savingAThemeKeepsEveryRoleItStates() throws {
+        for theme in TerminalColorTheme.builtInThemes {
+            let saved = try theme.validated()
+            #expect(saved.extraHexColors == theme.extraHexColors, "\(theme.id)")
+            #expect(DesignStyle.neomorphic.canWear(saved)
+                    == DesignStyle.neomorphic.canWear(theme), "\(theme.id)")
+            #expect(AgentIdentityPalette.plates(for: saved)
+                    == AgentIdentityPalette.plates(for: theme), "\(theme.id)")
+        }
+    }
+
+    /// A key from someone else's file is still folded — that is what the
+    /// normalisation is for, and only the app's own reserved keys skip it.
+    @Test func aForeignKeyIsStillFolded() {
+        #expect(TerminalColorTheme.normalizedMetadataKey("Ansi Bright Black") == "ansi-bright-black")
+        #expect(TerminalColorTheme.normalizedMetadataKey("  Foo_Bar  ") == "foo-bar")
+        #expect(TerminalColorTheme.normalizedMetadataKey("neo.surface") == "neo.surface")
+        #expect(TerminalColorTheme.normalizedMetadataKey("neo.shadowDark") == "neo.shadowDark")
+        #expect(TerminalColorTheme.normalizedMetadataKey("agent.4") == "agent.4")
     }
 
     /// Classic wears everything, including the five terminal themes and any

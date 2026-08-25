@@ -347,7 +347,23 @@ class PreferencesViewController: NSViewController {
         guard let theme = themePopUp.selectedItem?.representedObject as? TerminalColorTheme else { return }
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
+        // The active style is a function of the theme — a theme stating the
+        // roles neomorphic paints brings it back, one that does not sends it
+        // to classic. Both popups have to say what the app is actually doing,
+        // and the theme list itself changes with the style. Without this the
+        // whole chrome could switch to neomorphic while Style still read
+        // Classic, and the themes the user could no longer choose stayed in
+        // the list until the window was reopened.
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+    }
+
+    /// Re-reads both popups from what the app resolves, and reselects. Style
+    /// and theme constrain each other, so a change to either can move the
+    /// other and can change which themes are offered at all.
+    private func refreshStyleAndThemeLists() {
+        populateThemes()
+        loadCurrentValues()
         updateDeleteButton()
     }
 
@@ -365,9 +381,12 @@ class PreferencesViewController: NSViewController {
            let wearable = DesignStyle.themes(
                for: style, from: TerminalThemeStore.shared.allThemes()).first {
             TerminalThemeStore.shared.setActiveTheme(id: wearable.id)
+            // Forcing a theme has to carry the cursor with it, the way every
+            // other theme-setting path here does. Left out, the cursor kept
+            // the previous theme's colour until the picker was touched again.
+            prefs.cursorColorHex = wearable.cursorHex
         }
-        populateThemes()
-        loadCurrentValues()
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
@@ -544,10 +563,14 @@ class PreferencesViewController: NSViewController {
     }
 
     private func selectAndApplyTheme(_ theme: TerminalColorTheme) {
-        populateThemes()
+        // Apply BEFORE repopulating. The theme decides the style and the style
+        // decides which themes are listed, so building the list first builds it
+        // from the outgoing state: importing a theme while neomorphic left the
+        // popup listing the nine neo themes with the new one absent, showing
+        // whichever happened to be first while the app ran the imported one.
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
-        loadCurrentValues()
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 

@@ -144,15 +144,6 @@ enum MacSurface {
         // to the background, never from low alpha. Offsets are in unflipped
         // AppKit layer coordinates (negative height casts downward).
 
-        /// Dual pair for floating panels (sidebar, drawer). 9pt offset /
-        /// 18pt blur — the classic "9px 9px 18px" raised-card recipe, right
-        /// for isolated surfaces with lots of canvas around them.
-        static var neoDark: Shadow {
-            Shadow.neo(color: MacTheme.neoShadowDark, offset: CGSize(width: 9, height: -9), blur: 18)
-        }
-        static var neoLight: Shadow {
-            Shadow.neo(color: MacTheme.neoShadowLight, offset: CGSize(width: -9, height: 9), blur: 18)
-        }
 
         /// Single ambient lift for DARK cards on the light canvas (terminal
         /// screens). Neumorphic tinted pairs belong to light surfaces only —

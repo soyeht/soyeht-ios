@@ -39,12 +39,17 @@ public enum DesignStyle: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// The roles neomorphic chrome paints and cannot invent.
+    /// The roles neomorphic chrome paints and cannot invent. The four agent
+    /// plates are in here for the same reason as the rest: the pane header IS
+    /// a plate under this style, and a theme stating none leaves the header
+    /// nothing to paint — it indexed an empty array and trapped. A fifth
+    /// plate is optional; the eight pane faces carry one and neoMilk does not.
     static let neomorphicRoles = [
         "neo.surface", "neo.well", "neo.shadowDark", "neo.shadowLight",
         "neo.wellShadow", "neo.wellRim", "neo.accentShadow",
         "app.background", "app.surface", "app.accent",
         "app.textPrimary", "app.textSecondary", "app.textMuted",
+        "agent.0", "agent.1", "agent.2", "agent.3",
     ]
 
     /// The persisted style, validated against `available` so a build that
