@@ -9,6 +9,14 @@ import SoyehtCore
 /// launcher name depends on the build; see `SoyehtInstallProfile`.
 enum AIAgentIntegrator {
 
+    /// Existing Soyeht users already have MCP entries in their agent configs.
+    /// Adding runtime identity to the installer alone only fixes fresh
+    /// onboarding and agent switches; a manually launched CLI would keep
+    /// starting the old, anonymous command forever. This version is scoped by
+    /// install profile and agent so a partial failure retries only that agent
+    /// without letting Soyeht Dev touch the release entry (or vice versa).
+    private static let runtimeIdentityConfigVersion = 1
+
     enum Agent: String, CaseIterable, Identifiable, Hashable {
         case claudeCode
         case codex
@@ -90,6 +98,12 @@ enum AIAgentIntegrator {
                 return "Refusing to update malformed JSON config at \(path): \(underlying.localizedDescription)"
             }
         }
+    }
+
+    struct RuntimeIdentityUpgradeSummary {
+        var upgraded: [String] = []
+        var skipped: [String] = []
+        var failed: [String] = []
     }
 
     /// A development build must never share an MCP identity with the release
@@ -191,6 +205,65 @@ enum AIAgentIntegrator {
         if let first = errors.first { throw first }
     }
 
+    /// Surgically upgrades only MCP entries this build already owns. It does
+    /// not connect a new agent, alter another MCP server, or change a pane's
+    /// declared type. Consequently a split pane stays a normal shell pane;
+    /// the next Codex/Claude/OpenCode process merely starts its Soyeht MCP
+    /// subprocess with an explicit runtime identity.
+    static func upgradeExistingRuntimeIdentityConfigurationsIfNeeded()
+        -> RuntimeIdentityUpgradeSummary
+    {
+        let supported: [Agent] = [.claudeCode, .codex, .opencode]
+        let defaults = UserDefaults.standard
+        var summary = RuntimeIdentityUpgradeSummary()
+        var pending: [Agent] = []
+
+        for agent in supported {
+            let key = runtimeIdentityUpgradeDefaultsKey(for: agent)
+            if defaults.integer(forKey: key) >= runtimeIdentityConfigVersion {
+                summary.skipped.append(agent.cliName)
+                continue
+            }
+            do {
+                if try hasExistingOwnedMCPEntry(for: agent) {
+                    pending.append(agent)
+                } else {
+                    // A future onboarding/switch uses the current installer,
+                    // which already writes --runtime-agent. There is no legacy
+                    // entry to migrate now.
+                    defaults.set(runtimeIdentityConfigVersion, forKey: key)
+                    summary.skipped.append(agent.cliName)
+                }
+            } catch {
+                summary.failed.append("\(agent.cliName): \(error.localizedDescription)")
+            }
+        }
+
+        guard !pending.isEmpty else { return summary }
+        do {
+            try installLauncher()
+        } catch {
+            let detail = error.localizedDescription
+            summary.failed.append(contentsOf: pending.map { "\($0.cliName): \(detail)" })
+            return summary
+        }
+
+        for agent in pending {
+            do {
+                try writeConfig(for: agent)
+                defaults.set(
+                    runtimeIdentityConfigVersion,
+                    forKey: runtimeIdentityUpgradeDefaultsKey(for: agent)
+                )
+                summary.upgraded.append(agent.cliName)
+            } catch {
+                // Do not mark this agent complete. The next launch retries it.
+                summary.failed.append("\(agent.cliName): \(error.localizedDescription)")
+            }
+        }
+        return summary
+    }
+
     /// Repairs the MCP launcher and config immediately before an in-place
     /// switch. Older installations may still point at a specific app bundle,
     /// pin the release automation directory, or carry a stale tool allowlist.
@@ -260,6 +333,37 @@ enum AIAgentIntegrator {
             try patchOpenCodeJSON(at: configURL)
         case .droid:
             try patchDroidJSON(at: configURL)
+        }
+    }
+
+    private static func runtimeIdentityUpgradeDefaultsKey(for agent: Agent) -> String {
+        "soyeht.mcpRuntimeIdentity.\(SoyehtInstallProfile.current.kind.rawValue).\(agent.cliName).version"
+    }
+
+    /// Detection is deliberately ownership-scoped. A config file or CLI being
+    /// present is not consent to add Soyeht; only an existing entry under this
+    /// build's namespaced key is eligible for automatic migration.
+    private static func hasExistingOwnedMCPEntry(for agent: Agent) throws -> Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let configURL = agent.configURL(home: home)
+        guard FileManager.default.fileExists(atPath: configURL.path) else { return false }
+        switch agent {
+        case .claudeCode:
+            let root = try readJSONObject(at: configURL)
+            let servers = root["mcpServers"] as? [String: Any]
+            return servers?[launcherKey] != nil
+        case .codex:
+            let source = try String(contentsOf: configURL, encoding: .utf8)
+            let ownedHeader = "[mcp_servers.\(launcherKey)]"
+            return source.split(whereSeparator: { $0.isNewline }).contains {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines) == ownedHeader
+            }
+        case .opencode:
+            let root = try readJSONObject(at: configURL)
+            let servers = root["mcp"] as? [String: Any]
+            return servers?[launcherKey] != nil
+        case .droid:
+            return false
         }
     }
 

@@ -183,6 +183,25 @@ final class MCPLauncherNamingTests: XCTestCase {
         XCTAssertFalse(source.contains("SOYEHT_AGENT_NAME=opencode"))
     }
 
+    func testExistingOwnedConfigsReceiveTheRuntimeIdentityUpgradeAtStartup() throws {
+        let integrator = try macSource("Installer/AIAgentIntegrator.swift")
+        let appDelegate = try macSource("AppDelegate.swift")
+
+        XCTAssertTrue(integrator.contains("upgradeExistingRuntimeIdentityConfigurationsIfNeeded"))
+        XCTAssertTrue(integrator.contains("hasExistingOwnedMCPEntry(for: agent)"))
+        XCTAssertTrue(integrator.contains("let supported: [Agent] = [.claudeCode, .codex, .opencode]"))
+        XCTAssertTrue(integrator.contains("try writeConfig(for: agent)"))
+        XCTAssertTrue(integrator.contains("SoyehtInstallProfile.current.kind.rawValue"))
+        XCTAssertTrue(appDelegate.contains("upgradeExistingRuntimeIdentityConfigurationsIfNeeded()"))
+    }
+
+    func testRuntimeIdentityUpgradeDoesNotTurnSplitPanesIntoManagedAgentPanes() throws {
+        let integrator = try macSource("Installer/AIAgentIntegrator.swift")
+        XCTAssertFalse(integrator.contains("conversation.agent ="))
+        XCTAssertFalse(integrator.contains("switchAgent"))
+        XCTAssertTrue(integrator.contains("only an existing entry under this"))
+    }
+
     func testUninstallerRemovesEveryConfigKeyFromEveryAgent() throws {
         let source = try macSource("Welcome/TheyOSUninstaller.swift")
         XCTAssertTrue(source.contains("for mcpKey in SoyehtInstallProfile.allMCPConfigKeys"))
