@@ -18,7 +18,8 @@ struct TerminalProcessEnvironmentTests {
                 "CLAUDE_EFFORT": "high",
                 "PATH": "/usr/bin:/bin",
             ],
-            cwdPath: "/Users/test/project"
+            cwdPath: "/Users/test/project",
+            isDarkBackground: true
         )
 
         #expect(environment["CLAUDECODE"] == nil)
