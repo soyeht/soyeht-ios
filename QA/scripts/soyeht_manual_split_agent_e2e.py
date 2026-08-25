@@ -112,6 +112,10 @@ on run argv
   tell application "System Events" to tell process "Soyeht Dev"
     set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
     perform action "AXRaise" of targetWindow
+    -- Raising or reconciling a split can invalidate the AXUIElement proxy
+    -- while keeping the same stable window identifier.  Always reacquire it.
+    delay 0.15
+    set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
     set elements to entire contents of targetWindow
     set labelCenterY to missing value
     repeat with elementRef in elements
@@ -184,7 +188,9 @@ on run argv
   tell application "System Events" to tell process "Soyeht Dev"
     set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
     perform action "AXRaise" of targetWindow
+    delay 0.15
     repeat 40 times
+      set targetWindow to first window whose value of attribute "AXIdentifier" is expectedIdentifier
       set matches to {}
       set elements to entire contents of targetWindow
       repeat with elementRef in elements
