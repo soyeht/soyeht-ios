@@ -126,6 +126,14 @@ def detach_external_observer_identity():
         # real CLI subprocesses. This runner is an external observer, so its
         # parent-pane metadata is not an identity claim and must be ignored.
         foundation._PARENT_PROCESS_ENVIRONMENT = {}
+    runtime = sys.modules.get("soyeht_mcp_runtime")
+    if runtime is not None:
+        # A runner launched from an existing Soyeht pane still owns a concrete
+        # TTY.  Treating that TTY as a source claim makes an otherwise-neutral
+        # UI observer fail authentication before its disposable workspace
+        # exists.  Real agents run in separate MCP processes and retain normal
+        # TTY discovery; this override is scoped to the observer process only.
+        runtime.current_tty = lambda: None
 
 
 def require(condition, message):
