@@ -274,12 +274,7 @@ public extension ColorTheme {
             foregroundHex: foregroundHex,
             cursorHex: defaultCursorHex,
             ansiHex: ansiHex,
-            source: .builtIn,
-            extraHexColors: neoRoles.merging(
-                Dictionary(uniqueKeysWithValues:
-                    agentPlates.enumerated().map { ("agent.\($0.offset)", $0.element) }),
-                uniquingKeysWith: { current, _ in current }
-            )
+            source: .builtIn
         )
     }
 

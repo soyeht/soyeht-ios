@@ -48,11 +48,16 @@ final class MacInnerWellShadowView: NSView {
     /// it here. Left unpaid, a stated offset of 3 landed as 2 — a third of
     /// the recess gone before the blur is applied.
     private func guarded(_ spec: MacSurface.Shadow) -> MacSurface.Shadow {
+        // Only an axis that MOVES needs paying back. A zero component means
+        // the ring already sits `seamGuard` outside on both of that axis's
+        // edges and the two cancel; adding to it would push the shadow off
+        // one side and make a shadow the design asked to be symmetric come
+        // out lopsided.
+        func repay(_ value: CGFloat) -> CGFloat {
+            value == 0 ? 0 : value + seamGuard * (value < 0 ? -1 : 1)
+        }
         var out = spec
-        out.offset = CGSize(
-            width: spec.offset.width + seamGuard * (spec.offset.width < 0 ? -1 : 1),
-            height: spec.offset.height + seamGuard * (spec.offset.height < 0 ? -1 : 1)
-        )
+        out.offset = CGSize(width: repay(spec.offset.width), height: repay(spec.offset.height))
         return out
     }
 

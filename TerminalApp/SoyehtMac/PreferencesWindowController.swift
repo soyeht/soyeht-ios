@@ -269,7 +269,11 @@ class PreferencesViewController: NSViewController {
 
     private func populateThemes() {
         themePopUp.removeAllItems()
-        themes = TerminalThemeStore.shared.allThemes()
+        // Only themes the active style can actually wear. Neomorphic paints
+        // roles an ordinary theme does not state, and nothing invents them,
+        // so offering one would offer a broken pane.
+        themes = DesignStyle.themes(for: DesignStyle.active,
+                                    from: TerminalThemeStore.shared.allThemes())
         for theme in themes {
             themePopUp.addItem(withTitle: themeMenuTitle(theme))
             themePopUp.lastItem?.representedObject = theme
@@ -351,6 +355,19 @@ class PreferencesViewController: NSViewController {
         guard let raw = stylePopUp.selectedItem?.representedObject as? String,
               let style = DesignStyle(rawValue: raw) else { return }
         DesignStyle.setActive(style)
+        // A style only wears the themes that state the roles it paints, so
+        // picking one can mean the current theme no longer applies. Move to a
+        // theme the style does wear rather than leaving the picker showing a
+        // style the app has quietly refused: `DesignStyle.active` falls back
+        // to classic in that case, and the choice would look like it did
+        // nothing at all.
+        if !style.canWear(TerminalColorTheme.active),
+           let wearable = DesignStyle.themes(
+               for: style, from: TerminalThemeStore.shared.allThemes()).first {
+            TerminalThemeStore.shared.setActiveTheme(id: wearable.id)
+        }
+        populateThemes()
+        loadCurrentValues()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
