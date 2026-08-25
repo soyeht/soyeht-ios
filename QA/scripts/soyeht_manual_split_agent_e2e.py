@@ -125,6 +125,7 @@ on run argv
             if role of elementRef is "AXStaticText" and (value of elementRef as text) is expectedLabel then
               set {labelX, labelY} to position of elementRef
               set {labelW, labelH} to size of elementRef
+              set labelCenterX to labelX + (labelW / 2)
               set labelCenterY to labelY + (labelH / 2)
               exit repeat
             end if
@@ -133,7 +134,8 @@ on run argv
 
         if labelCenterY is not missing value then
           set bestButton to missing value
-          set bestDistance to 1000000
+          set bestDistanceY to 1000000
+          set bestDistanceX to 1000000
           repeat with elementRef in elements
             try
               set candidateRole to role of elementRef
@@ -142,17 +144,23 @@ on run argv
                 if candidateDescription is expectedDescription then
                   set {buttonX, buttonY} to position of elementRef
                   set {buttonW, buttonH} to size of elementRef
+                  set distanceX to (buttonX + (buttonW / 2)) - labelCenterX
                   set distanceY to (buttonY + (buttonH / 2)) - labelCenterY
                   if distanceY < 0 then set distanceY to -distanceY
-                  if distanceY < bestDistance then
-                    set bestDistance to distanceY
+                  -- Header actions live to the right of their own label. In a
+                  -- side-by-side grid, the previous pane's button can be
+                  -- closer in absolute X; excluding negative distance keeps
+                  -- the action inside the requested pane's header row.
+                  if distanceX >= 0 and (distanceY < bestDistanceY or (distanceY = bestDistanceY and distanceX < bestDistanceX)) then
+                    set bestDistanceY to distanceY
+                    set bestDistanceX to distanceX
                     set bestButton to elementRef
                   end if
                 end if
               end if
             end try
           end repeat
-          if bestButton is not missing value and bestDistance <= 32 then
+          if bestButton is not missing value and bestDistanceY <= 32 then
             perform action "AXPress" of bestButton
             return "pressed"
           end if
