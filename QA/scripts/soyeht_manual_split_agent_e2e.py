@@ -721,9 +721,11 @@ def main():
             recipient = manual_panes[recipient_name]
             token = f"SPLIT-E2E-{run_id}-{index}"
             prompt = natural_prompt(
-                f"Sem alterar arquivos, fale com o agente [{recipient['handle'].removeprefix('@')}] "
-                f"e peça que ele responda a você com exatamente {token}. "
-                "Aguarde a resposta antes de encerrar esta tarefa."
+                "Sem alterar arquivos e sem criar agentes, subagentes ou panes, "
+                f"envie uma mensagem para o agente [{recipient['handle'].removeprefix('@')}] "
+                "que ja esta aberto em uma pane visivel deste mesmo workspace do Soyeht. "
+                f"Peca que ele responda a voce com exatamente {token}. "
+                "Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
             )
             send_natural_request(sender, window_id, prompt)
             request = wait_for_message(recipient, sender, token, args.timeout)
@@ -748,8 +750,10 @@ def main():
         common.type_through_macos_keyboard(draft, window_id, submit_with_return=False)
         relay_token = f"SPLIT-COLLISION-{run_id}"
         collision_prompt = natural_prompt(
-            f"Fale agora com o agente [{recipient['handle'].removeprefix('@')}] e peça "
-            f"que ele responda exatamente {relay_token}. Aguarde a resposta."
+            "Sem criar agentes, subagentes ou panes, envie uma mensagem para o agente "
+            f"[{recipient['handle'].removeprefix('@')}] que ja esta aberto em uma pane "
+            "visivel deste mesmo workspace do Soyeht. "
+            f"Peca que ele responda exatamente {relay_token} e aguarde a resposta dessa pane."
         )
         send_natural_request(sender, window_id, collision_prompt)
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
