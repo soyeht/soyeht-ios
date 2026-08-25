@@ -872,6 +872,14 @@ def main():
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
+        if request.get("channel") == "semanticInbox":
+            # A capable CLI reads the durable inbox out-of-band. It must be
+            # able to reply while the human draft stays in the composer, and
+            # the terminal must never receive relay bytes for this message.
+            reply = wait_for_message(sender, recipient, relay_token, args.timeout)
+            delivered = held
+        else:
+            reply = None
         focus_pane_for_physical_input(
             mcp,
             observer,
@@ -883,15 +891,26 @@ def main():
             args.timeout,
         )
         common.release_physical_draft("backspace", len(draft), window_id)
-        delivered = wait_for_delivery(recipient, request["messageID"], True, args.timeout)
-        reply = wait_for_message(sender, recipient, relay_token, args.timeout)
+        if request.get("channel") == "semanticInbox":
+            delivered = wait_for_delivery(
+                recipient, request["messageID"], False, args.timeout
+            )
+        else:
+            delivered = wait_for_delivery(
+                recipient, request["messageID"], True, args.timeout
+            )
+            reply = wait_for_message(sender, recipient, relay_token, args.timeout)
         evidence["typingCollision"] = {
             "status": "passed",
             "senderAgent": "codex",
             "recipientAgent": "opencode",
+            "channel": request.get("channel"),
             "physicalDraft": draft,
             "heldBeforeBackspace": held.get("deferredTerminalDeliveredAt") is None,
-            "deliveredAfterBackspace": bool(delivered.get("deferredTerminalDeliveredAt")),
+            "terminalBytesInjected": bool(
+                delivered.get("deferredTerminalDeliveredAt")
+            ),
+            "expectedTerminalDelivery": request.get("channel") != "semanticInbox",
             "replyMessageID": reply.get("messageID"),
         }
 
