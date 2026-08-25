@@ -186,6 +186,12 @@ final class WorkspaceContainerViewController: NSViewController {
         grid?.synchronizeTerminalSizes(force: force)
     }
 
+    /// Cheap counterpart to `applyTheme()` for a container that just became
+    /// visible: rebuilds the neomorphic card lighting and nothing else.
+    func refreshCardLightingAfterReveal() {
+        grid?.refreshCardLightingAfterReveal()
+    }
+
     func applyTheme() {
         PerfTrace.interval("container.applyTheme") {
             view.layer?.backgroundColor = MacTheme.gutter.cgColor

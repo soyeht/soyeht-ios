@@ -481,6 +481,32 @@ final class PaneGridController: NSViewController {
         gridLighting.update(cardRects: rects, cornerRadius: MacSurface.Radius.card)
     }
 
+    /// Recompute the card lighting because the panes became VISIBLE, not
+    /// because anything moved.
+    ///
+    /// Switching workspaces is a pure `isHidden` flip: no frame changes, so
+    /// AppKit runs no layout pass, `viewDidLayout` never fires, and no split
+    /// view resizes. None of the three paths that rebuild the overlay is a
+    /// reveal. Meanwhile both of the others run happily WHILE a container is
+    /// hidden — a window resize resolves every container's layout, and a
+    /// preferences change reapplies the theme to every cached container —
+    /// and a hidden container has no visible panes, so the overlay is
+    /// cleared. Reveal it after that and the cards are flat, with nothing
+    /// left to trigger a rebuild until the user resizes something.
+    ///
+    /// Measured: changing any single preference flattened every workspace
+    /// except the visible one. Bloom went from +7.9 L* to 0.0 and the card
+    /// shadow from -11.2 to 0.0 — not a weaker shadow, no shadow at all.
+    ///
+    /// This is deliberately NOT `applyTheme()`, which is what a reveal would
+    /// otherwise need. That call re-rasterises five bezier glyphs per pane
+    /// and used to dominate workspace switching; it was removed from the swap
+    /// path for exactly that reason. This walks the leaves and sets shadow
+    /// specs on a handful of layers.
+    func refreshCardLightingAfterReveal() {
+        updateGridLighting()
+    }
+
     @objc private func anySplitResized(_ note: Notification) {
         guard let splitView = note.object as? NSSplitView,
               splitView.isDescendant(of: view) else { return }
