@@ -519,10 +519,18 @@ def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
             "conversationIDs": [pane_id],
         })
         latest = next(iter(response.get("paneStatuses", [])), None)
-        # get_pane_status publishes the current value as `status`; accept the
-        # older `agentState` spelling only for compatibility with prior builds.
-        state = latest and (latest.get("status") or latest.get("agentState"))
-        if state == "idle":
+        # `agentState` is a semantic hook report; `status` only describes
+        # terminal output activity. Prefer the former, with quiet terminal +
+        # prior authenticated MCP activity as a conservative fallback for a
+        # CLI whose adapter does not publish semantic state.
+        if latest and (
+            latest.get("agentState") == "idle"
+            or (
+                latest.get("agentState") is None
+                and latest.get("status") == "idle"
+                and latest.get("lastMcpActivityAt") is not None
+            )
+        ):
             return latest
         sleep(0.25)
     raise RuntimeError(
@@ -530,23 +538,31 @@ def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
     )
 
 
-def wait_for_agent_working(mcp, observer, pane_id, automation_dir, timeout):
-    """Prove that physical input started a turn in the exact sender pane."""
+def pane_status(mcp, observer, pane_id, automation_dir, timeout):
+    response = mcp.tool_get_pane_status({
+        **observer_args(observer, automation_dir, timeout),
+        "conversationIDs": [pane_id],
+    })
+    return next(iter(response.get("paneStatuses", [])), None)
+
+
+def wait_for_new_mcp_activity(
+    mcp, observer, pane_id, previous_activity, automation_dir, timeout
+):
+    """Prove the physical turn reached the exact authenticated sender pane."""
     deadline = monotonic() + timeout
     latest = None
     while monotonic() < deadline:
-        response = mcp.tool_get_pane_status({
-            **observer_args(observer, automation_dir, timeout),
-            "conversationIDs": [pane_id],
-        })
-        latest = next(iter(response.get("paneStatuses", [])), None)
-        state = latest and (latest.get("status") or latest.get("agentState"))
-        if state == "working":
+        latest = pane_status(
+            mcp, observer, pane_id, automation_dir, timeout
+        )
+        activity = latest and latest.get("lastMcpActivityAt")
+        if activity is not None and activity != previous_activity:
             return latest
         sleep(0.1)
     raise RuntimeError(
-        f"Physical keyboard input did not start a turn in agent pane {pane_id}: "
-        f"{latest!r}"
+        f"Physical keyboard input did not produce new authenticated MCP "
+        f"activity in agent pane {pane_id}: {latest!r}"
     )
 
 
@@ -626,13 +642,10 @@ def send_natural_request(
     timeout,
 ):
     natural_prompt(prompt)
-    wait_for_agent_idle(
-        mcp,
-        observer,
-        pane["conversationID"],
-        automation_dir,
-        timeout,
+    before = pane_status(
+        mcp, observer, pane["conversationID"], automation_dir, timeout
     )
+    previous_activity = before and before.get("lastMcpActivityAt")
     focus_pane_without_terminal_mouse(
         mcp,
         observer,
@@ -642,15 +655,15 @@ def send_natural_request(
         timeout,
     )
     common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
-    # `capture_pane` is intentionally self-only and a manually typed shell
-    # requires the MCP runtime's ephemeral instance ID in addition to its
-    # launch nonce. An external E2E must not impersonate that runtime. Instead,
-    # prove the exact physical prompt was submitted by observing the requested
-    # pane transition from idle to working before accepting any MCP behavior.
-    wait_for_agent_working(
+    # `capture_pane` is intentionally self-only, so an external E2E must not
+    # impersonate the manually typed MCP runtime. Every authenticated request
+    # stamps lastMcpActivityAt for its exact source pane; require that stamp to
+    # advance before accepting the eventual durable message as agent behavior.
+    wait_for_new_mcp_activity(
         mcp,
         observer,
         pane["conversationID"],
+        previous_activity,
         automation_dir,
         timeout,
     )
@@ -1039,6 +1052,13 @@ def main():
         # Real unfinished user input in OpenCode must hold a Codex relay.
         recipient = manual_panes["opencode"]
         sender = manual_panes["codex"]
+        wait_for_agent_idle(
+            mcp,
+            observer,
+            sender["conversationID"],
+            automation_dir,
+            args.timeout,
+        )
         settled_recipient = wait_for_agent_idle(
             mcp,
             observer,
