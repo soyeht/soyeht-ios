@@ -458,6 +458,51 @@ def wait_for_runtime_agent(
     )
 
 
+def confirm_startup_gate_if_runtime_is_pending(
+    mcp, observer, workspace_id, pane, window_id, input_point,
+    automation_dir, timeout,
+):
+    """Act like a user accepting a CLI's first-run directory prompt.
+
+    Codex, Claude and other CLIs may stop before MCP initialization to ask
+    whether the current checkout is trusted. Seeing the foreground process is
+    therefore not enough to assert that its integrations have started. If the
+    runtime is still absent after a short settling period, focus the exact pane
+    and press one physical Return. On an already-ready composer this is only an
+    empty submission; on a trust screen it is the required human confirmation.
+    """
+    sleep(1.0)
+    response = mcp.tool_list_agents({
+        **observer_args(observer, automation_dir, timeout),
+        "workspaceID": workspace_id,
+    })
+    row = next(
+        (
+            item for item in response.get("listedAgents", [])
+            if item.get("conversationID") == pane["conversationID"]
+        ),
+        None,
+    )
+    if row and row.get("activeRuntimeAgent"):
+        return {"physicalReturnPosted": False, "reason": "runtime_already_ready"}
+    focus_pane_for_physical_input(
+        mcp,
+        observer,
+        workspace_id,
+        pane,
+        window_id,
+        input_point,
+        automation_dir,
+        timeout,
+    )
+    common.type_through_macos_keyboard(
+        "",
+        window_id,
+        submit_with_return=True,
+    )
+    return {"physicalReturnPosted": True, "reason": "runtime_identity_pending"}
+
+
 def wait_for_agent_idle(mcp, observer, pane_id, automation_dir, timeout):
     """Start the collision scenario from a real, settled TUI composer."""
     deadline = monotonic() + timeout
@@ -829,6 +874,16 @@ def main():
             process = observed_cli_process(
                 pane["conversationID"], agent_name, repo_root, args.timeout
             )
+            startup_confirmation = confirm_startup_gate_if_runtime_is_pending(
+                mcp,
+                observer,
+                workspace_id,
+                pane,
+                window_id,
+                input_points[agent_name],
+                automation_dir,
+                args.timeout,
+            )
             try:
                 directory_row = wait_for_runtime_agent(
                     mcp,
@@ -862,6 +917,7 @@ def main():
                 "pane": pane,
                 "directoryRow": directory_row,
                 "process": process,
+                "startupConfirmation": startup_confirmation,
                 "declaredPaneStylePreserved": directory_row.get("declaredAgent") == "shell",
             })
             sleep(2.0)
