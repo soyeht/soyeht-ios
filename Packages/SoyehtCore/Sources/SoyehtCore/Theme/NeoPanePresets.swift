@@ -1,41 +1,11 @@
 import Foundation
 
-/// Pane-color neo presets.
+/// The eight pane colour presets.
 ///
-/// Each one is built from a single authored color — the pane's dominant surface,
-/// the color the user actually stares at — with every other role derived from
-/// it using the invariants measured on the reference `neoMilk` preset (and on
-/// the retired Cream and Midnight presets it shipped beside):
-///
-/// - elevation is a lightness step measured in CIE L* and taken at CONSTANT
-///   CHROMA. A shadow is the same material under less light, so its chroma has
-///   to survive the lightness change; deriving it by scaling sRGB channels
-///   bleeds chroma away with the lightness, which cost Sunlit Chartreuse 12
-///   units and left a grey smudge lying on a colored surface. The pair casts
-///   16.7 L* down and 9.0 up from the canvas on a light face, 7.3 down and
-///   10.7 up on a dark one — the weighting flips because a dark canvas has
-///   little room beneath it and plenty above;
-/// - text and accent are CONTRAST targets, not fixed lightnesses — a mid-tone
-///   face like Misty Blue drops a fixed-lightness ink to 3:1, so inks are solved
-///   to ~7.4:1 (light) and ≥8:1 (dark), matching the reference presets;
-/// - ANSI keeps its hues but each slot is pushed until it clears 3:1 against the
-///   face, since the stock ramps assume a near-white or near-black screen;
-/// - the accent holds CHROMA at C* ~65, which is what separates an accent that
-///   belongs to its theme from one that reads as mud or as a scream. A fixed
-///   HSL saturation is not chroma: the same value sent yellow-green to C* 99
-///   and dark blue to C* 40. Its hue turns toward the nearer of two poles,
-///   warm 40° or cool 290°, because sRGB's gamut is anisotropic and those are
-///   the only regions holding deep chroma — at Lab hue 255 nothing above C* 48
-///   exists at any lightness. Lightness then bends into whatever band the hue
-///   can carry, and that band is drawn at C* 48 rather than 52: the tighter
-///   figure left one narrow band around the cool pole that Midnight Teal and
-///   Deep Harbor both clamped into, landing on the same blue despite starting
-///   21° apart. Widening it lets each reach a hue where its OWN target
-///   lightness exists. Checked against the preset nobody has faulted: the rule
-///   reproduces neoMilk's authored #5B7CFA as #5F84F6.
-///
-/// Face and terminal screen are the same color (the `neoMilk` model), so a pane
-/// reads as one surface rather than a frame around a differently-colored screen.
+/// Every value here is authored and reviewed. Read them as data: nothing in
+/// this file is regenerated, and no rule stated anywhere licenses changing one
+/// of these hexes. If a colour needs to change, it changes because someone
+/// decided it should.
 public extension TerminalColorTheme {
     /// Builds a preset whose chrome and terminal screen share one surface color.
     /// - Parameter screen: the terminal background, when it must differ from
