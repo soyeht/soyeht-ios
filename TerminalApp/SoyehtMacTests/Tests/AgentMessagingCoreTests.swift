@@ -1209,8 +1209,9 @@ final class AgentMessagingCoreTests: XCTestCase {
     func testManualRuntimeClaimIsPaneScopedInstanceScopedAndReleasable() {
         let persistence = InMemoryAgentRuntimeIdentityPersistence()
         let registry = AgentRuntimeIdentityRegistry(
-            isProcessAlive: { $0 == 4242 },
+            isProcessAlive: { $0 == 4242 || $0 == 4100 },
             processStartTime: { _ in (100, 200) },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         let paneID = UUID()
@@ -1220,7 +1221,8 @@ final class AgentMessagingCoreTests: XCTestCase {
             paneID: paneID,
             agentName: "Codex",
             instanceID: "mcp-one",
-            processID: 4242
+            processID: 4242,
+            ownerProcessID: 4100
         ))
         XCTAssertTrue(registry.validates(
             paneID: paneID,
@@ -1240,9 +1242,10 @@ final class AgentMessagingCoreTests: XCTestCase {
     func testManualRuntimeClaimRequiresTheOwningPaneTTY() {
         let persistence = InMemoryAgentRuntimeIdentityPersistence()
         let registry = AgentRuntimeIdentityRegistry(
-            isProcessAlive: { $0 == 4242 },
+            isProcessAlive: { $0 == 4242 || $0 == 4100 },
             processStartTime: { _ in (100, 200) },
             processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         let paneID = UUID()
@@ -1252,6 +1255,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             agentName: "claude",
             instanceID: "wrong-pane",
             processID: 4242,
+            ownerProcessID: 4100,
             expectedTTYDevice: 88
         ))
         XCTAssertFalse(registry.validates(
@@ -1265,6 +1269,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             agentName: "claude",
             instanceID: "owning-pane",
             processID: 4242,
+            ownerProcessID: 4100,
             expectedTTYDevice: 77
         ))
         XCTAssertTrue(registry.validates(
@@ -1302,6 +1307,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         let expectedDevice = UInt32(truncatingIfNeeded: slaveStatus.st_rdev)
         let paneID = UUID()
         let registry = AgentRuntimeIdentityRegistry(
+            processParentID: { pid in pid == childPID ? getpid() : nil },
             persistence: InMemoryAgentRuntimeIdentityPersistence()
         )
 
@@ -1310,6 +1316,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             agentName: "claude",
             instanceID: "wrong-real-pty",
             processID: Int(childPID),
+            ownerProcessID: Int(getpid()),
             expectedTTYDevice: expectedDevice &+ 1
         ))
         let deadline = Date().addingTimeInterval(1)
@@ -1320,6 +1327,7 @@ final class AgentMessagingCoreTests: XCTestCase {
                 agentName: "claude",
                 instanceID: "matching-real-pty",
                 processID: Int(childPID),
+                ownerProcessID: Int(getpid()),
                 expectedTTYDevice: expectedDevice
             )
             if matchingClaim == nil { usleep(10_000) }
@@ -1331,8 +1339,9 @@ final class AgentMessagingCoreTests: XCTestCase {
         var live = true
         let persistence = InMemoryAgentRuntimeIdentityPersistence()
         let registry = AgentRuntimeIdentityRegistry(
-            isProcessAlive: { _ in live },
+            isProcessAlive: { pid in pid == 4100 || live },
             processStartTime: { _ in (100, 200) },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         let paneID = UUID()
@@ -1340,7 +1349,8 @@ final class AgentMessagingCoreTests: XCTestCase {
             paneID: paneID,
             agentName: "claude",
             instanceID: "mcp-runtime",
-            processID: 4242
+            processID: 4242,
+            ownerProcessID: 4100
         ))
 
         live = false
@@ -1367,19 +1377,22 @@ final class AgentMessagingCoreTests: XCTestCase {
             isProcessAlive: { _ in true },
             processStartTime: { _ in (100, 200) },
             processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         XCTAssertNotNil(writer.claim(
             paneID: paneID,
             agentName: "opencode",
             instanceID: "runtime-instance",
-            processID: 4242
+            processID: 4242,
+            ownerProcessID: 4100
         ))
 
         let restored = AgentRuntimeIdentityRegistry(
             isProcessAlive: { _ in true },
             processStartTime: { _ in (100, 200) },
             processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         restored.rehydrate(from: [shell])
@@ -1389,6 +1402,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             isProcessAlive: { _ in true },
             processStartTime: { _ in (101, 0) },
             processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         recycledPID.rehydrate(from: [shell])
@@ -1413,7 +1427,64 @@ final class AgentMessagingCoreTests: XCTestCase {
         )
 
         XCTAssertEqual(claim.agentName, "codex")
+        XCTAssertNil(claim.ownerProcessID)
         XCTAssertNil(claim.ttyDevice)
+    }
+
+    func testLegacyRuntimeClaimWithoutTTYIsRevokedInsteadOfTrustedFromLiveMetadata() throws {
+        let paneID = UUID()
+        let data = try XCTUnwrap("""
+        {
+          "agentName": "codex",
+          "instanceID": "legacy-runtime",
+          "processID": 4242,
+          "processStartedAtSeconds": 100,
+          "processStartedAtMicroseconds": 200
+        }
+        """.data(using: .utf8))
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        persistence.values[paneID] = try JSONDecoder().decode(
+            AgentRuntimeIdentityClaim.self,
+            from: data
+        )
+        let shell = Conversation(
+            id: paneID,
+            handle: "legacy-shell",
+            agent: .shell,
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+
+        XCTAssertTrue(registry.rehydrate(from: [shell]).isEmpty)
+        XCTAssertNil(registry.claim(for: paneID))
+        XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testManualRuntimeClaimRejectsADeclaredOwnerThatIsNotTheMCPParent() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+
+        XCTAssertNil(registry.claim(
+            paneID: UUID(),
+            agentName: "codex",
+            instanceID: "runtime-instance",
+            processID: 4242,
+            ownerProcessID: 4200,
+            expectedTTYDevice: 77
+        ))
     }
 
     func testManualRuntimeClaimExpiresWhenProcessLeavesOwningTTY() {
@@ -1423,6 +1494,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             isProcessAlive: { _ in true },
             processStartTime: { _ in (100, 200) },
             processTTYDevice: { _ in ttyDevice },
+            processParentID: { _ in 4100 },
             persistence: persistence
         )
         let paneID = UUID()
@@ -1432,6 +1504,7 @@ final class AgentMessagingCoreTests: XCTestCase {
             agentName: "claude",
             instanceID: "runtime-instance",
             processID: 4242,
+            ownerProcessID: 4100,
             expectedTTYDevice: 77
         ))
         XCTAssertTrue(registry.validates(

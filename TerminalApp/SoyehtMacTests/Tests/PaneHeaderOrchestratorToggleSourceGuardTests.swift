@@ -66,6 +66,14 @@ final class PaneHeaderOrchestratorToggleSourceGuardTests: XCTestCase {
         XCTAssertTrue(claim.contains(
             "revokeShellRuntimeOrchestrationAuthorization(for: source)"
         ))
+        XCTAssertLessThan(
+            try XCTUnwrap(claim.range(
+                of: "revokeShellRuntimeOrchestrationAuthorization(for: source)"
+            )?.lowerBound),
+            try XCTUnwrap(claim.range(
+                of: "claimRuntimeIdentity("
+            )?.lowerBound)
+        )
         XCTAssertTrue(release.contains(
             "revokeShellRuntimeOrchestrationAuthorization(for: source)"
         ))
@@ -88,16 +96,18 @@ final class PaneHeaderOrchestratorToggleSourceGuardTests: XCTestCase {
             from: "func authenticatesAutomationSource(",
             to: "func resolveAutomationSource("
         )
-        let claim = try XCTUnwrap(authentication.range(of: "claimRuntimeIdentity("))
+        let preflight = try XCTUnwrap(authentication.range(of: "canClaimRuntimeIdentity("))
         let revoke = try XCTUnwrap(authentication.range(
             of: "revokeShellRuntimeOrchestrationAuthorization(for: source)"
         ))
+        let claim = try XCTUnwrap(authentication.range(of: "claimRuntimeIdentity("))
         let accepted = try XCTUnwrap(authentication.range(
             of: "runtimeIdentityIsValid = true"
         ))
 
-        XCTAssertLessThan(claim.lowerBound, revoke.lowerBound)
-        XCTAssertLessThan(revoke.lowerBound, accepted.lowerBound)
+        XCTAssertLessThan(preflight.lowerBound, revoke.lowerBound)
+        XCTAssertLessThan(revoke.lowerBound, claim.lowerBound)
+        XCTAssertLessThan(claim.lowerBound, accepted.lowerBound)
     }
 
     private func slice(_ source: String, from start: String, to end: String) throws -> String {

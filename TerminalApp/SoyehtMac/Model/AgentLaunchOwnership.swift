@@ -158,9 +158,15 @@ struct AgentRuntimeIdentityClaim: Codable, Equatable {
     let processID: Int32
     let processStartedAtSeconds: UInt64
     let processStartedAtMicroseconds: UInt64
+    /// Parent process verified by the app when the MCP runtime claimed this
+    /// pane. Reporter hooks run in (or directly under) that same CLI process,
+    /// so this binds one-way reports to the concrete agent session rather than
+    /// merely trusting a reusable pane nonce and agent label.
+    let ownerProcessID: Int32?
     /// Kernel TTY device captured at claim time. Optional only to decode rows
-    /// written before continuous TTY validation shipped; rehydrate migrates
-    /// those rows from the still-live process before trusting them.
+    /// written before continuous TTY validation shipped. Legacy rows are
+    /// decoded for migration safety but revoked instead of being upgraded from
+    /// mutable live-process metadata.
     let ttyDevice: UInt32?
 }
 
@@ -209,17 +215,20 @@ final class AgentRuntimeIdentityRegistry {
     private let isProcessAlive: (Int32) -> Bool
     private let processStartTime: (Int32) -> (seconds: UInt64, microseconds: UInt64)?
     private let processTTYDevice: (Int32) -> UInt32?
+    private let processParentID: (Int32) -> Int32?
     private let persistence: AgentRuntimeIdentityPersisting
 
     init(
         isProcessAlive: @escaping (Int32) -> Bool = AgentRuntimeIdentityRegistry.defaultProcessLiveness,
         processStartTime: @escaping (Int32) -> (seconds: UInt64, microseconds: UInt64)? = AgentRuntimeIdentityRegistry.defaultProcessStartTime,
         processTTYDevice: @escaping (Int32) -> UInt32? = AgentRuntimeIdentityRegistry.defaultProcessTTYDevice,
+        processParentID: @escaping (Int32) -> Int32? = AgentRuntimeIdentityRegistry.defaultProcessParentID,
         persistence: AgentRuntimeIdentityPersisting = AgentRuntimeIdentityKeychainStore()
     ) {
         self.isProcessAlive = isProcessAlive
         self.processStartTime = processStartTime
         self.processTTYDevice = processTTYDevice
+        self.processParentID = processParentID
         self.persistence = persistence
     }
 
@@ -263,13 +272,28 @@ final class AgentRuntimeIdentityRegistry {
         return info.e_tdev
     }
 
-    @discardableResult
-    func claim(
-        paneID: Conversation.ID,
+    private static func defaultProcessParentID(_ processID: Int32) -> Int32? {
+        var info = proc_bsdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
+            soyeht_agent_runtime_proc_pidinfo(
+                processID,
+                Int32(PROC_PIDTBSDINFO),
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written == MemoryLayout<proc_bsdinfo>.size,
+              info.pbi_ppid > 1 else { return nil }
+        return Int32(info.pbi_ppid)
+    }
+
+    private func validatedClaim(
         agentName: String,
         instanceID: String,
         processID: Int,
-        expectedTTYDevice: UInt32? = nil
+        ownerProcessID: Int,
+        expectedTTYDevice: UInt32?
     ) -> AgentRuntimeIdentityClaim? {
         let normalizedAgent = agentName
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -281,7 +305,11 @@ final class AgentRuntimeIdentityRegistry {
               !normalizedInstance.isEmpty,
               processID > 1,
               processID <= Int(Int32.max),
+              ownerProcessID > 1,
+              ownerProcessID <= Int(Int32.max),
               isProcessAlive(Int32(processID)),
+              isProcessAlive(Int32(ownerProcessID)),
+              processParentID(Int32(processID)) == Int32(ownerProcessID),
               let startedAt = processStartTime(Int32(processID)) else { return nil }
         let observedTTYDevice = processTTYDevice(Int32(processID))
         if let expectedTTYDevice {
@@ -289,14 +317,52 @@ final class AgentRuntimeIdentityRegistry {
                 return nil
             }
         }
-        let claim = AgentRuntimeIdentityClaim(
+        return AgentRuntimeIdentityClaim(
             agentName: normalizedAgent,
             instanceID: normalizedInstance,
             processID: Int32(processID),
             processStartedAtSeconds: startedAt.seconds,
             processStartedAtMicroseconds: startedAt.microseconds,
+            ownerProcessID: Int32(ownerProcessID),
             ttyDevice: expectedTTYDevice ?? observedTTYDevice
         )
+    }
+
+    /// Side-effect-free preflight used before durably revoking authority held
+    /// by the previous runtime. `claim` repeats every kernel check afterwards;
+    /// a race therefore fails closed with the old grant already revoked.
+    func canClaim(
+        agentName: String,
+        instanceID: String,
+        processID: Int,
+        ownerProcessID: Int,
+        expectedTTYDevice: UInt32? = nil
+    ) -> Bool {
+        validatedClaim(
+            agentName: agentName,
+            instanceID: instanceID,
+            processID: processID,
+            ownerProcessID: ownerProcessID,
+            expectedTTYDevice: expectedTTYDevice
+        ) != nil
+    }
+
+    @discardableResult
+    func claim(
+        paneID: Conversation.ID,
+        agentName: String,
+        instanceID: String,
+        processID: Int,
+        ownerProcessID: Int,
+        expectedTTYDevice: UInt32? = nil
+    ) -> AgentRuntimeIdentityClaim? {
+        guard let claim = validatedClaim(
+            agentName: agentName,
+            instanceID: instanceID,
+            processID: processID,
+            ownerProcessID: ownerProcessID,
+            expectedTTYDevice: expectedTTYDevice
+        ) else { return nil }
         guard persistence.save(claim: claim, for: paneID) else { return nil }
         claimsByPane[paneID] = claim
         return claim
@@ -323,23 +389,10 @@ final class AgentRuntimeIdentityRegistry {
             guard conversation.agent.isShell,
                   conversation.content.isTerminal,
                   case .engineLocal = conversation.commander,
-                  var claim = persistence.loadClaim(for: conversation.id) else { continue }
-            if claim.ttyDevice == nil,
-               let migratedTTYDevice = processTTYDevice(claim.processID) {
-                claim = AgentRuntimeIdentityClaim(
-                    agentName: claim.agentName,
-                    instanceID: claim.instanceID,
-                    processID: claim.processID,
-                    processStartedAtSeconds: claim.processStartedAtSeconds,
-                    processStartedAtMicroseconds: claim.processStartedAtMicroseconds,
-                    ttyDevice: migratedTTYDevice
-                )
-                guard persistence.save(claim: claim, for: conversation.id) else {
-                    _ = persistence.revoke(for: conversation.id)
-                    continue
-                }
-            }
-            if isCurrentProcess(claim), claim.ttyDevice != nil {
+                  let claim = persistence.loadClaim(for: conversation.id) else { continue }
+            if claim.ttyDevice != nil,
+               claim.ownerProcessID != nil,
+               isCurrentProcess(claim) {
                 claimsByPane[conversation.id] = claim
                 trustedPaneIDs.insert(conversation.id)
             } else {
@@ -370,6 +423,11 @@ final class AgentRuntimeIdentityRegistry {
               let startedAt = processStartTime(claim.processID) else { return false }
         guard startedAt.seconds == claim.processStartedAtSeconds,
               startedAt.microseconds == claim.processStartedAtMicroseconds else {
+            return false
+        }
+        guard let ownerProcessID = claim.ownerProcessID,
+              isProcessAlive(ownerProcessID),
+              processParentID(claim.processID) == ownerProcessID else {
             return false
         }
         if let claimTTYDevice = claim.ttyDevice {

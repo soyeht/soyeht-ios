@@ -5,7 +5,6 @@
 
 import Cocoa
 import ApplicationServices
-import Darwin
 import os
 import SoyehtCore
 
@@ -128,29 +127,6 @@ extension SoyehtAutomationRequestRouter {
         let isAttachable: Bool
     }
 
-    func automationTTYPath(for conversation: Conversation) -> String? {
-        let engineConversationID: String? = {
-            if case .engineLocal(let id) = conversation.commander { return id }
-            return nil
-        }()
-        let livePane = LivePaneRegistry.shared.pane(
-            for: conversation.id
-        ) as? PaneViewController
-        return livePane?.terminalView.localPTYSlaveTTYPathForAutomation
-            ?? engineConversationID.flatMap {
-                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
-            }
-    }
-
-    func automationTTYDevice(for conversation: Conversation) -> UInt32? {
-        guard let ttyPath = automationTTYPath(for: conversation) else {
-            return nil
-        }
-        var metadata = stat()
-        guard stat(ttyPath, &metadata) == 0 else { return nil }
-        return UInt32(metadata.st_rdev)
-    }
-
     /// A normal managed pane always uses its per-launch nonce. An ordinary
     /// split-created shell additionally proves the active MCP runtime. A shell
     /// whose process predates nonce injection must be recreated: TTY identity
@@ -183,12 +159,14 @@ extension SoyehtAutomationRequestRouter {
                   let runtimeInstanceID = payload.runtimeInstanceID,
                   !runtimeInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   let runtimeProcessID = payload.runtimeProcessID,
+                  let runtimeOwnerProcessID = payload.runtimeOwnerProcessID,
                   let expectedTTYDevice = currentPaneTTYDevice,
-                  PaneStatusTracker.shared.claimRuntimeIdentity(
+                  PaneStatusTracker.shared.canClaimRuntimeIdentity(
                     paneID: source.id,
                     agentName: runtimeAgent,
                     instanceID: runtimeInstanceID,
                     processID: runtimeProcessID,
+                    ownerProcessID: runtimeOwnerProcessID,
                     nonce: payload.nonce,
                     expectedTTYDevice: expectedTTYDevice
                   ) else { return false }
@@ -200,6 +178,15 @@ extension SoyehtAutomationRequestRouter {
             } catch {
                 return false
             }
+            guard PaneStatusTracker.shared.claimRuntimeIdentity(
+                paneID: source.id,
+                agentName: runtimeAgent,
+                instanceID: runtimeInstanceID,
+                processID: runtimeProcessID,
+                ownerProcessID: runtimeOwnerProcessID,
+                nonce: payload.nonce,
+                expectedTTYDevice: expectedTTYDevice
+            ) else { return false }
             runtimeIdentityIsValid = true
             launchCredentialIsValid = PaneStatusTracker.shared
                 .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
@@ -290,16 +277,22 @@ extension SoyehtAutomationRequestRouter {
         }
         let reportSource = payload.reportSource?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard let runtimeAgent = PaneStatusTracker.shared.runtimeIdentityClaim(
-            for: source.id
-        )?.agentName,
+        let currentTTYDevice = automationTTYDevice(for: source)
+        guard let runtimeOwnerProcessID = payload.runtimeOwnerProcessID,
+              runtimeOwnerProcessID > 1,
+              runtimeOwnerProcessID <= Int(Int32.max),
+              let runtimeClaim = PaneStatusTracker.shared.runtimeIdentityClaim(
+                  for: source.id,
+                  expectedTTYDevice: currentTTYDevice
+              ),
+              runtimeClaim.ownerProcessID == Int32(runtimeOwnerProcessID),
               PaneStatusTracker.shared.validatesLaunchOwnership(
                   paneID: source.id,
                   nonce: payload.nonce
               ),
               AgentStateReportAttribution.acceptsAuthenticatedHook(
                   reportSource: reportSource,
-                  currentAgent: runtimeAgent
+                  currentAgent: runtimeClaim.agentName
               ) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
@@ -344,23 +337,36 @@ extension SoyehtAutomationRequestRouter {
               let runtimeInstanceID = payload.runtimeInstanceID,
               !runtimeInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               let runtimeProcessID = payload.runtimeProcessID,
+              let runtimeOwnerProcessID = payload.runtimeOwnerProcessID,
               let expectedTTYDevice = automationTTYDevice(for: source) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         previousRuntimeClaim = PaneStatusTracker.shared.runtimeIdentityClaim(for: source.id)
         if source.agent.isShell {
+            if previousRuntimeClaim?.instanceID != runtimeInstanceID {
+                guard PaneStatusTracker.shared.canClaimRuntimeIdentity(
+                    paneID: source.id,
+                    agentName: runtimeAgent,
+                    instanceID: runtimeInstanceID,
+                    processID: runtimeProcessID,
+                    ownerProcessID: runtimeOwnerProcessID,
+                    nonce: payload.nonce,
+                    expectedTTYDevice: expectedTTYDevice
+                ) else {
+                    throw SoyehtAutomationError.unauthenticatedAgentSource
+                }
+                try revokeShellRuntimeOrchestrationAuthorization(for: source)
+            }
             guard PaneStatusTracker.shared.claimRuntimeIdentity(
                 paneID: source.id,
                 agentName: runtimeAgent,
                 instanceID: runtimeInstanceID,
                 processID: runtimeProcessID,
+                ownerProcessID: runtimeOwnerProcessID,
                 nonce: payload.nonce,
                 expectedTTYDevice: expectedTTYDevice
             ) else {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
-            }
-            if previousRuntimeClaim?.instanceID != runtimeInstanceID {
-                try revokeShellRuntimeOrchestrationAuthorization(for: source)
             }
         } else {
             guard source.agent.rawValue.lowercased() == runtimeAgent,

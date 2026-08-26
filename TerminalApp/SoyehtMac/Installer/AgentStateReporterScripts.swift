@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 25
+    static let version = 26
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -31,6 +31,8 @@ def write_request(automation_dir, request_type, payload):
         return
     payload = dict(payload)
     payload["nonce"] = nonce
+    runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+    payload["runtimeOwnerProcessID"] = int(runtime_owner) if runtime_owner.isdigit() else os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -290,6 +292,7 @@ def schedule_deferred_agent_transcript(transcript_path, session_id):
     env["SOYEHT_DEFERRED_AGENT_TRANSCRIPT"] = "1"
     env["SOYEHT_DEFERRED_TRANSCRIPT_PATH"] = transcript_path
     env["SOYEHT_DEFERRED_BASELINE"] = baseline
+    env["SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID"] = str(os.getppid())
     if session_id:
         env["SOYEHT_DEFERRED_SESSION_ID"] = session_id
     try:
@@ -599,6 +602,7 @@ def main():
         "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "antigravity"),
         "seq": time.time_ns(),
         "nonce": nonce,
+        "runtimeOwnerProcessID": os.getppid(),
         "mcpClientContractVersion": 3,
         "mcpClientProfile": profile,
     }
@@ -646,7 +650,7 @@ if __name__ == "__main__":
     "PreInvocation": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreInvocation python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreInvocation python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ],
@@ -656,7 +660,7 @@ if __name__ == "__main__":
         "hooks": [
           {
             "type": "command",
-            "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreToolUse python3 \"__REPORTER__\"",
+            "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreToolUse python3 \"__REPORTER__\"",
             "timeout": 10
           }
         ]
@@ -668,7 +672,7 @@ if __name__ == "__main__":
         "hooks": [
           {
             "type": "command",
-            "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostToolUse python3 \"__REPORTER__\"",
+            "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostToolUse python3 \"__REPORTER__\"",
             "timeout": 10
           }
         ]
@@ -677,14 +681,14 @@ if __name__ == "__main__":
     "PostInvocation": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostInvocation python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostInvocation python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=Stop python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=Stop python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ]
@@ -717,6 +721,7 @@ export default function (pi: any) {
     payload = {
       ...payload,
       nonce,
+      runtimeOwnerProcessID: process.pid,
       mcpClientContractVersion: 3,
       mcpClientProfile: profile,
     };
@@ -820,6 +825,7 @@ async function writeAutomationRequest(type, payload) {
   payload = {
     ...payload,
     nonce,
+    runtimeOwnerProcessID: process.pid,
     mcpClientContractVersion: 3,
     mcpClientProfile: profile,
   };
@@ -1075,6 +1081,7 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1155,6 +1162,7 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1233,6 +1241,7 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1316,6 +1325,7 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1395,6 +1405,7 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1453,6 +1464,7 @@ async function report(state, message, submittedTurn = false) {
     reportSource: SOURCE,
     seq: Date.now() * 1000 + Math.floor(Math.random() * 1000),
     nonce,
+    runtimeOwnerProcessID: process.pid,
     mcpClientContractVersion: 3,
     mcpClientProfile: profile,
   };

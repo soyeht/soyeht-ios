@@ -179,6 +179,7 @@ final class PaneStatusTracker {
         agentName: String,
         instanceID: String,
         processID: Int,
+        ownerProcessID: Int,
         nonce: String?,
         expectedTTYDevice: UInt32
     ) -> Bool {
@@ -191,9 +192,32 @@ final class PaneStatusTracker {
             agentName: agentName,
             instanceID: instanceID,
             processID: processID,
+            ownerProcessID: ownerProcessID,
             expectedTTYDevice: expectedTTYDevice
         ) != nil else { return false }
         return true
+    }
+
+    func canClaimRuntimeIdentity(
+        paneID: Conversation.ID,
+        agentName: String,
+        instanceID: String,
+        processID: Int,
+        ownerProcessID: Int,
+        nonce: String?,
+        expectedTTYDevice: UInt32
+    ) -> Bool {
+        guard launchOwnership.validates(
+            paneID: paneID,
+            nonce: nonce
+        ) else { return false }
+        return runtimeIdentity.canClaim(
+            agentName: agentName,
+            instanceID: instanceID,
+            processID: processID,
+            ownerProcessID: ownerProcessID,
+            expectedTTYDevice: expectedTTYDevice
+        )
     }
 
     @discardableResult
@@ -210,8 +234,14 @@ final class PaneStatusTracker {
         return runtimeIdentity.release(paneID: paneID, instanceID: instanceID)
     }
 
-    func runtimeIdentityClaim(for paneID: Conversation.ID) -> AgentRuntimeIdentityClaim? {
-        runtimeIdentity.claim(for: paneID)
+    func runtimeIdentityClaim(
+        for paneID: Conversation.ID,
+        expectedTTYDevice: UInt32? = nil
+    ) -> AgentRuntimeIdentityClaim? {
+        runtimeIdentity.claim(
+            for: paneID,
+            expectedTTYDevice: expectedTTYDevice
+        )
     }
 
     func validatesRuntimeIdentity(

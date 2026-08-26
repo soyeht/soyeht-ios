@@ -146,6 +146,7 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             "SOYEHT_REPORT_AGENT": "kimi",
             "SOYEHT_LAUNCH_NONCE": "launch-proof",
             "SOYEHT_MCP_PROFILE": "dev",
+            "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID": "24680",
         ]
         let input = Pipe()
         process.standardInput = input
@@ -175,6 +176,7 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertEqual(payload["nonce"] as? String, "launch-proof")
         XCTAssertEqual(payload["mcpClientContractVersion"] as? Int, 3)
         XCTAssertEqual(payload["mcpClientProfile"] as? String, "dev")
+        XCTAssertEqual(payload["runtimeOwnerProcessID"] as? Int, 24680)
         XCTAssertEqual(payload["reportSource"] as? String, "hook:kimi")
         XCTAssertEqual(payload["text"] as? String, "visible final")
         XCTAssertEqual(payload["sourceEventID"] as? String, "kimi:message-final")
@@ -201,6 +203,7 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             XCTAssertTrue(reporter.contains("SOYEHT_MCP_PROFILE"), name)
             XCTAssertTrue(reporter.contains("mcpClientContractVersion"), name)
             XCTAssertTrue(reporter.contains("mcpClientProfile"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessID"), name)
             XCTAssertTrue(reporter.contains("expectsResponse"), name)
         }
     }
@@ -226,6 +229,21 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertTrue(python.contains("\"reportSource\": \"hook:\" + report_agent"))
         XCTAssertTrue(pi.contains("reportSource: \"hook:pi\""))
         XCTAssertTrue(kilo.contains("reportSource: SOURCE"))
+    }
+
+    func testShellReportAuthenticationBindsHookToCurrentRuntimeOwnerProcess() throws {
+        let router = try macSource(
+            "App/SoyehtAutomationRequestRouter+07DirectoryIdentity.swift"
+        )
+        let resolver = try slice(
+            router,
+            from: "func resolveAuthenticatedAgentReportSource(",
+            to: "func revokeShellRuntimeOrchestrationAuthorization("
+        )
+
+        XCTAssertTrue(resolver.contains("payload.runtimeOwnerProcessID"))
+        XCTAssertTrue(resolver.contains("runtimeClaim.ownerProcessID == Int32(runtimeOwnerProcessID)"))
+        XCTAssertTrue(resolver.contains("expectedTTYDevice: currentTTYDevice"))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

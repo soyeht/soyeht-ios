@@ -164,6 +164,7 @@ def with_source_context(payload, args=None):
         payload["runtimeAgent"] = MCP_RUNTIME_AGENT
         payload["runtimeInstanceID"] = MCP_RUNTIME_INSTANCE_ID
         payload["runtimeProcessID"] = os.getpid()
+        payload["runtimeOwnerProcessID"] = os.getppid()
     tty = current_tty()
     if tty and not from_conversation_id and not from_handle:
         payload["sourceTTY"] = tty
@@ -204,6 +205,7 @@ def synchronize_runtime_identity(
         "runtimeAgent": MCP_RUNTIME_AGENT,
         "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
         "runtimeProcessID": os.getpid(),
+        "runtimeOwnerProcessID": os.getppid(),
     })
     if not (
         payload.get("sourceConversationID")

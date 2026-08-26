@@ -70,6 +70,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["runtimeAgent"], "opencode")
         self.assertEqual(payload["runtimeInstanceID"], "runtime-instance")
         self.assertEqual(payload["runtimeProcessID"], os.getpid())
+        self.assertEqual(payload["runtimeOwnerProcessID"], os.getppid())
         self.assertEqual(payload["nonce"], "pane-proof")
 
     def test_manual_runtime_claim_never_invents_a_missing_launch_nonce(self):
@@ -114,6 +115,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             "nonce-less-runtime-instance",
         )
         self.assertEqual(captured["payload"]["runtimeProcessID"], os.getpid())
+        self.assertEqual(captured["payload"]["runtimeOwnerProcessID"], os.getppid())
         self.assertNotIn("nonce", captured["payload"])
 
     def test_global_runtime_agent_skips_claim_outside_a_soyeht_pane(self):

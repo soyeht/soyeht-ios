@@ -188,4 +188,27 @@ extension SoyehtAutomationRequestRouter {
         }
         return nil
     }
+
+    func automationTTYPath(for conversation: Conversation) -> String? {
+        let engineConversationID: String? = {
+            if case .engineLocal(let id) = conversation.commander { return id }
+            return nil
+        }()
+        let livePane = LivePaneRegistry.shared.pane(
+            for: conversation.id
+        ) as? PaneViewController
+        return livePane?.terminalView.localPTYSlaveTTYPathForAutomation
+            ?? engineConversationID.flatMap {
+                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
+            }
+    }
+
+    func automationTTYDevice(for conversation: Conversation) -> UInt32? {
+        guard let ttyPath = automationTTYPath(for: conversation) else {
+            return nil
+        }
+        var metadata = stat()
+        guard stat(ttyPath, &metadata) == 0 else { return nil }
+        return UInt32(metadata.st_rdev)
+    }
 }

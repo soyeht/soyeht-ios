@@ -164,6 +164,7 @@ struct SoyehtAutomationRequest: Decodable {
         let runtimeAgent: String?
         let runtimeInstanceID: String?
         let runtimeProcessID: Int?
+        let runtimeOwnerProcessID: Int?
         let reportSource: String?
         let turnSubmissionAcknowledged: Bool?
         let attentionKind: String?
