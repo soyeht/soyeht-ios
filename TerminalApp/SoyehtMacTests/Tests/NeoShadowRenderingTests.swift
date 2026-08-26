@@ -15,6 +15,8 @@ import Testing
 /// and calls `cacheDisplay`. Without it Swift Testing runs them on the
 /// cooperative pool, three at a time on different threads — which is how this
 /// file would start failing on someone else's machine and not on mine.
+/// Verified: a test in an annotated suite reports the main thread, the same
+/// test unannotated reports thread 2.
 @Suite("Neumorphic shadow rendering")
 @MainActor
 struct NeoShadowRenderingTests {
@@ -128,10 +130,10 @@ struct NeoShadowRenderingTests {
         let bottomEdge = lightness(75, Int(size.height) - 2)
         let rightEdge = lightness(Int(size.width) - 2, 16)
 
-        // 8 rather than a token gap. The recess sits at L* 8.1 against a
+        // 8 rather than a token gap. The recess sits at L* 9.0 against a
         // well of 18.5 when the geometry is right; leaving the seam guard
         // unpaid — the ring is held a point outside the clip, which shifts
-        // every shadow it casts that far back out — lands it at 12.8, still
+        // every shadow it casts that far back out — lands it at 12.3, still
         // "darker" but a third of the depth gone. A loose threshold would
         // wave that through.
         #expect(topEdge < middle - 8,
@@ -169,7 +171,7 @@ struct NeoShadowRenderingTests {
             light: .neo(color: .white, offset: CGSize(width: -3, height: 3), blur: 40))
         host.addSubview(cavity)
         let lightness = Self.lightnessProbe(of: host)
-        // Behind the dark ring this reads about 23; in front of it, 55.
+        // Behind the dark ring this reads about 12; in front of it, 55.
         #expect(lightness(75, 0) < 35,
                 "a shouting rim reached the top-left at \(lightness(75, 0)) — it is in front")
     }
@@ -186,23 +188,40 @@ struct NeoShadowRenderingTests {
     // than about the code. `theDarkRingIsPaintedInFrontOfTheRim` asks the
     // same question with an amplified rim and answers it 23 against 55.
 
-    /// A theme that states no lip renders without one, and the two rings that
-    /// remain still carve the recess.
+    /// A theme that states no lip renders WITHOUT one, and the two rings
+    /// that remain still carve the recess.
+    ///
+    /// Both halves are asserted. The first version only checked the depth,
+    /// which both configurations clear: make a nil lip silently paint the
+    /// standard one and the probe moved from 10.998 to 9.042 with the test
+    /// still green. Nothing in the suite covered the lip's presence at all.
     @Test func aWellWithoutALipStillReadsAsPressed() {
         let size = NSSize(width: 150, height: 33)
-        let host = NSView(frame: NSRect(origin: .zero, size: size))
-        host.wantsLayer = true
-        host.layer?.backgroundColor = Self.well.cgColor
-        let cavity = MacInnerWellShadowView(frame: NSRect(origin: .zero, size: size))
-        cavity.applyStyle(
-            cornerRadius: min(size.height / 2, 18),
-            dark: .neo(color: Self.wellShadow, offset: CGSize(width: 3, height: -3), blur: 6),
-            light: .neo(color: Self.wellRim, offset: CGSize(width: -3, height: 3), blur: 7))
-        host.addSubview(cavity)
-        let lightness = Self.lightnessProbe(of: host)
-        // Shallower than the three-ring well above — the lip contributes
-        // about 2 L* of its own — so the floor is lower, not absent.
-        #expect(lightness(75, 0) < lightness(75, 16) - 6)
+        func topEdge(lip: MacSurface.Shadow?) -> Double {
+            let host = NSView(frame: NSRect(origin: .zero, size: size))
+            host.wantsLayer = true
+            host.layer?.backgroundColor = Self.well.cgColor
+            let cavity = MacInnerWellShadowView(frame: NSRect(origin: .zero, size: size))
+            cavity.applyStyle(
+                cornerRadius: 16.5,
+                dark: .neo(color: Self.wellShadow, offset: CGSize(width: 3, height: -3), blur: 6),
+                light: .neo(color: Self.wellRim, offset: CGSize(width: -3, height: 3), blur: 7),
+                lip: lip)
+            host.addSubview(cavity)
+            return Self.lightnessProbe(of: host)(75, 0)
+        }
+        let bare = topEdge(lip: nil)
+        let lipped = topEdge(
+            lip: .neo(color: Self.wellLip, offset: CGSize(width: 1, height: -1), blur: 0))
+
+        // Still a recess without the lip: the two rings carry it. The floor is
+        // lower than the three-ring well's because the lip contributes about
+        // 2 L* of its own.
+        let middle = 18.54
+        #expect(bare < middle - 6, "no-lip well reads \(bare) against a well of \(middle)")
+        // And the lip is not painted when the theme states none.
+        #expect(bare > lipped + 1,
+                "stating no lip produced \(bare), a lip produced \(lipped) — the same edge")
     }
 
     // MARK: - The raised surface

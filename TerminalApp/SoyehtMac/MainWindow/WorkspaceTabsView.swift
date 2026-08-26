@@ -197,7 +197,7 @@ final class WorkspaceTabsView: NSView {
     /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
     /// with no border and no fill.
     /// Sizes the CIRCLE, which is what the stack lays out. The button is
-    /// centred inside it and takes whatever the glyph needs.
+    /// pinned to its four edges, so the whole disc is the click target.
     private var addBackdropSizeConstraints: [NSLayoutConstraint] = []
     /// The "+" itself: a raised circle in neo (Pencil `wmiAq`), an invisible
     /// carrier in classic. It is never hidden, because the button lives

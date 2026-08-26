@@ -383,7 +383,6 @@ class PreferencesViewController: NSViewController {
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
-
     @objc private func customizeTheme() {
         guard let theme = selectedTheme() else { return }
         let replacingID = theme.source == .builtIn ? nil : theme.id
@@ -451,7 +450,6 @@ class PreferencesViewController: NSViewController {
         prefs.fontSize = size
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
-
 
     func selectAndApplyTheme(_ theme: TerminalColorTheme) {
         // Apply BEFORE repopulating: the theme decides the style and the
