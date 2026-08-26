@@ -441,13 +441,22 @@ final class WindowTopBarView: NSView {
                 cornerRadius: MacSurface.Radius.control,
                 shadows: MacSurface.Shadows.raisedSmallSet
             )
+            // The same raised surface every other neo control wears, with the
+            // accent moved off the fill and onto the label — which is exactly
+            // what the active workspace tab does.
+            //
+            // It used to be filled with the accent and ringed by a coloured
+            // glow. Measured on Pale Mist, that put it at chroma 68 against
+            // 9.5 for a workspace tab and 3.4 for the strip around it: the
+            // only saturated thing on screen, seven times over, so it read as
+            // a foreign object dropped onto the chrome rather than part of it.
             clawBackdrop.applyStyle(
-                fill: MacTheme.interactionAccent,
+                fill: MacTheme.neoSurface,
                 cornerRadius: Self.neoChipSize / 2,
-                shadows: MacSurface.Shadows.accentGlowSet
+                shadows: MacSurface.Shadows.raisedSmallSet
             )
             sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.textMuted)
-            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.buttonTextOnAccent)
+            clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.interactionAccent)
             // Reference: the Claws control is a labeled accent pill.
             clawWidthConstraint?.isActive = false
             clawStoreButton.imagePosition = .imageLeading
@@ -456,7 +465,7 @@ final class WindowTopBarView: NSView {
                 attributes: [
                     .font: Typography.neoSansNSFont(size: 14, weight: .bold)
                         ?? NSFont.systemFont(ofSize: 14, weight: .bold),
-                    .foregroundColor: MacTheme.buttonTextOnAccent,
+                    .foregroundColor: MacTheme.interactionAccent,
                 ]
             )
             clawStoreButton.attributedTitle = title

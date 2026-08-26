@@ -182,7 +182,17 @@ final class WorkspaceTabsView: NSView {
     }
 
     func applyTheme() {
-        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        // Transparent in neo. The strip is a container for pills that float on
+        // the bar; painting its own opaque plate the same colour changes
+        // nothing you can see of the strip itself, and covers whatever the
+        // neighbours cast into the gap beside it. It ends exactly 12pt before
+        // the Claws button and is added last, so it sat on top and sheared
+        // that button's bloom off in a straight vertical line — the button
+        // went from flat canvas to its own fill with no ramp at all, while
+        // the sidebar button 12pt from the other end kept a 6-point ramp.
+        layer?.backgroundColor = MacSurface.style == .neomorphic
+            ? NSColor.clear.cgColor
+            : MacTheme.surfaceBase.cgColor
         // Reference tab strip breathes: 10pt gaps between pills in neo;
         // classic keeps the flush historical strip.
         stack.spacing = MacSurface.style == .neomorphic ? 10 : 0
