@@ -74,14 +74,28 @@ final class WorkspaceTabsView: NSView {
             userInterfaceLayoutDirection = .rightToLeft
         }
         addSubview(stack)
-        // Neo "+" chip shadows live on a backdrop BELOW the stack: NSButton
-        // gets auto-clipped by AppKit once its layer has a cornerRadius
-        // (macOS 14+ clipsToBounds sync), which kills own-layer shadows, and
-        // a single layer can't carry the reference's dual pair anyway.
+        // The neo "+" is a raised circle with the "+" on it. The circle is a
+        // separate view because NSButton gets auto-clipped by AppKit once its
+        // layer has a cornerRadius (macOS 14+ clipsToBounds sync), which kills
+        // own-layer shadows, and one layer cannot carry the reference's dual
+        // pair anyway.
+        //
+        // The button is a CHILD of the circle, and the CIRCLE is what the
+        // stack arranges. The two used to be siblings tied together by four
+        // constraints created once at init — same centre, same size. Every
+        // rebuild pulls the button out of the stack with
+        // `removeFromSuperview()`, which drops it out of the view hierarchy,
+        // and AppKit discards any constraint referencing a view that left.
+        // Nothing recreated them, so from the first rebuild onward the circle
+        // had no position at all: measured 122pt to the right of its own "+",
+        // sitting empty in the middle of the strip. A rebuild happens whenever
+        // the workspace list changes — create, close, rename, reorder — and
+        // once on restore, so the button was almost never right.
+        //
+        // Parent and child cannot come apart. There is nothing left to break.
         addBackdrop.passesThroughHits = true
-        addBackdrop.isHidden = true
         addBackdrop.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(addBackdrop, positioned: .below, relativeTo: stack)
+        addBackdrop.addSubview(addButton)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
@@ -96,15 +110,13 @@ final class WorkspaceTabsView: NSView {
         addButton.toolTip = String(localized: "workspaceTabs.button.add.tooltip", comment: "Tooltip on the '+ new workspace' button in the tab strip.")
         addButton.setAccessibilityLabel(String(localized: "workspaceTabs.button.add.a11y", comment: "VoiceOver label for the '+ new workspace' button in the tab strip."))
 
-        rebuild()
-        // Only now does `rebuild()` put addButton in the stack — constraints
-        // to it need the shared ancestor to exist.
+        // The button sits at the centre of its own circle. Both views are
+        // permanent children of one another, so these outlive every rebuild.
         NSLayoutConstraint.activate([
-            addBackdrop.centerXAnchor.constraint(equalTo: addButton.centerXAnchor),
-            addBackdrop.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
-            addBackdrop.widthAnchor.constraint(equalTo: addButton.widthAnchor),
-            addBackdrop.heightAnchor.constraint(equalTo: addButton.heightAnchor),
+            addButton.centerXAnchor.constraint(equalTo: addBackdrop.centerXAnchor),
+            addButton.centerYAnchor.constraint(equalTo: addBackdrop.centerYAnchor),
         ])
+        rebuild()
         // Fase 3.1 — ObservationTracker replaces the two NotificationCenter
         // observers. ConversationStore is NOT observed because `rebuild()`
         // does not read any conversation (handles are only rendered in the
@@ -172,8 +184,12 @@ final class WorkspaceTabsView: NSView {
 
     /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
     /// with no border and no fill.
-    private var addButtonSizeConstraints: [NSLayoutConstraint] = []
-    /// Neo raised-circle chrome behind the "+" button (Pencil `wmiAq`).
+    /// Sizes the CIRCLE, which is what the stack lays out. The button is
+    /// centred inside it and takes whatever the glyph needs.
+    private var addBackdropSizeConstraints: [NSLayoutConstraint] = []
+    /// The "+" itself: a raised circle in neo (Pencil `wmiAq`), an invisible
+    /// carrier in classic. It is never hidden, because the button lives
+    /// inside it and hiding a parent hides the child.
     private let addBackdrop = MacStyledSurfaceView()
 
     private func styleAddButton() {
@@ -183,39 +199,39 @@ final class WorkspaceTabsView: NSView {
         addButton.layer?.backgroundColor = NSColor.clear.cgColor
         addButton.layer?.borderWidth = 0
         addButton.translatesAutoresizingMaskIntoConstraints = false
-        addButtonSizeConstraints = [
-            addButton.widthAnchor.constraint(equalToConstant: 18),
-            addButton.heightAnchor.constraint(equalToConstant: 18),
+        addBackdropSizeConstraints = [
+            addBackdrop.widthAnchor.constraint(equalToConstant: 18),
+            addBackdrop.heightAnchor.constraint(equalToConstant: 18),
         ]
-        NSLayoutConstraint.activate(addButtonSizeConstraints)
+        NSLayoutConstraint.activate(addBackdropSizeConstraints)
         applyAddButtonTheme()
     }
 
     private func applyAddButtonTheme() {
         let neo = MacSurface.style == .neomorphic
         let size: CGFloat = neo ? 32 : 18
-        for constraint in addButtonSizeConstraints {
+        for constraint in addBackdropSizeConstraints {
             constraint.constant = size
         }
-        addBackdrop.isHidden = !neo
+        // Never hidden: the button is its child, and hiding a parent hides
+        // the child. Classic gets a clear circle of the button's own size,
+        // which draws nothing and lays out exactly as the bare button did.
         if neo {
             // Reference `wmiAq`: 32pt raised circle, flat face + the full
-            // dual pair. The pair lives on `addBackdrop` (a button layer
-            // with cornerRadius is auto-clipped by AppKit and can only
-            // carry one shadow anyway); the button itself stays clear.
+            // dual pair. The pair lives here rather than on the button
+            // because a button layer with a cornerRadius is auto-clipped by
+            // AppKit and can only carry one shadow anyway.
             addBackdrop.applyStyle(
                 fill: MacTheme.neoSurface,
                 cornerRadius: size / 2,
                 shadows: MacSurface.Shadows.raisedSmallSet
             )
-            addButton.layer?.backgroundColor = NSColor.clear.cgColor
-            addButton.layer?.cornerRadius = 0
-            MacSurface.Shadow.clear(addButton.layer)
         } else {
-            addButton.layer?.backgroundColor = NSColor.clear.cgColor
-            addButton.layer?.cornerRadius = 0
-            MacSurface.Shadow.clear(addButton.layer)
+            addBackdrop.applyStyle(fill: .clear, cornerRadius: 0)
         }
+        addButton.layer?.backgroundColor = NSColor.clear.cgColor
+        addButton.layer?.cornerRadius = 0
+        MacSurface.Shadow.clear(addButton.layer)
         let attr = NSAttributedString(
             string: "+",
             attributes: [
@@ -263,11 +279,11 @@ final class WorkspaceTabsView: NSView {
         // when an already-detached view is passed back through
         // `removeArrangedSubview` — and the dead-tab cleanup loop below would
         // otherwise hit exactly that path.
-        for view in Array(stack.arrangedSubviews) where view !== addButton {
+        for view in Array(stack.arrangedSubviews) where view !== addBackdrop {
             view.removeFromSuperview()
         }
-        if addButton.superview === stack {
-            addButton.removeFromSuperview()
+        if addBackdrop.superview === stack {
+            addBackdrop.removeFromSuperview()
         }
 
         var keptIDs: Set<Workspace.ID> = []
@@ -321,10 +337,10 @@ final class WorkspaceTabsView: NSView {
                 tab.removeFromSuperview()
             }
         }
-        stack.addArrangedSubview(addButton)
-        stack.setCustomSpacing(10, after: addButton.superview === stack
-            ? (stack.arrangedSubviews.last(where: { $0 !== addButton }) ?? addButton)
-            : addButton)
+        stack.addArrangedSubview(addBackdrop)
+        stack.setCustomSpacing(10, after: addBackdrop.superview === stack
+            ? (stack.arrangedSubviews.last(where: { $0 !== addBackdrop }) ?? addBackdrop)
+            : addBackdrop)
         stack.needsLayout = true
         needsLayout = true
         layoutSubtreeIfNeeded()
