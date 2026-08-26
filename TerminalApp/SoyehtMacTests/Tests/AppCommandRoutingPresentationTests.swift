@@ -835,16 +835,14 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let modules = [
             "soyeht_mcp_foundation.py",
             "soyeht_mcp_runtime.py",
-            "soyeht_mcp_schema.py",
-            "soyeht_mcp_schema_creation.py",
-            "soyeht_mcp_schema_messaging.py",
-            "soyeht_mcp_schema_layout.py",
-            "soyeht_mcp_schema_directory.py",
+            "soyeht_mcp_registry.py",
             "soyeht_mcp_tools_creation.py",
+            "soyeht_mcp_tools_launch.py",
             "soyeht_mcp_tools_content.py",
             "soyeht_mcp_tools_messaging.py",
             "soyeht_mcp_tools_layout.py",
             "soyeht_mcp_tools_directory.py",
+            "soyeht_mcp_tools_capture.py",
         ]
 
         for module in modules {

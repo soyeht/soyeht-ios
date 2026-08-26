@@ -147,6 +147,25 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
 
+    def test_tool_contract_and_handler_come_from_the_same_registration(self):
+        registry = MODULE["TOOL_REGISTRY"]
+
+        self.assertEqual(len(registry), len(MODULE["TOOLS"]))
+        self.assertEqual(
+            [spec.order for spec in registry],
+            list(range(len(registry))),
+        )
+        self.assertEqual(
+            [spec.definition for spec in registry],
+            MODULE["TOOLS"],
+        )
+        self.assertEqual(
+            {spec.name: spec.handler for spec in registry},
+            MODULE["TOOL_HANDLERS"],
+        )
+        for spec in registry:
+            self.assertIs(spec.handler.__soyeht_tool_spec__, spec)
+
     def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
         globals_ = MODULE["tool_open_file"].__globals__
         original_choose_file = globals_["choose_file"]

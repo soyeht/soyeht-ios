@@ -13,58 +13,15 @@ if str(SCRIPT_DIR) not in sys.path:
 from soyeht_mcp_foundation import *
 from soyeht_mcp_runtime import *
 from soyeht_mcp_tools_creation import *
+from soyeht_mcp_tools_launch import *
 from soyeht_mcp_tools_content import *
 from soyeht_mcp_tools_messaging import *
 from soyeht_mcp_tools_layout import *
 from soyeht_mcp_tools_directory import *
-from soyeht_mcp_schema import TOOLS
+from soyeht_mcp_tools_capture import *
+from soyeht_mcp_registry import build_tool_registry
 
-TOOL_HANDLERS = {
-    "open_panes": tool_open_panes,
-    "open_shell": tool_open_shell,
-    "open_agent_pane": tool_open_agent_pane,
-    "open_file": tool_open_file,
-    "open_editor": tool_open_editor,
-    "open_explorer": tool_open_explorer,
-    "open_git": tool_open_git,
-    "open_diff": tool_open_diff,
-    "open_web": tool_open_web,
-    "install_app": tool_install_app,
-    "open_app": tool_open_app,
-    "open_workspace": tool_open_workspace,
-    "create_worktree_panes": tool_create_worktree_panes,
-    "agent_race_panes": tool_agent_race_panes,
-    "send_pane_input": tool_send_pane_input,
-    "message_agent": tool_message_agent,
-    "list_agent_messages": tool_list_agent_messages,
-    "ack_agent_messages": tool_ack_agent_messages,
-    "set_agent_communication_policy": tool_set_agent_communication_policy,
-    "set_agent_role": tool_set_agent_role,
-    "save_agent_role_template": tool_save_agent_role_template,
-    "configure_agent_orchestration": tool_configure_agent_orchestration,
-    "rename_panes": tool_rename_panes,
-    "rename_workspace": tool_rename_workspace,
-    "arrange_panes": tool_arrange_panes,
-    "emphasize_pane": tool_emphasize_pane,
-    "resize_pane_exact": tool_resize_pane_exact,
-    "set_pane_zoom": tool_set_pane_zoom,
-    "set_pane_font_size": tool_set_pane_font_size,
-    "scroll_pane": tool_scroll_pane,
-    "list_windows": tool_list_windows,
-    "list_workspaces": tool_list_workspaces,
-    "list_panes": tool_list_panes,
-    "identify_agent": tool_identify_agent,
-    "list_agents": tool_list_agents,
-    "close_pane": tool_close_pane,
-    "close_workspace": tool_close_workspace,
-    "move_pane": tool_move_pane,
-    "get_pane_status": tool_get_pane_status,
-    "get_conversation_context": tool_get_conversation_context,
-    "ack_conversation_context": tool_ack_conversation_context,
-    "capture_pane": tool_capture_pane,
-    "capture_pane_range": tool_capture_pane_range,
-    "get_active_context": tool_get_active_context,
-}
+TOOL_REGISTRY, TOOLS, TOOL_HANDLERS = build_tool_registry()
 
 
 class StdioTransport:
