@@ -175,6 +175,7 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertEqual(payload["nonce"] as? String, "launch-proof")
         XCTAssertEqual(payload["mcpClientContractVersion"] as? Int, 3)
         XCTAssertEqual(payload["mcpClientProfile"] as? String, "dev")
+        XCTAssertEqual(payload["reportSource"] as? String, "hook:kimi")
         XCTAssertEqual(payload["text"] as? String, "visible final")
         XCTAssertEqual(payload["sourceEventID"] as? String, "kimi:message-final")
         XCTAssertEqual(payload["model"] as? String, "test-model")
@@ -202,6 +203,29 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             XCTAssertTrue(reporter.contains("mcpClientProfile"), name)
             XCTAssertTrue(reporter.contains("expectsResponse"), name)
         }
+    }
+
+    func testEveryConversationReporterCarriesItsAuthenticatedHookSource() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let python = try slice(
+            source,
+            from: "def report_conversation(data, event, conversation_id, automation_dir):",
+            to: "def main():"
+        )
+        let pi = try slice(
+            source,
+            from: "static let piExtensionReporter = #\"\"\"",
+            to: "/// Kilo Code CLI plugin reporter."
+        )
+        let kilo = try slice(
+            source,
+            from: "async function reportConversation(payload) {",
+            to: "async function reportAssistantPart(part, info) {"
+        )
+
+        XCTAssertTrue(python.contains("\"reportSource\": \"hook:\" + report_agent"))
+        XCTAssertTrue(pi.contains("reportSource: \"hook:pi\""))
+        XCTAssertTrue(kilo.contains("reportSource: SOURCE"))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

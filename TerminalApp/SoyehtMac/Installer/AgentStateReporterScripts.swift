@@ -319,6 +319,7 @@ def report_deferred_agent_transcript():
         if event and assistant_event_signature(event) != baseline:
             payload = {
                 "sourceConversationID": conversation_id,
+                "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "agent"),
                 "role": "assistant",
                 "text": event.get("text"),
                 "sourceEventID": event.get("sourceEventID"),
@@ -349,6 +350,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
     report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
     payload = {
         "sourceConversationID": conversation_id,
+        "reportSource": "hook:" + report_agent,
         "nativeSessionID": session_id,
         "model": model,
         "reasoningEffort": effort,
@@ -765,6 +767,7 @@ export default function (pi: any) {
       if (!text || (role === "user" && text.startsWith("SOYEHT_AGENT_HANDOFF_"))) return;
       const payload: Record<string, unknown> = {
         sourceConversationID: process.env.SOYEHT_CONVERSATION_ID,
+        reportSource: "hook:pi",
         role,
         text,
         sourceEventID: message?.id ?? message?.responseId
@@ -837,6 +840,7 @@ async function reportConversation(payload) {
   if (!conversationID) return;
   await writeAutomationRequest("report_agent_conversation", {
     sourceConversationID: conversationID,
+    reportSource: SOURCE,
     ...payload,
   });
 }
