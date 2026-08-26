@@ -175,7 +175,6 @@ instead of a plain shell.
 `scripts/soyeht-mcp` is a stdio MCP server for Codex, Claude Code, OpenCode, or
 any other MCP client. It exposes these tools:
 
-- `open_panes`: open new panes in existing directories.
 - `open_shell`: open a new Soyeht shell pane/tab in the active workspace.
 - `open_file`: open a specific or random file in `vim` or another editor inside
   a new Soyeht shell pane/tab.
@@ -369,22 +368,6 @@ Faça uma auditoria somente leitura e responda em português:
 ```
 
 ### MCP Call Examples
-
-Open three existing directories as panes running Codex:
-
-```json
-{
-  "tool": "open_panes",
-  "arguments": {
-    "agent": "codex",
-    "panes": [
-      { "name": "a", "path": "/tmp/repo-a" },
-      { "name": "b", "path": "/tmp/repo-b" },
-      { "name": "c", "path": "/tmp/repo-c" }
-    ]
-  }
-}
-```
 
 Open a plain shell in a new Soyeht pane:
 

@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=1,
+    order=0,
     definition={
         "name": "open_shell",
         "description": "Open a new Soyeht shell pane/tab in the caller/source workspace when available, otherwise the active workspace in the resolved window. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only when simulating a user typing literal input.",
@@ -125,12 +125,12 @@ def tool_open_shell(args):
 
 
 @register_tool(
-    order=2,
+    order=1,
     definition={
         "name": "open_agent_pane",
         "description": (
             "Open exactly one requested coding-agent CLI in a new Soyeht pane. Use this instead of "
-            "open_shell/open_panes whenever the user names Codex, Claude Code, OpenCode, Qwen, "
+            "open_shell whenever the user names Codex, Claude Code, OpenCode, Qwen, "
             "Antigravity, Pi, Droid, Kilo, Cursor, Copilot, Grok, Kimi, Devin, or Qoder. agentID is "
             "fail-closed: an unknown ID or a profile belonging to another agent is rejected, never "
             "silently replaced. Codex defaults to profile codex-yolo (codex --yolo) and OpenCode "

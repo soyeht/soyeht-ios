@@ -3,123 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=0,
-    definition={
-        "name": "open_panes",
-        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Prefer open_agent_pane when the user names a coding harness/CLI; this compatibility tool still honors the full harness catalog and default launch profiles. A harness is the program around a model (for example Codex, Claude Code, or OpenCode); the named Soyeht pane is the agent users communicate with. Agent panes do not steal focus by default. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "panes": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string"},
-                            "path": {"type": "string"},
-                            "agent": {"type": "string"},
-                            "command": {"type": "string"},
-                            "prompt": {"type": "string"},
-                            "promptMode": PROMPT_MODE_PROPERTY,
-                            "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
-                        },
-                        "required": ["name", "path"],
-                    },
-                },
-                "agent": {"type": "string", "default": "codex"},
-                "command": {"type": "string"},
-                "prompt": {"type": "string"},
-                "promptMode": PROMPT_MODE_PROPERTY,
-                "promptDelayMs": PROMPT_DELAY_MS_PROPERTY,
-                "activate": {
-                    "type": "boolean",
-                    "description": "Focus the newly created panes. Defaults to false for agent panes and true for shell-only panes.",
-                },
-                "fromConversationID": FROM_CONVERSATION_ID_PROPERTY,
-                "fromHandle": FROM_HANDLE_PROPERTY,
-                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
-                "paneNameStyle": {
-                    "type": "string",
-                    "enum": NAME_STYLE_CHOICES,
-                    "description": "Pane/tab names default to short hyphen names, e.g. 'Bug Login' becomes @bug-login. Use verbatim when the user asks for an exact name.",
-                },
-                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
-                "workspaceID": WORKSPACE_ID_PROPERTY,
-                "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
-            },
-            "required": ["panes"],
-        },
-    },
-)
-def tool_open_panes(args):
-    panes = args.get("panes") or []
-    if not panes:
-        raise RuntimeError("open_panes requires at least one pane.")
-
-    default_agent = args.get("agent") or "codex"
-    explicit_default_command = args.get("command")
-    default_command = explicit_default_command or default_agent_command(default_agent)
-    default_prompt_mode = normalize_prompt_mode(
-        first_present(args.get("promptMode"), args.get("promptDelivery"))
-    )
-
-    pane_agents = [pane.get("agent") or default_agent for pane in panes]
-    activate_created_pane = args.get("activate")
-    if activate_created_pane is None:
-        activate_created_pane = all(
-            str(agent).strip().lower() == "shell" for agent in pane_agents
-        )
-
-    requested_sessions = [
-        session_spec(
-            pane,
-            default_agent=default_agent,
-            default_command=default_command,
-            default_prompt=args.get("prompt"),
-            default_prompt_delay_ms=args.get("promptDelayMs"),
-            default_prompt_mode=default_prompt_mode,
-        )
-        for pane in panes
-    ]
-    payload = with_source_context(
-        with_window_target(
-            with_name_styles(
-                {
-                    "activateCreatedPane": bool(activate_created_pane),
-                    "agent": default_agent,
-                    "command": default_command,
-                    "prompt": args.get("prompt"),
-                    "promptMode": resolved_prompt_mode(
-                        default_agent, args.get("prompt"), default_prompt_mode
-                    ),
-                    "promptDelayMs": resolved_prompt_delay_ms(
-                        default_agent,
-                        default_command,
-                        args.get("prompt"),
-                        args.get("promptDelayMs"),
-                    ),
-                    "panes": requested_sessions,
-                },
-                args,
-            ),
-            args,
-        ),
-        args,
-    )
-    return wait_for_initial_prompt_delivery(
-        payload,
-        submit_request(
-            "create_worktree_panes",
-            payload,
-            automation_dir=args.get("automationDir"),
-            timeout=creation_request_timeout(args, requested_sessions),
-        ),
-    )
-
-
-@register_tool(
-    order=12,
+    order=11,
     definition={
         "name": "open_workspace",
         "description": (
@@ -239,7 +123,7 @@ def tool_open_workspace(args):
 
 
 @register_tool(
-    order=11,
+    order=10,
     definition={
         "name": "create_worktree_panes",
         "description": (
@@ -395,7 +279,7 @@ def tool_create_worktree_panes(args):
 
 
 @register_tool(
-    order=13,
+    order=12,
     definition={
         "name": "agent_race_panes",
         "description": (

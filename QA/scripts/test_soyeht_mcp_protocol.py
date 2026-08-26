@@ -135,10 +135,10 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             separators=(",", ":"),
         ).encode("utf-8")
 
-        self.assertEqual(len(MODULE["TOOLS"]), 44)
+        self.assertEqual(len(MODULE["TOOLS"]), 43)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "6cb198818a6abfdba52a6dc63e6c841b7292ef709dcea32b65919510db34c54d",
+            "d85ff0b3f8acc677557abeca4ffaaeecf9ec145482674586c7d23fd7ee28fd08",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -146,6 +146,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
+        self.assertNotIn("open_panes", schema_names)
 
     def test_tool_contract_and_handler_come_from_the_same_registration(self):
         registry = MODULE["TOOL_REGISTRY"]
@@ -366,7 +367,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(prompt_mode["enum"], ["auto", "message", "raw"])
         self.assertIn("agent message", prompt_mode["description"])
         self.assertIn("raw", prompt_mode["description"])
-        for name in ("open_panes", "open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
+        for name in ("open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
             self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
@@ -1367,48 +1368,6 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "create_worktree_panes")
         self.assertTrue(captured["payload"]["allowAutoPaneNames"])
         self.assertNotIn("name", captured["payload"]["panes"][0])
-
-    def test_open_panes_requires_name(self):
-        with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
-            MODULE["tool_open_panes"]({"panes": [{"path": "."}]})
-
-    def test_legacy_open_panes_honors_each_agent_profile_without_stealing_focus(self):
-        captured = {}
-        globals_ = MODULE["tool_open_panes"].__globals__
-        original = globals_["submit_request"]
-        try:
-            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
-                captured["request_type"] = request_type
-                captured["payload"] = payload
-                return {"status": "ok"}
-
-            globals_["submit_request"] = fake_submit_request
-            MODULE["tool_open_panes"]({
-                "panes": [{"name": "requested-opencode", "path": ".", "agent": "opencode"}],
-            })
-        finally:
-            globals_["submit_request"] = original
-
-        self.assertEqual(captured["request_type"], "create_worktree_panes")
-        self.assertFalse(captured["payload"]["activateCreatedPane"])
-        self.assertEqual(captured["payload"]["panes"][0]["agent"], "opencode")
-        self.assertIn("opencode", captured["payload"]["panes"][0]["command"])
-        self.assertIn("--auto", captured["payload"]["panes"][0]["command"])
-
-    def test_legacy_open_panes_keeps_plain_shell_focus_behavior(self):
-        captured = {}
-        globals_ = MODULE["tool_open_panes"].__globals__
-        original = globals_["submit_request"]
-        try:
-            globals_["submit_request"] = lambda request_type, payload, **kwargs: captured.setdefault("payload", payload) or {"status": "ok"}
-            MODULE["tool_open_panes"]({
-                "agent": "shell",
-                "panes": [{"name": "shell", "path": ".", "agent": "shell"}],
-            })
-        finally:
-            globals_["submit_request"] = original
-
-        self.assertTrue(captured["payload"]["activateCreatedPane"])
 
     def test_open_workspace_requires_pane_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):

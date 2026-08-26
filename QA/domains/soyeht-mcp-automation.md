@@ -26,7 +26,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-002 | Initialize MCP over `Content-Length` framed JSON-RPC. | Direct MCP | Response uses the same framed transport. |
 | ST-Q-MCPA-003 | List all Soyeht automation tools. | Direct MCP | Tool list includes workspace, pane, shell/file, send, rename, arrange, emphasize, resize, zoom, font-size, scroll, and capture tools. |
 | ST-Q-MCPA-004 | Create a workspace with shell panes. | Direct MCP `open_workspace` | Panes open in requested directories and share one workspace id. |
-| ST-Q-MCPA-005 | Add panes to the active workspace. | Direct MCP `open_panes`/`open_shell` | New panes are added without creating an unintended workspace. |
+| ST-Q-MCPA-005 | Add a pane to the active workspace. | Direct MCP `open_shell` | A new pane is added without creating an unintended workspace. |
 | ST-Q-MCPA-006 | Create git worktree panes. | Direct MCP `create_worktree_panes` | Worktrees/branches are created and opened as panes. |
 | ST-Q-MCPA-007 | Create an agent race in panes. | Direct MCP `agent_race_panes` | Codex, Claude Code, and OpenCode processes start in separate worktrees. |
 | ST-Q-MCPA-008 | Send input by `conversationID`. | Direct MCP/CLI `send_pane_input` | Only targeted panes receive the payload. |
@@ -69,7 +69,6 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |
 | ST-Q-MCPA-040 | Open a shell pane in a specific directory, then send a command. | Claude Code `open_shell` + `send_pane_input` | Shell launches in the correct cwd; command executes and output appears. |
-| ST-Q-MCPA-041 | Open multiple shell panes in different directories in one call. | Direct MCP `open_panes` | Each pane reflects its own cwd; panes do not bleed into each other. |
 | ST-Q-MCPA-042 | Open a file in the Soyeht editor pane. | Direct MCP `open_file` | File opens inside Soyeht, not in an external editor. |
 | ST-Q-MCPA-043 | Open a non-existent file path. | Direct MCP `open_file` | Tool returns an error; no blank/crashed pane created. |
 | ST-Q-MCPA-044 | Open a shell pane with a long-running process (e.g., `tail -f /tmp/test.log`). | Claude Code `open_shell` + `send_pane_input` | Process runs in background; subsequent `send_pane_input` to that pane appends to log. |
@@ -117,7 +116,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |
-| ST-Q-MCPA-080 | Open a new workspace with `open_workspace` then add panes with `open_panes`. | Direct MCP | Workspace created; subsequent `open_panes` targets that workspace by ID. |
+| ST-Q-MCPA-080 | Open a new workspace with `open_workspace` then add a pane with `open_shell`. | Direct MCP | Workspace created; subsequent `open_shell` targets that workspace by ID. |
 | ST-Q-MCPA-081 | Open two named workspaces in the same session and verify distinct IDs. | Direct MCP `open_workspace` ×2 | Two separate workspaces exist; IDs differ; panes in one do not bleed into the other. |
 | ST-Q-MCPA-082 | Open a workspace when an existing workspace with the same name is present. | Direct MCP `open_workspace` | Tool either reuses the existing workspace or creates a new one with a deduplicated name — does not crash. |
 
