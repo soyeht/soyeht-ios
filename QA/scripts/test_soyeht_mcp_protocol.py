@@ -73,6 +73,45 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["runtimeOwnerProcessID"], os.getppid())
         self.assertEqual(payload["nonce"], "pane-proof")
 
+    def test_runtime_report_binding_publishes_only_the_verified_generation(self):
+        publish = MODULE["publish_runtime_report_binding"]
+        remove = MODULE["remove_runtime_report_binding"]
+        globals_ = publish.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-session-a"
+            with tempfile.TemporaryDirectory() as temporary:
+                with patch.dict(os.environ, {
+                    "SOYEHT_AUTOMATION_DIR": temporary,
+                }, clear=True):
+                    path = publish({
+                        "runtimeIdentityClaimed": {
+                            "conversationID": "pane-id",
+                            "runtimeAgent": "codex",
+                            "runtimeInstanceID": "runtime-session-a",
+                            "runtimeOwnerProcessID": os.getppid(),
+                            "runtimeOwnerProcessStartedAtSeconds": 1234,
+                            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+                        },
+                    })
+                    self.assertIsNotNone(path)
+                    identity = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(identity["runtimeInstanceID"], "runtime-session-a")
+                    self.assertEqual(identity["runtimeOwnerProcessStartedAtSeconds"], 1234)
+                    self.assertEqual(identity["runtimeOwnerProcessStartedAtMicroseconds"], 5678)
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+                    # An old runtime cannot erase a replacement generation.
+                    identity["runtimeInstanceID"] = "runtime-session-b"
+                    path.write_text(json.dumps(identity), encoding="utf-8")
+                    self.assertFalse(remove())
+                    self.assertTrue(path.exists())
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+
     def test_manual_runtime_claim_never_invents_a_missing_launch_nonce(self):
         function = MODULE["synchronize_runtime_identity"]
         globals_ = function.__globals__

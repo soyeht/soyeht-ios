@@ -163,11 +163,41 @@ struct AgentRuntimeIdentityClaim: Codable, Equatable {
     /// so this binds one-way reports to the concrete agent session rather than
     /// merely trusting a reusable pane nonce and agent label.
     let ownerProcessID: Int32?
+    /// Kernel start time of the owner CLI process. Together with the PID this
+    /// is the lifecycle identity of the agent session; a numeric PID can be
+    /// recycled after the previous CLI exits.
+    let ownerProcessStartedAtSeconds: UInt64?
+    let ownerProcessStartedAtMicroseconds: UInt64?
     /// Kernel TTY device captured at claim time. Optional only to decode rows
     /// written before continuous TTY validation shipped. Legacy rows are
     /// decoded for migration safety but revoked instead of being upgraded from
     /// mutable live-process metadata.
     let ttyDevice: UInt32?
+}
+
+/// Pure lifecycle check for one-way hook reports. The request may sit in the
+/// file spool after its CLI exits, so a matching numeric owner PID alone is
+/// insufficient: macOS can recycle that PID for a later agent session.
+enum AgentRuntimeReportIdentity {
+    static func accepts(
+        claim: AgentRuntimeIdentityClaim,
+        runtimeInstanceID: String?,
+        ownerProcessID: Int?,
+        ownerProcessStartedAtSeconds: UInt64?,
+        ownerProcessStartedAtMicroseconds: UInt64?
+    ) -> Bool {
+        guard let ownerProcessID,
+              ownerProcessID > 1,
+              ownerProcessID <= Int(Int32.max),
+              let runtimeInstanceID,
+              !runtimeInstanceID.isEmpty,
+              let ownerProcessStartedAtSeconds,
+              let ownerProcessStartedAtMicroseconds else { return false }
+        return claim.ownerProcessID == Int32(ownerProcessID)
+            && claim.instanceID == runtimeInstanceID
+            && claim.ownerProcessStartedAtSeconds == ownerProcessStartedAtSeconds
+            && claim.ownerProcessStartedAtMicroseconds == ownerProcessStartedAtMicroseconds
+    }
 }
 
 protocol AgentRuntimeIdentityPersisting {
@@ -310,7 +340,8 @@ final class AgentRuntimeIdentityRegistry {
               isProcessAlive(Int32(processID)),
               isProcessAlive(Int32(ownerProcessID)),
               processParentID(Int32(processID)) == Int32(ownerProcessID),
-              let startedAt = processStartTime(Int32(processID)) else { return nil }
+              let startedAt = processStartTime(Int32(processID)),
+              let ownerStartedAt = processStartTime(Int32(ownerProcessID)) else { return nil }
         let observedTTYDevice = processTTYDevice(Int32(processID))
         if let expectedTTYDevice {
             guard observedTTYDevice == expectedTTYDevice else {
@@ -324,6 +355,8 @@ final class AgentRuntimeIdentityRegistry {
             processStartedAtSeconds: startedAt.seconds,
             processStartedAtMicroseconds: startedAt.microseconds,
             ownerProcessID: Int32(ownerProcessID),
+            ownerProcessStartedAtSeconds: ownerStartedAt.seconds,
+            ownerProcessStartedAtMicroseconds: ownerStartedAt.microseconds,
             ttyDevice: expectedTTYDevice ?? observedTTYDevice
         )
     }
@@ -392,6 +425,8 @@ final class AgentRuntimeIdentityRegistry {
                   let claim = persistence.loadClaim(for: conversation.id) else { continue }
             if claim.ttyDevice != nil,
                claim.ownerProcessID != nil,
+               claim.ownerProcessStartedAtSeconds != nil,
+               claim.ownerProcessStartedAtMicroseconds != nil,
                isCurrentProcess(claim) {
                 claimsByPane[conversation.id] = claim
                 trustedPaneIDs.insert(conversation.id)
@@ -426,8 +461,13 @@ final class AgentRuntimeIdentityRegistry {
             return false
         }
         guard let ownerProcessID = claim.ownerProcessID,
+              let ownerStartedAtSeconds = claim.ownerProcessStartedAtSeconds,
+              let ownerStartedAtMicroseconds = claim.ownerProcessStartedAtMicroseconds,
               isProcessAlive(ownerProcessID),
-              processParentID(claim.processID) == ownerProcessID else {
+              processParentID(claim.processID) == ownerProcessID,
+              let ownerStartedAt = processStartTime(ownerProcessID),
+              ownerStartedAt.seconds == ownerStartedAtSeconds,
+              ownerStartedAt.microseconds == ownerStartedAtMicroseconds else {
             return false
         }
         if let claimTTYDevice = claim.ttyDevice {

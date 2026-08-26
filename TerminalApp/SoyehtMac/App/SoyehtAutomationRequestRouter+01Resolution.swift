@@ -211,4 +211,26 @@ extension SoyehtAutomationRequestRouter {
         guard stat(ttyPath, &metadata) == 0 else { return nil }
         return UInt32(metadata.st_rdev)
     }
+
+    func claimedRuntimeReportIdentity(
+        for source: Conversation,
+        expectedTTYDevice: UInt32
+    ) -> SoyehtAutomationResponse.RuntimeIdentityClaimed? {
+        guard source.agent.isShell,
+              let claim = PaneStatusTracker.shared.runtimeIdentityClaim(
+                  for: source.id,
+                  expectedTTYDevice: expectedTTYDevice
+              ),
+              let ownerProcessID = claim.ownerProcessID,
+              let seconds = claim.ownerProcessStartedAtSeconds,
+              let microseconds = claim.ownerProcessStartedAtMicroseconds else { return nil }
+        return .init(
+            conversationID: source.id.uuidString,
+            runtimeAgent: claim.agentName,
+            runtimeInstanceID: claim.instanceID,
+            runtimeOwnerProcessID: ownerProcessID,
+            runtimeOwnerProcessStartedAtSeconds: seconds,
+            runtimeOwnerProcessStartedAtMicroseconds: microseconds
+        )
+    }
 }

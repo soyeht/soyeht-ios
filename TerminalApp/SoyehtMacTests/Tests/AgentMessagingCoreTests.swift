@@ -1410,6 +1410,60 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(persistence.values[paneID])
     }
 
+    func testDelayedStructuredReportCannotCrossRecycledOwnerPID() throws {
+        let paneID = UUID()
+        var ownerStartedAt: (seconds: UInt64, microseconds: UInt64) = (200, 10)
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { processID in
+                if processID == 4100 { return ownerStartedAt }
+                if processID == 4242 { return (100, 1) }
+                if processID == 4343 { return (300, 2) }
+                return nil
+            },
+            processTTYDevice: { _ in 77 },
+            processParentID: { processID in
+                (processID == 4242 || processID == 4343) ? 4100 : nil
+            },
+            persistence: InMemoryAgentRuntimeIdentityPersistence()
+        )
+        let first = try XCTUnwrap(registry.claim(
+            paneID: paneID,
+            agentName: "codex",
+            instanceID: "runtime-a",
+            processID: 4242,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+
+        // Session A exits. macOS later gives its numeric owner PID to B, but
+        // the kernel start time and MCP runtime instance are both different.
+        ownerStartedAt = (400, 20)
+        let second = try XCTUnwrap(registry.claim(
+            paneID: paneID,
+            agentName: "codex",
+            instanceID: "runtime-b",
+            processID: 4343,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+
+        XCTAssertFalse(AgentRuntimeReportIdentity.accepts(
+            claim: second,
+            runtimeInstanceID: first.instanceID,
+            ownerProcessID: Int(try XCTUnwrap(first.ownerProcessID)),
+            ownerProcessStartedAtSeconds: first.ownerProcessStartedAtSeconds,
+            ownerProcessStartedAtMicroseconds: first.ownerProcessStartedAtMicroseconds
+        ))
+        XCTAssertTrue(AgentRuntimeReportIdentity.accepts(
+            claim: second,
+            runtimeInstanceID: second.instanceID,
+            ownerProcessID: Int(try XCTUnwrap(second.ownerProcessID)),
+            ownerProcessStartedAtSeconds: second.ownerProcessStartedAtSeconds,
+            ownerProcessStartedAtMicroseconds: second.ownerProcessStartedAtMicroseconds
+        ))
+    }
+
     func testLegacyRuntimeClaimWithoutTTYStillDecodesForSafeMigration() throws {
         let data = try XCTUnwrap("""
         {

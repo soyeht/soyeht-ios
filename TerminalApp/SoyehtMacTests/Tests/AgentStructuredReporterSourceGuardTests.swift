@@ -134,6 +134,17 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         try claudeCompatibleReporter(agent: "kimi")
             .write(to: reporter, atomically: true, encoding: String.Encoding.utf8)
         let automation = root.appendingPathComponent("Automation", isDirectory: true)
+        let bindings = automation.appendingPathComponent("RuntimeReportBindings", isDirectory: true)
+        try FileManager.default.createDirectory(at: bindings, withIntermediateDirectories: true)
+        let binding = try JSONSerialization.data(withJSONObject: [
+            "version": 1,
+            "runtimeAgent": "kimi",
+            "runtimeInstanceID": "runtime-session-a",
+            "runtimeOwnerProcessID": 24680,
+            "runtimeOwnerProcessStartedAtSeconds": 1234,
+            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+        ])
+        try binding.write(to: bindings.appendingPathComponent("owner-24680.json"))
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = [reporter.path]
@@ -177,6 +188,9 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertEqual(payload["mcpClientContractVersion"] as? Int, 3)
         XCTAssertEqual(payload["mcpClientProfile"] as? String, "dev")
         XCTAssertEqual(payload["runtimeOwnerProcessID"] as? Int, 24680)
+        XCTAssertEqual(payload["runtimeInstanceID"] as? String, "runtime-session-a")
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtSeconds"] as? Int, 1234)
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtMicroseconds"] as? Int, 5678)
         XCTAssertEqual(payload["reportSource"] as? String, "hook:kimi")
         XCTAssertEqual(payload["text"] as? String, "visible final")
         XCTAssertEqual(payload["sourceEventID"] as? String, "kimi:message-final")
@@ -204,6 +218,9 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             XCTAssertTrue(reporter.contains("mcpClientContractVersion"), name)
             XCTAssertTrue(reporter.contains("mcpClientProfile"), name)
             XCTAssertTrue(reporter.contains("runtimeOwnerProcessID"), name)
+            XCTAssertTrue(reporter.contains("runtimeInstanceID"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessStartedAtSeconds"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessStartedAtMicroseconds"), name)
             XCTAssertTrue(reporter.contains("expectsResponse"), name)
         }
     }
@@ -241,8 +258,10 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             to: "func revokeShellRuntimeOrchestrationAuthorization("
         )
 
+        XCTAssertTrue(resolver.contains("AgentRuntimeReportIdentity.accepts"))
         XCTAssertTrue(resolver.contains("payload.runtimeOwnerProcessID"))
-        XCTAssertTrue(resolver.contains("runtimeClaim.ownerProcessID == Int32(runtimeOwnerProcessID)"))
+        XCTAssertTrue(resolver.contains("payload.runtimeInstanceID"))
+        XCTAssertTrue(resolver.contains("payload.runtimeOwnerProcessStartedAtSeconds"))
         XCTAssertTrue(resolver.contains("expectedTTYDevice: currentTTYDevice"))
     }
 

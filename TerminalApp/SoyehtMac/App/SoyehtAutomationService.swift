@@ -177,6 +177,8 @@ struct SoyehtAutomationRequest: Decodable {
         let afterSequence: Int?
         let maxEvents: Int?
         let throughSequence: Int?
+        let runtimeOwnerProcessStartedAtSeconds: UInt64?
+        let runtimeOwnerProcessStartedAtMicroseconds: UInt64?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -197,6 +199,15 @@ struct SoyehtAutomationRequest: Decodable {
 }
 
 struct SoyehtAutomationResponse: Encodable {
+    struct RuntimeIdentityClaimed: Encodable {
+        let conversationID: String
+        let runtimeAgent: String
+        let runtimeInstanceID: String
+        let runtimeOwnerProcessID: Int32
+        let runtimeOwnerProcessStartedAtSeconds: UInt64
+        let runtimeOwnerProcessStartedAtMicroseconds: UInt64
+    }
+
     struct CreatedWorkspace: Encodable {
         let name: String
         let path: String
@@ -756,6 +767,7 @@ struct SoyehtAutomationResponse: Encodable {
     let installedApps: [InstalledApp]
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
+    var runtimeIdentityClaimed: RuntimeIdentityClaimed? = nil
     let listedAgents: [ListedAgent]
     /// MCP 2.0 view of the global agent directory. `listedAgents` is retained
     /// as a flat compatibility surface while new clients render these groups.
@@ -796,6 +808,7 @@ struct SoyehtAutomationResult {
     var installedApps: [SoyehtAutomationResponse.InstalledApp] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
+    var runtimeIdentityClaimed: SoyehtAutomationResponse.RuntimeIdentityClaimed? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
     var agentWorkspaceGroups: [SoyehtAutomationResponse.AgentWorkspaceGroup] = []
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
@@ -1132,6 +1145,7 @@ final class SoyehtAutomationService {
                 installedApps: result.installedApps,
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
+                runtimeIdentityClaimed: result.runtimeIdentityClaimed,
                 listedAgents: result.listedAgents,
                 agentWorkspaceGroups: result.agentWorkspaceGroups,
                 agentStateReported: result.agentStateReported,

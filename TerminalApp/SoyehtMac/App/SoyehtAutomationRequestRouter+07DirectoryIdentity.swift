@@ -2,12 +2,10 @@
 //  SoyehtAutomationRequestRouter domain extension
 //  Soyeht
 //
-
 import Cocoa
 import ApplicationServices
 import os
 import SoyehtCore
-
 @MainActor
 extension SoyehtAutomationRequestRouter {
     func handleListAgents(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
@@ -278,14 +276,17 @@ extension SoyehtAutomationRequestRouter {
         let reportSource = payload.reportSource?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let currentTTYDevice = automationTTYDevice(for: source)
-        guard let runtimeOwnerProcessID = payload.runtimeOwnerProcessID,
-              runtimeOwnerProcessID > 1,
-              runtimeOwnerProcessID <= Int(Int32.max),
-              let runtimeClaim = PaneStatusTracker.shared.runtimeIdentityClaim(
+        guard let runtimeClaim = PaneStatusTracker.shared.runtimeIdentityClaim(
                   for: source.id,
                   expectedTTYDevice: currentTTYDevice
               ),
-              runtimeClaim.ownerProcessID == Int32(runtimeOwnerProcessID),
+              AgentRuntimeReportIdentity.accepts(
+                  claim: runtimeClaim,
+                  runtimeInstanceID: payload.runtimeInstanceID,
+                  ownerProcessID: payload.runtimeOwnerProcessID,
+                  ownerProcessStartedAtSeconds: payload.runtimeOwnerProcessStartedAtSeconds,
+                  ownerProcessStartedAtMicroseconds: payload.runtimeOwnerProcessStartedAtMicroseconds
+              ),
               PaneStatusTracker.shared.validatesLaunchOwnership(
                   paneID: source.id,
                   nonce: payload.nonce
@@ -377,11 +378,15 @@ extension SoyehtAutomationRequestRouter {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
             }
         }
+        var result = SoyehtAutomationResult()
+        result.runtimeIdentityClaimed = claimedRuntimeReportIdentity(
+            for: source, expectedTTYDevice: expectedTTYDevice
+        )
         if let pane = LivePaneRegistry.shared.pane(for: source.id) as? PaneViewController {
             pane.refreshOrchestrationManagerHeaderState(for: source)
             pane.agentStateDidChangeForDeferredDelivery()
         }
-        return SoyehtAutomationResult()
+        return result
     }
 
     func handleReleaseAgentRuntime(
