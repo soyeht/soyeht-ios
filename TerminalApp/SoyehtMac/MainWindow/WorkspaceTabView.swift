@@ -367,11 +367,13 @@ final class WorkspaceTabView: NSView {
             bottomStroke.isHidden = false
         } else {
             pillWell.isHidden = true
-            // Use the top-bar base colour instead of `.clear` so the view
-            // stays opaque — AppKit's titlebar-drag logic only honors
-            // `mouseDownCanMoveWindow = false` when the hit view is opaque.
-            // Visually identical to transparent because the parent paints
-            // the same colour, but event routing now works.
+            // The top-bar base colour rather than `.clear`, which is
+            // visually identical because the parent paints the same colour.
+            //
+            // This used to claim the opacity was what made AppKit honour
+            // `mouseDownCanMoveWindow = false`. It is not: `NSView.isOpaque`
+            // reads false whether the backing layer is filled, clear or
+            // unset, so the fill never affected event routing either way.
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0

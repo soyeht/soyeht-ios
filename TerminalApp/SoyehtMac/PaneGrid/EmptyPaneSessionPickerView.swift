@@ -269,6 +269,7 @@ private final class ClawStoreRowButton: MacCursor.ChromeView {
     private let label = MacCursor.Label(text: String(localized: "emptyPane.button.clawStore", comment: "Row label on the Claw Store entry inside the empty-pane picker — monospace, ends with ellipsis."), cursor: .pointingHand, passClicksThrough: true)
     private var tracking: NSTrackingArea?
     private var hovered = false
+    private var neoChrome: NeoRowChrome?
 
     init() {
         super.init(cursor: .pointingHand)
@@ -301,7 +302,8 @@ private final class ClawStoreRowButton: MacCursor.ChromeView {
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
 
-        layer?.backgroundColor = Self.bgIdle.cgColor
+        neoChrome = NeoRowChrome(in: self)
+        updateState()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -318,14 +320,42 @@ private final class ClawStoreRowButton: MacCursor.ChromeView {
         tracking = area
     }
 
+    override func layout() {
+        super.layout()
+        // The pill's radius follows the laid-out height, so it is fully
+        // rounded whatever the row ends up being.
+        neoChrome?.apply(hovered: hovered, height: bounds.height)
+    }
+
     override func mouseEntered(with event: NSEvent) { hovered = true; updateState() }
     override func mouseExited(with event: NSEvent) { hovered = false; updateState() }
     override func mouseDown(with event: NSEvent) { onTap?() }
 
     private func updateState() {
-        layer?.backgroundColor = (hovered ? Self.bgHover : Self.bgIdle).cgColor
+        let neo = MacSurface.style == .neomorphic
+        // In neo the outline goes: depth comes from the shadow pair, and a
+        // border on top of it reads as a sticker rather than a surface.
+        //
+        // The corner radius goes too, and this is the part that is not
+        // obvious. Setting `cornerRadius` on an NSView's backing layer flips
+        // `clipsToBounds` on macOS 14+, which clips the shadows of any CHILD
+        // view at this view's edge — and the chrome fills the row exactly, so
+        // every last point of its shadow fell outside and nothing rendered.
+        // The row is shapeless in neo; the chrome inside it carries the shape.
+        layer?.cornerRadius = neo ? 0 : MacSurface.Radius.control
+        // Only in neo. Assigning `cornerRadius` turns clipping ON, and
+        // classic relies on that: its rows have no trailing constraint on the
+        // label, so a narrow enough row would let the text draw past its own
+        // outline. Clearing it unconditionally changed classic behaviour for
+        // no reason — this branch does not need the radius at all.
+        clipsToBounds = !neo
+        layer?.borderWidth = neo ? 0 : MacSurface.Border.hairline
+        layer?.backgroundColor = neo
+            ? NSColor.clear.cgColor
+            : (hovered ? Self.bgHover : Self.bgIdle).cgColor
         layer?.borderColor = (hovered ? Self.strokeHover : Self.strokeIdle).cgColor
         label.textColor = hovered ? Self.textHover : Self.textIdle
+        neoChrome?.apply(hovered: hovered, height: bounds.height)
     }
 }
 
@@ -350,6 +380,7 @@ private final class AgentRowButton: MacCursor.ChromeView {
     private let label = MacCursor.Label(cursor: .pointingHand, passClicksThrough: true)
     private var tracking: NSTrackingArea?
     private var hovered = false
+    private var neoChrome: NeoRowChrome?
 
     init(agent: AgentType) {
         self.agent = agent
@@ -385,6 +416,7 @@ private final class AgentRowButton: MacCursor.ChromeView {
             label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -14),
         ])
 
+        neoChrome = NeoRowChrome(in: self)
         applyStyle()
         // Expose the row as a proper accessibility button so AXPress works
         // (otherwise AX sees the row as a plain view and only reaches the
@@ -449,9 +481,37 @@ private final class AgentRowButton: MacCursor.ChromeView {
     }
 
     private func applyStyle() {
-        layer?.backgroundColor = (hovered ? Self.bgHover : Self.bgIdle).cgColor
+        let neo = MacSurface.style == .neomorphic
+        // In neo the outline goes: depth comes from the shadow pair, and a
+        // border on top of it reads as a sticker rather than a surface.
+        //
+        // The corner radius goes too, and this is the part that is not
+        // obvious. Setting `cornerRadius` on an NSView's backing layer flips
+        // `clipsToBounds` on macOS 14+, which clips the shadows of any CHILD
+        // view at this view's edge — and the chrome fills the row exactly, so
+        // every last point of its shadow fell outside and nothing rendered.
+        // The row is shapeless in neo; the chrome inside it carries the shape.
+        layer?.cornerRadius = neo ? 0 : MacSurface.Radius.control
+        // Only in neo. Assigning `cornerRadius` turns clipping ON, and
+        // classic relies on that: its rows have no trailing constraint on the
+        // label, so a narrow enough row would let the text draw past its own
+        // outline. Clearing it unconditionally changed classic behaviour for
+        // no reason — this branch does not need the radius at all.
+        clipsToBounds = !neo
+        layer?.borderWidth = neo ? 0 : MacSurface.Border.hairline
+        layer?.backgroundColor = neo
+            ? NSColor.clear.cgColor
+            : (hovered ? Self.bgHover : Self.bgIdle).cgColor
         layer?.borderColor = (hovered ? Self.strokeHover : Self.strokeIdle).cgColor
         label.textColor = hovered ? Self.textHover : Self.textIdle
+        neoChrome?.apply(hovered: hovered, height: bounds.height)
+    }
+
+    override func layout() {
+        super.layout()
+        // The pill's radius follows the laid-out height, so it is fully
+        // rounded whatever the row ends up being.
+        neoChrome?.apply(hovered: hovered, height: bounds.height)
     }
 
     /// User-visible row title. Maps `.shell` → `bash` per the explicit UX ask
@@ -477,6 +537,81 @@ private final class AgentRowButton: MacCursor.ChromeView {
             case "picoclaw": return "wand.and.rays"
             default:         return "sparkles"
             }
+        }
+    }
+}
+
+/// Neumorphic chrome for a picker row: a raised pill that sinks under the
+/// cursor. Classic rows keep their outline and this draws nothing.
+///
+/// The depth cannot live on the row's own layer. Setting `cornerRadius` on an
+/// NSView's backing layer flips `clipsToBounds` on macOS 14+, which clips away
+/// the shadow the radius was set for — and one layer carries one shadow, while
+/// this needs a pair. So it rides two child views pinned to the row's edges.
+///
+/// Both are permanent children of the row, never siblings tied to it by
+/// constraints. The "+" button in the tab strip was built the other way and
+/// came apart: a rebuild pulled the button out of its stack, AppKit dropped
+/// every constraint pointing at it, and the circle was left stranded a hundred
+/// points away with nothing to reattach it.
+@MainActor
+private final class NeoRowChrome {
+    private let raised = MacStyledSurfaceView()
+    private let recess = MacInnerWellShadowView()
+
+    init(in host: NSView) {
+        // Order matters and is easy to get backwards. The recess is a ring
+        // that throws its shadow INWARD, so it has to sit ON TOP of the fill
+        // it is carving; behind it, it is simply covered and the hover state
+        // renders as a flat darker pill. Inserting both "below the first
+        // subview" in a loop produced exactly that, because the second insert
+        // landed below the first.
+        //
+        // Back to front: raised fill, recess, then whatever the row already
+        // had — its icon and label.
+        let content = host.subviews.first
+        for view in [raised as NSView, recess as NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            if let content {
+                host.addSubview(view, positioned: .below, relativeTo: content)
+            } else {
+                host.addSubview(view)
+            }
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+                view.topAnchor.constraint(equalTo: host.topAnchor),
+                view.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            ])
+        }
+        // Decoration only: the row itself owns the click. `MacInnerWellShadowView`
+        // already refuses hits; this is the same for the raised half.
+        raised.passesThroughHits = true
+    }
+
+    /// `height` is the row's laid-out height, so the pill is fully rounded at
+    /// whatever size the row ends up.
+    func apply(hovered: Bool, height: CGFloat) {
+        guard MacSurface.style == .neomorphic else {
+            raised.isHidden = true
+            recess.isHidden = true
+            return
+        }
+        let radius = height / 2
+        raised.isHidden = false
+        recess.isHidden = !hovered
+        raised.applyStyle(
+            fill: hovered ? MacTheme.neoWell : MacTheme.neoSurface,
+            cornerRadius: radius,
+            shadows: hovered ? [] : MacSurface.Shadows.raisedSmallSet
+        )
+        if hovered {
+            recess.applyStyle(
+                cornerRadius: radius,
+                dark: MacSurface.Shadows.innerWellDark,
+                light: MacSurface.Shadows.innerWellLight,
+                lip: MacSurface.Shadows.innerWellLip
+            )
         }
     }
 }

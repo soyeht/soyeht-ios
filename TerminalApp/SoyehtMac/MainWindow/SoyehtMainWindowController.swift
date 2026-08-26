@@ -3436,16 +3436,25 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         chromeVC.currentContainer?.gridController?.focusPane(conversationID)
     }
 
+    /// These two run AFTER the top bar has themed itself — `makeTopBarView`
+    /// calls them right after `init`, and every Claw-drawer open and close
+    /// calls them again — so whatever they set is the last word. Under neo
+    /// they were overwriting the tints `applyTheme` had just chosen, and the
+    /// result depended on which ran last: a freshly opened window rendered
+    /// the Claws glyph in `accentBlue` beside a label in `interactionAccent`,
+    /// two different blues, while the same window after any theme change
+    /// showed both in the second. They ask the style now.
     private func refreshSidebarTint() {
         guard let topBarView else { return }
         // Tc4Ed keeps the chrome toggle blue in the resting state too.
-        let color = MacTheme.accentBlue
-        topBarView.setSidebarButtonTint(color)
+        topBarView.setSidebarButtonTint(
+            MacSurface.style == .neomorphic ? MacTheme.textMuted : MacTheme.accentBlue)
     }
 
     private func refreshClawStoreTint() {
         guard let topBarView else { return }
-        topBarView.setClawStoreButtonTint(MacTheme.accentBlue)
+        topBarView.setClawStoreButtonTint(
+            MacSurface.style == .neomorphic ? MacTheme.interactionAccent : MacTheme.accentBlue)
     }
 
     /// Menu / responder-chain target for `⌘T`. New-conversation is reachable

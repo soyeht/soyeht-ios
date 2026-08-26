@@ -209,13 +209,6 @@ enum MacSurface {
         }
 
 
-        /// Colored glow behind accent-filled pills (the Claws button).
-        static var accentGlowSet: [Shadow] {
-            neo ? [
-                Shadow.neo(color: MacTheme.neoAccentShadow.withAlphaComponent(0.35), offset: CGSize(width: 5, height: -5), blur: 12),
-            ] : []
-        }
-
         /// Floating sidebar / drawer panels. These OVERLAY dark pane content,
         /// where the tinted neumorphic pair smears into murk — overlays get a
         /// neutral ambient elevation instead (reads correctly over anything).

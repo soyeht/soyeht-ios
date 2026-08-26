@@ -104,8 +104,6 @@ enum MacTheme {
     static var neoWellShadow: NSColor { nsColor(neoColors.wellShadowHex) }
     static var neoWellRim: NSColor { nsColor(neoColors.wellRimHex) }
     static var neoWellLip: NSColor? { neoColors.wellLipHex.map(nsColor) }
-    /// Colored glow behind accent-filled controls (apply alpha at call site).
-    static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
 
     /// Per-pane header identity colors: the plate an agent's name sits on.
     ///

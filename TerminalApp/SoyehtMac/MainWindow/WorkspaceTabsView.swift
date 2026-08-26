@@ -49,11 +49,17 @@ final class WorkspaceTabsView: NSView {
         self.windowID = windowID
         super.init(frame: .zero)
         wantsLayer = true
-        // Opaque background so AppKit's `mouseDownCanMoveWindow = false`
-        // override on this view (and its WorkspaceTabView children) is
-        // actually honored. Transparent views in the titlebar strip let
-        // AppKit's native titlebar-drag tracking win, moving the window
-        // instead of letting our tab-drag handlers run.
+        // A background matching the bar. `applyTheme` drops it to clear under
+        // neo, where the strip covered what its neighbours cast into the gaps
+        // beside it.
+        //
+        // This used to say the opaque fill was what made AppKit honour
+        // `mouseDownCanMoveWindow = false`, and that transparent views in the
+        // titlebar lose to native drag tracking. That mechanism does not
+        // exist: `NSView.isOpaque` is false whether the backing layer is
+        // filled, clear, or unset, so a background colour never entered into
+        // it. Dragging works because of the `window.isMovable` monitor, and
+        // it still works.
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -182,7 +188,17 @@ final class WorkspaceTabsView: NSView {
     }
 
     func applyTheme() {
-        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        // Transparent in neo. The strip is a container for pills that float on
+        // the bar; painting its own opaque plate the same colour changes
+        // nothing you can see of the strip itself, and covers whatever the
+        // neighbours cast into the gap beside it. It ends exactly 12pt before
+        // the Claws button and is added last, so it sat on top and sheared
+        // that button's bloom off in a straight vertical line — the button
+        // went from flat canvas to its own fill with no ramp at all, while
+        // the sidebar button 12pt from the other end kept a 6-point ramp.
+        layer?.backgroundColor = MacSurface.style == .neomorphic
+            ? NSColor.clear.cgColor
+            : MacTheme.surfaceBase.cgColor
         // Reference tab strip breathes: 10pt gaps between pills in neo;
         // classic keeps the flush historical strip.
         stack.spacing = MacSurface.style == .neomorphic ? 10 : 0
