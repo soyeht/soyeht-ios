@@ -242,6 +242,28 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
     }
 
+    func testDraftGateTreatsMouseReportsAsMetadataInNormalSplitPanes() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[<0;12;7M\u{1B}[<0;12;7m\u{1B}[<64;12;7M".utf8))
+        XCTAssertTrue(gate.isClear, "mouse press, release and wheel reports are not composer text")
+
+        gate.record(Data("human-draft".utf8))
+        gate.record(Data(repeating: 0x7F, count: 11))
+        XCTAssertTrue(gate.isClear, "a mouse click must not leave a phantom draft after deletion")
+    }
+
+    func testDraftGateConsumesLegacyX10MousePayloadWithoutCountingCoordinates() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data([0x1B, 0x5B, 0x4D, 0x20, 0x2C, 0x27]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("draft".utf8))
+        gate.record(Data(repeating: 0x08, count: 5))
+        XCTAssertTrue(gate.isClear)
+    }
+
     func testDraftGateCountsUTF8CharactersInsteadOfBytesWhenBackspacing() {
         var gate = AgentMessageDraftGate()
 

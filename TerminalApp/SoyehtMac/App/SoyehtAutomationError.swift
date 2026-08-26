@@ -132,7 +132,7 @@ enum SoyehtAutomationError: LocalizedError {
             let observed = received ?? "missing"
             return "Soyeht rejected MCP profile \(observed); this app accepts the \(expected) integration. Reinstall or select the matching MCP server."
         case .unauthenticatedAgentSource:
-            return "Soyeht rejected the claimed agent identity because its SOYEHT_LAUNCH_NONCE is missing or does not belong to that pane. Restart the agent in Soyeht and use its injected MCP environment."
+            return "Soyeht could not bind this MCP client to the claimed pane. Ordinary messaging requires a live MCP process in the pane TTY; privileged policy, role, and topology changes additionally require launch ownership."
         case .orchestrationManagerAuthorizationRequired:
             return "This agent is not authorized to manage roles or orchestration. The user can grant that privilege in the pane's Role & Orchestration settings."
         case .ambiguousOrchestrationRoleBinding(let role):

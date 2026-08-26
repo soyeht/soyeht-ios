@@ -156,6 +156,7 @@ struct AgentMessageDraftGate: Equatable {
         case normal
         case escape
         case singleShiftThree
+        case x10MousePayload(Int)
         case controlSequence
         case operatingSystemCommand
         case operatingSystemCommandEscape
@@ -276,6 +277,12 @@ struct AgentMessageDraftGate: Equatable {
                     escapeState = .normal
                 }
                 continue
+            case .x10MousePayload(let remaining):
+                // Legacy X10 mouse reporting is `CSI M Cb Cx Cy`. The three
+                // payload bytes may look printable, but they are terminal
+                // input metadata rather than text entered in the composer.
+                escapeState = remaining > 1 ? .x10MousePayload(remaining - 1) : .normal
+                continue
             case .controlSequence:
                 // CSI sequences end at a byte in 0x40...0x7E. Arrow, focus,
                 // mouse and other terminal reports must not masquerade as an
@@ -285,7 +292,13 @@ struct AgentMessageDraftGate: Equatable {
                 // Backspace as CSI ... u, so those packets must update the
                 // same draft state as their legacy byte equivalents.
                 if (0x40...0x7E).contains(byte) {
-                    if byte == 0x75 { // Kitty keyboard packet or cursor restore.
+                    if byte == 0x4D, controlSequenceBytes.isEmpty {
+                        // X10 mouse packets end the CSI prefix with `M`, then
+                        // carry three raw bytes outside the CSI grammar.
+                        controlSequenceBytes.removeAll(keepingCapacity: true)
+                        escapeState = .x10MousePayload(3)
+                        continue
+                    } else if byte == 0x75 { // Kitty keyboard packet or cursor restore.
                         if !recordKittyKey(controlSequenceBytes) {
                             markCursorStateUncertain()
                         }
@@ -364,9 +377,20 @@ struct AgentMessageDraftGate: Equatable {
 
     private func isBenignControlSequence(finalByte: UInt8, payload: [UInt8]) -> Bool {
         // Focus-in/focus-out reports are terminal lifecycle metadata and
-        // cannot edit the composer. Mouse/cursor/editing sequences remain
-        // conservative because TUIs may bind them to prompt navigation.
-        payload.isEmpty && (finalByte == 0x49 || finalByte == 0x4F)
+        // cannot edit the composer.
+        if payload.isEmpty && (finalByte == 0x49 || finalByte == 0x4F) {
+            return true
+        }
+
+        // Normal Split panes deliberately keep terminal mouse reporting on so
+        // TUIs retain their native click and scroll behavior. SGR and URXVT
+        // mouse reports are input metadata, not composer edits; treating a
+        // click as an unknown draft would wedge deferred messages forever.
+        guard finalByte == 0x4D || finalByte == 0x6D,
+              let value = String(bytes: payload, encoding: .ascii) else { return false }
+        let mousePayload = value.hasPrefix("<") ? String(value.dropFirst()) : value
+        let fields = mousePayload.split(separator: ";", omittingEmptySubsequences: false)
+        return fields.count == 3 && fields.allSatisfy { Int($0) != nil }
     }
 
     /// Applies one Kitty keyboard `CSI key;modifiers:event;text u` packet.

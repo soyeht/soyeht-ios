@@ -743,7 +743,7 @@ final class NativePTY {
         )
     }
 
-    private static func processParentPID(_ processID: pid_t) -> pid_t? {
+    static func processParentPID(_ processID: pid_t) -> pid_t? {
         var info = proc_bsdinfo()
         let written = withUnsafeMutableBytes(of: &info) { buffer in
             soyeht_proc_pidinfo(
@@ -756,6 +756,47 @@ final class NativePTY {
         }
         guard written == MemoryLayout<proc_bsdinfo>.size else { return nil }
         return pid_t(info.pbi_ppid)
+    }
+
+    /// True only while `processID` belongs to the process tree rooted at the
+    /// pane shell. Messaging presence uses this to bind an MCP stdio server
+    /// to the pane that actually owns it instead of trusting a public handle.
+    static func process(_ processID: pid_t, isDescendantOf rootPID: pid_t) -> Bool {
+        guard processID > 0, rootPID > 0, Darwin.kill(processID, 0) == 0 else {
+            return false
+        }
+        var current = processID
+        var visited = Set<pid_t>()
+        for _ in 0..<128 {
+            if current == rootPID { return true }
+            guard current > 1,
+                  visited.insert(current).inserted,
+                  let parent = processParentPID(current),
+                  parent != current else { return false }
+            current = parent
+        }
+        return false
+    }
+
+    /// Engine-backed panes do not expose their root PID to the app, but the
+    /// local MCP child still inherits the pane's controlling TTY. This is the
+    /// fallback possession proof for those panes.
+    static func process(_ processID: pid_t, isAssociatedWithTTYPath ttyPath: String) -> Bool {
+        guard processID > 0, Darwin.kill(processID, 0) == 0 else { return false }
+        var ttyStat = stat()
+        guard stat(ttyPath, &ttyStat) == 0 else { return false }
+        var info = proc_bsdinfo()
+        let written = withUnsafeMutableBytes(of: &info) { buffer in
+            soyeht_proc_pidinfo(
+                processID,
+                Int32(PROC_PIDTBSDINFO),
+                0,
+                buffer.baseAddress,
+                Int32(buffer.count)
+            )
+        }
+        guard written == MemoryLayout<proc_bsdinfo>.size else { return false }
+        return info.e_tdev == UInt32(ttyStat.st_rdev)
     }
 
     private static func signalProcesses(_ processIDs: [pid_t], signal: Int32) {

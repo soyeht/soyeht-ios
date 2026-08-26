@@ -198,71 +198,24 @@ final class PaneDeferredAgentDeliveryCoordinator {
         completeAgentDeliveryAfterSemanticHook(messageID: messageID)
     }
 
-    private func completeAgentDeliveryAfterSemanticHook(messageID: AgentMessage.ID) {
-        guard awaitingAgentSubmissionAcknowledgement == messageID,
-              observedAgentSubmissionAcknowledgements.contains(messageID) else { return }
-        agentMessageDraftGate.markSubmissionAcknowledged()
-        draftOwner = .none
-        guard let store = AppEnvironment.conversationStore,
-              let workspaceStore = AppEnvironment.workspaceStore,
-              let previousInbox = store.conversation(conversationID)?.agentMessageInbox else {
-            return
-        }
-        _ = try? store.mutateAgentMessageInbox(
-            conversationID
-        ) { inbox in
-            try inbox.markDeferredTerminalDelivered(messageID)
-        }
-        guard workspaceStore.flushPendingSave() else {
-            _ = try? store.mutateAgentMessageInbox(conversationID) { inbox in
-                inbox = previousInbox
-            }
-            _ = workspaceStore.flushPendingSave()
-            let item = DispatchWorkItem { [weak self] in
-                self?.completeAgentDeliveryAfterSemanticHook(messageID: messageID)
-            }
-            deferredDeliveryWorkItem = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: item)
-            return
-        }
-        pendingDeferredAgentMessageIDs.remove(messageID)
-        agentAcknowledgementTimeoutWorkItem?.cancel()
-        agentAcknowledgementTimeoutWorkItem = nil
-        awaitingAgentSubmissionAcknowledgement = nil
-        observedAgentSubmissionAcknowledgements.remove(messageID)
-        terminalView.releaseHumanInputAfterSemanticAcknowledgement()
-        scheduleIfSafe()
-    }
-
-    func acknowledgeAutomationSubmissionFromHook(submissionID: UUID) {
-        guard awaitingAutomationSubmissionAcknowledgement == submissionID else { return }
-        observedAutomationSubmissionAcknowledgement = true
-        guard !isWritingTerminalSubmission else { return }
-        completeAutomationSubmissionAfterSemanticHook()
-    }
-
-    func completeAutomationSubmissionAfterSemanticHook() {
-        guard awaitingAutomationSubmissionAcknowledgement != nil,
-              observedAutomationSubmissionAcknowledgement else { return }
-        automationAcknowledgementTimeoutWorkItem?.cancel()
-        automationAcknowledgementTimeoutWorkItem = nil
-        awaitingAutomationSubmissionAcknowledgement = nil
-        observedAutomationSubmissionAcknowledgement = false
-        let completion = awaitingAutomationCompletion
-        awaitingAutomationCompletion = nil
-        agentMessageDraftGate.markSubmissionAcknowledged()
-        draftOwner = .none
-        terminalView.releaseHumanInputAfterSemanticAcknowledgement()
-        completion?(.completed)
-        scheduleIfSafe()
-    }
-
     func flushAgentDelivery(_ delivery: DeferredAgentDelivery) {
         let generation = transportGeneration
         guard let store = AppEnvironment.conversationStore,
               let workspaceStore = AppEnvironment.workspaceStore else {
             pendingTerminalSubmissions.insert(.agent(delivery), at: 0)
             scheduleIfSafe()
+            return
+        }
+        // Presence was checked before persistence in the router, but the MCP
+        // client can exit during the human-draft grace window. Recheck at the
+        // side-effect boundary: never paste an agent envelope into the shell
+        // that remains after its CLI/MCP client has gone away.
+        guard PaneStatusTracker.shared.hasActiveMessagingClient(for: conversationID) else {
+            discardDeliveryWhoseMessagingClientDisconnected(
+                delivery,
+                store: store,
+                workspaceStore: workspaceStore
+            )
             return
         }
         let claimed: Bool
@@ -299,15 +252,25 @@ final class PaneDeferredAgentDeliveryCoordinator {
             scheduleIfSafe()
             return
         }
+        guard PaneStatusTracker.shared.hasActiveMessagingClient(for: conversationID) else {
+            discardClaimedDeliveryWhoseMessagingClientDisconnected(
+                delivery,
+                store: store,
+                workspaceStore: workspaceStore
+            )
+            return
+        }
         isWritingTerminalSubmission = true
-        awaitingAgentSubmissionAcknowledgement = delivery.messageID
-        observedAgentSubmissionAcknowledgements.remove(delivery.messageID)
+        if delivery.requiresSemanticAcknowledgement {
+            awaitingAgentSubmissionAcknowledgement = delivery.messageID
+            observedAgentSubmissionAcknowledgements.remove(delivery.messageID)
+        }
         terminalView.brokerSend(
             text: delivery.prepared.payload,
             submitWithEnter: delivery.prepared.shouldSendEnterKey,
             allowsBracketedPaste: delivery.prepared.allowsBracketedPaste,
             focusBeforeSubmit: false,
-            waitsForSemanticAcknowledgement: true
+            waitsForSemanticAcknowledgement: delivery.requiresSemanticAcknowledgement
         ) { [weak self] result in
             guard let self else { return }
             guard self.transportGeneration == generation else { return }
@@ -319,7 +282,11 @@ final class PaneDeferredAgentDeliveryCoordinator {
                 // acknowledges this exact delivery ID. Clients without a
                 // structured hook remain fail-closed instead of converting a
                 // transport receipt into a false semantic delivery receipt.
-                if self.observedAgentSubmissionAcknowledgements.contains(delivery.messageID) {
+                if !delivery.requiresSemanticAcknowledgement {
+                    self.completeAgentDeliveryAfterTerminalSubmission(
+                        messageID: delivery.messageID
+                    )
+                } else if self.observedAgentSubmissionAcknowledgements.contains(delivery.messageID) {
                     self.completeAgentDeliveryAfterSemanticHook(messageID: delivery.messageID)
                 } else {
                     self.agentMessageDraftGate.markUncertainTerminalDraft()
@@ -339,7 +306,9 @@ final class PaneDeferredAgentDeliveryCoordinator {
                 )
                 self.agentMessageDraftGate.markUncertainTerminalDraft()
                 self.draftOwner = .agent
-                if self.observedAgentSubmissionAcknowledgements.contains(delivery.messageID) {
+                if !delivery.requiresSemanticAcknowledgement {
+                    self.pendingDeferredAgentMessageIDs.remove(delivery.messageID)
+                } else if self.observedAgentSubmissionAcknowledgements.contains(delivery.messageID) {
                     self.completeAgentDeliveryAfterSemanticHook(messageID: delivery.messageID)
                 } else {
                     self.scheduleAgentAcknowledgementTimeout(
@@ -348,8 +317,10 @@ final class PaneDeferredAgentDeliveryCoordinator {
                     )
                 }
             case .rejectedBeforeWrite:
-                self.awaitingAgentSubmissionAcknowledgement = nil
-                self.observedAgentSubmissionAcknowledgements.remove(delivery.messageID)
+                if delivery.requiresSemanticAcknowledgement {
+                    self.awaitingAgentSubmissionAcknowledgement = nil
+                    self.observedAgentSubmissionAcknowledgements.remove(delivery.messageID)
+                }
                 self.handleRejectedAgentDeliveryBeforeWrite(delivery)
             }
             self.scheduleIfSafe()

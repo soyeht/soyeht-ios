@@ -66,25 +66,22 @@ extension SoyehtAutomationRequestRouter {
         guard lineEnding == "enter" else {
             throw SoyehtAutomationError.invalidAgentMessageLineEnding(lineEnding)
         }
-        let source = try resolveAuthenticatedAutomationSource(payload: payload)
-        let targets = try resolveAgentMessageTargets(payload)
-        guard let unavailableTarget = targets.first(where: {
-            !$0.content.isTerminal
-                || $0.agent.isShell
-                || PaneStatusTracker.shared.launchOwnershipNonce(for: $0.id) == nil
-        }) else {
-            // Continue below only when every destination is a live,
-            // authenticated agent identity capable of reading/acking inbox.
-            return try handleEligibleAgentMessage(
-                request,
-                source: source,
-                targets: targets,
-                text: text
-            )
+        let source = try resolveMessagingAutomationSource(payload: payload)
+        let resolved = resolveAgentMessageTargetsWithFailures(payload)
+        guard !resolved.targets.isEmpty else {
+            guard !resolved.failures.isEmpty else {
+                throw SoyehtAutomationError.emptyAgentMessageTargets
+            }
+            return SoyehtAutomationResult(agentMessageDeliveries: resolved.failures)
         }
-        throw SoyehtAutomationError.orchestrationRequiresAgentPane(
-            unavailableTarget.id.uuidString
+        var result = try handleEligibleAgentMessage(
+            request,
+            source: source,
+            targets: resolved.targets,
+            text: text
         )
+        result.agentMessageDeliveries.append(contentsOf: resolved.failures)
+        return result
     }
 
     private func handleEligibleAgentMessage(
@@ -128,6 +125,22 @@ extension SoyehtAutomationRequestRouter {
                 handle: target.handle
             )
             let route = AgentMessageRoute(sender: sender, recipient: recipient)
+            let availability = messagingAvailability(for: target)
+            guard availability.canReceiveMessage else {
+                deliveries.append(.init(
+                    messageID: retryID?.uuidString ?? "",
+                    conversationID: target.id.uuidString,
+                    workspaceID: target.workspaceID.uuidString,
+                    displayReference: recipient.displayLabel,
+                    channel: nil,
+                    status: availability.status,
+                    writesToPTY: false,
+                    attentionRequested: false,
+                    policyDenials: [],
+                    unavailableReason: availability.unavailableReason
+                ))
+                continue
+            }
             let decision = AgentMessagePolicyEvaluator.evaluate(
                 route: route,
                 sourceWorkspacePolicy: workspaceStore.workspace(source.workspaceID)?.effectiveAgentCommunicationPolicy ?? .open,
@@ -232,18 +245,12 @@ extension SoyehtAutomationRequestRouter {
                 continue
             }
 
-            // No shipped provider hook can wake a dormant TUI and make it
-            // pull an inbox item yet. Keep this false until an observed adapter
-            // proves both halves; MCP availability alone is not delivery.
-            let structuredCapture = AgentConversationAdapterCapabilities
-                .capabilities(for: target.agent.displayName)
-                .structuredCapture
             let capabilities = AgentMessageDeliveryCapabilities(
                 canWakeAndReadSemanticInbox: false,
-                // Without an authenticated user-turn hook there is no exact
-                // proof that the TUI accepted Return. Store + notify instead
-                // of injecting a relay that would wedge or risk splice.
-                canReceiveDeferredTerminal: target.content.isTerminal && structuredCapture,
+                // Terminal delivery is the universal baseline. It depends on
+                // a live, process-bound MCP presence, never on a catalog name
+                // or a provider-specific capture adapter.
+                canReceiveDeferredTerminal: target.content.isTerminal,
                 canPresentAttention: true
             )
             let plan = AgentMessageDeliveryPlan.resolve(
@@ -336,9 +343,7 @@ extension SoyehtAutomationRequestRouter {
         }
         stagedBatchPersisted = true
 
-        // Only after the entire multi-target batch is durable may any PTY or
-        // notification side effect escape. A retry can therefore never
-        // duplicate target 1 because target 2 failed to persist.
+        // PTY side effects begin only after the batch is durable.
         for item in staged {
             let status: String
             if item.plan.channel == .deferredTerminal,
@@ -347,7 +352,10 @@ extension SoyehtAutomationRequestRouter {
                 pane.enqueueDeferredAgentDelivery(
                     messageID: item.message.id,
                     prepared: prepared,
-                    requiresSemanticAcknowledgement: true
+                    // Generic MCP clients cannot emit a provider hook. The
+                    // broker's atomic terminal submission is therefore an
+                    // honest unverified completion, not an infinite wait.
+                    requiresSemanticAcknowledgement: false
                 )
                 status = "queued_until_human_input_is_clear"
             } else if item.plan.channel == .deferredTerminal {
@@ -382,7 +390,7 @@ extension SoyehtAutomationRequestRouter {
     }
 
     func handleListAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
+        let source = try resolveMessagingAutomationSource(payload: request.payload)
         let unreadOnly = request.payload.unreadOnly ?? false
         let afterID = try request.payload.afterMessageID.map { raw -> AgentMessage.ID in
             guard let id = UUID(uuidString: raw) else {
@@ -428,7 +436,7 @@ extension SoyehtAutomationRequestRouter {
     }
 
     func handleAckAgentMessages(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let source = try resolveAuthenticatedAutomationSource(payload: request.payload)
+        let source = try resolveMessagingAutomationSource(payload: request.payload)
         let ids = try (request.payload.messageIDs ?? []).map { raw -> AgentMessage.ID in
             guard let id = UUID(uuidString: raw) else {
                 throw SoyehtAutomationError.invalidAgentMessageID(raw)
@@ -499,101 +507,4 @@ extension SoyehtAutomationRequestRouter {
         ])
     }
 
-    func resolveAgentMessageTargets(
-        _ payload: SoyehtAutomationRequest.Payload
-    ) throws -> [Conversation] {
-        var result: [Conversation] = []
-        var seen = Set<Conversation.ID>()
-        for raw in payload.conversationIDs ?? [] {
-            guard let id = UUID(uuidString: raw) else {
-                throw SoyehtAutomationError.invalidConversationIDFormat(raw)
-            }
-            if let conversation = conversationStore.conversation(id), seen.insert(id).inserted {
-                result.append(conversation)
-            }
-        }
-        for raw in payload.handles ?? [] {
-            let normalized = ConversationStore.normalize(raw)
-            if let conversation = conversationStore.all.first(where: {
-                ConversationStore.normalize($0.handle) == normalized
-            }), seen.insert(conversation.id).inserted {
-                result.append(conversation)
-            }
-        }
-        guard !result.isEmpty else { throw SoyehtAutomationError.emptyAgentMessageTargets }
-        return result
-    }
-
-    func agentMessageDeliveryPreference(
-        _ raw: String?
-    ) throws -> AgentMessageDeliveryPreference {
-        switch raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case nil, "", "auto", "automatic":
-            return .automatic
-        case "inbox", "semantic", "semantic_inbox", "semanticinboxonly":
-            return .semanticInboxOnly
-        case "terminal", "deferred", "deferred_terminal", "deferredterminal":
-            return .deferredTerminal
-        case .some(let value):
-            throw SoyehtAutomationError.invalidAgentMessageDeliveryPreference(value)
-        }
-    }
-
-    func agentInboxMessage(_ message: AgentMessage) -> SoyehtAutomationResponse.AgentInboxMessage {
-        let terminalDeliveryState: String
-        if message.channel != .deferredTerminal {
-            terminalDeliveryState = "not_applicable"
-        } else if message.deferredTerminalDeliveredAt != nil {
-            terminalDeliveryState = "delivered"
-        } else if message.deferredTerminalDeliveryStartedAt != nil {
-            terminalDeliveryState = "uncertain_not_replayed"
-        } else {
-            terminalDeliveryState = "awaiting_delivery"
-        }
-        return .init(
-            messageID: message.id.uuidString,
-            senderConversationID: message.sender.paneID.uuidString,
-            senderWorkspaceID: message.sender.workspaceID.uuidString,
-            senderReference: message.sender.displayLabel,
-            recipientConversationID: message.recipient.paneID.uuidString,
-            recipientWorkspaceID: message.recipient.workspaceID.uuidString,
-            recipientReference: message.recipient.displayLabel,
-            body: message.body,
-            channel: message.channel.rawValue,
-            createdAt: message.createdAt,
-            readAt: message.readAt,
-            acknowledgedAt: message.acknowledgedAt,
-            deferredTerminalDeliveryStartedAt: message.deferredTerminalDeliveryStartedAt,
-            deferredTerminalDeliveredAt: message.deferredTerminalDeliveredAt,
-            terminalDeliveryState: terminalDeliveryState,
-            mcpClientContractVersion: message.mcpClientContractVersion,
-            mcpClientServerVersion: message.mcpClientServerVersion
-        )
-    }
-
-    func agentCommunicationPolicyState(
-        conversationID: Conversation.ID,
-        policy: AgentCommunicationPolicy
-    ) -> SoyehtAutomationResponse.AgentCommunicationPolicyState {
-        .init(
-            conversationID: conversationID.uuidString,
-            incomingEnabled: policy.incoming.isEnabled,
-            incomingAllowsCrossWorkspace: policy.incoming.allowsCrossWorkspace,
-            outgoingEnabled: policy.outgoing.isEnabled,
-            outgoingAllowsCrossWorkspace: policy.outgoing.allowsCrossWorkspace,
-            blockedPaneIDs: policy.incoming.blockedPaneIDs.map(\.uuidString).sorted(),
-            blockedWorkspaceIDs: policy.incoming.blockedWorkspaceIDs.map(\.uuidString).sorted()
-        )
-    }
-
-    func agentOrchestrationState(
-        workspaceID: Workspace.ID,
-        orchestration: WorkspaceOrchestration
-    ) -> SoyehtAutomationResponse.AgentOrchestrationState {
-        .init(
-            workspaceID: workspaceID.uuidString,
-            templates: orchestration.roleTemplates.allTemplates,
-            activeGraph: orchestration.activeGraph
-        )
-    }
 }

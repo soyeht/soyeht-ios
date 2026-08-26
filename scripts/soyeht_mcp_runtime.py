@@ -1,3 +1,5 @@
+import threading
+
 from soyeht_mcp_foundation import *
 
 def with_name_styles(payload, args):
@@ -160,8 +162,12 @@ def with_source_context(payload, args=None):
     if launch_nonce:
         payload["nonce"] = launch_nonce
     tty = current_tty()
-    if tty and not from_conversation_id and not from_handle:
+    if tty:
         payload["sourceTTY"] = tty
+    payload["messagingClientInstanceID"] = MCP_SERVER_INSTANCE_ID
+    payload["messagingClientPID"] = MCP_SERVER_PROCESS_ID
+    payload["messagingClientName"] = SERVER_NAME
+    payload["messagingClientVersion"] = SERVER_VERSION
     return payload
 
 
@@ -388,6 +394,94 @@ def resolve_automation_root(automation_dir, payload):
 def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT):
     root = resolve_automation_root(automation_dir, payload)
     return submit_request_to_root(root, request_type, payload, timeout=timeout, check_status=True)
+
+
+_MESSAGING_PRESENCE_ROOT = None
+_MESSAGING_PRESENCE_STOP = threading.Event()
+_MESSAGING_PRESENCE_THREAD = None
+
+
+def register_messaging_client_presence():
+    """Bind this MCP stdio process to its owning Soyeht pane/TTY.
+
+    This is transport plumbing rather than an LLM-facing tool. Initialize may
+    happen while the app is closed, so failures are retried on each tool call.
+    """
+    global _MESSAGING_PRESENCE_ROOT
+    payload = with_source_context({})
+    root = _MESSAGING_PRESENCE_ROOT or resolve_automation_root(None, payload)
+    response = submit_request_to_root(
+        root,
+        "register_messaging_client",
+        payload,
+        timeout=2.0,
+        check_status=False,
+    )
+    if response.get("status") != "ok":
+        return False
+    _MESSAGING_PRESENCE_ROOT = root
+    return True
+
+
+def _messaging_presence_heartbeat_loop(stop_event=None):
+    """Keep pane presence alive across launch races and app restarts.
+
+    Some harnesses start their MCP subprocess before Soyeht has finished
+    attaching the pane's PTY. Others keep that subprocess alive while the app
+    restarts. A one-shot registration therefore makes a healthy, manually
+    launched harness look offline until it happens to call a Soyeht tool.
+    Retry quickly while registration is unavailable, then use a low-frequency
+    heartbeat. Process ancestry remains the authority on every registration;
+    this loop never turns catalog metadata into identity.
+    """
+    event = stop_event or _MESSAGING_PRESENCE_STOP
+    delay = 0.5
+    while not event.wait(delay):
+        try:
+            registered = register_messaging_client_presence()
+        except Exception:
+            registered = False
+        delay = 15.0 if registered else min(delay * 2.0, 5.0)
+
+
+def start_messaging_client_presence_heartbeat():
+    global _MESSAGING_PRESENCE_THREAD
+    if _MESSAGING_PRESENCE_THREAD is not None and _MESSAGING_PRESENCE_THREAD.is_alive():
+        return
+    _MESSAGING_PRESENCE_STOP.clear()
+    _MESSAGING_PRESENCE_THREAD = threading.Thread(
+        target=_messaging_presence_heartbeat_loop,
+        name="soyeht-messaging-presence",
+        daemon=True,
+    )
+    _MESSAGING_PRESENCE_THREAD.start()
+
+
+def stop_messaging_client_presence_heartbeat():
+    global _MESSAGING_PRESENCE_THREAD
+    _MESSAGING_PRESENCE_STOP.set()
+    thread = _MESSAGING_PRESENCE_THREAD
+    _MESSAGING_PRESENCE_THREAD = None
+    if thread is not None and thread is not threading.current_thread():
+        thread.join(timeout=2.5)
+
+
+def unregister_messaging_client_presence():
+    global _MESSAGING_PRESENCE_ROOT
+    root = _MESSAGING_PRESENCE_ROOT
+    _MESSAGING_PRESENCE_ROOT = None
+    if root is None:
+        return
+    try:
+        submit_request_to_root(
+            root,
+            "unregister_messaging_client",
+            with_source_context({}),
+            timeout=1.0,
+            check_status=False,
+        )
+    except Exception:
+        pass
 
 
 def session_spec(
