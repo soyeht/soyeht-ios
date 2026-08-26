@@ -22,6 +22,40 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
+    def test_initialize_registers_process_bound_messaging_presence(self):
+        calls = []
+        globals_ = MODULE["handle_message"].__globals__
+        original = globals_["register_messaging_client_presence"]
+        try:
+            globals_["register_messaging_client_presence"] = lambda: calls.append("register")
+            reply = MODULE["handle_message"]({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            })
+        finally:
+            globals_["register_messaging_client_presence"] = original
+
+        self.assertEqual(calls, ["register"])
+        self.assertEqual(reply["result"]["protocolVersion"], "2025-03-26")
+
+    def test_source_context_carries_process_identity_for_presence_refresh(self):
+        payload = {}
+        globals_ = MODULE["with_source_context"].__globals__
+        original_tty = globals_["current_tty"]
+        try:
+            globals_["current_tty"] = lambda: "/dev/ttys321"
+            MODULE["with_source_context"](payload)
+        finally:
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(payload["sourceTTY"], "/dev/ttys321")
+        self.assertEqual(payload["messagingClientInstanceID"], MODULE["MCP_SERVER_INSTANCE_ID"])
+        self.assertEqual(payload["messagingClientPID"], os.getpid())
+        self.assertEqual(payload["messagingClientName"], MODULE["SERVER_NAME"])
+        self.assertEqual(payload["messagingClientVersion"], MODULE["SERVER_VERSION"])
+
     def test_tools_list_contract_matches_reviewed_mcp2_golden(self):
         encoded = json.dumps(
             MODULE["TOOLS"],
@@ -33,7 +67,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(MODULE["TOOLS"]), 44)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "7a93e6cf79fd9d5654d6fe1a1be3c7ba3d91f9370a5560468870692d76daad76",
+            "255a927350c2c4aed8b0cb6d8a4b9b60be3aa34c1f9d04d5adf1941909ea6f1c",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -569,11 +603,12 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-b")
 
-    def test_send_pane_input_explicit_source_suppresses_tty_fallback(self):
+    def test_send_pane_input_explicit_source_is_still_bound_to_current_tty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -581,7 +616,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {}, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -590,18 +625,19 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceHandle"], "@sender")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
-    def test_source_environment_is_used_before_tty_when_explicit_source_absent(self):
+    def test_source_environment_metadata_is_bound_to_the_current_tty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -609,7 +645,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
@@ -621,14 +657,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
         self.assertEqual(captured["payload"]["nonce"], "launch-proof")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
     def test_explicit_source_still_forwards_launch_nonce_from_environment(self):
         payload = {}
@@ -647,7 +683,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(payload["sourceHandle"], "@claimed-source")
         self.assertEqual(payload["nonce"], "launch-proof")
-        self.assertNotIn("sourceTTY", payload)
+        self.assertEqual(payload["sourceTTY"], "/dev/ttys123")
 
     def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
         captured = {}
@@ -683,7 +719,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "33333333-3333-3333-3333-333333333333")
         self.assertEqual(captured["payload"]["sourceHandle"], "@parent-codex")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
     def test_capture_pane_forwards_source_context_before_active_window_fallback(self):
         captured = {}

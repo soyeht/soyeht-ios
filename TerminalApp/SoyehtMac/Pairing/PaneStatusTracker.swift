@@ -51,6 +51,23 @@ final class PaneStatusTracker {
     private var lastAcceptedTurnSubmissionAtBySource: [Conversation.ID: [String: Date]] = [:]
     private var lastMcpActivityAt: [Conversation.ID: Date] = [:]
 
+    struct MessagingClientPresence {
+        let paneID: Conversation.ID
+        let instanceID: String
+        let processID: pid_t
+        let clientName: String
+        let clientVersion: String?
+        let ttyPath: String
+        var lastSeenAt: Date
+    }
+
+    /// Ordinary agent messaging is owned by the pane/TTY, not by the way the
+    /// CLI was launched. A Split pane that starts as `shell` therefore becomes
+    /// messageable as soon as any MCP-capable CLI in that TTY initializes this
+    /// server. Launch nonces remain reserved for privileged policy/topology
+    /// mutations.
+    private var messagingClientsByPane: [Conversation.ID: [String: MessagingClientPresence]] = [:]
+
     // MARK: - Launch handshake
     //
     // Agent panes get a per-launch nonce in their environment
@@ -87,6 +104,7 @@ final class PaneStatusTracker {
         lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
+        messagingClientsByPane[paneID] = nil
         return true
     }
 
@@ -98,6 +116,7 @@ final class PaneStatusTracker {
         lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
+        messagingClientsByPane[paneID] = nil
     }
 
     func expectHandshake(paneID: Conversation.ID, nonce: String) {
@@ -362,6 +381,78 @@ final class PaneStatusTracker {
         lastMcpActivityAt[paneID] = Date()
     }
 
+    @discardableResult
+    func registerMessagingClient(
+        paneID: Conversation.ID,
+        instanceID: String,
+        processID: pid_t,
+        clientName: String,
+        clientVersion: String?,
+        ttyPath: String
+    ) -> Bool {
+        guard validateMessagingClientProcess(
+            paneID: paneID,
+            processID: processID,
+            ttyPath: ttyPath
+        ) else { return false }
+        let now = Date()
+        messagingClientsByPane[paneID, default: [:]][instanceID] = MessagingClientPresence(
+            paneID: paneID,
+            instanceID: instanceID,
+            processID: processID,
+            clientName: clientName,
+            clientVersion: clientVersion,
+            ttyPath: ttyPath,
+            lastSeenAt: now
+        )
+        lastMcpActivityAt[paneID] = now
+        return true
+    }
+
+    func unregisterMessagingClient(paneID: Conversation.ID, instanceID: String) {
+        messagingClientsByPane[paneID]?[instanceID] = nil
+        if messagingClientsByPane[paneID]?.isEmpty == true {
+            messagingClientsByPane[paneID] = nil
+        }
+    }
+
+    func messagingClientPresence(
+        for paneID: Conversation.ID,
+        instanceID: String? = nil
+    ) -> MessagingClientPresence? {
+        guard var clients = messagingClientsByPane[paneID] else { return nil }
+        let valid = clients.filter { _, presence in
+            validateMessagingClientProcess(
+                paneID: paneID,
+                processID: presence.processID,
+                ttyPath: presence.ttyPath
+            )
+        }
+        if valid.count != clients.count {
+            clients = valid
+            messagingClientsByPane[paneID] = clients.isEmpty ? nil : clients
+        }
+        if let instanceID { return clients[instanceID] }
+        return clients.values.max { $0.lastSeenAt < $1.lastSeenAt }
+    }
+
+    func hasActiveMessagingClient(for paneID: Conversation.ID) -> Bool {
+        messagingClientPresence(for: paneID) != nil
+    }
+
+    private func validateMessagingClientProcess(
+        paneID: Conversation.ID,
+        processID: pid_t,
+        ttyPath: String
+    ) -> Bool {
+        guard let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController,
+              pane.isTerminalPane else { return false }
+        if let rootPID = pane.terminalView.localPTYRootProcessIDForAutomation {
+            return NativePTY.process(processID, isDescendantOf: rootPID)
+        }
+        return NativePTY.process(processID, isAssociatedWithTTYPath: ttyPath)
+    }
+
     func agentStateReport(for paneID: Conversation.ID) -> AgentStateReport? {
         guard let report = agentStateReports[paneID] else { return nil }
         guard Date().timeIntervalSince(report.reportedAt) <= Self.agentStateStaleThreshold else {
@@ -381,6 +472,7 @@ final class PaneStatusTracker {
         lastAcceptedWorkingReportAtBySource[paneID] = nil
         lastAcceptedTurnSubmissionAtBySource[paneID] = nil
         lastMcpActivityAt[paneID] = nil
+        messagingClientsByPane[paneID] = nil
     }
 
     func paneDictForWire(

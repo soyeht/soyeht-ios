@@ -986,6 +986,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             "SoyehtAutomationRequestRouter+09Lifecycle.swift",
             "SoyehtAutomationRequestRouter+10Capture.swift",
             "SoyehtAutomationRequestRouter+11AgentOrchestration.swift",
+            "SoyehtAutomationRequestRouter+12MessagingPresence.swift",
+            "SoyehtAutomationRequestRouter+13MessagingSupport.swift",
         ]
         let routerLineCounts = try routerFiles.map {
             try String(
@@ -1009,6 +1011,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let coordinatorLines = try [
             "PaneDeferredAgentDeliveryCoordinator.swift",
             "PaneDeferredAgentDeliveryCoordinator+Scheduling.swift",
+            "PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift",
         ].map {
             try String(
                 contentsOf: paneGridDirectory.appendingPathComponent($0),
@@ -1061,13 +1064,51 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sourceResolver.contains("payload.sourceConversationID"))
         XCTAssertTrue(sourceResolver.contains("payload.sourceHandle"))
         XCTAssertTrue(sourceResolver.contains("payload.sourceTTY"))
-        XCTAssertTrue(sourceResolver.contains("localPTYSlaveTTYPathForAutomation"))
+        XCTAssertTrue(sourceResolver.contains("resolveAutomationSourceByTTY(payload.sourceTTY)"))
         XCTAssertTrue(agentEntry.contains("canReceiveMessage"))
         XCTAssertTrue(agentEntry.contains("replyInstructions"))
         XCTAssertTrue(messageArguments.contains("fromHandle: source?.handle"))
         XCTAssertTrue(messageArguments.contains("fromConversationID: source?.conversationID"))
         XCTAssertTrue(source.contains("@MainActor\nfinal class SoyehtAutomationRequestRouter"))
         XCTAssertTrue(appDelegate.contains("return try await automationRequestRouter.handle(request)"))
+    }
+
+    func testManualSplitPaneMessagingUsesProcessBoundPresenceNotAgentMetadata() throws {
+        let router = try macSource("App/SoyehtAutomationRequestRouter.swift")
+        let messaging = try macSource("App/SoyehtAutomationRequestRouter+03AgentMessaging.swift")
+        let directory = try macSource("App/SoyehtAutomationRequestRouter+07DirectoryIdentity.swift")
+        let presence = try macSource("App/SoyehtAutomationRequestRouter+12MessagingPresence.swift")
+        let tracker = try macSource("Pairing/PaneStatusTracker.swift")
+        let coordinator = try macSource("PaneGrid/PaneDeferredAgentDeliveryCoordinator.swift")
+        let send = try slice(
+            messaging,
+            from: "func handleSendAgentMessage(",
+            to: "func handleListAgentMessages("
+        )
+
+        XCTAssertTrue(router.contains("case .registerMessagingClient"))
+        XCTAssertTrue(router.contains("case .unregisterMessagingClient"))
+        XCTAssertTrue(send.contains("resolveMessagingAutomationSource(payload: payload)"))
+        XCTAssertTrue(send.contains("resolveAgentMessageTargetsWithFailures"))
+        XCTAssertTrue(send.contains("let availability = messagingAvailability(for: target)"))
+        XCTAssertLessThan(
+            try XCTUnwrap(send.range(of: "let availability = messagingAvailability(for: target)")?.lowerBound),
+            try XCTUnwrap(send.range(of: "conversationStore.enqueueAgentMessage")?.lowerBound)
+        )
+        XCTAssertFalse(send.contains("target.agent.isShell"))
+        XCTAssertFalse(send.contains("AgentConversationAdapterCapabilities"))
+        XCTAssertTrue(directory.contains("let availability = conversation.map(messagingAvailability)"))
+        XCTAssertTrue(directory.contains("let canReceiveMessage = availability.canReceiveMessage"))
+        XCTAssertTrue(presence.contains("resolveAutomationSourceByTTY"))
+        XCTAssertTrue(presence.contains("registerMessagingClient"))
+        XCTAssertTrue(tracker.contains("isDescendantOf"))
+        XCTAssertTrue(tracker.contains("isAssociatedWithTTYPath"))
+        XCTAssertTrue(coordinator.contains("hasActiveMessagingClient(for: conversationID)"))
+        XCTAssertTrue(coordinator.contains("discardDeliveryWhoseMessagingClientDisconnected"))
+        XCTAssertFalse(
+            send.contains("replayHuman") || send.contains("bufferHuman"),
+            "Agent routing must not add a human-input replay path."
+        )
     }
 
     func testMCPActiveContextPrefersTheCallingPaneOverFocusedSibling() throws {
@@ -1433,7 +1474,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(send.contains("invalidAgentMessageLineEnding"))
         XCTAssertLessThan(
             try XCTUnwrap(send.range(of: "invalidAgentMessageLineEnding")?.lowerBound),
-            try XCTUnwrap(send.range(of: "resolveAuthenticatedAutomationSource")?.lowerBound)
+            try XCTUnwrap(send.range(of: "resolveMessagingAutomationSource")?.lowerBound)
         )
     }
 
@@ -1669,6 +1710,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
                 "SoyehtAutomationRequestRouter+09Lifecycle.swift",
                 "SoyehtAutomationRequestRouter+10Capture.swift",
                 "SoyehtAutomationRequestRouter+11AgentOrchestration.swift",
+                "SoyehtAutomationRequestRouter+12MessagingPresence.swift",
+                "SoyehtAutomationRequestRouter+13MessagingSupport.swift",
             ]
             let appDirectory = terminalApp.appendingPathComponent("SoyehtMac/App")
             let combined = try routerFiles.map {
@@ -1684,6 +1727,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             return try [
                 "PaneDeferredAgentDeliveryCoordinator.swift",
                 "PaneDeferredAgentDeliveryCoordinator+Scheduling.swift",
+                "PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift",
             ].map {
                 try String(contentsOf: paneGrid.appendingPathComponent($0), encoding: .utf8)
             }.joined(separator: "\n")

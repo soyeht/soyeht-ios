@@ -160,8 +160,12 @@ def with_source_context(payload, args=None):
     if launch_nonce:
         payload["nonce"] = launch_nonce
     tty = current_tty()
-    if tty and not from_conversation_id and not from_handle:
+    if tty:
         payload["sourceTTY"] = tty
+    payload["messagingClientInstanceID"] = MCP_SERVER_INSTANCE_ID
+    payload["messagingClientPID"] = MCP_SERVER_PROCESS_ID
+    payload["messagingClientName"] = SERVER_NAME
+    payload["messagingClientVersion"] = SERVER_VERSION
     return payload
 
 
@@ -388,6 +392,51 @@ def resolve_automation_root(automation_dir, payload):
 def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT):
     root = resolve_automation_root(automation_dir, payload)
     return submit_request_to_root(root, request_type, payload, timeout=timeout, check_status=True)
+
+
+_MESSAGING_PRESENCE_ROOT = None
+
+
+def register_messaging_client_presence():
+    """Bind this MCP stdio process to its owning Soyeht pane/TTY.
+
+    This is transport plumbing rather than an LLM-facing tool. Initialize may
+    happen while the app is closed, so failures are retried on each tool call.
+    """
+    global _MESSAGING_PRESENCE_ROOT
+    payload = with_source_context({})
+    if not payload.get("sourceTTY"):
+        return False
+    root = resolve_automation_root(None, payload)
+    response = submit_request_to_root(
+        root,
+        "register_messaging_client",
+        payload,
+        timeout=2.0,
+        check_status=False,
+    )
+    if response.get("status") != "ok":
+        return False
+    _MESSAGING_PRESENCE_ROOT = root
+    return True
+
+
+def unregister_messaging_client_presence():
+    global _MESSAGING_PRESENCE_ROOT
+    root = _MESSAGING_PRESENCE_ROOT
+    _MESSAGING_PRESENCE_ROOT = None
+    if root is None:
+        return
+    try:
+        submit_request_to_root(
+            root,
+            "unregister_messaging_client",
+            with_source_context({}),
+            timeout=1.0,
+            check_status=False,
+        )
+    except Exception:
+        pass
 
 
 def session_spec(

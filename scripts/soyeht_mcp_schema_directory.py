@@ -65,7 +65,7 @@ TOOLS_DIRECTORY = [
     },
     {
         "name": "list_agents",
-        "description": "List the global Soyeht agent/pane directory for reliable multi-agent routing. By default all workspaces remain visible, grouped in workspaceGroups with the caller's current workspace first; every entry explicitly marks sameWorkspace/currentWorkspace. Pass workspaceID only for an intentional filter. Each agent includes displayReference=[name] for prose, while legacy @handles and conversation UUIDs remain machine-routing inputs in messageTarget. Use displayReference in commits, PRs, comments, and prose so GitHub accounts are not mentioned. Never create a new pane when the requested agent is already listed here.",
+        "description": "List the global Soyeht agent/pane directory for reliable multi-agent routing. By default all workspaces remain visible, grouped in workspaceGroups with the caller's current workspace first. canReceiveMessage is a hard contract: true means message_agent accepts the pane now; false includes messagingAvailability and unavailableReason such as mcp_not_connected, agent_not_running, or not_live. Pass workspaceID only for an intentional filter. Each agent includes displayReference=[name] for prose, while legacy @handles and conversation UUIDs remain machine-routing inputs in messageTarget. Use displayReference in commits, PRs, comments, and prose so GitHub accounts are not mentioned. Never create a new pane or start a process without user confirmation.",
         "inputSchema": {
             "type": "object",
             "properties": {

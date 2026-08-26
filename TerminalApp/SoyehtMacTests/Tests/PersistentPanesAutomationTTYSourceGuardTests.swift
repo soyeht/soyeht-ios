@@ -14,8 +14,8 @@ final class PersistentPanesAutomationTTYSourceGuardTests: XCTestCase {
         let source = try macSource("App/SoyehtAutomationRequestRouter.swift")
         let resolveAutomationSource = try slice(
             source,
-            from: "private func resolveAutomationSource(",
-            to: "private func sourceIdentity("
+            from: "private func resolveAutomationSourceByTTY(",
+            to: "private func resolveMessagingAutomationSource("
         )
         XCTAssertTrue(resolveAutomationSource.contains("pane.terminalView.localPTYSlaveTTYPathForAutomation"))
         // FIX-3 (independent review): the registry lookup must key off the
@@ -51,6 +51,9 @@ final class PersistentPanesAutomationTTYSourceGuardTests: XCTestCase {
                 "SoyehtAutomationRequestRouter+08Content.swift",
                 "SoyehtAutomationRequestRouter+09Lifecycle.swift",
                 "SoyehtAutomationRequestRouter+10Capture.swift",
+                "SoyehtAutomationRequestRouter+11AgentOrchestration.swift",
+                "SoyehtAutomationRequestRouter+12MessagingPresence.swift",
+                "SoyehtAutomationRequestRouter+13MessagingSupport.swift",
             ]
             let appDirectory = terminalApp.appendingPathComponent("SoyehtMac/App")
             let combined = try routerFiles.map {

@@ -4,6 +4,12 @@ import XCTest
 @testable import SoyehtMacDomain
 
 final class NativePTYMCPIsolationSourceGuardTests: XCTestCase {
+    func testMessagingPresenceAcceptsOnlyALiveProcessInThePaneTree() {
+        XCTAssertTrue(NativePTY.process(getpid(), isDescendantOf: getpid()))
+        XCTAssertFalse(NativePTY.process(-1, isDescendantOf: getpid()))
+        XCTAssertFalse(NativePTY.process(getpid(), isDescendantOf: 999_999))
+    }
+
     func testWriteBufferKeepsPartialOperationAcrossBackpressure() {
         var buffer = NativePTYWriteBuffer(maximumPendingBytes: 64)
         var receipts: [TransportWriteReceipt] = []

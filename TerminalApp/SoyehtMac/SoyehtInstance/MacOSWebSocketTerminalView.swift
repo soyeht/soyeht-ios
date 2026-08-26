@@ -120,6 +120,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         localPTY?.slaveTTYPath
     }
 
+    var localPTYRootProcessIDForAutomation: pid_t? {
+        localPTY?.pid
+    }
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {

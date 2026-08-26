@@ -22,6 +22,8 @@ from soyeht_mcp_ipc import wait_response, write_request
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "2.0.0"
 MCP_CLIENT_CONTRACT_VERSION = 3
+MCP_SERVER_INSTANCE_ID = str(uuid.uuid4())
+MCP_SERVER_PROCESS_ID = os.getpid()
 
 
 def inferred_mcp_client_profile(module_path=None):
