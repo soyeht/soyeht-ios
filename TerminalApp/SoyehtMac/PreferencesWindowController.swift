@@ -8,7 +8,6 @@
 
 import Cocoa
 import SoyehtCore
-import UniformTypeIdentifiers
 
 extension Notification.Name {
     static let preferencesDidChange = Notification.Name("SoyehtPreferencesDidChange")

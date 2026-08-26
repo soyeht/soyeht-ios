@@ -93,7 +93,13 @@ final class WorkspaceTabsView: NSView {
         // once on restore, so the button was almost never right.
         //
         // Parent and child cannot come apart. There is nothing left to break.
-        addBackdrop.passesThroughHits = true
+        // NOT `passesThroughHits`. That flag makes `hitTest` return nil
+        // unconditionally — it never offers subviews — which is right for the
+        // three backdrops that sit BEHIND a control as siblings, and fatal
+        // here, where the control is inside. Left set, the whole button was
+        // unreachable: `hitTest` over the circle returned the stack view, the
+        // target-action could not fire from a click at all, and
+        // `accessibilityHitTest` found nothing.
         addBackdrop.translatesAutoresizingMaskIntoConstraints = false
         addBackdrop.addSubview(addButton)
         NSLayoutConstraint.activate([
@@ -110,11 +116,17 @@ final class WorkspaceTabsView: NSView {
         addButton.toolTip = String(localized: "workspaceTabs.button.add.tooltip", comment: "Tooltip on the '+ new workspace' button in the tab strip.")
         addButton.setAccessibilityLabel(String(localized: "workspaceTabs.button.add.a11y", comment: "VoiceOver label for the '+ new workspace' button in the tab strip."))
 
-        // The button sits at the centre of its own circle. Both views are
-        // permanent children of one another, so these outlive every rebuild.
+        // The button FILLS its circle rather than merely centring in it, so
+        // the whole visible disc is the click target and the two rects agree.
+        // Centred alone, the button kept its 15x20 intrinsic size inside a
+        // 32pt circle: about two thirds of what the user aims at did nothing,
+        // and `dropIndex` and the titlebar click fallback both measure
+        // `addButton.bounds`, so both were reading the glyph.
         NSLayoutConstraint.activate([
-            addButton.centerXAnchor.constraint(equalTo: addBackdrop.centerXAnchor),
-            addButton.centerYAnchor.constraint(equalTo: addBackdrop.centerYAnchor),
+            addButton.leadingAnchor.constraint(equalTo: addBackdrop.leadingAnchor),
+            addButton.trailingAnchor.constraint(equalTo: addBackdrop.trailingAnchor),
+            addButton.topAnchor.constraint(equalTo: addBackdrop.topAnchor),
+            addButton.bottomAnchor.constraint(equalTo: addBackdrop.bottomAnchor),
         ])
         rebuild()
         // Fase 3.1 — ObservationTracker replaces the two NotificationCenter

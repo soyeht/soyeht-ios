@@ -11,7 +11,12 @@ import Testing
 /// never paid back so a stated offset of 3 landed as 2. Every one is invisible
 /// to a test that reads the specs back — the numbers were right, what they
 /// produced was not. So these render.
+/// `@MainActor` because every test here builds NSViews, mutates CALayer state
+/// and calls `cacheDisplay`. Without it Swift Testing runs them on the
+/// cooperative pool, three at a time on different threads — which is how this
+/// file would start failing on someone else's machine and not on mine.
 @Suite("Neumorphic shadow rendering")
+@MainActor
 struct NeoShadowRenderingTests {
 
     // MARK: - Pixels
@@ -169,28 +174,17 @@ struct NeoShadowRenderingTests {
                 "a shouting rim reached the top-left at \(lightness(75, 0)) — it is in front")
     }
 
-    /// The dark side survives the rim at the design's real numbers too.
-    @Test func theRimDoesNotEraseTheDarkEdge() {
-        let size = NSSize(width: 150, height: 33)
-        func topEdgeLightness(withRim rim: Bool) -> Double {
-            let host = NSView(frame: NSRect(origin: .zero, size: size))
-            host.wantsLayer = true
-            host.layer?.backgroundColor = Self.well.cgColor
-            let cavity = MacInnerWellShadowView(frame: NSRect(origin: .zero, size: size))
-            cavity.applyStyle(
-                cornerRadius: min(size.height / 2, 18),
-                dark: .neo(color: Self.wellShadow, offset: CGSize(width: 3, height: -3), blur: 6),
-                light: rim
-                    ? .neo(color: Self.wellRim, offset: CGSize(width: -3, height: 3), blur: 7)
-                    : .neo(color: .clear, opacity: 0, offset: .zero, blur: 0))
-            host.addSubview(cavity)
-            return Self.lightnessProbe(of: host)(75, 0)
-        }
-        let withRim = topEdgeLightness(withRim: true)
-        let withoutRim = topEdgeLightness(withRim: false)
-        #expect(abs(withRim - withoutRim) < 3,
-                "the rim moved the dark edge from \(withoutRim) to \(withRim)")
-    }
+    // A third recess test lived here and was deleted rather than repaired.
+    // It asserted that the rim does not lighten the top-left, by rendering
+    // twice — with and without it — and comparing. With the ring order
+    // correct the rim contributes exactly nothing there, so both sides
+    // measured 11.394251449377162 and the assertion compared a number with
+    // itself: it could not fail, for the order it was named for or for
+    // anything else. Restating it as an absolute floor did not save it — the
+    // correct code sits at 9.04 and the reversed order at 10.4, and a
+    // threshold in a gap that narrow is a promise about this machine rather
+    // than about the code. `theDarkRingIsPaintedInFrontOfTheRim` asks the
+    // same question with an amplified rim and answers it 23 against 55.
 
     /// A theme that states no lip renders without one, and the two rings that
     /// remain still carve the recess.
@@ -244,9 +238,12 @@ struct NeoShadowRenderingTests {
                 "above the pill \(above) is not lit against canvas \(canvasLightness)")
 
         // Neither side may still be running at 15pt out: a doubled radius
-        // spreads this far, the intended one has faded.
-        #expect(abs(lightness(105, 78) - canvasLightness) < 1.5)
-        #expect(abs(lightness(105, 15) - canvasLightness) < 1.5)
+        // spreads this far, the intended one has faded to nothing. The margin
+        // is deliberately narrow — correct code measures 0.000 here and the
+        // doubled blur 0.49, so a threshold of 1.5 would have waved the
+        // defect through. It was 1.5.
+        #expect(abs(lightness(105, 78) - canvasLightness) < 0.25)
+        #expect(abs(lightness(105, 15) - canvasLightness) < 0.25)
     }
 
     /// A surface asked for no shadows leaves the canvas alone, so a flat
