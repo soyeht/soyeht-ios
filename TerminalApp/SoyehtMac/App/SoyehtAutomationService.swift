@@ -203,6 +203,8 @@ struct SoyehtAutomationResponse: Encodable {
         let conversationID: String
         let runtimeAgent: String
         let runtimeInstanceID: String
+        let runtimeProcessStartedAtSeconds: UInt64
+        let runtimeProcessStartedAtMicroseconds: UInt64
         let runtimeOwnerProcessID: Int32
         let runtimeOwnerProcessStartedAtSeconds: UInt64
         let runtimeOwnerProcessStartedAtMicroseconds: UInt64

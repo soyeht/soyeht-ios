@@ -16,7 +16,13 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from soyeht_mcp_catalog import load_agent_catalog
-from soyeht_mcp_ipc import wait_response, write_request
+from soyeht_mcp_ipc import (
+    locked_file_slot,
+    publish_generation_binding,
+    remove_generation_binding,
+    wait_response,
+    write_request,
+)
 
 
 SERVER_NAME = "soyeht-automation"

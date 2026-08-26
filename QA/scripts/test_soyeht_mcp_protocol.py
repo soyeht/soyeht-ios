@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -91,6 +92,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                             "conversationID": "pane-id",
                             "runtimeAgent": "codex",
                             "runtimeInstanceID": "runtime-session-a",
+                            "runtimeProcessStartedAtSeconds": 1200,
+                            "runtimeProcessStartedAtMicroseconds": 3400,
                             "runtimeOwnerProcessID": os.getppid(),
                             "runtimeOwnerProcessStartedAtSeconds": 1234,
                             "runtimeOwnerProcessStartedAtMicroseconds": 5678,
@@ -99,18 +102,71 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                     self.assertIsNotNone(path)
                     identity = json.loads(path.read_text(encoding="utf-8"))
                     self.assertEqual(identity["runtimeInstanceID"], "runtime-session-a")
+                    self.assertEqual(identity["runtimeProcessStartedAtSeconds"], 1200)
+                    self.assertEqual(identity["runtimeProcessStartedAtMicroseconds"], 3400)
                     self.assertEqual(identity["runtimeOwnerProcessStartedAtSeconds"], 1234)
                     self.assertEqual(identity["runtimeOwnerProcessStartedAtMicroseconds"], 5678)
                     self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
                     # An old runtime cannot erase a replacement generation.
                     identity["runtimeInstanceID"] = "runtime-session-b"
+                    identity["runtimeProcessStartedAtSeconds"] = 2200
                     path.write_text(json.dumps(identity), encoding="utf-8")
                     self.assertFalse(remove())
                     self.assertTrue(path.exists())
+
+                    # Nor can a late response from A overwrite the newer B
+                    # generation after both reused the same numeric owner PID.
+                    self.assertIsNone(publish({
+                        "runtimeIdentityClaimed": {
+                            "conversationID": "pane-id",
+                            "runtimeAgent": "codex",
+                            "runtimeInstanceID": "runtime-session-a",
+                            "runtimeProcessStartedAtSeconds": 1200,
+                            "runtimeProcessStartedAtMicroseconds": 3400,
+                            "runtimeOwnerProcessID": os.getppid(),
+                            "runtimeOwnerProcessStartedAtSeconds": 1234,
+                            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+                        },
+                    }))
+                    current = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(current["runtimeInstanceID"], "runtime-session-b")
         finally:
             globals_["MCP_RUNTIME_AGENT"] = previous_agent
             globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+
+    def test_runtime_report_binding_lock_serializes_pid_generation_changes(self):
+        locked = MODULE["locked_file_slot"]
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.dict(os.environ, {
+                "SOYEHT_AUTOMATION_DIR": temporary,
+            }, clear=True):
+                first_entered = threading.Event()
+                release_first = threading.Event()
+                second_entered = threading.Event()
+
+                def first_generation():
+                    with locked(MODULE["runtime_report_binding_path"](owner_process_id=24680)):
+                        first_entered.set()
+                        release_first.wait(timeout=2)
+
+                def second_generation():
+                    first_entered.wait(timeout=2)
+                    with locked(MODULE["runtime_report_binding_path"](owner_process_id=24680)):
+                        second_entered.set()
+
+                first = threading.Thread(target=first_generation)
+                second = threading.Thread(target=second_generation)
+                first.start()
+                second.start()
+                self.assertTrue(first_entered.wait(timeout=2))
+                self.assertFalse(second_entered.wait(timeout=0.1))
+                release_first.set()
+                first.join(timeout=2)
+                second.join(timeout=2)
+                self.assertFalse(first.is_alive())
+                self.assertFalse(second.is_alive())
+                self.assertTrue(second_entered.is_set())
 
     def test_manual_runtime_claim_never_invents_a_missing_launch_nonce(self):
         function = MODULE["synchronize_runtime_identity"]

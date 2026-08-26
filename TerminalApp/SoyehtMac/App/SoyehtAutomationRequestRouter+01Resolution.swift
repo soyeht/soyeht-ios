@@ -228,6 +228,8 @@ extension SoyehtAutomationRequestRouter {
             conversationID: source.id.uuidString,
             runtimeAgent: claim.agentName,
             runtimeInstanceID: claim.instanceID,
+            runtimeProcessStartedAtSeconds: claim.processStartedAtSeconds,
+            runtimeProcessStartedAtMicroseconds: claim.processStartedAtMicroseconds,
             runtimeOwnerProcessID: ownerProcessID,
             runtimeOwnerProcessStartedAtSeconds: seconds,
             runtimeOwnerProcessStartedAtMicroseconds: microseconds

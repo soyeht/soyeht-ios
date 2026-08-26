@@ -193,6 +193,8 @@ def publish_runtime_report_binding(response):
         return None
     try:
         owner_process_id = int(identity["runtimeOwnerProcessID"])
+        runtime_started_seconds = int(identity["runtimeProcessStartedAtSeconds"])
+        runtime_started_microseconds = int(identity["runtimeProcessStartedAtMicroseconds"])
         owner_started_seconds = int(identity["runtimeOwnerProcessStartedAtSeconds"])
         owner_started_microseconds = int(identity["runtimeOwnerProcessStartedAtMicroseconds"])
     except (KeyError, TypeError, ValueError):
@@ -201,55 +203,33 @@ def publish_runtime_report_binding(response):
         owner_process_id != os.getppid()
         or identity.get("runtimeInstanceID") != MCP_RUNTIME_INSTANCE_ID
         or identity.get("runtimeAgent") != MCP_RUNTIME_AGENT
+        or runtime_started_seconds < 0
+        or runtime_started_microseconds < 0
         or owner_started_seconds < 0
         or owner_started_microseconds < 0
     ):
         return None
-    path = runtime_report_binding_path(owner_process_id)
-    if path is None:
-        return None
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
     payload = {
         "version": 1,
         "conversationID": identity.get("conversationID"),
         "runtimeAgent": MCP_RUNTIME_AGENT,
         "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
+        "runtimeProcessStartedAtSeconds": runtime_started_seconds,
+        "runtimeProcessStartedAtMicroseconds": runtime_started_microseconds,
         "runtimeOwnerProcessID": owner_process_id,
         "runtimeOwnerProcessStartedAtSeconds": owner_started_seconds,
         "runtimeOwnerProcessStartedAtMicroseconds": owner_started_microseconds,
     }
-    temporary = path.parent / f".{path.name}.{uuid.uuid4()}.tmp"
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, separators=(",", ":"), sort_keys=True)
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
-        raise
-    return path
+    # A response from a retired claim can arrive after its replacement. The
+    # IPC layer compares both owner and MCP process generations under lock.
+    return publish_generation_binding(runtime_report_binding_path(owner_process_id), payload)
 
 
 def remove_runtime_report_binding():
     """Remove only our own generation; never erase a replacement runtime."""
-    path = runtime_report_binding_path()
-    if path is None:
-        return False
-    try:
-        current = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, ValueError):
-        return False
-    if current.get("runtimeInstanceID") != MCP_RUNTIME_INSTANCE_ID:
-        return False
-    try:
-        path.unlink()
-    except FileNotFoundError:
-        return False
-    return True
+    return remove_generation_binding(
+        runtime_report_binding_path(), MCP_RUNTIME_INSTANCE_ID
+    )
 
 
 def synchronize_runtime_identity(

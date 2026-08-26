@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 27
+    static let version = 28
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,7 +17,7 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v27). Do not edit.
+# Managed by Soyeht (agent-state integration v28). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
@@ -27,6 +27,27 @@ from pathlib import Path
 def runtime_report_identity(automation_dir, owner_process_id):
     try:
         owner_process_id = int(owner_process_id)
+        # A deferred transcript collector is a new process whose event may be
+        # emitted after the original CLI exits. It must carry the generation
+        # captured when it was scheduled; rereading an owner-PID path later
+        # could bind an old event to a new process after PID recycling.
+        if os.environ.get("SOYEHT_DEFERRED_RUNTIME_BINDING_CAPTURED") == "1":
+            identity = {
+                "runtimeOwnerProcessID": owner_process_id,
+                "runtimeInstanceID": os.environ.get("SOYEHT_REPORT_RUNTIME_INSTANCE_ID"),
+                "runtimeOwnerProcessStartedAtSeconds": int(os.environ.get(
+                    "SOYEHT_REPORT_RUNTIME_OWNER_STARTED_SECONDS"
+                )),
+                "runtimeOwnerProcessStartedAtMicroseconds": int(os.environ.get(
+                    "SOYEHT_REPORT_RUNTIME_OWNER_STARTED_MICROSECONDS"
+                )),
+            }
+            required = (
+                "runtimeInstanceID",
+                "runtimeOwnerProcessStartedAtSeconds",
+                "runtimeOwnerProcessStartedAtMicroseconds",
+            )
+            return identity if all(identity.get(key) not in (None, "") for key in required) else None
         path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
         identity = json.loads(path.read_text(encoding="utf-8"))
         if identity.get("runtimeOwnerProcessID") != owner_process_id:
@@ -315,7 +336,24 @@ def schedule_deferred_agent_transcript(transcript_path, session_id):
     env["SOYEHT_DEFERRED_AGENT_TRANSCRIPT"] = "1"
     env["SOYEHT_DEFERRED_TRANSCRIPT_PATH"] = transcript_path
     env["SOYEHT_DEFERRED_BASELINE"] = baseline
-    env["SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID"] = str(os.getppid())
+    runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+    owner_process_id = int(runtime_owner) if runtime_owner.isdigit() else os.getppid()
+    env["SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID"] = str(owner_process_id)
+    # Mark the snapshot even when no binding exists. A managed agent pane can
+    # authenticate with its launch nonce alone; a manual pane must never let
+    # this delayed child adopt a future runtime's mutable binding.
+    env["SOYEHT_DEFERRED_RUNTIME_BINDING_CAPTURED"] = "1"
+    identity = runtime_report_identity(
+        os.environ.get("SOYEHT_AUTOMATION_DIR", ""), owner_process_id
+    )
+    if identity is not None:
+        env["SOYEHT_REPORT_RUNTIME_INSTANCE_ID"] = str(identity["runtimeInstanceID"])
+        env["SOYEHT_REPORT_RUNTIME_OWNER_STARTED_SECONDS"] = str(
+            identity["runtimeOwnerProcessStartedAtSeconds"]
+        )
+        env["SOYEHT_REPORT_RUNTIME_OWNER_STARTED_MICROSECONDS"] = str(
+            identity["runtimeOwnerProcessStartedAtMicroseconds"]
+        )
     if session_id:
         env["SOYEHT_DEFERRED_SESSION_ID"] = session_id
     try:
