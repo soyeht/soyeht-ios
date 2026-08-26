@@ -806,6 +806,24 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         return workspaceStore.flushPendingSave()
     }
 
+    /// A dead persistent transport is replaced by a brand-new shell process.
+    /// Rotate the pane possession credential before exposing that process so
+    /// neither an old runtime instance nor a stale Keychain row can adopt it.
+    private func registerReplacementShellLaunchOwnership(
+        paneID: Conversation.ID,
+        nonce: String
+    ) -> Bool {
+        guard PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID),
+              PaneStatusTracker.shared.registerLaunchOwnership(
+                paneID: paneID,
+                nonce: nonce
+              ) else {
+            PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: paneID)
+            return false
+        }
+        return true
+    }
+
     /// `.native(pid)` survives undo/relaunch in the model, but the live PTY
     /// object does not. When a pane rebinds to a local conversation that says
     /// "native" yet has no attached PTY, spawn a fresh local shell in the
@@ -1004,14 +1022,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             let previousLaunchNonce = PaneStatusTracker.shared.launchOwnershipNonce(
                 for: conversationID
             )
+            // Engine create is idempotent. A surviving session ignores this
+            // value and keeps its existing environment; a missing session or
+            // NativePTY fallback receives a freshly rotated pane credential.
+            let replacementShellLaunchNonce = UUID().uuidString
             if !liveConversation.agent.isShell {
                 // Keep the old process credential valid throughout an
                 // idempotent reattach. Reporter hooks from that still-running
                 // process are canonical conversation events and must not be
                 // dropped during a slow engine round-trip. A missing session
-                // creates a plain shell with launchNonce=nil; the false
-                // reconnected outcome then revokes this old credential before
-                // the shell identity is persisted.
+                // receives the replacement nonce below; the false reconnected
+                // outcome registers it before the shell identity is persisted.
                 guard previousLaunchNonce != nil else {
                     self.terminalView.disconnect()
                     Self.logger.error("engine pane restore aborted because persisted agent ownership is missing pane=\(conversationID.uuidString, privacy: .public)")
@@ -1030,9 +1051,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     // possession credential.
                     // Existing engine sessions keep their inherited value;
                     // if the broker must recreate a dead normal shell, inject
-                    // the same pane credential so a manually launched agent
-                    // can reclaim MCP without changing terminal behavior.
-                    launchNonce: previousLaunchNonce,
+                    // a fresh pane credential so a manually launched agent can
+                    // claim MCP without changing terminal behavior.
+                    launchNonce: replacementShellLaunchNonce,
                     cwd: url,
                     loginPath: loginPath,
                     cols: cols,
@@ -1065,6 +1086,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
             switch outcome {
             case .attached(reconnected: true):
+                if liveConversation.agent.isShell,
+                   PaneStatusTracker.shared.launchOwnershipNonce(
+                    for: conversationID
+                   ) == nil,
+                   !PaneStatusTracker.shared.rehydratePersistentShellLaunchOwnership(
+                    paneID: conversationID
+                   ) {
+                    Self.logger.notice(
+                        "persistent pre-feature shell has no protected MCP ownership pane=\(conversationID.uuidString, privacy: .public)"
+                    )
+                }
                 deferredAgentDeliveryCoordinator
                     .markTerminalDraftStateUnknownAfterPersistentReattach()
                 markTerminalTransportReadyForDeferredAgentDelivery()
@@ -1076,7 +1108,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 // conversation_id. Discreet (Console-only, no UI per A6) but
                 // honest — must not say "restored" when there's no history.
                 if let current = convStore.conversation(conversationID) {
-                    guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
+                    guard registerReplacementShellLaunchOwnership(
+                        paneID: conversationID,
+                        nonce: replacementShellLaunchNonce
+                    ), persistDowngradedShellIdentity(for: current, convStore: convStore) else {
                         PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
                         terminalView.disconnect()
                         return
@@ -1090,6 +1125,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             }
 
             Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
+            // Best-effort: a request WE saw as failed (timeout, dropped
+            // response) may have actually succeeded engine-side — don't
+            // leave that orphaned once we fall back to NativePTY.
+            await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
+            guard registerReplacementShellLaunchOwnership(
+                paneID: conversationID,
+                nonce: replacementShellLaunchNonce
+            ) else {
+                terminalView.disconnect()
+                return
+            }
             if let current = convStore.conversation(conversationID) {
                 guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
                     PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
@@ -1097,10 +1143,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     return
                 }
             }
-            // Best-effort: a request WE saw as failed (timeout, dropped
-            // response) may have actually succeeded engine-side — don't
-            // leave that orphaned once we fall back to NativePTY.
-            await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
             do {
                 let pty = try NativePTY(
                     shellPath: nil,
@@ -1110,7 +1152,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     loginPath: loginPath,
                     extraEnvironment: AgentPaneEnvironment.values(
                         for: convStore.conversation(conversationID) ?? conv,
-                        launchNonce: previousLaunchNonce
+                        launchNonce: replacementShellLaunchNonce
                     )
                 )
                 convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
@@ -1120,6 +1162,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     "local shell restored (engine fallback) pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
                 )
             } catch {
+                PaneStatusTracker.shared.quarantineAgentLaunchOwnership(
+                    paneID: conversationID
+                )
                 Self.logger.error("restoreEnginePane NativePTY fallback failed: \(error.localizedDescription, privacy: .public)")
             }
         }

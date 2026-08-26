@@ -130,9 +130,20 @@ final class PaneStatusTracker {
     /// this restoration to PaneViewController creation makes authentication
     /// depend on a human visiting that workspace.
     func rehydratePersistentLaunchOwnership(from conversations: [Conversation]) -> [Conversation.ID] {
-        let migrated = launchOwnership.rehydrate(from: conversations)
-        runtimeIdentity.rehydrate(from: conversations)
+        let trustedShellPaneIDs = runtimeIdentity.rehydrate(from: conversations)
+        let migrated = launchOwnership.rehydrate(
+            from: conversations,
+            trustedShellPaneIDs: trustedShellPaneIDs
+        )
         return migrated
+    }
+
+    /// Called only after the engine confirms that an ordinary shell pane
+    /// reattached to the same persistent session. The credential comes from
+    /// protected app storage, never from the claiming automation payload.
+    @discardableResult
+    func rehydratePersistentShellLaunchOwnership(paneID: Conversation.ID) -> Bool {
+        launchOwnership.rehydrateProtectedShellOwnership(paneID: paneID)
     }
 
     func launchOwnershipNonce(for paneID: Conversation.ID) -> String? {
@@ -171,23 +182,10 @@ final class PaneStatusTracker {
         nonce: String?,
         expectedTTYDevice: UInt32
     ) -> Bool {
-        let launchCredentialIsValid = launchOwnership.validates(
+        guard launchOwnership.validates(
             paneID: paneID,
             nonce: nonce
-        )
-        let hasRegisteredLaunchCredential = launchOwnership.nonce(for: paneID) != nil
-        let bootstrapNonce = nonce?.trimmingCharacters(in: .whitespacesAndNewlines)
-        // A persistent manual shell retains its injected environment while the
-        // app restarts, but shell Keychain rows are deliberately not trusted at
-        // startup: an older app may have downgraded a dead managed process to a
-        // fresh shell without revoking that row. Re-adopt only after BOTH the
-        // new MCP proves the pane's exact controlling TTY and presents a real
-        // nonce inherited by that shell. A pre-feature shell with no nonce must
-        // be recreated; accepting TTY alone would also make its hook reports
-        // unauthenticated and spoofable.
-        guard launchCredentialIsValid
-                || (!hasRegisteredLaunchCredential && !(bootstrapNonce ?? "").isEmpty)
-        else { return false }
+        ) else { return false }
         guard runtimeIdentity.claim(
             paneID: paneID,
             agentName: agentName,
@@ -195,13 +193,6 @@ final class PaneStatusTracker {
             processID: processID,
             expectedTTYDevice: expectedTTYDevice
         ) != nil else { return false }
-        if !hasRegisteredLaunchCredential {
-            guard let bootstrapNonce,
-                  launchOwnership.register(paneID: paneID, nonce: bootstrapNonce) else {
-                runtimeIdentity.clear(paneID: paneID)
-                return false
-            }
-        }
         return true
     }
 
@@ -226,12 +217,14 @@ final class PaneStatusTracker {
     func validatesRuntimeIdentity(
         paneID: Conversation.ID,
         agentName: String?,
-        instanceID: String?
+        instanceID: String?,
+        expectedTTYDevice: UInt32? = nil
     ) -> Bool {
         runtimeIdentity.validates(
             paneID: paneID,
             agentName: agentName,
-            instanceID: instanceID
+            instanceID: instanceID,
+            expectedTTYDevice: expectedTTYDevice
         )
     }
 

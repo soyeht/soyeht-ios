@@ -1277,7 +1277,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(attach.contains("registerLaunchOwnership("))
         XCTAssertTrue(attach.contains("nonce: launchNonce"))
         XCTAssertFalse(restore.contains("liveConversation.agentLaunchOwnershipNonce"))
-        XCTAssertTrue(restore.contains("launchNonce: previousLaunchNonce"))
+        XCTAssertTrue(restore.contains("let replacementShellLaunchNonce = UUID().uuidString"))
+        XCTAssertTrue(restore.contains("launchNonce: replacementShellLaunchNonce"))
         XCTAssertFalse(restore.contains("prepareForAgentLaunch(paneID: conversationID)"))
         XCTAssertTrue(restore.contains("guard previousLaunchNonce != nil else"))
         XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))
@@ -1285,9 +1286,23 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(bootstrap.contains(
             "rehydratePersistentLaunchOwnership(\n            from: conversationStore.all"
         ))
-        XCTAssertTrue(rehydrate.contains("launchOwnership.rehydrate(from: conversations)"))
+        XCTAssertTrue(rehydrate.contains("let trustedShellPaneIDs = runtimeIdentity.rehydrate"))
+        XCTAssertTrue(rehydrate.contains("trustedShellPaneIDs: trustedShellPaneIDs"))
         XCTAssertTrue(ownership.contains("AgentLaunchOwnershipKeychainStore"))
         XCTAssertTrue(ownership.contains("SoyehtInstallProfile.current.keychainService + \".agent-launch-ownership\""))
+    }
+
+    func testManualRuntimeCannotBootstrapOwnershipFromAnUntrustedNonce() throws {
+        let tracker = try macSource("Pairing/PaneStatusTracker.swift")
+        let claim = try slice(
+            tracker,
+            from: "func claimRuntimeIdentity(",
+            to: "func releaseRuntimeIdentity("
+        )
+
+        XCTAssertTrue(claim.contains("guard launchOwnership.validates("))
+        XCTAssertFalse(claim.contains("bootstrapNonce"))
+        XCTAssertFalse(claim.contains("!hasRegisteredLaunchCredential"))
     }
 
     func testDeferredAgentDeliveryRechecksHumanDraftAfterEveryBrokerTransaction() throws {

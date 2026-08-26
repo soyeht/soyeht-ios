@@ -79,6 +79,27 @@ final class PaneHeaderOrchestratorToggleSourceGuardTests: XCTestCase {
         )
     }
 
+    func testImplicitRuntimeAdoptionRevokesThePreviousInstanceGrant() throws {
+        let router = try macSource(
+            "App/SoyehtAutomationRequestRouter+07DirectoryIdentity.swift"
+        )
+        let authentication = try slice(
+            router,
+            from: "func authenticatesAutomationSource(",
+            to: "func resolveAutomationSource("
+        )
+        let claim = try XCTUnwrap(authentication.range(of: "claimRuntimeIdentity("))
+        let revoke = try XCTUnwrap(authentication.range(
+            of: "revokeShellRuntimeOrchestrationAuthorization(for: source)"
+        ))
+        let accepted = try XCTUnwrap(authentication.range(
+            of: "runtimeIdentityIsValid = true"
+        ))
+
+        XCTAssertLessThan(claim.lowerBound, revoke.lowerBound)
+        XCTAssertLessThan(revoke.lowerBound, accepted.lowerBound)
+    }
+
     private func slice(_ source: String, from start: String, to end: String) throws -> String {
         let startRange = try XCTUnwrap(source.range(of: start))
         let endRange = try XCTUnwrap(

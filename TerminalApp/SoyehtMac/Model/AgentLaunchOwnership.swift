@@ -88,21 +88,40 @@ final class AgentLaunchOwnershipRegistry {
     /// Returns legacy snapshot rows that should be scrubbed after a one-shot
     /// migration. Keychain wins when both copies exist because it is updated
     /// synchronously at launch, before the debounced workspace snapshot.
-    func rehydrate(from conversations: [Conversation]) -> [Conversation.ID] {
+    func rehydrate(
+        from conversations: [Conversation],
+        trustedShellPaneIDs: Set<Conversation.ID> = []
+    ) -> [Conversation.ID] {
         var migratedLegacyPaneIDs: [Conversation.ID] = []
         for conversation in conversations {
-            guard !conversation.agent.isShell,
-                  case .engineLocal = conversation.commander,
+            guard case .engineLocal = conversation.commander,
                   conversation.content.isTerminal else { continue }
+            let mayRestoreProtectedOwnership = !conversation.agent.isShell
+                || trustedShellPaneIDs.contains(conversation.id)
+            guard mayRestoreProtectedOwnership else { continue }
             if let persisted = persistence.loadNonce(for: conversation.id), !persisted.isEmpty {
                 expectedByPane[conversation.id] = persisted
-            } else if let legacy = conversation.agentLaunchOwnershipNonce, !legacy.isEmpty {
+            } else if !conversation.agent.isShell,
+                      let legacy = conversation.agentLaunchOwnershipNonce,
+                      !legacy.isEmpty {
                 if register(paneID: conversation.id, nonce: legacy) {
                     migratedLegacyPaneIDs.append(conversation.id)
                 }
             }
         }
         return migratedLegacyPaneIDs
+    }
+
+    /// Restores a protected shell-pane nonce only after the caller has proved
+    /// that the same persistent engine session survived. This deliberately
+    /// does not accept a nonce supplied by an automation request.
+    @discardableResult
+    func rehydrateProtectedShellOwnership(paneID: Conversation.ID) -> Bool {
+        guard let persisted = persistence.loadNonce(for: paneID), !persisted.isEmpty else {
+            return false
+        }
+        expectedByPane[paneID] = persisted
+        return true
     }
 
     /// Emergency in-process deny used when a durable tombstone cannot be
@@ -139,6 +158,10 @@ struct AgentRuntimeIdentityClaim: Codable, Equatable {
     let processID: Int32
     let processStartedAtSeconds: UInt64
     let processStartedAtMicroseconds: UInt64
+    /// Kernel TTY device captured at claim time. Optional only to decode rows
+    /// written before continuous TTY validation shipped; rehydrate migrates
+    /// those rows from the still-live process before trusting them.
+    let ttyDevice: UInt32?
 }
 
 protocol AgentRuntimeIdentityPersisting {
@@ -260,8 +283,9 @@ final class AgentRuntimeIdentityRegistry {
               processID <= Int(Int32.max),
               isProcessAlive(Int32(processID)),
               let startedAt = processStartTime(Int32(processID)) else { return nil }
+        let observedTTYDevice = processTTYDevice(Int32(processID))
         if let expectedTTYDevice {
-            guard processTTYDevice(Int32(processID)) == expectedTTYDevice else {
+            guard observedTTYDevice == expectedTTYDevice else {
                 return nil
             }
         }
@@ -270,7 +294,8 @@ final class AgentRuntimeIdentityRegistry {
             instanceID: normalizedInstance,
             processID: Int32(processID),
             processStartedAtSeconds: startedAt.seconds,
-            processStartedAtMicroseconds: startedAt.microseconds
+            processStartedAtMicroseconds: startedAt.microseconds,
+            ttyDevice: expectedTTYDevice ?? observedTTYDevice
         )
         guard persistence.save(claim: claim, for: paneID) else { return nil }
         claimsByPane[paneID] = claim
@@ -291,23 +316,45 @@ final class AgentRuntimeIdentityRegistry {
         }
     }
 
-    func rehydrate(from conversations: [Conversation]) {
+    @discardableResult
+    func rehydrate(from conversations: [Conversation]) -> Set<Conversation.ID> {
+        var trustedPaneIDs = Set<Conversation.ID>()
         for conversation in conversations {
             guard conversation.agent.isShell,
                   conversation.content.isTerminal,
                   case .engineLocal = conversation.commander,
-                  let claim = persistence.loadClaim(for: conversation.id) else { continue }
-            if isCurrentProcess(claim) {
+                  var claim = persistence.loadClaim(for: conversation.id) else { continue }
+            if claim.ttyDevice == nil,
+               let migratedTTYDevice = processTTYDevice(claim.processID) {
+                claim = AgentRuntimeIdentityClaim(
+                    agentName: claim.agentName,
+                    instanceID: claim.instanceID,
+                    processID: claim.processID,
+                    processStartedAtSeconds: claim.processStartedAtSeconds,
+                    processStartedAtMicroseconds: claim.processStartedAtMicroseconds,
+                    ttyDevice: migratedTTYDevice
+                )
+                guard persistence.save(claim: claim, for: conversation.id) else {
+                    _ = persistence.revoke(for: conversation.id)
+                    continue
+                }
+            }
+            if isCurrentProcess(claim), claim.ttyDevice != nil {
                 claimsByPane[conversation.id] = claim
+                trustedPaneIDs.insert(conversation.id)
             } else {
                 _ = persistence.revoke(for: conversation.id)
             }
         }
+        return trustedPaneIDs
     }
 
-    func claim(for paneID: Conversation.ID) -> AgentRuntimeIdentityClaim? {
+    func claim(
+        for paneID: Conversation.ID,
+        expectedTTYDevice: UInt32? = nil
+    ) -> AgentRuntimeIdentityClaim? {
         guard let claim = claimsByPane[paneID] else { return nil }
-        guard isCurrentProcess(claim) else {
+        guard isCurrentProcess(claim, expectedTTYDevice: expectedTTYDevice) else {
             _ = persistence.revoke(for: paneID)
             claimsByPane[paneID] = nil
             return nil
@@ -315,20 +362,39 @@ final class AgentRuntimeIdentityRegistry {
         return claim
     }
 
-    private func isCurrentProcess(_ claim: AgentRuntimeIdentityClaim) -> Bool {
+    private func isCurrentProcess(
+        _ claim: AgentRuntimeIdentityClaim,
+        expectedTTYDevice: UInt32? = nil
+    ) -> Bool {
         guard isProcessAlive(claim.processID),
               let startedAt = processStartTime(claim.processID) else { return false }
-        return startedAt.seconds == claim.processStartedAtSeconds
-            && startedAt.microseconds == claim.processStartedAtMicroseconds
+        guard startedAt.seconds == claim.processStartedAtSeconds,
+              startedAt.microseconds == claim.processStartedAtMicroseconds else {
+            return false
+        }
+        if let claimTTYDevice = claim.ttyDevice {
+            guard processTTYDevice(claim.processID) == claimTTYDevice else { return false }
+        }
+        if let expectedTTYDevice {
+            guard claim.ttyDevice == expectedTTYDevice,
+                  processTTYDevice(claim.processID) == expectedTTYDevice else {
+                return false
+            }
+        }
+        return true
     }
 
     func validates(
         paneID: Conversation.ID,
         agentName: String?,
-        instanceID: String?
+        instanceID: String?,
+        expectedTTYDevice: UInt32? = nil
     ) -> Bool {
         guard let agentName, let instanceID else { return false }
-        guard let claim = claim(for: paneID) else { return false }
+        guard let claim = claim(
+            for: paneID,
+            expectedTTYDevice: expectedTTYDevice
+        ) else { return false }
         return claim.agentName == agentName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             && claim.instanceID == instanceID.trimmingCharacters(in: .whitespacesAndNewlines)
     }

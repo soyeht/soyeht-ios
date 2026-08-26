@@ -11,11 +11,13 @@ extension PaneViewController {
             header.canToggleOrchestrationManager = false
             return
         }
-        header.isOrchestrationManager = workspaceStore.workspace(conversation.workspaceID)?
-            .orchestration?
-            .canManageRolesAndTopology(conversationID) == true
-        header.canToggleOrchestrationManager = PaneStatusTracker.shared
+        let hasAuthenticatedRuntime = PaneStatusTracker.shared
             .hasAuthenticatedAgentRuntime(for: conversation)
+        header.isOrchestrationManager = hasAuthenticatedRuntime
+            && workspaceStore.workspace(conversation.workspaceID)?
+                .orchestration?
+                .canManageRolesAndTopology(conversationID) == true
+        header.canToggleOrchestrationManager = hasAuthenticatedRuntime
     }
 
     func setOrchestrationManagementAuthorizationFromHeader(_ isAuthorized: Bool) {

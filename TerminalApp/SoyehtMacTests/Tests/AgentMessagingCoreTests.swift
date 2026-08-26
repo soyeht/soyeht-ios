@@ -1366,6 +1366,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         let writer = AgentRuntimeIdentityRegistry(
             isProcessAlive: { _ in true },
             processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
             persistence: persistence
         )
         XCTAssertNotNil(writer.claim(
@@ -1378,6 +1379,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         let restored = AgentRuntimeIdentityRegistry(
             isProcessAlive: { _ in true },
             processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
             persistence: persistence
         )
         restored.rehydrate(from: [shell])
@@ -1386,10 +1388,100 @@ final class AgentMessagingCoreTests: XCTestCase {
         let recycledPID = AgentRuntimeIdentityRegistry(
             isProcessAlive: { _ in true },
             processStartTime: { _ in (101, 0) },
+            processTTYDevice: { _ in 77 },
             persistence: persistence
         )
         recycledPID.rehydrate(from: [shell])
         XCTAssertNil(recycledPID.claim(for: paneID))
         XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testLegacyRuntimeClaimWithoutTTYStillDecodesForSafeMigration() throws {
+        let data = try XCTUnwrap("""
+        {
+          "agentName": "codex",
+          "instanceID": "legacy-runtime",
+          "processID": 4242,
+          "processStartedAtSeconds": 100,
+          "processStartedAtMicroseconds": 200
+        }
+        """.data(using: .utf8))
+
+        let claim = try JSONDecoder().decode(
+            AgentRuntimeIdentityClaim.self,
+            from: data
+        )
+
+        XCTAssertEqual(claim.agentName, "codex")
+        XCTAssertNil(claim.ttyDevice)
+    }
+
+    func testManualRuntimeClaimExpiresWhenProcessLeavesOwningTTY() {
+        var ttyDevice: UInt32 = 77
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in ttyDevice },
+            persistence: persistence
+        )
+        let paneID = UUID()
+
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            processID: 4242,
+            expectedTTYDevice: 77
+        ))
+        XCTAssertTrue(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            expectedTTYDevice: 77
+        ))
+
+        ttyDevice = 88
+
+        XCTAssertFalse(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            expectedTTYDevice: 77
+        ))
+        XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testShellLaunchOwnershipRehydratesOnlyBehindTrustedRuntimeClaim() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let trustedPaneID = UUID()
+        let untrustedPaneID = UUID()
+        persistence.values[trustedPaneID] = "trusted-runtime-nonce"
+        persistence.values[untrustedPaneID] = "stale-shell-nonce"
+        let workspaceID = UUID()
+        let conversations = [trustedPaneID, untrustedPaneID].map { paneID in
+            Conversation(
+                id: paneID,
+                handle: "shell-\(paneID.uuidString)",
+                agent: .shell,
+                workspaceID: workspaceID,
+                commander: .engineLocal(conversationID: paneID.uuidString)
+            )
+        }
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+
+        _ = registry.rehydrate(
+            from: conversations,
+            trustedShellPaneIDs: [trustedPaneID]
+        )
+
+        XCTAssertTrue(registry.validates(
+            paneID: trustedPaneID,
+            nonce: "trusted-runtime-nonce"
+        ))
+        XCTAssertFalse(registry.validates(
+            paneID: untrustedPaneID,
+            nonce: "stale-shell-nonce"
+        ))
     }
 }

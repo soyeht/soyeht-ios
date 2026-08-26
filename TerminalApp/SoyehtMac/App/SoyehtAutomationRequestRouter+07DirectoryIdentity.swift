@@ -162,10 +162,12 @@ extension SoyehtAutomationRequestRouter {
         var launchCredentialIsValid = PaneStatusTracker.shared
             .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
         guard source.agent.isShell else { return launchCredentialIsValid }
+        let currentPaneTTYDevice = automationTTYDevice(for: source)
         var runtimeIdentityIsValid = PaneStatusTracker.shared.validatesRuntimeIdentity(
             paneID: source.id,
             agentName: payload.runtimeAgent,
-            instanceID: payload.runtimeInstanceID
+            instanceID: payload.runtimeInstanceID,
+            expectedTTYDevice: currentPaneTTYDevice
         )
         if !runtimeIdentityIsValid {
             // A current MCP runtime can outlive an app restart. Its next tool
@@ -181,7 +183,7 @@ extension SoyehtAutomationRequestRouter {
                   let runtimeInstanceID = payload.runtimeInstanceID,
                   !runtimeInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   let runtimeProcessID = payload.runtimeProcessID,
-                  let expectedTTYDevice = automationTTYDevice(for: source),
+                  let expectedTTYDevice = currentPaneTTYDevice,
                   PaneStatusTracker.shared.claimRuntimeIdentity(
                     paneID: source.id,
                     agentName: runtimeAgent,
@@ -190,6 +192,14 @@ extension SoyehtAutomationRequestRouter {
                     nonce: payload.nonce,
                     expectedTTYDevice: expectedTTYDevice
                   ) else { return false }
+            // The user authorizes one concrete runtime instance, not the pane
+            // forever. Implicit adoption after app restart must revoke the old
+            // instance's durable grant just like explicit claim_agent_runtime.
+            do {
+                try revokeShellRuntimeOrchestrationAuthorization(for: source)
+            } catch {
+                return false
+            }
             runtimeIdentityIsValid = true
             launchCredentialIsValid = PaneStatusTracker.shared
                 .validatesLaunchOwnership(paneID: source.id, nonce: payload.nonce)
