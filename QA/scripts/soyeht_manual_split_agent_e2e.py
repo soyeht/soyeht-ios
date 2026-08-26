@@ -645,22 +645,18 @@ def wait_for_message(recipient, sender, token, timeout):
 
 def send_natural_request(
     mcp, observer, workspace_id, pane, window_id, prompt, automation_dir,
-    timeout,
+    timeout, input_point,
 ):
     natural_prompt(prompt)
     before = pane_status(
         mcp, observer, pane["conversationID"], automation_dir, timeout
     )
     previous_activity = before and before.get("lastMcpActivityAt")
-    # Ordinary split panes deliberately preserve terminal mouse reporting.
-    # Locate the pane from its current visible header on every turn, then make
-    # that already-selected terminal the unambiguous first responder while the
-    # physical keyboard event is posted. Restore the grid immediately after
-    # Return so every recipient is materialized before the agent can relay.
-    # A logical `isActive` transition alone is insufficient: after a prior TUI
-    # turn the terminal may be active in the model while AppKit first responder
-    # remains on pane chrome.
-    common.click_soyeht_dev_pane(window_id, pane["handle"])
+    # Clicking pane chrome proves logical selection but does not guarantee the
+    # terminal became AppKit's first responder. A physical click in the saved
+    # lower-composer point does. This also avoids relying on a transient AX
+    # label lookup after a previous agent has redrawn the grid.
+    click_pane_input_point(window_id, input_point)
     wait_for_active_pane(
         mcp,
         observer,
@@ -669,23 +665,11 @@ def send_natural_request(
         automation_dir,
         timeout,
     )
-    mcp.tool_emphasize_pane({
-        **observer_args(observer, automation_dir, timeout),
-        "conversationIDs": [pane["conversationID"]],
-        "mode": "zoom",
-    })
-    try:
-        common.type_through_macos_keyboard(
-            prompt,
-            window_id,
-            submit_with_return=True,
-        )
-    finally:
-        mcp.tool_emphasize_pane({
-            **observer_args(observer, automation_dir, timeout),
-            "conversationIDs": [pane["conversationID"]],
-            "mode": "unzoom",
-        })
+    common.type_through_macos_keyboard(
+        prompt,
+        window_id,
+        submit_with_return=True,
+    )
     # `capture_pane` is intentionally self-only, so an external E2E must not
     # impersonate the manually typed MCP runtime. Every authenticated request
     # stamps lastMcpActivityAt for its exact source pane; require that stamp to
@@ -1066,6 +1050,7 @@ def main():
                 prompt,
                 automation_dir,
                 args.timeout,
+                input_points[sender_name],
             )
             request = wait_for_message(recipient, sender, token, args.timeout)
             reply = wait_for_message(sender, recipient, token, args.timeout)
@@ -1098,27 +1083,36 @@ def main():
             args.timeout,
         )
         draft = f"RASCUNHO-{run_id}-NAO-ENVIADO"
-        # A physical click is part of the normal OpenCode experience and may
-        # conservatively make the draft gate uncertain. Clear that uncertainty
-        # with the same physical Ctrl-C a user would use before starting the
-        # deliberate unfinished draft.
-        common.click_soyeht_dev_pane(window_id, recipient["handle"])
-        wait_for_active_pane(
-            mcp,
-            observer,
-            workspace_id,
-            recipient["conversationID"],
-            automation_dir,
-            args.timeout,
-        )
-        common.release_physical_draft("ctrl-c", 0, window_id)
-        sleep(0.25)
-        # Activating a pane through automation does not necessarily make the
-        # containing macOS window frontmost. Re-raise and verify the exact
-        # disposable window immediately before physical typing so another app
-        # cannot turn this safety check into a flaky false failure.
+        # Keep the recipient zoomed while entering the deliberate draft. Zoom
+        # gives its terminal first-responder ownership without a TUI mouse
+        # packet; unlike Ctrl-C, it cannot accidentally exit an idle OpenCode
+        # session before the collision test even begins.
         common.raise_soyeht_dev_window(window_id)
-        common.type_through_macos_keyboard(draft, window_id, submit_with_return=False)
+        mcp.tool_emphasize_pane({
+            **observer_args(observer, automation_dir, args.timeout),
+            "conversationIDs": [recipient["conversationID"]],
+            "mode": "zoom",
+        })
+        try:
+            wait_for_active_pane(
+                mcp,
+                observer,
+                workspace_id,
+                recipient["conversationID"],
+                automation_dir,
+                args.timeout,
+            )
+            common.type_through_macos_keyboard(
+                draft,
+                window_id,
+                submit_with_return=False,
+            )
+        finally:
+            mcp.tool_emphasize_pane({
+                **observer_args(observer, automation_dir, args.timeout),
+                "conversationIDs": [recipient["conversationID"]],
+                "mode": "unzoom",
+            })
         relay_token = f"SPLIT-COLLISION-{run_id}"
         collision_prompt = natural_prompt(
             "Sem criar agentes, subagentes ou panes, envie uma mensagem para o agente "
@@ -1135,6 +1129,7 @@ def main():
             collision_prompt,
             automation_dir,
             args.timeout,
+            input_points["codex"],
         )
         request = wait_for_message(recipient, sender, relay_token, args.timeout)
         held = wait_for_delivery(recipient, request["messageID"], False, args.timeout)
