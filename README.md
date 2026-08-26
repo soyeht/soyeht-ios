@@ -253,7 +253,7 @@ Useful official references:
 
 ### What the server exposes
 
-- `open_shell`, `open_file` — open panes/tabs in the active workspace
+- `open_shell` — open a terminal pane/tab in the active workspace
 - `open_workspace`, `create_worktree_panes`, `agent_race_panes` — new workspaces, worktree-backed panes, or one pane per agent (codex/claude/opencode)
 - `send_pane_input`, `capture_pane`, `capture_pane_range`, `rename_panes`, `rename_workspace` — drive and read live panes and workspaces
 - `arrange_panes`, `emphasize_pane`, `resize_pane_exact`, `set_pane_zoom` — layout, exact pane share, spotlight, and zoom

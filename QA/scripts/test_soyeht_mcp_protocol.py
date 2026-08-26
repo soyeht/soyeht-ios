@@ -135,10 +135,10 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             separators=(",", ":"),
         ).encode("utf-8")
 
-        self.assertEqual(len(MODULE["TOOLS"]), 43)
+        self.assertEqual(len(MODULE["TOOLS"]), 42)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "d85ff0b3f8acc677557abeca4ffaaeecf9ec145482674586c7d23fd7ee28fd08",
+            "16095b0921f8ca528d2efbe105ff0c78cc056ce7fd3f2eaec50a4f13265b7fdb",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -147,6 +147,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
         self.assertNotIn("open_panes", schema_names)
+        self.assertNotIn("open_file", schema_names)
 
     def test_tool_contract_and_handler_come_from_the_same_registration(self):
         registry = MODULE["TOOL_REGISTRY"]
@@ -166,30 +167,6 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         )
         for spec in registry:
             self.assertIs(spec.handler.__soyeht_tool_spec__, spec)
-
-    def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
-        globals_ = MODULE["tool_open_file"].__globals__
-        original_choose_file = globals_["choose_file"]
-        original_open_shell = globals_["tool_open_shell"]
-        captured = {}
-        try:
-            globals_["choose_file"] = lambda _args: Path("/tmp/example.txt")
-
-            def fake_open_shell(args):
-                captured.update(args)
-                return {"status": "ok"}
-
-            globals_["tool_open_shell"] = fake_open_shell
-            result = MODULE["tool_open_file"]({"mode": "shell", "editor": "vim"})
-        finally:
-            globals_["choose_file"] = original_choose_file
-            globals_["tool_open_shell"] = original_open_shell
-
-        self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["selectedFile"], "/tmp/example.txt")
-        self.assertEqual(captured["agent"], "shell")
-        self.assertEqual(captured["path"], "/tmp")
-        self.assertEqual(captured["command"], "vim /tmp/example.txt")
 
     def test_file_ipc_request_and_directory_are_owner_only(self):
         write_request = MODULE["write_request"]

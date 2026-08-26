@@ -1,109 +1,9 @@
 from soyeht_mcp_runtime import *
-from soyeht_mcp_tools_launch import tool_open_shell
 from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
     order=2,
-    definition={
-        "name": "open_file",
-        "description": "Open a file in vim or another editor inside a new Soyeht shell pane/tab. Use this when the user asks to open a random file, any file, or a specific file in vim/nvim/nano/code in a new shell, terminal, tab, or pane. If file is omitted, the tool picks a random matching file from directory. Do not use Terminal.app or osascript for this intent.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "file": {
-                    "type": "string",
-                    "description": "Specific file to open. If omitted, a random matching file is selected from directory/path.",
-                },
-                "directory": {
-                    "type": "string",
-                    "default": ".",
-                    "description": "Directory to search when file is omitted.",
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Alias for directory.",
-                },
-                "root": {
-                    "type": "string",
-                    "description": "Native editor root folder. Used only when mode=native/editor.",
-                },
-                "editor": {
-                    "type": "string",
-                    "default": "vim",
-                    "description": "Editor command to run when mode=shell. Defaults to vim.",
-                },
-                "mode": {
-                    "type": "string",
-                    "enum": ["shell", "native", "editor"],
-                    "default": "shell",
-                    "description": "shell preserves the legacy behavior and opens vim in a terminal pane. native/editor opens Soyeht's native editor pane.",
-                },
-                "line": {
-                    "type": "integer",
-                    "description": "Optional 1-based line number for vim/nvim/vi.",
-                },
-                "column": {
-                    "type": "integer",
-                    "description": "Optional 1-based column for mode=native/editor.",
-                },
-                "patterns": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Glob patterns for random file selection.",
-                    "default": DEFAULT_FILE_PATTERNS,
-                },
-                "maxDepth": {
-                    "type": "integer",
-                    "default": 4,
-                    "description": "Maximum directory depth for random file search.",
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Pane/tab name. Defaults to editor-file.",
-                },
-                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
-                "paneNameStyle": {
-                    "type": "string",
-                    "enum": NAME_STYLE_CHOICES,
-                    "description": "Pane/tab names default to short hyphen names.",
-                },
-                "workspaceID": WORKSPACE_ID_PROPERTY,
-                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
-                "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
-            },
-        },
-    },
-)
-def tool_open_file(args):
-    mode = str(args.get("mode") or "shell").strip().lower()
-    if mode in {"native", "editor"}:
-        return tool_open_editor(args)
-    if mode != "shell":
-        raise RuntimeError("open_file mode must be shell, native, or editor.")
-
-    file_path = choose_file(args)
-    editor = args.get("editor") or "vim"
-    command = editor_command(editor, file_path, args.get("line"))
-    editor_name = Path(str(editor).split()[0]).name or "editor"
-    name = args.get("name") or f"{editor_name}-{file_path.stem}"
-    response = tool_open_shell(
-        {
-            **args,
-            "path": str(file_path.parent),
-            "name": name,
-            "agent": "shell",
-            "command": command,
-        }
-    )
-    response["selectedFile"] = str(file_path)
-    response["command"] = command
-    return response
-
-
-@register_tool(
-    order=3,
     definition={
         "name": "open_editor",
         "description": "Open or focus a native Soyeht editor pane for a file. Use this when the user says 'open this file in the editor', 'show README in the editor', or equivalent. This does not run vim or any shell command.",
@@ -178,7 +78,7 @@ def tool_open_editor(args):
 
 
 @register_tool(
-    order=4,
+    order=3,
     definition={
         "name": "open_explorer",
         "description": "Open or focus a native Soyeht file explorer/editor pane for a folder. Use this when the user says 'open this folder in the explorer' or equivalent.",
@@ -242,7 +142,7 @@ def safe_optional_selected_file(value, cwd=None):
 
 
 @register_tool(
-    order=5,
+    order=4,
     definition={
         "name": "open_git",
         "description": "Open or focus a native Soyeht Git pane for a repository. Use this when the user says 'open the changes', 'show git for this branch', 'open this repo in Git', or equivalent. Git commands only run when the user clicks buttons inside the pane.",
@@ -298,7 +198,7 @@ def tool_open_git(args):
 
 
 @register_tool(
-    order=6,
+    order=5,
     definition={
         "name": "open_diff",
         "description": "Open or focus a native Soyeht Git pane with a file diff selected. Use this when the user asks to open/review the diff for a file or changes in a repo.",
@@ -365,7 +265,7 @@ def tool_open_diff(args):
 
 
 @register_tool(
-    order=7,
+    order=6,
     definition={
         "name": "open_web",
         "description": (
@@ -429,7 +329,7 @@ def tool_open_web(args):
 
 
 @register_tool(
-    order=8,
+    order=7,
     definition={
         "name": "install_app",
         "description": (
@@ -474,7 +374,7 @@ def tool_install_app(args):
 
 
 @register_tool(
-    order=9,
+    order=8,
     definition={
         "name": "open_app",
         "description": (

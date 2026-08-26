@@ -35,7 +35,6 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-011 | Rename panes with default naming. | Direct MCP/CLI `rename_panes` | Pane handles default to short hyphen names. |
 | ST-Q-MCPA-012 | Rename workspaces with default naming. | Direct MCP/CLI `rename_workspace` | Workspace names default to short names with normal spaces. |
 | ST-Q-MCPA-013 | Open a shell pane without a bogus command. | Direct MCP `open_shell` | A plain shell opens and accepts follow-up input. |
-| ST-Q-MCPA-014 | Open a specific or random file in an editor. | Direct MCP `open_file` | File opens in a new Soyeht pane, not Terminal.app. |
 | ST-Q-MCPA-015 | Arrange panes as stack/row/grid. | Direct MCP/CLI `arrange_panes` | Workspace layout persists top-to-bottom, side-by-side, and tiled modes. |
 | ST-Q-MCPA-016 | Arrange selected panes while preserving others. | Direct MCP `arrange_panes` | Selected panes are grouped and non-target panes stay visible. |
 | ST-Q-MCPA-017 | Preserve requested handle order. | Direct MCP `arrange_panes` | Persisted leaf order follows the requested handle order. |
@@ -69,8 +68,8 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |
 | ST-Q-MCPA-040 | Open a shell pane in a specific directory, then send a command. | Claude Code `open_shell` + `send_pane_input` | Shell launches in the correct cwd; command executes and output appears. |
-| ST-Q-MCPA-042 | Open a file in the Soyeht editor pane. | Direct MCP `open_file` | File opens inside Soyeht, not in an external editor. |
-| ST-Q-MCPA-043 | Open a non-existent file path. | Direct MCP `open_file` | Tool returns an error; no blank/crashed pane created. |
+| ST-Q-MCPA-042 | Open a file in the Soyeht editor pane. | Direct MCP `open_editor` | File opens inside Soyeht, not in an external editor. |
+| ST-Q-MCPA-043 | Open a non-existent file path. | Direct MCP `open_editor` | Tool returns an error; no blank/crashed pane created. |
 | ST-Q-MCPA-044 | Open a shell pane with a long-running process (e.g., `tail -f /tmp/test.log`). | Claude Code `open_shell` + `send_pane_input` | Process runs in background; subsequent `send_pane_input` to that pane appends to log. |
 
 ### Send Pane Input — Multi-target and Edge Cases

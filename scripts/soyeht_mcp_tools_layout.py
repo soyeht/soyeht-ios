@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=21,
+    order=20,
     definition={
         "name": "rename_panes",
         "description": "Rename live Soyeht panes/tabs by conversation id or handle. Default pane/tab names are short and hyphenated.",
@@ -54,7 +54,7 @@ def tool_rename_panes(args):
 
 
 @register_tool(
-    order=22,
+    order=21,
     definition={
         "name": "rename_workspace",
         "description": "Rename Soyeht workspaces by id/name, or the active workspace when no target is provided. Default workspace names are short with normal spaces.",
@@ -105,7 +105,7 @@ def tool_rename_workspace(args):
 
 
 @register_tool(
-    order=23,
+    order=22,
     definition={
         "name": "arrange_panes",
         "description": "Rearrange Soyeht panes/tabs in the current workspace. Use this when the user asks to put panes one above another, stack tabs, make panes vertical/top-to-bottom, put them side by side, line them up, tile them, or make a grid. If no target is provided, all panes in the active workspace are arranged.",
@@ -161,7 +161,7 @@ def tool_arrange_panes(args):
 
 
 @register_tool(
-    order=24,
+    order=23,
     definition={
         "name": "emphasize_pane",
         "description": "Make one Soyeht pane/tab stand out. Use spotlight when the user asks to make a pane larger while keeping other panes visible. Use zoom when they want only that pane visible, and unzoom/restore when they want to return to the split layout.",
@@ -225,7 +225,7 @@ def tool_emphasize_pane(args):
 
 
 @register_tool(
-    order=25,
+    order=24,
     definition={
         "name": "resize_pane_exact",
         "description": "Place one Soyeht pane at an exact share of the workspace on the left, right, top, or bottom. Use fraction=0.5 for 50% of the workspace. Omit targets to resize the caller/source pane when available, otherwise the active pane.",
@@ -294,7 +294,7 @@ def tool_resize_pane_exact(args):
 
 
 @register_tool(
-    order=26,
+    order=25,
     definition={
         "name": "set_pane_zoom",
         "description": "Zoom one Soyeht pane so only that pane is visible, or unzoom to restore the split layout. Omit targets to use the caller/source pane when available, otherwise the active pane.",
@@ -344,7 +344,7 @@ def tool_set_pane_zoom(args):
 
 
 @register_tool(
-    order=27,
+    order=26,
     definition={
         "name": "set_pane_font_size",
         "description": "Set or adjust the font size of live Soyeht terminal panes. Omit targets to use the caller/source pane when available, otherwise the active pane.",
@@ -396,7 +396,7 @@ def tool_set_pane_font_size(args):
 
 
 @register_tool(
-    order=28,
+    order=27,
     definition={
         "name": "scroll_pane",
         "description": "Scroll live Soyeht terminal panes without mouse or screen automation. Omit targets to use the caller/source pane when available, otherwise the active pane.",

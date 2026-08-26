@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=29,
+    order=28,
     definition={
         "name": "list_windows",
         "description": "List open Soyeht macOS windows with stable windowID, active workspace, nested workspaces, and pane counts. Use this before cross-window routing.",
@@ -26,7 +26,7 @@ def tool_list_windows(args):
 
 
 @register_tool(
-    order=30,
+    order=29,
     definition={
         "name": "list_workspaces",
         "description": "List Soyeht workspaces with IDs, names, pane counts, isActive flag, activePaneID, and windowID. By default this returns workspaces from every open Soyeht macOS window; pass windowID/targetWindowID to scope to one window.",
@@ -51,7 +51,7 @@ def tool_list_workspaces(args):
 
 
 @register_tool(
-    order=31,
+    order=30,
     definition={
         "name": "list_panes",
         "description": "List Soyeht panes with conversationIDs, handles, paths, declaredAgent (pane launch metadata, not runtime process identity), and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. Do not use declaredAgent to decide whether a pane can respond as an AI agent. The result also carries an activeContext block for the resolved target window/workspace; when called from a Soyeht pane, that is the caller/source workspace unless targetWindowID points elsewhere. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
@@ -83,7 +83,7 @@ def tool_list_panes(args):
 
 
 @register_tool(
-    order=32,
+    order=31,
     definition={
         "name": "identify_agent",
         "description": "Identify the Soyeht pane that is calling this MCP server. Use this before replying to another agent when you do not know your own handle/conversationID. It resolves fromHandle/fromConversationID first, then SOYEHT_CONVERSATION_ID/SOYEHT_HANDLE exported by the pane, then the calling terminal TTY. The response includes sourceIdentity plus a replyTarget other agents can use to message you.",
@@ -117,7 +117,7 @@ def tool_identify_agent(args):
 
 
 @register_tool(
-    order=33,
+    order=32,
     definition={
         "name": "list_agents",
         "description": "List the global Soyeht agent/pane directory and resolve existing named Soyeht pane agents before communicating with them. For a communication request (talk, send, ping, ask, or wait for replies) containing target names, call this tool BEFORE choosing a delegation mechanism. Match normalized names against the returned panes: matched names go to message_agent and must never be replaced by newly spawned internal harness subagents; unmatched names must be reported to the user, not silently created. Also call this tool when the user mentions Soyeht, a workspace, or panes without listing names. This does not forbid internal subagents when the user explicitly asks the harness to create or delegate to new subagents. In this contract, a Soyeht agent is a live named pane identity such as [ilia] or [marcia] — NOT a harness/CLI product such as Codex, Claude Code, OpenCode, Qwen Code, or Droid. When the user asks which Soyeht agents are in a workspace, return the pane displayReference names from this result; never substitute the harness catalog. By default all workspaces remain visible, grouped in workspaceGroups with the caller's current workspace first. canReceiveMessage is a hard contract: true means message_agent accepts the pane now; false includes messagingAvailability and unavailableReason such as mcp_not_connected, agent_not_running, or not_live. Pass workspaceID only for an intentional filter. Each agent includes displayReference=[name] for prose, while legacy @handles and conversation UUIDs remain machine-routing inputs in messageTarget. Use displayReference in commits, PRs, comments, and prose so GitHub accounts are not mentioned. Never create a new pane in Soyeht or start a process without explicit user confirmation.",
@@ -160,7 +160,7 @@ def tool_list_agents(args):
 
 
 @register_tool(
-    order=35,
+    order=34,
     definition={
         "name": "close_pane",
         "description": "Close (kill) one or more Soyeht panes by conversationID or handle. Cannot close the last pane in a workspace — use close_workspace instead.",
@@ -201,7 +201,7 @@ def tool_close_pane(args):
 
 
 @register_tool(
-    order=36,
+    order=35,
     definition={
         "name": "close_workspace",
         "description": "Close a Soyeht workspace (and all its panes) by workspaceID or name. Cannot close the last workspace.",
@@ -242,7 +242,7 @@ def tool_close_workspace(args):
 
 
 @register_tool(
-    order=37,
+    order=36,
     definition={
         "name": "move_pane",
         "description": "Move one or more Soyeht panes/tabs from their current workspace to a different workspace, identified by workspaceID or name. Supports natural-language requests like moving a tab/pane to another workspace; use destinationWindowID for a workspace in another Soyeht window.",
@@ -307,7 +307,7 @@ def tool_move_pane(args):
 
 
 @register_tool(
-    order=40,
+    order=39,
     definition={
         "name": "get_pane_status",
         "description": (
@@ -357,7 +357,7 @@ def tool_get_pane_status(args):
 
 
 @register_tool(
-    order=38,
+    order=37,
     definition={
         "name": "get_conversation_context",
         "description": (
@@ -403,7 +403,7 @@ def tool_get_conversation_context(args):
 
 
 @register_tool(
-    order=39,
+    order=38,
     definition={
         "name": "ack_conversation_context",
         "description": (
@@ -444,7 +444,7 @@ def tool_ack_conversation_context(args):
 
 
 @register_tool(
-    order=34,
+    order=33,
     definition={
         "name": "get_active_context",
         "description": "Return the resolved Soyeht context: activeContext = { windowID, workspaceID, workspaceName, paneID, paneHandle } plus sourceIdentity when called by a live Soyeht pane. In that case activeContext identifies the caller pane, not whichever sibling pane happens to be focused; otherwise it falls back to the user's active window/workspace. Use sourceIdentity for fromConversationID/fromHandle and activeContext.workspaceID when the user says 'open a pane here' / 'in this workspace'.",
