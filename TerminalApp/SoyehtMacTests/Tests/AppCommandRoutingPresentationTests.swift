@@ -1099,8 +1099,16 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertFalse(send.contains("AgentConversationAdapterCapabilities"))
         XCTAssertTrue(directory.contains("let availability = conversation.map(messagingAvailability)"))
         XCTAssertTrue(directory.contains("let canReceiveMessage = availability.canReceiveMessage"))
+        XCTAssertFalse(
+            directory.contains("ConversationStore.normalize(ttyResolution.conversation.handle)"),
+            "A pane rename must not invalidate process-bound MCP ownership."
+        )
         XCTAssertTrue(presence.contains("resolveAutomationSourceByTTY"))
         XCTAssertTrue(presence.contains("registerMessagingClient"))
+        XCTAssertFalse(
+            presence.contains("ConversationStore.normalize(claimedHandle)"),
+            "The inherited handle can be stale after the user renames a live pane."
+        )
         XCTAssertTrue(tracker.contains("isDescendantOf"))
         XCTAssertTrue(tracker.contains("isAssociatedWithTTYPath"))
         XCTAssertTrue(coordinator.contains("hasActiveMessagingClient(for: conversationID)"))

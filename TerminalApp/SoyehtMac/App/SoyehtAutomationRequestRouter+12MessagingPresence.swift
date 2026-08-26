@@ -41,10 +41,10 @@ extension SoyehtAutomationRequestRouter {
            UUID(uuidString: claimedID) != source.id {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
-        if let claimedHandle = payload.sourceHandle,
-           ConversationStore.normalize(claimedHandle) != ConversationStore.normalize(source.handle) {
-            throw SoyehtAutomationError.unauthenticatedAgentSource
-        }
+        // Handles are display/routing labels and can change while the shell
+        // and its descendants remain alive. The process tree plus stable
+        // conversation UUID is authoritative; a stale inherited handle must
+        // not disconnect a renamed pane.
         guard PaneStatusTracker.shared.registerMessagingClient(
             paneID: source.id,
             instanceID: instanceID,

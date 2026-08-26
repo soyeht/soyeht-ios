@@ -143,11 +143,9 @@ extension SoyehtAutomationRequestRouter {
                UUID(uuidString: rawID) != processResolution.conversation.id {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
             }
-            if let rawHandle = payload.sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !rawHandle.isEmpty,
-               ConversationStore.normalize(rawHandle) != ConversationStore.normalize(processResolution.conversation.handle) {
-                throw SoyehtAutomationError.unauthenticatedAgentSource
-            }
+            // A pane rename cannot rewrite an already-running process's
+            // environment. Ignore the mutable handle once process ownership
+            // (and, when present, the stable conversation UUID) is proven.
             return processResolution
         }
 
@@ -160,11 +158,9 @@ extension SoyehtAutomationRequestRouter {
                UUID(uuidString: rawID) != ttyResolution.conversation.id {
                 throw SoyehtAutomationError.unauthenticatedAgentSource
             }
-            if let rawHandle = payload.sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !rawHandle.isEmpty,
-               ConversationStore.normalize(rawHandle) != ConversationStore.normalize(ttyResolution.conversation.handle) {
-                throw SoyehtAutomationError.unauthenticatedAgentSource
-            }
+            // Like process ancestry, the pane-owned TTY is stable while its
+            // display handle is mutable. The UUID claim is sufficient to
+            // reject redirection without breaking a renamed live pane.
             return ttyResolution
         }
 
