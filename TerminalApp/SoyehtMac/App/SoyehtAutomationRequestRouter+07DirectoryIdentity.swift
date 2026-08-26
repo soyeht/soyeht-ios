@@ -135,6 +135,22 @@ extension SoyehtAutomationRequestRouter {
             throw SoyehtAutomationError.missingConversationStore
         }
 
+        // MCP stdio is usually pipe-backed. Bind ordinary identity from the
+        // server PID's ancestry before consulting optional public claims.
+        if let processResolution = try resolveAutomationSourceByProcess(payload.messagingClientPID) {
+            if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !rawID.isEmpty,
+               UUID(uuidString: rawID) != processResolution.conversation.id {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            if let rawHandle = payload.sourceHandle?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !rawHandle.isEmpty,
+               ConversationStore.normalize(rawHandle) != ConversationStore.normalize(processResolution.conversation.handle) {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            return processResolution
+        }
+
         // A TTY is a pane-owned runtime fact. When present it is authoritative
         // over public handles/UUIDs inherited through the environment, so an
         // explicit claim can never redirect an ordinary MCP call to a peer.

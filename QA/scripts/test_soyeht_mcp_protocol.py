@@ -78,6 +78,31 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["messagingClientName"], MODULE["SERVER_NAME"])
         self.assertEqual(payload["messagingClientVersion"], MODULE["SERVER_VERSION"])
 
+    def test_presence_registration_does_not_require_stdio_server_tty(self):
+        captured = {}
+        globals_ = MODULE["register_messaging_client_presence"].__globals__
+        original_tty = globals_["current_tty"]
+        original_resolve = globals_["resolve_automation_root"]
+        original_submit = globals_["submit_request_to_root"]
+        original_root = globals_["_MESSAGING_PRESENCE_ROOT"]
+        try:
+            globals_["current_tty"] = lambda: None
+            globals_["_MESSAGING_PRESENCE_ROOT"] = None
+            globals_["resolve_automation_root"] = lambda automation_dir, payload: Path("/tmp/dev-automation")
+            globals_["submit_request_to_root"] = lambda root, request_type, payload, **kwargs: (
+                captured.update(root=root, request_type=request_type, payload=payload) or {"status": "ok"}
+            )
+            self.assertTrue(MODULE["register_messaging_client_presence"]())
+        finally:
+            globals_["current_tty"] = original_tty
+            globals_["resolve_automation_root"] = original_resolve
+            globals_["submit_request_to_root"] = original_submit
+            globals_["_MESSAGING_PRESENCE_ROOT"] = original_root
+
+        self.assertEqual(captured["request_type"], "register_messaging_client")
+        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["messagingClientPID"], os.getpid())
+
     def test_tools_list_contract_matches_reviewed_mcp2_golden(self):
         encoded = json.dumps(
             MODULE["TOOLS"],

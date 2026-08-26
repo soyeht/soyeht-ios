@@ -409,8 +409,6 @@ def register_messaging_client_presence():
     """
     global _MESSAGING_PRESENCE_ROOT
     payload = with_source_context({})
-    if not payload.get("sourceTTY"):
-        return False
     root = _MESSAGING_PRESENCE_ROOT or resolve_automation_root(None, payload)
     response = submit_request_to_root(
         root,

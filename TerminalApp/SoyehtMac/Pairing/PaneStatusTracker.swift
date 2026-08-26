@@ -57,11 +57,11 @@ final class PaneStatusTracker {
         let processID: pid_t
         let clientName: String
         let clientVersion: String?
-        let ttyPath: String
+        let ttyPath: String?
         var lastSeenAt: Date
     }
 
-    /// Ordinary agent messaging is owned by the pane/TTY, not by the way the
+    /// Ordinary agent messaging is owned by the pane/process tree, not by the way the
     /// CLI was launched. A Split pane that starts as `shell` therefore becomes
     /// messageable as soon as any MCP-capable CLI in that TTY initializes this
     /// server. Launch nonces remain reserved for privileged policy/topology
@@ -388,7 +388,7 @@ final class PaneStatusTracker {
         processID: pid_t,
         clientName: String,
         clientVersion: String?,
-        ttyPath: String
+        ttyPath: String?
     ) -> Bool {
         guard validateMessagingClientProcess(
             paneID: paneID,
@@ -443,14 +443,26 @@ final class PaneStatusTracker {
     private func validateMessagingClientProcess(
         paneID: Conversation.ID,
         processID: pid_t,
-        ttyPath: String
+        ttyPath: String?
     ) -> Bool {
         guard let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController,
               pane.isTerminalPane else { return false }
         if let rootPID = pane.terminalView.localPTYRootProcessIDForAutomation {
             return NativePTY.process(processID, isDescendantOf: rootPID)
         }
-        return NativePTY.process(processID, isAssociatedWithTTYPath: ttyPath)
+        let conversation = AppEnvironment.conversationStore?.conversation(paneID)
+        let engineConversationID: String? = {
+            guard let conversation,
+                  case .engineLocal(let id) = conversation.commander else { return nil }
+            return id
+        }()
+        let candidateTTY = ttyPath
+            ?? pane.terminalView.localPTYSlaveTTYPathForAutomation
+            ?? engineConversationID.flatMap {
+                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
+            }
+        guard let candidateTTY else { return false }
+        return NativePTY.process(processID, isAssociatedWithTTYPath: candidateTTY)
     }
 
     func agentStateReport(for paneID: Conversation.ID) -> AgentStateReport? {

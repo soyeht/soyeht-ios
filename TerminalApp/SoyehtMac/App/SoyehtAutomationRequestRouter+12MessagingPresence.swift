@@ -25,10 +25,16 @@ extension SoyehtAutomationRequestRouter {
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !instanceID.isEmpty,
               let processID = payload.messagingClientPID,
-              processID > 0,
-              let ttyPath = payload.sourceTTY?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !ttyPath.isEmpty,
-              let source = try resolveAutomationSourceByTTY(ttyPath)?.conversation else {
+              processID > 0 else {
+            throw SoyehtAutomationError.unauthenticatedAgentSource
+        }
+        let trimmedTTY = payload.sourceTTY?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let ttyPath = trimmedTTY?.isEmpty == false ? trimmedTTY : nil
+        guard let source = try (
+            resolveAutomationSourceByProcess(processID)?.conversation
+                ?? resolveAutomationSourceByTTY(ttyPath)?.conversation
+        ) else {
             throw SoyehtAutomationError.unauthenticatedAgentSource
         }
         if let claimedID = payload.sourceConversationID,
@@ -63,7 +69,10 @@ extension SoyehtAutomationRequestRouter {
     ) throws -> SoyehtAutomationResult {
         let payload = request.payload
         guard let instanceID = payload.messagingClientInstanceID,
-              let source = try resolveAutomationSourceByTTY(payload.sourceTTY)?.conversation else {
+              let source = try (
+                resolveAutomationSourceByProcess(payload.messagingClientPID)?.conversation
+                    ?? resolveAutomationSourceByTTY(payload.sourceTTY)?.conversation
+              ) else {
             return SoyehtAutomationResult()
         }
         PaneStatusTracker.shared.unregisterMessagingClient(
@@ -82,14 +91,7 @@ extension SoyehtAutomationRequestRouter {
             guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController else {
                 continue
             }
-            let engineConversationID: String? = {
-                if case .engineLocal(let id) = conversation.commander { return id }
-                return nil
-            }()
-            let candidateTTY = pane.terminalView.localPTYSlaveTTYPathForAutomation
-                ?? engineConversationID.flatMap {
-                    EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
-                }
+            let candidateTTY = terminalTTYPath(for: conversation, pane: pane)
             guard let paneTTY = normalizedTTYName(candidateTTY), paneTTY == tty else {
                 continue
             }
@@ -98,12 +100,62 @@ extension SoyehtAutomationRequestRouter {
         return nil
     }
 
+    /// Resolve a manual Split pane from the actual MCP subprocess tree. MCP
+    /// stdio normally uses pipes, so a harness may expose no usable `/dev/tty`
+    /// inside the server even though `ps` associates the process with the pane.
+    /// The app already owns the pane root process/TTY and can make this binding
+    /// without launch metadata or a provider catalog.
+    func resolveAutomationSourceByProcess(
+        _ rawProcessID: Int32?
+    ) throws -> AutomationSourceResolution? {
+        guard let rawProcessID, rawProcessID > 0,
+              let convStore = AppEnvironment.conversationStore else { return nil }
+        let processID = pid_t(rawProcessID)
+        for conversation in convStore.all where conversation.content.isTerminal {
+            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController else {
+                continue
+            }
+            if let rootPID = pane.terminalView.localPTYRootProcessIDForAutomation,
+               NativePTY.process(processID, isDescendantOf: rootPID) {
+                return AutomationSourceResolution(conversation: conversation, resolution: "process_tree")
+            }
+            if let candidateTTY = terminalTTYPath(for: conversation, pane: pane),
+               NativePTY.process(processID, isAssociatedWithTTYPath: candidateTTY) {
+                return AutomationSourceResolution(conversation: conversation, resolution: "process_tty")
+            }
+        }
+        return nil
+    }
+
+    func terminalTTYPath(
+        for conversation: Conversation,
+        pane: PaneViewController
+    ) -> String? {
+        let engineConversationID: String? = {
+            if case .engineLocal(let id) = conversation.commander { return id }
+            return nil
+        }()
+        return pane.terminalView.localPTYSlaveTTYPathForAutomation
+            ?? engineConversationID.flatMap {
+                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
+            }
+    }
+
     /// Ordinary conversation authority comes from a process-bound MCP client
     /// in the pane TTY. Launch nonce remains a rolling-upgrade fallback and is
     /// still mandatory for privileged policy, role, and topology mutations.
     func resolveMessagingAutomationSource(
         payload: SoyehtAutomationRequest.Payload
     ) throws -> Conversation {
+        if let source = try resolveAutomationSourceByProcess(payload.messagingClientPID)?.conversation,
+           let instanceID = payload.messagingClientInstanceID,
+           let presence = PaneStatusTracker.shared.messagingClientPresence(
+               for: source.id,
+               instanceID: instanceID
+           ),
+           presence.processID == pid_t(payload.messagingClientPID ?? -1) {
+            return source
+        }
         guard let source = try resolveAutomationSource(payload: payload)?.conversation else {
             throw SoyehtAutomationError.agentMessageSourceRequired
         }
