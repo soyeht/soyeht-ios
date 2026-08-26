@@ -343,7 +343,12 @@ private final class ClawStoreRowButton: MacCursor.ChromeView {
         // every last point of its shadow fell outside and nothing rendered.
         // The row is shapeless in neo; the chrome inside it carries the shape.
         layer?.cornerRadius = neo ? 0 : MacSurface.Radius.control
-        clipsToBounds = false
+        // Only in neo. Assigning `cornerRadius` turns clipping ON, and
+        // classic relies on that: its rows have no trailing constraint on the
+        // label, so a narrow enough row would let the text draw past its own
+        // outline. Clearing it unconditionally changed classic behaviour for
+        // no reason — this branch does not need the radius at all.
+        clipsToBounds = !neo
         layer?.borderWidth = neo ? 0 : MacSurface.Border.hairline
         layer?.backgroundColor = neo
             ? NSColor.clear.cgColor
@@ -487,7 +492,12 @@ private final class AgentRowButton: MacCursor.ChromeView {
         // every last point of its shadow fell outside and nothing rendered.
         // The row is shapeless in neo; the chrome inside it carries the shape.
         layer?.cornerRadius = neo ? 0 : MacSurface.Radius.control
-        clipsToBounds = false
+        // Only in neo. Assigning `cornerRadius` turns clipping ON, and
+        // classic relies on that: its rows have no trailing constraint on the
+        // label, so a narrow enough row would let the text draw past its own
+        // outline. Clearing it unconditionally changed classic behaviour for
+        // no reason — this branch does not need the radius at all.
+        clipsToBounds = !neo
         layer?.borderWidth = neo ? 0 : MacSurface.Border.hairline
         layer?.backgroundColor = neo
             ? NSColor.clear.cgColor

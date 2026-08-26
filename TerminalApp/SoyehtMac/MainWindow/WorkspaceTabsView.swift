@@ -49,11 +49,17 @@ final class WorkspaceTabsView: NSView {
         self.windowID = windowID
         super.init(frame: .zero)
         wantsLayer = true
-        // Opaque background so AppKit's `mouseDownCanMoveWindow = false`
-        // override on this view (and its WorkspaceTabView children) is
-        // actually honored. Transparent views in the titlebar strip let
-        // AppKit's native titlebar-drag tracking win, moving the window
-        // instead of letting our tab-drag handlers run.
+        // A background matching the bar. `applyTheme` drops it to clear under
+        // neo, where the strip covered what its neighbours cast into the gaps
+        // beside it.
+        //
+        // This used to say the opaque fill was what made AppKit honour
+        // `mouseDownCanMoveWindow = false`, and that transparent views in the
+        // titlebar lose to native drag tracking. That mechanism does not
+        // exist: `NSView.isOpaque` is false whether the backing layer is
+        // filled, clear, or unset, so a background colour never entered into
+        // it. Dragging works because of the `window.isMovable` monitor, and
+        // it still works.
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         translatesAutoresizingMaskIntoConstraints = false
 
