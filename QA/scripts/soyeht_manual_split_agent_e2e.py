@@ -653,9 +653,13 @@ def send_natural_request(
     )
     previous_activity = before and before.get("lastMcpActivityAt")
     # Ordinary split panes deliberately preserve terminal mouse reporting.
-    # Locate the pane from its current visible header on every turn and click
-    # its live terminal just like a user; cached grid coordinates become stale
-    # as successive splits resize the layout.
+    # Locate the pane from its current visible header on every turn, then make
+    # that already-selected terminal the unambiguous first responder while the
+    # physical keyboard event is posted. Restore the grid immediately after
+    # Return so every recipient is materialized before the agent can relay.
+    # A logical `isActive` transition alone is insufficient: after a prior TUI
+    # turn the terminal may be active in the model while AppKit first responder
+    # remains on pane chrome.
     common.click_soyeht_dev_pane(window_id, pane["handle"])
     wait_for_active_pane(
         mcp,
@@ -665,7 +669,23 @@ def send_natural_request(
         automation_dir,
         timeout,
     )
-    common.type_through_macos_keyboard(prompt, window_id, submit_with_return=True)
+    mcp.tool_emphasize_pane({
+        **observer_args(observer, automation_dir, timeout),
+        "conversationIDs": [pane["conversationID"]],
+        "mode": "zoom",
+    })
+    try:
+        common.type_through_macos_keyboard(
+            prompt,
+            window_id,
+            submit_with_return=True,
+        )
+    finally:
+        mcp.tool_emphasize_pane({
+            **observer_args(observer, automation_dir, timeout),
+            "conversationIDs": [pane["conversationID"]],
+            "mode": "unzoom",
+        })
     # `capture_pane` is intentionally self-only, so an external E2E must not
     # impersonate the manually typed MCP runtime. Every authenticated request
     # stamps lastMcpActivityAt for its exact source pane; require that stamp to
