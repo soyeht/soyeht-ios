@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=12,
+    order=11,
     definition={
         "name": "send_pane_input",
         "description": "Send text directly to live Soyeht panes by conversation id or pane handle. Use this for low-level terminal input. If you intend to talk to another agent, prefer message_agent: it requires an identifiable sender and wraps the message with reply instructions. Before sending by handle, call list_panes if there is any doubt; do not create a new pane when the user asked you to message an existing one. send_pane_input can include fromHandle/fromConversationID to identify the sender, otherwise Soyeht tries to infer the sender from the calling terminal TTY. The response reports whether an agent envelope was applied.",
@@ -81,7 +81,7 @@ def tool_send_pane_input(args):
 
 
 @register_tool(
-    order=13,
+    order=12,
     definition={
         "name": "message_agent",
         "description": "Use this for communication requests (talk, send, ping, ask, or wait for replies) whose target names match existing named Soyeht agent panes, or when the user mentions Soyeht, a workspace, or panes. For named targets, list_agents must be called before choosing a delegation mechanism; normalized matches route here, while unmatched names are reported rather than silently created. Never spawn internal harness subagents as substitutes for matched panes. Internal subagents remain valid when the user explicitly asks the harness to create or delegate to new subagents. This is the high-level durable Soyeht pane-to-pane agent-to-agent communication tool and it never creates panes or starts processes. Each existing target returns its own delivered, queued, blocked, mcp_not_connected, agent_not_running, or not_live result; one unavailable target does not cancel the others. Never claim a reply merely because delivery succeeded: wait for a real Soyeht reply or verify pane output. Messages are persisted only for eligible targets before delivery, and policy blocks are enforced. automatic uses semantic inbox only with an observed wake+read adapter; otherwise terminal delivery is deferred until no human draft is open. If a target has no connected MCP client, report that fact and ask the user whether they want to start or restart an agent there; never type a launch command without explicit confirmation. inbox guarantees zero PTY writes. Use displayReference=[name] in prose and copy only the machine-routing UUID or legacy @handle from list_agents.",
@@ -166,7 +166,7 @@ def tool_message_agent(args):
 
 
 @register_tool(
-    order=14,
+    order=13,
     definition={
         "name": "list_agent_messages",
         "description": "Read this calling agent's durable semantic inbox. Reading and acknowledgement are separate; call ack_agent_messages after accepting responsibility for a message.",
@@ -213,7 +213,7 @@ def tool_list_agent_messages(args):
 
 
 @register_tool(
-    order=15,
+    order=14,
     definition={
         "name": "ack_agent_messages",
         "description": "Acknowledge durable inbox messages after this agent has read and accepted them.",
@@ -248,7 +248,7 @@ def tool_ack_agent_messages(args):
 
 
 @register_tool(
-    order=16,
+    order=15,
     definition={
         "name": "set_agent_communication_policy",
         "description": "Update the calling pane's incoming/outgoing messaging policy. Blocks route by stable pane/workspace UUID and deny always wins.",
@@ -290,7 +290,7 @@ def tool_set_agent_communication_policy(args):
 
 
 @register_tool(
-    order=17,
+    order=16,
     definition={
         "name": "set_agent_role",
         "description": "Assign a built-in/custom role template or inline role to panes in the caller's workspace. Use roleTemplateID=none to clear.",
@@ -334,7 +334,7 @@ def tool_set_agent_role(args):
 
 
 @register_tool(
-    order=18,
+    order=17,
     definition={
         "name": "save_agent_role_template",
         "description": "Create or update a reusable custom agent-role template in the caller's workspace.",
@@ -378,7 +378,7 @@ def tool_save_agent_role_template(args):
 
 
 @register_tool(
-    order=19,
+    order=18,
     definition={
         "name": "configure_agent_orchestration",
         "description": "Activate a declarative workspace topology with nodes, roles, message/artifact edges and closed-by-default policy. Presets: council, planner-executor-reviewer, executor-reviewer-loop; none deactivates.",

@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=40,
+    order=39,
     definition={
         "name": "capture_pane",
         "description": (
@@ -64,7 +64,7 @@ def tool_capture_pane(args):
 
 
 @register_tool(
-    order=41,
+    order=40,
     definition={
         "name": "capture_pane_range",
         "description": (

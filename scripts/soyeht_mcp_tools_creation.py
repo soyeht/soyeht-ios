@@ -3,7 +3,7 @@ from soyeht_mcp_registry import register_tool
 
 
 @register_tool(
-    order=10,
+    order=9,
     definition={
         "name": "open_workspace",
         "description": (
@@ -123,7 +123,7 @@ def tool_open_workspace(args):
 
 
 @register_tool(
-    order=9,
+    order=8,
     definition={
         "name": "create_worktree_panes",
         "description": (
@@ -279,7 +279,7 @@ def tool_create_worktree_panes(args):
 
 
 @register_tool(
-    order=11,
+    order=10,
     definition={
         "name": "agent_race_panes",
         "description": (

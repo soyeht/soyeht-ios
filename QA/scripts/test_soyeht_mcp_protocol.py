@@ -135,10 +135,10 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             separators=(",", ":"),
         ).encode("utf-8")
 
-        self.assertEqual(len(MODULE["TOOLS"]), 42)
+        self.assertEqual(len(MODULE["TOOLS"]), 41)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "16095b0921f8ca528d2efbe105ff0c78cc056ce7fd3f2eaec50a4f13265b7fdb",
+            "0cff8532374fe673a67d52a2e7c61c4661b490774ebd6fc847a4362ccef98e9d",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -148,6 +148,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
         self.assertNotIn("open_panes", schema_names)
         self.assertNotIn("open_file", schema_names)
+        self.assertNotIn("open_explorer", schema_names)
 
     def test_tool_contract_and_handler_come_from_the_same_registration(self):
         registry = MODULE["TOOL_REGISTRY"]

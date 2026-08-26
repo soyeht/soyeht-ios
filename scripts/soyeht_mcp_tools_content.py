@@ -77,49 +77,6 @@ def tool_open_editor(args):
     )
 
 
-@register_tool(
-    order=3,
-    definition={
-        "name": "open_explorer",
-        "description": "Open or focus a native Soyeht file explorer/editor pane for a folder. Use this when the user says 'open this folder in the explorer' or equivalent.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "default": ".",
-                    "description": "Folder to open.",
-                },
-                "root": {"type": "string", "description": "Alias for path."},
-                "directory": {"type": "string", "description": "Alias for path."},
-                "cwd": {"type": "string", "description": "Alias for path."},
-                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
-                "workspaceID": WORKSPACE_ID_PROPERTY,
-                "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
-            },
-        },
-    },
-)
-def tool_open_explorer(args):
-    directory = require_visible_directory(
-        args.get("root")
-        or args.get("directory")
-        or args.get("path")
-        or args.get("cwd")
-        or "."
-    )
-    payload = with_source_context(
-        with_window_target({"root": str(directory)}, args), args
-    )
-    return submit_request(
-        "open_explorer",
-        payload,
-        automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
-    )
-
-
 def safe_optional_selected_file(value, cwd=None):
     if not value:
         return None
@@ -142,7 +99,7 @@ def safe_optional_selected_file(value, cwd=None):
 
 
 @register_tool(
-    order=4,
+    order=3,
     definition={
         "name": "open_git",
         "description": "Open or focus a native Soyeht Git pane for a repository. Use this when the user says 'open the changes', 'show git for this branch', 'open this repo in Git', or equivalent. Git commands only run when the user clicks buttons inside the pane.",
@@ -198,7 +155,7 @@ def tool_open_git(args):
 
 
 @register_tool(
-    order=5,
+    order=4,
     definition={
         "name": "open_diff",
         "description": "Open or focus a native Soyeht Git pane with a file diff selected. Use this when the user asks to open/review the diff for a file or changes in a repo.",
@@ -265,7 +222,7 @@ def tool_open_diff(args):
 
 
 @register_tool(
-    order=6,
+    order=5,
     definition={
         "name": "open_web",
         "description": (
@@ -329,7 +286,7 @@ def tool_open_web(args):
 
 
 @register_tool(
-    order=7,
+    order=6,
     definition={
         "name": "install_app",
         "description": (
@@ -374,7 +331,7 @@ def tool_install_app(args):
 
 
 @register_tool(
-    order=8,
+    order=7,
     definition={
         "name": "open_app",
         "description": (
