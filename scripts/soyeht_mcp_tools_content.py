@@ -101,62 +101,6 @@ def safe_optional_selected_file(value, cwd=None):
 @register_tool(
     order=3,
     definition={
-        "name": "open_git",
-        "description": "Open or focus a native Soyeht Git pane for a repository. Use this when the user says 'open the changes', 'show git for this branch', 'open this repo in Git', or equivalent. Git commands only run when the user clicks buttons inside the pane.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "repo": {
-                    "type": "string",
-                    "default": ".",
-                    "description": "Repository folder or any folder inside the repository.",
-                },
-                "path": {"type": "string", "description": "Alias for repo."},
-                "root": {"type": "string", "description": "Alias for repo."},
-                "selectedFile": {
-                    "type": "string",
-                    "description": "Optional file to select in the Git pane.",
-                },
-                "file": {"type": "string", "description": "Alias for selectedFile."},
-                "branch": {"type": "string"},
-                "compareBase": {"type": "string"},
-                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
-                "workspaceID": WORKSPACE_ID_PROPERTY,
-                "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
-            },
-        },
-    },
-)
-def tool_open_git(args):
-    repo_arg = args.get("repo") or args.get("path") or args.get("root") or "."
-    repo = require_visible_directory(repo_arg)
-    selected = safe_optional_selected_file(
-        args.get("selectedFile") or args.get("file"), cwd=repo
-    )
-    payload = with_source_context(
-        with_window_target(
-            {
-                "repo": str(repo),
-                "selectedFile": selected,
-                "branch": args.get("branch"),
-                "compareBase": args.get("compareBase"),
-            },
-            args,
-        ),
-        args,
-    )
-    return submit_request(
-        "open_git",
-        payload,
-        automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", DEFAULT_REQUEST_TIMEOUT),
-    )
-
-
-@register_tool(
-    order=4,
-    definition={
         "name": "open_diff",
         "description": "Open or focus a native Soyeht Git pane with a file diff selected. Use this when the user asks to open/review the diff for a file or changes in a repo.",
         "inputSchema": {
@@ -222,7 +166,7 @@ def tool_open_diff(args):
 
 
 @register_tool(
-    order=5,
+    order=4,
     definition={
         "name": "open_web",
         "description": (
@@ -286,7 +230,7 @@ def tool_open_web(args):
 
 
 @register_tool(
-    order=6,
+    order=5,
     definition={
         "name": "install_app",
         "description": (
@@ -331,7 +275,7 @@ def tool_install_app(args):
 
 
 @register_tool(
-    order=7,
+    order=6,
     definition={
         "name": "open_app",
         "description": (
