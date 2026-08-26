@@ -176,6 +176,7 @@ def handle_message(message):
                 "name": SERVER_NAME,
                 "version": SERVER_VERSION,
             },
+            "instructions": SERVER_INSTRUCTIONS,
         })
 
     if method == "ping":

@@ -42,6 +42,30 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(calls, ["register", "heartbeat"])
         self.assertEqual(reply["result"]["protocolVersion"], "2025-03-26")
+        instructions = reply["result"]["instructions"]
+        self.assertIn("existing named Soyeht agent pane", instructions)
+        self.assertIn("first call list_agents before choosing any delegation mechanism", instructions)
+        self.assertIn("If a normalized target name matches", instructions)
+        self.assertIn("use message_agent", instructions)
+        self.assertIn("never spawn an internal subagent as its substitute", instructions)
+        self.assertIn("do not silently create a replacement", instructions)
+        self.assertIn("Internal subagents remain valid", instructions)
+        self.assertIn("Never claim that an agent replied", instructions)
+
+    def test_agent_messaging_tools_forbid_internal_subagent_substitution(self):
+        schemas = {tool["name"]: tool for tool in MODULE["TOOLS"]}
+        directory_description = schemas["list_agents"]["description"]
+        messaging_description = schemas["message_agent"]["description"]
+
+        self.assertIn("call this tool BEFORE choosing a delegation mechanism", directory_description)
+        self.assertIn("Match normalized names", directory_description)
+        self.assertIn("must never be replaced by newly spawned internal harness subagents", directory_description)
+        self.assertIn("unmatched names must be reported", directory_description)
+        self.assertIn("This does not forbid internal subagents", directory_description)
+        self.assertIn("list_agents must be called before choosing a delegation mechanism", messaging_description)
+        self.assertIn("Never spawn internal harness subagents as substitutes", messaging_description)
+        self.assertIn("Internal subagents remain valid", messaging_description)
+        self.assertIn("Never claim a reply merely because delivery succeeded", messaging_description)
 
     def test_messaging_presence_heartbeat_retries_then_uses_steady_interval(self):
         delays = []
@@ -114,7 +138,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(MODULE["TOOLS"]), 44)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "e78724e911336fa9a0328b40d0f83083f22415bd9836f57ad2c162e77e813e17",
+            "6cb198818a6abfdba52a6dc63e6c841b7292ef709dcea32b65919510db34c54d",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):

@@ -9,6 +9,9 @@ or treat terminal rendering as an API.
 - **Agent** means a named Soyeht pane identity such as `[ilia]`, `[marcia]`, or
   `[claude-input-audit]`. This is what users mean when they ask which agents are
   in a workspace, and it is what `list_agents` returns.
+- **Pane** is the visual routing unit and user-facing identity. This matches the
+  familiar tmux term (session → window → pane), although a Soyeht pane may host
+  terminal or non-terminal content.
 - **Harness** means the CLI/runtime wrapped around a model, such as Claude Code,
   Codex, OpenCode, Qwen Code, Antigravity, Pi, Droid, Kilo Code, Cursor, Copilot
   CLI, Grok, Kimi, Devin, or Qoder. Harnesses belong to the launch catalog, not
@@ -20,6 +23,11 @@ or treat terminal rendering as an API.
 A pane may keep the same agent identity while switching harness, model, or role.
 Messaging authorization is therefore pane-bound; harness catalog membership is
 never an identity or authorization boundary.
+
+Harnesses may also create their own internal subagents. Those are distinct from
+named Soyeht agent panes. A request to message an existing named pane routes via
+`list_agents` + `message_agent`; a request to create new internal subagents may
+still use the harness's native delegation mechanism.
 
 ## Canonical record
 
