@@ -163,6 +163,7 @@ def handle_message(message):
             register_messaging_client_presence()
         except Exception as exc:
             print(f"{SERVER_NAME}: messaging presence registration deferred: {exc}", file=sys.stderr)
+        start_messaging_client_presence_heartbeat()
         protocol = params.get("protocolVersion", "2024-11-05")
         return response(message_id, {
             "protocolVersion": protocol,
@@ -224,6 +225,7 @@ def main():
             if reply is not None:
                 transport.write_message(reply)
     finally:
+        stop_messaging_client_presence_heartbeat()
         unregister_messaging_client_presence()
 
 

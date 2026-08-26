@@ -3,7 +3,7 @@ from soyeht_mcp_foundation import *
 TOOLS_CREATION = [
     {
         "name": "open_panes",
-        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Prefer open_agent_pane when the user names a coding agent; this compatibility tool still honors the full agent catalog and default launch profiles. Agent panes do not steal focus by default. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
+        "description": "Open new Soyeht panes/tabs in the caller/source workspace when available, otherwise the active workspace in the resolved window, using existing directories. Prefer open_agent_pane when the user names a coding harness/CLI; this compatibility tool still honors the full harness catalog and default launch profiles. A harness is the program around a model (for example Codex, Claude Code, or OpenCode); the named Soyeht pane is the agent users communicate with. Agent panes do not steal focus by default. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript. If prompt is provided for an AI agent, it is delivered as a Soyeht agent message with sender/reply metadata by default; set promptMode=raw only for literal terminal input.",
         "inputSchema": {
             "type": "object",
             "properties": {

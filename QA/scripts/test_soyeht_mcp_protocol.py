@@ -26,8 +26,10 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         calls = []
         globals_ = MODULE["handle_message"].__globals__
         original = globals_["register_messaging_client_presence"]
+        original_start = globals_["start_messaging_client_presence_heartbeat"]
         try:
             globals_["register_messaging_client_presence"] = lambda: calls.append("register")
+            globals_["start_messaging_client_presence_heartbeat"] = lambda: calls.append("heartbeat")
             reply = MODULE["handle_message"]({
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -36,9 +38,29 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             })
         finally:
             globals_["register_messaging_client_presence"] = original
+            globals_["start_messaging_client_presence_heartbeat"] = original_start
 
-        self.assertEqual(calls, ["register"])
+        self.assertEqual(calls, ["register", "heartbeat"])
         self.assertEqual(reply["result"]["protocolVersion"], "2025-03-26")
+
+    def test_messaging_presence_heartbeat_retries_then_uses_steady_interval(self):
+        delays = []
+        outcomes = iter((False, True))
+
+        class StopAfterTwoRegistrations:
+            def wait(self, delay):
+                delays.append(delay)
+                return len(delays) > 2
+
+        globals_ = MODULE["start_messaging_client_presence_heartbeat"].__globals__
+        original = globals_["register_messaging_client_presence"]
+        try:
+            globals_["register_messaging_client_presence"] = lambda: next(outcomes)
+            globals_["_messaging_presence_heartbeat_loop"](StopAfterTwoRegistrations())
+        finally:
+            globals_["register_messaging_client_presence"] = original
+
+        self.assertEqual(delays, [0.5, 1.0, 15.0])
 
     def test_source_context_carries_process_identity_for_presence_refresh(self):
         payload = {}
@@ -67,7 +89,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(len(MODULE["TOOLS"]), 44)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "255a927350c2c4aed8b0cb6d8a4b9b60be3aa34c1f9d04d5adf1941909ea6f1c",
+            "e78724e911336fa9a0328b40d0f83083f22415bd9836f57ad2c162e77e813e17",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -324,6 +346,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("sourceIdentity", identify["description"])
         self.assertIn("calling terminal TTY", identify["description"])
         self.assertIn("agent/pane directory", directory["description"])
+        self.assertIn("NOT a harness/CLI product", directory["description"])
+        self.assertIn("return the pane displayReference names", directory["description"])
         self.assertIn("messageTarget", directory["description"])
         self.assertIn("Never create a new pane", directory["description"])
 
