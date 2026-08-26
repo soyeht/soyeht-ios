@@ -85,17 +85,13 @@ on run argv
         error "Close Workspace is disabled for the selected test workspace"
       end if
       click closeWorkspaceItem
-      repeat 40 times
-        if (count of sheets of front window) > 0 then exit repeat
-        delay 0.05
-      end repeat
-      if (count of sheets of front window) is 0 then
-        error "Close Workspace confirmation sheet did not appear"
-      end if
-      if not (exists button "Close Workspace" of sheet 1 of front window) then
-        error "Close Workspace confirmation button did not appear"
-      end if
-      click button "Close Workspace" of sheet 1 of front window
+      -- Selecting a workspace can rebuild the window and invalidate every
+      -- AXUIElement proxy, including the sheet's parent window. The close
+      -- action makes its destructive confirmation the default button; use the
+      -- physical Return path and let the snapshot assertion below prove that
+      -- the exact workspace disappeared.
+      delay 0.35
+      keystroke return
       return "workspace"
     end tell
   end tell

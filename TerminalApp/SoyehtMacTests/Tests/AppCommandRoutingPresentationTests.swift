@@ -508,6 +508,9 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertEqual(prepared.source?.id, sourceConversationID)
         XCTAssertTrue(prepared.text.contains("From: [sender] (conversationID: \(sourceConversationID.uuidString))"))
         XCTAssertTrue(prepared.text.contains("To: [reviewer] (conversationID: \(targetConversationID.uuidString))"))
+        XCTAssertTrue(prepared.text.contains("This is an inter-agent request"))
+        XCTAssertTrue(prepared.text.contains("do not answer only in this pane"))
+        XCTAssertTrue(prepared.text.contains("a local response does not reach the sender"))
         XCTAssertTrue(prepared.text.contains("Reply via Soyeht MCP soyeht.message_agent"))
         XCTAssertTrue(prepared.text.contains("message_agent to conversationIDs=[\"\(sourceConversationID.uuidString)\"]"))
         XCTAssertFalse(prepared.text.contains("@sender"))
@@ -1061,7 +1064,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(sourceResolver.contains("payload.sourceConversationID"))
         XCTAssertTrue(sourceResolver.contains("payload.sourceHandle"))
         XCTAssertTrue(sourceResolver.contains("payload.sourceTTY"))
-        XCTAssertTrue(sourceResolver.contains("localPTYSlaveTTYPathForAutomation"))
+        XCTAssertTrue(source.contains("func automationTTYPath"))
+        XCTAssertTrue(source.contains("localPTYSlaveTTYPathForAutomation"))
         XCTAssertTrue(agentEntry.contains("canReceiveMessage"))
         XCTAssertTrue(agentEntry.contains("replyInstructions"))
         XCTAssertTrue(messageArguments.contains("fromHandle: source?.handle"))
@@ -1222,7 +1226,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         )
     }
 
-    func testTurnBoundAgentsReceiveLaunchOwnershipWithoutWaitingForStartupHook() throws {
+    func testEveryTerminalReceivesPaneOwnershipWithoutForcingAgentHandshake() throws {
         let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
         let attach = try slice(
             controller,
@@ -1233,7 +1237,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
 
         XCTAssertTrue(attach.contains("let isAgentLaunch = preparedInitialCommand != nil"))
         XCTAssertTrue(attach.contains("let waitsForStartupHandshake = isAgentLaunch"))
-        XCTAssertTrue(attach.contains("let launchNonce: String? = isAgentLaunch ? UUID().uuidString : nil"))
+        XCTAssertTrue(attach.contains("let launchNonce = UUID().uuidString"))
         XCTAssertTrue(attach.contains("registerLaunchOwnership("))
         XCTAssertTrue(attach.contains("paneID: paneID"))
         XCTAssertTrue(attach.contains("nonce: launchNonce"))
@@ -1273,7 +1277,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(attach.contains("registerLaunchOwnership("))
         XCTAssertTrue(attach.contains("nonce: launchNonce"))
         XCTAssertFalse(restore.contains("liveConversation.agentLaunchOwnershipNonce"))
-        XCTAssertTrue(restore.contains("launchNonce: nil"))
+        XCTAssertTrue(restore.contains("let replacementShellLaunchNonce = UUID().uuidString"))
+        XCTAssertTrue(restore.contains("launchNonce: replacementShellLaunchNonce"))
         XCTAssertFalse(restore.contains("prepareForAgentLaunch(paneID: conversationID)"))
         XCTAssertTrue(restore.contains("guard previousLaunchNonce != nil else"))
         XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))
@@ -1281,9 +1286,23 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(bootstrap.contains(
             "rehydratePersistentLaunchOwnership(\n            from: conversationStore.all"
         ))
-        XCTAssertTrue(rehydrate.contains("launchOwnership.rehydrate(from: conversations)"))
+        XCTAssertTrue(rehydrate.contains("let trustedShellPaneIDs = runtimeIdentity.rehydrate"))
+        XCTAssertTrue(rehydrate.contains("trustedShellPaneIDs: trustedShellPaneIDs"))
         XCTAssertTrue(ownership.contains("AgentLaunchOwnershipKeychainStore"))
         XCTAssertTrue(ownership.contains("SoyehtInstallProfile.current.keychainService + \".agent-launch-ownership\""))
+    }
+
+    func testManualRuntimeCannotBootstrapOwnershipFromAnUntrustedNonce() throws {
+        let tracker = try macSource("Pairing/PaneStatusTracker.swift")
+        let claim = try slice(
+            tracker,
+            from: "func claimRuntimeIdentity(",
+            to: "func releaseRuntimeIdentity("
+        )
+
+        XCTAssertTrue(claim.contains("guard launchOwnership.validates("))
+        XCTAssertFalse(claim.contains("bootstrapNonce"))
+        XCTAssertFalse(claim.contains("!hasRegisteredLaunchCredential"))
     }
 
     func testDeferredAgentDeliveryRechecksHumanDraftAfterEveryBrokerTransaction() throws {
@@ -1329,6 +1348,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "func brokerSendMirroredHumanInput(",
             to: "func brokerSendEnterKey("
         )
+        let resume = try slice(
+            paneController,
+            from: "func resumePersistedDeferredAgentDeliveries(",
+            to: "\n    }\n}"
+        )
 
         XCTAssertTrue(flush.contains("!terminalView.isBrokerSubmissionInFlight"))
         XCTAssertTrue(flush.contains("terminalView.canAcceptBrokerSubmission"))
@@ -1343,6 +1367,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(coordinator.contains("promoteDraftReleaseControlIfNeeded()"))
         XCTAssertTrue(coordinator.contains("func agentStateDidChange()"))
         XCTAssertTrue(paneController.contains("agentStateDidChangeForDeferredDelivery"))
+        XCTAssertTrue(resume.contains("PaneStatusTracker.shared.effectiveAgentName(for: target)"))
+        XCTAssertTrue(resume.contains(".capabilities(for: effectiveAgent)"))
         XCTAssertTrue(contextRouter.contains("pane.agentStateDidChangeForDeferredDelivery()"))
         XCTAssertTrue(coordinator.contains("case .partiallyWritten:"))
         XCTAssertTrue(coordinator.contains("submitsWithEnter: false"))

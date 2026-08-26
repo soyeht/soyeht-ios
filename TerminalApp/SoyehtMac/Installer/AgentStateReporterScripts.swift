@@ -9,7 +9,7 @@ import Foundation
 /// and `SOYEHT_AUTOMATION_DIR` are present (injected into Soyeht panes), so
 /// they are inert no-ops for agent sessions running outside Soyeht.
 enum AgentStateReporterScripts {
-    static let version = 24
+    static let version = 28
 
     /// Shared hook reporter for Claude Code, Codex and Qwen Code hooks (agent
     /// selected via `SOYEHT_REPORT_AGENT`). Reads the hook JSON on stdin and
@@ -17,11 +17,49 @@ enum AgentStateReporterScripts {
     /// fails the agent: any error exits 0 silently.
     static let claudeCodexHookReporter = #"""
 #!/usr/bin/env python3
-# Managed by Soyeht (agent-state integration v24). Do not edit.
+# Managed by Soyeht (agent-state integration v28). Do not edit.
 # Reports agent lifecycle to the Soyeht automation directory inherited from
 # the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import hashlib, json, os, subprocess, sys, time, uuid
 from pathlib import Path
+
+
+def runtime_report_identity(automation_dir, owner_process_id):
+    try:
+        owner_process_id = int(owner_process_id)
+        # A deferred transcript collector is a new process whose event may be
+        # emitted after the original CLI exits. It must carry the generation
+        # captured when it was scheduled; rereading an owner-PID path later
+        # could bind an old event to a new process after PID recycling.
+        if os.environ.get("SOYEHT_DEFERRED_RUNTIME_BINDING_CAPTURED") == "1":
+            identity = {
+                "runtimeOwnerProcessID": owner_process_id,
+                "runtimeInstanceID": os.environ.get("SOYEHT_REPORT_RUNTIME_INSTANCE_ID"),
+                "runtimeOwnerProcessStartedAtSeconds": int(os.environ.get(
+                    "SOYEHT_REPORT_RUNTIME_OWNER_STARTED_SECONDS"
+                )),
+                "runtimeOwnerProcessStartedAtMicroseconds": int(os.environ.get(
+                    "SOYEHT_REPORT_RUNTIME_OWNER_STARTED_MICROSECONDS"
+                )),
+            }
+            required = (
+                "runtimeInstanceID",
+                "runtimeOwnerProcessStartedAtSeconds",
+                "runtimeOwnerProcessStartedAtMicroseconds",
+            )
+            return identity if all(identity.get(key) not in (None, "") for key in required) else None
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return None
+        required = (
+            "runtimeInstanceID",
+            "runtimeOwnerProcessStartedAtSeconds",
+            "runtimeOwnerProcessStartedAtMicroseconds",
+        )
+        return identity if all(identity.get(key) is not None for key in required) else None
+    except Exception:
+        return None
 
 
 def write_request(automation_dir, request_type, payload):
@@ -31,6 +69,14 @@ def write_request(automation_dir, request_type, payload):
         return
     payload = dict(payload)
     payload["nonce"] = nonce
+    runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+    owner_process_id = int(runtime_owner) if runtime_owner.isdigit() else os.getppid()
+    identity = runtime_report_identity(automation_dir, owner_process_id)
+    payload["runtimeOwnerProcessID"] = owner_process_id
+    if identity is not None:
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -290,6 +336,24 @@ def schedule_deferred_agent_transcript(transcript_path, session_id):
     env["SOYEHT_DEFERRED_AGENT_TRANSCRIPT"] = "1"
     env["SOYEHT_DEFERRED_TRANSCRIPT_PATH"] = transcript_path
     env["SOYEHT_DEFERRED_BASELINE"] = baseline
+    runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+    owner_process_id = int(runtime_owner) if runtime_owner.isdigit() else os.getppid()
+    env["SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID"] = str(owner_process_id)
+    # Mark the snapshot even when no binding exists. A managed agent pane can
+    # authenticate with its launch nonce alone; a manual pane must never let
+    # this delayed child adopt a future runtime's mutable binding.
+    env["SOYEHT_DEFERRED_RUNTIME_BINDING_CAPTURED"] = "1"
+    identity = runtime_report_identity(
+        os.environ.get("SOYEHT_AUTOMATION_DIR", ""), owner_process_id
+    )
+    if identity is not None:
+        env["SOYEHT_REPORT_RUNTIME_INSTANCE_ID"] = str(identity["runtimeInstanceID"])
+        env["SOYEHT_REPORT_RUNTIME_OWNER_STARTED_SECONDS"] = str(
+            identity["runtimeOwnerProcessStartedAtSeconds"]
+        )
+        env["SOYEHT_REPORT_RUNTIME_OWNER_STARTED_MICROSECONDS"] = str(
+            identity["runtimeOwnerProcessStartedAtMicroseconds"]
+        )
     if session_id:
         env["SOYEHT_DEFERRED_SESSION_ID"] = session_id
     try:
@@ -319,6 +383,7 @@ def report_deferred_agent_transcript():
         if event and assistant_event_signature(event) != baseline:
             payload = {
                 "sourceConversationID": conversation_id,
+                "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "agent"),
                 "role": "assistant",
                 "text": event.get("text"),
                 "sourceEventID": event.get("sourceEventID"),
@@ -349,6 +414,7 @@ def report_conversation(data, event, conversation_id, automation_dir):
     report_agent = os.environ.get("SOYEHT_REPORT_AGENT", "agent")
     payload = {
         "sourceConversationID": conversation_id,
+        "reportSource": "hook:" + report_agent,
         "nativeSessionID": session_id,
         "model": model,
         "reasoningEffort": effort,
@@ -446,7 +512,7 @@ def main():
     # Some Claude-compatible CLIs also load the user's global Claude hooks.
     # Ignore a reporter whose integration identity does not match the agent
     # Soyeht actually launched in this pane.
-    if declared_agent and report_agent != declared_agent:
+    if declared_agent and declared_agent != "shell" and report_agent != declared_agent:
         return 0
     try:
         raw = sys.stdin.read()
@@ -555,6 +621,23 @@ import json, os, sys, time, uuid
 from pathlib import Path
 
 
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
+
+
 def main():
     conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
     automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
@@ -591,15 +674,19 @@ def main():
     profile = os.environ.get("SOYEHT_MCP_PROFILE", "").strip().lower()
     if not nonce or profile not in ("dev", "release"):
         return 0
+    runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+    owner_process_id = int(runtime_owner) if runtime_owner.isdigit() else os.getppid()
     payload = {
         "state": state,
         "sourceConversationID": conversation_id,
         "reportSource": "hook:" + os.environ.get("SOYEHT_REPORT_AGENT", "antigravity"),
         "seq": time.time_ns(),
         "nonce": nonce,
+        "runtimeOwnerProcessID": owner_process_id,
         "mcpClientContractVersion": 3,
         "mcpClientProfile": profile,
     }
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     if event == "PreInvocation":
         payload["turnSubmissionAcknowledged"] = True
     if message:
@@ -644,7 +731,7 @@ if __name__ == "__main__":
     "PreInvocation": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreInvocation python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreInvocation python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ],
@@ -654,7 +741,7 @@ if __name__ == "__main__":
         "hooks": [
           {
             "type": "command",
-            "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreToolUse python3 \"__REPORTER__\"",
+            "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PreToolUse python3 \"__REPORTER__\"",
             "timeout": 10
           }
         ]
@@ -666,7 +753,7 @@ if __name__ == "__main__":
         "hooks": [
           {
             "type": "command",
-            "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostToolUse python3 \"__REPORTER__\"",
+            "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostToolUse python3 \"__REPORTER__\"",
             "timeout": 10
           }
         ]
@@ -675,14 +762,14 @@ if __name__ == "__main__":
     "PostInvocation": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostInvocation python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=PostInvocation python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=Stop python3 \"__REPORTER__\"",
+        "command": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=antigravity SOYEHT_HOOK_EVENT=Stop python3 \"__REPORTER__\"",
         "timeout": 10
       }
     ]
@@ -700,12 +787,29 @@ if __name__ == "__main__":
 // pi (earendil) extension reporter. Reports agent lifecycle to the Soyeht
 // automation directory inherited from the pane environment. Active only
 // inside a Soyeht pane. Fire-and-forget.
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 export default function (pi: any) {
   const enabled = () => Boolean(process.env.SOYEHT_CONVERSATION_ID && process.env.SOYEHT_AUTOMATION_DIR);
+
+  async function bindRuntimeIdentity(payload: Record<string, unknown>) {
+    try {
+      const path = join(
+        process.env.SOYEHT_AUTOMATION_DIR as string,
+        "RuntimeReportBindings",
+        `owner-${process.pid}.json`,
+      );
+      const identity = JSON.parse(await readFile(path, "utf8"));
+      if (identity.runtimeOwnerProcessID !== process.pid) return;
+      payload.runtimeInstanceID = identity.runtimeInstanceID;
+      payload.runtimeOwnerProcessStartedAtSeconds = identity.runtimeOwnerProcessStartedAtSeconds;
+      payload.runtimeOwnerProcessStartedAtMicroseconds = identity.runtimeOwnerProcessStartedAtMicroseconds;
+    } catch {
+      // Managed panes authenticate with their launch nonce and have no binding.
+    }
+  }
 
   async function writeRequest(type: string, payload: Record<string, unknown>) {
     if (!enabled()) return;
@@ -715,9 +819,11 @@ export default function (pi: any) {
     payload = {
       ...payload,
       nonce,
+      runtimeOwnerProcessID: process.pid,
       mcpClientContractVersion: 3,
       mcpClientProfile: profile,
     };
+    await bindRuntimeIdentity(payload);
     const dir = join(process.env.SOYEHT_AUTOMATION_DIR as string, "Requests");
     await mkdir(dir, { recursive: true });
     const id = randomUUID();
@@ -765,6 +871,7 @@ export default function (pi: any) {
       if (!text || (role === "user" && text.startsWith("SOYEHT_AGENT_HANDOFF_"))) return;
       const payload: Record<string, unknown> = {
         sourceConversationID: process.env.SOYEHT_CONVERSATION_ID,
+        reportSource: "hook:pi",
         role,
         text,
         sourceEventID: message?.id ?? message?.responseId
@@ -794,7 +901,7 @@ export default function (pi: any) {
 // Reports agent lifecycle to the Soyeht automation directory inherited from
 // the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
 const SOURCE = "hook:kilo";
@@ -808,6 +915,21 @@ const pendingTextParts = new Map();
 let lastBaseState = null;
 let lastBlockedMessage = null;
 
+async function bindRuntimeIdentity(payload) {
+  const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
+  if (!automationDir) return;
+  try {
+    const path = join(automationDir, "RuntimeReportBindings", `owner-${process.pid}.json`);
+    const identity = JSON.parse(await readFile(path, "utf8"));
+    if (identity.runtimeOwnerProcessID !== process.pid) return;
+    payload.runtimeInstanceID = identity.runtimeInstanceID;
+    payload.runtimeOwnerProcessStartedAtSeconds = identity.runtimeOwnerProcessStartedAtSeconds;
+    payload.runtimeOwnerProcessStartedAtMicroseconds = identity.runtimeOwnerProcessStartedAtMicroseconds;
+  } catch {
+    // Managed panes authenticate with their launch nonce and have no binding.
+  }
+}
+
 async function writeAutomationRequest(type, payload) {
   const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
   if (!automationDir) return;
@@ -817,9 +939,11 @@ async function writeAutomationRequest(type, payload) {
   payload = {
     ...payload,
     nonce,
+    runtimeOwnerProcessID: process.pid,
     mcpClientContractVersion: 3,
     mcpClientProfile: profile,
   };
+  await bindRuntimeIdentity(payload);
   const id = randomUUID();
   try {
     const dir = join(automationDir, "Requests");
@@ -837,6 +961,7 @@ async function reportConversation(payload) {
   if (!conversationID) return;
   await writeAutomationRequest("report_agent_conversation", {
     sourceConversationID: conversationID,
+    reportSource: SOURCE,
     ...payload,
   });
 }
@@ -1030,6 +1155,23 @@ import json, os, sys, time, uuid
 from pathlib import Path
 
 
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
+
+
 def main():
     conversation_id = os.environ.get("SOYEHT_CONVERSATION_ID", "")
     automation_dir = os.environ.get("SOYEHT_AUTOMATION_DIR", "")
@@ -1071,6 +1213,8 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1102,6 +1246,23 @@ if __name__ == "__main__":
 # GitHub Copilot CLI hook reporter. Fire-and-forget.
 import json, os, sys, time, uuid
 from pathlib import Path
+
+
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
 
 
 def main():
@@ -1151,6 +1312,8 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1183,6 +1346,23 @@ if __name__ == "__main__":
 # Grok CLI hook reporter. Fire-and-forget.
 import json, os, sys, time, uuid
 from pathlib import Path
+
+
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
 
 
 def main():
@@ -1229,6 +1409,8 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1261,6 +1443,23 @@ if __name__ == "__main__":
 # Kimi Code CLI hook reporter. Fire-and-forget.
 import json, os, sys, time, uuid
 from pathlib import Path
+
+
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
 
 
 def main():
@@ -1312,6 +1511,8 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1342,6 +1543,23 @@ if __name__ == "__main__":
 # Devin CLI hook reporter. Fire-and-forget.
 import json, os, sys, time, uuid
 from pathlib import Path
+
+
+def bind_runtime_identity(payload, automation_dir, owner_process_id):
+    try:
+        runtime_owner = os.environ.get("SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID", "").strip()
+        if runtime_owner.isdigit():
+            owner_process_id = int(runtime_owner)
+        payload["runtimeOwnerProcessID"] = owner_process_id
+        path = Path(automation_dir) / "RuntimeReportBindings" / ("owner-%d.json" % owner_process_id)
+        identity = json.loads(path.read_text(encoding="utf-8"))
+        if identity.get("runtimeOwnerProcessID") != owner_process_id:
+            return
+        payload["runtimeInstanceID"] = identity["runtimeInstanceID"]
+        payload["runtimeOwnerProcessStartedAtSeconds"] = identity["runtimeOwnerProcessStartedAtSeconds"]
+        payload["runtimeOwnerProcessStartedAtMicroseconds"] = identity["runtimeOwnerProcessStartedAtMicroseconds"]
+    except Exception:
+        pass
 
 
 def main():
@@ -1391,6 +1609,8 @@ def main():
     if not nonce or profile not in ("dev", "release"):
         return 0
     payload["nonce"] = nonce
+    payload["runtimeOwnerProcessID"] = os.getppid()
+    bind_runtime_identity(payload, automation_dir, payload["runtimeOwnerProcessID"])
     payload["mcpClientContractVersion"] = 3
     payload["mcpClientProfile"] = profile
     request = {
@@ -1423,7 +1643,7 @@ if __name__ == "__main__":
 // Reports agent lifecycle to the Soyeht automation directory inherited from
 // the pane environment. Active only inside a Soyeht pane. Fire-and-forget.
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
 const SOURCE = "hook:opencode";
@@ -1434,6 +1654,21 @@ const BUSY_STATUSES = new Set([
 const pendingPermissions = new Set();
 let lastBaseState = null;
 let lastBlockedMessage = null;
+
+async function bindRuntimeIdentity(payload) {
+  const automationDir = process.env.SOYEHT_AUTOMATION_DIR;
+  if (!automationDir) return;
+  try {
+    const path = join(automationDir, "RuntimeReportBindings", `owner-${process.pid}.json`);
+    const identity = JSON.parse(await readFile(path, "utf8"));
+    if (identity.runtimeOwnerProcessID !== process.pid) return;
+    payload.runtimeInstanceID = identity.runtimeInstanceID;
+    payload.runtimeOwnerProcessStartedAtSeconds = identity.runtimeOwnerProcessStartedAtSeconds;
+    payload.runtimeOwnerProcessStartedAtMicroseconds = identity.runtimeOwnerProcessStartedAtMicroseconds;
+  } catch {
+    // Managed panes authenticate with their launch nonce and have no binding.
+  }
+}
 
 async function report(state, message, submittedTurn = false) {
   const conversationID = process.env.SOYEHT_CONVERSATION_ID;
@@ -1449,9 +1684,11 @@ async function report(state, message, submittedTurn = false) {
     reportSource: SOURCE,
     seq: Date.now() * 1000 + Math.floor(Math.random() * 1000),
     nonce,
+    runtimeOwnerProcessID: process.pid,
     mcpClientContractVersion: 3,
     mcpClientProfile: profile,
   };
+  await bindRuntimeIdentity(payload);
   if (submittedTurn) payload.turnSubmissionAcknowledged = true;
   if (message) payload.message = String(message).slice(0, 200);
   try {

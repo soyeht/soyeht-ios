@@ -1,0 +1,1118 @@
+$ make test
+
+set -o pipefail && xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht \
+		-destination 'id=078EA198-9115-41B1-A063-BF9AF6075AF4' \
+		CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+		2>&1 | xcbeautify
+
+----- xcbeautify -----
+Version: 3.2.1
+----------------------
+
+Resolving Package Graph
+Resolved source packages
+swift-custom-dump - https://github.com/pointfreeco/swift-custom-dump @ 1.5.0
+SymbolKit - https://github.com/swiftlang/swift-docc-symbolkit @ 1.0.0
+swift-argument-parser - https://github.com/apple/swift-argument-parser @ 1.6.1
+xctest-dynamic-overlay - https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.9.0
+swift-collections - https://github.com/apple/swift-collections.git @ 1.3.0
+swift-snapshot-testing - https://github.com/pointfreeco/swift-snapshot-testing @ 1.19.2
+swift-asn1 - https://github.com/apple/swift-asn1.git @ 1.5.1
+swift-system - https://github.com/apple/swift-system @ 1.5.0
+swift-atomics - https://github.com/apple/swift-atomics.git @ 1.3.0
+swift-syntax - https://github.com/swiftlang/swift-syntax @ 603.0.1
+SwiftDocCPlugin - https://github.com/apple/swift-docc-plugin @ 1.4.6
+swift-nio-ssh - https://github.com/apple/swift-nio-ssh @ 0.12.0
+swift-crypto - https://github.com/apple/swift-crypto.git @ 3.15.1
+swift-secp256k1 - https://github.com/GigaBitcoin/secp256k1.swift.git @ 0.23.2
+swift-nio - https://github.com/apple/swift-nio.git @ 2.92.2
+BLAKE3 - https://github.com/JoshBashed/blake3-swift.git @ 0.2.2
+note: Using codesigning identity override:
+note: Building targets in dependency order
+note: Target dependency graph (57 targets)
+[swift-nio_NIOPosix] Processing empty-swift-nio_NIOPosix.plist
+[swift-crypto_Crypto] Processing empty-swift-crypto_Crypto.plist
+[P256K] Processing empty-P256K_D1A82D197DD_PackageProduct.plist
+[BLAKE3] Processing empty-BLAKE3_17578F34D7A398_PackageProduct.plist
+[SoyehtCore_SoyehtCore] Processing empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore_SoyehtCore] Compile XCStrings Localizable.xcstrings
+[HouseCreatedNotificationService] Processing Info.plist
+[HouseCreatedNotificationService] Compile XCStrings Localizable.xcstrings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore] Copying SoyehtCore_SoyehtCore.bundle
+[SoyehtCore] Processing empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtLiveActivity] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtClawShareTunnelProvider] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtLiveActivity] Processing Info.plist
+[SoyehtClawShareTunnelProvider] Processing Info.plist
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+[HouseCreatedNotificationService] Copying Localizable.strings
+note: Run script build phase 'Strip Provenance xattrs (pre-Codesign)' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[Soyeht] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[Soyeht] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[Soyeht] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[Soyeht] Copy P256K_D1A82D197DD_PackageProduct.framework -> P256K_D1A82D197DD_PackageProduct.framework
+[Soyeht] Copy BLAKE3_17578F34D7A398_PackageProduct.framework -> BLAKE3_17578F34D7A398_PackageProduct.framework
+[Soyeht] Compile XCStrings Localizable.xcstrings
+Signing BLAKE3_17578F34D7A398_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+Signing P256K_D1A82D197DD_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copy SoyehtClawShareTunnelProvider.appex -> SoyehtClawShareTunnelProvider.appex
+[Soyeht] Copy SoyehtLiveActivity.appex -> SoyehtLiveActivity.appex
+[Soyeht] Copy HouseCreatedNotificationService.appex -> HouseCreatedNotificationService.appex
+[Soyeht] Running script Strip Provenance xattrs (pre-Codesign)
+[Soyeht] Processing Info.plist
+[SoyehtTests] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[SoyehtTests] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[SoyehtTests] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtTests] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtTests] Copy P256K_D1A82D197DD_PackageProduct.framework -> P256K_D1A82D197DD_PackageProduct.framework
+[SoyehtTests] Copy BLAKE3_17578F34D7A398_PackageProduct.framework -> BLAKE3_17578F34D7A398_PackageProduct.framework
+Signing BLAKE3_17578F34D7A398_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+Signing P256K_D1A82D197DD_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] Processing empty-SoyehtTests.plist
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+Signing SoyehtTests.xctest (in target 'SoyehtTests' from project 'Soyeht')
+Signing Soyeht.debug.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing __preview.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing Soyeht.app (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Validate Soyeht.app
+[Soyeht] Validate Embedded Binary SoyehtLiveActivity.appex
+[Soyeht] Validate Embedded Binary HouseCreatedNotificationService.appex
+[Soyeht] Validate Embedded Binary SoyehtClawShareTunnelProvider.appex
+Test Suite 'All tests' started at 2026-08-24 23:45:33.605.
+Test Suite 'SoyehtTests.xctest' started at 2026-08-24 23:45:33.605.
+Test Suite 'APNSPayloadInvariantTests' started at 2026-08-24 23:45:33.605.
+    ✔ testCanonicalPayloadBytesAreExactlyTheContractLiteral (0.003 seconds)
+    ✔ testCanonicalPayloadRejectsLengthWhitespaceAndExtraKeys (0.009 seconds)
+    ✔ testRuntimeUserInfoAllowsOnlyOpaqueBackgroundTickle (0.001 seconds)
+    ✔ testRuntimeUserInfoRejectsAPNSAlertBadgeSoundAndMutableContent (0.001 seconds)
+    ✔ testRuntimeUserInfoRejectsHouseholdDataFields (0.033 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.046 (0.054) seconds
+Test Suite 'APNSRegistrationCoordinatorTests' started at 2026-08-24 23:45:33.659.
+    ✔ testForegroundReRegistersWhenLocalStateIsMissingOrStale (0.028 seconds)
+    ✔ testInitialRegisterBuildsPoPAuthenticatedCBORWithoutHouseholdId (0.002 seconds)
+    ✔ testSessionClearDeletesLocalStateWithoutNetworkDeregisterAndSuppressesUntilNewSession (0.003 seconds)
+    ✔ testTokenRotationRegistersNewTokenAndIdenticalTokenIsDeduped (0.002 seconds)
+    ✔ testTokenRotationWhileRegistrationIsInFlightRetriesLatestToken (0.005 seconds)
+    ✔ testUnknownTokenReportForcesNextForegroundRegistration (0.003 seconds)
+Executed 6 tests, with 0 failures (0 unexpected) in 0.042 (0.044) seconds
+Test Suite 'ActiveShareDateFormatterTests' started at 2026-08-24 23:45:33.704.
+    ✔ test_dateFartherThanADayUsesAFullDateNotARelativeWord (0.003 seconds)
+    ✔ test_labelIsDeterministicForTheSameInputs (0.001 seconds)
+    ✔ test_oneDayAfterNowLabelsTomorrow (0.001 seconds)
+    ✔ test_oneDayBeforeNowLabelsYesterday (0.001 seconds)
+    ✔ test_sameDayAsNowLabelsToday (0.001 seconds)
+    ✔ test_timeZoneIsInjectableAndChangesTheRenderedDayAndTime (0.001 seconds)
+    ✔ test_twentyFourHoursApartAtTheSameClockTimeNeverCollapseToTheSameString (0.001 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'ActiveShareRowDisplayTextTests' started at 2026-08-24 23:45:33.715.
+    ✔ test_acceptedAndRevokedAtTheSameClockTimeOnDifferentDaysAreDistinguishable (0.001 seconds)
+    ✔ test_acceptedStatusTextCarriesTheAcceptedAtTimestamp (0.001 seconds)
+    ✔ test_acceptedStatusTextFallsBackToBareWordWhenTimestampIsAbsent (0.001 seconds)
+    ✔ test_expiredStatusTextIsTheBareWord (0.000 seconds)
+    ✔ test_lifetimeTextAlwaysShowsCreatedAndExpiresRegardlessOfStatus (0.001 seconds)
+    ✔ test_revokedStatusTextCarriesTheRevokedAtTimestampWhenPresent (0.001 seconds)
+    ✔ test_revokedStatusTextFallsBackToBareWordWhenTimestampIsAbsent (0.000 seconds)
+    ✔ test_waitingStatusTextIsTheBareWord (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.005 (0.008) seconds
+Test Suite 'ActiveSharesViewModelTests' started at 2026-08-24 23:45:33.723.
+    ✔ test_cancelRevokeClearsPendingRevokeWithoutCallingTheRevoker (0.006 seconds)
+    ✔ test_confirmRevokeCallsTheRevokerMarksRowRevokedAndRemovesTheCachedLink (0.001 seconds)
+    ✔ test_confirmRevokeFailureLeavesTheRowUnchanged (0.011 seconds)
+    ✔ test_confirmRevokeFailureSurfacesACuratedMessageWithoutTouchingRowOrCache (0.002 seconds)
+    ✔ test_confirmRevokeStillCallsRevokerWhenDismissalAlreadyClearedPendingRevoke (0.001 seconds)
+    ✔ test_copyLinkEligibleOnlyWhenWaitingUnexpiredAndCached (0.001 seconds)
+    ✔ test_copyLinkWritesTheCachedUriAndFailsSilentlyWhenIneligible (0.001 seconds)
+    ✔ test_dismissRevokeFailureClearsTheMessageAndRevokeCanBeRetried (0.002 seconds)
+    ✔ test_duplicateAppTwoSharesRevokeIndependently (0.001 seconds)
+    ✔ test_loadClearsHasCachedLinkForAShareThatConvergedAwayFromWaiting (0.001 seconds)
+    ✔ test_loadFailureSurfacesACuratedMessage (0.001 seconds)
+    ✔ test_loadPopulatesRowsFromTheReader (0.001 seconds)
+    ✔ test_loadPruneAlsoDropsASlotAbsentFromTheFreshList (0.001 seconds)
+    ✔ test_loadPrunesAWaitingButAlreadyExpiredCachedLink (0.001 seconds)
+    ✔ test_loadPrunesCacheKeepingOnlyWaitingSlotIds (0.001 seconds)
+    ✔ test_requestRevokeSetsPendingRevokeWithoutCallingTheRevoker (0.001 seconds)
+Executed 16 tests, with 0 failures (0 unexpected) in 0.034 (0.039) seconds
+Test Suite 'BaseMachineProjectorTests' started at 2026-08-24 23:45:33.762.
+    ✔ testBaseProjectionAloneChoosesHouseholdHomeWithoutOperationalRecoverySideEffects (0.004 seconds)
+    ✔ testBaseProjectionDoesNotFlipColdLaunchSetupState (0.002 seconds)
+    ✔ testIdentityOnlyBaseMachineCannotResolveOrPersistOperationalState (0.003 seconds)
+    ✔ testLegacyIdentifierOnlyBootstrapLeavesProjectionAndServerStoreUntouched (0.037 seconds)
+    ✔ testLinuxNixAndLinuxOtherPlatformValuesBothPresentAsLinux (0.002 seconds)
+    ✔ testNoActiveHouseholdClearsOnlyTheEphemeralProjection (0.003 seconds)
+    ✔ testReachabilityOnlyChangeStillPublishesToObservers (0.005 seconds)
+    ✔ testReachabilityStillResolvesForAMachineAlreadyLegacyPairedAsAnOperationalServer (0.004 seconds)
+    ✔ testRefreshClearsPriorHouseholdProjectionBeforeFailedBootstrap (0.005 seconds)
+    ✔ testRefreshHasZeroProjectionSideEffectWhenHouseholdChangesDuringBootstrap (0.003 seconds)
+    ✔ testRefreshProjectsPeersWithTriStateReachabilityAndNeutralizesSelfsEcho (0.003 seconds)
+    ✔ testRefreshProjectsValidatedSelfMachineInMemoryWithoutPairingRouteOrSecret (0.003 seconds)
+    ✔ testRefreshRejectsSnapshotForDifferentActiveHousehold (0.004 seconds)
+    ✔ testWrongHouseholdBootstrapLeavesProjectionAndServerStoreUntouched (0.009 seconds)
+    ✔ testWrongMachinePublicKeyBootstrapLeavesProjectionAndServerStoreUntouched (0.007 seconds)
+    ✔ testWrongRespondentBootstrapLeavesProjectionAndServerStoreUntouched (0.009 seconds)
+Executed 16 tests, with 0 failures (0 unexpected) in 0.104 (0.109) seconds
+Test Suite 'ClawInstallTargetResolverTests' started at 2026-08-24 23:45:33.871.
+    ✔ testDefaultBootstrapPortFollowsCurrentInstallProfile (0.009 seconds)
+    ✔ testGuestImageGateInitialState_pollsMacEndpointInMultiServerHousehold (0.138 seconds)
+    ✔ testGuestImageGateInitialState_usesServerKindAndResolution (0.020 seconds)
+    ✔ testGuestImageGateState_allowsOnlyLinuxOrReadyMac (0.008 seconds)
+    ✔ testGuestImagePrepareResponse_failedCarriesFailureCodeIntoGateState (0.010 seconds)
+    ✔ testGuestImagePrepareResponse_mapsStartingToBlockedInProgress (0.011 seconds)
+    ✔ testGuestImageReadinessBootstrapBaseURL_usesResolvedEndpointPortInsteadOfStoredHost (0.059 seconds)
+    ✔ testGuestImageReadinessClient_cachesPerServerAndSeparatesServers (0.018 seconds)
+    ✔ testGuestImageReadinessClient_fetchErrorMirrorsUnreachable (0.018 seconds)
+    ✔ testGuestImageReadinessClient_noBaseURLDoesNotMirrorUnreachable (0.014 seconds)
+    ✔ testGuestImageReadinessClient_successMirrorsTheyOSStatus (0.025 seconds)
+    ✔ testGuestImageReadinessObserver_prepareErrorStillRefetchesStatus (0.007 seconds)
+    ✔ testGuestImageReadinessObserver_preparePreservesDNSHostPort (0.003 seconds)
+    ✔ testGuestImageReadinessObserver_prepareRefetchesStatusBeforePublishing (0.002 seconds)
+    ✔ testHouseholdEndpoint_bootstrapEndpointBypassesNetworkOrdering (0.002 seconds)
+    ✔ testHouseholdEndpoint_explicitURLBypassesNetworkOrdering (0.002 seconds)
+    ✔ testHouseholdEndpoint_hostPortPreservesCustomBootstrapPort (0.002 seconds)
+    ✔ testHouseholdEndpoint_magicDNSTailnetHostPreservesMagicDNSHost (0.003 seconds)
+    ✔ testHouseholdEndpoint_noNetworkSignalsPreservesStoredHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetActiveWithoutLANPreservesTailnetHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetHostWinsOverDisplayAliasNetworkLabel (0.002 seconds)
+    ✔ testHouseholdEndpoint_tailnetIPv6HostPreservesTailnetHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_twoServersDoNotShareResolverState (0.002 seconds)
+    ✔ testHouseholdEndpoint_usesInstallProfileBootstrapPortForBareHost (0.002 seconds)
+    ✔ testHouseholdEndpoint_wifiActiveLocalHostIsNotSelectable (0.002 seconds)
+    ✔ testHouseholdEndpoint_wifiActiveTailnetHostPreservesTailnetHost (0.002 seconds)
+    ✔ testRefreshStatus_reChecksWithoutIssuingPrepare (0.002 seconds)
+    ✔ testResolution_supportsDeploy_forServerAndHouseholdEndpoint (0.001 seconds)
+    ✔ testResolve_linuxWithContext_returnsServer (0.018 seconds)
+    ✔ testResolve_macLANLastHostWithDNSPort_returnsUnavailable (0.013 seconds)
+    ✔ testResolve_macLastHostWithExplicitHTTPURL_returnsNormalizedEndpoint (0.011 seconds)
+    ✔ testResolve_macNoContext_withMultipleServers_returnsHouseholdEndpoint (0.022 seconds)
+    ✔ testResolve_macNoContextFreshUnreachable_returnsUnavailable (0.014 seconds)
+    ✔ testResolve_macNoContextRunningUninitializedAndUnknownRemainRouteable (0.033 seconds)
+    ✔ testResolve_macNoContextStaleUnreachable_returnsHouseholdEndpoint (0.013 seconds)
+    ✔ testResolve_macTailnetLastHostWithDNSPort_returnsHouseholdEndpointHostAndPort (0.012 seconds)
+    ✔ testResolve_macWithContext_returnsServer (0.021 seconds)
+    ✔ testResolve_singleMacNoContext_returnsHouseholdEndpoint (0.008 seconds)
+    ✔ testResolve_unknownServerID_returnsUnknownServer (0.003 seconds)
+Executed 39 tests, with 0 failures (0 unexpected) in 0.542 (0.554) seconds
+Test Suite 'ClawRouteUsageTests' started at 2026-08-24 23:45:34.425.
+    ✔ test_ClawAPITargetHousehold_onlyAppearsInResolver (0.388 seconds)
+    ✔ test_clawStoreViewModel_builtFromMachineTarget_notLossyApiTarget (0.182 seconds)
+    ✔ test_iosUI_neverConstructsHouseholdDetailRoute (0.206 seconds)
+    ✔ test_iosUI_neverConstructsHouseholdStoreRoute (0.208 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.985 (0.986) seconds
+Test Suite 'ClawShareOpenFailureTests' started at 2026-08-24 23:45:35.411.
+    ✔ test_anUnrecognizedErrorDefaultsToUnknownWithRetry (0.000 seconds)
+    ✔ test_credentialExpiredAlsoMapsToLinkExpired (0.000 seconds)
+    ✔ test_everyCaseHasNonEmptyTitleAndMessage (0.001 seconds)
+    ✔ test_inviteExpiredMapsToLinkExpiredWithAskForNewLink (0.001 seconds)
+    ✔ test_rejectionAndMismatchCausesMapToLinkNoLongerValid (0.000 seconds)
+    ✔ test_routeErrorMissingOfferMapsToLinkNoLongerValid (0.000 seconds)
+    ✔ test_routeErrorUnsupportedResourceMapsToIncompatibleClient (0.001 seconds)
+    ✔ test_shareAppNoLongerAvailableReasonMapsToLinkNoLongerValid (0.001 seconds)
+    ✔ test_shareAppUnavailableReasonIsRecognizedAsRecoverable (0.001 seconds)
+    ✔ test_streamFailedCarriesTheReasonThroughTheSameMatcher (0.001 seconds)
+    ✔ test_transportCausesMapToTemporaryConnectionFailureWithRetry (0.001 seconds)
+    ✔ test_tunnelReasonMatchesTheBareCode (0.000 seconds)
+    ✔ test_tunnelReasonMatchesTheRealPrefixedPayload (0.000 seconds)
+    ✔ test_tunnelReasonRejectsAnExtendedSuffix (0.000 seconds)
+    ✔ test_tunnelReasonRejectsTheCodeBeforeTheWrongDelimiter (0.001 seconds)
+    ✔ test_tunnelReasonRejectsTheCodeGluedWithoutADelimiter (0.001 seconds)
+    ✔ test_unexpectedFrameMapsToIncompatibleClientWithClose (0.001 seconds)
+    ✔ test_unrelatedTunnelReasonFallsBackToUnknown (0.000 seconds)
+Executed 18 tests, with 0 failures (0 unexpected) in 0.010 (0.039) seconds
+Test Suite 'ClawShareOpenRouterTests' started at 2026-08-24 23:45:35.451.
+    ✔ test_openCallsTheClaimSubmitterExactlyOnce (0.016 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.016 (0.016) seconds
+Test Suite 'ClawSiteRelayStreamOpenerTests' started at 2026-08-24 23:45:35.467.
+    ✔ testCancellationRightAtHandoffReleasesTheSlotBeforeOpeningAnyTarget (0.095 seconds)
+    ✔ testCancelledWaiterReturnsPromptlyAndDoesNotOrphanATarget (0.108 seconds)
+    ✔ testConcurrentExchangesSerializeOntoOneLiveTarget (0.108 seconds)
+    ✔ testFirstExchangeUsesTheTargetConnectPersistentAlreadyOpened (0.002 seconds)
+    ✔ testRedialAfterAnUnavailableSignalReusesTheIdenticalOfferAndCredentialBytes (0.003 seconds)
+    ✔ testRedialsOnlyAfterTheSessionFails (0.003 seconds)
+    ✔ testSecondExchangeReusesTheConnectionViaOpenNextTarget (0.002 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.320 (0.322) seconds
+Test Suite 'ClawSiteURLSchemeHandlerTests' started at 2026-08-24 23:45:35.790.
+    ✔ test_typedFailureHandlerIsInvokedOutsideTheLock (0.004 seconds)
+    ✔ test_typedFailureHandlerReceivesTheOriginalErrorCase (0.001 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'ClawSiteViewModelTests' started at 2026-08-24 23:45:35.796.
+    ✔ test_recoverableUnavailableReasonRoutesToUnavailablePhase (0.008 seconds)
+    ✔ test_retryReusesTheSameProviderAndReachesReadyAgain (0.001 seconds)
+    ✔ test_secondFailureReportAfterTheFirstIsANoOp (0.001 seconds)
+    ✔ test_terminalReasonRoutesToFailedLinkNoLongerValid (0.001 seconds)
+    ✔ test_unrelatedReasonFallsBackToFailedUnknown (0.001 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.012 (0.014) seconds
+Test Suite 'ClawSiteWebViewCoordinatorTests' started at 2026-08-24 23:45:35.810.
+    ✔ test_coordinatorStatePlusPolicyCorrectlyDetectsAGenuinelyNewSource (0.001 seconds)
+    ✔ test_markingASecondHandlerReplacesTheFirst (0.000 seconds)
+    ✔ test_markLoadedRecordsTheExactHandler (0.001 seconds)
+    ✔ test_startsWithNoHandlerLoaded (0.001 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'ClawSiteWebViewReloadPolicyTests' started at 2026-08-24 23:45:35.814.
+    ✔ test_aGenuinelyDifferentSourceNeedsReload (0.001 seconds)
+    ✔ test_noHandlerLoadedYetNeedsReload (0.001 seconds)
+    ✔ test_sameSourceNeverNeedsReload_regardlessOfWhereTheGuestHasNavigated (0.001 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'DevicePairApprovalPresentationTests' started at 2026-08-24 23:45:35.817.
+    ✔ test_addMacExistingHouseNoticeAppearsOnlyAfterGraceWhileStillLooking (0.007 seconds)
+    ✔ test_addMacFiltersSetupClaimsByInstallProfileBeforeIgnoringExistingHouse (0.002 seconds)
+    ✔ test_addMacIgnoresExistingHouseClaimAndKeepsLookingForFreshMac (0.002 seconds)
+    ✔ test_awaitingMacStopResetsAlreadyFoundLifecycleLatch (0.001 seconds)
+    ✔ test_awaitingNewMacStopResetsAlreadyOrchestratingLifecycleLatch (0.001 seconds)
+    ✔ test_baseMachineHomeRowPresentationDependsOnServerKindNotJustMac (0.001 seconds)
+    ✔ test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList (0.006 seconds)
+    ✔ test_bodyExtractorFailsLoudlyOnAbsentOrDuplicatedAnchors (0.002 seconds)
+    ✔ test_checkerAcceptsACleanPublishPath (0.001 seconds)
+    ✔ test_checkerDoesNotAcceptANeighbouringFunctionsAssignment (0.001 seconds)
+    ✔ test_checkerRejectsAnAssignmentThatExistsOnlyInAComment (0.001 seconds)
+    ✔ test_checkerRejectsARebounParameter (0.001 seconds)
+    ✔ test_checkerRejectsARebuiltDegradedThatDropsLastKnown (0.001 seconds)
+    ✔ test_checkerRejectsARenamedPassThroughArgument (0.001 seconds)
+    ✔ test_checkerRejectsASanitisedCopyThatPrefixMatchesTheNeedle (0.001 seconds)
+    ✔ test_checkerRejectsATransformedRefreshResult (0.001 seconds)
+    ✔ test_debugLocalStateReportBreaksDownServerSources (0.002 seconds)
+    ✔ test_debugLocalStateResetClearsLegacyMacStoreAndRegistryMirror (0.002 seconds)
+    ✔ test_debugResetUsesProfileScopedHouseholdKeychainDeletionPlan (0.002 seconds)
+    ✔ test_devicePairingPublishesSetupInvitationForLocalMacPairing (0.003 seconds)
+    ✔ test_firstSetupBonjourDiscoveryDoesNotStopOnNonProfileFastEndpoint (0.005 seconds)
+    ✔ test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes (0.001 seconds)
+    ✔ test_firstSetupFiltersDirectAndBonjourMacDiscoveryByInstallProfile (0.004 seconds)
+    ✔ test_foregroundRevalidationPublishesTheCoordinatorStateWithoutRebuildingIt (0.006 seconds)
+    ✔ test_householdHomeRendersBaseMachineWithoutMakingItInteractive (0.001 seconds)
+    ✔ test_householdHomeSharesDevicePairApprovalOverlay (0.002 seconds)
+    ✔ test_instanceListRendersDevicePairApprovalOverlay (0.002 seconds)
+    ✔ test_localMacPairingClaimStillRunsBootstrapDecisionBeforeOpeningMacMirror (0.003 seconds)
+    ✔ test_localMacPairingWritesServerListThroughRegistryFunnel (0.005 seconds)
+    ✔ test_localTerminalHandoffClosesLosingUnauthenticatedClientsAfterConsume (0.004 seconds)
+    ✔ test_macAliasViewRenamesThroughServerRegistry (0.001 seconds)
+    ✔ test_machineJoinRuntimeSnapshotsQueuesAfterSubscribingToStreams (0.002 seconds)
+    ✔ test_macPresenceClientWritesMacMutationsThroughServerRegistry (0.003 seconds)
+    ✔ test_macSetupInvitationUsesDirectNotificationPath (0.004 seconds)
+    ✔ test_mobileCredentialStoresUseProfileScopedKeychainService (0.003 seconds)
+    ✔ test_pairingCoordinatorWritesMacRowsThroughRegistryFunnel (0.002 seconds)
+    ✔ test_postSplashDoesNotLetHouseholdHomePreemptPairedServers (0.003 seconds)
+    ✔ test_recoveryDismissRoutesOnlyOnOperationalInventory (0.002 seconds)
+    ✔ test_rosterAlertBannerNeverDestructuresRosterPayload (0.006 seconds)
+    ✔ test_rosterAlertBannerRendersOnBothHouseholdSurfaces (0.015 seconds)
+Executed 40 tests, with 0 failures (0 unexpected) in 0.114 (0.125) seconds
+Test Suite 'GuestImageReadinessTransportTests' started at 2026-08-24 23:45:35.942.
+    ✔ test_bootstrapBaseURL_tailscaleMac_isHttp8091_neverHttps (0.001 seconds)
+    ✔ test_hostVmLimit_recoversViaCheckAgain_notPrepare (0.001 seconds)
+    ✔ test_state_reachableHostVmLimit_isBlockedFailed_notGeneric (0.001 seconds)
+    ✔ test_state_unreachable_staysUnavailableGeneric (0.002 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'HomeClawStoreButtonRoutingTests' started at 2026-08-24 23:45:35.947.
+    ✔ test_clawStoreButton_branchesByRegistryCount (0.002 seconds)
+    ✔ test_clawStoreE2ELaunchArgument_isDebugOnlyAndDefaultOff (0.002 seconds)
+    ✔ test_deleteActionPrunesLocalHomeRowsAndCacheByInstanceIdentity (0.001 seconds)
+    ✔ test_householdAttachMintsThenConnectsWithoutPreflight (0.005 seconds)
+    ✔ test_householdTerminalReconnectUsesFreshRequest (0.002 seconds)
+    ✔ test_householdTerminalUsesRequestModeWithoutChangingStringMode (0.002 seconds)
+    ✔ test_instanceActionsMenuIsCapabilityGatedAndPerformerIsDualMode (0.003 seconds)
+    ✔ test_instanceActionsRouteContextFirstThenMacHouseholdEndpoint (0.000 seconds)
+    ✔ test_macAliasCover_onlyPresentsWhenLegacyPairedMacCanRender (0.003 seconds)
+    ✔ test_macHomeRowsExposeStableAutomationIdentifier (0.002 seconds)
+    ✔ test_macHouseholdTerminalCardFlipRequiresEndpoint (0.001 seconds)
+    ✔ test_mobileClawVPNControlPlaneFlag_isDevOnlyAndDefaultOff (0.001 seconds)
+    ✔ test_mobileClawVPNControlPlaneLaunchConfig_requiresExplicitDeviceAndClawIDs (0.001 seconds)
+    ✔ test_mobileClawVPNControlPlaneSettingsRoute_isFlagGated (0.004 seconds)
+    ✔ test_mobileClawVPNControlPlaneView_isHeadlessAndNoEcho (0.006 seconds)
+    ✔ test_navigationDestination_handlesServerPicker (0.002 seconds)
+    ✔ test_navigationDestination_routesByInstallTarget (0.002 seconds)
+    ✔ test_relayStreamOpeningRequiresExplicitConfirmBeforeClaim (0.004 seconds)
+    ✔ test_relayStreamTerminalLinkOpeningIsAllowlistedAndInjectable (0.001 seconds)
+    ✔ test_releaseLaunchRouting_keepsCarouselBehindFeatureFlag (0.001 seconds)
+    ✔ test_terminalLinkConfirmationOpenerIsTheOnlyUIApplicationOpenSiteForTerminalLinks (0.001 seconds)
+    ✔ test_terminalViewsUseSharedLinkAllowlistAndConfirmationOpener (0.002 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 0.047 (0.053) seconds
+Test Suite 'HomeViewStateTests' started at 2026-08-24 23:45:36.000.
+    ✔ testBannerHides_whenIdentityFiresIsActiveChange_afterUnlock (0.012 seconds)
+    ✔ testBannerIsHidden_whenIdentityIsActive_evenAfterParkingLotVisited (0.002 seconds)
+    ✔ testBannerIsHidden_whenParkingLotNotVisited_evenIfInactive (0.001 seconds)
+    ✔ testBannerIsVisible_whenParkingLotVisited_andIdentityInactive (0.002 seconds)
+    ✔ testBannerShows_whenIdentityFiresIsActiveChange_afterRevoke (0.012 seconds)
+    ✔ testClearBanner_hidesBanner_andResetsParkingLot (0.002 seconds)
+Executed 6 tests, with 0 failures (0 unexpected) in 0.030 (0.032) seconds
+Test Suite 'HouseholdApplePushServiceViewModelTests' started at 2026-08-24 23:45:36.032.
+    ✔ testApplyFailureBannerClearsOnSuccessfulRetry (0.020 seconds)
+    ✔ testApplyWithoutActiveHouseholdIsNoOp (0.033 seconds)
+    ✔ testFirstHandleToggleAfterRollbackShortCircuitsRegardlessOfValue (0.038 seconds)
+    ✔ testReloadDuringInFlightApplyIsNoOp (0.008 seconds)
+    ✔ testReloadFollowedByOnChangeDoesNotTriggerApply (0.033 seconds)
+    ✔ testReloadLoadsActiveHouseholdAndPersistedToggleValue (0.002 seconds)
+    ✔ testResumeFailureRollsBackPreferenceAndToggleAndShowsBanner (0.008 seconds)
+    ✔ testRolledBackBaselineIsTheRevertedValueNotTheOptimisticForward (0.045 seconds)
+    ✔ testToggleOffSuccessfullySuspendsAndPersists (0.007 seconds)
+    ✔ testToggleOnSuccessfullyResumesAndPersists (0.008 seconds)
+Executed 10 tests, with 0 failures (0 unexpected) in 0.202 (0.206) seconds
+Test Suite 'HouseholdMachineJoinRuntimeTests' started at 2026-08-24 23:45:36.238.
+    ✔ testActivationFailureNeverLeaksPastSnapshotCompletion (0.233 seconds)
+    ✔ testBeginConfirmingPublishesSnapshotAndDerivedKey (0.002 seconds)
+    ✔ testConcurrentForegroundsIssueASingleRosterRoundTrip (0.162 seconds)
+    ✔ testDevicePairApprovalAllowsLocallyOwnedDelegatedSession (0.005 seconds)
+    ✔ testEndConfirmingClearsSnapshotForMatchingKey (0.002 seconds)
+    ✔ testEndConfirmingIsIdempotentOnMismatch (0.002 seconds)
+    ✔ testEnterForegroundForwardsToOwnerEventsExactlyOncePerCall (0.058 seconds)
+    ✔ testForegroundAfterStopNeitherFetchesNorPublishes (0.377 seconds)
+    ✔ testForegroundBeforeAnyActivationNeitherFetchesNorPublishes (0.206 seconds)
+    ✔ testForegroundRevalidationClearsAResolvedCondition (0.108 seconds)
+    ✔ testForegroundRevalidationPublishesTheCoordinatorStateVerbatim (0.109 seconds)
+    ✔ testForegroundRevalidationSurfacesRevocationThatAppearedMidSession (0.108 seconds)
+    ✔ testForegroundRevalidationSurfacesTamperThatAppearedMidSession (0.111 seconds)
+    ✔ testForegroundWithoutARosterActivatorSkipsWithoutPublishing (0.262 seconds)
+    ✔ testHappyPathActivationCrossesPhasesInForwardOrder (0.055 seconds)
+    ✔ testHouseholdSwitchBeatsAnInFlightForegroundRevalidation (0.213 seconds)
+    ✔ testNoRosterActivatorSkipsStepAndLeavesStateUnknown (0.057 seconds)
+    ✔ testOriginalQRTTLEqualToNowIsRejectedAsQRExpired (0.001 seconds)
+    ✔ testOriginalQRTTLInPastIsRejectedAsQRExpired (0.001 seconds)
+    ✔ testRosterDegradedPreservesActivationAndStartsGossip (0.057 seconds)
+    ✔ testRosterRefreshCalledOncePerActivation (0.055 seconds)
+    ✔ testRosterRePairingAndTamperRemainDistinguishable (0.112 seconds)
+    ✔ testRosterRunsBetweenSnapshotAndGossipInOrder (0.057 seconds)
+    ✔ testRosterTokenInvalidatedDuringRefreshPublishesNothingAndSkipsGossip (0.055 seconds)
+    ✔ testSnapshotSurvivesQueueRemoval (0.002 seconds)
+    ✔ testStagingExpiryCannotExtendOriginalQRHardTTL (0.001 seconds)
+    ✔ testStagingExpiryEqualToNowIsRejected (0.001 seconds)
+    ✔ testStagingExpiryInThePastIsRejected (0.001 seconds)
+    ✔ testStagingExpiryShorterThanQRTTLIsAccepted (0.000 seconds)
+    ✔ testStagingExpiryZeroIsRejected (0.003 seconds)
+    ✔ testStopBeatsAnInFlightForegroundRevalidation (0.161 seconds)
+    ✔ testStopBeforeActivateEmitsBoundaryPair (0.003 seconds)
+    ✔ testStopClearsConfirmingSnapshot (0.013 seconds)
+    ✔ testStopIsIdempotent (0.002 seconds)
+    ✔ testStopRacedAgainstActivationCancelsBeforeGossip (0.208 seconds)
+Executed 35 tests, with 0 failures (0 unexpected) in 2.803 (2.817) seconds
+Test Suite 'HouseholdPairingFailureViewModelTests' started at 2026-08-24 23:45:39.056.
+    ✔ testBiometryCanceledMapsToRetryBiometryRecovery (0.006 seconds)
+    ✔ testCameraDeniedCanBeRenderedWithoutActivatingHousehold (0.001 seconds)
+    ✔ testExpiredQRMapsToFreshQRRecovery (0.001 seconds)
+    ✔ testNoMatchingHouseholdMapsToNetworkRecovery (0.001 seconds)
+    ✔ testStorageFailureMapsToDeviceSecurityRecovery (0.001 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'HouseholdPairingViewModelTests' started at 2026-08-24 23:45:39.068.
+    ✔ testFailureStateDoesNotActivateHousehold (0.002 seconds)
+    ✔ testScanToActiveHouseholdState (0.003 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'JoinRequestConfirmationFailureViewModelTests' started at 2026-08-24 23:45:39.074.
+    ✔ testBiometricCancelRevertsQueueEntryAndKeepsCardPending (0.007 seconds)
+    ✔ testBiometricLockoutRevertsQueueEntryAndKeepsCardPending (0.003 seconds)
+    ✔ testFingerprintRegenerationDriftFailsAndClearsQueueEntry (0.004 seconds)
+    ✔ testHouseholdMismatchFailsAndDoesNotSubmit (0.003 seconds)
+    ✔ testNetworkDropOnSubmitFailsAndClearsQueueEntry (0.005 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.021 (0.023) seconds
+Test Suite 'JoinRequestConfirmationFluidityTests' started at 2026-08-24 23:45:39.098.
+    ✔ testCardPresentationLatencyP95Under400Milliseconds (0.025 seconds)
+    ✔ testConfirmToSucceededTransitionWellBelowSixHundredMilliseconds (0.003 seconds)
+Executed 2 tests, with 0 failures (0 unexpected) in 0.028 (0.028) seconds
+Test Suite 'JoinRequestConfirmationViewModelTests' started at 2026-08-24 23:45:39.126.
+    ✔ testCardPresentationDerivesFingerprintAndSafeDisplayFields (0.003 seconds)
+    ✔ testConfirmIsIdempotentAcrossDoubleTap (0.028 seconds)
+    ✔ testConfirmSignsSubmitsAndConfirmsQueueEntry (0.003 seconds)
+    ✔ testCountdownExpiryDismissesQueueEntry (0.002 seconds)
+    ✔ testDismissAfterFailedTransitionsToDismissed (0.002 seconds)
+    ✔ testDismissAfterSucceededTransitionsToDismissed (0.002 seconds)
+    ✔ testDoubleTapDoesNotEmitTransientDismissedDuringConfirm (0.030 seconds)
+    ✔ testMachineJoinErrorsResolveLocalizedMessages (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.072 (0.075) seconds
+Test Suite 'LegacyBoundaryUsageTests' started at 2026-08-24 23:45:39.201.
+    ✔ test_clawAPITargetHouseholdFallback_doesNotExistInIOSUI (0.176 seconds)
+    ✔ test_clawDetailViewsRouteInFlightEnablementThroughPolicy (0.025 seconds)
+    ✔ test_clawDetailViewsUseSharedActionAvailabilityPolicy (0.022 seconds)
+    ✔ test_clawInstallTargetResolver_usesTheyOSCacheNotPresenceClient (0.010 seconds)
+    ✔ test_clawSetupPerformanceSelector_ownsAccessibilitySelectionState (0.014 seconds)
+    ✔ test_clawSetupView_doesNotOwnRoutingOrResourcePolicy (0.014 seconds)
+    ✔ test_clawStoreView_isAlwaysConstructedWithInstallTarget (0.170 seconds)
+    ✔ test_clawStoreViewsConsultInstallability (0.031 seconds)
+    ✔ test_guestImageRecovery_isReasonCoded_noRawStringPrimary (0.027 seconds)
+    ✔ test_guestImageRecoveryViewsUseSharedPolicyCTA (0.018 seconds)
+    ✔ test_householdSessionStoreConstruction_onlyInBoundaryFiles (0.170 seconds)
+    ✔ test_iosCatalogDoesNotReDeriveInstallabilityInline (0.020 seconds)
+    ✔ test_iosCatalogInstallSurfacesUseActionPolicy (0.019 seconds)
+    ✔ test_macClawStoreSurface_doesNotCoupleToLegacyStores (0.030 seconds)
+    ✔ test_macClawSurfacesConsultInstallability (0.028 seconds)
+    ✔ test_macGuestImageRecovery_isReasonCoded_noRawStringPrimary (0.020 seconds)
+    ✔ test_noClawNameLiteralsInIOSUI (0.177 seconds)
+    ✔ test_noClawNameLiteralsInMacUI (0.359 seconds)
+    ✔ test_noInstallabilityRuleDuplicationInIOSUI (0.276 seconds)
+    ✔ test_noInstallabilityRuleDuplicationInMacUI (0.501 seconds)
+    ✔ test_pairedMacsStoreMacs_onlyInBoundaryFiles (0.170 seconds)
+    ✔ test_sessionStorePairedServers_onlyInBoundaryFiles (0.170 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 2.446 (2.452) seconds
+Test Suite 'M0bProvisioningSmokeTests' started at 2026-08-24 23:45:41.653.
+    ✔ testAppGroupRoundTrip (0.003 seconds)
+    ⊘ testDiagnoseExistingTunnelProviderManagers (0.006 seconds)
+    ⊘ testExtensionLoadsReadsKeychainAndCallsFFI (0.001 seconds)
+    ⊘ testKeychainAccessibilityCanaryUnderLock (0.003 seconds)
+Executed 4 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.012 (0.013) seconds
+Test Suite 'MachineJoinFailoverIntegrationTests' started at 2026-08-24 23:45:41.666.
+    ✔ testIPhoneToleratesAPNSSenderSwitchoverDuringStory1 (0.008 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'MachineJoinStory1IntegrationTests' started at 2026-08-24 23:45:41.675.
+    ✔ testBonjourOriginJoinReachesGossipAppliedMembershipUnder15Seconds (0.008 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'MachineJoinStory2IntegrationTests' started at 2026-08-24 23:45:41.684.
+    ✔ testQRScannedJoinReachesGossipAppliedMembershipUnder25Seconds (0.007 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'NatProbeDeviceTests' started at 2026-08-24 23:45:41.691.
+    ✔ testDefaultSettingsABI (0.003 seconds)
+    ⊘ testLiteralAddressReachabilityOnCurrentNetwork (0.001 seconds)
+    ⊘ testObserveFromCurrentNetwork (0.001 seconds)
+Executed 3 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'OwnerApprovalV2ReviewPresentationTests' started at 2026-08-24 23:45:41.697.
+    ✔ test_adapterRunsPinBeforeConfirmAndCompletesQueueLifecycle (0.002 seconds)
+    ✔ test_reviewViewIsPhaseOnlyWYSIWYSAndDoesNotExposeOracleInputs (0.005 seconds)
+    ✔ test_runtimeKeepsApprovalV2ReviewDefaultOffAndPreservesV1Host (0.008 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.015 (0.016) seconds
+Test Suite 'OwnerEventsCoordinatorTests' started at 2026-08-24 23:45:41.713.
+    ✔ testAPNSIntegrityErrorDoesNotTriggerBackgroundFetch (0.024 seconds)
+    ✔ testAPNSTickleDoesNotStartBackgroundFetchWhileForegroundPollRuns (0.022 seconds)
+    ✔ testAPNSTickleTriggersOneBackgroundFetch (0.001 seconds)
+    ✔ testBackgroundSuspendsAndForegroundRestartsLongPoll (0.001 seconds)
+    ✔ testForegroundPollFailureSurfacesTypedError (0.001 seconds)
+    ✔ testForegroundStartsLongPoll (0.001 seconds)
+    ✔ testRepeatedForegroundDoesNotStartDuplicatePollers (0.022 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.072 (0.074) seconds
+Test Suite 'OwnerPasskeyEnrollmentPresentationTests' started at 2026-08-24 23:45:41.788.
+    ✔ test_composerWiresOrchestratorStatusAndDegradesGracefully (0.001 seconds)
+    ✔ test_enrollmentInsertedBetweenPairingSuccessAndRecovery (0.002 seconds)
+    ✔ test_enrollmentViewConsumesViewModelPhaseAndActions (0.002 seconds)
+    ✔ test_enrollmentViewNeverBranchesOnError (0.001 seconds)
+    ✔ test_routeVocabularyKeepsAllFifteenCasesWithoutMovingRootHandlers (0.005 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.012 (0.013) seconds
+Test Suite 'PairDeviceFingerprintWordsTests' started at 2026-08-24 23:45:41.801.
+    ✔ testDifferentHomesHaveDifferentHomeFingerprints (0.003 seconds)
+    ✔ testPairDeviceAndDevicePairingShareFingerprintWhenNonceMatches (0.003 seconds)
+    ✔ testReturnsBLAKE3DerivedWordsForDevicePairingURL (0.003 seconds)
+    ✔ testReturnsBLAKE3DerivedWordsForValidURL (0.003 seconds)
+    ✔ testSameHomeWithDifferentNoncesHasDifferentFingerprints (0.003 seconds)
+    ✔ testThrowsOnExpiredURL (0.002 seconds)
+    ✔ testThrowsOnInvalidPublicKey (0.001 seconds)
+    ✔ testThrowsOnUnsupportedScheme (0.001 seconds)
+Executed 8 tests, with 0 failures (0 unexpected) in 0.018 (0.020) seconds
+Test Suite 'ParkingLotSnapshotTests' started at 2026-08-24 23:45:41.822.
+    ✔ testParkingLot_ar_RTL (0.228 seconds)
+    ✔ testParkingLot_en (0.122 seconds)
+    ✔ testParkingLot_en_AX5 (0.052 seconds)
+    ✔ testParkingLot_ja (0.219 seconds)
+    ✔ testParkingLot_ptBR (0.119 seconds)
+Executed 5 tests, with 0 failures (0 unexpected) in 0.740 (0.742) seconds
+Test Suite 'QRScannerViewMachineDispatchTests' started at 2026-08-24 23:45:42.563.
+    ✔ testADifferentInviteMidClaimIsDroppedAndNamedAsSuchNotAsADuplicate (0.000 seconds)
+    ✔ testADifferentInviteWhileAwaitingReplacesTheOlderOne (0.000 seconds)
+    ✔ testAnAttemptedSlotStaysRefusedAcrossAnUnrelatedInviteComingAndGoing (0.000 seconds)
+    ✔ testAnAttemptedSlotStaysRefusedAfterAnotherInviteIsAlsoAttempted (0.001 seconds)
+    ✔ testASettledInviteStaysRefusedWhileADifferentOneIsStillWelcome (0.001 seconds)
+    ✔ testAStaleCancelFromAReplacedSheetDoesNotClearTheInviteThatReplacedIt (0.001 seconds)
+    ✔ testAStaleConfirmFromAReplacedSheetDoesNotAuthoriseTheInviteThatReplacedIt (0.001 seconds)
+    ✔ testAStaleFinishMarksNothingAndLeavesTheOpeningSubjectIntact (0.000 seconds)
+    ✔ testCancelAfterConfirmDoesNotReopenAnAttemptedInvite (0.001 seconds)
+    ✔ testCancelAttemptsNothingAndACancelledInviteCannotBeConfirmed (0.001 seconds)
+    ✔ testCancelBeforeAnyAttemptLeavesTheSlotPresentableAgain (0.000 seconds)
+    ✔ testClawShareInviteInvalidReturnsTypedScanError (0.003 seconds)
+    ✔ testClawShareInviteOpensMainStoryboardSoAGuestWithNoHouseholdCanSeeIt (0.001 seconds)
+    ✔ testClawShareInviteRoutesOnlyThroughScannerDispatcher (0.001 seconds)
+    ✔ testClawShareInviteURLIsClaimedByTheDeepLinkMatcher (0.001 seconds)
+    ✔ testColdLaunchWithAnInviteAndNoHouseholdOpensMainNotMacDiscovery (0.001 seconds)
+    ✔ testColdLaunchWithoutAnInviteKeepsOnboarding (0.001 seconds)
+    ✔ testDeepLinkMatcherIgnoresEveryOtherRoutedURLShape (0.001 seconds)
+    ✔ testDoubleConfirmAttemptsExactlyOnce (0.000 seconds)
+    ✔ testInviteOutranksTheCarouselOnADeviceThatAlreadyHasAHousehold (0.001 seconds)
+    ✔ testLegacyTheyOSConnectStillRoutesThroughLegacyResult (0.001 seconds)
+    ✔ testLegacyTheyOSPairRoutesFromLinuxOnboarding (0.001 seconds)
+    ✔ testMalformedClawShareURLIsClaimedThenRefused (0.001 seconds)
+    ✔ testMalformedClawShareURLStillRoutesAndIsRefusedDownstreamNotHere (0.001 seconds)
+    ✔ testNonInviteURLsLeaveOnboardingUntouched (0.001 seconds)
+    ✔ testOnboardingLaunchIntentOpensQRScannerOnlyOnce (0.005 seconds)
+    ✔ testPairDeviceRefusedWhenSessionAlreadyActive (0.001 seconds)
+    ✔ testPairDeviceRoutesToPhase2PairingWhenNoActiveHousehold (0.001 seconds)
+    ✔ testPairMachineRequiresActiveHouseholdBeforeEnvelopeEmission (0.001 seconds)
+    ✔ testPairMachineRoutesToJoinRequestEnvelope (0.001 seconds)
+    ✔ testRedeliveryWhileAwaitingNeitherLosesNorDuplicates (0.001 seconds)
+    ✔ testRestoredFromBackupOutranksAnInvite (0.001 seconds)
+    ✔ testSameInviteDeliveredTwicePresentsOnceAndAttemptsNothing (0.000 seconds)
+    ✔ testServerPairingDeepLinksOpenMainStoryboardDuringOnboarding (0.001 seconds)
+    ✔ testTheInviteSheetActionsAreWiredThroughTheGate (0.005 seconds)
+    ✔ testWarmInviteSwapsRootWhenNotAlreadyOnMain (0.001 seconds)
+    ✔ testWarmNonInviteNeverSwapsRoot (0.001 seconds)
+Executed 37 tests, with 0 failures (0 unexpected) in 0.038 (0.059) seconds
+Test Suite 'RelayStreamGuestIPTunnelSessionAdapterTests' started at 2026-08-24 23:45:42.623.
+    ✔ testDataFrameReturnsOnlyStructurallyValidPacket (0.001 seconds)
+    ✔ testOutboundMalformedPacketIsRejectedBeforeFFI (0.003 seconds)
+    ✔ testPTYAndDuplicateHandshakeFramesFailClosed (0.002 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'RelayStreamIPTunnelControllerTests' started at 2026-08-24 23:45:42.629.
+    ✔ testActivateFailsClosedBeforeOfferSigningOrPreferencesWhenGateDisabled (0.003 seconds)
+    ✔ testActivateRejectsClaimedGroupMismatchBeforePreferencesMutation (0.002 seconds)
+    ✔ testActivateSignsInHostPersistsOnlyStaticConfigAndStartsWithEphemeralOptions (0.010 seconds)
+    ✔ testEphemeralStartOptionsRejectExpiredAndGuestMismatchedMaterial (0.003 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.018 (0.019) seconds
+Test Suite 'RelayStreamIPTunnelNetworkSettingsTests' started at 2026-08-24 23:45:42.649.
+    ✔ testAcceptsPointToPoint31PoolWithoutWideningRoute (0.001 seconds)
+    ✔ testBuildsPoolRouteWithoutInstallingDefaultRoute (0.001 seconds)
+    ✔ testRejectsDefaultRouteAndPeerOutsideAuthenticatedPool (0.001 seconds)
+    ✔ testRejectsNetworkBroadcastAndNonUnicastAssignments (0.001 seconds)
+Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+Test Suite 'RelayStreamIPTunnelValidatorParityTests' started at 2026-08-24 23:45:42.654.
+    ✔ testValidatorParityTableMatchesTheSwiftValidator (0.002 seconds)
+Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'RelayStreamOpenControllerTests' started at 2026-08-24 23:45:42.656.
+    ✔ testOpenForwardsClaimedRelayStreamOfferCredentialAndSigner (0.001 seconds)
+    ✔ testOpenGroupOfferForwardsOfferWithoutCredentialAndSigner (0.002 seconds)
+    ✔ testOpenGroupOfferRejectsGroupAndMemberMismatchBeforeDialing (0.003 seconds)
+    ✔ testOpenGroupOfferRejectsNonGroupAudienceBeforeDialing (0.002 seconds)
+    ✔ testOpenGroupOfferRejectsWrongResourceAndPathBeforeDialing (0.003 seconds)
+    ✔ testOpenPropagatesOpenerFailure (0.002 seconds)
+    ✔ testOpenRejectsClaimedSessionWithoutRelayStreamOffer (0.001 seconds)
+Executed 7 tests, with 0 failures (0 unexpected) in 0.014 (0.017) seconds
+Test Suite 'RosterActivationProviderTests' started at 2026-08-24 23:45:42.673.
+    ✔ testAuthorityHouseholdMismatchYieldsNil (0.002 seconds)
+    ✔ testBootstrapAndResolveHappenExactlyOnce (0.003 seconds)
+    ✔ testBootstrapFailureYieldsNil (0.002 seconds)
+    ✔ testBootstrapReceivesCallerSuppliedSigner (0.002 seconds)
+    ✔ testCandidateForForeignMachineYieldsNil (0.002 seconds)
+    ✔ testResolutionIsRequestedForAuthenticatedSelfMachine (0.003 seconds)
+    ✔ testResolvedCandidateProducesActivator (0.006 seconds)
+    ✔ testSnapshotHouseholdMismatchYieldsNil (0.002 seconds)
+    ✔ testUnavailableResolutionYieldsNil (0.002 seconds)
+    ✔ testUnresolvedResolutionYieldsNil (0.002 seconds)
+Executed 10 tests, with 0 failures (0 unexpected) in 0.026 (0.030) seconds
+Test Suite 'RosterAlertPresentationTests' started at 2026-08-24 23:45:42.704.
+    ✔ test_activeIdentityPreservesTheUngatedResolution (0.001 seconds)
+    ✔ test_everyDegradedReasonShowsNoBanner (0.001 seconds)
+    ✔ test_everyTamperCategoryShowsUnverifiableBanner (0.001 seconds)
+    ✔ test_identityGateChangesTheOutcomeForAlertingStates (0.001 seconds)
+    ✔ test_inactiveIdentitySilencesEveryConstructibleState (0.001 seconds)
+    ✔ test_onlyRePairingAndTamperAreVisible (0.001 seconds)
+    ✔ test_onlyRePairRequiredOffersASettingsAction (0.001 seconds)
+    ✔ test_presentationsFromDifferentPayloadsAreEqual (0.001 seconds)
+    ✔ test_requiresRePairingShowsRePairBanner (0.001 seconds)
+    ✔ test_resolveAgreesWithExhaustiveWitness (0.001 seconds)
+    ✔ test_resolvedPresentationCarriesNoPayloadFromTheState (0.018 seconds)
+    ✔ test_staleAlertingStateShowsNoBannerWhenIdentityIsInactive (0.001 seconds)
+    ✔ test_unknownShowsNoBanner (0.001 seconds)
+Executed 13 tests, with 0 failures (0 unexpected) in 0.026 (0.031) seconds
+Test Suite 'SecureUpgradeAppAttestCaptureTests' started at 2026-08-24 23:45:42.735.
+    ⊘ testCaptureRealIphoneAppAttestPositiveFixture (0.001 seconds)
+Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ServerRegistryTests' started at 2026-08-24 23:45:42.737.
+    ✔ testCount_matchesServersCount (0.114 seconds)
+    ✔ testDefaultMacAliasWritesCanonicalStoreSynchronously (0.043 seconds)
+    ✔ testLinuxServers_linuxOnly (0.025 seconds)
+    ✔ testMacs_macsOnly (0.028 seconds)
+    ✔ testMarkMacPairingSeenWritesCanonicalStoreSynchronously (0.043 seconds)
+    ✔ testPairedMac_returnsLegacyValueForMacKind (0.030 seconds)
+    ✔ testPairedMac_returnsNilForLinuxKind (0.028 seconds)
+    ✔ testPairedMac_returnsNilForUnknownID (0.008 seconds)
+    ✔ testPairedMacLegacyMutationRefreshesRegistrySynchronously (0.023 seconds)
+    ✔ testRefreshFromLegacyStoresCollapsesNewMacRecordsWithSameEngineMachineId (0.040 seconds)
+    ✔ testRefreshFromLegacyStoresKeepsSecretOwningMacIDCanonical (0.043 seconds)
+    ✔ testRefreshFromLegacyStoresPreservesCanonicalTheyOSStatus (0.031 seconds)
+    ✔ testRemove_linuxClearsSessionStore (0.031 seconds)
+    ✔ testRemove_linuxDropsCanonicalStoreSynchronously (0.025 seconds)
+    ✔ testRemove_macClearsPairedMacsStore (0.024 seconds)
+    ✔ testRemove_macDropsCanonicalStoreSynchronously (0.020 seconds)
+    ✔ testRemove_unknownIDIsNoOp (0.006 seconds)
+    ✔ testRename_linuxDispatchesToSessionStore (0.032 seconds)
+    ✔ testRename_linuxWritesCanonicalStoreSynchronously (0.293 seconds)
+    ✔ testRename_macDispatchesToPairedMacsStore (0.050 seconds)
+    ✔ testRename_macWritesCanonicalStoreSynchronously (0.052 seconds)
+    ✔ testRename_rejectsDuplicateAcrossKinds (0.044 seconds)
+    ✔ testRename_rejectsDuplicateVisibleNameAcrossKinds (0.039 seconds)
+    ✔ testRename_rejectsEmptyAlias (0.035 seconds)
+    ✔ testRename_returnsSuccessWhenAliasUnchanged (0.039 seconds)
+    ✔ testUpdateMacPairingDisplayNameWritesCanonicalStoreSynchronously (0.031 seconds)
+    ✔ testUpdateMacPairingEndpointsWritesCanonicalStoreSynchronously (0.030 seconds)
+    ✔ testUpsertMacPairingWritesLegacyAndCanonicalStoreSynchronously (0.023 seconds)
+Executed 28 tests, with 0 failures (0 unexpected) in 1.231 (1.240) seconds
+Test Suite 'ShareAppViewModelTests' started at 2026-08-24 23:45:43.977.
+    ✔ test_copyLinkDoesNothingOutsideTheSharedPhase (0.008 seconds)
+    ✔ test_copyLinkWritesTheCurrentLinkWhileShared (0.005 seconds)
+    ✔ test_dayQualifierIsOtherForAFarExpiry (0.001 seconds)
+    ✔ test_dayQualifierIsTodayForASameDayExpiry (0.001 seconds)
+    ✔ test_dayQualifierIsTomorrowForA24HourInvite (0.001 seconds)
+    ✔ test_dayQualifierUsesTheGivenCalendarsTimeZoneAcrossAMidnightUTCBoundary (0.001 seconds)
+    ✔ test_duplicateDisplayNamesStayIndependentlySelectableAndMintTheCorrectAppID (0.005 seconds)
+    ✔ test_everyNonRunningReadinessWarnsAndMintingStaysPermitted (0.008 seconds)
+    ✔ test_loadFailureSurfacesInsteadOfShowingAnEmptyPicker (0.004 seconds)
+    ✔ test_loadListsAppsAndDoesNotPreselectWhenThereIsAChoice (0.001 seconds)
+    ✔ test_mintFailureSurfacesAndDoesNotClaimSuccess (0.001 seconds)
+    ✔ test_noWarningBeforeAnAppIsSelected (0.001 seconds)
+    ✔ test_runningAppDoesNotShowTheWarning (0.001 seconds)
+    ✔ test_shareAnotherReturnsToThePickerKeepingTheAppList (0.004 seconds)
+    ✔ test_shareDoesNothingWithoutASelection (0.001 seconds)
+    ✔ test_shareMintsForTheSelectedAppAndChosenDuration (0.003 seconds)
+    ✔ test_shareStillReachesSharedPhaseAndKeepsTheCurrentLinkWhenCacheStoreFails (0.001 seconds)
+    ✔ test_shareStoresTheMintedLinkInTheCacheWithTheInvitesUriAndSlotId (0.001 seconds)
+    ✔ test_singleAppIsPreselected (0.001 seconds)
+    ✔ test_staleSelectionIsClearedWhenTheAppDisappears (0.001 seconds)
+    ✔ test_stoppedAppShowsTheWarningAndMintingIsStillPermitted (0.003 seconds)
+    ✔ test_unambiguousExpiryLabelNeverShowsABareClockTimeForA24HourInvite (0.001 seconds)
+Executed 22 tests, with 0 failures (0 unexpected) in 0.051 (0.057) seconds
+Test Suite 'SoyehtIdentityTests' started at 2026-08-24 23:45:44.035.
+    ✔ testActive_isNil_forUnknownInactiveUnavailable (0.009 seconds)
+    ✔ testDebugResetterDoesNotTargetShippingHouseholdFromDevProfile (0.000 seconds)
+    ✔ testFreshInstallSweeperDoesNotTargetShippingHouseholdFromDevProfile (0.000 seconds)
+    ✔ testHouseCreatedReceived_triggersReload (0.007 seconds)
+    ✔ testIsActive_isTrue_onlyForActiveState (0.002 seconds)
+    ✔ testProtectedDataDidBecomeAvailable_triggersReload (0.002 seconds)
+    ✔ testReload_movesToActive_whenStoreHasEntry (0.002 seconds)
+    ✔ testReload_movesToInactive_whenStoreEmpty (0.001 seconds)
+    ✔ testReload_movesToUnavailable_decodingFailed_whenStoreThrows (0.001 seconds)
+    ✔ testReload_movesToUnavailable_protectedDataUnavailable_whenLocked (0.002 seconds)
+    ✔ testReload_promotesUnavailable_toActive_whenProtectedDataBecomesAvailable (0.002 seconds)
+    ✔ testSnapshot_allows_delegatesToPersonCert (0.001 seconds)
+    ✔ testSnapshot_displayName_isHouseholdName (0.001 seconds)
+    ✔ testSnapshot_endpoint_isStoreEndpoint (0.001 seconds)
+    ✔ testSnapshot_id_isHouseholdId (0.001 seconds)
+    ✔ testSnapshot_underlying_returnsExactStoredState (0.001 seconds)
+    ✔ testThisDevice_alwaysAvailable_evenWithoutTenant (0.001 seconds)
+    ✔ testThisDevice_localPairingDeviceId_isInjectedValue (0.001 seconds)
+Executed 18 tests, with 0 failures (0 unexpected) in 0.034 (0.039) seconds
+Test Suite 'SoyehtTests.xctest' passed at 2026-08-24 23:45:44.073.
+Executed 488 tests, with 6 tests skipped and 0 failures (0 unexpected) in 10.261 (10.468) seconds
+Test Suite 'All tests' passed at 2026-08-24 23:45:44.074.
+Executed 488 tests, with 6 tests skipped and 0 failures (0 unexpected) in 10.261 (10.469) seconds
+Test run started.
+Suite "ServerListView — SessionStore integration" started
+Suite ShortcutBarCatalogTests started
+Suite "SoyehtAPIClient" started
+Suite TerminalPreferencesTests started
+Suite "ClawAvailability" started
+Suite SourceCommentStripperTests started
+Suite "ClawViewModelAsync" started
+Suite "ClawSetupViewModel" started
+Suite "ClawSetupViewModel injected servers" started
+Suite "ClawModels" started
+Suite "Claw API Endpoints" started
+Suite "NavigationState — persistence, restore logic, and cleanup" started
+Suite ColorThemeTests started
+Suite "ClawStoreViewModel" started
+Suite "I18n Smoke" started
+Suite ANSIParserTests started
+Suite HapticZoneModelTests started
+Suite HapticPreferencesTests started
+Suite ShortcutBarItemTests started
+Suite "PairingCoordinator — reinstall recovery" started
+Suite PairedMacAliasTests started
+Suite "PairedMacRegistry" started
+Suite TypographyTests started
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" started
+Suite "HouseholdCreatedInstancesLoader" started
+Suite "ClipboardWriter" started
+Suite "HouseholdCreatedInstancesStore" started
+Suite "ClawDetailViewModel" started
+Suite WorkflowPresetTests started
+Suite "MacPresenceClient — PR#4 wire handler coverage" started
+Suite ShortcutBarPreferencesTests started
+    ✔ "division and multiplication operators are not treated as comments" (0.024 seconds)
+    ✔ "nested block comments are fully stripped" (0.024 seconds)
+    ✔ "token in a code line is seen" (0.024 seconds)
+    ✔ "a block-open sequence inside a line comment does not start a block" (0.024 seconds)
+    ✔ "token in an inline block comment is not seen, code around it stays" (0.024 seconds)
+    ✔ "code after a block comment terminator is seen again" (0.024 seconds)
+    ✔ "Default font size is 13 when nothing is stored" (0.025 seconds)
+    ✔ "a line-comment sequence inside a block comment stays inside the block" (0.025 seconds)
+    ✔ "token in a multi-line block comment is not seen" (0.024 seconds)
+    ✔ "token in a trailing // comment is not seen, but the code stays" (0.025 seconds)
+    ✔ "iOS SessionStore alias points at the SoyehtCore shared store" (0.024 seconds)
+    ✔ "Unrecognized SGR codes are skipped without crash" (0.024 seconds)
+    ✔ "SGR 3 enables italic, 23 disables it" (0.024 seconds)
+    ✔ "Plain text preserves content and attaches a font" (0.024 seconds)
+    ✔ "Empty string returns empty AttributedString" (0.025 seconds)
+    ✔ "token in a full // line is not seen" (0.025 seconds)
+    ✔ "Bold ANSI code produces a run" (0.025 seconds)
+    ✔ "Non-SGR CSI sequences are skipped" (0.025 seconds)
+    ✔ "No key maps to alphanumeric zone (it uses onSoftKeyboardInput)" (0.025 seconds)
+    ✔ "SoyehtCore catalog sentinels resolve in every supported locale" with 15 test cases (0.024 seconds)
+    ✔ "Reset code splits into separate runs" (0.025 seconds)
+    ✔ "Font size parameter is respected across sizes" (0.025 seconds)
+    ✔ "256-color codes parse without crash" (0.025 seconds)
+    ✔ "RGB true color codes parse without crash" (0.025 seconds)
+    ✔ "Claw decodes from backend JSON with embedded availability" (0.025 seconds)
+    ✔ "Unknown key returns nil" (0.033 seconds)
+    ✔ "iOS app catalog sentinels resolve in every supported locale" with 15 test cases (0.025 seconds)
+    ✔ "groupedOptions has 4 groups in correct order" (0.096 seconds)
+    ✔ "Ctrl and Alt map to tactile zone" (0.096 seconds)
+    ✔ "Tab maps to tactile zone" (0.096 seconds)
+    ✔ "Zone icons are non-empty SF Symbol names" (0.096 seconds)
+    ✔ "Every HapticType has a category" (0.096 seconds)
+    ✔ "Default haptic types match spec" (0.096 seconds)
+    ✔ "Kill maps to clicky zone" (0.096 seconds)
+    ✔ "Enter maps to clicky zone" (0.096 seconds)
+    ✔ "Kill item has danger style" (0.099 seconds)
+    ✔ "groupedOptions contains all cases exactly once" (0.099 seconds)
+    ✔ "resolve finds builtins by ID" (0.099 seconds)
+    ✔ "HapticZone round-trips through Codable" (0.099 seconds)
+    ✔ "hapticEnabled defaults to true when nothing stored" (0.099 seconds)
+    ✔ "Every key bar item label has a zone mapping" (0.099 seconds)
+    ✔ "allBuiltins has 14 items matching the real key bar" (0.099 seconds)
+    ✔ "paneSwipe maps to gestures zone" (0.099 seconds)
+    ✔ "Arrow keys map to tactile zone" (0.099 seconds)
+    ✔ "Zone displayNames are non-empty English strings" (0.116 seconds)
+    ✔ "Builtin IDs are unique" (0.099 seconds)
+    ✔ "S-Tab and / map to tactile zone" (0.099 seconds)
+    ✔ "displayName starts with dot for all except disabled" (0.116 seconds)
+    ✔ "resolve finds popular shortcuts by ID" (0.099 seconds)
+    ✔ "defaultBarOrder has same count and IDs as allBuiltins" (0.116 seconds)
+    ✔ "Ctrl+D produces byte 0x04" (0.115 seconds)
+    ✔ "resolve returns nil for unknown ID" (0.116 seconds)
+    ✔ "Active defaults to soyehtDark when no preference set" (0.116 seconds)
+    ✔ "Enter item has action style" (0.116 seconds)
+    ✔ "Alt+X produces ESC prefix + x" (0.115 seconds)
+    ✔ "Text command uses custom label when provided" (0.115 seconds)
+    ✔ "Custom shortcut IDs start with 'custom.'" (0.112 seconds)
+    ✔ "Ctrl+Z produces byte 0x1A" (0.113 seconds)
+    ✔ "Text command truncates auto-label at 8 chars" (0.113 seconds)
+    ✔ "Text command produces UTF-8 bytes of the string" (0.113 seconds)
+    ✔ "Empty label falls back to auto-generated" (0.113 seconds)
+    ✔ "resolve finds custom items" (0.117 seconds)
+    ✔ "bootstrap is idempotent" (0.107 seconds)
+    ✔ "popularShortcuts has 6 items" (0.116 seconds)
+    ✔ "Custom label overrides auto-generated label" (0.114 seconds)
+    ✔ "Codable round-trip preserves all fields" (0.114 seconds)
+    ✔ "Italic variant uses the Italic PostScript name" (0.107 seconds)
+    ✔ "addServer stores servers retrievable by ID" (0.120 seconds)
+    ✔ "round-trip preserves all fields" (0.118 seconds)
+    ✔ "allBuiltins includes PgUp and PgDn" (0.116 seconds)
+    ✔ "Ctrl+C produces byte 0x03" (0.113 seconds)
+    ✔ "Family name is 'JetBrains Mono'" (0.097 seconds)
+    ✔ "HapticType round-trips through Codable" (0.118 seconds)
+    ✔ "Each bundled weight returns a non-nil UIFont" (0.097 seconds)
+    ✔ "All JetBrains Mono PostScript names resolve after bootstrap" (0.107 seconds)
+    ✔ "monoUIFont returns JetBrains Mono regardless of requested weight" (0.096 seconds)
+    ✔ "Bold+italic variant uses BoldItalic PostScript name" (0.097 seconds)
+    ✔ "round trip, upsert, isolation, prune, and remove" (0.097 seconds)
+    ✔ "All presets resolve their items without errors" (0.095 seconds)
+Suite ANSIParserTests passed after 0.120 seconds
+    ✔ "decodes a minimal snapshot entry" (0.097 seconds)
+    ✔ "deploy calls household-created handler only for household endpoint targets" (0.119 seconds)
+Suite SourceCommentStripperTests passed after 0.120 seconds
+    ✔ "Preset keyCount matches itemIDs count" (0.095 seconds)
+    ✔ "UIKit grouped UI tokens respect minimum readable size" (0.097 seconds)
+    ✔ "Installing payload decodes with typed status and phase" (0.118 seconds)
+Suite "I18n Smoke" passed after 0.120 seconds
+Suite ShortcutBarCatalogTests passed after 0.121 seconds
+    ✔ "tmux preset includes Prefix and Dtch items" (0.095 seconds)
+Suite HapticZoneModelTests passed after 0.125 seconds
+    ✔ "Default activeIDs matches catalog defaultBarOrder" (0.095 seconds)
+Suite "HouseholdCreatedInstancesStore" passed after 0.130 seconds
+Suite TypographyTests passed after 0.130 seconds
+Suite ShortcutBarItemTests passed after 0.130 seconds
+Suite WorkflowPresetTests passed after 0.132 seconds
+    ✔ "getClaws sends GET to /api/v1/mobile/claws with Bearer token" (0.119 seconds)
+    ✔ "defaults title to id and agent to shell when missing" (0.001 seconds)
+    ✔ "Saves and loads custom font size with minimum" (0.024 seconds)
+    ✔ "hapticEnabled persists false when set" (0.023 seconds)
+    ✔ "returns nil when empty" (0.024 seconds)
+    ✔ "Mac without context loads household-created status and caches under server id" (0.142 seconds)
+    ✔ "createNewWorkspace without name sends empty JSON body {}" (0.024 seconds)
+    ✔ "transient household list error keeps cached line without local records" (0.142 seconds)
+    ✔ "Claw installState maps install axis correctly across states" (0.024 seconds)
+    ✔ "Valid UTF-8 clipboard payload is written" (0.131 seconds)
+    ✔ "Persistence round trip works" (0.024 seconds)
+    ✔ "Creatable payload decodes (succeeded + no host issues)" (0.022 seconds)
+    ✔ "Mac without context uses household list without local records" (0.141 seconds)
+    ✔ "Default resolved items has 14 items" (0.022 seconds)
+    ✔ "ClawsResponse decodes items wrapper" (0.002 seconds)
+    ✔ "parses ISO8601 createdAt" (0.003 seconds)
+    ✔ "Installed-but-blocked by maintenance (realistic fixture)" (0.002 seconds)
+    ✔ "returns nil when id missing" (0.001 seconds)
+    ✔ "Returns default for invalid values and clamps below minimum" (0.037 seconds)
+    ✔ "Mac with ServerContext skips household-created loader" (0.181 seconds)
+    ✔ "Invalid rawValue falls back to soyehtDark" (0.037 seconds)
+    ✔ "Claw Hashable uses name only — mutating availability preserves hash" (0.035 seconds)
+    ✔ "Default shortcutBarLabel is 'Default'" (0.035 seconds)
+    ✔ "hapticType returns zone default when nothing stored" (0.038 seconds)
+    ✔ "Installed-but-blocked by missing cold path" (0.035 seconds)
+    ✔ "Each theme has exactly 16 ANSI hex colors" (0.002 seconds)
+    ✔ "decodes mirror metadata for workspace panes" (0.003 seconds)
+    ✔ "Install failed decodes error string from install.error" (0.001 seconds)
+    ✔ "workspace entry orders panes by layout tree" (0.001 seconds)
+    ✔ "workspace entry keeps non-attachable empty panes in layout order" (0.001 seconds)
+    ✔ "icon mapping — claude → sparkles, codex → curlybraces, hermes → bolt, shell → terminal" (0.001 seconds)
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" passed after 0.198 seconds
+    ✔ "Unknown discriminators fall through safely" (0.001 seconds)
+    ✔ "Degradation base_rootfs_missing_but_golden_present decodes" (0.001 seconds)
+    ✔ "ResourceOptions decodes from API JSON" (0.041 seconds)
+    ✔ "clear removes state" (0.082 seconds)
+    ✔ "Invalid UTF-8 clipboard payload is ignored" (0.081 seconds)
+    ✔ "createNewWorkspace with name sends display_name in body" (0.082 seconds)
+    ✔ "household list is unioned with local records that still have status" (0.215 seconds)
+    ✔ "transient status error keeps cached household-created line" (0.215 seconds)
+    ✔ "Default cursor style is blinkBlock when nothing is stored" (0.043 seconds)
+    ✔ "active server is identified correctly" (0.105 seconds)
+    ✔ "404 prunes household-created record and clears server cache" (0.215 seconds)
+    ✔ "Palette and swiftUIPalette derive same count from ansiHex" (0.040 seconds)
+    ✔ "Custom activeIDs changes label to 'Custom'" (0.043 seconds)
+    ✔ "setHapticType updates and persists correctly" (0.043 seconds)
+Suite "ClipboardWriter" passed after 0.239 seconds
+Suite "HouseholdCreatedInstancesLoader" passed after 0.239 seconds
+    ✔ "getClawAvailability sends GET to /api/v1/mobile/claws/{name}/availability" (0.107 seconds)
+    ✔ "APIErrorBody decodes the full claw error contract" (0.003 seconds)
+    ✔ "ClawUser decodes from JSON" (0.002 seconds)
+    ✔ "APIErrorBody decodes 503 maintenance with retryAfterSecs" (0.001 seconds)
+    ✔ "APIErrorBody preserves error+code when reasons vocabulary drifts" (0.001 seconds)
+    ✔ "APIErrorBody decodes minimal body (only error string)" (0.001 seconds)
+    ✔ "UsersResponse decodes wrapped array" (0.022 seconds)
+    ✔ "resolvedActiveItems skips unknown IDs gracefully" (0.024 seconds)
+    ✔ "setHapticType does not affect other zones" (0.024 seconds)
+    ✔ "expired >24h returns nil" (0.025 seconds)
+    ✔ "Preview swatches returns exactly 4 colors" (0.024 seconds)
+    ✔ "Saves and loads custom cursor style" (0.025 seconds)
+    ✔ "succeeded + blocked → .installedButBlocked (isInstalled ∧ ¬canCreate)" (0.001 seconds)
+    ✔ "getResourceOptions sends GET to /api/v1/mobile/resource-options" (0.025 seconds)
+    ✔ "installing → .installing (not terminal)" (0.001 seconds)
+    ✔ "All themes have non-empty background, foreground, cursor hex" (0.022 seconds)
+    ✔ "CreateInstanceRequest encodes all fields" (0.022 seconds)
+    ✔ "Default cursor color is #10B981 when nothing is stored" (0.022 seconds)
+    ✔ "Round-trip: set all zones, read back, all match" (0.022 seconds)
+    ✔ "createNewWorkspace includes Bearer token" (0.048 seconds)
+    ✔ "fresh <24h loads" (0.022 seconds)
+    ✔ "Custom shortcuts persist separately from activeIDs" (0.022 seconds)
+    ✔ "failed with install.error takes precedence over overall.error" (0.022 seconds)
+    ✔ "Interactive shell environment preserves natural CLI colors" (0.001 seconds)
+    ✔ "getUsers sends GET to /api/v1/mobile/users" (0.023 seconds)
+    ✔ "failed with only overall.error falls through to overall source" (0.001 seconds)
+    ✔ "Saves and loads custom cursor color" (0.009 seconds)
+    ✔ "CreateInstanceRequest encodes nil optional fields as null" (0.009 seconds)
+    ✔ "resolve nil state → nil" (0.010 seconds)
+    ✔ "switch active server updates activeServerId" (0.059 seconds)
+    ✔ "failed with no error source falls through to "unknown"" (0.001 seconds)
+    ✔ "resolve expired → nil" (0.001 seconds)
+    ✔ "not_installed → .notInstalled" (0.001 seconds)
+    ✔ "resolve server mismatch → nil" (0.001 seconds)
+    ✔ "resolve match → returns instanceId + sessionName" (0.001 seconds)
+    ✔ "uninstalling → .uninstalling (counts as installed, transient)" (0.001 seconds)
+    ✔ "resolve match nil sessionName → returns instanceId only" (0.001 seconds)
+    ✔ "CreateInstanceResponse decodes with snake_case claw_type" (0.002 seconds)
+    ✔ "install.status = unknown + overall = unknown → .unknown (both drift)" (0.001 seconds)
+    ✔ "CreateInstanceResponse handles missing clawType" (0.001 seconds)
+    ✔ "install.status = succeeded + overall = unknown → .unknown (mixed drift)" (0.001 seconds)
+    ✔ "install.status = not_installed + overall = unknown → .unknown" (0.001 seconds)
+    ✔ "install.status = unknown + overall = creatable → .unknown" (0.001 seconds)
+    ✔ "installedCount axis is based on isInstalled, NOT canCreate" (0.001 seconds)
+    ✔ "Recent custom colors starts empty" (0.028 seconds)
+    ✔ "App palette preserves terminal colors and derives readable app tokens" (0.029 seconds)
+    ✔ "InstanceStatusResponse decodes provisioning state with phase" (0.026 seconds)
+    ✔ "Removing custom from activeIDs keeps it in customShortcuts" (0.039 seconds)
+    ✔ "clearSession clears navigation state" (0.027 seconds)
+    ✔ "Setting disabled works correctly" (0.039 seconds)
+    ✔ "renameWorkspace sends PATCH with display_name in body" (0.039 seconds)
+Suite "ClawAvailability" passed after 0.328 seconds
+Suite HapticPreferencesTests passed after 0.329 seconds
+    ✔ "getUsers decodes bare array response" (0.040 seconds)
+    ✔ "InstanceStatusResponse decodes active state with no extras" (0.001 seconds)
+    ✔ "ClawMockData curation marks ironclaw featured and others not" (0.001 seconds)
+Suite "ClawModels" passed after 0.330 seconds
+    ✔ "Readable app tokens choose from the theme instead of inventing colors" (0.001 seconds)
+    ✔ "Solarized dark readable secondary avoids the background-matching muted slot" (0.001 seconds)
+    ✔ "Default customShortcuts is empty" (0.003 seconds)
+Suite ShortcutBarPreferencesTests passed after 0.332 seconds
+    ✔ "addRecentCustomColor prepends and caps at 5" (0.009 seconds)
+    ✔ "Solarized dark muted app text aliases stay readable" (0.010 seconds)
+    ✔ "Ghostty theme import parses the full terminal palette" (0.001 seconds)
+    ✔ "iTerm2 theme import preserves extended terminal colors" (0.001 seconds)
+    ✔ "createInstance sends POST to /api/v1/instances with correct body" (0.034 seconds)
+    ✔ "remove server cleans up token and server list" (0.064 seconds)
+    ✔ "addRecentCustomColor deduplicates case-insensitively" (0.026 seconds)
+    ✔ "removeServer clears navigation state when serverId matches" (0.035 seconds)
+Suite "NavigationState — persistence, restore logic, and cleanup" passed after 0.365 seconds
+    ✔ "Bluloco Light iTerm2 import preserves picker-readable colors" (0.028 seconds)
+    ✔ "paneNickname returns nil when no nickname is set" (0.007 seconds)
+    ✔ "listWorkspaces decodes snake_case workspace metadata" (0.045 seconds)
+    ✔ "file browser initial directory prefers requested path, then pane cwd, then home" (0.001 seconds)
+    ✔ "paneNickname stores and retrieves by paneId" (0.003 seconds)
+    ✔ "Different paneIds have independent nicknames" (0.003 seconds)
+    ✔ "Setting nil removes the nickname" (0.005 seconds)
+    ✔ "Nicknames survive pane kill and index renumber" (0.003 seconds)
+    ✔ "Imported custom themes can be saved and resolved by the store" (0.066 seconds)
+    ✔ "removing active server falls back to first remaining" (0.074 seconds)
+    ✔ "getInstanceStatus sends GET to /api/v1/instances/{id}/status" (0.074 seconds)
+    ✔ "Key format uses :pid: separator and does not collide with old index-based format" (0.053 seconds)
+Suite TerminalPreferencesTests passed after 0.442 seconds
+    ✔ "iTerm2 catalog JSON lists installable theme files" (0.004 seconds)
+    ✔ "Background color 42 (green) resets with 49" (0.001 seconds)
+    ✔ "Combined foreground and background SGR" (0.001 seconds)
+    ✔ "listRemoteDirectory decodes entries and derives full paths" (0.069 seconds)
+    ✔ "Reset (0) clears both foreground and background" (0.001 seconds)
+    ✔ "Default foreground comes from active theme" (0.013 seconds)
+    ✔ "Bright background colors 100-107 parse correctly" (0.001 seconds)
+    ✔ "256-color background via 48;5;n" (0.001 seconds)
+    ✔ "True color background via 48;2;r;g;b" (0.001 seconds)
+Suite ColorThemeTests passed after 0.460 seconds
+    ✔ "listRemoteDirectory decodes legacy standard list envelope" (0.019 seconds)
+    ✔ "instanceAction sends POST to /api/v1/instances/{id}/stop" (0.024 seconds)
+    ✔ "removing last test server clears its token" (0.026 seconds)
+Suite "ServerListView — SessionStore integration" passed after 0.467 seconds
+    ✔ "listRemoteDirectory decodes wrapped payload with nested entries" (0.009 seconds)
+    ✔ "getInstance sends GET to /api/v1/instances/{id}" (0.015 seconds)
+    ✔ "loadRemoteFilePreview hits files/read with max_bytes" (0.013 seconds)
+    ✔ "installClaw sends POST to /api/v1/mobile/claws/{name}/install" (0.009 seconds)
+    ✔ "makeRemoteFileDownloadRequest builds authenticated download URL" (0.006 seconds)
+    ✔ "uninstallClaw sends POST to /api/v1/mobile/claws/{name}/uninstall" (0.010 seconds)
+    ✔ "API throws httpError on 401 response" (0.010 seconds)
+    ✔ "auth creates PairedServer when none exists for host" (0.021 seconds)
+    ✔ "API throws httpError on 500 response" (0.011 seconds)
+    ✔ "API throws httpError on 403 response" (0.008 seconds)
+    ✔ "API throws httpError on 404 response" (0.007 seconds)
+    ✔ "auth refreshes token for existing PairedServer" (0.027 seconds)
+    ✔ "createInstance includes guest_os in request body" (0.015 seconds)
+Suite "Claw API Endpoints" passed after 0.554 seconds
+    ✔ "pairServer reuses existing server id and stores platform metadata" (0.018 seconds)
+    ✔ "validateSession refreshes server platform metadata" (0.037 seconds)
+    ✔ "uploadAttachment decodes backend snake_case response without ok field" (0.018 seconds)
+    ✔ "SoyehtInstance round-trips through apiEncoder and apiDecoder" (0.002 seconds)
+    ✔ "Two servers with the same instance.id do not collide" (0.001 seconds)
+    ✔ "nameValidationError returns nil for valid hyphenated name" (0.624 seconds)
+    ✔ "canDeploy is false when clawName is empty" (0.624 seconds)
+    ✔ "deploySucceeded is false initially" (0.624 seconds)
+    ✔ "nameValidationError returns nil for empty name" (0.624 seconds)
+    ✔ "nameValidationError returns error for special characters" (0.624 seconds)
+    ✔ "nameValidationError returns error for names longer than 64 chars" (0.624 seconds)
+    ✔ "selected server constrains agent OS choices" (0.624 seconds)
+    ✔ "moreClaws excludes featured and trending" (0.624 seconds)
+    ✔ "canDeploy is true with valid name and server" (0.624 seconds)
+    ✔ "initial clawName is derived from claw name" (0.624 seconds)
+Suite "ClawSetupViewModel" passed after 0.626 seconds
+    ✔ "Request routed via context B does not leak server A's token or host" (0.012 seconds)
+Suite "SoyehtAPIClient" passed after 0.635 seconds
+    ✔ "hasTransientClaws is true when any claw is installing or uninstalling" (0.634 seconds)
+    ✔ "servers reads from the injected list when provided" (0.634 seconds)
+    ✔ "trendingClaws returns non-featured claws (max 2)" (0.634 seconds)
+    ✔ "installedButBlocked counts in installedCount" (0.634 seconds)
+    ✔ "availableCount and installedCount are correct" (0.634 seconds)
+    ✔ "default init reads from canonical ServerStore inventory" (0.634 seconds)
+    ✔ "initialServerId selects within the injected list" (0.634 seconds)
+    ✔ "uninstalling counts in installedCount during transition" (0.634 seconds)
+    ✔ "default init ignores legacy pairedServers that are not in ServerStore" (0.676 seconds)
+    ✔ displayNameForServerPrefersMacAlias() (0.665 seconds)
+    ✔ "default deploy options enumerate canonical inventory source" (0.676 seconds)
+    ✔ "empty injected list yields no selected server" (0.676 seconds)
+    ✔ setAliasReturnsUnknownMacWhenIDMissing() (0.654 seconds)
+    ✔ "installedButBlocked claw exposes isInstalled + canUninstall + !canCreate" (0.655 seconds)
+    ✔ "featuredClaw returns the claw marked as featured in mock data" (0.676 seconds)
+    ✔ "detail count default reads canonical ServerStore inventory" (0.655 seconds)
+    ✔ setDefaultAliasIfNeededUsesMacNameWhenUnnamed() (0.654 seconds)
+    ✔ validatorAcceptsAccentsApostropheAndSpaces() (0.665 seconds)
+    ✔ setAliasAllowsSameMacResettingToSameValue() (0.666 seconds)
+    ✔ validatorRejectsOversize() (0.667 seconds)
+    ✔ validatorRejectsForbiddenChars() (0.653 seconds)
+    ✔ setDefaultAliasIfNeededPreservesUserAlias() (0.654 seconds)
+    ✔ validatorRejectsEmpty() (0.653 seconds)
+    ✔ setAliasRejectsDuplicateOnOtherMac() (0.665 seconds)
+    ✔ setAliasRejectsDuplicateCaseInsensitively() (0.654 seconds)
+    ✔ validatorTrimsLeadingTrailingWhitespace() (0.653 seconds)
+    ✔ pairedForServerReturnsNilForAdminHost() (0.655 seconds)
+    ✔ pairedMacToServerEmitsEngineMachineId() (0.656 seconds)
+    ✔ pairedForServerMatchesHostForEngineKind() (0.653 seconds)
+    ✔ displayNamePrefersAliasOverHostname() (0.653 seconds)
+    ✔ displayNameTreatsWhitespaceAliasAsEmpty() (0.654 seconds)
+    ✔ "claw display helpers return dash for nil fields" (0.655 seconds)
+    ✔ setAliasSucceedsOnFreshMac() (0.653 seconds)
+    ✔ "claw display helpers format spec fields" (0.654 seconds)
+    ✔ setDefaultAliasIfNeededCreatesUniqueFallback() (0.654 seconds)
+    ✔ "resume ready rebuilds paired Mac registry when UserDefaults were wiped" (0.671 seconds)
+    ✔ legacyPairedMacPayloadWithoutEngineMachineIdDecodesNil() (0.653 seconds)
+    ✔ displayNameFallsBackToHostnameWhenAliasNil() (0.656 seconds)
+Suite "ClawStoreViewModel" passed after 0.679 seconds
+    ✔ setAliasReturnsInvalidOnBadInput() (0.654 seconds)
+    ✔ upsertMacStoresEngineMachineIdAndDoesNotClearWithNilIncomingValue() (0.654 seconds)
+    ✔ setEngineMachineIdIsIdempotent() (0.653 seconds)
+Suite "ClawSetupViewModel injected servers" passed after 0.679 seconds
+    ✔ "loadClaws populates claws on success" (0.679 seconds)
+Suite "ClawDetailViewModel" passed after 0.681 seconds
+Suite PairedMacAliasTests passed after 0.682 seconds
+    ✔ "resume denial clears stale local pairing so the next QR can re-pair" (0.014 seconds)
+Suite "PairingCoordinator — reinstall recovery" passed after 0.696 seconds
+    ✔ "existing client connects after migration learns presence endpoint" (0.674 seconds)
+    ✔ "loadClaws sets errorMessage on failure" (0.022 seconds)
+    ✔ "tailnet active prefers MagicDNS host while preserving LAN fallback" (0.010 seconds)
+    ✔ "wifi active prefers local DNS before tailnet candidates" (0.013 seconds)
+    ✔ "tailnet inactive prefers stored LAN host while preserving DNS fallback" (0.009 seconds)
+    ✔ "installClaw sets no actionError on success" (0.033 seconds)
+    ✔ "installClaw sets actionError on HTTP error" (0.006 seconds)
+    ✔ "Tailscale MagicDNS endpoints use the Mac-local plain WebSocket listener" (0.013 seconds)
+    ✔ "happy handshake: challenge_response HMAC matches PresenceHMACInput" (0.725 seconds)
+Suite "PairedMacRegistry" passed after 0.750 seconds
+    ✔ "uninstallClaw sets no actionError on success" (0.008 seconds)
+    ✔ "store installClaw does NOT call the API for a non-installable claw" (0.006 seconds)
+    ✔ "store installClaw DOES call the API for an installable claw" (0.008 seconds)
+    ✔ "detail installClaw does NOT call the API for a non-installable claw" (0.005 seconds)
+    ✔ "loadOptions sets resource defaults from API response" (0.020 seconds)
+    ✔ "performance profiles apply resource policy from live options" (0.022 seconds)
+    ✔ "manual resource edits switch performance to custom" (0.002 seconds)
+    ✔ "fallback high profile uses safe local defaults" (0.002 seconds)
+    ✔ "loadOptions sets warning on API failure" (0.012 seconds)
+    ✔ "loadOptions failure preserves current resource values" (0.011 seconds)
+    ✔ "deploy sets deploySucceeded on success" (0.027 seconds)
+    ✔ "attach_denied routes to the matching pane continuation, not the oldest" (0.141 seconds)
+    ✔ "installClaw transitions state correctly" (0.019 seconds)
+    ✔ "uninstallClaw transitions state correctly" (0.008 seconds)
+    ✔ "polling starts when claws are installing" (0.006 seconds)
+    ✔ "polling does not start when all claws ready" (0.007 seconds)
+    ✔ "polling stops when all claws become ready" (0.033 seconds)
+    ✔ "attach_denied without pane_id is a no-op — does not resolve any continuation" (0.063 seconds)
+    ✔ "polling sends success notification on completion" (0.034 seconds)
+    ✔ "panes_snapshot decodes mirrored windows and workspaces" (0.049 seconds)
+Suite "MacPresenceClient — PR#4 wire handler coverage" passed after 1.005 seconds
+    ✔ "polling sends failure notification on failed" (0.036 seconds)
+    ✔ "detail polling starts on install" (0.006 seconds)
+    ✔ "detail polling stops and notifies on completion" (0.028 seconds)
+    ✔ "detail polling preserves dedicated availability when catalog lags" (0.028 seconds)
+    ✔ "deploy hands off to monitor and sets deploySucceeded" (0.016 seconds)
+    ✔ "deploy with macOS server type omits disk_gb when live limits are unavailable" (0.053 seconds)
+    ✔ "deploy sends current user-selected values when live limits are unavailable" (0.052 seconds)
+    ✔ "deploy omits disk_gb when live resource options disable custom disk" (0.035 seconds)
+Suite "ClawViewModelAsync" passed after 1.243 seconds
+Test session results: /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-fkomnqkpzklyaefutrmcohhuzlwf/Logs/Test/Test-Soyeht-2026.08.24_23-45-14--0300.xcresult
+Test Succeeded
+Testing started

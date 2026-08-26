@@ -582,9 +582,10 @@ struct AgentMessageInbox: Codable, Hashable {
     /// its already-running process has not observed. A terminal fallback is
     /// observed only after the authenticated submission hook marks that exact
     /// delivery. A capable client may instead acknowledge the exact durable
-    /// inbox revision before terminal delivery starts; in that case ACK is the
-    /// semantic observation and cancels the fallback. An older observation
-    /// can never clear a newer control message.
+    /// inbox revision only when that message was selected for semantic inbox
+    /// delivery. A deferred terminal fallback remains pending until its exact
+    /// authenticated submission receipt arrives. An older observation can
+    /// never clear a newer control message.
     var hasUnobservedRoleAssignmentDelivery: Bool {
         messages.contains {
             guard $0.isRoleAssignmentControlDelivery else { return false }
@@ -700,13 +701,11 @@ struct AgentMessageInbox: Codable, Hashable {
         let uniqueIDs = ids.filter { seen.insert($0).inserted }
         let indices = try uniqueIDs.map(messageIndex)
         for index in indices {
-            // An explicit inbox acknowledgement is a semantic receipt. If no
-            // terminal byte has crossed the at-most-once claim yet, cancel
-            // that fallback by recording the channel that actually delivered
-            // the message. Otherwise a capable agent can read/ack from MCP
-            // and later receive the same body a second time through its PTY.
-            // Once terminal delivery has started we cannot reclassify safely:
-            // bytes may already be present in the TUI composer.
+            // Once a capable client explicitly reads and accepts responsibility
+            // for an unstarted fallback, injecting the same request into its TUI
+            // would duplicate work. Reclassify only before the at-most-once
+            // terminal claim starts; a started/uncertain write never changes
+            // channel merely because it was acknowledged.
             if messages[index].channel == .deferredTerminal,
                messages[index].deferredTerminalDeliveryStartedAt == nil,
                messages[index].deferredTerminalDeliveredAt == nil {

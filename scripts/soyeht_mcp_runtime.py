@@ -1,4 +1,5 @@
 from soyeht_mcp_foundation import *
+from time import sleep
 
 def with_name_styles(payload, args):
     if args.get("nameStyle"):
@@ -159,10 +160,136 @@ def with_source_context(payload, args=None):
         or soyeht_environment_value("SOYEHT_LAUNCH_NONCE")
     if launch_nonce:
         payload["nonce"] = launch_nonce
+    if MCP_RUNTIME_AGENT and MCP_RUNTIME_INSTANCE_ID:
+        payload["runtimeAgent"] = MCP_RUNTIME_AGENT
+        payload["runtimeInstanceID"] = MCP_RUNTIME_INSTANCE_ID
+        payload["runtimeProcessID"] = os.getpid()
+        payload["runtimeOwnerProcessID"] = os.getppid()
     tty = current_tty()
     if tty and not from_conversation_id and not from_handle:
         payload["sourceTTY"] = tty
     return payload
+
+
+def runtime_report_binding_path(owner_process_id=None, automation_dir=None):
+    """Stable handoff path from one MCP runtime to its owner CLI reporters."""
+    owner_process_id = int(owner_process_id or os.getppid())
+    if owner_process_id <= 1:
+        return None
+    automation_dir = automation_dir or soyeht_environment_value("SOYEHT_AUTOMATION_DIR")
+    if not automation_dir:
+        return None
+    return (
+        Path(automation_dir).expanduser()
+        / "RuntimeReportBindings"
+        / f"owner-{owner_process_id}.json"
+    )
+
+
+def publish_runtime_report_binding(response):
+    """Publish only the app-verified claim; reporters never invent identity."""
+    identity = (response or {}).get("runtimeIdentityClaimed")
+    if not isinstance(identity, dict):
+        return None
+    try:
+        owner_process_id = int(identity["runtimeOwnerProcessID"])
+        runtime_started_seconds = int(identity["runtimeProcessStartedAtSeconds"])
+        runtime_started_microseconds = int(identity["runtimeProcessStartedAtMicroseconds"])
+        owner_started_seconds = int(identity["runtimeOwnerProcessStartedAtSeconds"])
+        owner_started_microseconds = int(identity["runtimeOwnerProcessStartedAtMicroseconds"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (
+        owner_process_id != os.getppid()
+        or identity.get("runtimeInstanceID") != MCP_RUNTIME_INSTANCE_ID
+        or identity.get("runtimeAgent") != MCP_RUNTIME_AGENT
+        or runtime_started_seconds < 0
+        or runtime_started_microseconds < 0
+        or owner_started_seconds < 0
+        or owner_started_microseconds < 0
+    ):
+        return None
+    payload = {
+        "version": 1,
+        "conversationID": identity.get("conversationID"),
+        "runtimeAgent": MCP_RUNTIME_AGENT,
+        "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
+        "runtimeProcessStartedAtSeconds": runtime_started_seconds,
+        "runtimeProcessStartedAtMicroseconds": runtime_started_microseconds,
+        "runtimeOwnerProcessID": owner_process_id,
+        "runtimeOwnerProcessStartedAtSeconds": owner_started_seconds,
+        "runtimeOwnerProcessStartedAtMicroseconds": owner_started_microseconds,
+    }
+    # A response from a retired claim can arrive after its replacement. The
+    # IPC layer compares both owner and MCP process generations under lock.
+    return publish_generation_binding(runtime_report_binding_path(owner_process_id), payload)
+
+
+def remove_runtime_report_binding():
+    """Remove only our own generation; never erase a replacement runtime."""
+    return remove_generation_binding(
+        runtime_report_binding_path(), MCP_RUNTIME_INSTANCE_ID
+    )
+
+
+def synchronize_runtime_identity(
+    active=True,
+    timeout=5.0,
+    attempts=1,
+    retry_delay=0.05,
+):
+    """Claim/release a manually launched CLI without changing pane style."""
+    if not MCP_RUNTIME_AGENT or not MCP_RUNTIME_INSTANCE_ID:
+        return None
+    # The same installed MCP configuration is intentionally available when a
+    # CLI runs in Terminal.app, iTerm, CI, or another host. `--runtime-agent`
+    # describes the client integration; it is not proof that this particular
+    # process belongs to a Soyeht pane. Only attempt the possession handshake
+    # after inheriting stable pane metadata. Otherwise a harmless read such as
+    # list_windows would fail before its handler merely because the external
+    # terminal's TTY cannot resolve to a Soyeht pane.
+    source_environment = source_environment_for_context()
+    inherited_launch_nonce = source_environment.get("SOYEHT_LAUNCH_NONCE") \
+        or soyeht_environment_value("SOYEHT_LAUNCH_NONCE")
+    if not (
+        source_environment.get("SOYEHT_CONVERSATION_ID")
+        or source_environment.get("SOYEHT_HANDLE")
+        # Some MCP clients preserve the pane bearer but intentionally strip
+        # descriptive labels from the child server environment. In that case
+        # the controlling TTY still resolves the pane and the nonce proves
+        # possession. An external Terminal/iTerm process has neither, so the
+        # global MCP configuration remains a harmless read-only integration.
+        or inherited_launch_nonce
+    ):
+        return None
+    payload = with_source_context({
+        "runtimeAgent": MCP_RUNTIME_AGENT,
+        "runtimeInstanceID": MCP_RUNTIME_INSTANCE_ID,
+        "runtimeProcessID": os.getpid(),
+        "runtimeOwnerProcessID": os.getppid(),
+    })
+    if not (
+        payload.get("sourceConversationID")
+        or payload.get("sourceHandle")
+        or payload.get("sourceTTY")
+    ):
+        return None
+    request_type = "claim_agent_runtime" if active else "release_agent_runtime"
+    attempt_count = max(1, int(attempts)) if active else 1
+    last_error = None
+    for attempt in range(attempt_count):
+        try:
+            response = submit_request(request_type, payload, timeout=timeout)
+            if active:
+                publish_runtime_report_binding(response)
+            else:
+                remove_runtime_report_binding()
+            return response
+        except Exception as exc:
+            last_error = exc
+            if attempt + 1 < attempt_count:
+                sleep(max(0.0, float(retry_delay)))
+    raise last_error
 
 
 def ensure_git_worktree(repo, name, base, root, create=True):

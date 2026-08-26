@@ -70,8 +70,7 @@ extension SoyehtAutomationRequestRouter {
         let targets = try resolveAgentMessageTargets(payload)
         guard let unavailableTarget = targets.first(where: {
             !$0.content.isTerminal
-                || $0.agent.isShell
-                || PaneStatusTracker.shared.launchOwnershipNonce(for: $0.id) == nil
+                || !PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(for: $0)
         }) else {
             // Continue below only when every destination is a live,
             // authenticated agent identity capable of reading/acking inbox.
@@ -236,7 +235,8 @@ extension SoyehtAutomationRequestRouter {
             // pull an inbox item yet. Keep this false until an observed adapter
             // proves both halves; MCP availability alone is not delivery.
             let structuredCapture = AgentConversationAdapterCapabilities
-                .capabilities(for: target.agent.displayName)
+                .capabilities(for: PaneStatusTracker.shared.effectiveAgentName(for: target)
+                    ?? target.agent.displayName)
                 .structuredCapture
             let capabilities = AgentMessageDeliveryCapabilities(
                 canWakeAndReadSemanticInbox: false,

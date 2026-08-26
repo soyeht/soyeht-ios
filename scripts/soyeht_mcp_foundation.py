@@ -16,7 +16,13 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from soyeht_mcp_catalog import load_agent_catalog
-from soyeht_mcp_ipc import wait_response, write_request
+from soyeht_mcp_ipc import (
+    locked_file_slot,
+    publish_generation_binding,
+    remove_generation_binding,
+    wait_response,
+    write_request,
+)
 
 
 SERVER_NAME = "soyeht-automation"
@@ -52,6 +58,26 @@ PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 AGENT_CATALOG, LAUNCH_PROFILES = load_agent_catalog(__file__)
 KNOWN_AGENTS = set(AGENT_CATALOG) | {"shell"}
+
+
+def requested_runtime_agent(argv=None):
+    values = list(sys.argv[1:] if argv is None else argv)
+    for index, value in enumerate(values):
+        if value == "--runtime-agent" and index + 1 < len(values):
+            candidate = values[index + 1]
+        elif value.startswith("--runtime-agent="):
+            candidate = value.split("=", 1)[1]
+        else:
+            continue
+        normalized = str(candidate).strip().lower()
+        if normalized in AGENT_CATALOG and normalized != "shell":
+            return normalized
+        raise RuntimeError(f"Unknown Soyeht MCP runtime agent: {candidate!r}")
+    return None
+
+
+MCP_RUNTIME_AGENT = requested_runtime_agent()
+MCP_RUNTIME_INSTANCE_ID = str(uuid.uuid4()) if MCP_RUNTIME_AGENT else None
 DEFAULT_AGENT_PROFILES = {
     agent_id: entry["defaultProfile"]
     for agent_id, entry in AGENT_CATALOG.items()

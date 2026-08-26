@@ -188,4 +188,51 @@ extension SoyehtAutomationRequestRouter {
         }
         return nil
     }
+
+    func automationTTYPath(for conversation: Conversation) -> String? {
+        let engineConversationID: String? = {
+            if case .engineLocal(let id) = conversation.commander { return id }
+            return nil
+        }()
+        let livePane = LivePaneRegistry.shared.pane(
+            for: conversation.id
+        ) as? PaneViewController
+        return livePane?.terminalView.localPTYSlaveTTYPathForAutomation
+            ?? engineConversationID.flatMap {
+                EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)
+            }
+    }
+
+    func automationTTYDevice(for conversation: Conversation) -> UInt32? {
+        guard let ttyPath = automationTTYPath(for: conversation) else {
+            return nil
+        }
+        var metadata = stat()
+        guard stat(ttyPath, &metadata) == 0 else { return nil }
+        return UInt32(metadata.st_rdev)
+    }
+
+    func claimedRuntimeReportIdentity(
+        for source: Conversation,
+        expectedTTYDevice: UInt32
+    ) -> SoyehtAutomationResponse.RuntimeIdentityClaimed? {
+        guard source.agent.isShell,
+              let claim = PaneStatusTracker.shared.runtimeIdentityClaim(
+                  for: source.id,
+                  expectedTTYDevice: expectedTTYDevice
+              ),
+              let ownerProcessID = claim.ownerProcessID,
+              let seconds = claim.ownerProcessStartedAtSeconds,
+              let microseconds = claim.ownerProcessStartedAtMicroseconds else { return nil }
+        return .init(
+            conversationID: source.id.uuidString,
+            runtimeAgent: claim.agentName,
+            runtimeInstanceID: claim.instanceID,
+            runtimeProcessStartedAtSeconds: claim.processStartedAtSeconds,
+            runtimeProcessStartedAtMicroseconds: claim.processStartedAtMicroseconds,
+            runtimeOwnerProcessID: ownerProcessID,
+            runtimeOwnerProcessStartedAtSeconds: seconds,
+            runtimeOwnerProcessStartedAtMicroseconds: microseconds
+        )
+    }
 }

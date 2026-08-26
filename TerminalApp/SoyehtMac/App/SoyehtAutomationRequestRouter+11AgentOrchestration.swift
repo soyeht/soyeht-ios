@@ -290,9 +290,7 @@ extension SoyehtAutomationRequestRouter {
     }
 
     private func isEligibleOrchestrationAgent(_ conversation: Conversation) -> Bool {
-        conversation.content.isTerminal
-            && !conversation.agent.isShell
-            && PaneStatusTracker.shared.launchOwnershipNonce(for: conversation.id) != nil
+        PaneStatusTracker.shared.hasAuthenticatedAgentRuntime(for: conversation)
     }
 
     private func rollbackRoleAssignmentDeliveries(

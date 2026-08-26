@@ -234,7 +234,7 @@ enum AgentStateIntegrationInstaller {
     }
 
     private static func claudeHookCommand() -> String {
-        "SOYEHT_REPORT_AGENT=claude python3 \"\(claudeScriptPath().path)\""
+        "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=claude python3 \"\(claudeScriptPath().path)\""
     }
 
     // MARK: - Codex
@@ -284,7 +284,7 @@ enum AgentStateIntegrationInstaller {
     }
 
     private static func codexHookCommand() -> String {
-        "SOYEHT_REPORT_AGENT=codex python3 \"\(codexScriptPath().path)\""
+        "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=codex python3 \"\(codexScriptPath().path)\""
     }
 
     // MARK: - OpenCode
@@ -364,7 +364,7 @@ enum AgentStateIntegrationInstaller {
     }
 
     private static func qwenHookCommand() -> String {
-        "SOYEHT_REPORT_AGENT=qwen python3 \"\(qwenScriptPath().path)\""
+        "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=qwen python3 \"\(qwenScriptPath().path)\""
     }
 
     // MARK: - Antigravity CLI (agy)
@@ -523,7 +523,7 @@ enum AgentStateIntegrationInstaller {
     }
 
     private static func droidHookCommand() -> String {
-        "SOYEHT_REPORT_AGENT=droid python3 \"\(droidScriptPath().path)\""
+        "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=droid python3 \"\(droidScriptPath().path)\""
     }
 
     // MARK: - Kilo Code CLI
@@ -593,7 +593,7 @@ enum AgentStateIntegrationInstaller {
     }
 
     private static func cursorHookCommand() -> String {
-        "SOYEHT_REPORT_AGENT=cursor python3 \"\(cursorScriptPath().path)\""
+        "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID SOYEHT_REPORT_AGENT=cursor python3 \"\(cursorScriptPath().path)\""
     }
 
     // MARK: - GitHub Copilot CLI
@@ -632,7 +632,7 @@ enum AgentStateIntegrationInstaller {
         for event in events {
             hooks[event] = [[
                 "type": "command",
-                "bash": "python3 \"\(copilotScriptPath().path)\"",
+                "bash": "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID python3 \"\(copilotScriptPath().path)\"",
                 "env": ["SOYEHT_HOOK_EVENT": event],
                 "timeoutSec": 10,
             ]]
@@ -729,7 +729,7 @@ enum AgentStateIntegrationInstaller {
         for event in events {
             block.append("[[hooks]]")
             block.append("event = \"\(event)\"")
-            block.append("command = 'python3 \"\(kimiScriptPath().path)\"'")
+            block.append("command = 'SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID python3 \"\(kimiScriptPath().path)\"'")
             block.append("timeout = 5")
             block.append("")
         }
@@ -797,7 +797,7 @@ enum AgentStateIntegrationInstaller {
         let configPath = devinDir.appendingPathComponent("config.json")
         var root = readJsonObject(at: configPath) ?? [:]
         var hooks = (root["hooks"] as? [String: Any]) ?? [:]
-        let command = "python3 \"\(devinScriptPath().path)\""
+        let command = "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID=$PPID python3 \"\(devinScriptPath().path)\""
         for event in events {
             let existing = hooks[event] as? [[String: Any]] ?? []
             let cleaned = existing.filter { group in

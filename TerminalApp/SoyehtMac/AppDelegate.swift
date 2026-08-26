@@ -177,6 +177,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             if !summary.failed.isEmpty {
                 NSLog("Soyeht agent integrations partial: \(summary.failed.joined(separator: " | "))")
             }
+            let runtimeUpgrade = AIAgentIntegrator
+                .upgradeExistingRuntimeIdentityConfigurationsIfNeeded()
+            if !runtimeUpgrade.failed.isEmpty {
+                NSLog(
+                    "Soyeht MCP runtime identity upgrade partial: "
+                        + runtimeUpgrade.failed.joined(separator: " | ")
+                )
+            }
         }
         // When the app has no paired server yet, open the dedicated Welcome
         // window instead of the main workspace. The main window only appears

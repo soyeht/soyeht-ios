@@ -23,6 +23,24 @@ public enum TerminalProcessEnvironment {
         isDarkBackground ? "15;0" : "0;15"
     }
 
+    /// Process-local Claude Code session markers must never leak into a new
+    /// interactive terminal. Soyeht itself is often started or rebuilt from
+    /// an agent session; inheriting these values makes a user-typed `claude`
+    /// look like a nested child session, disables transcript saving, and can
+    /// carry the previous session's private messaging endpoint into an
+    /// unrelated pane. User preferences such as `CLAUDE_EFFORT` are
+    /// intentionally not removed.
+    private static let inheritedClaudeSessionKeys = [
+        "CLAUDECODE",
+        "CLAUDE_CODE_CHILD_SESSION",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CLAUDE_CODE_EXECPATH",
+        "CLAUDE_CODE_MESSAGING_SOCKET",
+        "CLAUDE_CODE_MESSAGING_TOKEN",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_PID",
+    ]
+
     public static func interactiveShellEnvironment(
         inherited: [String: String],
         cwdPath: String,
@@ -35,6 +53,9 @@ public enum TerminalProcessEnvironment {
         environment["PWD"] = cwdPath
         environment.removeValue(forKey: "OLDPWD")
         for key in inheritedColorOverrideKeys {
+            environment.removeValue(forKey: key)
+        }
+        for key in inheritedClaudeSessionKeys {
             environment.removeValue(forKey: key)
         }
         return environment

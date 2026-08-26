@@ -37,6 +37,8 @@ struct SoyehtAutomationRequest: Decodable {
         case listAgents = "list_agents"
         case reportAgentState = "report_agent_state"
         case reportAgentConversation = "report_agent_conversation"
+        case claimAgentRuntime = "claim_agent_runtime"
+        case releaseAgentRuntime = "release_agent_runtime"
         case getConversationContext = "get_conversation_context"
         case ackConversationContext = "ack_conversation_context"
         case requestAttention = "request_attention"
@@ -159,6 +161,10 @@ struct SoyehtAutomationRequest: Decodable {
         let message: String?
         let seq: Int?
         let nonce: String?
+        let runtimeAgent: String?
+        let runtimeInstanceID: String?
+        let runtimeProcessID: Int?
+        let runtimeOwnerProcessID: Int?
         let reportSource: String?
         let turnSubmissionAcknowledged: Bool?
         let attentionKind: String?
@@ -171,6 +177,8 @@ struct SoyehtAutomationRequest: Decodable {
         let afterSequence: Int?
         let maxEvents: Int?
         let throughSequence: Int?
+        let runtimeOwnerProcessStartedAtSeconds: UInt64?
+        let runtimeOwnerProcessStartedAtMicroseconds: UInt64?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -191,6 +199,17 @@ struct SoyehtAutomationRequest: Decodable {
 }
 
 struct SoyehtAutomationResponse: Encodable {
+    struct RuntimeIdentityClaimed: Encodable {
+        let conversationID: String
+        let runtimeAgent: String
+        let runtimeInstanceID: String
+        let runtimeProcessStartedAtSeconds: UInt64
+        let runtimeProcessStartedAtMicroseconds: UInt64
+        let runtimeOwnerProcessID: Int32
+        let runtimeOwnerProcessStartedAtSeconds: UInt64
+        let runtimeOwnerProcessStartedAtMicroseconds: UInt64
+    }
+
     struct CreatedWorkspace: Encodable {
         let name: String
         let path: String
@@ -496,6 +515,7 @@ struct SoyehtAutomationResponse: Encodable {
         let roleInstructions: String?
         let path: String
         let declaredAgent: String
+        let activeRuntimeAgent: String?
         let windowID: String?
         let resolution: String
         let replyTarget: MessageAgentArguments
@@ -512,6 +532,7 @@ struct SoyehtAutomationResponse: Encodable {
         let roleInstructions: String?
         let path: String
         let declaredAgent: String
+        let activeRuntimeAgent: String?
         let status: String
         let isLive: Bool
         let isAttachable: Bool
@@ -748,6 +769,7 @@ struct SoyehtAutomationResponse: Encodable {
     let installedApps: [InstalledApp]
     let activeContext: ActiveContext?
     let sourceIdentity: SourceIdentity?
+    var runtimeIdentityClaimed: RuntimeIdentityClaimed? = nil
     let listedAgents: [ListedAgent]
     /// MCP 2.0 view of the global agent directory. `listedAgents` is retained
     /// as a flat compatibility surface while new clients render these groups.
@@ -788,6 +810,7 @@ struct SoyehtAutomationResult {
     var installedApps: [SoyehtAutomationResponse.InstalledApp] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
     var sourceIdentity: SoyehtAutomationResponse.SourceIdentity? = nil
+    var runtimeIdentityClaimed: SoyehtAutomationResponse.RuntimeIdentityClaimed? = nil
     var listedAgents: [SoyehtAutomationResponse.ListedAgent] = []
     var agentWorkspaceGroups: [SoyehtAutomationResponse.AgentWorkspaceGroup] = []
     var agentStateReported: SoyehtAutomationResponse.AgentStateReported? = nil
@@ -1124,6 +1147,7 @@ final class SoyehtAutomationService {
                 installedApps: result.installedApps,
                 activeContext: result.activeContext,
                 sourceIdentity: result.sourceIdentity,
+                runtimeIdentityClaimed: result.runtimeIdentityClaimed,
                 listedAgents: result.listedAgents,
                 agentWorkspaceGroups: result.agentWorkspaceGroups,
                 agentStateReported: result.agentStateReported,

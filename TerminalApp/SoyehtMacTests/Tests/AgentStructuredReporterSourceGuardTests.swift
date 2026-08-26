@@ -134,6 +134,17 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         try claudeCompatibleReporter(agent: "kimi")
             .write(to: reporter, atomically: true, encoding: String.Encoding.utf8)
         let automation = root.appendingPathComponent("Automation", isDirectory: true)
+        let bindings = automation.appendingPathComponent("RuntimeReportBindings", isDirectory: true)
+        try FileManager.default.createDirectory(at: bindings, withIntermediateDirectories: true)
+        let binding = try JSONSerialization.data(withJSONObject: [
+            "version": 1,
+            "runtimeAgent": "kimi",
+            "runtimeInstanceID": "runtime-session-a",
+            "runtimeOwnerProcessID": 24680,
+            "runtimeOwnerProcessStartedAtSeconds": 1234,
+            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+        ])
+        try binding.write(to: bindings.appendingPathComponent("owner-24680.json"))
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = [reporter.path]
@@ -146,6 +157,7 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             "SOYEHT_REPORT_AGENT": "kimi",
             "SOYEHT_LAUNCH_NONCE": "launch-proof",
             "SOYEHT_MCP_PROFILE": "dev",
+            "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID": "24680",
         ]
         let input = Pipe()
         process.standardInput = input
@@ -175,11 +187,122 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
         XCTAssertEqual(payload["nonce"] as? String, "launch-proof")
         XCTAssertEqual(payload["mcpClientContractVersion"] as? Int, 3)
         XCTAssertEqual(payload["mcpClientProfile"] as? String, "dev")
+        XCTAssertEqual(payload["runtimeOwnerProcessID"] as? Int, 24680)
+        XCTAssertEqual(payload["runtimeInstanceID"] as? String, "runtime-session-a")
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtSeconds"] as? Int, 1234)
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtMicroseconds"] as? Int, 5678)
+        XCTAssertEqual(payload["reportSource"] as? String, "hook:kimi")
         XCTAssertEqual(payload["text"] as? String, "visible final")
         XCTAssertEqual(payload["sourceEventID"] as? String, "kimi:message-final")
         XCTAssertEqual(payload["model"] as? String, "test-model")
         XCTAssertEqual(payload["reasoningEffort"] as? String, "low")
         XCTAssertFalse((payload["text"] as? String)?.contains("hidden reasoning") ?? true)
+    }
+
+    func testDeferredTranscriptPinsRuntimeGenerationWhenItIsScheduled() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("soyeht-deferred-generation-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let transcript = root.appendingPathComponent("transcript.jsonl")
+        func transcriptLine(id: String, text: String) throws -> String {
+            let value: [String: Any] = [
+                "type": "assistant",
+                "message": [
+                    "role": "assistant",
+                    "id": id,
+                    "content": [["type": "text", "text": text]],
+                ],
+            ]
+            let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+            return try XCTUnwrap(String(data: data, encoding: .utf8)) + "\n"
+        }
+        try transcriptLine(id: "old-event", text: "old answer")
+            .write(to: transcript, atomically: true, encoding: .utf8)
+
+        let reporter = root.appendingPathComponent("reporter.py")
+        try claudeCompatibleReporter(agent: "copilot")
+            .write(to: reporter, atomically: true, encoding: .utf8)
+        let automation = root.appendingPathComponent("Automation", isDirectory: true)
+        let bindings = automation.appendingPathComponent("RuntimeReportBindings", isDirectory: true)
+        try FileManager.default.createDirectory(at: bindings, withIntermediateDirectories: true)
+        let bindingPath = bindings.appendingPathComponent("owner-24680.json")
+        func writeBinding(instance: String, seconds: Int, microseconds: Int) throws {
+            let data = try JSONSerialization.data(withJSONObject: [
+                "version": 1,
+                "runtimeAgent": "copilot",
+                "runtimeInstanceID": instance,
+                "runtimeOwnerProcessID": 24680,
+                "runtimeOwnerProcessStartedAtSeconds": seconds,
+                "runtimeOwnerProcessStartedAtMicroseconds": microseconds,
+            ])
+            try data.write(to: bindingPath, options: .atomic)
+        }
+        try writeBinding(instance: "runtime-session-a", seconds: 1234, microseconds: 5678)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [reporter.path]
+        process.environment = [
+            "HOME": root.path,
+            "PATH": "/usr/bin:/bin",
+            "SOYEHT_AGENT_NAME": "shell",
+            "SOYEHT_AUTOMATION_DIR": automation.path,
+            "SOYEHT_CONVERSATION_ID": "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+            "SOYEHT_REPORT_AGENT": "copilot",
+            "SOYEHT_LAUNCH_NONCE": "launch-proof",
+            "SOYEHT_MCP_PROFILE": "dev",
+            "SOYEHT_REPORT_RUNTIME_OWNER_PROCESS_ID": "24680",
+        ]
+        let input = Pipe()
+        process.standardInput = input
+        try process.run()
+        let stopPayload = try JSONSerialization.data(withJSONObject: [
+            "hook_event_name": "Stop",
+            "session_id": "session-a",
+            "transcript_path": transcript.path,
+        ])
+        input.fileHandleForWriting.write(stopPayload)
+        try input.fileHandleForWriting.close()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        // Recycle the numeric owner PID before the late transcript appears.
+        // The event was born under A and must retain A's generation rather
+        // than rereading the mutable owner-24680 path and adopting B.
+        try writeBinding(instance: "runtime-session-b", seconds: 9999, microseconds: 42)
+        let handle = try FileHandle(forWritingTo: transcript)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(try transcriptLine(
+            id: "new-event", text: "late answer from runtime A"
+        ).utf8))
+        try handle.close()
+
+        let requestsDirectory = automation.appendingPathComponent("Requests", isDirectory: true)
+        let deadline = Date().addingTimeInterval(6)
+        var matchingPayload: [String: Any]?
+        while Date() < deadline, matchingPayload == nil {
+            let requests = (try? FileManager.default.contentsOfDirectory(
+                at: requestsDirectory,
+                includingPropertiesForKeys: nil
+            )) ?? []
+            for requestURL in requests {
+                guard let data = try? Data(contentsOf: requestURL),
+                      let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      root["type"] as? String == "report_agent_conversation",
+                      let payload = root["payload"] as? [String: Any],
+                      payload["text"] as? String == "late answer from runtime A" else { continue }
+                matchingPayload = payload
+                break
+            }
+            if matchingPayload == nil { Thread.sleep(forTimeInterval: 0.05) }
+        }
+        let payload = try XCTUnwrap(matchingPayload)
+        XCTAssertEqual(payload["runtimeOwnerProcessID"] as? Int, 24680)
+        XCTAssertEqual(payload["runtimeInstanceID"] as? String, "runtime-session-a")
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtSeconds"] as? Int, 1234)
+        XCTAssertEqual(payload["runtimeOwnerProcessStartedAtMicroseconds"] as? Int, 5678)
     }
 
     func testEveryInstalledReporterDeclaresAuthenticatedOneWayRequests() throws {
@@ -200,8 +323,52 @@ final class AgentStructuredReporterSourceGuardTests: XCTestCase {
             XCTAssertTrue(reporter.contains("SOYEHT_MCP_PROFILE"), name)
             XCTAssertTrue(reporter.contains("mcpClientContractVersion"), name)
             XCTAssertTrue(reporter.contains("mcpClientProfile"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessID"), name)
+            XCTAssertTrue(reporter.contains("runtimeInstanceID"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessStartedAtSeconds"), name)
+            XCTAssertTrue(reporter.contains("runtimeOwnerProcessStartedAtMicroseconds"), name)
             XCTAssertTrue(reporter.contains("expectsResponse"), name)
         }
+    }
+
+    func testEveryConversationReporterCarriesItsAuthenticatedHookSource() throws {
+        let source = try macSource("Installer/AgentStateReporterScripts.swift")
+        let python = try slice(
+            source,
+            from: "def report_conversation(data, event, conversation_id, automation_dir):",
+            to: "def main():"
+        )
+        let pi = try slice(
+            source,
+            from: "static let piExtensionReporter = #\"\"\"",
+            to: "/// Kilo Code CLI plugin reporter."
+        )
+        let kilo = try slice(
+            source,
+            from: "async function reportConversation(payload) {",
+            to: "async function reportAssistantPart(part, info) {"
+        )
+
+        XCTAssertTrue(python.contains("\"reportSource\": \"hook:\" + report_agent"))
+        XCTAssertTrue(pi.contains("reportSource: \"hook:pi\""))
+        XCTAssertTrue(kilo.contains("reportSource: SOURCE"))
+    }
+
+    func testShellReportAuthenticationBindsHookToCurrentRuntimeOwnerProcess() throws {
+        let router = try macSource(
+            "App/SoyehtAutomationRequestRouter+07DirectoryIdentity.swift"
+        )
+        let resolver = try slice(
+            router,
+            from: "func resolveAuthenticatedAgentReportSource(",
+            to: "func revokeShellRuntimeOrchestrationAuthorization("
+        )
+
+        XCTAssertTrue(resolver.contains("AgentRuntimeReportIdentity.accepts"))
+        XCTAssertTrue(resolver.contains("payload.runtimeOwnerProcessID"))
+        XCTAssertTrue(resolver.contains("payload.runtimeInstanceID"))
+        XCTAssertTrue(resolver.contains("payload.runtimeOwnerProcessStartedAtSeconds"))
+        XCTAssertTrue(resolver.contains("expectedTTYDevice: currentTTYDevice"))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

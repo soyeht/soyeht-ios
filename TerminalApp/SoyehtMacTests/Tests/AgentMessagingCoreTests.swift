@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 @testable import SoyehtMacDomain
 
@@ -12,6 +13,27 @@ private final class InMemoryAgentLaunchOwnershipPersistence: AgentLaunchOwnershi
     }
 
     func loadNonce(for paneID: Conversation.ID) -> String? { values[paneID] }
+}
+
+private final class InMemoryAgentRuntimeIdentityPersistence: AgentRuntimeIdentityPersisting {
+    var values: [Conversation.ID: AgentRuntimeIdentityClaim] = [:]
+    var rejectsWrites = false
+
+    func save(claim: AgentRuntimeIdentityClaim, for paneID: Conversation.ID) -> Bool {
+        if rejectsWrites { return false }
+        values[paneID] = claim
+        return true
+    }
+
+    func revoke(for paneID: Conversation.ID) -> Bool {
+        if rejectsWrites { return false }
+        values[paneID] = nil
+        return true
+    }
+
+    func loadClaim(for paneID: Conversation.ID) -> AgentRuntimeIdentityClaim? {
+        values[paneID]
+    }
 }
 
 @MainActor
@@ -649,7 +671,7 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertNil(inbox.message(id: expiredCompleted.id))
     }
 
-    func testInboxAcknowledgementSupersedesUnstartedTerminalFallback() throws {
+    func testInboxAcknowledgementSuppressesUnstartedTerminalFallback() throws {
         let recipient = endpoint(handle: "delia")
         let item = message(
             sender: endpoint(handle: "caia"),
@@ -801,19 +823,23 @@ final class AgentMessagingCoreTests: XCTestCase {
             sender: manager,
             assignment: .init(template: AgentRoleTemplateCatalog.reviewer)
         )
+        var executorMessage = executor.message
+        executorMessage.channel = .semanticInbox
+        var reviewerMessage = reviewer.message
+        reviewerMessage.channel = .semanticInbox
         var inbox = AgentMessageInbox()
-        try inbox.enqueue(executor.message, recipientID: target.id)
-        try inbox.enqueue(reviewer.message, recipientID: target.id)
+        try inbox.enqueue(executorMessage, recipientID: target.id)
+        try inbox.enqueue(reviewerMessage, recipientID: target.id)
 
-        try inbox.acknowledge(executor.message.id)
-        XCTAssertEqual(inbox.message(id: executor.message.id)?.channel, .semanticInbox)
+        try inbox.acknowledge(executorMessage.id)
+        XCTAssertEqual(inbox.message(id: executorMessage.id)?.channel, .semanticInbox)
         XCTAssertTrue(
             inbox.hasUnobservedRoleAssignmentDelivery,
             "acknowledging the older semantic revision must not authorize the newer role"
         )
 
-        try inbox.acknowledge(reviewer.message.id)
-        XCTAssertEqual(inbox.message(id: reviewer.message.id)?.channel, .semanticInbox)
+        try inbox.acknowledge(reviewerMessage.id)
+        XCTAssertEqual(inbox.message(id: reviewerMessage.id)?.channel, .semanticInbox)
         XCTAssertFalse(inbox.hasUnobservedRoleAssignmentDelivery)
     }
 
@@ -1137,10 +1163,10 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertFalse(registry.validates(paneID: paneID, nonce: "old-owner"))
     }
 
-    func testShellConversationNeverRehydratesStaleAgentOwnership() {
+    func testPersistentShellDoesNotRehydratePotentiallyStalePaneOwnership() {
         let persistence = InMemoryAgentLaunchOwnershipPersistence()
         let paneID = UUID()
-        persistence.values[paneID] = "stale-agent-owner"
+        persistence.values[paneID] = "pane-owner"
         let shell = Conversation(
             id: paneID,
             handle: "shell",
@@ -1153,6 +1179,436 @@ final class AgentMessagingCoreTests: XCTestCase {
         _ = registry.rehydrate(from: [shell])
 
         XCTAssertNil(registry.nonce(for: paneID))
-        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "stale-agent-owner"))
+        XCTAssertFalse(registry.validates(paneID: paneID, nonce: "pane-owner"))
+        XCTAssertTrue(shell.agent.isShell)
+    }
+
+    func testShellReportAttributionRequiresExactHookAgent() {
+        XCTAssertTrue(AgentStateReportAttribution.accepts(
+            reportSource: "self_report",
+            currentAgent: "codex"
+        ))
+        XCTAssertTrue(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "hook:codex",
+            currentAgent: "Codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "",
+            currentAgent: "codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "manual",
+            currentAgent: "codex"
+        ))
+        XCTAssertFalse(AgentStateReportAttribution.acceptsAuthenticatedHook(
+            reportSource: "hook:claude",
+            currentAgent: "codex"
+        ))
+    }
+
+    func testManualRuntimeClaimIsPaneScopedInstanceScopedAndReleasable() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { $0 == 4242 || $0 == 4100 },
+            processStartTime: { _ in (100, 200) },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        let paneID = UUID()
+        let otherPaneID = UUID()
+
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "Codex",
+            instanceID: "mcp-one",
+            processID: 4242,
+            ownerProcessID: 4100
+        ))
+        XCTAssertTrue(registry.validates(
+            paneID: paneID,
+            agentName: "codex",
+            instanceID: "mcp-one"
+        ))
+        XCTAssertFalse(registry.validates(
+            paneID: otherPaneID,
+            agentName: "codex",
+            instanceID: "mcp-one"
+        ))
+        XCTAssertFalse(registry.release(paneID: paneID, instanceID: "mcp-two"))
+        XCTAssertTrue(registry.release(paneID: paneID, instanceID: "mcp-one"))
+        XCTAssertNil(registry.claim(for: paneID))
+    }
+
+    func testManualRuntimeClaimRequiresTheOwningPaneTTY() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { $0 == 4242 || $0 == 4100 },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        let paneID = UUID()
+
+        XCTAssertNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-pane",
+            processID: 4242,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 88
+        ))
+        XCTAssertFalse(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-pane"
+        ))
+
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "owning-pane",
+            processID: 4242,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+        XCTAssertTrue(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "owning-pane"
+        ))
+    }
+
+    func testManualRuntimeClaimReadsTheOwningPTYFromTheKernel() throws {
+        var masterFD: Int32 = -1
+        var slaveName = [CChar](repeating: 0, count: Int(PATH_MAX))
+        let childPID = forkpty(&masterFD, &slaveName, nil, nil)
+        guard childPID >= 0 else {
+            XCTFail("forkpty failed with errno \(errno)")
+            return
+        }
+        if childPID == 0 {
+            // XCTest and other domain tests may install process-wide signal
+            // handlers or launch subprocesses concurrently. A single pause()
+            // can therefore return for an unrelated caught signal and let the
+            // child exit before the parent reads its kernel TTY identity.
+            while true { _ = pause() }
+        }
+        defer {
+            if masterFD >= 0 { close(masterFD) }
+            _ = kill(childPID, SIGTERM)
+            var status: Int32 = 0
+            _ = waitpid(childPID, &status, 0)
+        }
+
+        var slaveStatus = stat()
+        let path = String(cString: slaveName)
+        XCTAssertEqual(stat(path, &slaveStatus), 0, "stat failed for \(path)")
+        let expectedDevice = UInt32(truncatingIfNeeded: slaveStatus.st_rdev)
+        let paneID = UUID()
+        let registry = AgentRuntimeIdentityRegistry(
+            processParentID: { pid in pid == childPID ? getpid() : nil },
+            persistence: InMemoryAgentRuntimeIdentityPersistence()
+        )
+
+        XCTAssertNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "wrong-real-pty",
+            processID: Int(childPID),
+            ownerProcessID: Int(getpid()),
+            expectedTTYDevice: expectedDevice &+ 1
+        ))
+        let deadline = Date().addingTimeInterval(1)
+        var matchingClaim: AgentRuntimeIdentityClaim?
+        repeat {
+            matchingClaim = registry.claim(
+                paneID: paneID,
+                agentName: "claude",
+                instanceID: "matching-real-pty",
+                processID: Int(childPID),
+                ownerProcessID: Int(getpid()),
+                expectedTTYDevice: expectedDevice
+            )
+            if matchingClaim == nil { usleep(10_000) }
+        } while matchingClaim == nil && Date() < deadline
+        XCTAssertNotNil(matchingClaim)
+    }
+
+    func testManualRuntimeClaimExpiresWhenOwningMCPProcessDies() {
+        var live = true
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { pid in pid == 4100 || live },
+            processStartTime: { _ in (100, 200) },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        let paneID = UUID()
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "mcp-runtime",
+            processID: 4242,
+            ownerProcessID: 4100
+        ))
+
+        live = false
+
+        XCTAssertNil(registry.claim(for: paneID))
+        XCTAssertFalse(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "mcp-runtime"
+        ))
+    }
+
+    func testManualRuntimeClaimRehydratesOnlyForTheSameLiveProcess() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let paneID = UUID()
+        let shell = Conversation(
+            id: paneID,
+            handle: "manual-agent",
+            agent: .shell,
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+        let writer = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        XCTAssertNotNil(writer.claim(
+            paneID: paneID,
+            agentName: "opencode",
+            instanceID: "runtime-instance",
+            processID: 4242,
+            ownerProcessID: 4100
+        ))
+
+        let restored = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        restored.rehydrate(from: [shell])
+        XCTAssertEqual(restored.claim(for: paneID)?.agentName, "opencode")
+
+        let recycledPID = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (101, 0) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        recycledPID.rehydrate(from: [shell])
+        XCTAssertNil(recycledPID.claim(for: paneID))
+        XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testDelayedStructuredReportCannotCrossRecycledOwnerPID() throws {
+        let paneID = UUID()
+        var ownerStartedAt: (seconds: UInt64, microseconds: UInt64) = (200, 10)
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { processID in
+                if processID == 4100 { return ownerStartedAt }
+                if processID == 4242 { return (100, 1) }
+                if processID == 4343 { return (300, 2) }
+                return nil
+            },
+            processTTYDevice: { _ in 77 },
+            processParentID: { processID in
+                (processID == 4242 || processID == 4343) ? 4100 : nil
+            },
+            persistence: InMemoryAgentRuntimeIdentityPersistence()
+        )
+        let first = try XCTUnwrap(registry.claim(
+            paneID: paneID,
+            agentName: "codex",
+            instanceID: "runtime-a",
+            processID: 4242,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+
+        // Session A exits. macOS later gives its numeric owner PID to B, but
+        // the kernel start time and MCP runtime instance are both different.
+        ownerStartedAt = (400, 20)
+        let second = try XCTUnwrap(registry.claim(
+            paneID: paneID,
+            agentName: "codex",
+            instanceID: "runtime-b",
+            processID: 4343,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+
+        XCTAssertFalse(AgentRuntimeReportIdentity.accepts(
+            claim: second,
+            runtimeInstanceID: first.instanceID,
+            ownerProcessID: Int(try XCTUnwrap(first.ownerProcessID)),
+            ownerProcessStartedAtSeconds: first.ownerProcessStartedAtSeconds,
+            ownerProcessStartedAtMicroseconds: first.ownerProcessStartedAtMicroseconds
+        ))
+        XCTAssertTrue(AgentRuntimeReportIdentity.accepts(
+            claim: second,
+            runtimeInstanceID: second.instanceID,
+            ownerProcessID: Int(try XCTUnwrap(second.ownerProcessID)),
+            ownerProcessStartedAtSeconds: second.ownerProcessStartedAtSeconds,
+            ownerProcessStartedAtMicroseconds: second.ownerProcessStartedAtMicroseconds
+        ))
+    }
+
+    func testLegacyRuntimeClaimWithoutTTYStillDecodesForSafeMigration() throws {
+        let data = try XCTUnwrap("""
+        {
+          "agentName": "codex",
+          "instanceID": "legacy-runtime",
+          "processID": 4242,
+          "processStartedAtSeconds": 100,
+          "processStartedAtMicroseconds": 200
+        }
+        """.data(using: .utf8))
+
+        let claim = try JSONDecoder().decode(
+            AgentRuntimeIdentityClaim.self,
+            from: data
+        )
+
+        XCTAssertEqual(claim.agentName, "codex")
+        XCTAssertNil(claim.ownerProcessID)
+        XCTAssertNil(claim.ttyDevice)
+    }
+
+    func testLegacyRuntimeClaimWithoutTTYIsRevokedInsteadOfTrustedFromLiveMetadata() throws {
+        let paneID = UUID()
+        let data = try XCTUnwrap("""
+        {
+          "agentName": "codex",
+          "instanceID": "legacy-runtime",
+          "processID": 4242,
+          "processStartedAtSeconds": 100,
+          "processStartedAtMicroseconds": 200
+        }
+        """.data(using: .utf8))
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        persistence.values[paneID] = try JSONDecoder().decode(
+            AgentRuntimeIdentityClaim.self,
+            from: data
+        )
+        let shell = Conversation(
+            id: paneID,
+            handle: "legacy-shell",
+            agent: .shell,
+            workspaceID: UUID(),
+            commander: .engineLocal(conversationID: paneID.uuidString)
+        )
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+
+        XCTAssertTrue(registry.rehydrate(from: [shell]).isEmpty)
+        XCTAssertNil(registry.claim(for: paneID))
+        XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testManualRuntimeClaimRejectsADeclaredOwnerThatIsNotTheMCPParent() {
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in 77 },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+
+        XCTAssertNil(registry.claim(
+            paneID: UUID(),
+            agentName: "codex",
+            instanceID: "runtime-instance",
+            processID: 4242,
+            ownerProcessID: 4200,
+            expectedTTYDevice: 77
+        ))
+    }
+
+    func testManualRuntimeClaimExpiresWhenProcessLeavesOwningTTY() {
+        var ttyDevice: UInt32 = 77
+        let persistence = InMemoryAgentRuntimeIdentityPersistence()
+        let registry = AgentRuntimeIdentityRegistry(
+            isProcessAlive: { _ in true },
+            processStartTime: { _ in (100, 200) },
+            processTTYDevice: { _ in ttyDevice },
+            processParentID: { _ in 4100 },
+            persistence: persistence
+        )
+        let paneID = UUID()
+
+        XCTAssertNotNil(registry.claim(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            processID: 4242,
+            ownerProcessID: 4100,
+            expectedTTYDevice: 77
+        ))
+        XCTAssertTrue(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            expectedTTYDevice: 77
+        ))
+
+        ttyDevice = 88
+
+        XCTAssertFalse(registry.validates(
+            paneID: paneID,
+            agentName: "claude",
+            instanceID: "runtime-instance",
+            expectedTTYDevice: 77
+        ))
+        XCTAssertNil(persistence.values[paneID])
+    }
+
+    func testShellLaunchOwnershipRehydratesOnlyBehindTrustedRuntimeClaim() {
+        let persistence = InMemoryAgentLaunchOwnershipPersistence()
+        let trustedPaneID = UUID()
+        let untrustedPaneID = UUID()
+        persistence.values[trustedPaneID] = "trusted-runtime-nonce"
+        persistence.values[untrustedPaneID] = "stale-shell-nonce"
+        let workspaceID = UUID()
+        let conversations = [trustedPaneID, untrustedPaneID].map { paneID in
+            Conversation(
+                id: paneID,
+                handle: "shell-\(paneID.uuidString)",
+                agent: .shell,
+                workspaceID: workspaceID,
+                commander: .engineLocal(conversationID: paneID.uuidString)
+            )
+        }
+        let registry = AgentLaunchOwnershipRegistry(persistence: persistence)
+
+        _ = registry.rehydrate(
+            from: conversations,
+            trustedShellPaneIDs: [trustedPaneID]
+        )
+
+        XCTAssertTrue(registry.validates(
+            paneID: trustedPaneID,
+            nonce: "trusted-runtime-nonce"
+        ))
+        XCTAssertFalse(registry.validates(
+            paneID: untrustedPaneID,
+            nonce: "stale-shell-nonce"
+        ))
     }
 }

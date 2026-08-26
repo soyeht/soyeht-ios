@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -41,6 +42,284 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
+
+    def test_runtime_agent_argument_is_explicit_and_rejects_unknown_clients(self):
+        parse = MODULE["requested_runtime_agent"]
+        self.assertEqual(parse(["--runtime-agent", "codex"]), "codex")
+        self.assertEqual(parse(["--runtime-agent=claude"]), "claude")
+        self.assertIsNone(parse([]))
+        with self.assertRaisesRegex(RuntimeError, "Unknown Soyeht MCP runtime agent"):
+            parse(["--runtime-agent", "not-real"])
+
+    def test_manual_runtime_context_carries_instance_and_live_process_proof(self):
+        function = MODULE["with_source_context"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "opencode"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-instance"
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "pane-id",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                payload = function({})
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+
+        self.assertEqual(payload["runtimeAgent"], "opencode")
+        self.assertEqual(payload["runtimeInstanceID"], "runtime-instance")
+        self.assertEqual(payload["runtimeProcessID"], os.getpid())
+        self.assertEqual(payload["runtimeOwnerProcessID"], os.getppid())
+        self.assertEqual(payload["nonce"], "pane-proof")
+
+    def test_runtime_report_binding_publishes_only_the_verified_generation(self):
+        publish = MODULE["publish_runtime_report_binding"]
+        remove = MODULE["remove_runtime_report_binding"]
+        globals_ = publish.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-session-a"
+            with tempfile.TemporaryDirectory() as temporary:
+                with patch.dict(os.environ, {
+                    "SOYEHT_AUTOMATION_DIR": temporary,
+                }, clear=True):
+                    path = publish({
+                        "runtimeIdentityClaimed": {
+                            "conversationID": "pane-id",
+                            "runtimeAgent": "codex",
+                            "runtimeInstanceID": "runtime-session-a",
+                            "runtimeProcessStartedAtSeconds": 1200,
+                            "runtimeProcessStartedAtMicroseconds": 3400,
+                            "runtimeOwnerProcessID": os.getppid(),
+                            "runtimeOwnerProcessStartedAtSeconds": 1234,
+                            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+                        },
+                    })
+                    self.assertIsNotNone(path)
+                    identity = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(identity["runtimeInstanceID"], "runtime-session-a")
+                    self.assertEqual(identity["runtimeProcessStartedAtSeconds"], 1200)
+                    self.assertEqual(identity["runtimeProcessStartedAtMicroseconds"], 3400)
+                    self.assertEqual(identity["runtimeOwnerProcessStartedAtSeconds"], 1234)
+                    self.assertEqual(identity["runtimeOwnerProcessStartedAtMicroseconds"], 5678)
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+                    # An old runtime cannot erase a replacement generation.
+                    identity["runtimeInstanceID"] = "runtime-session-b"
+                    identity["runtimeProcessStartedAtSeconds"] = 2200
+                    path.write_text(json.dumps(identity), encoding="utf-8")
+                    self.assertFalse(remove())
+                    self.assertTrue(path.exists())
+
+                    # Nor can a late response from A overwrite the newer B
+                    # generation after both reused the same numeric owner PID.
+                    self.assertIsNone(publish({
+                        "runtimeIdentityClaimed": {
+                            "conversationID": "pane-id",
+                            "runtimeAgent": "codex",
+                            "runtimeInstanceID": "runtime-session-a",
+                            "runtimeProcessStartedAtSeconds": 1200,
+                            "runtimeProcessStartedAtMicroseconds": 3400,
+                            "runtimeOwnerProcessID": os.getppid(),
+                            "runtimeOwnerProcessStartedAtSeconds": 1234,
+                            "runtimeOwnerProcessStartedAtMicroseconds": 5678,
+                        },
+                    }))
+                    current = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(current["runtimeInstanceID"], "runtime-session-b")
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+
+    def test_runtime_report_binding_lock_serializes_pid_generation_changes(self):
+        locked = MODULE["locked_file_slot"]
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.dict(os.environ, {
+                "SOYEHT_AUTOMATION_DIR": temporary,
+            }, clear=True):
+                first_entered = threading.Event()
+                release_first = threading.Event()
+                second_entered = threading.Event()
+
+                def first_generation():
+                    with locked(MODULE["runtime_report_binding_path"](owner_process_id=24680)):
+                        first_entered.set()
+                        release_first.wait(timeout=2)
+
+                def second_generation():
+                    first_entered.wait(timeout=2)
+                    with locked(MODULE["runtime_report_binding_path"](owner_process_id=24680)):
+                        second_entered.set()
+
+                first = threading.Thread(target=first_generation)
+                second = threading.Thread(target=second_generation)
+                first.start()
+                second.start()
+                self.assertTrue(first_entered.wait(timeout=2))
+                self.assertFalse(second_entered.wait(timeout=0.1))
+                release_first.set()
+                first.join(timeout=2)
+                second.join(timeout=2)
+                self.assertFalse(first.is_alive())
+                self.assertFalse(second.is_alive())
+                self.assertTrue(second_entered.is_set())
+
+    def test_manual_runtime_claim_never_invents_a_missing_launch_nonce(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        captured = {}
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "claude"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "nonce-less-runtime-instance"
+
+            def fake_submit(request_type, payload, timeout):
+                captured.update({
+                    "requestType": request_type,
+                    "payload": payload,
+                    "timeout": timeout,
+                })
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "nonce-less-pane-id",
+                "SOYEHT_HANDLE": "@nonce-less-pane",
+                "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-automation",
+            }, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(captured["requestType"], "claim_agent_runtime")
+        self.assertEqual(
+            captured["payload"]["sourceConversationID"],
+            "nonce-less-pane-id",
+        )
+        self.assertEqual(
+            captured["payload"]["runtimeInstanceID"],
+            "nonce-less-runtime-instance",
+        )
+        self.assertEqual(captured["payload"]["runtimeProcessID"], os.getpid())
+        self.assertEqual(captured["payload"]["runtimeOwnerProcessID"], os.getppid())
+        self.assertNotIn("nonce", captured["payload"])
+
+    def test_global_runtime_agent_skips_claim_outside_a_soyeht_pane(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        submissions = []
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "external-terminal-runtime"
+            globals_["submit_request"] = lambda *args, **kwargs: submissions.append(
+                (args, kwargs)
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+
+        self.assertIsNone(result)
+        self.assertEqual(submissions, [])
+
+    def test_manual_runtime_claim_uses_nonce_and_tty_when_client_strips_pane_labels(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        previous_tty = globals_["current_tty"]
+        captured = {}
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "codex"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "tty-runtime-instance"
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+
+            def fake_submit(request_type, payload, timeout):
+                captured.update({
+                    "requestType": request_type,
+                    "payload": payload,
+                    "timeout": timeout,
+                })
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            with patch.dict(os.environ, {
+                "SOYEHT_AUTOMATION_DIR": "/tmp/soyeht-dev-automation",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                result = function(active=True)
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+            globals_["current_tty"] = previous_tty
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(captured["requestType"], "claim_agent_runtime")
+        self.assertEqual(captured["payload"]["nonce"], "pane-proof")
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
+        self.assertNotIn("sourceConversationID", captured["payload"])
+        self.assertNotIn("sourceHandle", captured["payload"])
+
+    def test_manual_runtime_claim_retries_only_the_bounded_bootstrap(self):
+        function = MODULE["synchronize_runtime_identity"]
+        globals_ = function.__globals__
+        previous_agent = globals_["MCP_RUNTIME_AGENT"]
+        previous_instance = globals_["MCP_RUNTIME_INSTANCE_ID"]
+        previous_submit = globals_["submit_request"]
+        previous_sleep = globals_["sleep"]
+        attempts = []
+        delays = []
+        try:
+            globals_["MCP_RUNTIME_AGENT"] = "opencode"
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = "runtime-instance"
+
+            def fake_submit(request_type, payload, timeout):
+                attempts.append((request_type, timeout))
+                if len(attempts) < 3:
+                    raise RuntimeError("pane tty not observable yet")
+                return {"status": "claimed"}
+
+            globals_["submit_request"] = fake_submit
+            globals_["sleep"] = delays.append
+            with patch.dict(os.environ, {
+                "SOYEHT_CONVERSATION_ID": "pane-id",
+                "SOYEHT_LAUNCH_NONCE": "pane-proof",
+            }, clear=True):
+                result = function(
+                    active=True,
+                    timeout=1.5,
+                    attempts=4,
+                    retry_delay=0.05,
+                )
+        finally:
+            globals_["MCP_RUNTIME_AGENT"] = previous_agent
+            globals_["MCP_RUNTIME_INSTANCE_ID"] = previous_instance
+            globals_["submit_request"] = previous_submit
+            globals_["sleep"] = previous_sleep
+
+        self.assertEqual(result, {"status": "claimed"})
+        self.assertEqual(attempts, [
+            ("claim_agent_runtime", 1.5),
+            ("claim_agent_runtime", 1.5),
+            ("claim_agent_runtime", 1.5),
+        ])
+        self.assertEqual(delays, [0.05, 0.05])
 
     def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
         globals_ = MODULE["tool_open_file"].__globals__

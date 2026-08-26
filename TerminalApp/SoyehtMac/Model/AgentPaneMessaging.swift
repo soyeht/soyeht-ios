@@ -158,6 +158,18 @@ enum AgentStateReportAttribution {
         let reportedAgent = String(normalizedSource.dropFirst("hook:".count))
         return reportedAgent == currentAgent.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+
+    /// A report emitted on behalf of a runtime discovered inside an ordinary
+    /// shell must come from the installed per-agent hook. Managed panes may
+    /// still self-report through the authenticated MCP tool, but a shell's
+    /// runtime process and its reporter are separate processes; requiring the
+    /// exact hook label prevents another process in that shell from fabricating
+    /// semantic acknowledgements for the active agent.
+    static func acceptsAuthenticatedHook(reportSource: String, currentAgent: String) -> Bool {
+        let normalizedSource = reportSource.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedSource.hasPrefix("hook:") else { return false }
+        return accepts(reportSource: normalizedSource, currentAgent: currentAgent)
+    }
 }
 
 /// Serializes semantic conversation events for an agent switch. The JSON
@@ -741,6 +753,6 @@ enum AgentPaneInputPlanner {
            sender.handle == "soyeht-control" {
             return "Sent via Soyeht control plane. To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) No reply is required. Instruction: \(body)"
         }
-        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
+        return "Sent via Soyeht. From: \(sender.displayLabel) (conversationID: \(sender.paneID.uuidString)). To: \(recipient.displayLabel) (conversationID: \(target.id.uuidString)).\(receipt)\(roleContext) This is an inter-agent request: do not answer only in this pane, because a local response does not reach the sender. Reply via Soyeht MCP \(mcpServer).message_agent to conversationIDs=[\"\(sender.paneID.uuidString)\"], lineEnding=enter. Request: \(body)"
     }
 }

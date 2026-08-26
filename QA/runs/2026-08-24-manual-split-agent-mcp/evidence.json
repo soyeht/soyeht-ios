@@ -1,0 +1,283 @@
+{
+  "cleanup": {
+    "status": "closed_via_ui",
+    "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16"
+  },
+  "collaboration": [
+    {
+      "recipientAgent": "claude",
+      "replyContract": 3,
+      "replyMessageID": "CF58E90B-AC50-4A95-A5AD-36FBD9F31709",
+      "requestContract": 3,
+      "requestMessageID": "9AF09322-20A5-4190-A272-855008D15A66",
+      "senderAgent": "codex",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos e sem criar agentes, subagentes ou panes, envie uma mensagem para o agente [manual-claude-1787625125] que ja esta aberto em uma pane visivel deste mesmo workspace do Soyeht. Peca que ele responda a voce com exatamente SPLIT-E2E-1787625125-1. Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
+    },
+    {
+      "recipientAgent": "opencode",
+      "replyContract": 3,
+      "replyMessageID": "7CC5D10E-FFC8-44BF-B57B-FAEEA7984B66",
+      "requestContract": 3,
+      "requestMessageID": "96354825-E626-41F7-871E-98BEC4B2E3AF",
+      "senderAgent": "claude",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos e sem criar agentes, subagentes ou panes, envie uma mensagem para o agente [manual-opencode-1787625125] que ja esta aberto em uma pane visivel deste mesmo workspace do Soyeht. Peca que ele responda a voce com exatamente SPLIT-E2E-1787625125-2. Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
+    },
+    {
+      "recipientAgent": "codex",
+      "replyContract": 3,
+      "replyMessageID": "9F4AC887-8210-4BC9-A628-BA5B285EE1BF",
+      "requestContract": 3,
+      "requestMessageID": "312B9791-E57F-4AF2-9ED0-F6DD1C998607",
+      "senderAgent": "opencode",
+      "status": "passed",
+      "userPrompt": "Sem alterar arquivos e sem criar agentes, subagentes ou panes, envie uma mensagem para o agente [manual-codex-1787625125] que ja esta aberto em uma pane visivel deste mesmo workspace do Soyeht. Peca que ele responda a voce com exatamente SPLIT-E2E-1787625125-3. Aguarde a resposta que vier dessa pane antes de encerrar esta tarefa."
+    }
+  ],
+  "installedApp": {
+    "binarySHA256": "497bf08e169e780582018270410a192630a3b81648a811ec597a0d1acf25720c",
+    "commit": "2918120ceb95b3a30002c4466bd40d457e520f59",
+    "mcpBundleSHA256": "9d882ac8649889492acd3304bb8bf8e89878e749a6584466544118ec2b9df975",
+    "mcpFiles": [
+      "LocalAgentCatalog.json",
+      "soyeht-mcp",
+      "soyeht_mcp_catalog.py",
+      "soyeht_mcp_foundation.py",
+      "soyeht_mcp_ipc.py",
+      "soyeht_mcp_runtime.py",
+      "soyeht_mcp_schema.py",
+      "soyeht_mcp_schema_creation.py",
+      "soyeht_mcp_schema_directory.py",
+      "soyeht_mcp_schema_layout.py",
+      "soyeht_mcp_schema_messaging.py",
+      "soyeht_mcp_tools_content.py",
+      "soyeht_mcp_tools_creation.py",
+      "soyeht_mcp_tools_directory.py",
+      "soyeht_mcp_tools_layout.py",
+      "soyeht_mcp_tools_messaging.py"
+    ],
+    "teamID": "W7677A5BK2"
+  },
+  "kind": "manual-split-agent-mcp-e2e",
+  "mcpConfig": {
+    "claude": {
+      "args": [
+        "--runtime-agent",
+        "claude"
+      ],
+      "commandBasename": "soyeht-dev-mcp"
+    },
+    "codex": {
+      "argsLiteral": "[\"--runtime-agent\", \"codex\"]",
+      "commandBasename": "soyeht-dev-mcp"
+    },
+    "opencode": {
+      "args": [
+        "--runtime-agent",
+        "opencode"
+      ],
+      "commandBasename": "soyeht-dev-mcp"
+    }
+  },
+  "normalPaneInputSmoke": {
+    "arrowKeysPosted": [
+      "left",
+      "right",
+      "down",
+      "up"
+    ],
+    "declaredAgentAfterInput": "shell",
+    "mouseClickPosted": true,
+    "runtimeStillHealthy": true,
+    "scrollWheelPosted": true,
+    "tabAndEscapePosted": true
+  },
+  "orchestratorToggle": {
+    "disabledThroughVisibleButton": true,
+    "enabledThroughVisibleButton": true,
+    "managerPaneID": "3154ACD5-DD11-4468-981B-119AC7D52E66"
+  },
+  "panes": [
+    {
+      "agent": "codex",
+      "createdBy": "visible Split pane vertically button",
+      "declaredPaneStylePreserved": true,
+      "directoryRow": {
+        "activeRuntimeAgent": "codex",
+        "canReceiveMessage": true,
+        "conversationID": "3154ACD5-DD11-4468-981B-119AC7D52E66",
+        "currentWorkspace": true,
+        "declaredAgent": "shell",
+        "displayReference": "[manual-codex-1787625125]",
+        "handle": "@manual-codex-1787625125",
+        "isActive": true,
+        "isActiveWorkspace": true,
+        "isAttachable": true,
+        "isLive": true,
+        "isSourceWorkspace": false,
+        "messageTarget": {
+          "conversationIDs": [
+            "3154ACD5-DD11-4468-981B-119AC7D52E66"
+          ],
+          "handles": [
+            "@manual-codex-1787625125"
+          ],
+          "lineEnding": "enter",
+          "targetWindowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967"
+        },
+        "path": "",
+        "replyInstructions": "Reply to [manual-codex-1787625125] with message_agent using this entry's messageTarget. Use the bracketed reference in prose; routingHandle is machine-only.",
+        "routingHandle": "@manual-codex-1787625125",
+        "safeReference": "[manual-codex-1787625125]",
+        "sameWorkspace": true,
+        "status": "active",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16",
+        "workspaceName": "manual split"
+      },
+      "launchInput": "cd /Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth && codex --yolo",
+      "pane": {
+        "conversationID": "3154ACD5-DD11-4468-981B-119AC7D52E66",
+        "declaredAgent": "shell",
+        "handle": "@manual-codex-1787625125",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16"
+      },
+      "process": {
+        "agentCommandObserved": "codex",
+        "cwd": "/Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth",
+        "environmentRedacted": true,
+        "pid": 58011
+      }
+    },
+    {
+      "agent": "claude",
+      "createdBy": "visible Split pane vertically button",
+      "declaredPaneStylePreserved": true,
+      "directoryRow": {
+        "activeRuntimeAgent": "claude",
+        "canReceiveMessage": true,
+        "conversationID": "D6541D7C-7A8D-41EC-8C62-6B0EA4FD9623",
+        "currentWorkspace": true,
+        "declaredAgent": "shell",
+        "displayReference": "[manual-claude-1787625125]",
+        "handle": "@manual-claude-1787625125",
+        "isActive": true,
+        "isActiveWorkspace": true,
+        "isAttachable": true,
+        "isLive": true,
+        "isSourceWorkspace": false,
+        "messageTarget": {
+          "conversationIDs": [
+            "D6541D7C-7A8D-41EC-8C62-6B0EA4FD9623"
+          ],
+          "handles": [
+            "@manual-claude-1787625125"
+          ],
+          "lineEnding": "enter",
+          "targetWindowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967"
+        },
+        "path": "",
+        "replyInstructions": "Reply to [manual-claude-1787625125] with message_agent using this entry's messageTarget. Use the bracketed reference in prose; routingHandle is machine-only.",
+        "routingHandle": "@manual-claude-1787625125",
+        "safeReference": "[manual-claude-1787625125]",
+        "sameWorkspace": true,
+        "status": "active",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16",
+        "workspaceName": "manual split"
+      },
+      "launchInput": "cd /Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth && claude",
+      "pane": {
+        "conversationID": "D6541D7C-7A8D-41EC-8C62-6B0EA4FD9623",
+        "declaredAgent": "shell",
+        "handle": "@manual-claude-1787625125",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16"
+      },
+      "process": {
+        "agentCommandObserved": "claude",
+        "cwd": "/Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth",
+        "environmentRedacted": true,
+        "pid": 58942
+      }
+    },
+    {
+      "agent": "opencode",
+      "createdBy": "visible Split pane vertically button",
+      "declaredPaneStylePreserved": true,
+      "directoryRow": {
+        "activeRuntimeAgent": "opencode",
+        "canReceiveMessage": true,
+        "conversationID": "60BDFC6B-06D2-4639-8506-112F3EEBA12E",
+        "currentWorkspace": true,
+        "declaredAgent": "shell",
+        "displayReference": "[manual-opencode-1787625125]",
+        "handle": "@manual-opencode-1787625125",
+        "isActive": true,
+        "isActiveWorkspace": true,
+        "isAttachable": true,
+        "isLive": true,
+        "isSourceWorkspace": false,
+        "messageTarget": {
+          "conversationIDs": [
+            "60BDFC6B-06D2-4639-8506-112F3EEBA12E"
+          ],
+          "handles": [
+            "@manual-opencode-1787625125"
+          ],
+          "lineEnding": "enter",
+          "targetWindowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967"
+        },
+        "path": "",
+        "replyInstructions": "Reply to [manual-opencode-1787625125] with message_agent using this entry's messageTarget. Use the bracketed reference in prose; routingHandle is machine-only.",
+        "routingHandle": "@manual-opencode-1787625125",
+        "safeReference": "[manual-opencode-1787625125]",
+        "sameWorkspace": true,
+        "status": "active",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16",
+        "workspaceName": "manual split"
+      },
+      "launchInput": "cd /Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth && opencode --auto",
+      "pane": {
+        "conversationID": "60BDFC6B-06D2-4639-8506-112F3EEBA12E",
+        "declaredAgent": "shell",
+        "handle": "@manual-opencode-1787625125",
+        "isActive": false,
+        "isActiveWorkspace": true,
+        "path": "",
+        "windowID": "75FF61AB-8B0A-4F4C-951D-437E8CEF7967",
+        "workspaceID": "B324FCB0-56D4-4B04-B757-610F0891BF16"
+      },
+      "process": {
+        "agentCommandObserved": "opencode",
+        "cwd": "/Users/macstudio/soyeht-worktrees/iSoyehtTerm/manual-pane-mcp-auth",
+        "environmentRedacted": true,
+        "pid": 59270
+      }
+    }
+  ],
+  "runID": "1787625125",
+  "status": "passed",
+  "typingCollision": {
+    "channel": "deferredTerminal",
+    "expectedTerminalDelivery": true,
+    "focusAvoidedTerminalMousePacket": true,
+    "heldBeforeBackspace": true,
+    "physicalDraft": "RASCUNHO-1787625125-NAO-ENVIADO",
+    "recipientAgent": "opencode",
+    "recipientStateBeforeDraft": "idle",
+    "replyMessageID": "E0544AB4-66C5-4768-B4F7-56AC4D853B6E",
+    "senderAgent": "codex",
+    "status": "passed",
+    "terminalBytesInjected": true
+  }
+}
