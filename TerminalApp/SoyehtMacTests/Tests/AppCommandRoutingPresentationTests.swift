@@ -1366,6 +1366,11 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
             from: "private func flushAutomationInput(",
             to: "\n    private func canRun("
         )
+        let canRun = try slice(
+            coordinator,
+            from: "private func canRun(",
+            to: "private func promoteDraftReleaseControlIfNeeded()"
+        )
         let mirroredInput = try slice(
             paneController,
             from: "func sendMirroredHumanInputForDeferredDeliverySafety(",
@@ -1391,6 +1396,8 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         XCTAssertTrue(coordinator.contains("func agentStateDidChange()"))
         XCTAssertTrue(paneController.contains("agentStateDidChangeForDeferredDelivery"))
         XCTAssertTrue(contextRouter.contains("pane.agentStateDidChangeForDeferredDelivery()"))
+        XCTAssertTrue(canRun.contains("AgentMessageTerminalAdmission.providerStateBlocksDelivery(state)"))
+        XCTAssertFalse(canRun.contains("\"working\""))
         XCTAssertTrue(coordinator.contains("case .partiallyWritten:"))
         XCTAssertTrue(coordinator.contains("submitsWithEnter: false"))
         XCTAssertTrue(coordinator.contains("guard workspaceStore.flushPendingSave() else"))

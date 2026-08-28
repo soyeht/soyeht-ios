@@ -76,6 +76,18 @@ struct AgentMessageDeliveryCapabilities: Codable, Hashable {
     )
 }
 
+/// Provider activity describes what the harness is doing, not whether the
+/// terminal composer can safely accept text. In particular, Claude Code keeps
+/// reporting `working` while a background shell runs even though its composer
+/// is visible and empty. Only an explicitly blocked/modal harness state holds
+/// terminal delivery; human drafts and broker readiness are evaluated by the
+/// pane coordinator separately.
+enum AgentMessageTerminalAdmission {
+    static func providerStateBlocksDelivery(_ state: String?) -> Bool {
+        state == "blocked"
+    }
+}
+
 struct AgentMessageDeliveryPlan: Equatable {
     enum UnavailableReason: String, Codable, Hashable {
         case semanticInboxAdapterMissing
