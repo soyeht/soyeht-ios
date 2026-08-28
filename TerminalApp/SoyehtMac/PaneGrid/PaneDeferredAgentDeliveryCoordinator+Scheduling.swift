@@ -279,8 +279,10 @@ extension PaneDeferredAgentDeliveryCoordinator {
         }
         if case .agent = submission {
             guard isTerminalTransportReadyForAgentDelivery else { return false }
-            if let state = PaneStatusTracker.shared.agentStateReport(for: conversationID)?.state,
-               state == "working" || state == "blocked" { return false }
+            let state = PaneStatusTracker.shared.agentStateReport(for: conversationID)?.state
+            if AgentMessageTerminalAdmission.providerStateBlocksDelivery(state) {
+                return false
+            }
         }
         guard !agentMessageDraftGate.isClear else { return true }
         if case .automation(let input) = submission,

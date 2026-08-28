@@ -111,6 +111,20 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(plan.unavailableReason, .semanticInboxAdapterMissing)
     }
 
+    func testWorkingHarnessDoesNotBlockTerminalDelivery() {
+        XCTAssertFalse(
+            AgentMessageTerminalAdmission.providerStateBlocksDelivery("working"),
+            "A background tool may keep the harness working while its composer is empty"
+        )
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery("idle"))
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery("done"))
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery(nil))
+    }
+
+    func testBlockedHarnessStillProtectsModalTerminalInput() {
+        XCTAssertTrue(AgentMessageTerminalAdmission.providerStateBlocksDelivery("blocked"))
+    }
+
     func testDraftGateStaysClosedUntilEnterOrCancel() {
         var gate = AgentMessageDraftGate()
 
