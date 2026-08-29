@@ -108,10 +108,18 @@ destination="/Applications/Soyeht Dev.app"
 # nothing runs from the destination bundle.
 # shellcheck source=lib/app-exit.sh
 source "$script_dir/lib/app-exit.sh"
+install_lock=$(soyeht_acquire_install_lock com.soyeht.mac.dev)
+trap '/bin/rmdir "$install_lock" 2>/dev/null || true' EXIT
 soyeht_wait_app_exit "$destination" com.soyeht.mac.dev 30
 
 backup_root=$(/usr/bin/mktemp -d /private/tmp/soyeht-dev-previous.XXXXXX)
 backup="$backup_root/Soyeht Dev.app"
+# Final re-scan immediately before the swap: the app can come back between
+# the exit-wait returning and the mv (a Dock click, another agent's `open`).
+last_scan=$(soyeht_pids_running_from_bundle "$destination") && [[ -z "$last_scan" ]] || {
+  >&2 echo "the app restarted between exit-wait and swap; aborting before the mv"
+  exit 1
+}
 if [[ -d "$destination" ]]; then
   /bin/mv "$destination" "$backup"
 fi

@@ -55,6 +55,27 @@ final class BundleReplacementMonitorTests: XCTestCase {
         XCTAssertNotEqual(reports[0].0, reports[0].1)
     }
 
+    func testInPlaceOverwriteWithSameInodeIsDetected() throws {
+        let path = try write("version one", to: "binary")
+        let before = ExecutableIdentity.capture(atPath: path)
+        var reported = false
+        let monitor = BundleReplacementMonitor(executablePath: path) { _, _ in reported = true }
+
+        // A `cp` over the path rewrites THROUGH the existing inode — no
+        // rename. Same byte count on purpose: the identity must not lean on
+        // inode or size alone; mtime carries this case.
+        Thread.sleep(forTimeInterval: 0.02)
+        let handle = try XCTUnwrap(FileHandle(forWritingAtPath: path))
+        try handle.write(contentsOf: XCTUnwrap("version two".data(using: .utf8)))
+        try handle.close()
+
+        let after = ExecutableIdentity.capture(atPath: path)
+        XCTAssertEqual(before.inode, after.inode, "overwrite kept the inode; the case is only exercised when it does")
+        XCTAssertNotEqual(before, after)
+        XCTAssertTrue(monitor.checkNow())
+        XCTAssertTrue(reported)
+    }
+
     func testDeletionIsDetected() throws {
         let path = try write("present", to: "binary")
         var reported = false

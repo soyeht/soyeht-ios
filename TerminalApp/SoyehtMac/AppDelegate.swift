@@ -269,18 +269,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private func presentBundleReplacedAlert(executableStillExists: Bool) {
         let alert = NSAlert()
         alert.messageText = "Soyeht was updated on disk"
-        alert.informativeText = executableStillExists
-            ? """
+        alert.alertStyle = .warning
+        guard executableStillExists else {
+            // Nothing to relaunch: offering "Relaunch Now" here would quit
+            // the only running copy and the deferred `open` of the missing
+            // path would fail silently, leaving the user with no app at all.
+            alert.informativeText = """
+                The application bundle was removed while this copy was \
+                running. macOS can silently deny file access to terminals \
+                opened from a stale instance. Reinstall the app, then \
+                relaunch.
+                """
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        alert.informativeText = """
             The application bundle was replaced while this copy was running. \
             macOS can silently deny file access to terminals opened from a \
             stale instance. Relaunch now to run the installed version.
             """
-            : """
-            The application bundle was removed while this copy was running. \
-            macOS can silently deny file access to terminals opened from a \
-            stale instance. Reinstall the app, then relaunch.
-            """
-        alert.alertStyle = .warning
         alert.addButton(withTitle: "Relaunch Now")
         alert.addButton(withTitle: "Later")
         if alert.runModal() == .alertFirstButtonReturn {
