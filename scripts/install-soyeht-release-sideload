@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Developer-machine side-load of a release Soyeht.app build.
+#
+# End users install from the DMG and update through Sparkle; this script
+# exists so that a developer or agent installing a release build by hand
+# stops doing `cp`/`rsync` over a RUNNING /Applications/Soyeht.app. That
+# in-place swap invalidates the running process tree's code identity and
+# macOS TCC then silently denies its folder access (EPERM with no prompt,
+# no log) — reproduced on 2026-08-28. This script is the only sanctioned
+# manual install path: verify, quit and WAIT for exit, atomic swap, verify
+# again, relaunch.
+
+usage() {
+  >&2 echo "usage: scripts/install-soyeht-release-sideload /path/to/Soyeht.app"
+  >&2 echo "  the artifact may live in a build products directory or a mounted DMG"
+}
+
+if (($# != 1)); then
+  usage
+  exit 2
+fi
+artifact="${1%/}"
+if [[ ! -x "$artifact/Contents/MacOS/Soyeht" ]]; then
+  >&2 echo "not a Soyeht.app bundle: $artifact"
+  exit 1
+fi
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=lib/app-exit.sh
+source "$script_dir/lib/app-exit.sh"
+
+bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$artifact/Contents/Info.plist")
+if [[ "$bundle_id" != "com.soyeht.mac" ]]; then
+  >&2 echo "refusing unexpected bundle id: $bundle_id"
+  exit 1
+fi
+
+/usr/bin/codesign --verify --deep --strict "$artifact"
+team_id=$(/usr/bin/codesign -dv --verbose=2 "$artifact" 2>&1 | /usr/bin/sed -n 's/^TeamIdentifier=//p')
+if [[ -z "$team_id" || "$team_id" == "not set" ]]; then
+  >&2 echo "refusing to install an ad-hoc release build: TCC grants would not survive"
+  exit 1
+fi
+artifact_sha=$(/usr/bin/shasum -a 256 "$artifact/Contents/MacOS/Soyeht" | /usr/bin/awk '{print $1}')
+echo "verified signed Soyeht: bundle=$bundle_id team=$team_id binary_sha256=$artifact_sha"
+
+destination="/Applications/Soyeht.app"
+soyeht_wait_app_exit "$destination" com.soyeht.mac 30
+
+backup_root=$(/usr/bin/mktemp -d /private/tmp/soyeht-release-previous.XXXXXX)
+backup="$backup_root/Soyeht.app"
+if [[ -d "$destination" ]]; then
+  /bin/mv "$destination" "$backup"
+fi
+
+restore_previous() {
+  exit_code=$?
+  trap - ERR
+  failed_install="$backup_root/Soyeht.failed.app"
+  if [[ -d "$destination" ]]; then
+    /bin/mv "$destination" "$failed_install" || true
+  fi
+  if [[ -d "$backup" ]]; then
+    /bin/mv "$backup" "$destination"
+  fi
+  return "$exit_code"
+}
+trap restore_previous ERR
+/usr/bin/ditto "$artifact" "$destination"
+/usr/bin/codesign --verify --deep --strict "$destination"
+installed_team=$(/usr/bin/codesign -dv --verbose=2 "$destination" 2>&1 | /usr/bin/sed -n 's/^TeamIdentifier=//p')
+if [[ "$installed_team" != "$team_id" ]]; then
+  >&2 echo "installed signature changed unexpectedly: expected $team_id, got $installed_team"
+  /usr/bin/false
+fi
+installed_sha=$(/usr/bin/shasum -a 256 "$destination/Contents/MacOS/Soyeht" | /usr/bin/awk '{print $1}')
+if [[ "$installed_sha" != "$artifact_sha" ]]; then
+  >&2 echo "installed binary changed unexpectedly: sha256=$installed_sha"
+  /usr/bin/false
+fi
+trap - ERR
+
+/usr/bin/open -na "$destination"
+echo "installed: $destination"
+echo "installed binary_sha256: $installed_sha"
+echo "previous build backup: $backup"

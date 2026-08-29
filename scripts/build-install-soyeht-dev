@@ -102,8 +102,13 @@ if [[ "$install_app" != true ]]; then
 fi
 
 destination="/Applications/Soyeht Dev.app"
-/usr/bin/osascript -e 'tell application id "com.soyeht.mac.dev" to quit' >/dev/null 2>&1 || true
-/bin/sleep 1
+# Swapping the bundle while anything still executes from it invalidates that
+# process tree's code identity and TCC silently degrades its folder grants
+# (2026-08-28 incident). The guard quits the app and refuses to proceed until
+# nothing runs from the destination bundle.
+# shellcheck source=lib/app-exit.sh
+source "$script_dir/lib/app-exit.sh"
+soyeht_wait_app_exit "$destination" com.soyeht.mac.dev 30
 
 backup_root=$(/usr/bin/mktemp -d /private/tmp/soyeht-dev-previous.XXXXXX)
 backup="$backup_root/Soyeht Dev.app"
