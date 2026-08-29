@@ -102,11 +102,24 @@ if [[ "$install_app" != true ]]; then
 fi
 
 destination="/Applications/Soyeht Dev.app"
-/usr/bin/osascript -e 'tell application id "com.soyeht.mac.dev" to quit' >/dev/null 2>&1 || true
-/bin/sleep 1
+# Swapping the bundle while anything still executes from it invalidates that
+# process tree's code identity and TCC silently degrades its folder grants
+# (2026-08-28 incident). The guard quits the app and refuses to proceed until
+# nothing runs from the destination bundle.
+# shellcheck source=lib/app-exit.sh
+source "$script_dir/lib/app-exit.sh"
+install_lock=$(soyeht_acquire_install_lock com.soyeht.mac.dev)
+trap '/bin/rmdir "$install_lock" 2>/dev/null || true' EXIT
+soyeht_wait_app_exit "$destination" com.soyeht.mac.dev 30
 
 backup_root=$(/usr/bin/mktemp -d /private/tmp/soyeht-dev-previous.XXXXXX)
 backup="$backup_root/Soyeht Dev.app"
+# Final re-scan immediately before the swap: the app can come back between
+# the exit-wait returning and the mv (a Dock click, another agent's `open`).
+last_scan=$(soyeht_pids_running_from_bundle "$destination") && [[ -z "$last_scan" ]] || {
+  >&2 echo "the app restarted between exit-wait and swap; aborting before the mv"
+  exit 1
+}
 if [[ -d "$destination" ]]; then
   /bin/mv "$destination" "$backup"
 fi

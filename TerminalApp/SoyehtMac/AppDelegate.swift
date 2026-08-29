@@ -49,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     )
     private lazy var mainMenuController = MainMenuController(runtime: self, actionHandler: self)
     private var isTerminating = false
+    private var bundleReplacementMonitor: BundleReplacementMonitor?
 
     var isTerminatingForWindowRestoration: Bool { isTerminating }
 
@@ -149,6 +150,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             seed: SessionStore.shared.pairedServers.map { $0.toServer() }
         )
         SoyehtUpdater.shared.startIfConfigured()
+        startBundleReplacementGuard()
         // Boot the app-level WebSocket server so paired iPhones can reach us
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
@@ -241,6 +243,79 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false  // Terminal apps stay running after last window closes
+    }
+
+    // MARK: - Bundle replacement guard
+
+    /// Replacing the app bundle on disk while this instance keeps running
+    /// invalidates the running tree's code identity; macOS TCC then silently
+    /// denies folder access (Documents, Desktop, Downloads — EPERM without a
+    /// prompt or log line) to terminals opened from the stale instance until
+    /// the app is relaunched (2026-08-28 incident). Sparkle updates and
+    /// `scripts/*install*` quit us first, but nothing stops a stray
+    /// `cp`/`ditto` over /Applications — so the app watches its own
+    /// executable and offers a relaunch the moment the swap happens.
+    private func startBundleReplacementGuard() {
+        guard let executablePath = Bundle.main.executablePath else { return }
+        let monitor = BundleReplacementMonitor(executablePath: executablePath) { [weak self] _, current in
+            Task { @MainActor [weak self] in
+                self?.presentBundleReplacedAlert(executableStillExists: current.exists)
+            }
+        }
+        bundleReplacementMonitor = monitor
+        monitor.start()
+    }
+
+    private func presentBundleReplacedAlert(executableStillExists: Bool) {
+        let alert = NSAlert()
+        alert.messageText = "Soyeht was updated on disk"
+        alert.alertStyle = .warning
+        guard executableStillExists else {
+            // Nothing to relaunch: offering "Relaunch Now" here would quit
+            // the only running copy and the deferred `open` of the missing
+            // path would fail silently, leaving the user with no app at all.
+            alert.informativeText = """
+                The application bundle was removed while this copy was \
+                running. macOS can silently deny file access to terminals \
+                opened from a stale instance. Reinstall the app, then \
+                relaunch.
+                """
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        alert.informativeText = """
+            The application bundle was replaced while this copy was running. \
+            macOS can silently deny file access to terminals opened from a \
+            stale instance. Relaunch now to run the installed version.
+            """
+        alert.addButton(withTitle: "Relaunch Now")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            relaunchFromDisk()
+        }
+    }
+
+    /// Quit, then reopen whatever now lives at the bundle path. The helper
+    /// outlives this process on purpose: `open` must run after our PID is
+    /// gone so LaunchServices starts the new binary instead of focusing us.
+    private func relaunchFromDisk() {
+        let bundlePath = Bundle.main.bundlePath
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        helper.arguments = [
+            "-c",
+            "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"",
+            bundlePath,
+        ]
+        do {
+            try helper.run()
+        } catch {
+            NSLog("bundle-replacement relaunch helper failed: \(error.localizedDescription)")
+            return
+        }
+        NSApp.terminate(nil)
     }
 
     /// Clicking the Dock icon (or `File → Open`) with no visible window.

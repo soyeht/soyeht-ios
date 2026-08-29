@@ -123,6 +123,15 @@ enum EnginePaneAttacher {
                 conversationID: response.conversationId,
                 slaveTTYPath: response.slaveTTYPath
             )
+            // A brand-new session behind a reused view must not inherit the
+            // previous session's input modes (mouse reporting, kitty
+            // keyboard, bracketed paste): the dead TUI that enabled them
+            // never restored them, and the new shell receives them as
+            // garbage input. A reconnected session keeps running its own
+            // TUI, which still owns those modes — leave it untouched.
+            if !response.reconnected {
+                terminalView.resetInputModesForNewSession()
+            }
             return .attached(reconnected: response.reconnected)
           } catch {
             if !retriedAfterCredentialRejection,
