@@ -110,9 +110,7 @@ extension PaneViewController {
         guard target.content.isTerminal else { return }
         deferredAgentDeliveryCoordinator
             .reconcileSemanticInboxAcknowledgements(target.agentMessageInbox)
-        guard AgentConversationAdapterCapabilities
-            .capabilities(for: target.agent.displayName)
-            .structuredCapture else { return }
+        guard PaneStatusTracker.shared.hasActiveMessagingClient(for: target.id) else { return }
         for message in target.agentMessageInbox.messagesAwaitingDeferredTerminalDelivery {
             guard !deferredAgentDeliveryCoordinator.containsPendingMessage(message.id),
                   let prepared = try? AgentPaneInputPlanner.prepare(
@@ -127,10 +125,7 @@ extension PaneViewController {
             enqueueDeferredAgentDelivery(
                 messageID: message.id,
                 prepared: prepared,
-                // Transport admission is never a semantic delivery receipt.
-                // Hook-capable clients acknowledge the exact delivery ID;
-                // other TUIs remain visibly uncertain/fail-closed.
-                requiresSemanticAcknowledgement: true
+                requiresSemanticAcknowledgement: false
             )
         }
     }

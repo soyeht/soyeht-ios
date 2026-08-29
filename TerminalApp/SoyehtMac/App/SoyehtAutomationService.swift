@@ -9,6 +9,8 @@ struct SoyehtAutomationRequest: Decodable {
         case createWorkspacePanes = "create_workspace_panes"
         case sendPaneInput = "send_pane_input"
         case sendAgentMessage = "send_agent_message"
+        case registerMessagingClient = "register_messaging_client"
+        case unregisterMessagingClient = "unregister_messaging_client"
         case listAgentMessages = "list_agent_messages"
         case ackAgentMessages = "ack_agent_messages"
         case setAgentCommunicationPolicy = "set_agent_communication_policy"
@@ -111,6 +113,10 @@ struct SoyehtAutomationRequest: Decodable {
         let sourceConversationID: String?
         let sourceHandle: String?
         let sourceTTY: String?
+        let messagingClientInstanceID: String?
+        let messagingClientPID: Int32?
+        let messagingClientName: String?
+        let messagingClientVersion: String?
         let newName: String?
         let nameStyle: String?
         let paneNameStyle: String?
@@ -272,6 +278,31 @@ struct SoyehtAutomationResponse: Encodable {
         let writesToPTY: Bool
         let attentionRequested: Bool
         let policyDenials: [String]
+        let unavailableReason: String?
+
+        init(
+            messageID: String,
+            conversationID: String,
+            workspaceID: String,
+            displayReference: String,
+            channel: String?,
+            status: String,
+            writesToPTY: Bool,
+            attentionRequested: Bool,
+            policyDenials: [String],
+            unavailableReason: String? = nil
+        ) {
+            self.messageID = messageID
+            self.conversationID = conversationID
+            self.workspaceID = workspaceID
+            self.displayReference = displayReference
+            self.channel = channel
+            self.status = status
+            self.writesToPTY = writesToPTY
+            self.attentionRequested = attentionRequested
+            self.policyDenials = policyDenials
+            self.unavailableReason = unavailableReason
+        }
     }
 
     struct AgentInboxMessage: Encodable {
@@ -516,6 +547,9 @@ struct SoyehtAutomationResponse: Encodable {
         let isLive: Bool
         let isAttachable: Bool
         let canReceiveMessage: Bool
+        let messagingAvailability: String
+        let unavailableReason: String?
+        let mcpClientName: String?
         let isActive: Bool
         let isActiveWorkspace: Bool
         /// True when this agent belongs to the resolved caller's workspace.

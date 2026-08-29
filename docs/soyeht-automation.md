@@ -175,10 +175,7 @@ instead of a plain shell.
 `scripts/soyeht-mcp` is a stdio MCP server for Codex, Claude Code, OpenCode, or
 any other MCP client. It exposes these tools:
 
-- `open_panes`: open new panes in existing directories.
 - `open_shell`: open a new Soyeht shell pane/tab in the active workspace.
-- `open_file`: open a specific or random file in `vim` or another editor inside
-  a new Soyeht shell pane/tab.
 - `open_workspace`: create a new Soyeht workspace containing multiple panes.
 - `create_worktree_panes`: create git worktrees and open each one as a pane.
 - `agent_race_panes`: create one worktree pane per agent, defaulting to `codex`,
@@ -370,22 +367,6 @@ Faça uma auditoria somente leitura e responda em português:
 
 ### MCP Call Examples
 
-Open three existing directories as panes running Codex:
-
-```json
-{
-  "tool": "open_panes",
-  "arguments": {
-    "agent": "codex",
-    "panes": [
-      { "name": "a", "path": "/tmp/repo-a" },
-      { "name": "b", "path": "/tmp/repo-b" },
-      { "name": "c", "path": "/tmp/repo-c" }
-    ]
-  }
-}
-```
-
 Open a plain shell in a new Soyeht pane:
 
 ```json
@@ -394,20 +375,6 @@ Open a plain shell in a new Soyeht pane:
   "arguments": {
     "path": "/path/to/project",
     "name": "project shell"
-  }
-}
-```
-
-Open a random Markdown or Swift file in `vim` inside a new Soyeht pane:
-
-```json
-{
-  "tool": "open_file",
-  "arguments": {
-    "directory": "/path/to/project",
-    "editor": "vim",
-    "patterns": ["*.swift", "*.md"],
-    "maxDepth": 4
   }
 }
 ```

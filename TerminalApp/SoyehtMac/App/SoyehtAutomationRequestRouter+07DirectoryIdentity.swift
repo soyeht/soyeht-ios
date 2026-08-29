@@ -135,6 +135,35 @@ extension SoyehtAutomationRequestRouter {
             throw SoyehtAutomationError.missingConversationStore
         }
 
+        // MCP stdio is usually pipe-backed. Bind ordinary identity from the
+        // server PID's ancestry before consulting optional public claims.
+        if let processResolution = try resolveAutomationSourceByProcess(payload.messagingClientPID) {
+            if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !rawID.isEmpty,
+               UUID(uuidString: rawID) != processResolution.conversation.id {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            // A pane rename cannot rewrite an already-running process's
+            // environment. Ignore the mutable handle once process ownership
+            // (and, when present, the stable conversation UUID) is proven.
+            return processResolution
+        }
+
+        // A TTY is a pane-owned runtime fact. When present it is authoritative
+        // over public handles/UUIDs inherited through the environment, so an
+        // explicit claim can never redirect an ordinary MCP call to a peer.
+        if let ttyResolution = try resolveAutomationSourceByTTY(payload.sourceTTY) {
+            if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !rawID.isEmpty,
+               UUID(uuidString: rawID) != ttyResolution.conversation.id {
+                throw SoyehtAutomationError.unauthenticatedAgentSource
+            }
+            // Like process ancestry, the pane-owned TTY is stable while its
+            // display handle is mutable. The UUID claim is sufficient to
+            // reject redirection without breaking a renamed live pane.
+            return ttyResolution
+        }
+
         if let rawID = payload.sourceConversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !rawID.isEmpty {
             guard let id = UUID(uuidString: rawID),
@@ -153,40 +182,6 @@ extension SoyehtAutomationRequestRouter {
             return AutomationSourceResolution(conversation: conversation, resolution: "handle")
         }
 
-        guard let tty = normalizedTTYName(payload.sourceTTY) else {
-            return nil
-        }
-        for conversation in convStore.all where conversation.content.isTerminal {
-            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController else {
-                continue
-            }
-            // `.native` panes answer directly (NativePTY.slaveTTYPath).
-            // `.engineLocal` has no local PTY object to ask — its TTY path
-            // comes from the engine's create response, cached in
-            // EngineSessionTTYRegistry when the pane attached (A5; avoids a
-            // live GET /terminals/local per automation request). `.mirror`
-            // matches neither, same pre-existing limitation as today.
-            //
-            // Registry lookups MUST key off the engine's own echoed
-            // conversation_id, stored on `.engineLocal(conversationID:)` —
-            // never re-derive it from `conversation.id.uuidString`. The
-            // engine happens to echo that value byte-for-byte today
-            // (verified in handlers_terminal.rs), so the two currently
-            // agree, but that's an implementation detail of the engine,
-            // not a guarantee; record/remove are keyed by the response
-            // value everywhere else (EnginePaneAttacher), so the lookup
-            // must match.
-            let engineConversationID: String? = {
-                if case .engineLocal(let id) = conversation.commander { return id }
-                return nil
-            }()
-            let candidateTTY = pane.terminalView.localPTYSlaveTTYPathForAutomation
-                ?? engineConversationID.flatMap { EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0) }
-            guard let paneTTY = normalizedTTYName(candidateTTY), paneTTY == tty else {
-                continue
-            }
-            return AutomationSourceResolution(conversation: conversation, resolution: "tty")
-        }
         return nil
     }
 
@@ -271,13 +266,15 @@ extension SoyehtAutomationRequestRouter {
         source: SoyehtAutomationResponse.SourceIdentity?,
         presence: PanePresence?
     ) -> SoyehtAutomationResponse.ListedAgent {
-        let isTerminal = AppEnvironment.conversationStore?
-            .conversation(pane.conversationID)?
-            .content
-            .isTerminal ?? false
         let isLive = presence?.isLive ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) != nil)
         let isAttachable = presence?.isAttachable ?? (LivePaneRegistry.shared.pane(for: pane.conversationID) as? PaneViewController != nil)
-        let canReceiveMessage = isTerminal && isAttachable
+        let conversation = AppEnvironment.conversationStore?.conversation(pane.conversationID)
+        let availability = conversation.map(messagingAvailability) ?? MessagingAvailability(
+            status: "not_live",
+            unavailableReason: "pane_not_found",
+            presence: nil
+        )
+        let canReceiveMessage = availability.canReceiveMessage
         let role = AppEnvironment.conversationStore?
             .conversation(pane.conversationID)?
             .roleAssignment
@@ -302,6 +299,9 @@ extension SoyehtAutomationRequestRouter {
             isLive: isLive,
             isAttachable: isAttachable,
             canReceiveMessage: canReceiveMessage,
+            messagingAvailability: availability.status,
+            unavailableReason: availability.unavailableReason,
+            mcpClientName: availability.presence?.clientName,
             isActive: pane.isActive,
             isActiveWorkspace: pane.isActiveWorkspace,
             isSourceWorkspace: source?.workspaceID == pane.workspaceID.uuidString,

@@ -142,3 +142,13 @@ public enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
         )
     }
 }
+
+/// The five terminal colour themes state no neomorphic roles and no agent
+/// plates. `DesignStyle.canWear` therefore keeps neomorphic chrome off them
+/// and they render classic, which is the only style they were designed for.
+///
+/// Both used to be pinned here. The plates came from a recipe written when the
+/// pane header was a light bar carrying dark text; the header IS the agent's
+/// colour now and the name on it is the theme's own ink, which on these five
+/// is near-white — the name measured 1.03:1 to 2.21:1. They were never plates.
+/// Putting them in that role was the mistake, not their values.

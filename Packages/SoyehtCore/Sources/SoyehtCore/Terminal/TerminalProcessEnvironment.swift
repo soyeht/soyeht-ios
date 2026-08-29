@@ -7,13 +7,31 @@ public enum TerminalProcessEnvironment {
         "CLICOLOR_FORCE",
     ]
 
+    /// `COLORFGBG`, the one signal a program can read without asking.
+    ///
+    /// The convention is `foreground;background` as ANSI indices, and every
+    /// consumer reads only the last field: 0-6 and 8 mean a dark background,
+    /// 7 and 9-15 a light one. So `15;0` says light text on dark and `0;15`
+    /// says the reverse.
+    ///
+    /// Soyeht already answers the live question correctly — a program that
+    /// sends `OSC 11 ; ? BEL` gets this theme's actual screen colour back —
+    /// but a program that never asks had nothing to go on, which is why a
+    /// light pane still got a tool's dark styling. This is read at spawn and
+    /// cannot follow a later theme change; OSC 11 is the channel that can.
+    static func colorForegroundBackground(isDarkBackground: Bool) -> String {
+        isDarkBackground ? "15;0" : "0;15"
+    }
+
     public static func interactiveShellEnvironment(
         inherited: [String: String],
-        cwdPath: String
+        cwdPath: String,
+        isDarkBackground: Bool
     ) -> [String: String] {
         var environment = inherited
         environment["TERM"] = "xterm-256color"
         environment["COLORTERM"] = "truecolor"
+        environment["COLORFGBG"] = colorForegroundBackground(isDarkBackground: isDarkBackground)
         environment["PWD"] = cwdPath
         environment.removeValue(forKey: "OLDPWD")
         for key in inheritedColorOverrideKeys {

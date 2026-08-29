@@ -77,7 +77,8 @@ import Foundation
                 "OLDPWD": "/tmp/old",
                 "SHELL": "/bin/zsh",
             ],
-            cwdPath: "/Users/test/project"
+            cwdPath: "/Users/test/project",
+            isDarkBackground: true
         )
 
         #expect(environment["NO_COLOR"] == nil)
@@ -88,6 +89,39 @@ import Foundation
         #expect(environment["PWD"] == "/Users/test/project")
         #expect(environment["OLDPWD"] == nil)
         #expect(environment["SHELL"] == "/bin/zsh")
+        #expect(environment["COLORFGBG"] == "15;0")
+    }
+
+    /// A program that never sends OSC 11 has only COLORFGBG to go on, and it
+    /// reads the field after the semicolon: 0-6 and 8 are a dark background,
+    /// 7 and 9-15 a light one. A light pane used to advertise nothing at all,
+    /// so tools that adapt fell back to their dark styling on it.
+    @Test("Every theme advertises its own background tone")
+    func everyThemeAdvertisesItsBackgroundTone() {
+        for theme in TerminalColorTheme.builtInThemes {
+            let environment = TerminalProcessEnvironment.interactiveShellEnvironment(
+                inherited: [:],
+                cwdPath: "/tmp",
+                isDarkBackground: theme.isDarkBackground
+            )
+            #expect(environment["COLORFGBG"] == (theme.isDarkBackground ? "15;0" : "0;15"),
+                    "\(theme.id)")
+        }
+    }
+
+    /// The four light faces really do report light. This is the case that was
+    /// broken and the one nothing else would catch: an isDark that thresholds
+    /// relative luminance calls every one of them dark.
+    @Test("The light pane faces report a light background")
+    func lightFacesReportLight() {
+        for id in ["neoSunriseGold", "neoSunlitChartreuse", "neoMistyBlue", "neoPaleMist", "neoMilk"] {
+            let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
+            #expect(!theme.isDarkBackground, "\(id) reports dark")
+        }
+        for id in ["neoDeepVine", "neoDeepForest", "neoMidnightTeal", "neoDeepHarbor"] {
+            let theme = try! #require(TerminalColorTheme.builtInThemes.first { $0.id == id })
+            #expect(theme.isDarkBackground, "\(id) reports light")
+        }
     }
 
     @Test("App palette preserves terminal colors and derives readable app tokens")

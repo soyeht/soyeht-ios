@@ -96,44 +96,23 @@ enum MacTheme {
     static var neoWell: NSColor { nsColor(neoColors.wellHex) }
     /// Down-right soft shadow cast by a raised surface.
     static var neoShadowDark: NSColor { nsColor(neoColors.shadowDarkHex) }
-    /// Softened dark shadow for DARK surfaces on the light canvas (terminal
-    /// screens): the full-strength tint hugs a dark edge like a smudge, so
-    /// it is blended halfway toward the canvas — the card's own contrast
-    /// plus the white rim do the separating.
-    static var neoShadowDarkSoft: NSColor {
-        nsColor(HexColorMath.mix(neoColors.shadowDarkHex, appPalette.backgroundHex, t: 0.55))
-    }
     /// Up-left soft highlight cast by a raised surface.
     static var neoShadowLight: NSColor { nsColor(neoColors.shadowLightHex) }
-    /// Colored glow behind accent-filled controls (apply alpha at call site).
-    static var neoAccentShadow: NSColor { nsColor(neoColors.accentShadowHex) }
+    /// The well's own shadow pair, and the hard lip along its top-left edge.
+    /// Same colours as the card's pair on a light face; deeper and dimmer on
+    /// a dark one, where reusing the card's pair leaves the cavity edgeless.
+    static var neoWellShadow: NSColor { nsColor(neoColors.wellShadowHex) }
+    static var neoWellRim: NSColor { nsColor(neoColors.wellRimHex) }
+    static var neoWellLip: NSColor? { neoColors.wellLipHex.map(nsColor) }
 
-    /// Pane header pill (reference: pastel accent tint floating inside the
-    /// light frame, e.g. `#D9E4FA` on the blue variant).
-    static var neoHeaderPill: NSColor {
-        nsColor(HexColorMath.mix(appPalette.accentHex, "#FFFFFF", t: 0.74))
-    }
-
-    /// Per-pane header pastel rotation (reference: blue/green/pink/yellow
-    /// pills across the grid). Derived from the theme's semantic colors so
-    /// every palette produces coherent pastels.
+    /// Per-pane header identity colors: the plate an agent's name sits on.
+    ///
+    /// Read from the theme, never computed. A theme states four or five and
+    /// keeps the count it states.
     static var neoHeaderPastels: [NSColor] {
-        [
-            appPalette.accentHex,
-            appPalette.successHex,
-            appPalette.dangerHex,
-            appPalette.warningHex,
-        ].map { nsColor(HexColorMath.mix($0, "#FFFFFF", t: 0.76)) }
+        AgentIdentityPalette.plates(for: TerminalColorTheme.active).map(nsColor)
     }
 
-    /// Convex surface gradient (generator style: `linear-gradient(145deg)`).
-    /// Light source top-left, so a raised surface is lighter at the start
-    /// and settles slightly darker at the bottom-right.
-    static var neoConvexStart: NSColor { nsColor(HexColorMath.lighten(neoColors.raisedSurfaceHex, by: 0.35)) }
-    static var neoConvexEnd: NSColor { nsColor(HexColorMath.darken(neoColors.raisedSurfaceHex, by: 0.08)) }
-    /// Concave (pressed) variant — same pair, reversed.
-    static var neoConcaveStart: NSColor { neoConvexEnd }
-    static var neoConcaveEnd: NSColor { neoConvexStart }
 }
 
 private extension NSColor {

@@ -27,6 +27,9 @@ final class WorkspaceTabView: NSView {
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
     private let pillBackdrop = MacStyledSurfaceView()
+    /// Recess for the active tab. Sits above the fill and below the label, so
+    /// the cavity's walls fall on the pill and not on its text.
+    private let pillWell = MacInnerWellShadowView()
     /// Reference tab anatomy: little folder glyph before the title (neo
     /// only — zero width in classic so layout is pixel-identical there).
     private let folderIcon = NSImageView()
@@ -37,7 +40,6 @@ final class WorkspaceTabView: NSView {
     private var tabHeightConstraint: NSLayoutConstraint?
     /// Neo surface curvature: sits above the tab's opaque fill (kept for
     /// titlebar-drag hit routing) and below the label/badge subview layers.
-    private let pillGradient = CAGradientLayer()
     private var isActive: Bool = false
     /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
     /// short-circuit when the value hasn't changed. NSTextField's
@@ -94,8 +96,6 @@ final class WorkspaceTabView: NSView {
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
-        pillGradient.isHidden = true
-        layer?.insertSublayer(pillGradient, at: 0)
 
         // Neo pill shadows live on a pass-through backdrop behind the tab's
         // own opaque layer (dual shadows need their own layers, and the tab
@@ -108,6 +108,15 @@ final class WorkspaceTabView: NSView {
             pillBackdrop.leadingAnchor.constraint(equalTo: leadingAnchor),
             pillBackdrop.trailingAnchor.constraint(equalTo: trailingAnchor),
             pillBackdrop.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
+        pillWell.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pillWell)
+        NSLayoutConstraint.activate([
+            pillWell.topAnchor.constraint(equalTo: topAnchor),
+            pillWell.leadingAnchor.constraint(equalTo: leadingAnchor),
+            pillWell.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pillWell.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
         setAccessibilityRole(.button)
@@ -306,11 +315,25 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.cornerRadius = 9
             let fill = isActive ? MacTheme.neoWell : MacTheme.neoSurface
             let radius = min(bounds.height / 2, 18)
+            // Pressing changes DEPTH and nothing else: same box, same radius,
+            // the raised pair simply turns inward. The active tab used to swap
+            // in a smaller outward pair (3/6 against the idle 4/8), which
+            // shrinks the pill rather than sinking it — it read as a different
+            // control, not the same one pushed in.
             pillBackdrop.applyStyle(
                 fill: fill,
                 cornerRadius: radius,
-                shadows: isActive ? MacSurface.Shadows.raisedTabSet : MacSurface.Shadows.raisedSmallSet
+                shadows: isActive ? [] : MacSurface.Shadows.raisedSmallSet
             )
+            pillWell.isHidden = !isActive
+            if isActive {
+                pillWell.applyStyle(
+                    cornerRadius: radius,
+                    dark: MacSurface.Shadows.innerWellDark,
+                    light: MacSurface.Shadows.innerWellLight,
+                    lip: MacSurface.Shadows.innerWellLip
+                )
+            }
             layer?.backgroundColor = fill.cgColor
             layer?.cornerRadius = radius
             // Setting cornerRadius on the backing layer makes AppKit flip
@@ -318,8 +341,7 @@ final class WorkspaceTabView: NSView {
             // shadow layers at the tab edge — the pill renders shadowless.
             clipsToBounds = false
             // Reference pills are FLAT fills (`tjIxf`): depth comes from the
-            // shadow pair alone, no surface gradient.
-            pillGradient.isHidden = true
+            // shadow pair alone.
             label.textColor = isActive ? MacTheme.interactionAccent : MacTheme.textSecondary
             label.font = isActive
                 ? MacTypography.NSFonts.workspaceTabTitleActive
@@ -328,6 +350,7 @@ final class WorkspaceTabView: NSView {
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
             bottomStroke.isHidden = true
         } else if isActive {
+            pillWell.isHidden = true
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0
@@ -335,7 +358,6 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
             countBadge.layer?.cornerRadius = MacSurface.Radius.badge
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
-            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             clipsToBounds = true
             layer?.backgroundColor = Self.activeFill.cgColor
@@ -344,11 +366,14 @@ final class WorkspaceTabView: NSView {
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = false
         } else {
-            // Use the top-bar base colour instead of `.clear` so the view
-            // stays opaque — AppKit's titlebar-drag logic only honors
-            // `mouseDownCanMoveWindow = false` when the hit view is opaque.
-            // Visually identical to transparent because the parent paints
-            // the same colour, but event routing now works.
+            pillWell.isHidden = true
+            // The top-bar base colour rather than `.clear`, which is
+            // visually identical because the parent paints the same colour.
+            //
+            // This used to claim the opacity was what made AppKit honour
+            // `mouseDownCanMoveWindow = false`. It is not: `NSView.isOpaque`
+            // reads false whether the backing layer is filled, clear or
+            // unset, so the fill never affected event routing either way.
             folderIcon.isHidden = true
             folderWidthConstraint?.constant = 0
             labelSpacingConstraint?.constant = 0
@@ -356,7 +381,6 @@ final class WorkspaceTabView: NSView {
             countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
             countBadge.layer?.cornerRadius = MacSurface.Radius.badge
             countLabel.font = MacTypography.NSFonts.workspaceTabBadge
-            pillGradient.isHidden = true
             layer?.cornerRadius = 0
             clipsToBounds = true
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor

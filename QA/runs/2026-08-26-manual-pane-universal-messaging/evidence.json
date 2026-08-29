@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "result": "passed",
+  "date": "2026-08-26",
+  "terminology": {
+    "agent": "A named Soyeht pane identity",
+    "harness": "The CLI or application running inside an agent pane",
+    "listAgentsReturns": "agent pane identities, not the harness catalog"
+  },
+  "source": {
+    "commit": "766a9fbb3c342aaec281e7091c56940049a772e1",
+    "originMain": "63321ff0a2d3893efc05d59717d7ff205ae37878"
+  },
+  "installedApp": {
+    "path": "/Applications/Soyeht Dev.app",
+    "bundleIdentifier": "com.soyeht.mac.dev",
+    "sealedCommit": "766a9fbb3c342aaec281e7091c56940049a772e1",
+    "teamIdentifier": "W7677A5BK2",
+    "executableSHA256": "00437fe247ccfbc5b26fe9ec3f557f0f4306273b0199030736cca199077e8117"
+  },
+  "workspace": {
+    "id": "2DE0237C-46AE-405B-8643-822E11465260",
+    "name": "E2E Manual MCP"
+  },
+  "agents": [
+    {
+      "name": "e2e-manual-codex",
+      "conversationID": "782AD7B6-F790-417A-9EE5-D274D1C3CAAF",
+      "declaredAgent": "shell",
+      "harness": "Codex",
+      "physicalCommand": "codex --yolo"
+    },
+    {
+      "name": "e2e-manual-claude",
+      "conversationID": "1248DAE7-3060-41DC-844E-30BA53DD783E",
+      "declaredAgent": "shell",
+      "harness": "Claude Code",
+      "physicalCommand": "claude",
+      "limitation": "Weekly account usage limit prevented an outbound reply"
+    },
+    {
+      "name": "e2e-manual-opencode",
+      "conversationID": "9FC696EC-E856-4593-90D9-64309B7D958D",
+      "declaredAgent": "shell",
+      "harness": "OpenCode",
+      "physicalCommand": "opencode --auto"
+    }
+  ],
+  "automatedTests": {
+    "focusedAgentMessagingCore": { "passed": 57, "failed": 0 },
+    "fullSwift": { "executed": 902, "skipped": 5, "failed": 0 },
+    "mcpProtocol": { "passed": 68, "failed": 0 },
+    "xcodeDebugBuild": "passed",
+    "signedDevInstall": "passed"
+  },
+  "agentDrivenScenarios": {
+    "codexOpenCodeBidirectional": "passed",
+    "codexToClaudeReceive": "passed",
+    "naturalLanguagePromptsWithoutToolNames": true,
+    "renamedManualPanePresence": "passed"
+  },
+  "mouseDraftCollision": {
+    "result": "passed",
+    "draft": "RASCUNHO-MOUSE-OK",
+    "physicalBackspaces": 17,
+    "message": {
+      "id": "A9EB51FA-7CE3-4247-AC89-3C228147B352",
+      "body": "TOKEN-MOUSE-DRAFT-FIX-OK",
+      "createdAt": "2026-08-26T10:13:27-03:00",
+      "deliveryStartedAt": "2026-08-26T10:13:52-03:00",
+      "deliveredAt": "2026-08-26T10:13:54-03:00"
+    },
+    "humanDraftSubmitted": false,
+    "messageSplicedIntoDraft": false,
+    "terminalMouseReportCreatedPhantomDraft": false
+  },
+  "coverageBoundary": "Physical E2E covers Codex/OpenCode bidirectional messaging and Claude receive. It does not claim every harness has passed physical E2E."
+}

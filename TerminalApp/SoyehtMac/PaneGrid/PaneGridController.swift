@@ -59,9 +59,18 @@ private final class GridLightingView: NSView {
         // read BRIGHTER than the card face at the lit edges (reference:
         // bloom #F5F6F9 against face #E8EDF4), which is what makes the
         // top-left corner look elevated.
-        let specs: [(NSColor, Float, CGSize, CGFloat)] = [
-            (MacTheme.neoShadowDark, 0.55, CGSize(width: 4, height: -4), 9),
-            (MacTheme.neoShadowLight, 1.0, CGSize(width: -4, height: 4), 9),
+        // 5/10 at FULL opacity on both sides, as reviewed. The dark side
+        // used to run at 0.55, a weight tuned when the only neo theme was
+        // Milk and its shadow was one untinted blue-grey. Every face states
+        // its own pair now, and half-covering it produces a tone nobody
+        // chose: the authored shadow composited over the canvas behind it.
+        // Reviewed as 5/10 at full opacity on both sides. `blur` here is the
+        // CSS number; CALayer wants half of it (see MacSurface.Shadow.neo).
+        let specs = [
+            MacSurface.Shadow.neo(color: MacTheme.neoShadowDark,
+                                  offset: CGSize(width: 5, height: -5), blur: 10),
+            MacSurface.Shadow.neo(color: MacTheme.neoShadowLight,
+                                  offset: CGSize(width: -5, height: 5), blur: 10),
         ]
         for rect in cardRects {
             let cardPath = CGPath(
@@ -70,15 +79,12 @@ private final class GridLightingView: NSView {
                 cornerHeight: cornerRadius,
                 transform: nil
             )
-            for (color, opacity, offset, blur) in specs {
+            for spec in specs {
                 let shadowLayer = CALayer()
                 shadowLayer.frame = bounds
                 shadowLayer.masksToBounds = false
                 shadowLayer.shadowPath = cardPath
-                shadowLayer.shadowColor = color.cgColor
-                shadowLayer.shadowOpacity = opacity
-                shadowLayer.shadowOffset = offset
-                shadowLayer.shadowRadius = blur
+                spec.apply(to: shadowLayer)
 
                 // Mask the caster's own rect out of its shadow: the shadow
                 // may fall on neighbors and canvas, never on its own card.
@@ -473,6 +479,32 @@ final class PaneGridController: NSViewController {
             if !card.isEmpty { rects.append(card) }
         }
         gridLighting.update(cardRects: rects, cornerRadius: MacSurface.Radius.card)
+    }
+
+    /// Recompute the card lighting because the panes became VISIBLE, not
+    /// because anything moved.
+    ///
+    /// Switching workspaces is a pure `isHidden` flip: no frame changes, so
+    /// AppKit runs no layout pass, `viewDidLayout` never fires, and no split
+    /// view resizes. None of the three paths that rebuild the overlay is a
+    /// reveal. Meanwhile both of the others run happily WHILE a container is
+    /// hidden — a window resize resolves every container's layout, and a
+    /// preferences change reapplies the theme to every cached container —
+    /// and a hidden container has no visible panes, so the overlay is
+    /// cleared. Reveal it after that and the cards are flat, with nothing
+    /// left to trigger a rebuild until the user resizes something.
+    ///
+    /// Measured: changing any single preference flattened every workspace
+    /// except the visible one. Bloom went from +7.9 L* to 0.0 and the card
+    /// shadow from -11.2 to 0.0 — not a weaker shadow, no shadow at all.
+    ///
+    /// This is deliberately NOT `applyTheme()`, which is what a reveal would
+    /// otherwise need. That call re-rasterises five bezier glyphs per pane
+    /// and used to dominate workspace switching; it was removed from the swap
+    /// path for exactly that reason. This walks the leaves and sets shadow
+    /// specs on a handful of layers.
+    func refreshCardLightingAfterReveal() {
+        updateGridLighting()
     }
 
     @objc private func anySplitResized(_ note: Notification) {

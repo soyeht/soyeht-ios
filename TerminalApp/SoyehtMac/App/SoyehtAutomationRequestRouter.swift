@@ -83,10 +83,13 @@ final class SoyehtAutomationRequestRouter {
     ) async throws -> SoyehtAutomationResult {
         try validateMCPClientContract(request)
         if let source = try? resolveAutomationSource(payload: request.payload),
-           PaneStatusTracker.shared.validatesLaunchOwnership(
+           (PaneStatusTracker.shared.messagingClientPresence(
+               for: source.conversation.id,
+               instanceID: request.payload.messagingClientInstanceID
+           ) != nil || PaneStatusTracker.shared.validatesLaunchOwnership(
                paneID: source.conversation.id,
                nonce: request.payload.nonce
-           ) {
+           )) {
             PaneStatusTracker.shared.recordMcpActivity(paneID: source.conversation.id)
         }
         return try await handleAutomationRequest(request)
@@ -143,6 +146,10 @@ final class SoyehtAutomationRequestRouter {
             return try await handleSendPaneInput(request)
         case .sendAgentMessage:
             return try handleSendAgentMessage(request)
+        case .registerMessagingClient:
+            return try handleRegisterMessagingClient(request)
+        case .unregisterMessagingClient:
+            return try handleUnregisterMessagingClient(request)
         case .listAgentMessages:
             return try handleListAgentMessages(request)
         case .ackAgentMessages:

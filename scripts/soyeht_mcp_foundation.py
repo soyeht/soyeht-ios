@@ -21,7 +21,22 @@ from soyeht_mcp_ipc import wait_response, write_request
 
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "2.0.0"
+SERVER_INSTRUCTIONS = (
+    "Soyeht intent-routing rule: distinguish an existing named Soyeht agent pane from an internal "
+    "subagent created by a harness such as Codex, Claude Code, or OpenCode. For communication "
+    "requests (talk, send, ping, ask, or wait for replies) that contain target names, first call "
+    "list_agents before choosing any delegation mechanism. If a normalized target name matches a "
+    "Soyeht pane, use message_agent; never spawn an internal subagent as its substitute. If no pane "
+    "matches, report that the named Soyeht agent was not found and ask what the user wants; do not "
+    "silently create a replacement. Also use list_agents when the user mentions Soyeht, a workspace, "
+    "or panes without listing names. Internal subagents remain valid when the user explicitly asks the "
+    "harness to create or delegate to new subagents; new Soyeht panes remain valid when the user "
+    "explicitly asks to create or open panes/agents in Soyeht. Never claim that an agent replied "
+    "unless a real Soyeht message or captured pane output proves the reply."
+)
 MCP_CLIENT_CONTRACT_VERSION = 3
+MCP_SERVER_INSTANCE_ID = str(uuid.uuid4())
+MCP_SERVER_PROCESS_ID = os.getpid()
 
 
 def inferred_mcp_client_profile(module_path=None):

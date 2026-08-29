@@ -8,7 +8,6 @@
 
 import Cocoa
 import SoyehtCore
-import UniformTypeIdentifiers
 
 extension Notification.Name {
     static let preferencesDidChange = Notification.Name("SoyehtPreferencesDidChange")
@@ -60,7 +59,10 @@ class PreferencesWindowController: NSWindowController {
 
 class PreferencesViewController: NSViewController {
 
-    private let prefs = TerminalPreferences.shared
+    /// `internal` rather than `private`: PreferencesThemeAcquisition.swift
+    /// extends this type from another file, and Swift's `private` does not
+    /// reach across files.
+    let prefs = TerminalPreferences.shared
 
     private let fontSizeLabel = NSTextField(labelWithString: String(localized: "prefs.label.fontSize", comment: "Preferences row label for terminal font size."))
     private let fontSizeField = NSTextField()
@@ -111,7 +113,7 @@ class PreferencesViewController: NSViewController {
     )
     private var themes: [TerminalColorTheme] = []
     private var themeEditor: ThemeEditorWindowController?
-    private var themeCatalogBrowser: ThemeCatalogWindowController?
+    var themeCatalogBrowser: ThemeCatalogWindowController?
 
     override func loadView() {
         view = NSView()
@@ -269,7 +271,10 @@ class PreferencesViewController: NSViewController {
 
     private func populateThemes() {
         themePopUp.removeAllItems()
-        themes = TerminalThemeStore.shared.allThemes()
+        // Only themes the active style can wear: neomorphic paints roles an
+        // ordinary theme does not state, and nothing invents them.
+        themes = DesignStyle.themes(for: DesignStyle.active,
+                                    from: TerminalThemeStore.shared.allThemes())
         for theme in themes {
             themePopUp.addItem(withTitle: themeMenuTitle(theme))
             themePopUp.lastItem?.representedObject = theme
@@ -343,7 +348,19 @@ class PreferencesViewController: NSViewController {
         guard let theme = themePopUp.selectedItem?.representedObject as? TerminalColorTheme else { return }
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
+        // The active style follows the theme, so picking a theme can move it.
+        // Without this the chrome switched to neomorphic while Style still
+        // read Classic.
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+    }
+
+    /// Re-reads both popups and reselects. Style and theme constrain each
+    /// other, so changing either can move the other and change which themes
+    /// are offered at all.
+    private func refreshStyleAndThemeLists() {
+        populateThemes()
+        loadCurrentValues()
         updateDeleteButton()
     }
 
@@ -351,70 +368,19 @@ class PreferencesViewController: NSViewController {
         guard let raw = stylePopUp.selectedItem?.representedObject as? String,
               let style = DesignStyle(rawValue: raw) else { return }
         DesignStyle.setActive(style)
+        // Picking a style can mean the current theme no longer applies. Move
+        // to one the style wears: `DesignStyle.active` silently falls back to
+        // classic otherwise, so the choice would look like it did nothing.
+        if !style.canWear(TerminalColorTheme.active),
+           let wearable = DesignStyle.themes(
+               for: style, from: TerminalThemeStore.shared.allThemes()).first {
+            TerminalThemeStore.shared.setActiveTheme(id: wearable.id)
+            // Carry the cursor with it, as every other theme-setting path
+            // here does; otherwise it keeps the previous theme's colour.
+            prefs.cursorColorHex = wearable.cursorHex
+        }
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
-    }
-
-    @objc private func importThemeFromFile() {
-        let panel = NSOpenPanel()
-        panel.title = String(localized: "prefs.theme.importPanel.title")
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = ["itermcolors", "conf", "theme", "txt"].compactMap {
-            UTType(filenameExtension: $0)
-        }
-
-        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            self?.installTheme(from: url)
-        }
-
-        if let window = view.window {
-            panel.beginSheetModal(for: window, completionHandler: completion)
-        } else {
-            completion(panel.runModal())
-        }
-    }
-
-    @objc private func browseThemeCatalog() {
-        let browser = ThemeCatalogWindowController { [weak self] saved in
-            self?.selectAndApplyTheme(saved)
-        }
-        themeCatalogBrowser = browser
-
-        guard let browserWindow = browser.window else { return }
-        if let window = view.window {
-            window.beginSheet(browserWindow) { [weak self] _ in
-                self?.themeCatalogBrowser = nil
-            }
-        } else {
-            browser.showWindow(self)
-        }
-    }
-
-    @objc private func installThemeFromURL() {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "prefs.theme.installURL.title")
-        alert.informativeText = String(localized: "prefs.theme.installURL.message")
-        alert.addButton(withTitle: String(localized: "prefs.theme.button.install"))
-        alert.addButton(withTitle: String(localized: "common.button.cancel"))
-
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
-        field.placeholderString = "https://raw.githubusercontent.com/..."
-        alert.accessoryView = field
-
-        let handleResponse: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard response == .alertFirstButtonReturn,
-                  let url = URL(string: field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                return
-            }
-            self?.downloadAndInstallTheme(from: url)
-        }
-
-        if let window = view.window {
-            alert.beginSheetModal(for: window, completionHandler: handleResponse)
-        } else {
-            handleResponse(alert.runModal())
-        }
     }
 
     @objc private func customizeTheme() {
@@ -485,52 +451,13 @@ class PreferencesViewController: NSViewController {
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
-    private func installTheme(from url: URL) {
-        do {
-            let data = try Data(contentsOf: url)
-            let imported = try TerminalThemeImporter.importTheme(
-                data: data,
-                filename: url.lastPathComponent,
-                sourceURL: url.absoluteString
-            )
-            let saved = try TerminalThemeStore.shared.saveImportedTheme(imported)
-            selectAndApplyTheme(saved)
-        } catch {
-            showError(error)
-        }
-    }
-
-    private func downloadAndInstallTheme(from url: URL) {
-        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
-            DispatchQueue.main.async {
-                if let error {
-                    self?.showError(error)
-                    return
-                }
-                guard let data else {
-                    self?.showError(TerminalThemeError.unsupportedFormat)
-                    return
-                }
-                do {
-                    let imported = try TerminalThemeImporter.importTheme(
-                        data: data,
-                        filename: url.lastPathComponent,
-                        sourceURL: url.absoluteString
-                    )
-                    let saved = try TerminalThemeStore.shared.saveImportedTheme(imported)
-                    self?.selectAndApplyTheme(saved)
-                } catch {
-                    self?.showError(error)
-                }
-            }
-        }.resume()
-    }
-
-    private func selectAndApplyTheme(_ theme: TerminalColorTheme) {
-        populateThemes()
+    func selectAndApplyTheme(_ theme: TerminalColorTheme) {
+        // Apply BEFORE repopulating: the theme decides the style and the
+        // style decides the list, so building it first builds it from the
+        // outgoing state and the popup showed a theme the app was not running.
         TerminalThemeStore.shared.setActiveTheme(id: theme.id)
         prefs.cursorColorHex = theme.cursorHex
-        loadCurrentValues()
+        refreshStyleAndThemeLists()
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
@@ -561,7 +488,7 @@ class PreferencesViewController: NSViewController {
         }
     }
 
-    private func showError(_ error: Error) {
+    func showError(_ error: Error) {
         let alert = NSAlert(error: error)
         if let window = view.window {
             alert.beginSheetModal(for: window)

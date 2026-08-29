@@ -22,6 +22,111 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
+    def test_initialize_registers_process_bound_messaging_presence(self):
+        calls = []
+        globals_ = MODULE["handle_message"].__globals__
+        original = globals_["register_messaging_client_presence"]
+        original_start = globals_["start_messaging_client_presence_heartbeat"]
+        try:
+            globals_["register_messaging_client_presence"] = lambda: calls.append("register")
+            globals_["start_messaging_client_presence_heartbeat"] = lambda: calls.append("heartbeat")
+            reply = MODULE["handle_message"]({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            })
+        finally:
+            globals_["register_messaging_client_presence"] = original
+            globals_["start_messaging_client_presence_heartbeat"] = original_start
+
+        self.assertEqual(calls, ["register", "heartbeat"])
+        self.assertEqual(reply["result"]["protocolVersion"], "2025-03-26")
+        instructions = reply["result"]["instructions"]
+        self.assertIn("existing named Soyeht agent pane", instructions)
+        self.assertIn("first call list_agents before choosing any delegation mechanism", instructions)
+        self.assertIn("If a normalized target name matches", instructions)
+        self.assertIn("use message_agent", instructions)
+        self.assertIn("never spawn an internal subagent as its substitute", instructions)
+        self.assertIn("do not silently create a replacement", instructions)
+        self.assertIn("Internal subagents remain valid", instructions)
+        self.assertIn("Never claim that an agent replied", instructions)
+
+    def test_agent_messaging_tools_forbid_internal_subagent_substitution(self):
+        schemas = {tool["name"]: tool for tool in MODULE["TOOLS"]}
+        directory_description = schemas["list_agents"]["description"]
+        messaging_description = schemas["message_agent"]["description"]
+
+        self.assertIn("call this tool BEFORE choosing a delegation mechanism", directory_description)
+        self.assertIn("Match normalized names", directory_description)
+        self.assertIn("must never be replaced by newly spawned internal harness subagents", directory_description)
+        self.assertIn("unmatched names must be reported", directory_description)
+        self.assertIn("This does not forbid internal subagents", directory_description)
+        self.assertIn("list_agents must be called before choosing a delegation mechanism", messaging_description)
+        self.assertIn("Never spawn internal harness subagents as substitutes", messaging_description)
+        self.assertIn("Internal subagents remain valid", messaging_description)
+        self.assertIn("Never claim a reply merely because delivery succeeded", messaging_description)
+
+    def test_messaging_presence_heartbeat_retries_then_uses_steady_interval(self):
+        delays = []
+        outcomes = iter((False, True))
+
+        class StopAfterTwoRegistrations:
+            def wait(self, delay):
+                delays.append(delay)
+                return len(delays) > 2
+
+        globals_ = MODULE["start_messaging_client_presence_heartbeat"].__globals__
+        original = globals_["register_messaging_client_presence"]
+        try:
+            globals_["register_messaging_client_presence"] = lambda: next(outcomes)
+            globals_["_messaging_presence_heartbeat_loop"](StopAfterTwoRegistrations())
+        finally:
+            globals_["register_messaging_client_presence"] = original
+
+        self.assertEqual(delays, [0.5, 1.0, 15.0])
+
+    def test_source_context_carries_process_identity_for_presence_refresh(self):
+        payload = {}
+        globals_ = MODULE["with_source_context"].__globals__
+        original_tty = globals_["current_tty"]
+        try:
+            globals_["current_tty"] = lambda: "/dev/ttys321"
+            MODULE["with_source_context"](payload)
+        finally:
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(payload["sourceTTY"], "/dev/ttys321")
+        self.assertEqual(payload["messagingClientInstanceID"], MODULE["MCP_SERVER_INSTANCE_ID"])
+        self.assertEqual(payload["messagingClientPID"], os.getpid())
+        self.assertEqual(payload["messagingClientName"], MODULE["SERVER_NAME"])
+        self.assertEqual(payload["messagingClientVersion"], MODULE["SERVER_VERSION"])
+
+    def test_presence_registration_does_not_require_stdio_server_tty(self):
+        captured = {}
+        globals_ = MODULE["register_messaging_client_presence"].__globals__
+        original_tty = globals_["current_tty"]
+        original_resolve = globals_["resolve_automation_root"]
+        original_submit = globals_["submit_request_to_root"]
+        original_root = globals_["_MESSAGING_PRESENCE_ROOT"]
+        try:
+            globals_["current_tty"] = lambda: None
+            globals_["_MESSAGING_PRESENCE_ROOT"] = None
+            globals_["resolve_automation_root"] = lambda automation_dir, payload: Path("/tmp/dev-automation")
+            globals_["submit_request_to_root"] = lambda root, request_type, payload, **kwargs: (
+                captured.update(root=root, request_type=request_type, payload=payload) or {"status": "ok"}
+            )
+            self.assertTrue(MODULE["register_messaging_client_presence"]())
+        finally:
+            globals_["current_tty"] = original_tty
+            globals_["resolve_automation_root"] = original_resolve
+            globals_["submit_request_to_root"] = original_submit
+            globals_["_MESSAGING_PRESENCE_ROOT"] = original_root
+
+        self.assertEqual(captured["request_type"], "register_messaging_client")
+        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["messagingClientPID"], os.getpid())
+
     def test_tools_list_contract_matches_reviewed_mcp2_golden(self):
         encoded = json.dumps(
             MODULE["TOOLS"],
@@ -30,10 +135,10 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             separators=(",", ":"),
         ).encode("utf-8")
 
-        self.assertEqual(len(MODULE["TOOLS"]), 44)
+        self.assertEqual(len(MODULE["TOOLS"]), 40)
         self.assertEqual(
             hashlib.sha256(encoded).hexdigest(),
-            "7a93e6cf79fd9d5654d6fe1a1be3c7ba3d91f9370a5560468870692d76daad76",
+            "9541672caa2f45ba1440aa25db56a5a4b199f68673038d68b619f620f5904e4c",
         )
 
     def test_tool_registry_has_exactly_one_handler_per_schema(self):
@@ -41,30 +146,29 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(len(schema_names), len(set(schema_names)))
         self.assertEqual(set(schema_names), set(MODULE["TOOL_HANDLERS"]))
+        self.assertNotIn("open_panes", schema_names)
+        self.assertNotIn("open_file", schema_names)
+        self.assertNotIn("open_explorer", schema_names)
+        self.assertNotIn("open_git", schema_names)
 
-    def test_open_file_shell_mode_calls_the_creation_domain_handler(self):
-        globals_ = MODULE["tool_open_file"].__globals__
-        original_choose_file = globals_["choose_file"]
-        original_open_shell = globals_["tool_open_shell"]
-        captured = {}
-        try:
-            globals_["choose_file"] = lambda _args: Path("/tmp/example.txt")
+    def test_tool_contract_and_handler_come_from_the_same_registration(self):
+        registry = MODULE["TOOL_REGISTRY"]
 
-            def fake_open_shell(args):
-                captured.update(args)
-                return {"status": "ok"}
-
-            globals_["tool_open_shell"] = fake_open_shell
-            result = MODULE["tool_open_file"]({"mode": "shell", "editor": "vim"})
-        finally:
-            globals_["choose_file"] = original_choose_file
-            globals_["tool_open_shell"] = original_open_shell
-
-        self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["selectedFile"], "/tmp/example.txt")
-        self.assertEqual(captured["agent"], "shell")
-        self.assertEqual(captured["path"], "/tmp")
-        self.assertEqual(captured["command"], "vim /tmp/example.txt")
+        self.assertEqual(len(registry), len(MODULE["TOOLS"]))
+        self.assertEqual(
+            [spec.order for spec in registry],
+            list(range(len(registry))),
+        )
+        self.assertEqual(
+            [spec.definition for spec in registry],
+            MODULE["TOOLS"],
+        )
+        self.assertEqual(
+            {spec.name: spec.handler for spec in registry},
+            MODULE["TOOL_HANDLERS"],
+        )
+        for spec in registry:
+            self.assertIs(spec.handler.__soyeht_tool_spec__, spec)
 
     def test_file_ipc_request_and_directory_are_owner_only(self):
         write_request = MODULE["write_request"]
@@ -242,7 +346,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(prompt_mode["enum"], ["auto", "message", "raw"])
         self.assertIn("agent message", prompt_mode["description"])
         self.assertIn("raw", prompt_mode["description"])
-        for name in ("open_panes", "open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
+        for name in ("open_shell", "open_agent_pane", "open_workspace", "create_worktree_panes", "agent_race_panes"):
             tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == name)
             self.assertIs(tool["inputSchema"]["properties"]["promptDelayMs"], prompt_delay)
             self.assertIs(tool["inputSchema"]["properties"]["promptMode"], prompt_mode)
@@ -290,6 +394,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("sourceIdentity", identify["description"])
         self.assertIn("calling terminal TTY", identify["description"])
         self.assertIn("agent/pane directory", directory["description"])
+        self.assertIn("NOT a harness/CLI product", directory["description"])
+        self.assertIn("return the pane displayReference names", directory["description"])
         self.assertIn("messageTarget", directory["description"])
         self.assertIn("Never create a new pane", directory["description"])
 
@@ -569,11 +675,12 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-b")
 
-    def test_send_pane_input_explicit_source_suppresses_tty_fallback(self):
+    def test_send_pane_input_explicit_source_is_still_bound_to_current_tty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -581,7 +688,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {}, clear=True):
                 result = MODULE["tool_send_pane_input"]({
                     "handles": ["@dst"],
@@ -590,18 +697,19 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceHandle"], "@sender")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
-    def test_source_environment_is_used_before_tty_when_explicit_source_absent(self):
+    def test_source_environment_metadata_is_bound_to_the_current_tty(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
+        source_globals = MODULE["with_source_context"].__globals__
         original_submit = globals_["submit_request"]
-        original_tty = globals_["current_tty"]
+        original_tty = source_globals["current_tty"]
         try:
             def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
                 captured["request_type"] = request_type
@@ -609,7 +717,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 return {"status": "ok"}
 
             globals_["submit_request"] = fake_submit_request
-            globals_["current_tty"] = lambda: "/dev/ttys123"
+            source_globals["current_tty"] = lambda: "/dev/ttys123"
             with patch.dict("os.environ", {
                 "SOYEHT_CONVERSATION_ID": "22222222-2222-2222-2222-222222222222",
                 "SOYEHT_HANDLE": "@env-source",
@@ -621,14 +729,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
                 })
         finally:
             globals_["submit_request"] = original_submit
-            globals_["current_tty"] = original_tty
+            source_globals["current_tty"] = original_tty
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(captured["payload"]["sourceHandle"], "@env-source")
         self.assertEqual(captured["payload"]["nonce"], "launch-proof")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
     def test_explicit_source_still_forwards_launch_nonce_from_environment(self):
         payload = {}
@@ -647,7 +755,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(payload["sourceConversationID"], "22222222-2222-2222-2222-222222222222")
         self.assertEqual(payload["sourceHandle"], "@claimed-source")
         self.assertEqual(payload["nonce"], "launch-proof")
-        self.assertNotIn("sourceTTY", payload)
+        self.assertEqual(payload["sourceTTY"], "/dev/ttys123")
 
     def test_parent_source_environment_is_used_when_mcp_subprocess_env_is_empty(self):
         captured = {}
@@ -683,7 +791,7 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "send_pane_input")
         self.assertEqual(captured["payload"]["sourceConversationID"], "33333333-3333-3333-3333-333333333333")
         self.assertEqual(captured["payload"]["sourceHandle"], "@parent-codex")
-        self.assertNotIn("sourceTTY", captured["payload"])
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
 
     def test_capture_pane_forwards_source_context_before_active_window_fallback(self):
         captured = {}
@@ -1239,48 +1347,6 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertEqual(captured["request_type"], "create_worktree_panes")
         self.assertTrue(captured["payload"]["allowAutoPaneNames"])
         self.assertNotIn("name", captured["payload"]["panes"][0])
-
-    def test_open_panes_requires_name(self):
-        with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):
-            MODULE["tool_open_panes"]({"panes": [{"path": "."}]})
-
-    def test_legacy_open_panes_honors_each_agent_profile_without_stealing_focus(self):
-        captured = {}
-        globals_ = MODULE["tool_open_panes"].__globals__
-        original = globals_["submit_request"]
-        try:
-            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
-                captured["request_type"] = request_type
-                captured["payload"] = payload
-                return {"status": "ok"}
-
-            globals_["submit_request"] = fake_submit_request
-            MODULE["tool_open_panes"]({
-                "panes": [{"name": "requested-opencode", "path": ".", "agent": "opencode"}],
-            })
-        finally:
-            globals_["submit_request"] = original
-
-        self.assertEqual(captured["request_type"], "create_worktree_panes")
-        self.assertFalse(captured["payload"]["activateCreatedPane"])
-        self.assertEqual(captured["payload"]["panes"][0]["agent"], "opencode")
-        self.assertIn("opencode", captured["payload"]["panes"][0]["command"])
-        self.assertIn("--auto", captured["payload"]["panes"][0]["command"])
-
-    def test_legacy_open_panes_keeps_plain_shell_focus_behavior(self):
-        captured = {}
-        globals_ = MODULE["tool_open_panes"].__globals__
-        original = globals_["submit_request"]
-        try:
-            globals_["submit_request"] = lambda request_type, payload, **kwargs: captured.setdefault("payload", payload) or {"status": "ok"}
-            MODULE["tool_open_panes"]({
-                "agent": "shell",
-                "panes": [{"name": "shell", "path": ".", "agent": "shell"}],
-            })
-        finally:
-            globals_["submit_request"] = original
-
-        self.assertTrue(captured["payload"]["activateCreatedPane"])
 
     def test_open_workspace_requires_pane_name(self):
         with self.assertRaisesRegex(RuntimeError, "Pane spec is missing name."):

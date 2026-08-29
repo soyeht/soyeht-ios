@@ -457,6 +457,17 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         applyFocusStyle()
     }
 
+    /// Deterministic, launch-stable pastel slot for an agent handle.
+    static func pastelIndex(for handle: String, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in handle.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x1000_0000_01b3
+        }
+        return Int(hash % UInt64(count))
+    }
+
     /// Reference anatomy: in neo the header is a pastel accent PILL floating
     /// inside the light frame, casting its own tinted soft shadow; classic
     /// keeps the flat full-width strip.
@@ -464,21 +475,35 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         let neo = MacSurface.style == .neomorphic
         if neo {
             // Stable per-pane pastel (reference rotates blue/green/pink/
-            // yellow across the grid). String.hashValue is seeded per
-            // launch, so key off the scalar sum instead.
+            // yellow across the grid). String.hashValue is seeded per launch,
+            // so the pill would change color on every restart; this hashes the
+            // name itself instead. It is FNV-1a rather than a scalar sum
+            // because a sum ignores order and spacing — "delia" and "alied"
+            // landed on the same pastel, and so did most same-length names,
+            // which is what made the assignment look arbitrary.
+            // A theme states its plates or it has none, and `DesignStyle`
+            // keeps this style off a theme with none. Checked here anyway:
+            // this used to index straight into the array, so any future gap
+            // between the two would be a trap rather than a plain header.
             let pastels = MacTheme.neoHeaderPastels
-            let key = handle.unicodeScalars.reduce(0) { ($0 &+ Int($1.value)) }
-            let pastel = pastels[key % pastels.count]
             layer?.cornerRadius = bounds.height / 2
-            layer?.backgroundColor = pastel.cgColor
-            MacSurface.Shadow(
-                color: pastel.withAlphaComponent(0.6),
-                opacity: 1,
-                offset: CGSize(width: 3, height: -3),
-                radius: 8
-            ).apply(to: layer)
+            if pastels.isEmpty {
+                layer?.backgroundColor = Self.headerFill.cgColor
+            } else {
+                let slot = Self.pastelIndex(for: handle, count: pastels.count)
+                layer?.backgroundColor = pastels[slot].cgColor
+            }
+            // The plate casts NOTHING. It used to drop a shadow of its own
+            // colour at 0.6 alpha, which is a tone nobody chose: it comes out
+            // of the plate multiplied by whatever sits behind it. The reviewed
+            // design gives the plate a fill and a radius and no shadow.
+            MacSurface.Shadow.clear(layer)
             dividerView.isHidden = true
             agentDot.isHidden = false
+            // Plain ink again. The dot carried the identity only while the
+            // plate was too washed out to do it; now that the plate is a real
+            // color, a second colored element beside it competes for the same
+            // job.
             agentDot.layer?.backgroundColor = MacTheme.textPrimary.withAlphaComponent(0.8).cgColor
         } else {
             layer?.cornerRadius = 0

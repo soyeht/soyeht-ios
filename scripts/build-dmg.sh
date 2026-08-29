@@ -266,12 +266,22 @@ scan_product_root "${STAGING_DIR}"
 # rw.dmg goes to SCRATCH_DIR (separate from -srcfolder) to avoid ENOSPC:
 # hdiutil sizes the image from the source dir before writing — output inside
 # the source dir causes the image to overflow as rw.dmg grows.
+# NOTE: `-srcfolder` fails on this machine with "Operation not permitted" the
+# moment the staging dir holds two app bundles — macOS App Management protects
+# the second one as hdiutil copies it. Building a blank image and copying into
+# it ourselves does the same job and is not blocked.
+STAGING_MB=$(( $(du -sm "${STAGING_DIR}" | cut -f1) + 120 ))
 hdiutil create \
     -volname "${APP_NAME}" \
-    -srcfolder "${STAGING_DIR}" \
+    -size "${STAGING_MB}m" \
+    -fs HFS+ \
     -ov \
-    -format UDRW \
     "${SCRATCH_DIR}/rw.dmg"
+hdiutil attach "${SCRATCH_DIR}/rw.dmg" -nobrowse -mountpoint "${SCRATCH_DIR}/mnt"
+ditto "${STAGING_DIR}/${APP_NAME}.app" "${SCRATCH_DIR}/mnt/${APP_NAME}.app"
+ditto "${COMPANION_APP}" "${SCRATCH_DIR}/mnt/Uninstall ${APP_NAME}.app"
+ln -s /Applications "${SCRATCH_DIR}/mnt/Applications"
+hdiutil detach "${SCRATCH_DIR}/mnt"
 
 # Convert to compressed read-only directly into the output dir.
 rm -f "${DMG_PATH}"

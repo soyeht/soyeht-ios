@@ -111,6 +111,20 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertEqual(plan.unavailableReason, .semanticInboxAdapterMissing)
     }
 
+    func testWorkingHarnessDoesNotBlockTerminalDelivery() {
+        XCTAssertFalse(
+            AgentMessageTerminalAdmission.providerStateBlocksDelivery("working"),
+            "A background tool may keep the harness working while its composer is empty"
+        )
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery("idle"))
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery("done"))
+        XCTAssertFalse(AgentMessageTerminalAdmission.providerStateBlocksDelivery(nil))
+    }
+
+    func testBlockedHarnessStillProtectsModalTerminalInput() {
+        XCTAssertTrue(AgentMessageTerminalAdmission.providerStateBlocksDelivery("blocked"))
+    }
+
     func testDraftGateStaysClosedUntilEnterOrCancel() {
         var gate = AgentMessageDraftGate()
 
@@ -239,6 +253,28 @@ final class AgentMessagingCoreTests: XCTestCase {
         XCTAssertTrue(gate.isClear)
 
         gate.record(Data("\u{1B}]0;title\u{07}".utf8)) // OSC title is output-like metadata.
+        XCTAssertTrue(gate.isClear)
+    }
+
+    func testDraftGateTreatsMouseReportsAsMetadataInNormalSplitPanes() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data("\u{1B}[<0;12;7M\u{1B}[<0;12;7m\u{1B}[<64;12;7M".utf8))
+        XCTAssertTrue(gate.isClear, "mouse press, release and wheel reports are not composer text")
+
+        gate.record(Data("human-draft".utf8))
+        gate.record(Data(repeating: 0x7F, count: 11))
+        XCTAssertTrue(gate.isClear, "a mouse click must not leave a phantom draft after deletion")
+    }
+
+    func testDraftGateConsumesLegacyX10MousePayloadWithoutCountingCoordinates() {
+        var gate = AgentMessageDraftGate()
+
+        gate.record(Data([0x1B, 0x5B, 0x4D, 0x20, 0x2C, 0x27]))
+        XCTAssertTrue(gate.isClear)
+
+        gate.record(Data("draft".utf8))
+        gate.record(Data(repeating: 0x08, count: 5))
         XCTAssertTrue(gate.isClear)
     }
 

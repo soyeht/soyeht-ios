@@ -39,6 +39,7 @@
 		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
+		AA0000F0000000000000001 /* PreferencesThemeAcquisition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000F0000000000000002 /* PreferencesThemeAcquisition.swift */; };
 		AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000002 /* ThemeCatalogWindowController.swift */; };
 		AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000002 /* ThemeEditorWindowController.swift */; };
 		AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016000000000000002 /* PreferencesDevicesViewController.swift */; };
@@ -63,6 +64,7 @@
 		D03100010000000000000001 /* PaneDeferredAgentDeliveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */; };
 		D03100010000000000000003 /* PaneViewController+DeferredAgentDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100010000000000000004 /* PaneViewController+DeferredAgentDelivery.swift */; };
 		D03100010000000000000005 /* PaneDeferredAgentDeliveryCoordinator+Scheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100010000000000000006 /* PaneDeferredAgentDeliveryCoordinator+Scheduling.swift */; };
+		D03100010000000000000007 /* PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100010000000000000008 /* PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift */; };
 		D03100020000000000000001 /* AgentMessagingSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100020000000000000002 /* AgentMessagingSettingsViews.swift */; };
 		D03100030000000000000001 /* PaneViewController+AgentSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03100030000000000000002 /* PaneViewController+AgentSettings.swift */; };
 		AA200003000000000000001 /* PaneBorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000002 /* PaneBorderView.swift */; };
@@ -101,6 +103,8 @@
 		D03000090000000000000001 /* SoyehtAutomationRequestRouter+09Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */; };
 		D030000A0000000000000001 /* SoyehtAutomationRequestRouter+10Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */; };
 		D030000B0000000000000001 /* SoyehtAutomationRequestRouter+11AgentOrchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030000B0000000000000002 /* SoyehtAutomationRequestRouter+11AgentOrchestration.swift */; };
+		D030000C0000000000000001 /* SoyehtAutomationRequestRouter+12MessagingPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030000C0000000000000002 /* SoyehtAutomationRequestRouter+12MessagingPresence.swift */; };
+		D030000D0000000000000001 /* SoyehtAutomationRequestRouter+13MessagingSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030000D0000000000000002 /* SoyehtAutomationRequestRouter+13MessagingSupport.swift */; };
 		D02000010000000000000007 /* SoyehtAutomationError.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000008 /* SoyehtAutomationError.swift */; };
 		F3A100020000000000000001 /* WindowCommandActionPerformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A100020000000000000002 /* WindowCommandActionPerformer.swift */; };
 		AA510001000000000000001 /* MenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA510001000000000000002 /* MenuModel.swift */; };
@@ -145,11 +149,9 @@
 		D02000010000000000000005 /* soyeht_mcp_ipc.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000010000000000000006 /* soyeht_mcp_ipc.py */; };
 		D02000020000000000000001 /* soyeht_mcp_foundation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000002 /* soyeht_mcp_foundation.py */; };
 		D02000020000000000000003 /* soyeht_mcp_runtime.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000004 /* soyeht_mcp_runtime.py */; };
-		D02000020000000000000005 /* soyeht_mcp_schema.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000006 /* soyeht_mcp_schema.py */; };
-		D02000020000000000000007 /* soyeht_mcp_schema_creation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000008 /* soyeht_mcp_schema_creation.py */; };
-		D02000020000000000000009 /* soyeht_mcp_schema_messaging.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */; };
-		D0200002000000000000000B /* soyeht_mcp_schema_layout.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000C /* soyeht_mcp_schema_layout.py */; };
-		D0200002000000000000000D /* soyeht_mcp_schema_directory.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000E /* soyeht_mcp_schema_directory.py */; };
+		D02000020000000000000005 /* soyeht_mcp_registry.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000006 /* soyeht_mcp_registry.py */; };
+		D02000020000000000000007 /* soyeht_mcp_tools_launch.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000008 /* soyeht_mcp_tools_launch.py */; };
+		D02000020000000000000009 /* soyeht_mcp_tools_capture.py in Resources */ = {isa = PBXBuildFile; fileRef = D0200002000000000000000A /* soyeht_mcp_tools_capture.py */; };
 		D0200002000000000000000F /* soyeht_mcp_tools_creation.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000010 /* soyeht_mcp_tools_creation.py */; };
 		D02000020000000000000011 /* soyeht_mcp_tools_content.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000012 /* soyeht_mcp_tools_content.py */; };
 		D02000020000000000000013 /* soyeht_mcp_tools_messaging.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */; };
@@ -276,6 +278,7 @@
 		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
+		AA0000F0000000000000002 /* PreferencesThemeAcquisition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesThemeAcquisition.swift; sourceTree = "<group>"; };
 		AA000014000000000000002 /* ThemeCatalogWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogWindowController.swift; sourceTree = "<group>"; };
 		AA000015000000000000002 /* ThemeEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeEditorWindowController.swift; sourceTree = "<group>"; };
 		AA000016000000000000002 /* PreferencesDevicesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesDevicesViewController.swift; sourceTree = "<group>"; };
@@ -300,6 +303,7 @@
 		D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneDeferredAgentDeliveryCoordinator.swift; sourceTree = "<group>"; };
 		D03100010000000000000004 /* PaneViewController+DeferredAgentDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaneViewController+DeferredAgentDelivery.swift"; sourceTree = "<group>"; };
 		D03100010000000000000006 /* PaneDeferredAgentDeliveryCoordinator+Scheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaneDeferredAgentDeliveryCoordinator+Scheduling.swift"; sourceTree = "<group>"; };
+		D03100010000000000000008 /* PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift"; sourceTree = "<group>"; };
 		D03100020000000000000002 /* AgentMessagingSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMessagingSettingsViews.swift; sourceTree = "<group>"; };
 		D03100030000000000000002 /* PaneViewController+AgentSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PaneViewController+AgentSettings.swift"; sourceTree = "<group>"; };
 		AA200003000000000000002 /* PaneBorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneBorderView.swift; sourceTree = "<group>"; };
@@ -338,6 +342,8 @@
 		D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+09Lifecycle.swift"; sourceTree = "<group>"; };
 		D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+10Capture.swift"; sourceTree = "<group>"; };
 		D030000B0000000000000002 /* SoyehtAutomationRequestRouter+11AgentOrchestration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+11AgentOrchestration.swift"; sourceTree = "<group>"; };
+		D030000C0000000000000002 /* SoyehtAutomationRequestRouter+12MessagingPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+12MessagingPresence.swift"; sourceTree = "<group>"; };
+		D030000D0000000000000002 /* SoyehtAutomationRequestRouter+13MessagingSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAutomationRequestRouter+13MessagingSupport.swift"; sourceTree = "<group>"; };
 		D02000010000000000000008 /* SoyehtAutomationError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationError.swift; sourceTree = "<group>"; };
 		F3A100020000000000000002 /* WindowCommandActionPerformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCommandActionPerformer.swift; sourceTree = "<group>"; };
 		AA510001000000000000002 /* MenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModel.swift; sourceTree = "<group>"; };
@@ -381,11 +387,9 @@
 		D02000010000000000000006 /* soyeht_mcp_ipc.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_ipc.py; path = ../../scripts/soyeht_mcp_ipc.py; sourceTree = "<group>"; };
 		D02000020000000000000002 /* soyeht_mcp_foundation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_foundation.py; path = ../../scripts/soyeht_mcp_foundation.py; sourceTree = "<group>"; };
 		D02000020000000000000004 /* soyeht_mcp_runtime.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_runtime.py; path = ../../scripts/soyeht_mcp_runtime.py; sourceTree = "<group>"; };
-		D02000020000000000000006 /* soyeht_mcp_schema.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema.py; path = ../../scripts/soyeht_mcp_schema.py; sourceTree = "<group>"; };
-		D02000020000000000000008 /* soyeht_mcp_schema_creation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_creation.py; path = ../../scripts/soyeht_mcp_schema_creation.py; sourceTree = "<group>"; };
-		D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_messaging.py; path = ../../scripts/soyeht_mcp_schema_messaging.py; sourceTree = "<group>"; };
-		D0200002000000000000000C /* soyeht_mcp_schema_layout.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_layout.py; path = ../../scripts/soyeht_mcp_schema_layout.py; sourceTree = "<group>"; };
-		D0200002000000000000000E /* soyeht_mcp_schema_directory.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_schema_directory.py; path = ../../scripts/soyeht_mcp_schema_directory.py; sourceTree = "<group>"; };
+		D02000020000000000000006 /* soyeht_mcp_registry.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_registry.py; path = ../../scripts/soyeht_mcp_registry.py; sourceTree = "<group>"; };
+		D02000020000000000000008 /* soyeht_mcp_tools_launch.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_launch.py; path = ../../scripts/soyeht_mcp_tools_launch.py; sourceTree = "<group>"; };
+		D0200002000000000000000A /* soyeht_mcp_tools_capture.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_capture.py; path = ../../scripts/soyeht_mcp_tools_capture.py; sourceTree = "<group>"; };
 		D02000020000000000000010 /* soyeht_mcp_tools_creation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_creation.py; path = ../../scripts/soyeht_mcp_tools_creation.py; sourceTree = "<group>"; };
 		D02000020000000000000012 /* soyeht_mcp_tools_content.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_content.py; path = ../../scripts/soyeht_mcp_tools_content.py; sourceTree = "<group>"; };
 		D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = soyeht_mcp_tools_messaging.py; path = ../../scripts/soyeht_mcp_tools_messaging.py; sourceTree = "<group>"; };
@@ -585,6 +589,7 @@
 				C0F0A0FF000000000000C002 /* MacScroll.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
+				AA0000F0000000000000002 /* PreferencesThemeAcquisition.swift */,
 				AA000016000000000000002 /* PreferencesDevicesViewController.swift */,
 				AA000014000000000000002 /* ThemeCatalogWindowController.swift */,
 				AA000015000000000000002 /* ThemeEditorWindowController.swift */,
@@ -596,11 +601,9 @@
 				D02000010000000000000006 /* soyeht_mcp_ipc.py */,
 				D02000020000000000000002 /* soyeht_mcp_foundation.py */,
 				D02000020000000000000004 /* soyeht_mcp_runtime.py */,
-				D02000020000000000000006 /* soyeht_mcp_schema.py */,
-				D02000020000000000000008 /* soyeht_mcp_schema_creation.py */,
-				D0200002000000000000000A /* soyeht_mcp_schema_messaging.py */,
-				D0200002000000000000000C /* soyeht_mcp_schema_layout.py */,
-				D0200002000000000000000E /* soyeht_mcp_schema_directory.py */,
+				D02000020000000000000006 /* soyeht_mcp_registry.py */,
+				D02000020000000000000008 /* soyeht_mcp_tools_launch.py */,
+				D0200002000000000000000A /* soyeht_mcp_tools_capture.py */,
 				D02000020000000000000010 /* soyeht_mcp_tools_creation.py */,
 				D02000020000000000000012 /* soyeht_mcp_tools_content.py */,
 				D02000020000000000000014 /* soyeht_mcp_tools_messaging.py */,
@@ -754,6 +757,7 @@
 				D03100010000000000000002 /* PaneDeferredAgentDeliveryCoordinator.swift */,
 				D03100010000000000000004 /* PaneViewController+DeferredAgentDelivery.swift */,
 				D03100010000000000000006 /* PaneDeferredAgentDeliveryCoordinator+Scheduling.swift */,
+				D03100010000000000000008 /* PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift */,
 				D03100020000000000000002 /* AgentMessagingSettingsViews.swift */,
 				D03100030000000000000002 /* PaneViewController+AgentSettings.swift */,
 				AA200003000000000000002 /* PaneBorderView.swift */,
@@ -806,6 +810,8 @@
 				D03000090000000000000002 /* SoyehtAutomationRequestRouter+09Lifecycle.swift */,
 				D030000A0000000000000002 /* SoyehtAutomationRequestRouter+10Capture.swift */,
 				D030000B0000000000000002 /* SoyehtAutomationRequestRouter+11AgentOrchestration.swift */,
+				D030000C0000000000000002 /* SoyehtAutomationRequestRouter+12MessagingPresence.swift */,
+				D030000D0000000000000002 /* SoyehtAutomationRequestRouter+13MessagingSupport.swift */,
 				D02000010000000000000008 /* SoyehtAutomationError.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
@@ -1117,11 +1123,9 @@
 				D02000010000000000000005 /* soyeht_mcp_ipc.py in Resources */,
 				D02000020000000000000001 /* soyeht_mcp_foundation.py in Resources */,
 				D02000020000000000000003 /* soyeht_mcp_runtime.py in Resources */,
-				D02000020000000000000005 /* soyeht_mcp_schema.py in Resources */,
-				D02000020000000000000007 /* soyeht_mcp_schema_creation.py in Resources */,
-				D02000020000000000000009 /* soyeht_mcp_schema_messaging.py in Resources */,
-				D0200002000000000000000B /* soyeht_mcp_schema_layout.py in Resources */,
-				D0200002000000000000000D /* soyeht_mcp_schema_directory.py in Resources */,
+				D02000020000000000000005 /* soyeht_mcp_registry.py in Resources */,
+				D02000020000000000000007 /* soyeht_mcp_tools_launch.py in Resources */,
+				D02000020000000000000009 /* soyeht_mcp_tools_capture.py in Resources */,
 				D0200002000000000000000F /* soyeht_mcp_tools_creation.py in Resources */,
 				D02000020000000000000011 /* soyeht_mcp_tools_content.py in Resources */,
 				D02000020000000000000013 /* soyeht_mcp_tools_messaging.py in Resources */,
@@ -1223,6 +1227,7 @@
 				CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
+				AA0000F0000000000000001 /* PreferencesThemeAcquisition.swift in Sources */,
 				AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */,
 				AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */,
 				AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */,
@@ -1251,6 +1256,7 @@
 				D03100010000000000000001 /* PaneDeferredAgentDeliveryCoordinator.swift in Sources */,
 				D03100010000000000000003 /* PaneViewController+DeferredAgentDelivery.swift in Sources */,
 				D03100010000000000000005 /* PaneDeferredAgentDeliveryCoordinator+Scheduling.swift in Sources */,
+				D03100010000000000000007 /* PaneDeferredAgentDeliveryCoordinator+Acknowledgement.swift in Sources */,
 				D03100020000000000000001 /* AgentMessagingSettingsViews.swift in Sources */,
 				D03100030000000000000001 /* PaneViewController+AgentSettings.swift in Sources */,
 				DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */,
@@ -1326,6 +1332,8 @@
 				D03000090000000000000001 /* SoyehtAutomationRequestRouter+09Lifecycle.swift in Sources */,
 				D030000A0000000000000001 /* SoyehtAutomationRequestRouter+10Capture.swift in Sources */,
 				D030000B0000000000000001 /* SoyehtAutomationRequestRouter+11AgentOrchestration.swift in Sources */,
+				D030000C0000000000000001 /* SoyehtAutomationRequestRouter+12MessagingPresence.swift in Sources */,
+				D030000D0000000000000001 /* SoyehtAutomationRequestRouter+13MessagingSupport.swift in Sources */,
 				D02000010000000000000007 /* SoyehtAutomationError.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
@@ -1508,7 +1516,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoyehtMac/SoyehtMacDebug.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 42;
+				CURRENT_PROJECT_VERSION = 48;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = SoyehtMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1516,7 +1524,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.37;
+				MARKETING_VERSION = 0.1.43;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac.dev;
 				PRODUCT_MODULE_NAME = Soyeht;
 				PRODUCT_NAME = "Soyeht Dev";
@@ -1536,7 +1544,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 42;
+				CURRENT_PROJECT_VERSION = 48;
 				DEVELOPMENT_TEAM = "<MAC_TEAM_ID>";
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = SoyehtMac/Info.plist;
@@ -1545,7 +1553,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.37;
+				MARKETING_VERSION = 0.1.43;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac;
 				PRODUCT_MODULE_NAME = Soyeht;
 				PRODUCT_NAME = Soyeht;
