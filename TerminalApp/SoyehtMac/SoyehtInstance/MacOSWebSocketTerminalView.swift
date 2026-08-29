@@ -350,6 +350,31 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         connect(wsUrl: wsUrl)
     }
 
+    /// Escape sequences a well-behaved dying TUI would have emitted to hand
+    /// the terminal back: pop/clear kitty keyboard enhancement flags and
+    /// stack, disable every mouse-tracking mode and encoding, bracketed
+    /// paste, and application cursor keys, and restore the normal keypad.
+    static let newSessionInputModeResets = "\u{1b}[<99u"
+        + "\u{1b}[=0;1u"
+        + "\u{1b}[?9l\u{1b}[?1000l\u{1b}[?1002l\u{1b}[?1003l"
+        + "\u{1b}[?1005l\u{1b}[?1006l\u{1b}[?1015l"
+        + "\u{1b}[?2004l"
+        + "\u{1b}[?1l"
+        + "\u{1b}>"
+
+    /// A session that ends abruptly (engine restart, TUI killed) never
+    /// restores the input modes it enabled. A NEW session attached to this
+    /// reused view then receives mouse coordinates and kitty CSI-u chords as
+    /// garbage text at a plain shell prompt — every restored pane after the
+    /// 2026-08-29 engine restart typed `;41;11M35;…` on mouse movement.
+    /// Feeding the resets through the parser fires every internal side
+    /// effect, and is a no-op on a freshly created view. Callers must skip
+    /// this when reattaching to a session that kept running (its TUI still
+    /// owns those modes).
+    func resetInputModesForNewSession() {
+        feed(text: Self.newSessionInputModeResets)
+    }
+
     /// Attach this terminal view to a locally-spawned PTY (user's `$SHELL`
     /// on this Mac). Replaces any existing WebSocket session. The pty's read
     /// loop runs on its own queue; we hop to main before feeding SwiftTerm so

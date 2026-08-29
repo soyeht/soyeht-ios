@@ -401,11 +401,50 @@ _MESSAGING_PRESENCE_STOP = threading.Event()
 _MESSAGING_PRESENCE_THREAD = None
 
 
+# Presence heartbeat pacing. "Unavailable" (no app answering yet, timeouts)
+# keeps the historical fast retry so a relaunched app reattaches promptly.
+# A profile rejection is different: the app behind this mailbox will never
+# accept this client while both keep running, so retrying at the fast cadence
+# only floods the app — ~26 stranded dev-profile clients inside release panes
+# produced a sustained ~5 req/s rejection storm in the app's automation loop
+# (2026-08-29, ~14k failures in 45 minutes). A rejected client parks on a slow
+# probe instead: still self-healing if the matching app appears, but quiet.
+PRESENCE_REGISTERED = "registered"
+PRESENCE_UNAVAILABLE = "unavailable"
+PRESENCE_REJECTED = "rejected"
+PRESENCE_DELAY_REGISTERED = 15.0
+PRESENCE_DELAY_UNAVAILABLE_CAP = 5.0
+PRESENCE_DELAY_REJECTED = 900.0
+
+
+def _presence_outcome(response):
+    if response.get("status") == "ok":
+        return PRESENCE_REGISTERED
+    # The rejection sentence is part of the app's client-facing contract
+    # ("Soyeht rejected MCP profile <p>; this app accepts the <q>
+    # integration."). Both fields are checked because request-level failures
+    # arrive as "message" while tool-level mappings use "error".
+    text = " ".join(str(response.get(key, "")) for key in ("message", "error"))
+    if "rejected MCP profile" in text:
+        return PRESENCE_REJECTED
+    return PRESENCE_UNAVAILABLE
+
+
+def _next_presence_delay(outcome, current):
+    if outcome == PRESENCE_REGISTERED:
+        return PRESENCE_DELAY_REGISTERED
+    if outcome == PRESENCE_REJECTED:
+        return PRESENCE_DELAY_REJECTED
+    return min(max(current * 2.0, 0.5), PRESENCE_DELAY_UNAVAILABLE_CAP)
+
+
 def register_messaging_client_presence():
     """Bind this MCP stdio process to its owning Soyeht pane/TTY.
 
     This is transport plumbing rather than an LLM-facing tool. Initialize may
     happen while the app is closed, so failures are retried on each tool call.
+    Returns one of the PRESENCE_* outcomes so the heartbeat can distinguish
+    "not yet" from "never".
     """
     global _MESSAGING_PRESENCE_ROOT
     payload = with_source_context({})
@@ -417,10 +456,10 @@ def register_messaging_client_presence():
         timeout=2.0,
         check_status=False,
     )
-    if response.get("status") != "ok":
-        return False
-    _MESSAGING_PRESENCE_ROOT = root
-    return True
+    outcome = _presence_outcome(response)
+    if outcome == PRESENCE_REGISTERED:
+        _MESSAGING_PRESENCE_ROOT = root
+    return outcome
 
 
 def _messaging_presence_heartbeat_loop(stop_event=None):
@@ -431,17 +470,18 @@ def _messaging_presence_heartbeat_loop(stop_event=None):
     restarts. A one-shot registration therefore makes a healthy, manually
     launched harness look offline until it happens to call a Soyeht tool.
     Retry quickly while registration is unavailable, then use a low-frequency
-    heartbeat. Process ancestry remains the authority on every registration;
-    this loop never turns catalog metadata into identity.
+    heartbeat; park on the slow rejected-probe cadence when the app refuses
+    this client's profile outright. Process ancestry remains the authority on
+    every registration; this loop never turns catalog metadata into identity.
     """
     event = stop_event or _MESSAGING_PRESENCE_STOP
     delay = 0.5
     while not event.wait(delay):
         try:
-            registered = register_messaging_client_presence()
+            outcome = register_messaging_client_presence()
         except Exception:
-            registered = False
-        delay = 15.0 if registered else min(delay * 2.0, 5.0)
+            outcome = PRESENCE_UNAVAILABLE
+        delay = _next_presence_delay(outcome, delay)
 
 
 def start_messaging_client_presence_heartbeat():

@@ -69,14 +69,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
     def test_messaging_presence_heartbeat_retries_then_uses_steady_interval(self):
         delays = []
-        outcomes = iter((False, True))
+        globals_ = MODULE["start_messaging_client_presence_heartbeat"].__globals__
+        outcomes = iter((globals_["PRESENCE_UNAVAILABLE"], globals_["PRESENCE_REGISTERED"]))
 
         class StopAfterTwoRegistrations:
             def wait(self, delay):
                 delays.append(delay)
                 return len(delays) > 2
 
-        globals_ = MODULE["start_messaging_client_presence_heartbeat"].__globals__
         original = globals_["register_messaging_client_presence"]
         try:
             globals_["register_messaging_client_presence"] = lambda: next(outcomes)
@@ -85,6 +85,29 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
             globals_["register_messaging_client_presence"] = original
 
         self.assertEqual(delays, [0.5, 1.0, 15.0])
+
+    def test_messaging_presence_heartbeat_parks_after_profile_rejection(self):
+        delays = []
+        globals_ = MODULE["start_messaging_client_presence_heartbeat"].__globals__
+
+        class StopAfterOneRegistration:
+            def wait(self, delay):
+                delays.append(delay)
+                return len(delays) > 1
+
+        original = globals_["register_messaging_client_presence"]
+        try:
+            globals_["register_messaging_client_presence"] = (
+                lambda: globals_["PRESENCE_REJECTED"]
+            )
+            globals_["_messaging_presence_heartbeat_loop"](StopAfterOneRegistration())
+        finally:
+            globals_["register_messaging_client_presence"] = original
+
+        self.assertEqual(delays, [0.5, globals_["PRESENCE_DELAY_REJECTED"]])
+        # The 2026-08-29 storm: rejected clients retrying at the unavailable
+        # cadence flooded the app. The parked delay must dwarf that cadence.
+        self.assertGreaterEqual(delays[1], globals_["PRESENCE_DELAY_UNAVAILABLE_CAP"] * 100)
 
     def test_source_context_carries_process_identity_for_presence_refresh(self):
         payload = {}
