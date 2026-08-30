@@ -118,6 +118,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
+    /// One scheduled recovery per transport-loss episode; cancelled the
+    /// moment a connection is (re)established.
+    private var pendingTransportReattachTask: Task<Void, Never>?
     private var isSwitchingAgent = false
 
     /// Fase 3.1 — observation loop token. Installed on first attach,
@@ -421,13 +424,49 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func wireConnectionCallbacks() {
         terminalView.onConnectionFailed = { [weak self] error in
             Task { @MainActor [weak self] in
-                self?.showDisconnectBanner(error.localizedDescription)
+                guard let self else { return }
+                self.showDisconnectBanner(error.localizedDescription)
+                self.scheduleEngineReattachAfterTransportLoss(error)
             }
         }
         terminalView.onConnectionEstablished = { [weak self] in
             Task { @MainActor [weak self] in
-                self?.hideDisconnectBanner()
+                guard let self else { return }
+                self.hideDisconnectBanner()
+                self.pendingTransportReattachTask?.cancel()
+                self.pendingTransportReattachTask = nil
             }
+        }
+    }
+
+    /// An engine bounce (crash, update, the folder-access sentinel's
+    /// self-cure) used to strand every live pane on a dead WebSocket until
+    /// the app was relaunched: the reconnect ladder reuses the dead
+    /// session's URL and cookie, which the fresh engine refuses forever.
+    /// When the transport is confirmed lost, re-run the full restore flow —
+    /// fresh context, idempotent create/attach, the same path an app launch
+    /// takes — after a short delay for the new engine to come up.
+    /// `session_ended` is excluded on purpose: the backend closing the PTY
+    /// (the user's shell exited) is an outcome to display, not to undo.
+    /// `onConnectionFailed` fires once per failure episode, so at most one
+    /// reattach is scheduled per loss; the restore flow carries its own
+    /// bounded retries and NativePTY fallback if the engine stays gone.
+    private func scheduleEngineReattachAfterTransportLoss(_ error: Error) {
+        let nsError = error as NSError
+        if nsError.domain == "SoyehtTerm", nsError.code == 4 { return }
+        guard let convStore = AppEnvironment.conversationStore,
+              let conv = convStore.conversation(conversationID),
+              case .engineLocal = conv.commander else { return }
+        pendingTransportReattachTask?.cancel()
+        pendingTransportReattachTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.pendingTransportReattachTask = nil
+            guard let store = AppEnvironment.conversationStore,
+                  let live = store.conversation(self.conversationID),
+                  case .engineLocal = live.commander else { return }
+            Self.logger.notice("transport lost; re-running engine restore pane=\(self.conversationID.uuidString, privacy: .public)")
+            self.restoreEnginePaneIfNeeded(for: live, forceReattach: true)
         }
     }
 
@@ -949,10 +988,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// this way stays `.native` until the user recreates it (this
     /// relaunch only looks for `.engineLocal`) — graceful degradation to
     /// pre-flag behavior, never a crash.
-    private func restoreEnginePaneIfNeeded(for conv: Conversation) {
+    private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {
         guard conv.content.isTerminal else { return }
         guard case .engineLocal(let initialEngineConversationID) = conv.commander else { return }
-        guard !terminalView.isRemoteSessionConfigured else { return }
+        // `forceReattach` re-enters a pane whose view IS configured but whose
+        // transport is confirmed dead (`onConnectionFailed` after the
+        // reconnect ladder) — the engine-bounce case, where the old URL and
+        // cookie are refused by the fresh engine forever.
+        guard forceReattach || !terminalView.isRemoteSessionConfigured else { return }
         guard !isRestoringLocalShell else { return }
 
         // W3 — this pane is (re)adopting the engine session. If it was closed

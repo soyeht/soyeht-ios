@@ -22,11 +22,33 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(rebind.contains("restoreEnginePaneIfNeeded(for: conv)"))
     }
 
+    func testTransportLossSchedulesForcedEngineReattach() throws {
+        // The engine-bounce case: a live pane whose WebSocket died for good
+        // must re-run the restore flow by itself instead of stranding the
+        // user until an app relaunch. session_ended (the user's shell
+        // exited) must never be auto-undone.
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        XCTAssertTrue(source.contains("self.scheduleEngineReattachAfterTransportLoss(error)"))
+        XCTAssertTrue(source.contains("self.restoreEnginePaneIfNeeded(for: live, forceReattach: true)"))
+        let handler = try slice(
+            source,
+            from: "private func scheduleEngineReattachAfterTransportLoss(",
+            to: "private func showDisconnectBanner("
+        )
+        XCTAssertTrue(handler.contains("nsError.domain == \"SoyehtTerm\", nsError.code == 4"))
+        let restoreGuard = try slice(
+            source,
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false)",
+            to: "// W3 —"
+        )
+        XCTAssertTrue(restoreGuard.contains("forceReattach || !terminalView.isRemoteSessionConfigured"))
+    }
+
     func testRestoreEnginePaneGuardsAndFallsBackToNativePTY() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
         let restore = try slice(
             source,
-            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation)",
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false)",
             to: "private func stillRestorableEngineConversation("
         )
         // Only engineLocal panes with no live WS session, not re-entrant.
