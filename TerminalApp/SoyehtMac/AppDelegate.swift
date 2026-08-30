@@ -245,6 +245,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         return false  // Terminal apps stay running after last window closes
     }
 
+    // MARK: - Engine freshness guard
+
+    /// Fetches the running engine's version from `/bootstrap/status` and
+    /// restarts the LaunchAgent when `EngineStalenessPolicy` returns a
+    /// provable `.stale` verdict. Fire-and-forget: a fetch failure (engine
+    /// down, still initializing) changes nothing — the reconciler owns
+    /// registration repair, and an absent answer is not a stale engine.
+    private func verifyRunningEngineFreshness() {
+        Task.detached(priority: .utility) {
+            guard let status = try? await BootstrapStatusClient(
+                baseURL: TheyOSEnvironment.bootstrapBaseURL
+            ).fetch() else { return }
+            let verdict = EngineStalenessPolicy.verdict(
+                runningEngineVersion: status.engineVersion,
+                expectedEngineVersion: EngineCompat.minSupportedEngineVersion
+            )
+            guard verdict == .stale else { return }
+            NSLog(
+                "engine %@ is older than the required %@; restarting the LaunchAgent",
+                status.engineVersion, EngineCompat.minSupportedEngineVersion
+            )
+            SMAppServiceInstaller.restartStaleEngine()
+        }
+    }
+
     // MARK: - Bundle replacement guard
 
     /// Replacing the app bundle on disk while this instance keeps running
@@ -487,6 +512,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         let attention = SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
 
         if isSetUp {
+            // The LaunchAgent outlives app updates by design, and nothing
+            // compared the running process to this app's expectation: one
+            // engine served for nine days across an update and hosted the
+            // degraded TCC state behind the 2026-08-28/29 silent-EPERM
+            // incident. Ask the running engine its version and bounce the
+            // service only on a provable `.stale` verdict — an unreadable
+            // answer never authorizes destroying sessions.
+            verifyRunningEngineFreshness()
             restoreMainWindowsOrOpenDefault()
             // Shown AFTER the windows, so it lands on top of the work rather
             // than in front of an empty screen. Reconciliation still ran first:

@@ -16,6 +16,20 @@ final class AgentPaneMouseReportingSourceGuardTests: XCTestCase {
         ))
     }
 
+    func testMouseReportsRequireTheAlternateScreen() throws {
+        // A latched mouse mode on a PRIMARY-screen process (a TUI died
+        // mid-session; a plain shell or inline agent composer inherited the
+        // emulator) must not turn pointer movement into typed garbage. The
+        // override gates every base-class reporting path at once.
+        let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        XCTAssertTrue(source.contains(
+            "override var allowMouseReporting: Bool"
+        ))
+        XCTAssertTrue(source.contains(
+            "mouseReportingPolicyAllowed && getTerminal().isCurrentBufferAlternate"
+        ))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

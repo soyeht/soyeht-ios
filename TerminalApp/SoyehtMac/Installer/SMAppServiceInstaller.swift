@@ -182,6 +182,18 @@ enum SMAppServiceInstaller {
         throw InstallerError.registrationDidNotEnable
     }
 
+    /// Restarts a RUNNING engine whose version `EngineStalenessPolicy` judged
+    /// stale. This is the one sanctioned live-engine bounce outside of
+    /// registration repair: it destroys every brokered session, which is why
+    /// the caller must hold a `.stale` verdict (an engine provably OLDER than
+    /// the version this app ships) before invoking it. The 2026-08-28/29
+    /// incident is the rationale — an engine process nine days old, spanning
+    /// an app update, hosted degraded TCC state that silently denied folder
+    /// access in every new pane until the service was bounced by hand.
+    static func restartStaleEngine() {
+        kickstart()
+    }
+
     /// Unregisters the LaunchAgent (used by "Recomeçar do zero" FR-061).
     static func unregister() throws {
         try SMAppService.agent(plistName: plistName).unregister()
