@@ -733,7 +733,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     /// This vaiable controls whether mouse events are sent to the application running under the
     /// terminal if it has requested the data.   This poses a problem for selection, so users
     /// need a way of toggling this behavior.
-    public var allowMouseReporting: Bool = true
+    /// `open` so an embedding app can gate reporting dynamically (Soyeht
+    /// restricts it to the alternate screen; see MacOSWebSocketTerminalView).
+    open var allowMouseReporting: Bool = true
 
     /// Controls how link tracking resolves hovered links:
     /// `.explicit` = OSC 8 only, `.implicit` = explicit + implicit fallback, `.none` = off.
