@@ -350,6 +350,26 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         connect(wsUrl: wsUrl)
     }
 
+    /// Whether pane policy permits mouse reporting at all (set by
+    /// `PaneViewController`: terminal content in a shell pane).
+    private var mouseReportingPolicyAllowed = true
+
+    /// Mouse reports leave this view only while the ALTERNATE screen is
+    /// active. Every real mouse consumer here (tmux, vim, codex — full-screen
+    /// TUIs) runs on the alternate buffer; a primary-screen process that
+    /// merely INHERITED a latched mouse mode (a TUI died mid-session and a
+    /// plain shell or an inline agent composer took over) must never receive
+    /// coordinates as typed garbage. That is the [diana] case of 2026-08-30:
+    /// the new-session reset cannot fire on a session that never ended, so
+    /// the gate has to hold at the emission site. The base class reads this
+    /// property in every reporting path (mouseDown/Up/Moved, scrollWheel),
+    /// so one override covers them all; the setter keeps the pane-policy
+    /// contract intact.
+    override var allowMouseReporting: Bool {
+        get { mouseReportingPolicyAllowed && getTerminal().isCurrentBufferAlternate }
+        set { mouseReportingPolicyAllowed = newValue }
+    }
+
     /// Escape sequences a well-behaved dying TUI would have emitted to hand
     /// the terminal back: pop/clear kitty keyboard enhancement flags and
     /// stack, disable every mouse-tracking mode and encoding, bracketed
