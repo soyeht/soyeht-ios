@@ -28326,16 +28326,106 @@
     "welcome.uninstall.warning.bullet.appTrash": {
       "extractionState": "manual",
       "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يبقى تطبيق Soyeht نفسه؛ انقله إلى سلة المهملات بعد ذلك"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht অ্যাপটি নিজে থেকে যায়; পরে এটি ট্র্যাশে সরান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Soyeht-App selbst bleibt; verschiebe sie danach in den Papierkorb"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "the Soyeht app itself stays; move it to the Trash afterwards"
           }
         },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la app Soyeht en sí se queda; muévela a la Papelera después"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "l'app Soyeht elle-même reste ; placez-la ensuite dans la corbeille"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht ऐप स्वयं बना रहता है; बाद में इसे ट्रैश में ले जाएँ"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aplikasi Soyeht sendiri tetap ada; pindahkan ke Sampah setelahnya"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht アプリ本体は残ります。あとでゴミ箱に移動してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht 앱 자체는 남습니다. 나중에 휴지통으로 옮기세요"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht ॲप स्वतः राहते; नंतर ते ट्रॅशमध्ये हलवा"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
             "value": "o app Soyeht em si fica; mova-o para o Lixo depois"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a própria app Soyeht fica; mova-a para o Lixo depois"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "само приложение Soyeht остаётся; после этого переместите его в Корзину"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht యాప్ అలాగే ఉంటుంది; తర్వాత దాన్ని ట్రాష్‌కి తరలించండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht ایپ خود موجود رہتی ہے؛ بعد میں اسے ٹریش میں منتقل کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht 应用本身会保留；之后请将其移到废纸篓"
           }
         }
       }
