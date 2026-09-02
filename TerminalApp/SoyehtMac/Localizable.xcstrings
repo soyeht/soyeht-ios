@@ -28323,6 +28323,23 @@
       },
       "comment": "Header title for the complete-uninstall flow."
     },
+    "welcome.uninstall.warning.bullet.appTrash": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the Soyeht app itself stays; move it to the Trash afterwards"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "o app Soyeht em si fica; mova-o para o Lixo depois"
+          }
+        }
+      }
+    },
     "welcome.uninstall.warning.bullet.brew": {
       "extractionState": "manual",
       "localizations": {
