@@ -434,8 +434,9 @@ struct HouseCardView: View {
                         showInfoSheet = false
                         onPaired()
                     }
-                    if error != nil { continue }
-                    return
+                    if error == nil { return }
+                    // A credential that could not be minted yet falls through
+                    // to the poll's own 500 ms pace instead of spinning.
                 case .namedAwaitingPair, .recovering:
                     break
                 case .uninitialized, .readyForNaming:
