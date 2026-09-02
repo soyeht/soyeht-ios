@@ -49,6 +49,7 @@
 		49CAFA010000000000000001 /* house-created.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA010000000000000101 /* house-created.caf */; };
 		49CAFA020000000000000001 /* resident-paired.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA020000000000000101 /* resident-paired.caf */; };
 		49CAFA030000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
+		49CAFA040000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F17E0002000000000000F002 /* PrivacyInfo.xcprivacy */; };
 		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
 		49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */; };
@@ -172,7 +173,6 @@
 		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
 		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */; };
-		A2E100000000000000000002 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000014 /* SoyehtClawShareTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000015 /* NetworkExtension.framework */; };
 		A2E100000000000000000004 /* NEPacketTunnelFlowAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000017 /* NEPacketTunnelFlowAdapter.swift */; };
 		A2E100000000000000000005 /* RelayStreamGuestIPTunnelSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000018 /* RelayStreamGuestIPTunnelSessionAdapter.swift */; };
@@ -324,7 +324,6 @@
 			files = (
 				F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */,
 				BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */,
-				A2E100000000000000000002 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -560,6 +559,7 @@
 		EB2D25632F9118F5E8C01E9F /* PairingProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingProgressView.swift; sourceTree = "<group>"; };
 		EC703DB8852E5D806A128CD4 /* CardVoice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardVoice.swift; sourceTree = "<group>"; };
 		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
+		F17E0002000000000000F002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F17E0001000000000000F001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
@@ -793,6 +793,7 @@
 				49BD1A61224207B5005A2252 /* Main.storyboard */,
 				49BD1A64224207B7005A2252 /* Assets.xcassets */,
 				F17E0001000000000000F001 /* Localizable.xcstrings */,
+				F17E0002000000000000F002 /* PrivacyInfo.xcprivacy */,
 				49CAFA010000000000000101 /* house-created.caf */,
 				49CAFA020000000000000101 /* resident-paired.caf */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
@@ -1344,7 +1345,6 @@
 			dependencies = (
 				96CD6DA200E779D1C4EB7700 /* PBXTargetDependency */,
 				A5132A121885C1909941A3DA /* PBXTargetDependency */,
-				A2E100000000000000000052 /* PBXTargetDependency */,
 			);
 			name = Soyeht;
 			packageProductDependencies = (
@@ -1521,6 +1521,7 @@
 				49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */,
 				49BD1A63224207B5005A2252 /* Main.storyboard in Resources */,
 				F17E0001000000000000F002 /* Localizable.xcstrings in Resources */,
+				49CAFA040000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 				49CAFA010000000000000001 /* house-created.caf in Resources */,
 				49CAFA020000000000000001 /* resident-paired.caf in Resources */,
 			);
@@ -1936,14 +1937,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2097,7 +2098,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Soyeht/Soyeht.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -2105,7 +2106,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2121,7 +2122,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Soyeht/Soyeht.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -2129,7 +2130,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2207,7 +2208,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Soyeht/SoyehtDev.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -2215,7 +2216,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2231,11 +2232,11 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "";
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.HouseCreatedNotificationService;
 				PRODUCT_NAME = HouseCreatedNotificationService;
 				SDKROOT = iphoneos;
@@ -2250,11 +2251,11 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "";
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.HouseCreatedNotificationService;
 				PRODUCT_NAME = HouseCreatedNotificationService;
 				SDKROOT = iphoneos;
@@ -2269,12 +2270,12 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.HouseCreatedNotificationService;
 				PRODUCT_NAME = HouseCreatedNotificationService;
 				SDKROOT = iphoneos;
@@ -2324,14 +2325,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2345,14 +2346,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.SoyehtLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2367,7 +2368,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
@@ -2377,7 +2378,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2394,7 +2395,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProviderDev.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
@@ -2404,7 +2405,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.dev.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2422,7 +2423,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
@@ -2432,7 +2433,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 1.1.19;
 				MESH_TUNNEL_KEYCHAIN_ACCESS_GROUP = "$(AppIdentifierPrefix)com.soyeht.mobile.clawshare.mesh";
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";

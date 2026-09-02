@@ -10,14 +10,20 @@ final class MeshTunnelEntitlementTests: XCTestCase {
 
     func testHostAndProviderKeepPrivateDefaultThenMatchingSharedMeshGroup() throws {
         let root = try repositoryRoot()
-        let expected: [(String, String, String)] = [
-            ("TerminalApp/Soyeht/Soyeht.entitlements", "group.com.soyeht.mobile.clawshare", productionSharedGroup),
-            ("TerminalApp/SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements", "group.com.soyeht.mobile.clawshare", productionSharedGroup),
-            ("TerminalApp/Soyeht/SoyehtDev.entitlements", "group.com.soyeht.mobile.clawshare.dev", developmentSharedGroup),
-            ("TerminalApp/SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProviderDev.entitlements", "group.com.soyeht.mobile.clawshare.dev", developmentSharedGroup),
+        // (path, app group, shared keychain group, carries the packet-tunnel
+        // entitlement). The host app no longer declares the VPN entitlement:
+        // the tunnel provider is not embedded in the shipped build (its
+        // startTunnel returns .notConfigured — a declared capability the app
+        // provably cannot exercise is the shape of an App Review 2.5.1 /
+        // 2.3.1(a) rejection), while the provider target and its
+        // entitlements stay in the tree for the inert-boundary tests.
+        let expected: [(String, String, String, Bool)] = [
+            ("TerminalApp/Soyeht/Soyeht.entitlements", "group.com.soyeht.mobile.clawshare", productionSharedGroup, false),
+            ("TerminalApp/SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements", "group.com.soyeht.mobile.clawshare", productionSharedGroup, true),
+            ("TerminalApp/Soyeht/SoyehtDev.entitlements", "group.com.soyeht.mobile.clawshare.dev", developmentSharedGroup, false),
+            ("TerminalApp/SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProviderDev.entitlements", "group.com.soyeht.mobile.clawshare.dev", developmentSharedGroup, true),
         ]
-
-        for (relativePath, appGroup, sharedGroup) in expected {
+        for (relativePath, appGroup, sharedGroup, carriesTunnelEntitlement) in expected {
             let plist = try plist(at: root.appendingPathComponent(relativePath))
             XCTAssertEqual(
                 plist["keychain-access-groups"] as? [String],
@@ -27,7 +33,8 @@ final class MeshTunnelEntitlementTests: XCTestCase {
             XCTAssertEqual(plist["com.apple.security.application-groups"] as? [String], [appGroup])
             XCTAssertEqual(
                 plist["com.apple.developer.networking.networkextension"] as? [String],
-                ["packet-tunnel-provider"]
+                carriesTunnelEntitlement ? ["packet-tunnel-provider"] : nil,
+                relativePath
             )
         }
     }
