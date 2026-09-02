@@ -43,7 +43,8 @@ only `.dev` (bundle id ending in `.dev`) diverges:
 | keychain service | `com.soyeht.mac` | `com.soyeht.mac.dev` |
 | admin port | 8892 | 8902 |
 | household/bootstrap port | 8091 | 8101 |
-| engine log | `/tmp/soyeht-engine.log` | `/tmp/soyehtdev-engine.log` |
+| engine log | `~/Library/Logs/Soyeht/engine.log` | `~/Library/Logs/SoyehtDev/engine.log` |
+| wrapper log (launchd `StandardOutPath`, shell errors only) | `/tmp/soyeht-engine.log` | `/tmp/soyehtdev-engine.log` |
 | vmrunner socket | `/tmp/vmrunner-macos.sock` (default) | `/tmp/soyehtdev-vmrunner-macos.sock` |
 | session DB | `/tmp/theyos-sessions.db` (default) | `$SoyehtDev/theyos-sessions.db` |
 | LLM proxy URL | `http://127.0.0.1:18900` (default) | `http://127.0.0.1:18901` |

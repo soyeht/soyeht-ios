@@ -262,11 +262,50 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 expectedEngineVersion: EngineCompat.minSupportedEngineVersion
             )
             guard verdict == .stale else { return }
+            // A restart only helps once the newer binary is staged. Nothing
+            // else refreshes ~/Library/Application Support/<profile>/engine on
+            // a set-up Mac — the onboarding installer is the only other
+            // caller — so before this step every launch bounced the same old
+            // engine, killed its PTYs, and changed nothing (the 0.1.27
+            // owner-events mode regression shipped inside exactly that gap).
+            do {
+                try EnginePackager.install()
+            } catch {
+                NSLog(
+                    "engine %@ is older than the required %@ but staging the bundled engine failed (%@); leaving the running engine alone",
+                    status.engineVersion, EngineCompat.minSupportedEngineVersion,
+                    String(describing: error)
+                )
+                return
+            }
             NSLog(
-                "engine %@ is older than the required %@; restarting the LaunchAgent",
+                "engine %@ is older than the required %@; staged the bundled engine and restarting the LaunchAgent",
                 status.engineVersion, EngineCompat.minSupportedEngineVersion
             )
             SMAppServiceInstaller.restartStaleEngine()
+        }
+    }
+
+    /// See `OwnerEventsLogRepair`. Runs synchronously: it is one `open` +
+    /// `fstat` + `fchmod` on a single file, and it must finish before the
+    /// reconciler below can start the engine.
+    private func repairLegacyOwnerEventsLog() {
+        let url = OwnerEventsLogRepair.logURL(supportDirectory: EnginePackager.soyehtSupportDirectory)
+        switch OwnerEventsLogRepair.repair(logURL: url) {
+        case .absent, .alreadyPrivate:
+            break
+        case .repaired(let previousMode):
+            NSLog(
+                "tightened the owner-events log from %@ to 600 so the engine can open it: %@",
+                String(previousMode, radix: 8), url.path
+            )
+        case .leftAlone(let reason):
+            NSLog(
+                "owner-events log left untouched (%@); the engine will refuse it and the iPhone cannot connect: %@",
+                reason, url.path
+            )
+        case .failed(let code):
+            NSLog("owner-events log repair failed (errno %d): %@", code, url.path)
         }
     }
 
@@ -503,6 +542,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     private func openInitialWindow() async {
         let isSetUp = !SessionStore.shared.credentialedCanonicalServers().isEmpty
+        // Before anything below can start or bounce the engine: a Mac that
+        // paired an iPhone before the engine required a 0600 owner-events log
+        // fails Phase 3 on every boot and never serves the phone again, while
+        // /health keeps saying ok. Tighten the file now so the next engine
+        // start sees the mode it demands. The engine repairs it too from
+        // theyos b05d2119 on, but that engine only reaches a set-up Mac
+        // through the stale-restart path below.
+        repairLegacyOwnerEventsLog()
         // Repair the engine LaunchAgent before any pane is built. A pane asks
         // for the broker at creation time and silently falls back to an
         // in-process PTY when it is absent — and in-process panes die with the

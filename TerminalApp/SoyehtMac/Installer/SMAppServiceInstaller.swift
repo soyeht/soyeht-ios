@@ -191,7 +191,18 @@ enum SMAppServiceInstaller {
     /// an app update, hosted degraded TCC state that silently denied folder
     /// access in every new pane until the service was bounced by hand.
     static func restartStaleEngine() {
-        kickstart()
+        // The bounce is happening regardless, so re-register first: launchd
+        // only re-reads the bundled plist at registration (or next login), and
+        // a wrapper change that shipped with this app — the engine log moving
+        // to ~/Library/Logs, a new export — would otherwise wait for a logout
+        // while the fresh binary already runs under the old command line.
+        let service = SMAppService.agent(plistName: plistName)
+        guard service.status == .enabled else {
+            kickstart()
+            return
+        }
+        try? refreshEnabledService(service) // falls back to a plain kickstart itself
+        startWithoutRestarting() // RunAtLoad normally starts it; this covers the case it did not
     }
 
     /// Unregisters the LaunchAgent (used by "Recomeçar do zero" FR-061).

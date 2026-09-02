@@ -638,6 +638,7 @@ struct SoyehtAppView: View {
                                 withAnimation { appState = .qrScanner }
                             }
                         },
+                        onSettings: { showSettings = true },
                         // Offered only to an owner device: the same capability
                         // the engine enforces when the invite is minted, so a
                         // device that would be refused server-side never sees

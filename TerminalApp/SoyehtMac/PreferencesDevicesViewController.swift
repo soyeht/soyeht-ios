@@ -74,6 +74,7 @@ enum LocalPairingConnectionBadge: Equatable {
 final class DevicesPreferencesViewController: NSViewController {
     private let localConnectionsLabel = NSTextField(labelWithString: "")
     private let localPresenceBadgeLabel = NSTextField(labelWithString: "")
+    private let startOverLabel = NSTextField(wrappingLabelWithString: "")
     private var pairingWindowController: MacIPhonePairingWindowController?
 
     override func loadView() {
@@ -201,6 +202,39 @@ final class DevicesPreferencesViewController: NSViewController {
         localPresenceBadgeLabel.font = .systemFont(ofSize: 12, weight: .medium)
         stack.addArrangedSubview(localPresenceBadgeLabel)
 
+        // The way out of a home whose only iPhone is gone. Adding a new
+        // iPhone to a paired home needs approval from an iPhone that already
+        // belongs to it; when that iPhone was lost, reset, or replaced, the
+        // new one waits for an approval that can never come (measured
+        // 2026-09-01: five minutes of spinner, then a timeout). The engine
+        // refuses a teardown without the owner's signature, so the honest
+        // recovery is the same one a reinstall gives: forget this home on
+        // this Mac and pair the new iPhone as the first one. The uninstaller
+        // already does exactly that, keeps the app by default, and offers
+        // "Force Local Uninstall" when the owner revocation cannot be signed.
+        startOverLabel.font = .systemFont(ofSize: 12)
+        startOverLabel.textColor = .secondaryLabelColor
+        startOverLabel.maximumNumberOfLines = 3
+        startOverLabel.stringValue = String(
+            localized: "prefs.devices.startOver.explainer",
+            defaultValue: "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Start over to forget this home on this Mac and pair the new iPhone as the first one.",
+            comment: "Explains when to use Start over in Preferences › Devices."
+        )
+        stack.addArrangedSubview(startOverLabel)
+
+        let startOverButton = NSButton(
+            title: String(
+                localized: "prefs.devices.startOver.button",
+                defaultValue: "Start over…",
+                comment: "Button in Preferences › Devices that opens the uninstaller to forget the home and pair a new first iPhone."
+            ),
+            target: self,
+            action: #selector(startOver)
+        )
+        startOverButton.bezelStyle = .rounded
+        startOverButton.setAccessibilityIdentifier("prefs.devices.startOver")
+        stack.addArrangedSubview(startOverButton)
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 28),
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
@@ -287,6 +321,10 @@ final class DevicesPreferencesViewController: NSViewController {
         } else {
             controller.showWindow(self)
         }
+    }
+
+    @objc private func startOver() {
+        NSApp.sendAction(#selector(AppDelegate.uninstallSoyeht(_:)), to: nil, from: self)
     }
 
     @objc private func manageLocalConnections() {
@@ -545,7 +583,7 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = await MacPairingReachability.reachableEngineURL(
+        let endpoint = MacPairingReachability.reachableEngineURL(
             localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
         )
         let link = HouseholdDevicePairingLink(
@@ -969,7 +1007,7 @@ private final class MacIPhonePairingViewController: NSViewController {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = await MacPairingReachability.reachableEngineURL(
+        let endpoint = MacPairingReachability.reachableEngineURL(
             localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
         )
         let link = HouseholdDevicePairingLink(
@@ -1152,111 +1190,12 @@ private struct HouseholdIdentityFetcher {
 }
 
 private enum MacPairingReachability {
-    static func reachableEngineURL(localEngineBaseURL: URL) async -> URL {
-        guard let status = await tailscaleStatus(),
-              let node = status.selfNode else {
-            return localEngineBaseURL
-        }
-        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
-        if let dnsName = normalizedDNSName(node.dnsName),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(dnsName):\(port)") {
-            return url
-        }
-        if let ip = node.tailscaleIPs.first(where: HostClassifier.isTailnetIPv4),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)") {
-            return url
-        }
-        return localEngineBaseURL
-    }
-
-    private static func tailscaleStatus() async -> TailscaleStatus? {
-        guard let binary = tailscaleBinary() else { return nil }
-        guard let data = await run(binary, arguments: ["status", "--json"], timeout: 2.0) else { return nil }
-        return try? JSONDecoder().decode(TailscaleStatus.self, from: data)
-    }
-
-    private static func tailscaleBinary() -> String? {
-        [
-            "/opt/homebrew/bin/tailscale",
-            "/usr/local/bin/tailscale",
-        ].first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private static func run(_ executable: String, arguments: [String], timeout: TimeInterval) async -> Data? {
-        await withCheckedContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-
-            let output = Pipe()
-            process.standardOutput = output
-            process.standardError = Pipe()
-
-            let gate = ResumeOnce()
-            process.terminationHandler = { _ in
-                let data = (try? output.fileHandleForReading.readToEnd()) ?? Data()
-                if gate.claim() {
-                    continuation.resume(returning: data)
-                }
-            }
-
-            do {
-                try process.run()
-            } catch {
-                if gate.claim() {
-                    continuation.resume(returning: nil)
-                }
-                return
-            }
-
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
-                if process.isRunning {
-                    process.terminate()
-                }
-                if gate.claim() {
-                    continuation.resume(returning: nil)
-                }
-            }
-        }
-    }
-
-    private static func normalizedDNSName(_ value: String?) -> String? {
-        let trimmed = value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard let trimmed, !trimmed.isEmpty else { return nil }
-        return trimmed
-    }
-
-}
-
-private final class ResumeOnce: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-
-    func claim() -> Bool {
-        lock.withLock {
-            guard !done else { return false }
-            done = true
-            return true
-        }
-    }
-}
-
-private struct TailscaleStatus: Decodable {
-    let selfNode: TailscaleNode?
-
-    enum CodingKeys: String, CodingKey {
-        case selfNode = "Self"
-    }
-}
-
-private struct TailscaleNode: Decodable {
-    let dnsName: String?
-    let tailscaleIPs: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case dnsName = "DNSName"
-        case tailscaleIPs = "TailscaleIPs"
+    /// The engine URL the iPhone will keep. Same resolver as the Welcome
+    /// pairing path — read from the interfaces, never from the `tailscale`
+    /// CLI. This copy used to prefer the MagicDNS name over the raw tailnet
+    /// address and fell back to the loopback URL, which no phone can reach;
+    /// see `MacEngineAdvertisedURL` for why neither survived.
+    static func reachableEngineURL(localEngineBaseURL: URL) -> URL {
+        MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
     }
 }

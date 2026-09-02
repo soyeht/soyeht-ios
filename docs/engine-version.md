@@ -81,6 +81,20 @@ Bump the pin when **any** of these is true:
    - `scripts/theyos-engine.version` → set to `X.Y.Z`
    - `scripts/theyos-engine.sha256` → append `X.Y.Z  <sha>`
 
+   And decide about a third, `EngineCompat.minSupportedEngineVersion` in
+   `Packages/SoyehtCore/.../EngineVersion/EngineVersion.swift`. A Mac that
+   is already set up never re-runs the onboarding installer, so the engine
+   in `~/Library/Application Support/Soyeht/engine` only gets replaced when
+   the app finds the running engine **older than `minSupportedEngineVersion`**
+   — it then stages the bundled binary and bounces the LaunchAgent
+   (`AppDelegate.verifyRunningEngineFreshness`). Bump the pin alone and an
+   updated Mac keeps running the old engine indefinitely; bump the floor
+   too and every launch of the new app upgrades it, at the cost of that
+   one restart (which kills the engine's PTYs — the reason it is not done
+   on every launch). Bump the floor when the new engine carries a fix the
+   phone or the Mac cannot live without; leave it when the bump is only
+   for new installs.
+
 5. **Re-fetch + verify**:
    ```
    rm -rf /tmp/theyos-engine-dist

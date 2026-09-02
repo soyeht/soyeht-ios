@@ -62,8 +62,22 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
     /// Household/bootstrap listener port (`/bootstrap/*`), bound to localhost.
     public let bootstrapPort: Int
 
-    /// Engine stdout/stderr log path (LaunchAgent `StandardOutPath`).
+    /// LaunchAgent `StandardOutPath`/`StandardErrorPath`. launchd expands no
+    /// variables in these, so this stays a fixed `/tmp` path — and since
+    /// 2026-09-02 it only ever receives the shell wrapper's own output (a
+    /// failed `mkdir`, a failed redirect). The engine's log is
+    /// `engineLogShellPath`, redirected by the wrapper.
     public let engineLogPath: String
+
+    /// Where the engine's stdout/stderr actually go: `~/Library/Logs/<dir>/engine.log`,
+    /// as a shell expression for the LaunchAgent wrapper. `/tmp` was the wrong
+    /// place for it — macOS purges files there after three days unused, and
+    /// the file was 0644 in a world-readable directory while carrying household,
+    /// machine, and device identifiers. `~/Library/Logs` is private to the user,
+    /// is where Console.app and support bundles look, and outlives a reboot.
+    public var engineLogDirectoryName: String { supportDirectoryName }
+    public var engineLogDirectoryShellPath: String { "$HOME/Library/Logs/\(engineLogDirectoryName)" }
+    public var engineLogShellPath: String { "\(engineLogDirectoryShellPath)/engine.log" }
 
     /// The MCP launcher this build installs into `~/.local/bin`. The two
     /// builds must never share it: a shared name means whichever app installed
@@ -174,6 +188,7 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
             householdKeychainService,
             householdOwnerKeyPrefix,
             engineLogPath,
+            engineLogShellPath,
             adminHost,
             bootstrapHost,
             mcpLauncherFilename,

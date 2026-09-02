@@ -21885,6 +21885,35 @@
         }
       }
     },
+    "settings.row.leaveHousehold": {
+      "comment": "Settings list row — leaves this household on this iPhone (wipes local membership).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave this household"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir de esta casa"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sair desta casa"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sair desta casa"
+          }
+        }
+      }
+    },
     "settings.row.pairedMacs": {
       "comment": "Settings list row — paired Macs list.",
       "extractionState": "stale",

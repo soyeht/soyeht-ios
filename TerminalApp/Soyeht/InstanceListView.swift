@@ -1,5 +1,6 @@
 import SwiftUI
 import SoyehtCore
+import Network
 import os
 
 private let instanceListLogger = Logger(subsystem: "com.soyeht.mobile", category: "instance-list")
@@ -265,6 +266,14 @@ struct InstanceListView: View {
     let onHouseholdConnect: (URLRequest, SoyehtInstance, String, String, URL) -> Void
     let onAddInstance: () -> Void
     let onLogout: () -> Void
+    /// Opens Settings — the only screen with "Leave this household". Once a
+    /// Mac is paired the owner lands here, never on `HouseholdHomeView`
+    /// (`HomeFallbackDestination` routes to the instance list whenever a
+    /// server exists), and until 2026-09-01 this header had no gear at all:
+    /// a paired user could not reach Settings, and "Leave household" was
+    /// unreachable in the one state everybody is in. Optional so previews
+    /// and legacy call sites need not supply it.
+    var onSettings: (() -> Void)? = nil
     /// Owner-only entry to "share one of my apps with someone outside the
     /// home". Optional and nil-by-default: the capability check needs the
     /// active household, which this view does not carry, so the gate lives at
@@ -404,6 +413,19 @@ struct InstanceListView: View {
                                 Image(systemName: "person.2")
                                     .font(Typography.sansSection)
                                     .foregroundColor(SoyehtTheme.textSecondary)
+                            }
+                            if let onSettings {
+                                Button(action: onSettings) {
+                                    Image(systemName: "gearshape")
+                                        .font(Typography.sansSection)
+                                        .foregroundColor(SoyehtTheme.textSecondary)
+                                }
+                                .accessibilityIdentifier("soyeht.instanceList.settingsButton")
+                                .accessibilityLabel(Text(LocalizedStringResource(
+                                    "instancelist.button.settings.a11y",
+                                    defaultValue: "Settings",
+                                    comment: "Accessibility label for the gear that opens Settings from the paired home screen."
+                                )))
                             }
                         }
                     }
@@ -1692,6 +1714,25 @@ private struct SessionListSheet: View {
         }
         .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
+        // A load that failed while the network was away must not sit behind
+        // a manual `retry` once it is back. Measured 2026-09-01 on the dev
+        // phone: Wi-Fi off → "The request timed out." → Wi-Fi on, the
+        // tailnet up again and the engine answering, and this screen kept
+        // showing the stale error until someone tapped. Two triggers, both
+        // cheap: the return to foreground and the network path coming back
+        // while in front. The foreground signal is UIKit's, not
+        // `scenePhase`: this view is presented as a `.sheet`, and measured on
+        // the same phone `@Environment(\.scenePhase)` never changed inside it
+        // while the instance list underneath (not a sheet) saw every change.
+        .task { await reloadWhenNetworkReturns() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            guard WorkspaceListReloadPolicy.shouldReload(
+                isLoading: isLoadingWorkspaces,
+                workspaceCount: workspaces.count,
+                errorMessage: errorMessage
+            ) else { return }
+            Task { await loadWorkspaces() }
+        }
         .alert("instancelist.alert.renameSession.title", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }
@@ -1721,6 +1762,36 @@ private struct SessionListSheet: View {
     }
 
     // MARK: - API Calls
+
+    /// Reloads a failed workspace list the moment the network path becomes
+    /// satisfied again — and only on that transition, so a healthy path never
+    /// causes a reload of its own. Lives for as long as the sheet does: the
+    /// `.task` that runs it is cancelled on disappear, which cancels the
+    /// monitor through the stream's termination handler.
+    @MainActor
+    private func reloadWhenNetworkReturns() async {
+        let updates = AsyncStream<Bool> { continuation in
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { continuation.yield($0.status == .satisfied) }
+            continuation.onTermination = { _ in monitor.cancel() }
+            monitor.start(queue: DispatchQueue(label: "com.soyeht.session-list.network-path"))
+        }
+        var previouslySatisfied: Bool?
+        for await satisfied in updates {
+            let pathChanged = WorkspaceListReloadPolicy.pathUpdateWarrantsReload(
+                satisfied: satisfied, previouslySatisfied: previouslySatisfied
+            )
+            previouslySatisfied = satisfied
+            guard pathChanged,
+                  WorkspaceListReloadPolicy.shouldReload(
+                      isLoading: isLoadingWorkspaces,
+                      workspaceCount: workspaces.count,
+                      errorMessage: errorMessage
+                  )
+            else { continue }
+            await loadWorkspaces()
+        }
+    }
 
     private func loadWorkspaces() async {
         isLoadingWorkspaces = true
@@ -2040,5 +2111,30 @@ private struct WorkspaceCard: View {
                         .stroke(isSelected ? SoyehtTheme.historyGreenStrong : SoyehtTheme.bgCardBorder, lineWidth: 1)
                 )
         )
+    }
+}
+
+
+// MARK: - Reload policy
+
+/// When a workspace list that failed to load is retried without a tap.
+/// Pure so the rule is stated once for both triggers (foreground return,
+/// network path back): only an idle, empty, errored list — never a list
+/// that is loading, and never one that already has content.
+enum WorkspaceListReloadPolicy {
+    static func shouldReload(isLoading: Bool, workspaceCount: Int, errorMessage: String?) -> Bool {
+        !isLoading && workspaceCount == 0 && errorMessage != nil
+    }
+
+    /// `NWPathMonitor` fires on every path change, and a Wi-Fi → cellular
+    /// handoff is one: the path stays `.satisfied` while the interface (and
+    /// route to the Mac) changes underneath. A request in flight at that
+    /// moment fails with -1009 and the sheet used to sit on that error until
+    /// the user tapped retry (measured 2026-09-02 07:04, iPhone leaving
+    /// Wi-Fi with the tailnet still up on 5G). Any later update with the
+    /// path satisfied is therefore a reason to retry; the first update is
+    /// the monitor's initial state and the `.task` load already covers it.
+    static func pathUpdateWarrantsReload(satisfied: Bool, previouslySatisfied: Bool?) -> Bool {
+        satisfied && previouslySatisfied != nil
     }
 }

@@ -765,6 +765,13 @@ private enum ExistingSoyehtStateResetter {
             try? fm.removeItem(at: supportDir.appendingPathComponent(file, isDirectory: false))
         }
 
+        // The engine keeps the household under `household-state/`
+        // (`household-state/household/…`, `household-state/identity.bootstrap_state`),
+        // not at the support-directory root. Until 2026-09-01 this removed
+        // `<support>/household`, which does not exist, so "reinstall" left the
+        // household on disk and the fresh engine booted straight back to
+        // `ready` with the old home.
+        try? fm.removeItem(at: supportDir.appendingPathComponent("household-state", isDirectory: true))
         try? fm.removeItem(at: supportDir.appendingPathComponent("household", isDirectory: true))
     }
 }

@@ -14,6 +14,11 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
     public let programShellFlag: String
     public let supportDirectoryShellValue: String
     public let engineDirectoryShellValue: String
+    public let logDirectoryShellValue: String
+    /// Statements the wrapper runs before `exec`, in order. Only `mkdir -p`
+    /// of the log directory today: the redirect in `execCommand` needs it to
+    /// exist, and a user who cleans `~/Library/Logs` must not lose the engine.
+    public let prepareCommands: [String]
     public let execCommand: String
     public let standardOutPath: String
     public let standardErrorPath: String
@@ -31,7 +36,9 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
         programShellFlag = "-lc"
         supportDirectoryShellValue = "$HOME/Library/Application Support/\(profile.supportDirectoryName)"
         engineDirectoryShellValue = "$SOYEHT_DIR/engine"
-        execCommand = #"exec "$ENGINE_DIR/theyos-engine""#
+        logDirectoryShellValue = profile.engineLogDirectoryShellPath
+        prepareCommands = [#"mkdir -p "$LOG_DIR""#]
+        execCommand = #"exec "$ENGINE_DIR/theyos-engine" >>"$LOG_DIR/engine.log" 2>&1"#
         standardOutPath = profile.engineLogPath
         standardErrorPath = profile.engineLogPath
         // Provider credentials never belong in the shipped client. With no

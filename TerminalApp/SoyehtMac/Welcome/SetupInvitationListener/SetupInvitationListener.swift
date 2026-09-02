@@ -58,29 +58,27 @@ final class SetupInvitationListener: @unchecked Sendable {
                 }
                 setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
             }
-            if let macEngineURL = await SetupInvitationDirectProbe.reachableMacEngineURL(
+            // Always resolves: tailnet address first, then LAN, then the
+            // loopback base — there is no longer a "could not reach our own
+            // engine" branch, because the answer comes from the interfaces,
+            // not from a subprocess that may be missing or hung.
+            let macEngineURL = SetupInvitationDirectProbe.reachableMacEngineURL(
                 localEngineBaseURL: engineBaseURL
-            ) {
-                let localPairing = await SetupInvitationDirectProbe.makeMacLocalPairing(
-                    payload: hit.payload,
-                    macEngineURL: macEngineURL
+            )
+            let localPairing = await SetupInvitationDirectProbe.makeMacLocalPairing(
+                payload: hit.payload,
+                macEngineURL: macEngineURL
+            )
+            try await SetupInvitationDirectProbe.notifyClaimed(
+                iphoneBaseURL: hit.iphoneBaseURL,
+                claim: SetupInvitationDirectClaim(
+                    token: hit.payload.token,
+                    macEngineURL: macEngineURL,
+                    macLocalPairing: localPairing,
+                    existingHouse: existingHouse
                 )
-                try await SetupInvitationDirectProbe.notifyClaimed(
-                    iphoneBaseURL: hit.iphoneBaseURL,
-                    claim: SetupInvitationDirectClaim(
-                        token: hit.payload.token,
-                        macEngineURL: macEngineURL,
-                        macLocalPairing: localPairing,
-                        existingHouse: existingHouse
-                    )
-                )
-                setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
-            } else if existingHouse != nil {
-                // Couldn't reach our own Mac engine to advertise; let the
-                // outer resolveMode loop retry on the next pass.
-                setupInvitationLogger.info("direct_probe.claim_skipped_no_reachable_mac_for_existing_house")
-                return .notFound
-            }
+            )
+            setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
             return .invitationClaimed(
                 ownerDisplayName: hit.payload.ownerDisplayName,
                 iphoneApnsToken: hit.payload.iphoneApnsToken
@@ -185,9 +183,9 @@ final class MacAutomaticIPhoneDiscoveryService {
             let status = try await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
             guard status.state == .ready else { return nil }
             let identity = try await AutomaticHouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-            let endpoint = await SetupInvitationDirectProbe.reachableMacEngineURL(
+            let endpoint = SetupInvitationDirectProbe.reachableMacEngineURL(
                 localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
-            ) ?? TheyOSEnvironment.bootstrapBaseURL
+            )
             let link = HouseholdDevicePairingLink(
                 endpoint: endpoint,
                 householdId: identity.householdId,
@@ -302,29 +300,15 @@ private enum SetupInvitationDirectProbe {
         return nil
     }
 
-    static func reachableMacEngineURL(localEngineBaseURL: URL) async -> URL? {
-        guard let status = await tailscaleStatus(),
-              let node = status.selfNode else {
-            return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()) ?? localEngineBaseURL
-        }
-        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
-        // Prefer the raw Tailscale IPv4 over the MagicDNS name. The
-        // engine's source-IP guard (`post_initialize`) requires the
-        // iPhone to connect from a Tailnet address; on iOS, system
-        // URLSession may not resolve `*.ts.net` through Tailscale's
-        // resolver (depending on per-app routing), in which case the
-        // DNS-named URL falls through to WiFi and the engine rejects
-        // with `tailnet_required`. Hitting the literal Tailnet IP
-        // routes deterministically through the Tailscale tun device.
-        if let ip = node.tailscaleIPs.first(where: HostClassifier.isTailnetIPv4),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)") {
-            return url
-        }
-        if let dnsName = normalizedDNSName(node.dnsName),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(dnsName):\(port)") {
-            return url
-        }
-        return localEngineBaseURL
+    /// The engine URL the iPhone will keep. Read from the interfaces, never
+    /// from the `tailscale` CLI: see `MacEngineAdvertisedURL`. The raw
+    /// tailnet IPv4 is deliberately preferred over the MagicDNS name — the
+    /// engine's source-IP guard (`post_initialize`) requires the iPhone to
+    /// connect from a tailnet address, and on iOS a `*.ts.net` name may not
+    /// resolve through Tailscale's resolver, in which case the DNS-named URL
+    /// falls through to Wi-Fi and the engine rejects with `tailnet_required`.
+    static func reachableMacEngineURL(localEngineBaseURL: URL) -> URL {
+        MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
     }
 
     static func notifyClaimed(iphoneBaseURL: URL, claim: SetupInvitationDirectClaim) async throws {
@@ -545,44 +529,6 @@ private enum SetupInvitationDirectProbe {
         }
     }
 
-    private static func localNetworkMacEngineURL(port: Int) -> URL? {
-        let ips = localNetworkIPv4Addresses()
-        guard let ip = ips.first else { return nil }
-        return EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)")
-    }
-
-    private static func localNetworkIPv4Addresses() -> [String] {
-        var head: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&head) == 0, let first = head else { return [] }
-        defer { freeifaddrs(head) }
-
-        var values: [(rank: Int, ip: String)] = []
-        for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
-            let interface = pointer.pointee
-            guard let address = interface.ifa_addr,
-                  address.pointee.sa_family == UInt8(AF_INET) else {
-                continue
-            }
-            let flags = Int32(interface.ifa_flags)
-            guard (flags & IFF_UP) != 0,
-                  (flags & IFF_LOOPBACK) == 0 else {
-                continue
-            }
-
-            let name = String(cString: interface.ifa_name)
-            var socketAddress = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
-            var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-            guard inet_ntop(AF_INET, &socketAddress.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
-                continue
-            }
-            let ip = String(cString: buffer)
-            guard isLANReachableIPv4(ip) else { continue }
-            let rank = name == "en0" ? 0 : (name.hasPrefix("en") ? 1 : 2)
-            values.append((rank, ip))
-        }
-        return values.sorted { lhs, rhs in lhs.rank < rhs.rank }.map(\.ip)
-    }
-
     private static func tailscaleStatus() async -> TailscaleStatus? {
         guard let binary = tailscaleBinary() else { return nil }
         guard let data = await run(binary, arguments: ["status", "--json"], timeout: 2.0) else { return nil }
@@ -771,10 +717,6 @@ private enum SetupInvitationDirectProbe {
         HostClassifier.bonjourIPv4EndpointRank(value)
     }
 
-    private static func isLANReachableIPv4(_ value: String) -> Bool {
-        HostClassifier.bonjourIPv4EndpointRank(value) != nil
-            && !HostClassifier.isTailnetIPv4(value)
-    }
 }
 
 private struct TailscaleStatus: Decodable {

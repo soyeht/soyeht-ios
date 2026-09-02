@@ -184,9 +184,16 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         XCTAssertTrue(candidateFlow.contains("\"_soyeht-setup._tcp.\""))
         XCTAssertTrue(candidateFlow.contains("resolveBonjourIPv4Addresses"))
         XCTAssertTrue(listener.contains("DNSServiceGetAddrInfo"))
-        XCTAssertTrue(macURLFlow.contains("localNetworkMacEngineURL(port: localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort())"))
-        XCTAssertFalse(macURLFlow.contains("?? 8091"))
-        XCTAssertTrue(listener.contains("private static func isLANReachableIPv4"))
+        // The Mac's own URL no longer comes from the tailscale CLI: it is
+        // resolved from the interfaces by MacEngineAdvertisedURL, where the
+        // LAN fallback (and its port derivation) now lives.
+        XCTAssertTrue(macURLFlow.contains("MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)"))
+        XCTAssertFalse(macURLFlow.contains("tailscaleStatus()"))
+        let resolver = try macSource("Welcome/SetupInvitationListener/MacEngineAdvertisedURL.swift")
+        XCTAssertTrue(resolver.contains("localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertFalse(resolver.contains("?? 8091"))
+        XCTAssertTrue(resolver.contains("static func isLANReachableIPv4"))
+        XCTAssertTrue(resolver.contains("static func lanIPv4Addresses()"))
     }
 
     func test_uninstallerClearsOnlyCurrentProfileKeychainNamespaces() throws {
