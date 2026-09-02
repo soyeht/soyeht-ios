@@ -146,6 +146,7 @@
 		8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */; };
 		8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000423 /* ClawRouteUsageTests.swift */; };
 		8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */; };
+		CB1000500000000000000001 /* NetworkHandoffRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000500000000000000002 /* NetworkHandoffRecoveryTests.swift */; };
 		8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */; };
 		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74BE0A3265EE97582650E758 /* HowToRecoverView.swift */; };
@@ -480,6 +481,7 @@
 		8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolverTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
+		CB1000500000000000000002 /* NetworkHandoffRecoveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkHandoffRecoveryTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LegacyBoundaryUsageTests.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
@@ -1088,6 +1090,7 @@
 				8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */,
 				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
 				8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */,
+				CB1000500000000000000002 /* NetworkHandoffRecoveryTests.swift */,
 				8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */,
 				F2E200000000000000000004 /* BaseMachineProjectorTests.swift */,
 			);
@@ -1860,6 +1863,7 @@
 				8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */,
 				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,
 				8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */,
+				CB1000500000000000000001 /* NetworkHandoffRecoveryTests.swift in Sources */,
 				8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */,
 				F2E200000000000000000003 /* BaseMachineProjectorTests.swift in Sources */,
 			);

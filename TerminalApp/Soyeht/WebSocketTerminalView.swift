@@ -91,7 +91,14 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     private var state: ConnectionState = .idle
     private var reconnectAttempt = 0
-    private let maxReconnectAttempts = 3
+    /// A Wi-Fi → cellular handoff (Tailscale re-establishing on the new
+    /// interface included) takes longer than the 7 s the old 3-attempt budget
+    /// allowed; measured 2026-09-02 the terminal was gone before the phone
+    /// was reachable again. Delays double up to `maxReconnectDelay`, so six
+    /// attempts span ~31 s and the user watches the countdown the whole time.
+    static let maxReconnectAttempts = 6
+    static let maxReconnectDelay: TimeInterval = 8
+    private var maxReconnectAttempts: Int { Self.maxReconnectAttempts }
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
     /// True after a pair_denied — token_consumed / consent_denied / revoked — so
@@ -337,7 +344,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             return
         }
         reconnectAttempt = attempt
-        let delay = pow(2.0, Double(attempt - 1)) // 1s, 2s, 4s
+        let delay = Self.reconnectDelay(attempt: attempt) // 1s, 2s, 4s, 8s, 8s, 8s
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -349,7 +356,17 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             guard let self, !Task.isCancelled else { return }
             let endpoint = await self.resolveReconnectEndpoint()
             guard let endpoint else {
+                // The nonce refresh is an HTTP round trip to the same Mac the
+                // socket just lost, so during a network handoff it fails for
+                // the same reason. That is one failed attempt, not the end:
+                // only when the budget is spent does the terminal give up.
                 await MainActor.run {
+                    guard Self.shouldGiveUpAfterRefreshFailure(attempt: attempt) else {
+                        self.feed(text: "\r\n[WS] Could not refresh attach credentials; retrying.\r\n")
+                        self.state = .reconnecting(attempt: attempt + 1)
+                        self.attemptReconnect()
+                        return
+                    }
                     self.state = .closed
                     self.feed(text: "\r\n[WS] Reconnect failed: could not refresh attach credentials.\r\n")
                     if !self.didNotifyConnectionFailure {
@@ -373,6 +390,15 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 }
             }
         }
+    }
+
+    /// Decision only, so the budget is testable without a socket.
+    static func reconnectDelay(attempt: Int) -> TimeInterval {
+        min(pow(2.0, Double(max(attempt, 1) - 1)), maxReconnectDelay)
+    }
+
+    static func shouldGiveUpAfterRefreshFailure(attempt: Int) -> Bool {
+        attempt >= maxReconnectAttempts
     }
 
     // MARK: - Foreground Recovery

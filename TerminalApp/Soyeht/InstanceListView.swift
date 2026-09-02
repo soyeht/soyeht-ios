@@ -1778,9 +1778,11 @@ private struct SessionListSheet: View {
         }
         var previouslySatisfied: Bool?
         for await satisfied in updates {
-            let cameBack = satisfied && previouslySatisfied == false
+            let pathChanged = WorkspaceListReloadPolicy.pathUpdateWarrantsReload(
+                satisfied: satisfied, previouslySatisfied: previouslySatisfied
+            )
             previouslySatisfied = satisfied
-            guard cameBack,
+            guard pathChanged,
                   WorkspaceListReloadPolicy.shouldReload(
                       isLoading: isLoadingWorkspaces,
                       workspaceCount: workspaces.count,
@@ -2122,5 +2124,17 @@ private struct WorkspaceCard: View {
 enum WorkspaceListReloadPolicy {
     static func shouldReload(isLoading: Bool, workspaceCount: Int, errorMessage: String?) -> Bool {
         !isLoading && workspaceCount == 0 && errorMessage != nil
+    }
+
+    /// `NWPathMonitor` fires on every path change, and a Wi-Fi → cellular
+    /// handoff is one: the path stays `.satisfied` while the interface (and
+    /// route to the Mac) changes underneath. A request in flight at that
+    /// moment fails with -1009 and the sheet used to sit on that error until
+    /// the user tapped retry (measured 2026-09-02 07:04, iPhone leaving
+    /// Wi-Fi with the tailnet still up on 5G). Any later update with the
+    /// path satisfied is therefore a reason to retry; the first update is
+    /// the monitor's initial state and the `.task` load already covers it.
+    static func pathUpdateWarrantsReload(satisfied: Bool, previouslySatisfied: Bool?) -> Bool {
+        satisfied && previouslySatisfied != nil
     }
 }
