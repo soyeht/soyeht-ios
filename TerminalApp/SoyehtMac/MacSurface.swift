@@ -114,7 +114,12 @@ enum MacSurface {
             offset: CGSize,
             blur: CGFloat
         ) -> Shadow {
-            Shadow(color: color, opacity: opacity, offset: offset, radius: blur / 2)
+            Shadow(
+                color: color,
+                opacity: opacity,
+                offset: offset,
+                radius: NeoShadowMath.renderRadius(blur: blur)
+            )
         }
 
         func apply(to layer: CALayer?) {

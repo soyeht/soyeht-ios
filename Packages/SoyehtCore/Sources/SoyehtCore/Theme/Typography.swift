@@ -89,6 +89,28 @@ public enum Typography {
         Font.custom(postScriptName(weight: weight, italic: italic), size: size)
     }
 
+    /// The neo chrome sans, as a SwiftUI font that scales with Dynamic Type.
+    ///
+    /// `Font.custom(_:size:relativeTo:)` falls back to the system font when
+    /// Nunito is not registered, so a failed registration costs the look and
+    /// nothing else.
+    public static func neoSans(
+        size: CGFloat,
+        weight: Weight = .regular,
+        relativeTo style: Font.TextStyle = .body
+    ) -> Font {
+        Font.custom(neoSansPostScriptName(weight: weight), size: size, relativeTo: style)
+    }
+
+    /// Whether Nunito actually resolved. For logs and tests only — never for
+    /// choosing a different font at runtime, which would make the chrome
+    /// depend on registration order.
+    public static func isNeoSansRegistered() -> Bool {
+        let name = neoSansRegularPS as CFString
+        let font = CTFontCreateWithName(name, 12, nil)
+        return (CTFontCopyPostScriptName(font) as String) == neoSansRegularPS
+    }
+
     public static func sans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         Font.system(size: size, weight: weight, design: .default)
     }
