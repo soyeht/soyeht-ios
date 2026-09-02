@@ -62,7 +62,14 @@ public enum EngineCompat {
     /// Bumping the compat floor here forces users of a Mac running an
     /// older engine to upgrade SoyehtMac before pairing — which is the
     /// right policy when "older" includes a known-broken release.
-    public static let minSupportedEngineVersion = "0.1.27"
+    ///   - `0.1.28` repairs a legacy 0644 owner-events log instead of failing
+    ///     Phase 3 silently (every Mac that paired before theyos `9ded9731`),
+    ///     adopts the seeded mac-host whenever the household goes live, and
+    ///     reports the computer name as the host label. The floor moves with
+    ///     the pin on purpose: a set-up Mac only replaces its engine when the
+    ///     running one is older than this, and the 0.1.27 release was the
+    ///     one Phase 3 kept refusing.
+    public static let minSupportedEngineVersion = "0.1.28"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to
