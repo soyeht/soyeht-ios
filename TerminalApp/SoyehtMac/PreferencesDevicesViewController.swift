@@ -545,7 +545,7 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = await MacPairingReachability.reachableEngineURL(
+        let endpoint = MacPairingReachability.reachableEngineURL(
             localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
         )
         let link = HouseholdDevicePairingLink(
@@ -969,7 +969,7 @@ private final class MacIPhonePairingViewController: NSViewController {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = await MacPairingReachability.reachableEngineURL(
+        let endpoint = MacPairingReachability.reachableEngineURL(
             localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
         )
         let link = HouseholdDevicePairingLink(
@@ -1152,111 +1152,12 @@ private struct HouseholdIdentityFetcher {
 }
 
 private enum MacPairingReachability {
-    static func reachableEngineURL(localEngineBaseURL: URL) async -> URL {
-        guard let status = await tailscaleStatus(),
-              let node = status.selfNode else {
-            return localEngineBaseURL
-        }
-        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
-        if let dnsName = normalizedDNSName(node.dnsName),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(dnsName):\(port)") {
-            return url
-        }
-        if let ip = node.tailscaleIPs.first(where: HostClassifier.isTailnetIPv4),
-           let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(ip):\(port)") {
-            return url
-        }
-        return localEngineBaseURL
-    }
-
-    private static func tailscaleStatus() async -> TailscaleStatus? {
-        guard let binary = tailscaleBinary() else { return nil }
-        guard let data = await run(binary, arguments: ["status", "--json"], timeout: 2.0) else { return nil }
-        return try? JSONDecoder().decode(TailscaleStatus.self, from: data)
-    }
-
-    private static func tailscaleBinary() -> String? {
-        [
-            "/opt/homebrew/bin/tailscale",
-            "/usr/local/bin/tailscale",
-        ].first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private static func run(_ executable: String, arguments: [String], timeout: TimeInterval) async -> Data? {
-        await withCheckedContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-
-            let output = Pipe()
-            process.standardOutput = output
-            process.standardError = Pipe()
-
-            let gate = ResumeOnce()
-            process.terminationHandler = { _ in
-                let data = (try? output.fileHandleForReading.readToEnd()) ?? Data()
-                if gate.claim() {
-                    continuation.resume(returning: data)
-                }
-            }
-
-            do {
-                try process.run()
-            } catch {
-                if gate.claim() {
-                    continuation.resume(returning: nil)
-                }
-                return
-            }
-
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
-                if process.isRunning {
-                    process.terminate()
-                }
-                if gate.claim() {
-                    continuation.resume(returning: nil)
-                }
-            }
-        }
-    }
-
-    private static func normalizedDNSName(_ value: String?) -> String? {
-        let trimmed = value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard let trimmed, !trimmed.isEmpty else { return nil }
-        return trimmed
-    }
-
-}
-
-private final class ResumeOnce: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-
-    func claim() -> Bool {
-        lock.withLock {
-            guard !done else { return false }
-            done = true
-            return true
-        }
-    }
-}
-
-private struct TailscaleStatus: Decodable {
-    let selfNode: TailscaleNode?
-
-    enum CodingKeys: String, CodingKey {
-        case selfNode = "Self"
-    }
-}
-
-private struct TailscaleNode: Decodable {
-    let dnsName: String?
-    let tailscaleIPs: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case dnsName = "DNSName"
-        case tailscaleIPs = "TailscaleIPs"
+    /// The engine URL the iPhone will keep. Same resolver as the Welcome
+    /// pairing path — read from the interfaces, never from the `tailscale`
+    /// CLI. This copy used to prefer the MagicDNS name over the raw tailnet
+    /// address and fell back to the loopback URL, which no phone can reach;
+    /// see `MacEngineAdvertisedURL` for why neither survived.
+    static func reachableEngineURL(localEngineBaseURL: URL) -> URL {
+        MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
     }
 }
