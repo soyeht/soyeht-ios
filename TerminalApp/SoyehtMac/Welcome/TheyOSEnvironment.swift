@@ -355,6 +355,49 @@ enum DevEmbeddedEngineSmokeGate {
     }
 }
 
+/// Gate for the DEBUG-only "put this Dev Mac back to zero" command used by QA
+/// before every onboarding run. Four independent signals must agree, so a
+/// stray environment variable can never wipe a shipping install: the run
+/// variable, an explicit launch argument, the Dev bundle identifier, and a Dev
+/// install profile (whose engine label and support directory are re-checked
+/// because those are what the reset actually deletes).
+enum DevLocalStateResetGate {
+    static let runEnvKey = "SOYEHT_RUN_DEV_LOCAL_STATE_RESET"
+    static let requiredArgument = "--reset-local-state-for-qa"
+    static let requiredBundleIdentifier = "com.soyeht.mac.dev"
+    static let requiredEngineLaunchdLabel = "com.soyeht.engine.dev"
+    static let requiredSupportDirectoryName = "SoyehtDev"
+
+    enum Decision: Equatable {
+        case notRequested
+        case refused(reason: String)
+        case run
+    }
+
+    static func decision(
+        environment: [String: String],
+        arguments: [String],
+        bundleIdentifier: String?,
+        profile: SoyehtInstallProfile
+    ) -> Decision {
+        guard environment[runEnvKey] == "1" else { return .notRequested }
+        guard arguments.contains(requiredArgument) else {
+            return .refused(reason: "launch_argument_missing")
+        }
+        guard profile.kind == .dev else { return .refused(reason: "install_profile_not_dev") }
+        guard bundleIdentifier == requiredBundleIdentifier else {
+            return .refused(reason: "bundle_identifier_not_dev")
+        }
+        guard profile.engineLaunchdLabel == requiredEngineLaunchdLabel else {
+            return .refused(reason: "launchagent_label_not_dev")
+        }
+        guard profile.supportDirectoryName == requiredSupportDirectoryName else {
+            return .refused(reason: "support_directory_not_dev")
+        }
+        return .run
+    }
+}
+
 enum DevLocalAppleAttestationCaptureGate {
     static let runEnvKey = "SOYEHT_LOCAL_APPLE_ATTESTATION_CAPTURE"
     static let fixtureEnvKey = "SOYEHT_LOCAL_APPLE_ATTESTATION_FIXTURE"

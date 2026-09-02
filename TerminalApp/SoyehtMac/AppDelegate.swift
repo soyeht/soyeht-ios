@@ -71,6 +71,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         if DevLocalAppleAttestationCaptureRunner.startIfRequested() {
             return
         }
+        if DevLocalStateReset.startIfRequested() {
+            return
+        }
         #endif
 
         mainMenuController.installProgrammaticMainMenuIfNeeded()

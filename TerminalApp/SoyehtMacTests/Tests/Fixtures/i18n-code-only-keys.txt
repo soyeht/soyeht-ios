@@ -1,0 +1,212 @@
+# i18n-code-only-keys.txt — allowlist for I18nSourceKeyCoverageTests.
+#
+# Every line is a key that source code looks up (LocalizedStringResource("k"),
+# String(localized: "k"), Text("k"), Button("k"), .help("k")) but that has NO
+# entry in its owning catalog: TerminalApp/Soyeht/Localizable.xcstrings for the
+# iOS trees (Onboarding, Home, App, Settings), TerminalApp/SoyehtMac/Localizable.xcstrings
+# for SoyehtMac/Welcome and PreferencesDevicesViewController.swift; an entry in
+# the SoyehtCore catalog counts for either tree.
+#
+# THIS LIST MAY ONLY SHRINK. Adding a line is not a fix: give the key an entry
+# in the owning catalog with all 17 locales (I18nCatalogCoverageTests enforces
+# that) and delete its line here. The test also fails when a line is no longer
+# referenced by any scanned source, or when the key now exists in a catalog —
+# delete that line. Slice S11 empties this file.
+#
+# One key per line; sorted by code point (`LC_ALL=C sort -u`); blank lines and
+# lines starting with '#' are ignored. Generated 2026-09-02 by running the
+# scanner over the six scopes: 193 keys (184 dotted keys + 9 plain literals
+# such as emoji and debug labels that the regexes also capture).
+DEV control-plane
+Launch config
+Mobile Claw VPN
+No result read yet.
+Rendezvous
+addDevice.dismiss.a11y
+addDevice.option.linux
+addDevice.option.linux.detail
+addDevice.option.mac
+addDevice.option.mac.detail
+addDevice.option.scan
+addDevice.option.scan.detail
+addDevice.preparingMac
+addDevice.subtitle
+addDevice.title
+addLinuxServer.body
+addLinuxServer.cancel
+addLinuxServer.connect
+addLinuxServer.field.sshHost
+addLinuxServer.status.login
+addLinuxServer.status.ssh
+addLinuxServer.title
+awaitingMac.existingHouse.connect
+awaitingMac.existingHouse.connect.approvalTimedOut
+awaitingMac.existingHouse.connect.failed
+awaitingMac.existingHouse.invalidLink
+awaitingMac.existingHouse.invalidSecurityCode
+awaitingMac.existingHouse.securityCode
+awaitingMac.existingHouse.subtitle
+awaitingMac.existingHouse.title
+awaitingMac.existingHouse.waitingForApproval
+awaitingMac.timeout.heading
+awaitingMac.timeout.subtitle
+awaitingMac.timeout.switchToLinux
+awaitingMac.timeout.useDownloadLink
+awaitingNewMac.cancel
+awaitingNewMac.failure.biometryCanceled
+awaitingNewMac.failure.generic
+awaitingNewMac.failure.identityUnavailable
+awaitingNewMac.failure.retry
+awaitingNewMac.failure.signingFailed
+awaitingNewMac.failure.title
+awaitingNewMac.looking.existingHouseNotice
+awaitingNewMac.looking.subtitle
+awaitingNewMac.looking.title
+awaitingNewMac.orchestrating.title
+awaitingNewMac.success.title
+bootstrap.connectAgents.body
+bootstrap.connectAgents.checking
+bootstrap.connectAgents.continue
+bootstrap.connectAgents.continueNone
+bootstrap.connectAgents.installFailed
+bootstrap.connectAgents.notInstalled
+bootstrap.connectAgents.skip
+bootstrap.connectAgents.step
+bootstrap.connectAgents.title
+bootstrap.houseCard.iphone.fallback
+bootstrap.houseCard.iphone.fallback.button
+bootstrap.houseCard.iphone.link.copied
+bootstrap.houseCard.iphone.link.copy
+bootstrap.houseCard.iphone.link.header
+bootstrap.houseCard.iphone.network.body
+bootstrap.houseCard.iphone.security.body
+bootstrap.houseCard.iphone.security.title
+bootstrap.houseCard.iphone.waiting
+bootstrap.houseCard.primary.addIPhone
+bootstrap.houseCard.secondary.addLinux
+bootstrap.houseCard.secondary.continueOnMac
+common.button.back
+common.button.close
+common.cancel
+houseNamingPhone.back
+houseNamingPhone.submit.timeoutError
+houseNamingPhone.submitting.cancel
+houseNamingPhone.submitting.slowHint
+iphonePairing.homeSecurityCode.body
+iphonePairing.homeSecurityCode.title
+linuxPairing.back
+linuxPairing.scanButton
+linuxPairing.shareInstallLink
+linuxPairing.step.install.detail
+linuxPairing.step.install.title
+linuxPairing.step.pair.detail
+linuxPairing.step.pair.title
+linuxPairing.step.scan.detail
+linuxPairing.step.scan.title
+linuxPairing.subtitle
+linuxPairing.title
+ownerPasskey.enrollment.continue
+ownerPasskey.enrollment.failure
+ownerPasskey.enrollment.privacy
+ownerPasskey.enrollment.retry
+ownerPasskey.enrollment.skip
+ownerPasskey.enrollment.subtitle
+ownerPasskey.enrollment.title
+ownerPasskey.enrollment.unavailable
+parkingLot.back
+prefs.devices.addIPhone.connected
+prefs.devices.addIPhone.connected.status
+prefs.devices.addIPhone.copied
+prefs.devices.addIPhone.copy
+prefs.devices.addIPhone.existingOwner.found
+prefs.devices.addIPhone.existingOwner.instructions
+prefs.devices.addIPhone.existingOwner.instructions.approve
+prefs.devices.addIPhone.existingOwner.instructions.open
+prefs.devices.addIPhone.fallback
+prefs.devices.addIPhone.found
+prefs.devices.addIPhone.found.status
+prefs.devices.addIPhone.instructions
+prefs.devices.addIPhone.instructions.network
+prefs.devices.addIPhone.instructions.open
+prefs.devices.addIPhone.loading
+prefs.devices.addIPhone.loading.status
+prefs.devices.addIPhone.security.hint
+prefs.devices.addIPhone.security.title
+prefs.devices.addIPhone.title
+prefs.devices.addIPhone.unavailable
+prefs.devices.addIPhone.waiting
+prefs.devices.addIPhone.window.title
+prefs.devices.iphone.add
+prefs.devices.iphone.localPresence.connected
+prefs.devices.iphone.localPresence.notConnected
+prefs.devices.iphone.subtitle
+prefs.devices.iphone.title
+prefs.devices.local.count
+prefs.devices.local.manage
+prefs.devices.mac.subtitle
+prefs.devices.network.note
+prefs.devices.startOver.button
+prefs.devices.startOver.explainer
+prefs.devices.title
+prefs.tab.devices
+prefs.tab.general
+proximity.back
+settings.leaveHousehold.confirm.action
+settings.leaveHousehold.confirm.body
+settings.leaveHousehold.confirm.title
+uninstaller.error.householdRevocationFailed
+uninstaller.hint.protectedFiles
+uninstaller.phase.leavingHousehold
+uninstaller.phase.removingKeychain
+uninstaller.phase.removingLocalEngine
+uninstaller.phase.removingMCPConfigs
+uninstaller.phase.stoppingEmbeddedService
+welcome.joinChoice.badge
+welcome.joinChoice.existing.detail
+welcome.joinChoice.existing.title
+welcome.joinChoice.start.detail
+welcome.joinChoice.start.title
+welcome.joinChoice.subtitle
+welcome.joinChoice.title
+welcome.joinExisting.badge
+welcome.joinExisting.copy
+welcome.joinExisting.copy.copied
+welcome.joinExisting.error.alreadyPaired
+welcome.joinExisting.error.daemon
+welcome.joinExisting.error.endpointUnavailable
+welcome.joinExisting.error.invalidResponse
+welcome.joinExisting.error.noLAN
+welcome.joinExisting.error.noTailscale
+welcome.joinExisting.expired
+welcome.joinExisting.generateNew
+welcome.joinExisting.paired
+welcome.joinExisting.preparing
+welcome.joinExisting.qr.a11y
+welcome.joinExisting.qr.renderFailed
+welcome.joinExisting.retry
+welcome.joinExisting.subtitle
+welcome.joinExisting.title
+welcome.joinExisting.transport.fallback
+welcome.uninstall.button.forceLocal
+welcome.uninstall.button.revealLog
+welcome.uninstall.done.moveToTrash
+welcome.uninstall.option.caches
+welcome.uninstall.option.cachesDetail
+welcome.uninstall.option.engine
+welcome.uninstall.option.engineDetail
+welcome.uninstall.option.identity
+welcome.uninstall.option.identityDetail
+welcome.uninstall.option.leaveHousehold
+welcome.uninstall.option.leaveHouseholdDetail
+welcome.uninstall.option.mcp
+welcome.uninstall.option.mcpDetail
+welcome.uninstall.option.removeApp
+welcome.uninstall.option.removeApp.companionDetail
+welcome.uninstall.option.removeApp.inAppDetail
+welcome.uninstall.option.userData
+welcome.uninstall.option.userDataDetail
+welcome.uninstall.options.title
+·
+🎉
+🏠
+🔑
