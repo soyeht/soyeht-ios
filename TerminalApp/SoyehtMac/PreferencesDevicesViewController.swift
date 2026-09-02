@@ -74,6 +74,7 @@ enum LocalPairingConnectionBadge: Equatable {
 final class DevicesPreferencesViewController: NSViewController {
     private let localConnectionsLabel = NSTextField(labelWithString: "")
     private let localPresenceBadgeLabel = NSTextField(labelWithString: "")
+    private let startOverLabel = NSTextField(wrappingLabelWithString: "")
     private var pairingWindowController: MacIPhonePairingWindowController?
 
     override func loadView() {
@@ -201,6 +202,39 @@ final class DevicesPreferencesViewController: NSViewController {
         localPresenceBadgeLabel.font = .systemFont(ofSize: 12, weight: .medium)
         stack.addArrangedSubview(localPresenceBadgeLabel)
 
+        // The way out of a home whose only iPhone is gone. Adding a new
+        // iPhone to a paired home needs approval from an iPhone that already
+        // belongs to it; when that iPhone was lost, reset, or replaced, the
+        // new one waits for an approval that can never come (measured
+        // 2026-09-01: five minutes of spinner, then a timeout). The engine
+        // refuses a teardown without the owner's signature, so the honest
+        // recovery is the same one a reinstall gives: forget this home on
+        // this Mac and pair the new iPhone as the first one. The uninstaller
+        // already does exactly that, keeps the app by default, and offers
+        // "Force Local Uninstall" when the owner revocation cannot be signed.
+        startOverLabel.font = .systemFont(ofSize: 12)
+        startOverLabel.textColor = .secondaryLabelColor
+        startOverLabel.maximumNumberOfLines = 3
+        startOverLabel.stringValue = String(
+            localized: "prefs.devices.startOver.explainer",
+            defaultValue: "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Start over to forget this home on this Mac and pair the new iPhone as the first one.",
+            comment: "Explains when to use Start over in Preferences › Devices."
+        )
+        stack.addArrangedSubview(startOverLabel)
+
+        let startOverButton = NSButton(
+            title: String(
+                localized: "prefs.devices.startOver.button",
+                defaultValue: "Start over…",
+                comment: "Button in Preferences › Devices that opens the uninstaller to forget the home and pair a new first iPhone."
+            ),
+            target: self,
+            action: #selector(startOver)
+        )
+        startOverButton.bezelStyle = .rounded
+        startOverButton.setAccessibilityIdentifier("prefs.devices.startOver")
+        stack.addArrangedSubview(startOverButton)
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 28),
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
@@ -287,6 +321,10 @@ final class DevicesPreferencesViewController: NSViewController {
         } else {
             controller.showWindow(self)
         }
+    }
+
+    @objc private func startOver() {
+        NSApp.sendAction(#selector(AppDelegate.uninstallSoyeht(_:)), to: nil, from: self)
     }
 
     @objc private func manageLocalConnections() {

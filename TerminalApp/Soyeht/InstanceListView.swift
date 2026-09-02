@@ -266,6 +266,14 @@ struct InstanceListView: View {
     let onHouseholdConnect: (URLRequest, SoyehtInstance, String, String, URL) -> Void
     let onAddInstance: () -> Void
     let onLogout: () -> Void
+    /// Opens Settings — the only screen with "Leave this household". Once a
+    /// Mac is paired the owner lands here, never on `HouseholdHomeView`
+    /// (`HomeFallbackDestination` routes to the instance list whenever a
+    /// server exists), and until 2026-09-01 this header had no gear at all:
+    /// a paired user could not reach Settings, and "Leave household" was
+    /// unreachable in the one state everybody is in. Optional so previews
+    /// and legacy call sites need not supply it.
+    var onSettings: (() -> Void)? = nil
     /// Owner-only entry to "share one of my apps with someone outside the
     /// home". Optional and nil-by-default: the capability check needs the
     /// active household, which this view does not carry, so the gate lives at
@@ -405,6 +413,19 @@ struct InstanceListView: View {
                                 Image(systemName: "person.2")
                                     .font(Typography.sansSection)
                                     .foregroundColor(SoyehtTheme.textSecondary)
+                            }
+                            if let onSettings {
+                                Button(action: onSettings) {
+                                    Image(systemName: "gearshape")
+                                        .font(Typography.sansSection)
+                                        .foregroundColor(SoyehtTheme.textSecondary)
+                                }
+                                .accessibilityIdentifier("soyeht.instanceList.settingsButton")
+                                .accessibilityLabel(Text(LocalizedStringResource(
+                                    "instancelist.button.settings.a11y",
+                                    defaultValue: "Settings",
+                                    comment: "Accessibility label for the gear that opens Settings from the paired home screen."
+                                )))
                             }
                         }
                     }

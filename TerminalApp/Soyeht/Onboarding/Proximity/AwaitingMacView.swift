@@ -248,6 +248,20 @@ struct AwaitingMacView: View {
                     .font(OnboardingFonts.caption)
                     .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
+            } else if viewModel.isPairing, house.isDevicePairing {
+                // Delegated pairing: this home already has an iPhone, and
+                // only that iPhone can approve a new one. Measured
+                // 2026-09-01: with no such iPhone left, this screen showed a
+                // bare spinner for the whole approval window and the person
+                // had no idea what they were waiting for.
+                Text(LocalizedStringResource(
+                    "awaitingMac.existingHouse.waitingForApproval",
+                    defaultValue: "Waiting for approval from an iPhone that already belongs to this home.",
+                    comment: "Shown while a new iPhone waits for an existing iPhone in the home to approve it."
+                ))
+                .font(OnboardingFonts.caption)
+                .foregroundColor(BrandColors.textMuted)
+                .multilineTextAlignment(.center)
             }
 
             Button(action: { viewModel.connectToExistingHouse() }) {
@@ -471,6 +485,19 @@ final class AwaitingMacViewModel: ObservableObject {
                     self.onMacFoundHandler?(.connectedToExistingMac)
                 }
             } catch is CancellationError {
+            } catch HouseholdDevicePairingError.approvalTimedOut {
+                awaitingMacLogger.error("existing_house_pair_failed error=approvalTimedOut")
+                await MainActor.run {
+                    self.isPairing = false
+                    // Not a network failure: the request reached the Mac and
+                    // sat unapproved until it expired. The only iPhone that
+                    // could approve it may be gone; say so, and say what fixes it.
+                    self.errorMessage = String(localized: LocalizedStringResource(
+                        "awaitingMac.existingHouse.connect.approvalTimedOut",
+                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Preferences › Devices, and choose Start over — then pair this iPhone as the first one.",
+                        comment: "Shown when delegated device pairing expires without approval from an existing iPhone."
+                    ))
+                }
             } catch {
                 awaitingMacLogger.error("existing_house_pair_failed error=\(String(describing: error), privacy: .public)")
                 await MainActor.run {

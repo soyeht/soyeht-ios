@@ -41,7 +41,13 @@ struct ConnectAgentsView: View {
                 ForEach(AIAgentIntegrator.Agent.allCases) { agent in
                     AgentRow(
                         agent: agent,
-                        isInstalled: detected[agent] ?? false,
+                        // nil until detection has answered: the row says
+                        // "Checking…", not "Not installed". Measured
+                        // 2026-09-01: with `?? false` this step opened saying
+                        // every agent was missing on a Mac where all four
+                        // were on PATH, because the first render lands before
+                        // the four `zsh -lc command -v` probes finish.
+                        isInstalled: detected[agent],
                         isSelected: selection.contains(agent),
                         onToggle: { toggle(agent) }
                     )
@@ -182,7 +188,8 @@ struct ConnectAgentsView: View {
 
 private struct AgentRow: View {
     let agent: AIAgentIntegrator.Agent
-    let isInstalled: Bool
+    /// `nil` while detection is still running.
+    let isInstalled: Bool?
     let isSelected: Bool
     let onToggle: () -> Void
 
@@ -193,8 +200,16 @@ private struct AgentRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(agent.displayName)
                         .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                        .foregroundColor(isInstalled ? BrandColors.textPrimary : BrandColors.textMuted)
-                    if !isInstalled {
+                        .foregroundColor(isInstalled == true ? BrandColors.textPrimary : BrandColors.textMuted)
+                    if isInstalled == nil {
+                        Text(LocalizedStringResource(
+                            "bootstrap.connectAgents.checking",
+                            defaultValue: "Checking…",
+                            comment: "Hint shown next to an AI agent while the app is still looking for its CLI."
+                        ))
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.textMuted)
+                    } else if isInstalled == false {
                         Text(LocalizedStringResource(
                             "bootstrap.connectAgents.notInstalled",
                             defaultValue: "Not installed",
@@ -214,7 +229,7 @@ private struct AgentRow: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(!isInstalled)
+        .disabled(isInstalled != true)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityValue(Text(isSelected ? "selected" : "not selected"))
@@ -224,7 +239,7 @@ private struct AgentRow: View {
         Image(systemName: isSelected ? "checkmark.square.fill" : "square")
             .font(.system(size: 18))
             .foregroundColor(
-                !isInstalled ? BrandColors.textMuted :
+                isInstalled != true ? BrandColors.textMuted :
                 (isSelected ? BrandColors.accentGreen : BrandColors.border)
             )
             .accessibilityHidden(true)
