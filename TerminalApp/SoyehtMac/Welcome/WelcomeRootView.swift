@@ -185,7 +185,7 @@ struct WelcomeRootView: View {
                 houseName: name,
                 avatar: avatar,
                 pairQrUri: pairQrUri,
-                onContinueOnMac: { await autoPairExistingSoyeht() },
+                onContinueOnMac: { await ensureLocalCredential() },
                 onPaired: onPaired
             )
         }
@@ -317,6 +317,15 @@ struct WelcomeRootView: View {
     }
 
     private func autoPairExistingSoyeht() async -> LocalizedStringResource? {
+        if let failure = await ensureLocalCredential() { return failure }
+        onPaired()
+        return nil
+    }
+
+    /// Mints this Mac's own engine credential without navigating anywhere, so
+    /// both ways out of the house card (the button and the automatic advance
+    /// once an iPhone pairs) can insist on it before the main window opens.
+    private func ensureLocalCredential() async -> LocalizedStringResource? {
         // `TheyOSAutoPairService` only talks to the local engine
         // (`~/.theyos/bootstrap-token` + admin host on localhost). If the
         // user already paired a server through another flow — e.g.
@@ -324,21 +333,32 @@ struct WelcomeRootView: View {
         // then routes back through `continueOnMac` — there is nothing to
         // auto-pair; go straight home with the server they just added.
         if !SessionStore.shared.credentialedCanonicalServers().isEmpty {
-            onPaired()
             return nil
         }
-        do {
-            _ = try await TheyOSAutoPairService().autoPair()
-            onPaired()
-            return nil
-        } catch {
-            return LocalizedStringResource(
-                "welcome.existingSoyeht.continue.failed",
-                defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
-                comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
-            )
+        // Mint the credential HERE, before the main window exists. Going
+        // through `LocalEngineContext.resolveDetailed()` also records the
+        // verified server id, so the first pane does not run a second
+        // self-pair and end up with two engine rows for one Mac. An engine
+        // that is still booting is the normal case at first launch, so wait
+        // for it instead of calling the Mac unusable.
+        for attempt in 0..<5 {
+            switch await LocalEngineContext.resolveDetailed() {
+            case .resolved:
+                return nil
+            case .engineNotAnsweringYet:
+                if attempt < 4 { try? await Task.sleep(for: .seconds(2)) }
+            case .unavailable:
+                return Self.continueFailedMessage
+            }
         }
+        return Self.continueFailedMessage
     }
+
+    private static let continueFailedMessage = LocalizedStringResource(
+        "welcome.existingSoyeht.continue.failed",
+        defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
+        comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
+    )
 
     private func showExistingHouseCardIfPossible() async -> Bool {
         do {
@@ -666,112 +686,5 @@ private struct ExistingSoyehtView: View {
                 isWorking = false
             }
         }
-    }
-}
-
-private enum ExistingSoyehtStopper {
-    static func stopKnownServices() async {
-        let commands = serviceStopCommands()
-        for command in commands {
-            await runBestEffort(executable: command.executable, arguments: command.arguments)
-        }
-    }
-
-    private static func serviceStopCommands() -> [(executable: String, arguments: [String])] {
-        // Stop only THIS build's engine. A dev build must never bootout the
-        // shipping engine (com.soyeht.engine) and vice versa — otherwise
-        // launching one would knock the other offline.
-        let engineLabel = SoyehtInstallProfile.current.engineLaunchdLabel
-        var commands: [(String, [String])] = [
-            ("/bin/launchctl", ["bootout", "gui/\(getuid())/\(engineLabel)"]),
-        ]
-
-        for brew in TheyOSEnvironment.brewBinaryCandidates where FileManager.default.isExecutableFile(atPath: brew) {
-            commands.append((brew, ["services", "stop", "theyos"]))
-        }
-
-        for soyeht in ["/opt/homebrew/bin/soyeht", "/usr/local/bin/soyeht"]
-            where FileManager.default.isExecutableFile(atPath: soyeht) {
-            commands.append((soyeht, ["stop"]))
-        }
-
-        return commands
-    }
-
-    private static func runBestEffort(executable: String, arguments: [String]) async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                runBestEffortBlocking(executable: executable, arguments: arguments)
-                continuation.resume()
-            }
-        }
-    }
-
-    private static func runBestEffortBlocking(executable: String, arguments: [String]) {
-        guard FileManager.default.isExecutableFile(atPath: executable) else { return }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-
-        let finished = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in finished.signal() }
-
-        do {
-            try process.run()
-        } catch {
-            return
-        }
-
-        if finished.wait(timeout: .now() + 8) == .timedOut {
-            process.terminate()
-            _ = finished.wait(timeout: .now() + 1)
-        }
-    }
-}
-
-private enum ExistingSoyehtStateResetter {
-    static func resetLocalEngineState() async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                resetLocalEngineStateBlocking()
-                continuation.resume()
-            }
-        }
-    }
-
-    private static func resetLocalEngineStateBlocking() {
-        let fm = FileManager.default
-        // MUST be the current build's support dir. A dev build resetting its
-        // engine state must never delete the shipping app's databases /
-        // identity / household — TheyOSEnvironment.supportDirectory resolves to
-        // "Soyeht" or "SoyehtDev" per SoyehtInstallProfile.
-        let supportDir = TheyOSEnvironment.supportDirectory
-
-        let files = [
-            "theyos.db", "theyos.db-shm", "theyos.db-wal",
-            "theyos.sessions.db", "theyos.sessions.db-shm", "theyos.sessions.db-wal",
-            "theyos-sessions.db", "theyos-sessions.db-shm", "theyos-sessions.db-wal",
-            "theyos.mobile-sessions.db", "theyos.mobile-sessions.db-shm", "theyos.mobile-sessions.db-wal",
-            "jobs-rs.db", "jobs-rs.db-shm", "jobs-rs.db-wal",
-            "ratelimit.db", "ratelimit.db-shm", "ratelimit.db-wal",
-            "identity.bootstrap_state",
-            "household.tearing-down",
-        ]
-
-        for file in files {
-            try? fm.removeItem(at: supportDir.appendingPathComponent(file, isDirectory: false))
-        }
-
-        // The engine keeps the household under `household-state/`
-        // (`household-state/household/…`, `household-state/identity.bootstrap_state`),
-        // not at the support-directory root. Until 2026-09-01 this removed
-        // `<support>/household`, which does not exist, so "reinstall" left the
-        // household on disk and the fresh engine booted straight back to
-        // `ready` with the old home.
-        try? fm.removeItem(at: supportDir.appendingPathComponent("household-state", isDirectory: true))
-        try? fm.removeItem(at: supportDir.appendingPathComponent("household", isDirectory: true))
     }
 }

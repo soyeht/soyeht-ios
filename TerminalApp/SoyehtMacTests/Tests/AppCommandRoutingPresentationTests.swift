@@ -1302,7 +1302,7 @@ final class AppCommandRoutingPresentationTests: XCTestCase {
         let ownership = try macSource("Model/AgentLaunchOwnership.swift")
         let restore = try slice(
             paneController,
-            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation)",
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false)",
             to: "private func stillRestorableEngineConversation("
         )
         let bootstrap = try slice(

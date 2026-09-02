@@ -393,6 +393,9 @@ struct HouseCardView: View {
             let error = await onContinueOnMac()
             isContinuingOnMac = false
             continueError = error
+            // The credential is this window's last job; navigation belongs to
+            // the card so both exits behave the same way.
+            if error == nil { onPaired() }
         }
     }
 
@@ -417,11 +420,21 @@ struct HouseCardView: View {
             if let status = try? await client.fetch() {
                 switch status.state {
                 case .ready:
+                    // Every way out of the Welcome window mints this Mac's own
+                    // credential first. Without it the main window opens with
+                    // no server of its own, the first pane has nothing to
+                    // attach to, and the next launch bounces back to Welcome.
+                    let error = await onContinueOnMac()
                     await MainActor.run {
+                        if let error {
+                            pairingError = error
+                            return
+                        }
                         pairingComplete = true
                         showInfoSheet = false
                         onPaired()
                     }
+                    if error != nil { continue }
                     return
                 case .namedAwaitingPair, .recovering:
                     break

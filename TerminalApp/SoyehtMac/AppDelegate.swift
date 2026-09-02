@@ -595,7 +595,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private func finishWelcome() {
         welcomeWindowController?.close()
         welcomeWindowController = nil
-        openNewMainWindow()
+        // The owner just finished setup: the next thing they should see is a
+        // working terminal, not an empty pane asking them to pick something.
+        let controller = openNewMainWindow()
+        controller.openFirstShellPaneIfEmpty()
     }
 
     /// Closes any stale Welcome/Login surfaces left over from a previous

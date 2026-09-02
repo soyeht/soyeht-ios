@@ -997,6 +997,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // cookie are refused by the fresh engine forever.
         guard forceReattach || !terminalView.isRemoteSessionConfigured else { return }
         guard !isRestoringLocalShell else { return }
+        // The first launch of this pane may already be attaching through the
+        // window controller. Two attaches racing across their awaits is what
+        // used to surface as "Could not open the local shell".
+        guard !EngineAttachGate.isInFlight(conversationID) else {
+            Self.logger.notice("engine pane restore skipped; first attach in flight pane=\(self.conversationID.uuidString, privacy: .public)")
+            return
+        }
 
         // W3 — this pane is (re)adopting the engine session. If it was closed
         // moments ago and is coming back via undo, cancel the pending reap so
@@ -1046,6 +1053,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 }
             }
             self.prepareDeferredDeliveryForTerminalTransportReplacement()
+
+            guard EngineAttachGate.begin(conversationID) else {
+                Self.logger.notice("engine pane restore aborted; another attach took the pane pane=\(conversationID.uuidString, privacy: .public)")
+                return
+            }
+            defer { EngineAttachGate.end(conversationID) }
 
             var outcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
             for attempt in 0...Self.restoreRetryDelaysNanoseconds.count {
