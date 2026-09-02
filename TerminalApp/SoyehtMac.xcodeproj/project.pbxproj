@@ -234,6 +234,7 @@
 		FA1C3EFBA143A31017F1266D /* AutoJoinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */; };
 		FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */; };
 		CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003C0000000000000002 /* EngineServiceReconciler.swift */; };
+		CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */; };
 		EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003C0000000000000002 /* EngineRepairWindowController.swift */; };
 		FFDA6F2CF702DA53DF0858BB /* HouseAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */; };
 /* End PBXBuildFile section */
@@ -470,6 +471,7 @@
 		ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupInvitationListener.swift; sourceTree = "<group>"; };
 		EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SMAppServiceInstaller.swift; sourceTree = "<group>"; };
 		CB10003C0000000000000002 /* EngineServiceReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineServiceReconciler.swift; sourceTree = "<group>"; };
+		CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerEventsLogRepair.swift; sourceTree = "<group>"; };
 		EE10003C0000000000000002 /* EngineRepairWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineRepairWindowController.swift; sourceTree = "<group>"; };
 		F17E0001000000000000F003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F754D982E57083C214517782 /* RecoverView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoverView.swift; sourceTree = "<group>"; };
@@ -523,6 +525,7 @@
 				3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */,
 				EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */,
 				CB10003C0000000000000002 /* EngineServiceReconciler.swift */,
+				CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */,
 				EE10003C0000000000000002 /* EngineRepairWindowController.swift */,
 				E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */,
 				7A69005F58B0EF277320044A /* HealthCheckPoller.swift */,
@@ -1370,6 +1373,7 @@
 				C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */,
 				FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */,
 				CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */,
+				CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */,
 				EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */,
 				48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */,
 				E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */,
