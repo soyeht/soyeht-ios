@@ -7,7 +7,14 @@ struct TheyOSRemovalItem: Equatable {
 }
 
 enum TheyOSUninstallPlan {
+    /// Every path here is derived from `profile`. The shipping app and the
+    /// developer build keep separate support directories (`Soyeht` vs
+    /// `SoyehtDev`) and dot-directories (`.theyos` vs `.theyos-dev`); until
+    /// 2026-09-01 this plan hard-coded the shipping paths, so the developer
+    /// build's uninstaller (and anything that reused this plan) would have
+    /// deleted the shipping engine, VMs, and household from a dev build.
     static func removalItems(
+        profile: SoyehtInstallProfile = .current,
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
         temporaryDirectory: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
         homebrewPrefixes: [String] = ["/opt/homebrew", "/usr/local"],
@@ -20,10 +27,12 @@ enum TheyOSUninstallPlan {
     ) -> [TheyOSRemovalItem] {
         let home = homeDirectory.standardizedFileURL
         let tmp = temporaryDirectory.standardizedFileURL
+        let supportName = profile.supportDirectoryName
+        let supportDisplay = "~/Library/Application\\ Support/" + supportName.replacingOccurrences(of: " ", with: "\\ ")
         let soyehtSupport = home
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("Soyeht", isDirectory: true)
+            .appendingPathComponent(supportName, isDirectory: true)
         let legacyTheyOSSupport = home
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
@@ -35,15 +44,15 @@ enum TheyOSUninstallPlan {
 
         if includeEngine {
             items.append(contentsOf: [
-                item(home.appendingPathComponent(".theyos", isDirectory: true), "~/.theyos"),
+                item(home.appendingPathComponent(profile.dotTheyosName, isDirectory: true), "~/" + profile.dotTheyosName),
 
-                item(soyehtSupport.appendingPathComponent("engine", isDirectory: true), "~/Library/Application\\ Support/Soyeht/engine"),
-                item(soyehtSupport.appendingPathComponent("bootstrap-token"), "~/Library/Application\\ Support/Soyeht/bootstrap-token"),
-                item(soyehtSupport.appendingPathComponent("apns.p8"), "~/Library/Application\\ Support/Soyeht/apns.p8"),
-                item(soyehtSupport.appendingPathComponent("identity.bootstrap_state"), "~/Library/Application\\ Support/Soyeht/identity.bootstrap_state"),
-                item(soyehtSupport.appendingPathComponent("household.tearing-down"), "~/Library/Application\\ Support/Soyeht/household.tearing-down"),
+                item(soyehtSupport.appendingPathComponent("engine", isDirectory: true), supportDisplay + "/engine"),
+                item(soyehtSupport.appendingPathComponent("bootstrap-token"), supportDisplay + "/bootstrap-token"),
+                item(soyehtSupport.appendingPathComponent("apns.p8"), supportDisplay + "/apns.p8"),
+                item(soyehtSupport.appendingPathComponent("identity.bootstrap_state"), supportDisplay + "/identity.bootstrap_state"),
+                item(soyehtSupport.appendingPathComponent("household.tearing-down"), supportDisplay + "/household.tearing-down"),
 
-                item(library.appendingPathComponent("LaunchAgents/com.soyeht.engine.plist"), "~/Library/LaunchAgents/com.soyeht.engine.plist"),
+                item(library.appendingPathComponent("LaunchAgents/" + profile.engineLaunchAgentPlistName), "~/Library/LaunchAgents/" + profile.engineLaunchAgentPlistName),
                 item(library.appendingPathComponent("LaunchAgents/com.soyeht.caddy.plist"), "~/Library/LaunchAgents/com.soyeht.caddy.plist"),
                 item(library.appendingPathComponent("LaunchAgents/com.theyos.cloudflared.plist"), "~/Library/LaunchAgents/com.theyos.cloudflared.plist"),
                 item(library.appendingPathComponent("LaunchAgents/homebrew.mxcl.theyos.plist"), "~/Library/LaunchAgents/homebrew.mxcl.theyos.plist"),
@@ -104,21 +113,21 @@ enum TheyOSUninstallPlan {
 
         if includeUserData {
             if includeEngine {
-                items.append(item(soyehtSupport, "~/Library/Application\\ Support/Soyeht"))
+                items.append(item(soyehtSupport, supportDisplay))
             }
             items.append(contentsOf: [
                 item(library.appendingPathComponent("Application Support/Soyeht QA Backups", isDirectory: true), "~/Library/Application\\ Support/Soyeht\\ QA\\ Backups"),
-                item(soyehtSupport.appendingPathComponent("vms", isDirectory: true), "~/Library/Application\\ Support/Soyeht/vms"),
-                item(soyehtSupport.appendingPathComponent("snapshots", isDirectory: true), "~/Library/Application\\ Support/Soyeht/snapshots"),
-                item(soyehtSupport.appendingPathComponent("conversations", isDirectory: true), "~/Library/Application\\ Support/Soyeht/conversations"),
-                item(soyehtSupport.appendingPathComponent("household", isDirectory: true), "~/Library/Application\\ Support/Soyeht/household"),
+                item(soyehtSupport.appendingPathComponent("vms", isDirectory: true), supportDisplay + "/vms"),
+                item(soyehtSupport.appendingPathComponent("snapshots", isDirectory: true), supportDisplay + "/snapshots"),
+                item(soyehtSupport.appendingPathComponent("conversations", isDirectory: true), supportDisplay + "/conversations"),
+                item(soyehtSupport.appendingPathComponent("household", isDirectory: true), supportDisplay + "/household"),
                 item(legacyTheyOSSupport, "~/Library/Application\\ Support/theyos"),
             ])
         }
 
         if includeCachesAndLogs {
             items.append(contentsOf: [
-                item(soyehtSupport.appendingPathComponent("logs", isDirectory: true), "~/Library/Application\\ Support/Soyeht/logs"),
+                item(soyehtSupport.appendingPathComponent("logs", isDirectory: true), supportDisplay + "/logs"),
                 item(library.appendingPathComponent("Logs/Soyeht", isDirectory: true), "~/Library/Logs/Soyeht"),
                 item(home.appendingPathComponent("Library/Logs/theyos", isDirectory: true), "~/Library/Logs/theyos"),
                 item(library.appendingPathComponent("Caches/Soyeht", isDirectory: true), "~/Library/Caches/Soyeht"),
@@ -141,7 +150,7 @@ enum TheyOSUninstallPlan {
                     let filename = db + suffix
                     items.append(item(
                         soyehtSupport.appendingPathComponent(filename),
-                        "~/Library/Application\\ Support/Soyeht/\(filename)"
+                        supportDisplay + "/\(filename)"
                     ))
                 }
             }

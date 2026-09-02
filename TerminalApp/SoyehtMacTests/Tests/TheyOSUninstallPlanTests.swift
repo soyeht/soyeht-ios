@@ -3,6 +3,38 @@ import SoyehtCore
 @testable import SoyehtMacDomain
 
 final class TheyOSUninstallPlanTests: XCTestCase {
+    /// The developer build must never plan the shipping install's removal.
+    /// Measured 2026-09-01: with the support directory hard-coded to
+    /// `Soyeht`, "Uninstall Soyeht" from Soyeht Dev listed the shipping
+    /// engine, VMs, household and bootstrap token for deletion, and left the
+    /// developer build's own `SoyehtDev` state untouched.
+    func testDeveloperProfilePlansOnlyItsOwnSupportDirectoryAndDotDirectory() {
+        let home = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
+        let dev = TheyOSUninstallPlan.removalItems(
+            profile: .dev,
+            homeDirectory: home,
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/", isDirectory: true),
+            homebrewPrefixes: []
+        )
+        let paths = Set(dev.map { $0.url.path })
+        let shippingSupport = "/Users/tester/Library/Application Support/Soyeht"
+
+        XCTAssertFalse(paths.contains(shippingSupport))
+        XCTAssertFalse(paths.contains { $0.hasPrefix(shippingSupport + "/") })
+        XCTAssertFalse(paths.contains("/Users/tester/.theyos"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.engine.plist"))
+
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/engine"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/vms"))
+        XCTAssertTrue(paths.contains("/Users/tester/.theyos-dev"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.engine.dev.plist"))
+
+        let devDisplay = Set(dev.map(\.displayPath))
+        XCTAssertTrue(devDisplay.contains("~/Library/Application\\ Support/SoyehtDev/engine"))
+        XCTAssertFalse(devDisplay.contains { $0.hasPrefix("~/Library/Application\\ Support/Soyeht/") })
+    }
+
     func testRemovalPlanCoversEmbeddedEngineLegacyHomebrewAndTemporaryState() {
         let items = TheyOSUninstallPlan.removalItems(
             homeDirectory: URL(fileURLWithPath: "/Users/tester", isDirectory: true),
