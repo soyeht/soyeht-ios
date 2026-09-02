@@ -1,5 +1,6 @@
 import SwiftUI
 import SoyehtCore
+import Network
 import os
 
 private let instanceListLogger = Logger(subsystem: "com.soyeht.mobile", category: "instance-list")
@@ -1692,6 +1693,25 @@ private struct SessionListSheet: View {
         }
         .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
+        // A load that failed while the network was away must not sit behind
+        // a manual `retry` once it is back. Measured 2026-09-01 on the dev
+        // phone: Wi-Fi off → "The request timed out." → Wi-Fi on, the
+        // tailnet up again and the engine answering, and this screen kept
+        // showing the stale error until someone tapped. Two triggers, both
+        // cheap: the return to foreground and the network path coming back
+        // while in front. The foreground signal is UIKit's, not
+        // `scenePhase`: this view is presented as a `.sheet`, and measured on
+        // the same phone `@Environment(\.scenePhase)` never changed inside it
+        // while the instance list underneath (not a sheet) saw every change.
+        .task { await reloadWhenNetworkReturns() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            guard WorkspaceListReloadPolicy.shouldReload(
+                isLoading: isLoadingWorkspaces,
+                workspaceCount: workspaces.count,
+                errorMessage: errorMessage
+            ) else { return }
+            Task { await loadWorkspaces() }
+        }
         .alert("instancelist.alert.renameSession.title", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }
@@ -1721,6 +1741,34 @@ private struct SessionListSheet: View {
     }
 
     // MARK: - API Calls
+
+    /// Reloads a failed workspace list the moment the network path becomes
+    /// satisfied again — and only on that transition, so a healthy path never
+    /// causes a reload of its own. Lives for as long as the sheet does: the
+    /// `.task` that runs it is cancelled on disappear, which cancels the
+    /// monitor through the stream's termination handler.
+    @MainActor
+    private func reloadWhenNetworkReturns() async {
+        let updates = AsyncStream<Bool> { continuation in
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { continuation.yield($0.status == .satisfied) }
+            continuation.onTermination = { _ in monitor.cancel() }
+            monitor.start(queue: DispatchQueue(label: "com.soyeht.session-list.network-path"))
+        }
+        var previouslySatisfied: Bool?
+        for await satisfied in updates {
+            let cameBack = satisfied && previouslySatisfied == false
+            previouslySatisfied = satisfied
+            guard cameBack,
+                  WorkspaceListReloadPolicy.shouldReload(
+                      isLoading: isLoadingWorkspaces,
+                      workspaceCount: workspaces.count,
+                      errorMessage: errorMessage
+                  )
+            else { continue }
+            await loadWorkspaces()
+        }
+    }
 
     private func loadWorkspaces() async {
         isLoadingWorkspaces = true
@@ -2040,5 +2088,18 @@ private struct WorkspaceCard: View {
                         .stroke(isSelected ? SoyehtTheme.historyGreenStrong : SoyehtTheme.bgCardBorder, lineWidth: 1)
                 )
         )
+    }
+}
+
+
+// MARK: - Reload policy
+
+/// When a workspace list that failed to load is retried without a tap.
+/// Pure so the rule is stated once for both triggers (foreground return,
+/// network path back): only an idle, empty, errored list — never a list
+/// that is loading, and never one that already has content.
+enum WorkspaceListReloadPolicy {
+    static func shouldReload(isLoading: Bool, workspaceCount: Int, errorMessage: String?) -> Bool {
+        !isLoading && workspaceCount == 0 && errorMessage != nil
     }
 }
