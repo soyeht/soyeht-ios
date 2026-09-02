@@ -28,7 +28,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     var onComplete: (() -> Void)?
 
     init() {
-        let size = NSSize(width: 640, height: 540)
+        // The neo steps need room for a paragraph that does not wrap into a
+        // column, and for M4's two columns. 720 is what the reviewed design
+        // is drawn at; `WelcomeRootView` states the same number.
+        let size = NSSize(width: 720, height: 540)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -38,6 +41,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Soyeht"
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        // Setup is drawn on a light canvas whatever the system is set to, so
+        // the titlebar has to be light too — a dark one over a light window
+        // reads as a rendering fault, not a choice.
+        window.appearance = NSAppearance(named: .aqua)
         // Explicitly anchor the window on the user's primary display
         // (the one carrying the menu bar). We deliberately don't use
         // `setFrameAutosaveName` here: multi-monitor setups that

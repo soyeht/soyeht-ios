@@ -70,7 +70,6 @@ struct WelcomeRootView: View {
     /// Inner navigation steps for the bootstrap flow (case A, MA2+).
     /// MA1 is the NavigationStack root (BootstrapWelcomeView).
     enum BootstrapStep: Hashable {
-        case installPreview        // MA2 — T042
         case installProgress       // MA3 — T043
         case connectAgents         // MCP onboarding (wires Claude Code / Codex / OpenCode / Droid)
         case houseNaming           // T044
@@ -86,9 +85,10 @@ struct WelcomeRootView: View {
 
     var body: some View {
         modeContent
-            .frame(width: 640, height: 540)
-            .background(BrandColors.surfaceDeep)
-            .preferredColorScheme(BrandColors.preferredColorScheme)
+            .frame(width: 720, height: 540)
+            .background(NeoPalette.cloud.canvas)
+            .environment(\.neoPalette, .cloud)
+            .preferredColorScheme(.light)
             .task { await resolveMode() }
     }
 
@@ -111,7 +111,7 @@ struct WelcomeRootView: View {
                         // claimed. The listener is killed for real only
                         // at the actual commit moment to a founder-only
                         // path — `HouseNamingView.onNamed` below.
-                        bootstrapPath.append(.installPreview)
+                        bootstrapPath.append(.installProgress)
                     }
                 )
                 .navigationDestination(for: BootstrapStep.self) { step in
@@ -156,8 +156,6 @@ struct WelcomeRootView: View {
 
     @ViewBuilder private func bootstrapStep(_ step: BootstrapStep) -> some View {
         switch step {
-        case .installPreview:
-            InstallPreviewView(onInstall: { bootstrapPath.append(.installProgress) })
         case .installProgress:
             InstallProgressView(onReady: {
                 Task { await continueAfterInstallReady() }
@@ -414,24 +412,17 @@ struct WelcomeRootView: View {
         return false
     }
 
+    /// The Mac names its own home. It used to stand on a finished progress bar
+    /// waiting for a setup invitation from an iPhone that, for most owners,
+    /// was not running yet — a listener with a timeout, which the owner read
+    /// as the app hanging on "Ready". Naming is one field and it belongs to
+    /// whoever is sitting at the machine.
     private func continueAfterInstallReady() async {
         let baseURL = Self.bootstrapBaseURL()
-        let listener = SetupInvitationListener(engineBaseURL: baseURL)
-        let outcome = await listener.listen()
-        switch outcome {
-        case .invitationClaimed(let ownerDisplayName, _):
-            mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
-            bootstrapPath.removeAll()
-            await pollUntilNamed(client: BootstrapStatusClient(baseURL: baseURL))
-        case .notFound, .failed:
-            if await routeExistingEngineStateAfterInstall(baseURL: baseURL) {
-                return
-            }
-            // Insert the MCP integration step before house naming so the
-            // user lands in a workspace with Soyeht already wired into
-            // their AI agent CLIs.
-            bootstrapPath.append(.connectAgents)
+        if await routeExistingEngineStateAfterInstall(baseURL: baseURL) {
+            return
         }
+        bootstrapPath.append(.houseNaming)
     }
 
     /// Transition from the connect-agents step to the next bootstrap step.
