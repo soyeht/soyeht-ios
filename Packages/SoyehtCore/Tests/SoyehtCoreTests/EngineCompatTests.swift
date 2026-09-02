@@ -80,9 +80,9 @@ final class EngineCompatTests: XCTestCase {
     }
 
     func test_currentReleaseRequiresFirstOwnerPhase3Engine() {
-        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.27")
-        XCTAssertFalse(EngineCompat.isCompatible("0.1.26"))
-        XCTAssertTrue(EngineCompat.isCompatible("0.1.27"))
+        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.28")
+        XCTAssertFalse(EngineCompat.isCompatible("0.1.27"), "the release Phase 3 refused on every pre-9ded9731 Mac")
+        XCTAssertTrue(EngineCompat.isCompatible("0.1.28"))
     }
 
     func test_isCompatible_rejectsUnparseableVersion() {

@@ -21888,6 +21888,24 @@
     "settings.row.leaveHousehold": {
       "comment": "Settings list row — leaves this household on this iPhone (wipes local membership).",
       "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مغادرة هذا المنزل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই বাড়ি ছেড়ে যান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diesen Haushalt verlassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -21900,6 +21918,42 @@
             "value": "Salir de esta casa"
           }
         },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter cette maison"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस घर से बाहर निकलें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar dari rumah ini"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このホームから退出"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 홈에서 나가기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे घर सोडा"
+          }
+        },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
@@ -21910,6 +21964,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sair desta casa"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Покинуть этот дом"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ ఇంటి నుండి నిష్క్రమించండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اس گھر کو چھوڑ دیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出此家庭"
           }
         }
       }
