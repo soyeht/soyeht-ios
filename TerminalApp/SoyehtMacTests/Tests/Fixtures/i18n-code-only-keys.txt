@@ -17,11 +17,6 @@
 # lines starting with '#' are ignored. Generated 2026-09-02 by running the
 # scanner over the six scopes: 193 keys (184 dotted keys + 9 plain literals
 # such as emoji and debug labels that the regexes also capture).
-DEV control-plane
-Launch config
-Mobile Claw VPN
-No result read yet.
-Rendezvous
 addDevice.dismiss.a11y
 addDevice.option.linux
 addDevice.option.linux.detail
@@ -206,7 +201,3 @@ welcome.uninstall.option.removeApp.inAppDetail
 welcome.uninstall.option.userData
 welcome.uninstall.option.userDataDetail
 welcome.uninstall.options.title
-·
-🎉
-🏠
-🔑

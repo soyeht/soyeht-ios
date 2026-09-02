@@ -108,6 +108,17 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         let allowlist = try loadAllowlist()
         let allowlisted = Set(allowlist)
 
+        // 0. The list may only shrink in SIZE too. Without this, a new
+        //    code-only key could be added to the source and to the fixture in
+        //    the same change and every other assertion would still pass.
+        XCTAssertLessThanOrEqual(
+            allowlist.count,
+            Self.allowlistCeiling,
+            "\(Self.allowlistFixtureName) has \(allowlist.count) keys and the ceiling is \(Self.allowlistCeiling). "
+                + "Give the new key a catalog entry with all 17 locales instead. "
+                + "When you delete lines, lower allowlistCeiling to match."
+        )
+
         // 1. New code-only keys: not in the owning catalog, not allowlisted.
         let missing = unresolved.filter { !allowlisted.contains($0.key) }.sorted()
         XCTAssertTrue(
@@ -136,6 +147,10 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
                 + nowInCatalog.joined(separator: "\n")
         )
     }
+
+    /// Lower this every time lines leave the fixture; never raise it. S11
+    /// takes it to zero.
+    private static let allowlistCeiling = 184
 
     func test_allowlistFixtureIsSortedAndUnique() throws {
         let allowlist = try loadAllowlist()
@@ -171,6 +186,7 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         Text("ignored \(dynamic)")
         Text(dynamicKey)
         Text("🏠")
+        Text("Not a key, just English")
         """#
 
         let references = try localizedReferences(in: source, relativePath: "Fixture.swift")
@@ -186,7 +202,6 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
                 LocalizedReference(file: "Fixture.swift", line: 6, key: "welcome.joinChoice.title"),
                 LocalizedReference(file: "Fixture.swift", line: 7, key: "welcome.joinChoice.subtitle"),
                 LocalizedReference(file: "Fixture.swift", line: 9, key: "addDevice.title"),
-                LocalizedReference(file: "Fixture.swift", line: 18, key: "🏠"),
             ]
         )
     }
@@ -276,6 +291,12 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
                 guard let keyRange = Range(match.range(at: 1), in: codeOnly) else { continue }
                 let key = String(codeOnly[keyRange])
                 if key.contains(#"\("#) { continue }
+                // A key in this codebase is dotted and lower-camel
+                // (`bootstrap.welcome.title`). A plain English literal in a
+                // debug view is a default string, not a lookup, and demanding
+                // a catalog entry for it would only teach people to silence
+                // the test.
+                guard Self.looksLikeALocalizationKey(key) else { continue }
                 references.append(LocalizedReference(
                     file: relativePath,
                     line: lineNumber(in: codeOnly, at: keyRange.lowerBound),
@@ -284,6 +305,16 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
             }
         }
         return references.sorted()
+    }
+
+    static func looksLikeALocalizationKey(_ key: String) -> Bool {
+        guard key.contains("."), !key.contains(" ") else { return false }
+        let segments = key.split(separator: ".", omittingEmptySubsequences: false)
+        guard segments.count >= 2 else { return false }
+        return segments.allSatisfy { segment in
+            guard let first = segment.first, first.isLowercase || first.isNumber else { return false }
+            return segment.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        }
     }
 
     private func localizedLookupPatterns() throws -> [LookupPattern] {
@@ -317,6 +348,27 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
             LookupPattern(
                 regex: NSRegularExpression(
                     pattern: #"\.help\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            // The rest of the SwiftUI views that take a title as their first
+            // argument, plus the AppKit label factory Preferences uses. Their
+            // literals are keys exactly like `Text`'s are.
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\b(?:Label|Toggle|TextField|SecureField|Section|Picker|Stepper|Link)\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\.navigationTitle\s*\(\s*\#(literal)"#,
+                    options: options
+                )
+            ),
+            LookupPattern(
+                regex: NSRegularExpression(
+                    pattern: #"\blabelWithString\s*:\s*\#(literal)"#,
                     options: options
                 )
             ),
