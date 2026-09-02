@@ -15,6 +15,7 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
     private struct ParsedCommand {
         var assignments: [String: String]
         var exports: [String: String]
+        var prepareCommands: [String]
         var execCommand: String
     }
 
@@ -38,6 +39,7 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         var assignments = [String: String]()
         var exports = [String: String]()
         var execCommand: String?
+        var prepareCommands = [String]()
 
         for fragment in command.split(separator: ";") {
             let statement = fragment.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,6 +51,8 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
                 exports[key] = value
             } else if statement.hasPrefix("exec ") {
                 execCommand = statement
+            } else if statement.hasPrefix("mkdir ") {
+                prepareCommands.append(statement)
             } else {
                 let (key, value) = try parseAssignment(statement)
                 assignments[key] = value
@@ -58,6 +62,7 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         return ParsedCommand(
             assignments: assignments,
             exports: exports,
+            prepareCommands: prepareCommands,
             execCommand: try XCTUnwrap(execCommand, "LaunchAgent command must end by exec'ing the engine")
         )
     }
@@ -97,7 +102,14 @@ final class EmbeddedEngineLaunchAgentTests: XCTestCase {
         let parsedCommand = try parseShellCommand(try XCTUnwrap(args.last))
         XCTAssertEqual(parsedCommand.assignments["SOYEHT_DIR"], spec.supportDirectoryShellValue, file: file, line: line)
         XCTAssertEqual(parsedCommand.assignments["ENGINE_DIR"], spec.engineDirectoryShellValue, file: file, line: line)
+        XCTAssertEqual(parsedCommand.assignments["LOG_DIR"], spec.logDirectoryShellValue, file: file, line: line)
+        XCTAssertEqual(parsedCommand.prepareCommands, spec.prepareCommands, file: file, line: line)
         XCTAssertEqual(parsedCommand.execCommand, spec.execCommand, file: file, line: line)
+        XCTAssertTrue(
+            parsedCommand.execCommand.hasSuffix(#">>"$LOG_DIR/engine.log" 2>&1"#),
+            "the engine's output must land in ~/Library/Logs, not in launchd's /tmp file",
+            file: file, line: line
+        )
 
         assertExportedEnvironment(parsedCommand.exports, matches: spec, file: file, line: line)
         try assertLaunchdEnvironment(

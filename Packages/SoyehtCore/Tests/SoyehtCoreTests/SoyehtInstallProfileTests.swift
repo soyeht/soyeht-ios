@@ -46,6 +46,7 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.adminHost, "localhost:8892")
         XCTAssertEqual(p.bootstrapHost, "localhost:8091")
         XCTAssertEqual(p.engineLogPath, "/tmp/soyeht-engine.log")
+        XCTAssertEqual(p.engineLogShellPath, "$HOME/Library/Logs/Soyeht/engine.log")
     }
 
     func test_devProfile_isFullyNamespaced() {
@@ -63,6 +64,7 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertEqual(p.adminHost, "localhost:8902")
         XCTAssertEqual(p.bootstrapHost, "localhost:8101")
         XCTAssertEqual(p.engineLogPath, "/tmp/soyehtdev-engine.log")
+        XCTAssertEqual(p.engineLogShellPath, "$HOME/Library/Logs/SoyehtDev/engine.log")
     }
 
     // MARK: - The isolation invariant
