@@ -38,6 +38,10 @@ public enum BootstrapErrorCode: String, Codable, Equatable, Hashable, Sendable, 
     case identityUnavailable = "identity_unavailable"
     /// The owner is already paired to the household.
     case alreadyPaired = "already_paired"
+    /// The six typed words did not open the pairing window. Deliberately the
+    /// single answer to a wrong code, no window, an expired window and a
+    /// rate-limit denial — the engine will not say which.
+    case pairCodeRejected = "pair_code_rejected"
     /// A pair-device window is already open and must not be replaced.
     case windowStillOpen = "window_still_open"
     /// Teardown was requested but there is no household to tear down.

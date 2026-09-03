@@ -128,6 +128,37 @@ the floor.
 | `Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapAcceptHouseholdClient.swift` | Calls `assertCompatible` pre-flight |
 | `Packages/SoyehtCore/Tests/SoyehtCoreTests/EngineCompatTests.swift`                 | Contract tests                      |
 
+## An absent route is not a rejection
+
+An engine that does not have a route does not answer `404`. Every unknown
+bootstrap path falls through `Phase3RuntimeController::route_or_reject` to
+`pre_household_reject()`, which is **HTTP 401 with a CBOR body**
+`{v: 1, error: "unauthenticated"}`. Two consequences, both measured against
+theyos 0.1.28:
+
+- `BootstrapWire` passes the content-type check (it really is CBOR) and yields
+  `.serverError(code: "unauthenticated", message: nil)`. `BootstrapError`
+  carries **no HTTP status**, so the 401 is invisible to the caller.
+- `"unauthenticated"` is deliberately absent from `BootstrapErrorCode` — it is
+  not a bootstrap code — so `BootstrapErrorCode(wire:)` returns `.unknown`,
+  which is the same value a *newer* engine's genuinely new code returns to an
+  app that has not been updated.
+
+Worse, the identical response comes back from a **current** engine during a
+lifecycle-generation mismatch or Phase 3 retirement. So a transient restart and
+a decade-old engine are byte-identical.
+
+**Therefore: never decide "this engine is too old" from a call's error.** Decide
+it before the call, from `BootstrapStatusClient` plus
+`EngineCompat.isCompatible(_:)` against the floor for the release that first
+served the route. A screen that keys on the error instead will tell someone
+their input was wrong, forever, when the truth is that their Mac needs an
+update.
+
+This is not hypothetical: `POST /bootstrap/pair-device-uri/by-code` (the six
+words typed instead of scanned, theyos PR #27) is the first route to land after
+a shipped release, and the "type the code" screen is bound by this rule.
+
 ## See also
 
 - [engine-version.md](engine-version.md) — when bumping the pinned

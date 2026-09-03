@@ -117,3 +117,20 @@ associated-domains entitlement in both provisioning profiles, and the anchor +
 RP wired into the network router with whatever caller-auth that deserves. The
 SoyehtCore side (`OwnerPasskeyEnrollmentClient`, `…Orchestrator`,
 `…ViewModel`) is written and tested and needs none of that work redone.
+
+## "Type the code" is gated on the engine version, not on the answer
+
+`POST /bootstrap/pair-device-uri/by-code` arrives in theyos 0.1.29. An older
+engine answers it `401` with a CBOR `{error: "unauthenticated"}` body, which
+the client surfaces as `.serverError(code: "unauthenticated")` with no status —
+indistinguishable from a wrong code, and indistinguishable from a *current*
+engine restarting.
+
+So the screen must read `/bootstrap/status` and check
+`EngineCompat.isCompatible(status.engineVersion)` **before** it posts. If the
+Mac is older, it says so; it never says "that code didn't match".
+
+And the rejection is not one code. Four distinct 404s can come back before the
+words are ever graded — `reissue_unavailable` (the Mac is not offering),
+`identity_unavailable`, `already_paired`, and only then `pair_code_rejected`
+for the code itself. The screen branches on all four.
