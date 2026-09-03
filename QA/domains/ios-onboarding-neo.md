@@ -22,7 +22,7 @@ holding the phone.
 | I2 | "Is Soyeht already on your Mac?" | Three answers. "Yes" and "Not yet" both end on the radar — "Not yet" shares the macOS link first. Only Linux leaves the Mac path. |
 | I3 | Radar | A status line per phase, never one spinner for six situations. One line about Tailscale. |
 | I4 | "Is this your Mac?" | The Mac's name, the house name, six words in 2×3 wells, and **two** answers: connect, or "Not my Mac". |
-| I5 | "<Mac> is yours." | Shown to everyone who pairs — radar, QR, or link. Carries the Face ID switch. The CTA is never gated on it. |
+| I5 | "<Mac> is yours." | Shown to everyone who pairs — radar, QR, or link. One screen, one button. |
 | I6 | Home | The house, its Mac with a live status, the sessions running on it, "New session", and "Other machines". |
 | I8 | "I can't find your Mac yet." | Reached from I3 when the search stalls. Causes are derived from the phase, never a fixed list. |
 
@@ -52,9 +52,11 @@ holding the phone.
 - **ST-Q-IOSN-008 — the celebration is reached by every path.** Radar, QR and
   link all land on I5. The first owner — the person who set the Mac up — sees
   it too.
-- **ST-Q-IOSN-009 — Face ID never blocks the way out.** Cancel the ceremony:
-  the switch returns to off, the copy says it can be turned on later in
-  Settings, and "Open a terminal" still works.
+- **ST-Q-IOSN-009 — the celebration offers nothing it cannot finish.** There is
+  no Face ID switch and no enrollment control of any kind. See "Owner passkeys
+  are not reachable from the phone" below: one was there, it could never
+  succeed, and it was removed rather than left failing on the screen that says
+  the setup worked.
 - **ST-Q-IOSN-010 — no splash after the celebration.** "Open a terminal" lands
   in the home in well under a second; the two-second splash is for cold
   launches.
@@ -79,3 +81,39 @@ the Dev engine's household port. Find by `soyeht.onboarding.*` and
 Never print the UDID. Never pair the Dev phone against the production engine:
 both Macs push claims at a fresh phone on this machine, and the claim that
 lands last is the one the card shows.
+
+## Owner passkeys are not reachable from the phone
+
+Measured on the device on 2026-09-03, with the Dev engine at 0.1.28.
+
+The celebration briefly carried a "Protect with Face ID" switch. Tapping it
+enrolls an owner passkey. On a real device it can never succeed, for two
+independent reasons, and neither is in the app:
+
+1. **The engine only serves enrollment over a macOS-local Unix socket.** The
+   relying party and the rollback anchor are wired in
+   `macos_local_owner_webauthn_registration_state`, which builds a *separate*
+   router for `macos_local_registration_listener`. The HTTP router the phone
+   reaches gets neither. So `state.owner_webauthn_anchor` is `None` there, and
+   every call is refused:
+
+   | Phone call | Engine log |
+   |---|---|
+   | enrollment start | `owner_events.owner_webauthn_registration.rejected reason=credential_anchor_invalid` |
+   | status | `owner_events.owner_webauthn_registration.rejected reason=missing_anchor_verifier` |
+
+   Both answer `401` with an opaque body, so the view-model has no way to tell
+   "not supported here" from "it failed" — it shows the generic failure.
+
+2. **The relying-party id is a placeholder.**
+   `owner_webauthn_local_registration_rp()` uses `household.example.test`, and
+   the iOS app has no `com.apple.developer.associated-domains` entitlement. A
+   platform passkey ceremony against an RP the app is not associated with is
+   rejected by the system before any server sees it.
+
+Bringing the switch back needs, in order: a real domain serving an
+apple-app-site-association file, that domain as the engine's RP id, the
+associated-domains entitlement in both provisioning profiles, and the anchor +
+RP wired into the network router with whatever caller-auth that deserves. The
+SoyehtCore side (`OwnerPasskeyEnrollmentClient`, `…Orchestrator`,
+`…ViewModel`) is written and tested and needs none of that work redone.

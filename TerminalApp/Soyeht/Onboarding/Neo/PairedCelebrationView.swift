@@ -1,8 +1,5 @@
 import SoyehtCore
 import SwiftUI
-import os
-
-private let celebrationLogger = Logger(subsystem: "com.soyeht.mobile", category: "onboarding-paired")
 
 /// I5 — the moment the phone and the Mac become one home.
 ///
@@ -10,24 +7,23 @@ private let celebrationLogger = Logger(subsystem: "com.soyeht.mobile", category:
 /// recovery message) that the person who set the Mac up never saw, because
 /// the first-owner path skipped straight past them. This is one screen, it is
 /// shown to everybody who pairs — by radar, by QR, by link — and it carries
-/// the single optional decision worth making here.
+/// nothing else.
 ///
-/// The CTA is never gated on the switch: a Face ID ceremony that is cancelled,
-/// failing, or impossible still leaves a person one tap from their terminal.
+/// It carried a "Protect with Face ID" switch for a while. That switch
+/// enrolled an owner passkey, and on a real device it could never succeed:
+/// the engine wires its WebAuthn relying party and rollback anchor into a
+/// macOS-local Unix-socket router only, so the HTTP endpoint the phone talks
+/// to answers every enrollment with `credential_anchor_invalid` and every
+/// status check with `missing_anchor_verifier`. (The relying-party id is also
+/// the placeholder `household.example.test`, which no app is associated with.)
+/// A switch that always fails is worse than no switch on the screen that says
+/// the setup worked. It comes back when the engine can enroll from the phone.
 struct PairedCelebrationView: View {
     let snapshot: SoyehtIdentitySnapshot
     let macName: String?
     let onOpenTerminal: () -> Void
 
     private let palette = NeoPalette.cloud
-
-    #if canImport(AuthenticationServices)
-    /// Built here rather than inside the card: reading the Secure Enclave and
-    /// anchoring a passkey ceremony to a window are not things a body
-    /// evaluation may do, and the screen — not the card — is what is
-    /// definitely on screen to hang the work off.
-    @State private var faceID: OwnerPasskeyEnrollmentViewModel?
-    #endif
 
     var body: some View {
         OnboardingScaffold(palette: palette) {
@@ -49,13 +45,6 @@ struct PairedCelebrationView: View {
                 .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-
-                #if canImport(AuthenticationServices)
-                if let faceID {
-                    FaceIDProtectionCard(model: faceID, palette: palette)
-                        .padding(.top, 8)
-                }
-                #endif
             }
         } actions: {
             Button(action: onOpenTerminal) {
@@ -68,21 +57,6 @@ struct PairedCelebrationView: View {
             .buttonStyle(NeoPillButtonStyle(.primary, palette: palette))
             .accessibilityIdentifier(AccessibilityID.Onboarding.pairedContinue)
         }
-        #if canImport(AuthenticationServices)
-        .task {
-            guard faceID == nil else { return }
-            // `nil` means this device has no owner key to protect — the card
-            // is simply not drawn, rather than showing a switch that cannot
-            // work. Logged because a card that silently does not appear is
-            // indistinguishable from one that was never written.
-            let model = OwnerPasskeyEnrollmentComposer.makeViewModel(
-                snapshot: snapshot,
-                anchorProvider: KeyWindowPasskeyAnchorProvider()
-            )
-            celebrationLogger.info("paired.faceid_card available=\(model != nil, privacy: .public)")
-            faceID = model
-        }
-        #endif
     }
 
     private var title: String {

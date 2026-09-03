@@ -100,7 +100,7 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
 
     // MARK: - Phase 2 ratchet (15 consumers + 1 sanctioned seam reader)
 
-    private static let allowedRawEndpointReadCount = 16
+    private static let allowedRawEndpointReadCount = 14
 
     private static let allowedRawEndpointReads: [AllowedRawEndpointRead] = [
         .init(
@@ -180,18 +180,6 @@ final class MachineReachabilityBoundaryUsageTests: XCTestCase {
             expression: "raw.endpoint",
             anchor: "var endpoint: URL { raw.endpoint }",
             purpose: "identity facade endpoint accessor"
-        ),
-        .init(
-            relativePath: "TerminalApp/Soyeht/Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentComposer.swift",
-            expression: "snapshot.endpoint",
-            anchor: "let enrollmentClient = OwnerPasskeyEnrollmentClient(baseURL: snapshot.endpoint, popSigner: popSigner)",
-            purpose: "owner passkey enrollment"
-        ),
-        .init(
-            relativePath: "TerminalApp/Soyeht/Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentComposer.swift",
-            expression: "snapshot.endpoint",
-            anchor: "let statusClient = OwnerPasskeyRegistrationStatusClient(baseURL: snapshot.endpoint, popSigner: popSigner)",
-            purpose: "owner passkey registration status"
         ),
         .init(
             relativePath: "TerminalApp/Soyeht/Home/AwaitingNewMacView.swift",
