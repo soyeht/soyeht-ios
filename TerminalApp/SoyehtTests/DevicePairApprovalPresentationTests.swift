@@ -297,13 +297,9 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
 
-        // The policy itself is unchanged for the callers that still use it.
-        let recoveryPolicy = try slice(
-            source,
-            from: "enum HouseholdRecoveryDestination: Equatable {",
-            to: "// MARK: - App Root View"
-        )
-        XCTAssertTrue(recoveryPolicy.contains("registry.operationalServers.isEmpty"))
+        // And the policy itself is gone: it had no callers left, and what it
+        // answered was the defect.
+        XCTAssertFalse(source.contains("enum HouseholdRecoveryDestination"))
         XCTAssertFalse(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
 
     }
@@ -318,7 +314,15 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
         XCTAssertTrue(postSplash.contains("ServerRegistry.shared.refreshFromLegacyStores()"))
         XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalServers.compactMap"))
-        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalMacs.isEmpty"))
+        // A cold launch with a household but no operational server is the
+        // state a phone is in for the seconds after pairing, and again
+        // whenever its Mac is asleep. It goes to the home either way; asking
+        // `operationalMacs` there is what used to send it to the identity
+        // screen. (The one remaining `operationalMacs` read is the no-household
+        // case, which chooses between the scanner and the list — no home
+        // exists to go to.)
+        XCTAssertFalse(postSplash.contains("appState = .householdHome"))
+        XCTAssertTrue(postSplash.contains("operationalMacs.isEmpty ? .qrScanner : .instanceList"))
         XCTAssertFalse(postSplash.contains("ServerRegistry.shared.servers.compactMap"))
         XCTAssertFalse(postSplash.contains("ServerRegistry.shared.macs.isEmpty"))
         XCTAssertTrue(postSplash.contains("if serverContexts.isEmpty"))
@@ -347,7 +351,12 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             "The accessibility label must no longer hardcode \"owned Mac\" for every Server.Kind.")
     }
 
-    func test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList() throws {
+    /// Every return path — cancelling the scanner, leaving a terminal, losing
+    /// a connection — lands on the home when the phone belongs to a home. The
+    /// base-machine projection still never counts as an operational server;
+    /// what changed is that "no operational server" is no longer a reason to
+    /// show a different screen.
+    func test_everyReturnPathLandsOnTheHomeWhenThePhoneHasAHome() throws {
         let source = try iosSource("SSHLoginView.swift")
         let fallbackPolicy = try slice(
             source,
@@ -356,7 +365,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(fallbackPolicy.contains("registry.operationalServers.isEmpty"))
-        XCTAssertTrue(fallbackPolicy.contains("hasActiveHousehold ? .householdHome : .noHome"))
+        XCTAssertTrue(fallbackPolicy.contains("hasActiveHousehold ? .instanceList : .noHome"))
+        XCTAssertFalse(fallbackPolicy.contains("case householdHome"))
         XCTAssertTrue(source.contains("if let destination = homeFallbackRoute"))
         XCTAssertTrue(source.contains("appState = homeFallbackRoute ?? .qrScanner"))
         XCTAssertFalse(source.contains("hasHomeContent ? .instanceList : .qrScanner"))

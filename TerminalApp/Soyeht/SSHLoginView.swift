@@ -283,24 +283,17 @@ private enum SelfContainedPairingURL {
 /// The recovery flow may display an authenticated base machine, but that
 /// identity-only projection must never make the app enter an operational
 /// instance flow. Only entries backed by an existing credential/route adapter
-/// count when choosing between the household home and the instance list.
-@MainActor
-enum HouseholdRecoveryDestination: Equatable {
-    case householdHome
-    case instanceList
-
-    static func resolve(registry: ServerRegistry) -> Self {
-        registry.operationalServers.isEmpty ? .householdHome : .instanceList
-    }
-}
-
-/// A return path must never treat a visible base-machine projection as an
-/// operational instance. The household home owns display-only identity context;
-/// the instance list remains reserved for credential-backed server adapters.
+/// count when choosing where a return path lands.
+///
+/// A phone that belongs to a home goes to the home. It used to go somewhere
+/// else whenever `operationalServers` was empty — the household screen, with a
+/// household id, a person id and a section called "apps" — and that is exactly
+/// the state a phone is in for the first seconds after pairing, and again
+/// whenever its Mac is asleep. The home covers a missing Mac itself now, in
+/// its own words, so there is nothing left for a second screen to say.
 @MainActor
 enum HomeFallbackDestination: Equatable {
     case noHome
-    case householdHome
     case instanceList
 
     static func resolve(
@@ -310,7 +303,7 @@ enum HomeFallbackDestination: Equatable {
         if !registry.operationalServers.isEmpty {
             return .instanceList
         }
-        return hasActiveHousehold ? .householdHome : .noHome
+        return hasActiveHousehold ? .instanceList : .noHome
     }
 }
 
@@ -371,16 +364,12 @@ struct SoyehtAppView: View {
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private var homeFallbackRoute: SoyehtAppRoute? {
-        let snapshot = identity.active
         switch HomeFallbackDestination.resolve(
             registry: ServerRegistry.shared,
-            hasActiveHousehold: snapshot != nil
+            hasActiveHousehold: identity.active != nil
         ) {
         case .noHome:
             return nil
-        case .householdHome:
-            guard let snapshot else { return nil }
-            return .householdHome(snapshot)
         case .instanceList:
             return .instanceList
         }
@@ -1529,13 +1518,9 @@ struct SoyehtAppView: View {
             await BaseMachineProjector.shared.refresh()
             if serverContexts.isEmpty {
                 await MainActor.run {
-                    if ServerRegistry.shared.operationalMacs.isEmpty {
-                        withAnimation { appState = .householdHome(identity) }
-                    } else {
-                        PairedMacRegistry.shared.reconcileClients()
-                        restoreNavigationIfNeeded()
-                        withAnimation { appState = .instanceList }
-                    }
+                    PairedMacRegistry.shared.reconcileClients()
+                    restoreNavigationIfNeeded()
+                    withAnimation { appState = .instanceList }
                 }
                 return
             }

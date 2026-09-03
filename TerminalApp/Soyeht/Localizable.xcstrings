@@ -42389,6 +42389,113 @@
         }
       }
     },
+    "home.mac.arriving.slow": {
+      "comment" : "Replaces the waiting message on the home when the Mac has not appeared after twenty seconds — asleep, closed, or off the network.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتصل جهاز Mac بعد. افتح Soyeht عليه وسيكتمل هذا تلقائيًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Mac এখনও যোগ দেয়নি। সেটিতে Soyeht খুলুন, এটি নিজেই পূরণ হয়ে যাবে।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Mac hat sich nicht gemeldet. Öffnen Sie Soyeht darauf, dann füllt sich das von selbst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Mac hasn't checked in. Open Soyeht on it and this fills in by itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu Mac no ha aparecido. Abre Soyeht en él y esto se completa solo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Mac ne s'est pas manifesté. Ouvrez Soyeht dessus et tout se remplira tout seul."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपका Mac अभी नहीं जुड़ा। उस पर Soyeht खोलें, यह अपने आप भर जाएगा।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac Anda belum muncul. Buka Soyeht di sana dan ini akan terisi sendiri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac から応答がありません。Mac で Soyeht を開けば、ここは自動で埋まります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 연결되지 않았습니다. Mac에서 Soyeht을 열면 자동으로 표시됩니다."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Mac अजून जोडला गेला नाही. त्यावर Soyeht उघडा, हे आपोआप भरेल."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu Mac não apareceu. Abra o Soyeht nele e isso se resolve sozinho."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O seu Mac não apareceu. Abra o Soyeht nele e isto resolve-se sozinho."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваш Mac не отозвался. Откройте на нём Soyeht — дальше всё заполнится само."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Mac ఇంకా కనిపించలేదు. దానిపై Soyeht తెరవండి, ఇది దానంతట అదే నిండుతుంది."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کا Mac ابھی نہیں آیا۔ اس پر Soyeht کھولیں، یہ خود بھر جائے گا۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Mac 还没上线。在 Mac 上打开 Soyeht，这里会自动填好。"
+          }
+        }
+      }
+    },
     "home.macStatus.connecting": {
       "comment" : "Subtitle under the Mac on the home screen while the connection is being made.",
       "localizations" : {

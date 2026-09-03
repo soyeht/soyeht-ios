@@ -21,6 +21,12 @@ struct HomeView: View {
 
     private let palette = NeoPalette.cloud
 
+    /// The waiting card tells the truth for about twenty seconds — the window
+    /// in which a just-paired Mac reliably lands in the registry. Past that
+    /// the wait is not a wait any more, it is a Mac that is asleep or closed,
+    /// and the card says so instead of spinning forever.
+    @State private var macIsOverdue = false
+
     var body: some View {
         ZStack {
             palette.canvas.ignoresSafeArea()
@@ -95,17 +101,21 @@ struct HomeView: View {
             // said in the same voice as everything around it.
             NeoCard(palette: palette) {
                 HStack(spacing: 14) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 22)
+                    if macIsOverdue {
+                        Image(systemName: "desktopcomputer")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(palette.muted)
+                            .frame(width: 22)
+                    } else {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 22)
+                    }
 
-                    Text(LocalizedStringResource(
-                        "home.mac.arriving",
-                        defaultValue: "Getting your Mac ready…",
-                        comment: "Shown on the home in the seconds after pairing, before the Mac appears."
-                    ))
-                    .font(NeoFont.body)
-                    .foregroundStyle(palette.textSecondary)
+                    Text(macIsOverdue ? overdueMessage : arrivingMessage)
+                        .font(NeoFont.body)
+                        .foregroundStyle(palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Spacer(minLength: 8)
                 }
@@ -113,6 +123,13 @@ struct HomeView: View {
                 .padding(.vertical, 18)
             }
             .accessibilityIdentifier(AccessibilityID.Home.macArriving)
+            .task(id: model.mac == nil) {
+                macIsOverdue = false
+                guard model.mac == nil else { return }
+                try? await Task.sleep(nanoseconds: 20 * NSEC_PER_SEC)
+                guard !Task.isCancelled else { return }
+                macIsOverdue = true
+            }
         } else if let mac = model.mac {
             NeoCard(palette: palette) {
                 HStack(spacing: 14) {
@@ -141,6 +158,22 @@ struct HomeView: View {
             .accessibilityIdentifier(AccessibilityID.Home.macCard)
             .accessibilityLabel(Text(verbatim: "\(mac.name), \(statusLabel(for: mac.status))"))
         }
+    }
+
+    private var arrivingMessage: LocalizedStringResource {
+        LocalizedStringResource(
+            "home.mac.arriving",
+            defaultValue: "Getting your Mac ready…",
+            comment: "Shown on the home in the seconds after pairing, before the Mac appears."
+        )
+    }
+
+    private var overdueMessage: LocalizedStringResource {
+        LocalizedStringResource(
+            "home.mac.arriving.slow",
+            defaultValue: "Your Mac hasn't checked in. Open Soyeht on it and this fills in by itself.",
+            comment: "Replaces the waiting message on the home when the Mac has not appeared after twenty seconds — asleep, closed, or off the network."
+        )
     }
 
     private func statusLabel(for status: HomeViewModel.MacStatus) -> String {
