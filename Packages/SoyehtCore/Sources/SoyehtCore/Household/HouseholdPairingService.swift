@@ -1,4 +1,13 @@
 import Foundation
+import os
+
+/// Why `Logger` and not `NSLog`: on a device, `NSLog` from this package never
+/// reaches `idevicesyslog`, so the one message that says WHICH guard refused a
+/// freshly minted cert was invisible exactly where it matters — a phone that
+/// paired successfully server-side and then threw the session away. Every
+/// field below is a shape or an identifier the pairing link already carries in
+/// the clear; no key, no cert body, no nonce.
+private let householdPairingLogger = Logger(subsystem: "com.soyeht.core", category: "household-pairing")
 
 public struct PairDeviceConfirmResponse: Decodable, Equatable, Sendable {
     public let v: Int
@@ -53,7 +62,7 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         body: PairDeviceConfirmRequest
     ) async throws -> PairDeviceConfirmResponse {
         let url = endpoint.appending(path: "/api/v1/household/pair-device/confirm")
-        NSLog("HouseholdPairingService POST url=%@", url.absoluteString)
+        householdPairingLogger.info("pair.confirm.post host=\(url.host() ?? "<none>", privacy: .public) port=\(url.port ?? -1, privacy: .public)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -148,12 +157,11 @@ public struct HouseholdPairingService {
         } catch OwnerIdentityKeyError.biometryCanceled {
             throw HouseholdPairingError.biometryCanceled
         } catch let inner {
-            // Forward the underlying OwnerIdentityKeyError message via
-            // NSLog so a generic `identityKeyUnavailable` surfaced to the
-            // user still leaves a diagnosis trail in Console / xcrun
-            // devicectl logs. The error is otherwise opaque to callers
-            // that catch the rolled-up `HouseholdPairingError`.
-            NSLog("HouseholdPairingService.createOwnerIdentity failed: %@", String(describing: inner))
+            // Forward the underlying OwnerIdentityKeyError so a generic
+            // `identityKeyUnavailable` surfaced to the user still leaves a
+            // diagnosis trail on the device. The error is otherwise opaque to
+            // callers that catch the rolled-up `HouseholdPairingError`.
+            householdPairingLogger.error("pair.identityKeyUnavailable error=\(String(describing: inner), privacy: .public)")
             throw HouseholdPairingError.identityKeyUnavailable
         }
 
@@ -172,25 +180,28 @@ public struct HouseholdPairingService {
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
-            NSLog("HouseholdPairingService.confirmPairing failed: %@", String(describing: error))
+            householdPairingLogger.error("pair.networkUnavailable stage=confirm error=\(String(describing: error), privacy: .public)")
             throw HouseholdPairingError.networkUnavailable
         }
 
         guard response.v == 1 else {
-            NSLog("HouseholdPairingService certInvalid guard=v expected=1 got=%d", response.v)
+            householdPairingLogger.error("pair.certInvalid guard=v expected=1 got=\(response.v, privacy: .public)")
             throw HouseholdPairingError.certInvalid
         }
         guard response.deviceCert == nil else {
-            NSLog("HouseholdPairingService certInvalid guard=deviceCert.nil — server returned a device cert on the owner-pair path")
+            householdPairingLogger.error("pair.certInvalid guard=deviceCert_present")
             throw HouseholdPairingError.certInvalid
         }
         guard response.householdId == qr.householdId, response.personId == ownerIdentity.personId else {
-            NSLog("HouseholdPairingService certInvalid guard=ids responseHH=%@ qrHH=%@ responsePID=%@ ownerPID=%@",
-                  response.householdId, qr.householdId, response.personId, ownerIdentity.personId)
+            householdPairingLogger.error(
+                "pair.certInvalid guard=ids hh_match=\(response.householdId == qr.householdId, privacy: .public) pid_match=\(response.personId == ownerIdentity.personId, privacy: .public)"
+            )
             throw HouseholdPairingError.certInvalid
         }
         guard response.personCertCBOR.utf8.count <= Self.maxPersonCertCBORBase64URLBytes else {
-            NSLog("HouseholdPairingService certInvalid guard=cborSize bytes=%d cap=%d", response.personCertCBOR.utf8.count, Self.maxPersonCertCBORBase64URLBytes)
+            householdPairingLogger.error(
+                "pair.certInvalid guard=cborSize bytes=\(response.personCertCBOR.utf8.count, privacy: .public) cap=\(Self.maxPersonCertCBORBase64URLBytes, privacy: .public)"
+            )
             throw HouseholdPairingError.certInvalid
         }
 
@@ -199,9 +210,9 @@ public struct HouseholdPairingService {
             certData = try Data(soyehtBase64URL: response.personCertCBOR)
             let cert = try PersonCert(cbor: certData)
             guard Set(response.capabilities) == Set(cert.caveats.map(\.operation)) else {
-                NSLog("HouseholdPairingService certInvalid guard=capabilities response=%@ certOps=%@",
-                      String(describing: Set(response.capabilities)),
-                      String(describing: Set(cert.caveats.map(\.operation))))
+                householdPairingLogger.error(
+                    "pair.certInvalid guard=capabilities response=\(Set(response.capabilities).sorted().joined(separator: ","), privacy: .public) certOps=\(Set(cert.caveats.map(\.operation)).sorted().joined(separator: ","), privacy: .public)"
+                )
                 throw HouseholdPairingError.certInvalid
             }
             try cert.validate(
@@ -250,12 +261,12 @@ public struct HouseholdPairingService {
             // fault, not evidence that the person cert is bad. Letting it fall
             // through to `certInvalid` would tell the user to re-pair with a
             // different QR for a failure no new QR can fix.
-            NSLog("HouseholdPairingService roster anchor seed failed: %@", String(describing: error))
+            householdPairingLogger.error("pair.storageFailed stage=rosterAnchor error=\(String(describing: error), privacy: .public)")
             throw HouseholdPairingError.storageFailed
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
-            NSLog("HouseholdPairingService certInvalid catch-all inner=%@", String(describing: error))
+            householdPairingLogger.error("pair.certInvalid guard=catchAll error=\(String(describing: error), privacy: .public)")
             throw HouseholdPairingError.certInvalid
         }
     }
