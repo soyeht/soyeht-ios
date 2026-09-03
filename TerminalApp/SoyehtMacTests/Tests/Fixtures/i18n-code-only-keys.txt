@@ -66,7 +66,6 @@ bootstrap.connectAgents.continueNone
 bootstrap.connectAgents.installFailed
 bootstrap.connectAgents.notInstalled
 bootstrap.connectAgents.skip
-bootstrap.connectAgents.step
 bootstrap.connectAgents.title
 bootstrap.houseCard.iphone.fallback
 bootstrap.houseCard.iphone.fallback.button

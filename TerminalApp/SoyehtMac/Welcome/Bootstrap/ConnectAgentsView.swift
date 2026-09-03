@@ -14,111 +14,75 @@ struct ConnectAgentsView: View {
     @State private var errorMessage: LocalizedStringResource?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            stepIndicator
-                .padding(.bottom, 24)
-
-            Text(LocalizedStringResource(
+        WelcomeStepScaffold(
+            step: 4,
+            title: LocalizedStringResource(
                 "bootstrap.connectAgents.title",
                 defaultValue: "Connect your AI agents",
                 comment: "Title of the onboarding step that registers the Soyeht MCP with each installed agent CLI."
-            ))
-            .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
-            .foregroundColor(BrandColors.textPrimary)
-            .padding(.bottom, 12)
-
-            Text(LocalizedStringResource(
+            ),
+            body: LocalizedStringResource(
                 "bootstrap.connectAgents.body",
                 defaultValue: "Let your AI agents open files, run shells, and manage panes here. Pick which agents to connect — you can change this later.",
                 comment: "Short copy under the Connect AI Agents title explaining what the MCP enables."
-            ))
-            .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-            .foregroundColor(BrandColors.textMuted)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.bottom, 24)
-
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(AIAgentIntegrator.Agent.allCases) { agent in
-                    AgentRow(
-                        agent: agent,
-                        // nil until detection has answered: the row says
-                        // "Checking…", not "Not installed". Measured
-                        // 2026-09-01: with `?? false` this step opened saying
-                        // every agent was missing on a Mac where all four
-                        // were on PATH, because the first render lands before
-                        // the four `zsh -lc command -v` probes finish.
-                        isInstalled: detected[agent],
-                        isSelected: selection.contains(agent),
-                        onToggle: { toggle(agent) }
-                    )
-                }
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                    .foregroundColor(BrandColors.accentAmber)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 18)
-            }
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                Spacer()
-                Button(action: skip) {
-                    Text(LocalizedStringResource(
-                        "bootstrap.connectAgents.skip",
-                        defaultValue: "Skip",
-                        comment: "Button to skip wiring up the MCP — user can run it later from preferences."
-                    ))
-                    .font(MacTypography.Fonts.Controls.cta)
-                    .foregroundColor(BrandColors.textMuted)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 18)
-                }
-                .buttonStyle(.plain)
-                .disabled(isInstalling)
-
-                Button(action: confirm) {
-                    HStack(spacing: 8) {
-                        if isInstalling {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .controlSize(.small)
-                                .tint(BrandColors.buttonTextOnAccent)
-                        }
-                        Text(continueTitle)
-                            .font(MacTypography.Fonts.Controls.cta)
-                            .foregroundColor(BrandColors.buttonTextOnAccent)
+            ),
+            content: {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(AIAgentIntegrator.Agent.allCases) { agent in
+                        AgentRow(
+                            agent: agent,
+                            // nil until detection has answered: the row says
+                            // "Checking…", not "Not installed". Measured
+                            // 2026-09-01: with `?? false` this step opened saying
+                            // every agent was missing on a Mac where all four
+                            // were on PATH, because the first render lands before
+                            // the four `zsh -lc command -v` probes finish.
+                            isInstalled: detected[agent],
+                            isSelected: selection.contains(agent),
+                            onToggle: { toggle(agent) }
+                        )
+                        .accessibilityIdentifier("soyeht.welcome.m5.agent.\(agent.id)")
                     }
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 22)
-                    .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
-                    .opacity(canConfirm ? 1 : 0.5)
-                }
-                .buttonStyle(.plain)
-                .disabled(!canConfirm)
-            }
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task { await refreshDetection() }
-    }
 
-    private var stepIndicator: some View {
-        Text(LocalizedStringResource(
-            "bootstrap.connectAgents.step",
-            defaultValue: "Step 2 of 3",
-            comment: "Step indicator capsule for the connect-agents onboarding step."
-        ))
-        .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.readableTextOnSelection)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(BrandColors.selection)
-        .clipShape(Capsule())
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(NeoFont.caption)
+                            .foregroundStyle(NeoPalette.cloud.danger)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 8)
+                    }
+                }
+            },
+            footer: {
+                HStack(spacing: 16) {
+                    Button(action: skip) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.connectAgents.skip",
+                            defaultValue: "Skip",
+                            comment: "Button to skip wiring up the MCP — user can run it later from preferences."
+                        ))
+                    }
+                    .buttonStyle(NeoLinkButtonStyle(palette: NeoPalette.cloud))
+                    .disabled(isInstalling)
+
+                    Spacer()
+
+                    Button(action: confirm) {
+                        HStack(spacing: 8) {
+                            if isInstalling {
+                                ProgressView().controlSize(.small)
+                            }
+                            Text(continueTitle)
+                        }
+                    }
+                    .buttonStyle(NeoPillButtonStyle(.primary, palette: NeoPalette.cloud, fillsWidth: false))
+                    .disabled(!canConfirm)
+                    .opacity(canConfirm ? 1 : 0.5)
+                    .accessibilityIdentifier("soyeht.welcome.m5.done")
+                }
+            }
+        )
+        .task { await refreshDetection() }
     }
 
     private var canConfirm: Bool {

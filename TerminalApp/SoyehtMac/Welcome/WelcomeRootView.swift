@@ -73,6 +73,7 @@ struct WelcomeRootView: View {
         case houseNaming           // T044
         case houseCreation(String) // T045 — associated value: house name
         case houseCard(name: String, avatar: HouseAvatar, pairQrUri: String)
+        case ready                 // M6 — setup finished
     }
 
     let onPaired: () -> Void
@@ -180,7 +181,15 @@ struct WelcomeRootView: View {
                 avatar: avatar,
                 initialPairQrUri: pairQrUri,
                 onContinueOnMac: { await ensureLocalCredential() },
-                onPaired: onPaired
+                onPaired: { bootstrapPath.append(.ready) }
+            )
+        case .ready:
+            MacReadyView(
+                onConnectAgents: { bootstrapPath.append(.connectAgents) },
+                onOpen: {
+                    onboardingState.finish()
+                    onPaired()
+                }
             )
         }
     }
@@ -416,7 +425,13 @@ struct WelcomeRootView: View {
     /// Today that's house naming; if a setup invitation arrives during
     /// the agents step (rare race), we let the existing listener path
     /// handle it on the next pass.
+    /// The agents step is optional and reached from M6, so finishing it goes
+    /// back to M6 rather than onward.
     private func continueAfterAgentsStep() async {
+        if bootstrapPath.last == .connectAgents {
+            bootstrapPath.removeLast()
+            return
+        }
         if await routeExistingEngineStateAfterInstall(baseURL: Self.bootstrapBaseURL()) {
             return
         }

@@ -170,6 +170,7 @@
 		CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000A /* TheyOSUninstaller.swift */; };
 		CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000B /* UninstallTheyOSView.swift */; };
 		CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000C /* TheyOSUninstallPlan.swift */; };
+		CB100049000000000000000A /* MacReadyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100049000000000000000B /* MacReadyView.swift */; };
 		CB100048000000000000000A /* MacPairingAdvertisement.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100048000000000000000B /* MacPairingAdvertisement.swift */; };
 		13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */; };
 		CB100047000000000000000E /* LoginItemsApprovalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100047000000000000000F /* LoginItemsApprovalCard.swift */; };
@@ -414,6 +415,7 @@
 		CA050020000000000000000A /* TheyOSUninstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstaller.swift; sourceTree = "<group>"; };
 		CA050020000000000000000B /* UninstallTheyOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallTheyOSView.swift; sourceTree = "<group>"; };
 		CA050020000000000000000C /* TheyOSUninstallPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstallPlan.swift; sourceTree = "<group>"; };
+		CB100049000000000000000B /* MacReadyView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Bootstrap/MacReadyView.swift"; sourceTree = "<group>"; };
 		4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Bootstrap/RequiresLoginItemsApprovalView.swift"; sourceTree = "<group>"; };
 		CB100047000000000000000F /* LoginItemsApprovalCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Bootstrap/LoginItemsApprovalCard.swift"; sourceTree = "<group>"; };
 		CB100047000000000000000D /* WelcomeStepScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Neo/WelcomeStepScaffold.swift"; sourceTree = "<group>"; };
@@ -913,6 +915,7 @@
 				CA0500200000000000000007 /* LocalInstallView.swift */,
 				CA0500200000000000000008 /* RemoteConnectView.swift */,
 				CA050020000000000000000C /* TheyOSUninstallPlan.swift */,
+				CB100049000000000000000B /* MacReadyView.swift */,
 				4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */,
 				CB100047000000000000000F /* LoginItemsApprovalCard.swift */,
 				CB100047000000000000000D /* WelcomeStepScaffold.swift */,
@@ -1226,6 +1229,7 @@
 				CA0500100000000000000007 /* LocalInstallView.swift in Sources */,
 				CA0500100000000000000008 /* RemoteConnectView.swift in Sources */,
 					CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */,
+					CB100049000000000000000A /* MacReadyView.swift in Sources */,
 					CB100048000000000000000A /* MacPairingAdvertisement.swift in Sources */,
 					13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */,
 					CB100047000000000000000E /* LoginItemsApprovalCard.swift in Sources */,

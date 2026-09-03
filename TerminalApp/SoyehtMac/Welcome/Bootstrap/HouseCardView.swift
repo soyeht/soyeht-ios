@@ -31,42 +31,25 @@ struct HouseCardView: View {
     @State private var copiedPairLink = false
     @State private var showFallbackPairing = false
     @State private var copyResetTask: Task<Void, Never>?
+    @State private var iPhoneFound = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 32) {
-                HouseAvatarView(avatar: avatar, animateReveal: true)
-
-                VStack(spacing: 8) {
-                    Text(verbatim: houseName)
-                        .font(MacTypography.Fonts.Display.heroTitle)
-                        .foregroundColor(BrandColors.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .accessibilityAddTraits(.isHeader)
-
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseCard.subtitle",
-                        defaultValue: "Add your iPhone now, or continue on this Mac.",
-                        comment: "House card subtitle confirming creation."
-                    ))
-                    .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                    .foregroundColor(BrandColors.textMuted)
-                }
-
-                deviceList
-
-                actionButtons
-
-                statusMessage
-            }
-            .frame(maxWidth: 400)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        WelcomeStepScaffold(
+            step: 4,
+            title: LocalizedStringResource(
+                "bootstrap.addIPhone.title",
+                defaultValue: "Add your iPhone.",
+                comment: "M4: title of the pairing step."
+            ),
+            body: LocalizedStringResource(
+                "bootstrap.addIPhone.body",
+                defaultValue: "Open Soyeht on your iPhone. It will find this Mac and show these six words. Both need Tailscale turned on.",
+                comment: "M4: what the owner does on the phone, and the one requirement."
+            ),
+            content: { pairingColumns },
+            footer: { footerRow }
+        )
         .onAppear {
             if !reduceMotion { isPulsing = true }
             advertisement.start()
@@ -132,17 +115,158 @@ struct HouseCardView: View {
         )))
     }
 
+    private var pairingColumns: some View {
+        HStack(alignment: .top, spacing: 28) {
+            VStack(alignment: .leading, spacing: 18) {
+                wordGrid
+                pairingStatusRow
+                statusMessage
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            qrCard
+        }
+    }
+
+    /// Six wells, two rows of three — the same shape the iPhone shows, so the
+    /// two screens can be read side by side without counting.
+    @ViewBuilder private var wordGrid: some View {
+        if let words = Self.securityCodeWords(from: pairQrUri), words.count == 6 {
+            VStack(spacing: 8) {
+                ForEach(0..<2, id: \.self) { row in
+                    HStack(spacing: 8) {
+                        ForEach(0..<3, id: \.self) { column in
+                            let index = row * 3 + column
+                            NeoWordWell(
+                                index: index + 1,
+                                word: words[index],
+                                palette: NeoPalette.cloud
+                            )
+                            .accessibilityIdentifier("soyeht.welcome.m4.word.\(index + 1)")
+                        }
+                    }
+                }
+            }
+        } else {
+            // The offer refreshes on its own; this is the gap between two of
+            // them, not an error worth a screen.
+            Text(LocalizedStringResource(
+                "bootstrap.addIPhone.preparing",
+                defaultValue: "Preparing the code…",
+                comment: "M4: shown for the moment between two pairing offers."
+            ))
+            .font(NeoFont.body)
+            .foregroundStyle(NeoPalette.cloud.muted)
+        }
+    }
+
+    private var pairingStatusRow: some View {
+        HStack(spacing: 8) {
+            if iPhoneFound {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(NeoPalette.cloud.success)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+            Text(iPhoneFound
+                ? LocalizedStringResource(
+                    "bootstrap.addIPhone.found",
+                    defaultValue: "iPhone found — confirm the words on it",
+                    comment: "M4: the phone has answered and is showing the same words."
+                )
+                : LocalizedStringResource(
+                    "bootstrap.addIPhone.waiting",
+                    defaultValue: "Waiting for your iPhone…",
+                    comment: "M4: nothing has answered yet."
+                ))
+            .font(NeoFont.body)
+            .foregroundStyle(NeoPalette.cloud.textSecondary)
+        }
+        .accessibilityIdentifier("soyeht.welcome.m4.status")
+    }
+
+    private var qrCard: some View {
+        NeoCard(palette: NeoPalette.cloud) {
+            VStack(spacing: 10) {
+                if let qrImage = MacQRCodeImageFactory.makeImage(from: pairQrUri) {
+                    Image(nsImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 150, height: 150)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .accessibilityIdentifier("soyeht.welcome.m4.qr")
+                        .accessibilityLabel(Text(LocalizedStringResource(
+                            "bootstrap.houseCard.iphone.qr.a11y",
+                            defaultValue: "QR code for pairing this iPhone",
+                            comment: "VoiceOver label for the pairing QR code."
+                        )))
+                }
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.qrCaption",
+                    defaultValue: "or scan with the iPhone camera",
+                    comment: "M4: caption under the QR code."
+                ))
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.muted)
+                .multilineTextAlignment(.center)
+            }
+            .padding(16)
+        }
+        .fixedSize()
+    }
+
+    private var footerRow: some View {
+        HStack(spacing: 16) {
+            Button(action: continueOnMac) {
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.skip",
+                    defaultValue: "Skip for now — add it later in Settings",
+                    comment: "M4: leaves setup without a phone."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: NeoPalette.cloud))
+            .disabled(isContinuingOnMac)
+            .accessibilityIdentifier("soyeht.welcome.m4.skip")
+
+            Spacer()
+
+            Button(action: { showInfoSheet = true }) {
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.moreWays",
+                    defaultValue: "More ways to pair",
+                    comment: "M4: opens the sheet with the copyable link."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: NeoPalette.cloud))
+
+            Button(action: copyPairLink) {
+                Text(copiedPairLink
+                    ? LocalizedStringResource(
+                        "bootstrap.addIPhone.copied",
+                        defaultValue: "Copied",
+                        comment: "M4: confirmation after copying the pairing link."
+                    )
+                    : LocalizedStringResource(
+                        "bootstrap.addIPhone.copyLink",
+                        defaultValue: "Copy link",
+                        comment: "M4: copies the pairing link to the clipboard."
+                    ))
+            }
+            .buttonStyle(NeoPillButtonStyle(.secondary, palette: NeoPalette.cloud, fillsWidth: false))
+            .accessibilityIdentifier("soyeht.welcome.m4.copyLink")
+        }
+    }
+
     @ViewBuilder private var statusMessage: some View {
         if let pairingError {
             Text(pairingError)
-                .font(MacTypography.Fonts.welcomeProgressBody)
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.danger)
         } else if let continueError {
             Text(continueError)
-                .font(MacTypography.Fonts.welcomeProgressBody)
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.danger)
         }
     }
 
@@ -241,46 +365,6 @@ struct HouseCardView: View {
             .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var fallbackPairingSection: some View {
-        VStack(spacing: 14) {
-            Text(LocalizedStringResource(
-                "bootstrap.houseCard.iphone.fallback",
-                defaultValue: "Fallback pairing code",
-                comment: "Header for QR/link fallback when direct discovery is unavailable."
-            ))
-            .font(MacTypography.Fonts.welcomeProgressTitle)
-            .foregroundColor(BrandColors.textMuted)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let qrImage = MacQRCodeImageFactory.makeImage(from: pairQrUri) {
-                Image(nsImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding(12)
-                    .background(BrandColors.qrCodeBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
-                    .accessibilityLabel(Text(LocalizedStringResource(
-                        "bootstrap.houseCard.iphone.qr.a11y",
-                        defaultValue: "QR code to add this iPhone to the home.",
-                        comment: "VoiceOver label for the first iPhone pairing QR."
-                    )))
-            } else {
-                Text(LocalizedStringResource(
-                    "bootstrap.houseCard.iphone.qr.error",
-                    defaultValue: "Couldn't generate the QR code. Close this screen and try again.",
-                    comment: "Fallback shown if first iPhone QR rendering fails."
-                ))
-                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
-            }
-
-            pairLinkSection
-        }
     }
 
     private func securityCodeSection(_ words: [String]) -> some View {
@@ -486,6 +570,12 @@ struct HouseCardView: View {
             )
             let outcome = await listener.listen()
             guard !Task.isCancelled else { return }
+
+            // Set before the switch so the pinned shape of the claim case
+            // stays exactly as it is.
+            if case .invitationClaimed = outcome {
+                await MainActor.run { iPhoneFound = true }
+            }
 
             switch outcome {
             case .invitationClaimed:
