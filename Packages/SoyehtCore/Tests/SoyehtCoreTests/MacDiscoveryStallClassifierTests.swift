@@ -54,7 +54,7 @@ struct MacDiscoveryStallClassifierTests {
         for elapsed in [0.0, 60.0, 600.0, 3600.0] {
             let stall = MacDiscoveryStallClassifier.classify(
                 elapsed: elapsed,
-                phase: .waitingForMacSetup(name: "macStudio"),
+                phase: .waitingForMacSetup(name: "mac-alpha"),
                 publisherFailed: false,
                 hasTailnet: true
             )
@@ -65,7 +65,7 @@ struct MacDiscoveryStallClassifierTests {
     @Test func aNamedMacThatNeverOffersBecomesTheTailscaleConversation() {
         let early = MacDiscoveryStallClassifier.classify(
             elapsed: config.macDiscoveryDeadline - 1,
-            phase: .waitingForMacOffer(name: "macStudio"),
+            phase: .waitingForMacOffer(name: "mac-alpha"),
             publisherFailed: false,
             hasTailnet: false
         )
@@ -73,18 +73,18 @@ struct MacDiscoveryStallClassifierTests {
 
         let late = MacDiscoveryStallClassifier.classify(
             elapsed: config.macDiscoveryDeadline,
-            phase: .waitingForMacOffer(name: "macStudio"),
+            phase: .waitingForMacOffer(name: "mac-alpha"),
             publisherFailed: false,
             hasTailnet: false
         )
-        #expect(late == .needsTailscale(name: "macStudio"))
+        #expect(late == .needsTailscale(name: "mac-alpha"))
     }
 
     @Test func aPhoneWithSomethingOnScreenIsNeverStalled() {
         let phases: [MacDiscoveryPhase] = [
-            .offered(houseName: "Home", hostLabel: "macStudio"),
+            .offered(houseName: "Home", hostLabel: "mac-alpha"),
             .connecting,
-            .paired(macName: "macStudio"),
+            .paired(macName: "mac-alpha"),
         ]
         for phase in phases {
             #expect(MacDiscoveryStallClassifier.classify(
