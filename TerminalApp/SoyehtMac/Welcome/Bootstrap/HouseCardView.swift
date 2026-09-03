@@ -3,10 +3,13 @@ import SoyehtCore
 import AppKit
 
 /// MA4 — House card scene shown after house creation.
-/// Displays avatar + name + Mac as host + pulsing "add iPhone" slot per FR-017.
+/// M4 — "Add your iPhone." Six words, a QR, and one status line.
+///
+/// The avatar went with the celebration card it belonged to: a derived emoji
+/// identifying a home the person is looking at on two screens at once adds a
+/// symbol to check where there were already six words.
 struct HouseCardView: View {
     let houseName: String
-    let avatar: HouseAvatar
     /// What the navigation path carried when this card was pushed. It is a
     /// seed, not the truth: the engine closes its pairing window after a few
     /// minutes, and this string does not change when it does.

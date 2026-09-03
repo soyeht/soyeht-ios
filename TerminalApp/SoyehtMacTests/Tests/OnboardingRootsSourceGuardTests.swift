@@ -59,7 +59,7 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
             "TerminalApp/Soyeht/Onboarding/Proximity/AirDropPresenter.swift",
             "TerminalApp/Soyeht/Onboarding/Proximity/CellularConfirmationSheet.swift",
             "TerminalApp/Soyeht/Onboarding/Proximity/NetworkDownloadGuard.swift",
-            "TerminalApp/Soyeht/Onboarding/InstallPicker/ResidentExplainerView.swift",
+            "TerminalApp/Soyeht/Onboarding/InstallPicker",
             "TerminalApp/Soyeht/Settings/ReshowTourView.swift"
         ]
         for path in retired {
@@ -69,10 +69,10 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
             )
         }
 
-        let picker = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/InstallPicker/InstallPickerView.swift"))
-        XCTAssertFalse(picker.contains("struct InstallPickerView"))
-        XCTAssertTrue(picker.contains("struct LinuxPairingGuideView"), "the Linux guide still has a home here")
-        XCTAssertTrue(picker.contains("enum OnboardingLaunchIntent"))
+        let guide = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/Linux/LinuxPairingGuideView.swift"))
+        XCTAssertFalse(guide.contains("struct InstallPickerView"))
+        XCTAssertTrue(guide.contains("struct LinuxPairingGuideView"))
+        XCTAssertTrue(guide.contains("enum OnboardingLaunchIntent"))
     }
 
     func test_theOnlyQuestionBeforeTheRadarIsWhetherTheMacHasSoyeht() throws {

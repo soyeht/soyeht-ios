@@ -69,7 +69,7 @@ struct WelcomeRootView: View {
         case connectAgents         // MCP onboarding (wires Claude Code / Codex / OpenCode / Droid)
         case houseNaming           // T044
         case houseCreation(String) // T045 — associated value: house name
-        case houseCard(name: String, avatar: HouseAvatar, pairQrUri: String)
+        case houseCard(name: String, pairQrUri: String)
         case ready                 // M6 — setup finished
     }
 
@@ -145,13 +145,11 @@ struct WelcomeRootView: View {
             })
         case .houseCreation(let name):
             HouseCreationProgressView(houseName: name, onCreated: { response in
-                let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
-                bootstrapPath.append(.houseCard(name: name, avatar: avatar, pairQrUri: response.pairQrUri))
+                bootstrapPath.append(.houseCard(name: name, pairQrUri: response.pairQrUri))
             })
-        case .houseCard(let name, let avatar, let pairQrUri):
+        case .houseCard(let name, let pairQrUri):
             HouseCardView(
                 houseName: name,
-                avatar: avatar,
                 initialPairQrUri: pairQrUri,
                 onContinueOnMac: { await ensureLocalCredential() },
                 onPaired: { bootstrapPath.append(.ready) }
@@ -332,10 +330,8 @@ struct WelcomeRootView: View {
     private func showExistingHouseCardIfPossible() async -> Bool {
         do {
             let response = try await BootstrapPairDeviceURIClient(baseURL: Self.bootstrapBaseURL()).fetch()
-            let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
             bootstrapPath = [.houseCard(
                 name: response.houseName,
-                avatar: avatar,
                 pairQrUri: response.pairDeviceURI
             )]
             mode = .bootstrap

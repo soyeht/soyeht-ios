@@ -51,8 +51,10 @@ shortfalls.
 ### Phase R1 — Mac-approves recovery path (#1)
 
 **iPhone side (new iPhone, no household):**
-- `TerminalApp/Soyeht/Onboarding/...` — add "Recover existing home" path in
-  Welcome carousel beside "Create new home" / "Join existing".
+- `TerminalApp/Soyeht/Onboarding/...` — add a "Recover existing home" answer
+  to I2 ("Is Soyeht already on your Mac?"), beside "Yes, it's installed". The
+  Welcome carousel this once named is gone; I2 is the single question the
+  phone asks before it starts looking.
 - New view `RecoverFromBonjourView` browses `_soyeht-household._tcp` candidates
   on the LAN/Tailnet, lists matching households (or the single one Owner has).
 - On select, iPhone POSTs `/household/recovery-request` to the chosen Mac,

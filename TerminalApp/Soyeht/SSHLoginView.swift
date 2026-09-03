@@ -358,15 +358,6 @@ struct SoyehtAppView: View {
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
     @ObservedObject private var identity = SoyehtIdentity.shared
-    /// Drives the "your home isn't set up yet" banner overlaid on the
-    /// `.qrScanner` case. `HomeViewState` is `@MainActor` and publishes
-    /// `noHouseholdBannerVisible` derived from `parking_lot_visited_at`
-    /// (AppStorage, written by `AppDelegate.showParkingLot`) and
-    /// `SoyehtIdentity`. Auto-clears via the
-    /// `HouseCreatedPushHandler.houseCreatedReceived` observer wired
-    /// inside `HomeViewState.init`.
-    @StateObject private var homeViewState = HomeViewState()
-
     /// The neo home. Owned here so it survives the `.instanceList` branch
     /// being rebuilt on every `appState` change.
     @StateObject private var homeModel = HomeViewModel()
@@ -564,31 +555,6 @@ struct SoyehtAppView: View {
                     }
                 )
 
-                    // "Your home isn't set up yet" banner — overlaid only
-                    // when the user has no servers/macs/household AND has
-                    // visited the LaterParkingLotView (i.e. they explicitly
-                    // deferred setup via the InstallPicker "Get link later"
-                    // path). Tapping reuses the existing
-                    // `.soyehtRequestInstallPicker` notification that
-                    // SceneDelegate observes to swap the window root back
-                    // to InstallPickerView. Keeps the user one tap away
-                    // from resuming canonical onboarding instead of being
-                    // stranded on a bare QR scanner. Padding mirrors the
-                    // scanner's own top-safe-area inset so the banner sits
-                    // just below the notch / Dynamic Island without
-                    // overlapping the cancel button.
-                    if !hasHomeContent && homeViewState.noHouseholdBannerVisible {
-                        NoHouseholdBanner(onSetupNow: {
-                            NotificationCenter.default.post(
-                                name: .soyehtRequestInstallPicker,
-                                object: nil
-                            )
-                        })
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .zIndex(1)
-                    }
                 }
                 .transition(.opacity)
 

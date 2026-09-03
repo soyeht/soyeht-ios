@@ -750,7 +750,7 @@ final class AwaitingMacViewModel: ObservableObject {
                     // could approve it may be gone; say so, and say what fixes it.
                     self.errorMessage = String(localized: LocalizedStringResource(
                         "awaitingMac.existingHouse.connect.approvalTimedOut",
-                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Preferences › Devices, and choose Start over — then pair this iPhone as the first one.",
+                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Settings › Devices, and choose Forget this home — then pair this iPhone as the first one.",
                         comment: "Shown when delegated device pairing expires without approval from an existing iPhone."
                     ))
                 }

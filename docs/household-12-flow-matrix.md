@@ -6,12 +6,12 @@ Validated 2026-05-20 on real hardware: Mac Studio (aarch64), iPhone Devs (iPhone
 
 A flow is "validated" when the named devices share the same `hh_id` and the protocol-required certs are signed and persisted.
 
-### iPhone-initiator (Welcome carousel "My Mac" or "My Linux" → 4 flows)
+### iPhone-initiator (I2 "Is Soyeht already on your Mac?" → 4 flows)
 
 | # | Flow | Validating session |
 |---|------|--------------------|
-| 1 | iPhone → Mac | Caso B AirDrop: iPhone Welcome → My Mac → Mac.app claims setup invitation. End: Mac founder + iPhone owner. `hh_…` matches on both. |
-| 2 | iPhone → Linux | iPhone Welcome → My Linux → Scan or paste pairing link → confirm. Linux founder + iPhone owner. End: "You are the first resident." |
+| 1 | iPhone → Mac | Caso B AirDrop: iPhone I1 → I2 "Yes" → radar → Mac.app claims setup invitation. End: Mac founder + iPhone owner. `hh_…` matches on both. |
+| 2 | iPhone → Linux | iPhone I1 → I2 "I use Linux" → scan or paste pairing link → confirm. Linux founder + iPhone owner. End: "You are the first resident." |
 | 3 | iPhone → Mac → Linux | Composite of #1 (Mac claim) + Linux pair-machine via iPhone owner approval. Same end state as Mac-initiator chain #7. |
 | 4 | iPhone → Linux → Mac | Composite of #2 (iPhone owner on Linux founder) + Mac pair-machine via iPhone owner Face ID approval. Validated via the same session that produced #12. |
 

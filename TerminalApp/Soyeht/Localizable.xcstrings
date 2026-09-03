@@ -22525,6 +22525,327 @@
         }
       }
     },
+    "settings.leaveHousehold.confirm.action": {
+      "comment" : "Destructive confirm button for leaving a household.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مغادرة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ছাড়ুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salir"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "छोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離れる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나가기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सोडा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выйти"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "వెళ్లిపో"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "چھوڑیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离开"
+          }
+        }
+      }
+    },
+    "settings.leaveHousehold.confirm.body": {
+      "comment" : "Explanation shown in the leave-household confirmation alert.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سيمحو Soyeht العضوية المحلية على هذا الـ iPhone ويعود إلى شاشة الترحيب. المنزل وأجهزته الأخرى لا تتأثر — أعد الاقتران من جهاز مضيف للانضمام مجددًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht এই iPhone-এর স্থানীয় সদস্যপদ মুছে ফেলে স্বাগত স্ক্রিন থেকে আবার শুরু করবে। বাড়ি ও তার অন্য ডিভাইসগুলো প্রভাবিত হয় না — ফিরে আসতে কোনো হোস্ট মেশিন থেকে আবার জোড়া দিন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht löscht die lokale Mitgliedschaft auf diesem iPhone und startet mit dem Willkommensbildschirm. Das Zuhause und seine anderen Geräte bleiben unberührt — koppeln Sie erneut von einem Host-Rechner, um zurückzukehren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht will wipe its local membership on this iPhone and restart with the welcome screen. The household and its other devices are not affected — re-pair from a host machine to rejoin."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht borrará la pertenencia local en este iPhone y volverá a la pantalla de bienvenida. El hogar y sus otros dispositivos no se ven afectados: vuelve a emparejar desde una máquina anfitriona para reincorporarte."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht effacera l'appartenance locale sur cet iPhone et redémarrera sur l'écran d'accueil. La maison et ses autres appareils ne sont pas affectés — réappairez depuis une machine hôte pour revenir."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht इस iPhone पर स्थानीय सदस्यता मिटा देगा और स्वागत स्क्रीन से फिर शुरू होगा। घर और उसके बाकी डिवाइस प्रभावित नहीं होते — फिर से जुड़ने के लिए किसी होस्ट मशीन से पेयर करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht akan menghapus keanggotaan lokal di iPhone ini dan mulai lagi dari layar sambutan. Rumah dan perangkat lainnya tidak terpengaruh — pasangkan ulang dari mesin host untuk bergabung kembali."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht はこの iPhone のローカルなメンバーシップを消去し、ようこそ画面から再開します。ホームと他のデバイスには影響しません — 戻るにはホストマシンから再ペアリングしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht은 이 iPhone의 로컬 멤버십을 지우고 환영 화면부터 다시 시작합니다. 홈과 다른 기기에는 영향이 없습니다 — 다시 참여하려면 호스트 머신에서 페어링하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht या iPhone वरील स्थानिक सदस्यत्व पुसेल आणि स्वागत स्क्रीनपासून पुन्हा सुरू होईल. घर आणि त्याची इतर उपकरणे प्रभावित होत नाहीत — पुन्हा सामील होण्यासाठी होस्ट मशीनवरून जोडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Soyeht apaga a participação local neste iPhone e recomeça na tela de boas-vindas. A casa e os outros aparelhos não são afetados — pareie de novo por uma máquina anfitriã para voltar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Soyeht apaga a participação local neste iPhone e recomeça no ecrã de boas-vindas. A casa e os outros dispositivos não são afetados — emparelhe novamente a partir de uma máquina anfitriã para regressar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht сотрёт локальное членство на этом iPhone и вернётся к экрану приветствия. Дом и его другие устройства не затрагиваются — чтобы вернуться, выполните сопряжение с хост-машины."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht ఈ iPhoneలోని స్థానిక సభ్యత్వాన్ని తుడిచి, స్వాగత తెరతో మళ్లీ ప్రారంభమవుతుంది. ఇల్లు, దాని ఇతర పరికరాలు ప్రభావితం కావు — తిరిగి చేరడానికి హోస్ట్ మెషీన్ నుండి మళ్లీ జోడించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht اس iPhone پر مقامی رکنیت مٹا دے گا اور خوش آمدید اسکرین سے دوبارہ شروع ہوگا۔ گھر اور اس کے دیگر ڈیوائسز متاثر نہیں ہوتے — واپس شامل ہونے کے لیے کسی میزبان مشین سے دوبارہ جوڑیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soyeht 会清除这台 iPhone 上的本地成员身份，并回到欢迎界面。这个家和它的其他设备不受影响——要重新加入，请从宿主机重新配对。"
+          }
+        }
+      }
+    },
+    "settings.leaveHousehold.confirm.title": {
+      "comment" : "Confirmation alert title before destroying local household membership.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل تريد مغادرة هذا المنزل؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ি ছাড়বেন?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Zuhause verlassen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave this household?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Salir de este hogar?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter cette maison ?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह घर छोड़ें?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar dari rumah ini?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このホームから離れますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 홈에서 나갈까요?"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हे घर सोडायचे?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair desta casa?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sair desta casa?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выйти из этого дома?"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ ఇంటి నుండి బయటకు వెళ్లాలా?"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ گھر چھوڑ دیں؟"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要离开这个家吗？"
+          }
+        }
+      }
+    },
     "settings.pairedMacs.empty.description": {
       "comment": "Empty-state description explaining how to pair.",
       "localizations": {
@@ -31521,6 +31842,113 @@
         }
       }
     },
+    "common.cancel": {
+      "comment" : "Generic cancel button label.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বাতিল"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмена"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "రద్దు"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "منسوخ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
     "common.error.title": {
       "comment": "Generic error alert title.",
       "localizations": {
@@ -32972,6 +33400,1076 @@
           "stringUnit": {
             "state": "translated",
             "value": "Camera Unavailable"
+          }
+        }
+      }
+    },
+    "addDevice.dismiss.a11y": {
+      "comment" : "VoiceOver label for the dismiss button on the Add Device picker.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বন্ধ করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "बंद करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutup"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "बंद करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыть"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మూసివేయి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بند کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "addDevice.preparingMac": {
+      "comment" : "Brief transitional spinner while the iPhone mints a setup invitation before opening the Add Mac flow.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ التحضير..."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "প্রস্তুত হচ্ছে..."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird vorbereitet..."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing..."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparation..."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तैयार किया जा रहा है..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menyiapkan..."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備中..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "준비 중..."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तयारी सुरू आहे..."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando..."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A preparar..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подготовка..."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "సిద్ధమవుతోంది..."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تیاری ہو رہی ہے..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备中..."
+          }
+        }
+      }
+    },
+    "addDevice.option.scan.detail": {
+      "comment" : "Detail line for the scan-or-paste option on the Add Device picker.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "امسح رمز QR أو الصق رابط ‏theyos://."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR স্ক্যান করুন বা theyos:// লিঙ্ক পেস্ট করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scannen Sie einen QR-Code oder fügen Sie einen theyos://-Link ein."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan a QR code or paste a theyos:// link."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanea un QR o pega un enlace theyos://."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scannez un QR ou collez un lien theyos://."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR स्कैन करें या theyos:// लिंक पेस्ट करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pindai QR atau tempel tautan theyos://."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR を読み取るか、theyos:// リンクを貼り付けます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR을 스캔하거나 theyos:// 링크를 붙여넣으세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR स्कॅन करा किंवा theyos:// दुवा पेस्ट करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escaneie um QR ou cole um link theyos://."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leia um QR ou cole uma ligação theyos://."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отсканируйте QR-код или вставьте ссылку theyos://."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR స్కాన్ చేయండి లేదా theyos:// లింక్ అతికించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR اسکین کریں یا theyos:// لنک پیسٹ کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描二维码，或粘贴 theyos:// 链接。"
+          }
+        }
+      }
+    },
+    "addDevice.option.scan": {
+      "comment" : "Add Device option for users who already have a QR or theyos:// link.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لديّ رابط اقتران"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আমার কাছে পেয়ারিং লিঙ্ক আছে"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich habe einen Kopplungslink"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I have a pairing link"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tengo un enlace de emparejamiento"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai un lien d'appairage"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "मेरे पास पेयरिंग लिंक है"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saya punya tautan pemasangan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングリンクがあります"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링 링크가 있습니다"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "माझ्याकडे जोडणी दुवा आहे"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eu tenho um link de pareamento"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenho uma ligação de emparelhamento"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У меня есть ссылка сопряжения"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "నా దగ్గర పెయిరింగ్ లింక్ ఉంది"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "میرے پاس پیئرنگ لنک ہے"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我有配对链接"
+          }
+        }
+      }
+    },
+    "addDevice.option.linux.detail": {
+      "comment" : "Detail line for the Linux machine option on the Add Device picker.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "دليل خطوة بخطوة لتشغيل soyeht pair على Linux."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-এ soyeht pair চালানোর ধাপে ধাপে নির্দেশিকা।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt-für-Schritt-Anleitung für soyeht pair unter Linux."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step-by-step guide to run soyeht pair on Linux."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guía paso a paso para ejecutar soyeht pair en Linux."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guide pas à pas pour lancer soyeht pair sur Linux."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux पर soyeht pair चलाने की चरण-दर-चरण गाइड।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Panduan langkah demi langkah menjalankan soyeht pair di Linux."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux で soyeht pair を実行する手順ガイド。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux에서 soyeht pair를 실행하는 단계별 안내."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux वर soyeht pair चालवण्याचे टप्प्याटप्प्याने मार्गदर्शन."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guia passo a passo para rodar soyeht pair no Linux."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guia passo a passo para executar soyeht pair no Linux."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пошаговое руководство по запуску soyeht pair в Linux."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linuxలో soyeht pair నడపడానికి దశలవారీ మార్గదర్శిని."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux پر soyeht pair چلانے کی مرحلہ وار رہنمائی۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 上运行 soyeht pair 的分步指南。"
+          }
+        }
+      }
+    },
+    "addDevice.option.linux": {
+      "comment" : "Add Device option leading to the Linux pairing guide.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جهاز Linux"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux মেশিন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-Rechner"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux machine"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máquina Linux"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Machine Linux"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux मशीन"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesin Linux"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux マシン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 머신"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux मशीन"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máquina Linux"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máquina Linux"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Машина с Linux"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux మెషీన్"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux مشین"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 机器"
+          }
+        }
+      }
+    },
+    "addDevice.option.mac.detail": {
+      "comment" : "Detail line for the Mac option on the Add Device picker.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أنشئ دعوة هنا، أو امسح رمز QR يعرضه الـ Mac."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এখানে আমন্ত্রণ তৈরি করুন, বা Mac-এ দেখানো QR স্ক্যান করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erstellen Sie hier eine Einladung oder scannen Sie einen QR-Code vom Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mint an invitation here, or scan a QR shown by the Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea una invitación aquí o escanea un QR que muestre el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créez une invitation ici, ou scannez un QR affiché par le Mac."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यहाँ निमंत्रण बनाएँ, या Mac पर दिखा QR स्कैन करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buat undangan di sini, atau pindai QR yang ditampilkan Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここで招待を作るか、Mac が表示する QR を読み取ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기서 초대를 만들거나 Mac이 보여주는 QR을 스캔하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इथे आमंत्रण तयार करा, किंवा Mac ने दाखवलेला QR स्कॅन करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crie um convite aqui, ou escaneie um QR mostrado pelo Mac."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crie um convite aqui, ou leia um QR mostrado pelo Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создайте приглашение здесь или отсканируйте QR-код с Mac."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఇక్కడ ఆహ్వానాన్ని సృష్టించండి, లేదా Mac చూపే QRని స్కాన్ చేయండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہاں دعوت بنائیں، یا Mac پر دکھایا گیا QR اسکین کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这里生成邀请，或扫描 Mac 显示的二维码。"
+          }
+        }
+      }
+    },
+    "addDevice.option.mac": {
+      "comment" : "Add Device option leading to the iPhone-orchestrated add-Mac flow.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        }
+      }
+    },
+    "addDevice.subtitle": {
+      "comment" : "Add Device picker subtitle explaining the two ways to add a second machine.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصّل جهاز Linux، أو استخدم رابط اقتران موجودًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি Linux মেশিন যুক্ত করুন, বা বিদ্যমান পেয়ারিং লিঙ্ক ব্যবহার করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden Sie einen Linux-Rechner oder nutzen Sie einen vorhandenen Kopplungslink."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect a Linux machine, or use an existing pairing link."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta una máquina Linux o usa un enlace de emparejamiento existente."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez une machine Linux, ou utilisez un lien d'appairage existant."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "कोई Linux मशीन जोड़ें, या मौजूदा पेयरिंग लिंक इस्तेमाल करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hubungkan mesin Linux, atau gunakan tautan pemasangan yang ada."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux マシンを接続するか、既存のペアリングリンクを使います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 머신을 연결하거나 기존 페어링 링크를 사용하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux मशीन जोडा, किंवा अस्तित्वात असलेला जोडणी दुवा वापरा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecte uma máquina Linux ou use um link de pareamento existente."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligue uma máquina Linux ou use uma ligação de emparelhamento existente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключите машину с Linux или используйте существующую ссылку сопряжения."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux మెషీన్‌ను కనెక్ట్ చేయండి, లేదా ఉన్న పెయిరింగ్ లింక్‌ను వాడండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "کوئی Linux مشین جوڑیں، یا موجودہ پیئرنگ لنک استعمال کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接一台 Linux 机器，或使用已有的配对链接。"
+          }
+        }
+      }
+    },
+    "addDevice.title": {
+      "comment" : "Add Device picker title shown when the user taps the + button on the instance list.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة جهاز"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি ডিভাইস যোগ করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerät hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un dispositivo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un appareil"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "डिवाइस जोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah perangkat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイスを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기기 추가"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "डिव्हाइस जोडा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um aparelho"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um dispositivo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить устройство"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "పరికరాన్ని జోడించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ڈیوائس شامل کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加设备"
           }
         }
       }
@@ -39570,394 +41068,6 @@
       },
       "comment": "Settings entry to replay the onboarding carousel."
     },
-    "noHouseholdBanner.title": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يتم إعداد منزلك بعد"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr Zuhause ist noch nicht eingerichtet"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu casa aún no está configurada"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre maison n’est pas encore configurée"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपका home अभी set up नहीं है"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rumah Anda belum disiapkan"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "家はまだ設定されていません"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "홈이 아직 설정되지 않았습니다"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的家尚未设置"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sua casa ainda não está configurada"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A sua casa ainda não está configurada"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ваш дом еще не настроен"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "آپ کا home ابھی set up نہیں ہے"
-          }
-        }
-      },
-      "comment": "NoHouseholdBanner primary line. Shown when household setup was deferred."
-    },
-    "noHouseholdBanner.subtitle": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اضغط لإعداده الآن"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to set it up now"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippen Sie, um es jetzt einzurichten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to set it up now"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca para configurarla ahora"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez pour la configurer maintenant"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी set up करने के लिए tap करें"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ketuk untuk menyiapkannya sekarang"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今すぐ設定するにはタップ"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "지금 설정하려면 탭하세요"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "轻点立即设置"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to set it up now"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toque para configurar agora"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toque para configurar agora"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нажмите, чтобы настроить сейчас"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to set it up now"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ابھی set up کرنے کے لیے tap کریں"
-          }
-        }
-      },
-      "comment": "NoHouseholdBanner secondary CTA line."
-    },
-    "noHouseholdBanner.a11y": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يتم إعداد منزلك بعد. اضغط لإعداده الآن."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet. Tap to set it up now."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr Zuhause ist noch nicht eingerichtet. Tippen Sie, um es jetzt einzurichten."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet. Tap to set it up now."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu casa aún no está configurada. Toca para configurarla ahora."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre maison n’est pas encore configurée. Touchez pour la configurer maintenant."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपका home अभी set up नहीं है। अभी set up करने के लिए tap करें।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rumah Anda belum disiapkan. Ketuk untuk menyiapkannya sekarang."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "家はまだ設定されていません。今すぐ設定するにはタップしてください。"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "홈이 아직 설정되지 않았습니다. 지금 설정하려면 탭하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的家尚未设置。轻点立即设置。"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet. Tap to set it up now."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sua casa ainda não está configurada. Toque para configurar agora."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A sua casa ainda não está configurada. Toque para configurar agora."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ваш дом еще не настроен. Нажмите, чтобы настроить сейчас."
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your home isn't set up yet. Tap to set it up now."
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "آپ کا home ابھی set up نہیں ہے۔ ابھی set up کرنے کے لیے tap کریں۔"
-          }
-        }
-      },
-      "comment": "VoiceOver label for NoHouseholdBanner."
-    },
-    "noHouseholdBanner.a11yHint": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يفتح مساعد الإعداد"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opens the setup assistant"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffnet den Einrichtungsassistenten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opens the setup assistant"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre el asistente de configuración"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvre l’assistant de configuration"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "setup assistant खोलता है"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Membuka asisten penyiapan"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "設定アシスタントを開きます"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "설정 도우미를 엽니다"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开设置助手"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opens the setup assistant"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre o assistente de configuração"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre o assistente de configuração"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Открывает помощник настройки"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opens the setup assistant"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "setup assistant کھولتا ہے"
-          }
-        }
-      },
-      "comment": "VoiceOver hint for NoHouseholdBanner."
-    },
     "mac.detail.section.windows": {
       "localizations": {
         "ar": {
@@ -43221,6 +44331,1932 @@
       },
       "comment": "Cellular confirmation sheet title."
     },
+    "awaitingNewMac.failure.signingFailed": {
+      "comment" : "Error shown when PoP signing fails during Add Mac.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر توقيع الطلب. أعد المحاولة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "অনুরোধটি সই করা গেল না। আবার চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Anfrage konnte nicht signiert werden. Versuchen Sie es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't sign the request. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo firmar la solicitud. Inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de signer la demande. Réessayez."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "अनुरोध पर हस्ताक्षर नहीं हो सका। फिर कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat menandatangani permintaan. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リクエストに署名できませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청에 서명하지 못했습니다. 다시 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "विनंतीवर स्वाक्षरी करता आली नाही. पुन्हा प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não consegui assinar o pedido. Tente de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível assinar o pedido. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подписать запрос. Повторите попытку."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "అభ్యర్థనపై సంతకం చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "درخواست پر دستخط نہ ہو سکے۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法为该请求签名，请重试。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.failure.identityUnavailable": {
+      "comment" : "Error shown when the owner identity key cannot be loaded for Add Mac.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هويتك غير متاحة الآن. أعد فتح التطبيق وحاول مجددًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার পরিচয় এখন পাওয়া যাচ্ছে না। অ্যাপটি আবার খুলে চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre Identität ist gerade nicht verfügbar. Öffnen Sie die App erneut und versuchen Sie es nochmal."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your identity isn't available right now. Reopen the app and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu identidad no está disponible ahora. Vuelve a abrir la app e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre identité n'est pas disponible pour l'instant. Rouvrez l'app et réessayez."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपकी पहचान अभी उपलब्ध नहीं है। ऐप फिर खोलें और कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identitas Anda tidak tersedia saat ini. Buka ulang aplikasi lalu coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在 ID を利用できません。アプリを開き直してもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금은 신원을 사용할 수 없습니다. 앱을 다시 열고 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमची ओळख आत्ता उपलब्ध नाही. ॲप पुन्हा उघडा आणि प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua identidade não está disponível agora. Reabra o app e tente de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua identidade não está disponível agora. Reabra a app e tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша личность сейчас недоступна. Откройте приложение заново и повторите попытку."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ గుర్తింపు ప్రస్తుతం అందుబాటులో లేదు. యాప్‌ను మళ్లీ తెరిచి ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کی شناخت ابھی دستیاب نہیں۔ ایپ دوبارہ کھولیں اور کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前无法读取你的身份。请重新打开 App 后重试。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.failure.biometryCanceled": {
+      "comment" : "Error shown when the user cancels the biometric prompt during Add Mac.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أُلغيت المصادقة. أعد المحاولة لإضافة هذا الـ Mac."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "প্রমাণীকরণ বাতিল হয়েছে। এই Mac যোগ করতে আবার চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentifizierung abgebrochen. Versuchen Sie es erneut, um diesen Mac hinzuzufügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication cancelled. Try again to add this Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autenticación cancelada. Inténtalo de nuevo para añadir este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentification annulée. Réessayez pour ajouter ce Mac."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "प्रमाणीकरण रद्द हुआ। यह Mac जोड़ने के लिए फिर कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autentikasi dibatalkan. Coba lagi untuk menambahkan Mac ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証がキャンセルされました。もう一度この Mac の追加をお試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증이 취소되었습니다. 이 Mac을 추가하려면 다시 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "प्रमाणीकरण रद्द झाले. हा Mac जोडण्यासाठी पुन्हा प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autenticação cancelada. Tente de novo para adicionar este Mac."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autenticação cancelada. Tente novamente para adicionar este Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Аутентификация отменена. Повторите попытку, чтобы добавить этот Mac."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ప్రామాణీకరణ రద్దైంది. ఈ Macని జోడించడానికి మళ్లీ ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تصدیق منسوخ ہو گئی۔ یہ Mac شامل کرنے کے لیے دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证已取消。请重试以添加这台 Mac。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.failure.generic": {
+      "comment" : "Generic Add Mac failure message.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حدث خطأ ما. أعد المحاولة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algo salió mal. Inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une erreur est survenue. Réessayez."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "कुछ गड़बड़ हुई। फिर कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terjadi kesalahan. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "問題が発生しました。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "문제가 발생했습니다. 다시 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "काहीतरी चूक झाली. पुन्हा प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algo deu errado. Tente de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algo correu mal. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что-то пошло не так. Повторите попытку."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఏదో తప్పు జరిగింది. మళ్లీ ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "کچھ غلط ہو گیا۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出了点问题，请重试。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.failure.retry": {
+      "comment" : "Retry CTA on the Add Mac failure screen.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أعد المحاولة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আবার চেষ্টা করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut versuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intentar de nuevo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "फिर कोशिश करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba lagi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "もう一度試す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पुन्हा प्रयत्न करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tentar de novo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tentar novamente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторить"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మళ్లీ ప్రయత్నించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "دوبارہ کوشش کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.failure.title": {
+      "comment" : "Title shown when the Add Mac flow fails.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّرت إضافة هذا الـ Mac"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac যোগ করা গেল না"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac konnte nicht hinzugefügt werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't add this Mac"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo añadir este Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d'ajouter ce Mac"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह Mac जोड़ा नहीं जा सका"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat menambahkan Mac ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac を追加できませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac을 추가하지 못했습니다"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हा Mac जोडता आला नाही"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não consegui adicionar este Mac"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível adicionar este Mac"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось добавить этот Mac"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Macని జోడించలేకపోయాం"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ Mac شامل نہیں ہو سکا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法添加这台 Mac"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.success.title": {
+      "comment" : "Title shown when the Mac successfully joins the household.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تمت إضافة الـ Mac"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac যোগ হয়েছে"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac hinzugefügt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac added"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac añadido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac ajouté"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac जोड़ा गया"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac ditambahkan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac を追加しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 추가됨"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac जोडला"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac adicionado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac adicionado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac добавлен"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac జోడించబడింది"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac شامل ہو گیا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加 Mac"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.orchestrating.title": {
+      "comment" : "Title shown while iPhone runs the cert-issue dance with Linux + Mac.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ إضافة جهاز Mac إلى %@..."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Mac %@-এ যোগ করা হচ্ছে..."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Mac wird zu %@ hinzugefügt..."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adding your Mac to %@..."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadiendo tu Mac a %@..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajout de votre Mac à %@..."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपका Mac %@ में जोड़ा जा रहा है..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menambahkan Mac Anda ke %@..."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac を %@ に追加しています..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac을 %@에 추가하는 중..."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Mac %@ मध्ये जोडत आहे..."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionando seu Mac a %@..."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A adicionar o seu Mac a %@..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавляем ваш Mac в %@..."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Macని %@కి జోడిస్తోంది..."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کا Mac %@ میں شامل کیا جا رہا ہے..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在把你的 Mac 加入 %@..."
+          }
+        }
+      }
+    },
+    "awaitingNewMac.looking.existingHouseNotice": {
+      "comment" : "Guidance shown when Add Mac sees only already-configured Macs for a short period.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عثرتُ على Mac لديه منزل بالفعل. لإضافته هنا، انسَ منزله أولًا. وإلا، افتح Soyeht على الـ Mac الذي تريد إضافته."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এমন একটি Mac পেয়েছি যার আগে থেকেই বাড়ি আছে। সেটিকে এখানে যোগ করতে আগে তার বাড়ি ভুলে যান। নাহলে যে Mac যোগ করতে চান সেটিতে Soyeht খুলুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Mac mit eigenem Zuhause gefunden. Um ihn hier hinzuzufügen, vergessen Sie zuerst sein Zuhause. Andernfalls öffnen Sie Soyeht auf dem Mac, den Sie hinzufügen möchten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Found a Mac that already has a home. To add that Mac here, reset its Soyeht home first. Otherwise, open Soyeht on the Mac you want to add."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontré un Mac que ya tiene un hogar. Para añadirlo aquí, olvida antes su hogar. Si no, abre Soyeht en el Mac que quieres añadir."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai trouvé un Mac qui a déjà une maison. Pour l'ajouter ici, oubliez d'abord sa maison. Sinon, ouvrez Soyeht sur le Mac que vous voulez ajouter."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "एक ऐसा Mac मिला जिसका पहले से घर है। उसे यहाँ जोड़ने के लिए पहले उसका घर भूलें। वरना जिस Mac को जोड़ना है, उस पर Soyeht खोलें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ditemukan Mac yang sudah punya rumah. Untuk menambahkannya di sini, lupakan dulu rumahnya. Jika tidak, buka Soyeht di Mac yang ingin ditambahkan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すでにホームを持つ Mac が見つかりました。その Mac をここに追加するには、先にそのホームを忘れてください。そうでなければ、追加したい Mac で Soyeht を開いてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 홈이 있는 Mac을 찾았습니다. 그 Mac을 여기에 추가하려면 먼저 그 홈을 잊으세요. 아니면 추가할 Mac에서 Soyeht을 여세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आधीच घर असलेला Mac सापडला. तो इथे जोडण्यासाठी आधी त्याचे घर विसरा. अन्यथा, जोडायच्या Mac वर Soyeht उघडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achei um Mac que já tem uma casa. Para adicionar esse Mac aqui, esqueça a casa dele primeiro. Senão, abra o Soyeht no Mac que você quer adicionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontrei um Mac que já tem uma casa. Para adicionar esse Mac aqui, esqueça primeiro a casa dele. Caso contrário, abra o Soyeht no Mac que quer adicionar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Найден Mac, у которого уже есть дом. Чтобы добавить его сюда, сначала забудьте его дом. Иначе откройте Soyeht на нужном Mac."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఇప్పటికే ఇల్లు ఉన్న Mac దొరికింది. దాన్ని ఇక్కడ జోడించాలంటే ముందు దాని ఇంటిని మరచిపోండి. లేకపోతే, జోడించాలనుకుంటున్న Macలో Soyeht తెరవండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ایک ایسا Mac ملا جس کا پہلے سے گھر ہے۔ اسے یہاں شامل کرنے کے لیے پہلے اس کا گھر بھول جائیں۔ ورنہ جس Mac کو شامل کرنا ہے، اس پر Soyeht کھولیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找到了一台已经有家的 Mac。要把它加到这里，请先忘记它的家。否则，请在你想添加的那台 Mac 上打开 Soyeht。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.looking.subtitle": {
+      "comment" : "Subtitle on the Add Mac waiting screen.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح Soyeht على الـ Mac الذي تريد إضافته إلى %@. سأتولى الباقي."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "যে Mac-টি %@-এ যোগ করতে চান, সেটিতে Soyeht খুলুন। বাকিটা আমি করব।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen Sie Soyeht auf dem Mac, den Sie zu %@ hinzufügen möchten. Den Rest übernehme ich."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Soyeht on the Mac you want to add to %@. I'll do the rest."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Soyeht en el Mac que quieres añadir a %@. Yo hago el resto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez Soyeht sur le Mac que vous voulez ajouter à %@. Je m'occupe du reste."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "जिस Mac को %@ में जोड़ना है, उस पर Soyeht खोलें। बाकी मैं कर लूँगा।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Soyeht di Mac yang ingin Anda tambahkan ke %@. Sisanya saya urus."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に追加したい Mac で Soyeht を開いてください。あとはこちらで進めます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 추가할 Mac에서 Soyeht을 여세요. 나머지는 제가 합니다."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ मध्ये जोडायचा असलेल्या Mac वर Soyeht उघडा. बाकीचे मी करतो."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abra o Soyeht no Mac que você quer adicionar a %@. Eu faço o resto."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abra o Soyeht no Mac que quer adicionar a %@. Eu faço o resto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Откройте Soyeht на Mac, который хотите добавить в %@. Остальное я сделаю."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@కి జోడించాలనుకుంటున్న Macలో Soyeht తెరవండి. మిగతాది నేను చూసుకుంటాను."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جس Mac کو %@ میں شامل کرنا ہے، اس پر Soyeht کھولیں۔ باقی میں کر لوں گا۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在你想加入 %@ 的那台 Mac 上打开 Soyeht，其余交给我。"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.looking.title": {
+      "comment" : "Title shown while the iPhone publishes a setup invitation and waits for a fresh Mac to claim it.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ البحث عن جهاز Mac..."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Mac খোঁজা হচ্ছে..."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suche nach Ihrem Mac..."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for your Mac..."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando tu Mac..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche de votre Mac..."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपका Mac खोजा जा रहा है..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mencari Mac Anda..."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac を探しています..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac을 찾는 중..."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Mac शोधत आहे..."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procurando seu Mac..."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À procura do seu Mac..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поиск вашего Mac..."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Mac కోసం వెతుకుతోంది..."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کا Mac تلاش کیا جا رہا ہے..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在寻找你的 Mac..."
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.invalidSecurityCode": {
+      "comment" : "Error shown when the iPhone cannot derive the security code from the pairing URI.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عثرتُ على جهاز Mac، لكن تعذّر التحقق من رمز الأمان. استخدم رمز QR على الـ Mac."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Mac পেয়েছি, কিন্তু তার নিরাপত্তা কোড যাচাই করা গেল না। Mac-এ QR ব্যবহার করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich habe Ihren Mac gefunden, konnte den Sicherheitscode aber nicht prüfen. Nutzen Sie den QR-Code am Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I found your Mac, but couldn't verify its security code. Try the QR fallback on the Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontré tu Mac, pero no pude verificar su código de seguridad. Usa el QR en el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai trouvé votre Mac, mais je n'ai pas pu vérifier son code de sécurité. Utilisez le QR sur le Mac."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपका Mac मिला, पर उसका सुरक्षा कोड सत्यापित नहीं हो सका। Mac पर QR इस्तेमाल करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac Anda ditemukan, tetapi kode keamanannya tidak dapat diverifikasi. Gunakan QR di Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac は見つかりましたが、セキュリティコードを確認できませんでした。Mac の QR をお使いください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac을 찾았지만 보안 코드를 확인하지 못했습니다. Mac의 QR을 사용하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Mac सापडला, पण त्याचा सुरक्षा कोड तपासता आला नाही. Mac वरील QR वापरा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achei seu Mac, mas não consegui verificar o código de segurança. Use o QR no Mac."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontrei o seu Mac, mas não consegui verificar o código de segurança. Use o QR no Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac найден, но проверить его код безопасности не удалось. Используйте QR-код на Mac."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Mac దొరికింది, కానీ దాని భద్రతా కోడ్‌ను ధృవీకరించలేకపోయాను. Macలోని QRని వాడండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کا Mac مل گیا، مگر اس کا سیکیورٹی کوڈ تصدیق نہ ہو سکا۔ Mac پر QR استعمال کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找到了你的 Mac，但无法验证它的安全码。请改用 Mac 上的二维码。"
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.invalidLink": {
+      "comment" : "Error shown when the Mac sends an invalid first-owner pairing URI.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عثرتُ على جهاز Mac، لكن تعذّر التحقق من رابط الاقتران. استخدم رمز QR على الـ Mac."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Mac পেয়েছি, কিন্তু তার পেয়ারিং লিঙ্ক যাচাই করা গেল না। Mac-এ QR ব্যবহার করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich habe Ihren Mac gefunden, konnte den Kopplungslink aber nicht prüfen. Nutzen Sie den QR-Code am Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I found your Mac, but couldn't verify its pairing link. Try the QR fallback on the Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontré tu Mac, pero no pude verificar su enlace de emparejamiento. Usa el QR en el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai trouvé votre Mac, mais je n'ai pas pu vérifier son lien d'appairage. Utilisez le QR sur le Mac."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आपका Mac मिला, पर उसका पेयरिंग लिंक सत्यापित नहीं हो सका। Mac पर QR इस्तेमाल करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac Anda ditemukan, tetapi tautan pemasangannya tidak dapat diverifikasi. Gunakan QR di Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac は見つかりましたが、ペアリングリンクを確認できませんでした。Mac の QR をお使いください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac을 찾았지만 페어링 링크를 확인하지 못했습니다. Mac의 QR을 사용하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Mac सापडला, पण त्याचा जोडणी दुवा तपासता आला नाही. Mac वरील QR वापरा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achei seu Mac, mas não consegui verificar o link de pareamento. Use o QR no Mac."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontrei o seu Mac, mas não consegui verificar a ligação de emparelhamento. Use o QR no Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac найден, но проверить его ссылку сопряжения не удалось. Используйте QR-код на Mac."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Mac దొరికింది, కానీ దాని పెయిరింగ్ లింక్‌ను ధృవీకరించలేకపోయాను. Macలోని QRని వాడండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آپ کا Mac مل گیا، مگر اس کا پیئرنگ لنک تصدیق نہ ہو سکا۔ Mac پر QR استعمال کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找到了你的 Mac，但无法验证它的配对链接。请改用 Mac 上的二维码。"
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.connect.approvalTimedOut": {
+      "comment" : "Shown when delegated device pairing expires without approval from an existing iPhone.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يوافق أي iPhone في هذا المنزل على الطلب. إذا لم يعد ذلك الـ iPhone موجودًا، افتح Soyeht على الـ Mac، وانتقل إلى الإعدادات › الأجهزة، واختر «نسيان هذا المنزل» — ثم اقرن هذا الـ iPhone كأول جهاز."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ির কোনো iPhone অনুরোধটি অনুমোদন করেনি। সেই iPhone না থাকলে Mac-এ Soyeht খুলুন, সেটিংস › ডিভাইস-এ গিয়ে 'এই বাড়ি ভুলে যান' বেছে নিন — তারপর এই iPhone-কে প্রথম হিসেবে জোড়া দিন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein iPhone dieses Zuhauses hat die Anfrage freigegeben. Ist dieses iPhone weg, öffnen Sie Soyeht auf dem Mac, gehen Sie zu Einstellungen › Geräte und wählen Sie „Dieses Zuhause vergessen“ — koppeln Sie dann dieses iPhone als erstes."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Settings › Devices, and choose Forget this home — then pair this iPhone as the first one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún iPhone de este hogar aprobó la solicitud. Si ese iPhone ya no está, abre Soyeht en el Mac, ve a Ajustes › Dispositivos y elige Olvidar este hogar; luego empareja este iPhone como el primero."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun iPhone de cette maison n'a approuvé la demande. Si cet iPhone a disparu, ouvrez Soyeht sur le Mac, allez dans Réglages › Appareils et choisissez Oublier cette maison — puis appairez cet iPhone comme le premier."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस घर के किसी iPhone ने अनुरोध मंज़ूर नहीं किया। अगर वह iPhone नहीं है, तो Mac पर Soyeht खोलें, सेटिंग्स › डिवाइस में जाएँ और 'इस घर को भूलें' चुनें — फिर इस iPhone को पहले के रूप में जोड़ें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada iPhone di rumah ini yang menyetujui permintaan. Jika iPhone itu sudah tidak ada, buka Soyeht di Mac, masuk ke Pengaturan › Perangkat, pilih Lupakan rumah ini — lalu pasangkan iPhone ini sebagai yang pertama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このホームのどの iPhone も承認しませんでした。その iPhone がもう無い場合は、Mac で Soyeht を開き、設定 › デバイス から「このホームを忘れる」を選び、この iPhone を最初の端末としてペアリングしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 홈의 어떤 iPhone도 요청을 승인하지 않았습니다. 그 iPhone이 없다면 Mac에서 Soyeht을 열고 설정 › 기기에서 '이 홈 잊기'를 선택한 뒤, 이 iPhone을 첫 기기로 페어링하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या घरातील कोणत्याही iPhone ने विनंती मंजूर केली नाही. तो iPhone नसेल, तर Mac वर Soyeht उघडा, सेटिंग्ज › डिव्हाइस मध्ये जा आणि 'हे घर विसरा' निवडा — मग हा iPhone पहिला म्हणून जोडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum iPhone desta casa aprovou o pedido. Se aquele iPhone sumiu, abra o Soyeht no Mac, vá em Ajustes › Aparelhos e escolha Esquecer esta casa — depois pareie este iPhone como o primeiro."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum iPhone desta casa aprovou o pedido. Se esse iPhone desapareceu, abra o Soyeht no Mac, vá a Definições › Dispositivos e escolha Esquecer esta casa — depois emparelhe este iPhone como o primeiro."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ни один iPhone этого дома не подтвердил запрос. Если того iPhone больше нет, откройте Soyeht на Mac, зайдите в Настройки › Устройства и выберите «Забыть этот дом», затем подключите этот iPhone первым."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ ఇంటిలోని ఏ iPhone అభ్యర్థనను ఆమోదించలేదు. ఆ iPhone లేకుంటే Macలో Soyeht తెరిచి, సెట్టింగ్‌లు › పరికరాలుకు వెళ్లి 'ఈ ఇంటిని మరచిపో' ఎంచుకోండి — తర్వాత ఈ iPhoneని మొదటిదిగా జోడించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس گھر کے کسی iPhone نے درخواست منظور نہیں کی۔ اگر وہ iPhone موجود نہیں، تو Mac پر Soyeht کھولیں، ترتیبات › ڈیوائسز میں جائیں اور 'اس گھر کو بھول جائیں' منتخب کریں — پھر اس iPhone کو پہلے کے طور پر جوڑیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个家里没有 iPhone 批准该请求。如果那台 iPhone 已经不在，请在 Mac 上打开 Soyeht，进入 设置 › 设备，选择“忘记这个家”，然后把这台 iPhone 作为第一台配对。"
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.connect.failed": {
+      "comment" : "Recoverable error shown when no-QR existing-house pairing does not complete.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر الاتصال هذه المرة. أبقِ Soyeht مفتوحًا على جهاز Mac وحاول مجددًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এইবার সংযোগ করা গেল না। আপনার Mac-এ Soyeht খোলা রেখে আবার চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesmal hat die Verbindung nicht geklappt. Lassen Sie Soyeht auf Ihrem Mac offen und versuchen Sie es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I couldn't connect this time. Keep Soyeht open on your Mac and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pude conectar esta vez. Deja Soyeht abierto en tu Mac e inténtalo otra vez."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion n'a pas abouti cette fois. Laissez Soyeht ouvert sur votre Mac et réessayez."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस बार कनेक्ट नहीं हो सका। अपने Mac पर Soyeht खुला रखें और फिर कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kali ini tidak berhasil terhubung. Biarkan Soyeht terbuka di Mac lalu coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今回は接続できませんでした。Mac で Soyeht を開いたまま、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번에는 연결하지 못했습니다. Mac에서 Soyeht을 열어 둔 채 다시 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यावेळी जोडता आले नाही. तुमच्या Mac वर Soyeht उघडे ठेवा आणि पुन्हा प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não consegui conectar desta vez. Deixe o Soyeht aberto no seu Mac e tente de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não consegui ligar desta vez. Mantenha o Soyeht aberto no seu Mac e tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этот раз подключиться не удалось. Оставьте Soyeht открытым на Mac и повторите попытку."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈసారి కనెక్ట్ కాలేదు. మీ Macలో Soyehtని తెరిచి ఉంచి మళ్లీ ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس بار رابطہ نہیں ہو سکا۔ اپنے Mac پر Soyeht کھلا رکھیں اور دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能连上。请在 Mac 上保持 Soyeht 打开后重试。"
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.waitingForApproval": {
+      "comment" : "Shown while a new iPhone waits for an existing iPhone in the home to approve it.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "في انتظار موافقة iPhone ينتمي بالفعل إلى هذا المنزل."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ির অন্তর্ভুক্ত কোনো iPhone-এর অনুমোদনের অপেক্ষা।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warten auf die Freigabe durch ein iPhone, das bereits zu diesem Zuhause gehört."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for approval from an iPhone that already belongs to this home."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando la aprobación de un iPhone que ya pertenece a este hogar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente de l'approbation d'un iPhone qui appartient déjà à cette maison."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस घर के किसी मौजूदा iPhone की मंज़ूरी का इंतज़ार है।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menunggu persetujuan dari iPhone yang sudah menjadi bagian rumah ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すでにこのホームに属する iPhone の承認を待っています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 이 홈에 속한 iPhone의 승인을 기다리는 중입니다."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या घराचा आधीच भाग असलेल्या iPhone च्या मंजुरीची वाट पाहत आहे."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando a aprovação de um iPhone que já faz parte desta casa."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À espera da aprovação de um iPhone que já pertence a esta casa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ожидание подтверждения от iPhone, который уже принадлежит этому дому."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఇప్పటికే ఈ ఇంటికి చెందిన iPhone ఆమోదం కోసం వేచి ఉంది."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس گھر سے پہلے سے تعلق رکھنے والے iPhone کی منظوری کا انتظار ہے۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待已属于这个家的 iPhone 批准。"
+          }
+        }
+      }
+    },
+    "awaitingMac.existingHouse.connect": {
+      "comment" : "CTA that pairs this iPhone to the discovered existing Mac home.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصّل هذا الـ iPhone"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই iPhone যুক্ত করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses iPhone verbinden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect this iPhone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar este iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter cet iPhone"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह iPhone जोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hubungkan iPhone ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この iPhone を接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone 연결"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हा iPhone जोडा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar este iPhone"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligar este iPhone"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключить этот iPhone"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ iPhoneని కనెక్ట్ చేయండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ iPhone جوڑیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接这台 iPhone"
+          }
+        }
+      }
+    },
+    "awaitingNewMac.cancel": {
+      "comment" : "Cancel button on the Add Mac waiting screen.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বাতিল"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмена"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "రద్దు"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "منسوخ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
     "cellular.sheet.body": {
       "localizations": {
         "ar": {
@@ -43608,6 +46644,1183 @@
         }
       },
       "comment": "Low battery warning sheet title."
+    },
+    "linuxPairing.shareInstallLink": {
+      "comment" : "Tertiary action on the Linux pairing guide. Opens a share sheet with the theyOS install URL so the user can send it to their Linux computer (email, AirDrop, messaging app) when theyOS is not yet installed.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إرسال رابط التثبيت إلى حاسوب"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ইনস্টল লিঙ্ক একটি কম্পিউটারে পাঠান"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installationslink an einen Computer senden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send install link to a computer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar enlace de instalación a un ordenador"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer le lien d'installation à un ordinateur"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इंस्टॉल लिंक कंप्यूटर पर भेजें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kirim tautan pemasangan ke komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "インストールリンクをコンピュータに送る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설치 링크를 컴퓨터로 보내기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "स्थापना दुवा संगणकावर पाठवा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar link de instalação para um computador"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar ligação de instalação para um computador"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправить ссылку на установку на компьютер"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఇన్‌స్టాల్ లింక్‌ను కంప్యూటర్‌కు పంపండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انسٹال لنک کمپیوٹر پر بھیجیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把安装链接发到电脑"
+          }
+        }
+      }
+    },
+    "linuxPairing.scanButton": {
+      "comment" : "Primary action to open QR scanner for Linux pairing.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "امسح أو الصق رابط الاقتران"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "পেয়ারিং লিঙ্ক স্ক্যান বা পেস্ট করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopplungslink scannen oder einfügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan or paste pairing link"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanear o pegar enlace de emparejamiento"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner ou coller le lien d'appairage"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पेयरिंग लिंक स्कैन या पेस्ट करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pindai atau tempel tautan pemasangan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングリンクを読み取る／貼り付ける"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링 링크 스캔 또는 붙여넣기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "जोडणी दुवा स्कॅन करा किंवा पेस्ट करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanear ou colar link de pareamento"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ler ou colar ligação de emparelhamento"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сканировать или вставить ссылку"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "పెయిరింగ్ లింక్‌ను స్కాన్ చేయండి లేదా అతికించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "پیئرنگ لنک اسکین یا پیسٹ کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描或粘贴配对链接"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.scan.detail": {
+      "comment" : "Linux setup step detail.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "استخدم رمز QR أو رابط ‏theyos:// الذي يعرضه الأمر."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "কমান্ড যে QR বা theyos:// লিঙ্ক দেখায় তা ব্যবহার করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutzen Sie den QR-Code oder den theyos://-Link, den der Befehl anzeigt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the QR code or the theyos:// pairing link shown by the command."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el QR o el enlace theyos:// que muestre el comando."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisez le QR ou le lien theyos:// affiché par la commande."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "कमांड द्वारा दिखाया QR या theyos:// लिंक इस्तेमाल करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gunakan QR atau tautan theyos:// yang ditampilkan perintah itu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コマンドが表示する QR または theyos:// リンクを使います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "명령이 보여주는 QR 또는 theyos:// 링크를 사용하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आदेश दाखवणारा QR किंवा theyos:// दुवा वापरा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use o QR ou o link theyos:// que o comando mostrar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use o QR ou a ligação theyos:// que o comando mostrar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Используйте QR-код или ссылку theyos://, которую покажет команда."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "కమాండ్ చూపే QR లేదా theyos:// లింక్‌ను వాడండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "کمانڈ کے دکھائے گئے QR یا theyos:// لنک کا استعمال کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用命令显示的二维码或 theyos:// 链接。"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.scan.title": {
+      "comment" : "Linux setup step title.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "امسح الرابط أو الصقه"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "লিঙ্ক স্ক্যান বা পেস্ট করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link scannen oder einfügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan or paste the link"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanea o pega el enlace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scannez ou collez le lien"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "लिंक स्कैन करें या पेस्ट करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pindai atau tempel tautannya"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リンクを読み取るか貼り付ける"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크를 스캔하거나 붙여넣기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "दुवा स्कॅन करा किंवा पेस्ट करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escaneie ou cole o link"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leia ou cole a ligação"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отсканируйте или вставьте ссылку"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "లింక్‌ను స్కాన్ చేయండి లేదా అతికించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لنک اسکین کریں یا پیسٹ کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描或粘贴链接"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.pair.detail": {
+      "comment" : "Linux setup step detail.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح طرفية على Linux ونفّذ `soyeht pair`."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-এ টার্মিনাল খুলে `soyeht pair` চালান।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen Sie ein Terminal unter Linux und führen Sie `soyeht pair` aus."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a terminal on Linux and run `soyeht pair`."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre un terminal en Linux y ejecuta `soyeht pair`."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez un terminal sur Linux et lancez `soyeht pair`."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux पर टर्मिनल खोलें और `soyeht pair` चलाएँ।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka terminal di Linux dan jalankan `soyeht pair`."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux でターミナルを開き `soyeht pair` を実行します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux에서 터미널을 열고 `soyeht pair`를 실행하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux वर टर्मिनल उघडा आणि `soyeht pair` चालवा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abra um terminal no Linux e rode `soyeht pair`."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abra um terminal no Linux e execute `soyeht pair`."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Откройте терминал в Linux и выполните `soyeht pair`."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linuxలో టెర్మినల్ తెరిచి `soyeht pair` నడపండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux پر ٹرمینل کھولیں اور `soyeht pair` چلائیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 上打开终端并运行 `soyeht pair`。"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.pair.title": {
+      "comment" : "Linux setup step title.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شغّل أمر الاقتران"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "পেয়ারিং কমান্ড চালান"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopplungsbefehl ausführen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run the pairing command"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecuta el comando de emparejamiento"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancez la commande d'appairage"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पेयरिंग कमांड चलाएँ"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jalankan perintah pemasangan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングコマンドを実行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링 명령 실행"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "जोडणी आदेश चालवा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rode o comando de pareamento"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Execute o comando de emparelhamento"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запустите команду сопряжения"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "పెయిరింగ్ కమాండ్ నడపండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "پیئرنگ کمانڈ چلائیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行配对命令"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.install.detail": {
+      "comment" : "Linux setup step detail.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "استخدم المثبّت أو الخدمة المهيّأة لجهاز Linux هذا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Linux মেশিনের জন্য কনফিগার করা ইনস্টলার বা সার্ভিস ব্যবহার করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutzen Sie das Installationsprogramm oder den Dienst dieses Linux-Rechners."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the installer or service configured for this Linux machine."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el instalador o servicio configurado para esta máquina Linux."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisez l'installateur ou le service configuré pour cette machine Linux."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस Linux मशीन के लिए कॉन्फ़िगर किया इंस्टॉलर या सेवा इस्तेमाल करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gunakan pemasang atau layanan yang dikonfigurasi untuk mesin Linux ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Linux マシン用のインストーラまたはサービスを使います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Linux 머신에 설정된 설치 프로그램이나 서비스를 사용하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या Linux मशीनसाठी कॉन्फिगर केलेला इन्स्टॉलर किंवा सेवा वापरा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use o instalador ou serviço configurado para esta máquina Linux."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use o instalador ou serviço configurado para esta máquina Linux."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Используйте установщик или службу, настроенную для этой машины Linux."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Linux మెషీన్ కోసం కాన్ఫిగర్ చేసిన ఇన్‌స్టాలర్ లేదా సర్వీస్‌ను వాడండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس Linux مشین کے لیے ترتیب دیا گیا انسٹالر یا سروس استعمال کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用为这台 Linux 机器配置的安装程序或服务。"
+          }
+        }
+      }
+    },
+    "linuxPairing.step.install.title": {
+      "comment" : "Linux setup step title.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ثبّت theyOS وشغّله"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS ইনস্টল করে চালু করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS installieren und starten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install and start theyOS"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala e inicia theyOS"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installez et démarrez theyOS"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS इंस्टॉल करें और शुरू करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasang dan jalankan theyOS"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS をインストールして起動"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS 설치 및 시작"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS स्थापित करा आणि सुरू करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instale e inicie o theyOS"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instale e inicie o theyOS"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Установите и запустите theyOS"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOSని ఇన్‌స్టాల్ చేసి ప్రారంభించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "theyOS انسٹال کریں اور شروع کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装并启动 theyOS"
+          }
+        }
+      }
+    },
+    "linuxPairing.subtitle": {
+      "comment" : "Subtitle explaining Linux pairing.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شغّل أمر الاقتران على Linux، ثم امسح رمز QR أو الصق الرابط هنا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-এ পেয়ারিং কমান্ড চালান, তারপর QR স্ক্যান করুন বা লিঙ্ক এখানে পেস্ট করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Führen Sie den Kopplungsbefehl unter Linux aus, scannen Sie dann den QR-Code oder fügen Sie den Link hier ein."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run the pairing command on Linux, then scan the QR code or paste the pairing link here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecuta el comando de emparejamiento en Linux, luego escanea el QR o pega el enlace aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancez la commande d'appairage sur Linux, puis scannez le QR ou collez le lien ici."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux पर पेयरिंग कमांड चलाएँ, फिर QR स्कैन करें या लिंक यहाँ पेस्ट करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jalankan perintah pemasangan di Linux, lalu pindai QR atau tempel tautannya di sini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux でペアリングコマンドを実行し、QR を読み取るかリンクをここに貼り付けます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux에서 페어링 명령을 실행한 뒤, QR을 스캔하거나 링크를 여기에 붙여넣으세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux वर जोडणी आदेश चालवा, मग QR स्कॅन करा किंवा दुवा इथे पेस्ट करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rode o comando de pareamento no Linux, depois escaneie o QR ou cole o link aqui."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Execute o comando de emparelhamento no Linux, depois leia o QR ou cole a ligação aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запустите команду сопряжения в Linux, затем отсканируйте QR-код или вставьте ссылку сюда."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linuxలో పెయిరింగ్ కమాండ్ నడపండి, తర్వాత QR స్కాన్ చేయండి లేదా లింక్ ఇక్కడ అతికించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux پر پیئرنگ کمانڈ چلائیں، پھر QR اسکین کریں یا لنک یہاں پیسٹ کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 上运行配对命令，然后扫描二维码或把链接粘贴到这里。"
+          }
+        }
+      }
+    },
+    "linuxPairing.title": {
+      "comment" : "Title for Linux setup instructions.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصّل حاسوب Linux الخاص بك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আপনার Linux কম্পিউটার যুক্ত করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden Sie Ihren Linux-Computer"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect your Linux computer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta tu ordenador Linux"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez votre ordinateur Linux"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "अपना Linux कंप्यूटर जोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hubungkan komputer Linux Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux コンピュータを接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 컴퓨터 연결"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "तुमचा Linux संगणक जोडा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecte seu computador Linux"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligue o seu computador Linux"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключите компьютер с Linux"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మీ Linux కంప్యూటర్‌ను కనెక్ట్ చేయండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اپنا Linux کمپیوٹر جوڑیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接你的 Linux 电脑"
+          }
+        }
+      }
+    },
+    "linuxPairing.back": {
+      "comment" : "Back button from Linux setup to install picker.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رجوع"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "পিছনে"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zurück"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atrás"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retour"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "वापस"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kembali"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戻る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "뒤로"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "मागे"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Назад"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "వెనుకకు"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "واپس"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
+          }
+        }
+      }
     },
     "lowBattery.sheet.body": {
       "localizations": {

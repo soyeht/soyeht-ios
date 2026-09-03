@@ -17,8 +17,6 @@
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
 		13024C53DFDDAC783F44A56D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		19D81B093B98F41B12D4082C /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E0512EBD37C26B02B6714F /* NotificationService.swift */; };
-		1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */; };
-		1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 863630A4821674D02C07E29C /* NoHouseholdBanner.swift */; };
 		21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
@@ -119,7 +117,6 @@
 		8DDA00000000000000000314 /* SoyehtIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000304 /* SoyehtIdentity.swift */; };
 		8DDA00000000000000000315 /* SoyehtIdentity+Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */; };
 		8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000321 /* SoyehtIdentityTests.swift */; };
-		8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000323 /* HomeViewStateTests.swift */; };
 		8DDA00000000000000000324 /* ServerRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000325 /* ServerRegistryTests.swift */; };
 		8DDA00000000000000000400 /* ClawInstallTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000410 /* ClawInstallTarget.swift */; };
 		8DDA00000000000000000402 /* ClawInstallTargetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */; };
@@ -249,7 +246,7 @@
 		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
 		E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
-		E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1508031EF9E559CCDBD1744C /* InstallPickerView.swift */; };
+		E913DC88309E47C5C90F9C6D /* LinuxPairingGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1508031EF9E559CCDBD1744C /* LinuxPairingGuideView.swift */; };
 		EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC63778F33C35BF76F1C4019 /* KeyHandoffMetaphorView.swift */; };
 		F17E0001000000000000F002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
@@ -319,7 +316,7 @@
 		0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddDevicePickerView.swift; sourceTree = "<group>"; };
 		10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RestoredFromBackupView.swift; sourceTree = "<group>"; };
-		1508031EF9E559CCDBD1744C /* InstallPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InstallPickerView.swift; sourceTree = "<group>"; };
+		1508031EF9E559CCDBD1744C /* LinuxPairingGuideView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LinuxPairingGuideView.swift; sourceTree = "<group>"; };
 		186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoyehtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
 		1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtLiveActivity.appex; path = SoyehtLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -380,7 +377,6 @@
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
 		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		1EBD9781CEAA43E38D2DA761 /* M0bLockCanaryDebugView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = M0bLockCanaryDebugView.swift; sourceTree = "<group>"; };
-		599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewState.swift; sourceTree = "<group>"; };
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
 		724061C54B09A67E6E724C7D /* SettingsRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		7461652053E6672CEA1ED086 /* AwaitingMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingMacView.swift; sourceTree = "<group>"; };
@@ -388,7 +384,6 @@
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		863630A4821674D02C07E29C /* NoHouseholdBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoHouseholdBanner.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
@@ -439,7 +434,6 @@
 		8DDA00000000000000000304 /* SoyehtIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentity.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtIdentity+Environment.swift"; sourceTree = "<group>"; };
 		8DDA00000000000000000321 /* SoyehtIdentityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityTests.swift; sourceTree = "<group>"; };
-		8DDA00000000000000000323 /* HomeViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewStateTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000325 /* ServerRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistryTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000410 /* ClawInstallTarget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTarget.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolver.swift; sourceTree = "<group>"; };
@@ -541,7 +535,6 @@
 		8DDA00000000000000000304 /* SoyehtIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentity.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtIdentity+Environment.swift"; sourceTree = "<group>"; };
 		8DDA00000000000000000321 /* SoyehtIdentityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityTests.swift; sourceTree = "<group>"; };
-		8DDA00000000000000000323 /* HomeViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewStateTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000325 /* ServerRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistryTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000410 /* ClawInstallTarget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTarget.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolver.swift; sourceTree = "<group>"; };
@@ -878,13 +871,13 @@
 			path = RecoveryMessage;
 			sourceTree = "<group>";
 		};
-		66080F883DBC4C51E3D0C7A5 /* InstallPicker */ = {
+		66080F883DBC4C51E3D0C7A5 /* Linux */ = {
 			isa = PBXGroup;
 			children = (
-				1508031EF9E559CCDBD1744C /* InstallPickerView.swift */,
+				1508031EF9E559CCDBD1744C /* LinuxPairingGuideView.swift */,
 			);
-			name = InstallPicker;
-			path = InstallPicker;
+			name = Linux;
+			path = Linux;
 			sourceTree = "<group>";
 		};
 		7ED8B8449FD05C73BE9FC3CD /* HouseNaming */ = {
@@ -1025,7 +1018,6 @@
 				5AA700000000000000000101 /* SecureUpgradeAppAttestCaptureTests.swift */,
 				8DDA0000000000000000011C /* PairedMacAliasTests.swift */,
 				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
-				8DDA00000000000000000323 /* HomeViewStateTests.swift */,
 				8DDA00000000000000000325 /* ServerRegistryTests.swift */,
 				8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */,
 				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
@@ -1210,7 +1202,7 @@
 			children = (
 				2A389575B94885D99B1996D6 /* Neo */,
 				7ED8B8449FD05C73BE9FC3CD /* HouseNaming */,
-				66080F883DBC4C51E3D0C7A5 /* InstallPicker */,
+				66080F883DBC4C51E3D0C7A5 /* Linux */,
 				8DDA00000000000000000520 /* OwnerPasskey */,
 				B1FB828D1BEDFB3C1FC0AB4D /* PairingConfirmation */,
 				911E2B6EBB8833CDE4A3D09D /* Proximity */,
@@ -1242,8 +1234,6 @@
 		FDE31AD4B47B8074E38570EF /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				863630A4821674D02C07E29C /* NoHouseholdBanner.swift */,
-				599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */,
 				0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */,
 				35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */,
 				CB1000600000000000000020 /* Neo */,
@@ -1673,7 +1663,7 @@
 				BC01000500000000000C0005 /* SourceChipStrip.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
-				E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */,
+				E913DC88309E47C5C90F9C6D /* LinuxPairingGuideView.swift in Sources */,
 				8DDA00000000000000000500 /* OwnerPasskeyEnrollmentComposer.swift in Sources */,
 				8DDA00000000000000000504 /* PasskeyPresentationAnchor.swift in Sources */,
 				59222E047C54FCD3C7FC38B7 /* APNsTokenRegistrar.swift in Sources */,
@@ -1682,10 +1672,8 @@
 				21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */,
 				EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */,
 				951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */,
-				1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */,
 				D30900B3BF8C4A9A9A858BE0 /* AddDevicePickerView.swift in Sources */,
 				750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */,
-				1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */,
 				8DDA00000000000000000311 /* SoyehtIdentityState.swift in Sources */,
 				8DDA00000000000000000312 /* SoyehtIdentitySnapshot.swift in Sources */,
 				8DDA00000000000000000313 /* OwnerDevice.swift in Sources */,
@@ -1776,7 +1764,6 @@
 				8DDA0000000000000000001C /* PairedMacAliasTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */,
-				8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */,
 				8DDA00000000000000000324 /* ServerRegistryTests.swift in Sources */,
 				8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */,
 				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,

@@ -1,6 +1,6 @@
 ---
 id: mac-welcome-onboarding
-ids: ST-Q-MWEL-001..021
+ids: ST-Q-MWEL-101..112
 profile: standard
 automation: assisted
 requires_device: false
@@ -10,126 +10,81 @@ cleanup_required: true
 platform: macOS
 ---
 
-# macOS Welcome Window + theyOS Auto-Install
+# macOS Welcome — four screens, then a terminal
 
-## PR #9 review fixes (2026-04-21)
+The Mac names the home. It always did in the engine's model; the app used to
+disagree with it, hand naming to the phone on a claim, and ask the engine to
+initialize with a claim token nothing modelled. That is gone.
 
-- **MWEL-009 / risk "network mode not wired"** — `TheyOSInstaller` propagates the picked mode through `buildStartArgs(mode:supportsNetworkFlag:)` and probes `soyeht start --help` first (via `TheyOSEnvironment.cliSupportsNetworkFlag`). Rust CLI work tracked in `QA/handoffs/theyos-network-flag.md`. Once the new tap ships, the flag lands automatically; until then the installer logs a warning and falls back to default bind.
-- **Risk "clipboard auto-paste"** — `RemoteConnectView` no longer pre-fills `linkText` on appear. The "Colar do clipboard" button still appears conditionally when `theyos://` content is detected on the pasteboard, so users can paste explicitly. Fixes the privacy concern flagged in review P1 #5.
-- **Install cancellation** — closing the Welcome window mid-install now tears down the subprocess via `WelcomeWindowNotifications.willClose` → `installer.cancel()`. No more orphaned `brew` / `soyeht` children. See `TheyOSInstallerTests.test_cancel_terminatesRunningChild`.
+Four screens, all at 720×540 on the neo canvas, with the progress dots saying
+which of the four you are on:
 
-## Objective
-Verify the first-launch onboarding flow introduced on `feat/claw-store-macos`: `WelcomeWindowController` replaces the login sheet when `SessionStore.pairedServers.isEmpty`, offers two paths (install theyOS locally via Homebrew, or paste a `theyos://` link), and — after local install completes — auto-pairs the Mac against `localhost:8892` using the bootstrap token, opening the main window with the new server active. Logout of the last server returns the user to the Welcome window (Option A).
+| # | Screen | What it must do |
+|---|---|---|
+| M1 | "Welcome to Soyeht." | One paragraph, one button. No telemetry checkbox — that lives in Settings › General, default off. |
+| M2 | "Setting up…" | One progress bar with three phases. The Login Items card appears **inline**, never replacing the body, and re-checks itself when the app comes back from System Settings. |
+| M3 | "Name your home." | One field, one button. The busy state is `HouseCreationProgressView`, not a fourth screen. |
+| M4 | "Add your iPhone." | Six words in 2×3 wells, a QR from the same link, "Waiting for your iPhone…", and one line about Tailscale. Skip is a real exit. |
+| M6 | "<Mac> is ready." | Reached automatically when the engine is `.ready` **and** `device_count >= 1`, or from Skip. "Connect agents" pushes M5; "Open Soyeht" opens the main window with a live shell. |
 
-## Risk
-- `AppDelegate.applicationDidFinishLaunching` still calls `openNewMainWindow()` before the empty-server check → main window flashes then Welcome window opens on top, confusing first-launch UX.
-- `TheyOSInstaller` invokes `brew` from a PATH that doesn't include `/opt/homebrew/bin` → install fails silently with `executable not found`.
-- Network mode radio (localhost vs Tailscale) is not wired to `soyeht start --network=<mode>` → theyOS starts in the wrong mode.
-- `TheyOSHealthProber` polls `/health` before `soyeht start` actually binds the port → health check times out even though server is starting.
-- `TheyOSAutoPairService` reads `~/.theyos/bootstrap-token` with the wrong file-protection / permission assumption → bootstrap step fails with permission denied.
-- `POST /api/v1/mobile/pair-token` contract drifts → auto-pair appears to succeed but no session token is persisted.
-- Logout of the **last** paired server doesn't close existing main windows before opening Welcome → user sees empty main window behind Welcome sheet.
-- `RemoteConnectView` clipboard auto-detect fires on a URL from an unrelated app → security concern (don't silently prefill a token the user didn't paste).
+M5 (Connect agents) is optional and reached only from M6.
 
-## Preconditions
-- Fresh macOS app build on `feat/claw-store-macos` (or merged)
-- **For MWEL-001..007:** Homebrew NOT yet containing `soyeht/tap` (`brew tap soyeht/tap` must be fresh). If theyOS is already installed, run `brew uninstall theyos && brew untap soyeht/tap` and delete `~/.theyos/` first.
-- **For MWEL-008..011:** A second Mac or server already running theyOS with a valid pair token (output of `soyeht pair` on that machine).
-- No paired servers in SessionStore (delete app's keychain entries via `security delete-generic-password -s com.soyeht.mobile` if needed).
+## What the checks are
 
-## How to automate
-- **Install flow**: `mcp__XcodeBuildMCP__build_run_sim` for macOS target; `mcp__native-devtools__find_text "Install theyOS on this Mac"` → `click`; `find_text "localhost"` → `click`; `find_text "Install & start"` → `click`. Stream install logs via UI tail panel.
-- **Remote link flow**: `pbcopy <<< "theyos://pair?token=X&host=Y"`; launch app → verify `RemoteConnectView` prefills automatically.
-- **Health probe**: `curl -s http://localhost:8892/health` after install to confirm server is up before asserting auto-pair.
-- **Pair contract**: Capture request with `mitmproxy` or inspect `~/.theyos/logs/` to confirm `POST /api/v1/mobile/pair-token` is sent with `Authorization: Bearer <bootstrap-token>`.
-- **Logout → Welcome**: Invoke `File > Logout` (or equivalent) on the last server; assert main windows closed AND Welcome window visible via `mcp__native-devtools__list_windows`.
+- **ST-Q-MWEL-101 — a Mac from zero reaches a live shell.** Reset with the
+  T070 runbook, walk M1 → M6, click Open Soyeht. The window opens on a shell
+  with a prompt: no picker, no "Could not open the local shell" alert. The
+  Console shows exactly one `attached(reconnected: false)`.
+- **ST-Q-MWEL-102 — quit and relaunch stays in.** After M6, quit and reopen.
+  The main window comes back; the Welcome does not.
+- **ST-Q-MWEL-103 — the six words match.** Read `soyeht.welcome.m4.word.1…6`
+  off the Mac and compare with the phone's I4. They are equal, always, and
+  they rotate together: wait six minutes and pair with the new QR.
+- **ST-Q-MWEL-104 — M4 advances by itself.** With the phone confirming, the
+  Mac reaches M6 with no click.
+- **ST-Q-MWEL-105 — Skip mints the credential.** Skip from M4, then relaunch:
+  the main window opens, not the Welcome.
+- **ST-Q-MWEL-106 — the Login Items card is inline and self-clearing.** Deny
+  approval once. The card appears inside M2 with the body still visible;
+  approve in System Settings and come back — it continues without a click.
+- **ST-Q-MWEL-107 — the window is neo.** 720×540, `NeoPalette.cloud`, light
+  appearance regardless of `DesignStyle.active`. A `defaults write
+  com.soyeht.mac.dev soyeht.design.style classic` leaves the *main* window
+  classic and the Welcome unchanged.
+- **ST-Q-MWEL-108 — a fresh install wakes up in Neo Milk.** First launch on a
+  reset Mac: main window in Neo Milk, `.neomorphic` style. An existing user
+  who chose classic is never converted.
+- **ST-Q-MWEL-109 — "Soyeht is already installed" is one screen.** An engine
+  answering `uninitialized` outside bootstrap shows `ExistingSoyehtView`, not
+  a join-or-start fork. Joining lives in Settings › Devices.
+- **ST-Q-MWEL-110 — a failed reinstall keeps watching.** Make the stop fail;
+  the screen shows its error *and* keeps polling, so a recovered engine is
+  noticed without pressing Try again.
+- **ST-Q-MWEL-111 — Settings › Devices offers the three.** "Join an existing
+  Soyeht…", "Add a Linux server…", "Forget this home…" are all visible in the
+  pane without scrolling.
+- **ST-Q-MWEL-112 — Forget this home does what it says.** Confirm the alert:
+  the Dev engine stops answering, the main windows close, the Welcome reopens
+  at M1, and the production engine on its own port is untouched.
 
-## Test Cases
+## What is gone, and why
 
-### First launch — branching
+The Homebrew era (ST-Q-MWEL-001..021) is retired with the screens it tested:
+the install picker, the network-mode picker, the clipboard auto-paste, the
+carousel, the join-or-start fork, the auto-join screen, the house avatar and
+its celebration card, the standalone safety-code display. `soyeht start
+--help` probing and `QA/handoffs/theyos-network-flag.md` went with them — the
+engine ships inside the app now and `EnginePackager.install()` is the only
+installer.
 
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-001 | Fresh install, no paired servers: launch app | **Welcome window** (640×540) appears. Main window does NOT flash before it. No login sheet anywhere | P0 | Yes |
-| ST-Q-MWEL-002 | Welcome window visible: verify two cards | "Install theyOS on this Mac" and "Connect to existing server" both visible. No QR scanner, no third option | P1 | Yes |
-| ST-Q-MWEL-003 | App launched with ≥1 paired server | Main window opens directly. Welcome window NOT shown | P0 | Yes |
+"Start over…" is "Forget this home…", and it no longer opens the uninstaller.
+The uninstaller is still there, under Soyeht › Uninstall Soyeht, for removing
+the app itself.
 
-### Install-on-this-Mac path (localhost)
+## Automation
 
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-004 | Click "Install theyOS on this Mac" | Sub-view with network-mode picker (localhost / Tailscale). Default = localhost. "Install & start" button | P1 | Yes |
-| ST-Q-MWEL-005 | Keep localhost selected, click Install | Progress panel appears with live log tail. Phases advance: `brew tap` → `brew install theyos` → `soyeht start` → `health probe` → `auto-pair`. No terminal window or shell command shown to user | P0 | Assisted |
-| ST-Q-MWEL-006 | Wait for install to finish | Welcome window dismisses. Main window opens with localhost server active. Instance list loads (empty, since fresh install) | P0 | Assisted |
-| ST-Q-MWEL-007 | Verify theyOS is running | `curl http://localhost:8892/health` returns 200. `~/.theyos/bootstrap-token` exists. Mac is listed as paired under File menu | P0 | Assisted |
-
-### Install-on-this-Mac path (Tailscale)
-
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-008 | Click "Install theyOS on this Mac", switch picker to Tailscale | If Tailscale not detected on machine: picker shows inline explainer + disabled confirm. If Tailscale present: confirm enabled | P1 | Assisted |
-| ST-Q-MWEL-009 | With Tailscale installed, proceed with install | `soyeht start --network=tailscale` is invoked. Health probe targets the Tailscale hostname (not localhost). Auto-pair succeeds via Tailscale host | P1 | Manual |
-
-### Connect-to-existing-server path
-
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-010 | With `theyos://pair?token=X&host=Y` on clipboard, launch app | Welcome window opens. "Connect to existing server" card shows a hint that a link was detected. Paste field is pre-filled with the clipboard URL | P1 | Yes |
-| ST-Q-MWEL-011 | Click "Connect" on prefilled link | `SoyehtAPIClient.pairServer(token:host:)` is called. Server is added to SessionStore. Welcome dismisses. Main window opens | P0 | Assisted |
-| ST-Q-MWEL-012 | Paste an **invalid** link (malformed token) → click Connect | Inline error shown under paste field. Welcome window stays open. No crash, no partial SessionStore write | P1 | Yes |
-
-### Logout → return to Welcome (Option A)
-
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-013 | With exactly ONE paired server: File > Logout | Main window(s) close. Welcome window opens. SessionStore is empty. Relaunching app would show Welcome again | P1 | Assisted |
-| ST-Q-MWEL-014 | With TWO paired servers: logout from the active one | Main window stays open with the remaining server selected. Welcome window is NOT shown. Logged-out server removed from paired list | P1 | Assisted |
-
-### Existing-install detection alert
-
-> **Precondition:** theyOS already installed (`/opt/homebrew/Cellar/theyos` exists), no paired servers in SessionStore. Use `pkill -x Soyeht` between runs to ensure a fresh process with no persisted SwiftUI state.
-
-| ID | Step | Expected | Severity | Auto |
-|----|------|----------|----------|------|
-| ST-Q-MWEL-015 | Kill app (`pkill -x Soyeht`), theyOS present in `/opt/homebrew/Cellar/theyos`, no paired servers: relaunch | Welcome window opens AND "Existing theyOS detected" alert fires on landing (no extra click needed). Main window NOT shown | P0 | Yes |
-| ST-Q-MWEL-016 | Alert visible | Exactly three buttons: "Reuse", "Reinstall", "Cancel". No fourth option | P1 | Yes |
-| ST-Q-MWEL-017 | Click "Reuse" in existing-install alert | Navigates to "Connect to your theyOS" sub-view (`skipBrew=true`). Network-mode picker is NOT visible. Button reads "Connect" | P0 | Yes |
-| ST-Q-MWEL-018 | Click "Reinstall" in existing-install alert | Navigates to "Install on my Mac" sub-view (`skipBrew=false`). Full network-mode picker (localhost / Tailscale) visible. Button reads "Install & start" | P1 | Yes |
-| ST-Q-MWEL-019 | Click "Cancel", then navigate to Install sub-view via landing card, then back-navigate to landing | Alert does NOT re-fire. `hasCheckedForExistingInstall` guard prevents re-prompting within the same Welcome window session | P1 | Yes |
-| ST-Q-MWEL-020 | Welcome window opens on a multi-monitor Mac (external display attached, menu bar on built-in) | Window appears on the primary (menu-bar) screen, centered in its visible frame — NOT on the external display | P2 | Manual |
-| ST-Q-MWEL-021 | Reuse path (`skipBrew=true`): click "Connect" → installer completes → auto-pair fires | Welcome window dismisses. Main workspace opens with localhost server active. No brew pipeline ran (log tail shows no `brew tap`/`brew install` lines) | P0 | Assisted |
-
-## New a11y identifiers (native-devtools locators)
-
-- `soyeht.welcome.window`
-- `soyeht.welcome.card.installLocal`
-- `soyeht.welcome.card.connectRemote`
-- `soyeht.welcome.install.mode.localhost`
-- `soyeht.welcome.install.mode.tailscale`
-- `soyeht.welcome.install.confirmButton`
-- `soyeht.welcome.install.progressPanel`
-- `soyeht.welcome.install.logTail`
-- `soyeht.welcome.remote.pasteField`
-- `soyeht.welcome.remote.connectButton`
-- `soyeht.welcome.remote.errorLabel`
-
-## Cleanup
-- If MWEL-005/006 was run on a machine where theyOS was not previously installed, the user may want to keep it — if not, `brew uninstall theyos && brew untap soyeht/tap && rm -rf ~/.theyos` to reset.
-- Remove any `test-qa-*` paired entries via File > Logout per server.
-- If MWEL-009 toggled Tailscale mode, restart theyOS in localhost mode if that was the pre-test state.
-
-## Out of Scope
-- Installer error recovery (brew unreachable, port 8892 already in use): see separate hardening pass.
-- Firewall / codesign dialogs from macOS Gatekeeper on first Homebrew install: behavior is macOS-native, not app-owned.
-- Multi-server add from Welcome (current UX: add second server is from File menu, not Welcome).
-
-## Related code
-- `TerminalApp/SoyehtMac/AppDelegate.swift` — branching on `SessionStore.pairedServers.isEmpty`, `openWelcomeWindow()`, `finishWelcome()`, logout handling
-- `TerminalApp/SoyehtMac/Welcome/WelcomeWindowController.swift` — NSWindowController host
-- `TerminalApp/SoyehtMac/Welcome/WelcomeRootView.swift` — two-card SwiftUI root
-- `TerminalApp/SoyehtMac/Welcome/LocalInstallView.swift` — mode picker + install progress panel
-- `TerminalApp/SoyehtMac/Welcome/RemoteConnectView.swift` — paste + clipboard auto-detect
-- `TerminalApp/SoyehtMac/Welcome/TheyOSInstaller.swift` — brew Process orchestration, phases
-- `TerminalApp/SoyehtMac/Welcome/TheyOSHealthProber.swift` — polls `/health` before declaring ready
-- `TerminalApp/SoyehtMac/Welcome/TheyOSAutoPairService.swift` — bootstrap-token → `/mobile/pair-token` → `pairServer`
-- `TerminalApp/SoyehtMac/Welcome/TheyOSEnvironment.swift` — paths, brew candidates, Tailscale detection
+`native-devtools`: `focus_window "Soyeht Dev"` → `find_text` by button title →
+`click`. Accessibility ids are `soyeht.welcome.*` for the flow and
+`prefs.devices.*` for the pane. Screenshots go to `QA/runs/<date>/screenshots/`
+— gitignored, because a device screenshot carries the machine name and its
+tailnet address in plain text and this repository is public.

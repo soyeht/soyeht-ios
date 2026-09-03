@@ -16,7 +16,6 @@
 		CE1100070000000000000001 /* ConversationIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100070000000000000002 /* ConversationIntelligenceService.swift */; };
 		CE1100080000000000000001 /* ConversationIntelligenceWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100080000000000000002 /* ConversationIntelligenceWindowController.swift */; };
 		CE1100090000000000000001 /* ConversationHistoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1100090000000000000002 /* ConversationHistoryMonitor.swift */; };
-		00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */; };
 		07B100565C6622900C62064E /* RecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F754D982E57083C214517782 /* RecoverView.swift */; };
 		0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */; };
 		48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */; };
@@ -157,7 +156,6 @@
 		D02000020000000000000015 /* soyeht_mcp_tools_layout.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000016 /* soyeht_mcp_tools_layout.py */; };
 		D02000020000000000000017 /* soyeht_mcp_tools_directory.py in Resources */ = {isa = PBXBuildFile; fileRef = D02000020000000000000018 /* soyeht_mcp_tools_directory.py */; };
 		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
-		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
 		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
 		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
@@ -242,7 +240,6 @@
 		CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003C0000000000000002 /* EngineServiceReconciler.swift */; };
 		CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */; };
 		EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003C0000000000000002 /* EngineRepairWindowController.swift */; };
-		FFDA6F2CF702DA53DF0858BB /* HouseAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -257,7 +254,6 @@
 		CE1100090000000000000002 /* ConversationHistoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationHistoryMonitor.swift; sourceTree = "<group>"; };
 		0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BootstrapWelcomeView.swift; sourceTree = "<group>"; };
 		156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraView.swift; sourceTree = "<group>"; };
-		1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseAvatarView.swift; sourceTree = "<group>"; };
 		220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraQRScanner.swift; sourceTree = "<group>"; };
 		3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnginePackager.swift; sourceTree = "<group>"; };
 		4936D21C24512A98005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = ../../../../private/tmp/SwiftSH.framework; sourceTree = "<group>"; };
@@ -267,7 +263,6 @@
 		49C75E4C2419C7E9008977FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMac.entitlements; sourceTree = "<group>"; };
 		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardCelebrationView.swift; sourceTree = "<group>"; };
 		68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UninstallWindowController.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7A69005F58B0EF277320044A /* HealthCheckPoller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthCheckPoller.swift; sourceTree = "<group>"; };
@@ -375,7 +370,6 @@
 		AA900007000000000000002 /* PaneAttachRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneAttachRegistry.swift; sourceTree = "<group>"; };
 		AA900008000000000000002 /* PaneStatusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStatusTracker.swift; sourceTree = "<group>"; };
 		AB100001000000000000002 /* AppSupportDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSupportDirectory.swift; sourceTree = "<group>"; };
-		AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafetyCodeDisplay.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
@@ -548,15 +542,6 @@
 			path = Installer;
 			sourceTree = "<group>";
 		};
-		3EF5C03810FEA024059B4221 /* HouseAvatar */ = {
-			isa = PBXGroup;
-			children = (
-				1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */,
-				5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */,
-			);
-			path = HouseAvatar;
-			sourceTree = "<group>";
-		};
 		49AE019F2410AB0A0051E902 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -652,7 +637,6 @@
 				AA70000A000000000000001 /* Sidebar */,
 				AA80000A000000000000001 /* Restoration */,
 				1FFEB241FBABA77E3A7078D5 /* Installer */,
-				3EF5C03810FEA024059B4221 /* HouseAvatar */,
 				111EA94651947E57A17854B9 /* Continuity */,
 				D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */,
 				D78E390C8AD7D1D2BA82CD76 /* Uninstall */,
@@ -670,7 +654,6 @@
 				941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */,
 				810D311E9D82DE5BA7B970EB /* HouseCardView.swift */,
 				810D311E9D82DE5BA7B970EC /* AddLinuxServerSheet.swift */,
-				AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */,
 			);
 			path = Bootstrap;
 			sourceTree = "<group>";
@@ -1381,20 +1364,17 @@
 				89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */,
 				CB10003E0000000000000001 /* MacEngineAdvertisedURL.swift in Sources */,
 				9A0EA115925A5ABF4873E9EB /* EnginePackager.swift in Sources */,
-				FFDA6F2CF702DA53DF0858BB /* HouseAvatarView.swift in Sources */,
 				874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */,
 				DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */,
 				C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */,
 				AB1B4E9940D1EF30AC532032 /* HouseCardView.swift in Sources */,
 				AB1B4E9940D1EF30AC532033 /* AddLinuxServerSheet.swift in Sources */,
-				C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */,
 				FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */,
 				CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */,
 				CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */,
 				EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */,
 				48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */,
 				E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */,
-				00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */,
 				EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */,
 				6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */,
 				0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */,
