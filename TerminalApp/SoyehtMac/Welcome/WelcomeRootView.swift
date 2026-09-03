@@ -46,7 +46,6 @@ final class WelcomeOnboardingState {
 ///
 /// - `bootstrap`     — fresh Mac, no house yet (case A)
 /// - `autoJoin`      — existing household found on Tailnet (US5)
-/// - `setupAwaiting` — iPhone published a setup-invitation (case B, Mac side)
 /// - `recover`       — engine has local state, re-connect/resume
 ///
 /// T049 wires `BootstrapStatusClient` into `resolveMode()`.
@@ -59,23 +58,19 @@ struct WelcomeRootView: View {
 
     enum Mode {
         case bootstrap      // Case A: founder fresh install
-        case autoJoin       // existing household discovered on Tailnet
-        case setupAwaiting(ownerDisplayName: String?)  // iPhone setup-invitation discovered
         case recover        // local engine state present
         case existingSoyeht(ExistingSoyehtContext)
-        case chooseJoinOrStart(ExistingSoyehtContext)
-        case joinExisting(ExistingSoyehtContext)
     }
 
     /// Inner navigation steps for the bootstrap flow (case A, MA2+).
     /// MA1 is the NavigationStack root (BootstrapWelcomeView).
     enum BootstrapStep: Hashable {
-        case installPreview        // MA2 — T042
         case installProgress       // MA3 — T043
         case connectAgents         // MCP onboarding (wires Claude Code / Codex / OpenCode / Droid)
         case houseNaming           // T044
         case houseCreation(String) // T045 — associated value: house name
-        case houseCard(name: String, avatar: HouseAvatar, pairQrUri: String)
+        case houseCard(name: String, pairQrUri: String)
+        case ready                 // M6 — setup finished
     }
 
     let onPaired: () -> Void
@@ -86,9 +81,10 @@ struct WelcomeRootView: View {
 
     var body: some View {
         modeContent
-            .frame(width: 640, height: 540)
-            .background(BrandColors.surfaceDeep)
-            .preferredColorScheme(BrandColors.preferredColorScheme)
+            .frame(width: 720, height: 540)
+            .background(NeoPalette.cloud.canvas)
+            .environment(\.neoPalette, .cloud)
+            .preferredColorScheme(.light)
             .task { await resolveMode() }
     }
 
@@ -111,17 +107,13 @@ struct WelcomeRootView: View {
                         // claimed. The listener is killed for real only
                         // at the actual commit moment to a founder-only
                         // path — `HouseNamingView.onNamed` below.
-                        bootstrapPath.append(.installPreview)
+                        bootstrapPath.append(.installProgress)
                     }
                 )
                 .navigationDestination(for: BootstrapStep.self) { step in
                     bootstrapStep(step)
                 }
             }
-        case .autoJoin:
-            AutoJoinView(onJoined: onPaired)
-        case .setupAwaiting(let ownerDisplayName):
-            AwaitingNameFromiPhoneView(ownerDisplayName: ownerDisplayName, onNamed: onPaired)
         case .recover:
             RecoverView(onRecovered: onPaired)
         case .existingSoyeht(let context):
@@ -129,35 +121,11 @@ struct WelcomeRootView: View {
                 onContinue: { await continueWithExistingSoyeht(context) },
                 onReinstall: { await reinstallSoyeht(context) }
             )
-        case .chooseJoinOrStart(let context):
-            ChooseJoinOrStartView(
-                onJoinExisting: {
-                    onboardingState.beginPairing()
-                    bootstrapPath.removeAll()
-                    mode = .joinExisting(context)
-                },
-                onStartNew: {
-                    Task { @MainActor in
-                        _ = await continueWithExistingSoyeht(context)
-                    }
-                }
-            )
-        case .joinExisting(let context):
-            JoinExistingSoyehtView(
-                onPaired: onPaired,
-                onBack: {
-                    onboardingState.beginListening()
-                    mode = .chooseJoinOrStart(context)
-                    Task { await resolveMode() }
-                }
-            )
         }
     }
 
     @ViewBuilder private func bootstrapStep(_ step: BootstrapStep) -> some View {
         switch step {
-        case .installPreview:
-            InstallPreviewView(onInstall: { bootstrapPath.append(.installProgress) })
         case .installProgress:
             InstallProgressView(onReady: {
                 Task { await continueAfterInstallReady() }
@@ -177,16 +145,22 @@ struct WelcomeRootView: View {
             })
         case .houseCreation(let name):
             HouseCreationProgressView(houseName: name, onCreated: { response in
-                let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
-                bootstrapPath.append(.houseCard(name: name, avatar: avatar, pairQrUri: response.pairQrUri))
+                bootstrapPath.append(.houseCard(name: name, pairQrUri: response.pairQrUri))
             })
-        case .houseCard(let name, let avatar, let pairQrUri):
+        case .houseCard(let name, let pairQrUri):
             HouseCardView(
                 houseName: name,
-                avatar: avatar,
-                pairQrUri: pairQrUri,
-                onContinueOnMac: { await autoPairExistingSoyeht() },
-                onPaired: onPaired
+                initialPairQrUri: pairQrUri,
+                onContinueOnMac: { await ensureLocalCredential() },
+                onPaired: { bootstrapPath.append(.ready) }
+            )
+        case .ready:
+            MacReadyView(
+                onConnectAgents: { bootstrapPath.append(.connectAgents) },
+                onOpen: {
+                    onboardingState.finish()
+                    onPaired()
+                }
             )
         }
     }
@@ -232,36 +206,29 @@ struct WelcomeRootView: View {
 
             switch status.state {
             case .uninitialized, .readyForNaming:
-                let listener = SetupInvitationListener(engineBaseURL: baseURL)
-                let outcome = await listener.listen()
+                // The Mac names its own home. It used to run a
+                // setup-invitation listener here and, on a claim, hand the
+                // naming over to the phone — which meant two devices could
+                // both think they owned the next step, and the engine was
+                // asked to initialize with a claim token nothing modelled.
                 guard onboardingState.isListening else { return }
-                switch outcome {
-                case .invitationClaimed(let ownerDisplayName, _):
-                    mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
-                    await pollUntilNamed(client: client)
-                    return
-                case .notFound, .failed:
+                do {
                     if case .bootstrap = mode, !bootstrapPath.isEmpty {
-                        // User has already committed to an in-progress
-                        // bootstrap navigation (Continue-with-this-Mac →
-                        // HouseNaming, post-install ConnectAgents, etc.).
-                        // The listener keeps running silently in the
-                        // background; only an `invitationClaimed` event
-                        // should swap `mode` (and that swaps to
-                        // `.setupAwaiting`, which is the desired Caso B
-                        // override). Setting `mode = .existingSoyeht`
-                        // here would yank the user out of the current
-                        // screen every 5s — see Bug 2 fix 2026-05-21.
+                        // Someone is already partway through setup on this
+                        // Mac. Swapping `mode` here would yank them out of
+                        // the screen they are on every couple of seconds.
                     } else if case .existingSoyeht = mode {
-                        // already shown; just loop the listener
-                    } else if case .chooseJoinOrStart = mode {
-                        // already shown; just loop the listener
-                    } else if JoinExistingCapability.isAvailable(status: status) {
-                        mode = .chooseJoinOrStart(ExistingSoyehtContext(status: status))
+                        // already shown; keep polling quietly
                     } else {
+                        // One screen, not a fork. "Join an existing Soyeht"
+                        // used to be offered here, on a decision a Mac meets
+                        // exactly once and never again — so a second Mac
+                        // bought later had no way in at all. It lives in
+                        // Preferences › Devices now, where it can be reached
+                        // for as long as the Mac does.
                         mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                     }
-                    // fall through to next loop iteration → listener runs again
+                    try? await Task.sleep(for: .seconds(2))
                 }
             case .namedAwaitingPair:
                 if !(await showExistingHouseCardIfPossible()) {
@@ -317,6 +284,15 @@ struct WelcomeRootView: View {
     }
 
     private func autoPairExistingSoyeht() async -> LocalizedStringResource? {
+        if let failure = await ensureLocalCredential() { return failure }
+        onPaired()
+        return nil
+    }
+
+    /// Mints this Mac's own engine credential without navigating anywhere, so
+    /// both ways out of the house card (the button and the automatic advance
+    /// once an iPhone pairs) can insist on it before the main window opens.
+    private func ensureLocalCredential() async -> LocalizedStringResource? {
         // `TheyOSAutoPairService` only talks to the local engine
         // (`~/.theyos/bootstrap-token` + admin host on localhost). If the
         // user already paired a server through another flow — e.g.
@@ -324,29 +300,38 @@ struct WelcomeRootView: View {
         // then routes back through `continueOnMac` — there is nothing to
         // auto-pair; go straight home with the server they just added.
         if !SessionStore.shared.credentialedCanonicalServers().isEmpty {
-            onPaired()
             return nil
         }
-        do {
-            _ = try await TheyOSAutoPairService().autoPair()
-            onPaired()
-            return nil
-        } catch {
-            return LocalizedStringResource(
-                "welcome.existingSoyeht.continue.failed",
-                defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
-                comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
-            )
+        // Mint the credential HERE, before the main window exists. Going
+        // through `LocalEngineContext.resolveDetailed()` also records the
+        // verified server id, so the first pane does not run a second
+        // self-pair and end up with two engine rows for one Mac. An engine
+        // that is still booting is the normal case at first launch, so wait
+        // for it instead of calling the Mac unusable.
+        for attempt in 0..<5 {
+            switch await LocalEngineContext.resolveDetailed() {
+            case .resolved:
+                return nil
+            case .engineNotAnsweringYet:
+                if attempt < 4 { try? await Task.sleep(for: .seconds(2)) }
+            case .unavailable:
+                return Self.continueFailedMessage
+            }
         }
+        return Self.continueFailedMessage
     }
+
+    private static let continueFailedMessage = LocalizedStringResource(
+        "welcome.existingSoyeht.continue.failed",
+        defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
+        comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
+    )
 
     private func showExistingHouseCardIfPossible() async -> Bool {
         do {
             let response = try await BootstrapPairDeviceURIClient(baseURL: Self.bootstrapBaseURL()).fetch()
-            let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
             bootstrapPath = [.houseCard(
                 name: response.houseName,
-                avatar: avatar,
                 pairQrUri: response.pairDeviceURI
             )]
             mode = .bootstrap
@@ -360,6 +345,12 @@ struct WelcomeRootView: View {
         onboardingState.beginPairing()
         guard await prepareForReinstall(context) else {
             onboardingState.fail("reinstall_stop_failed")
+            // Go back to watching. `fail` alone left the poller stopped for
+            // good, so the screen sat on its error even after the engine
+            // recovered on its own — and "Try again" was the only thing that
+            // could ever change it.
+            onboardingState.beginListening()
+            Task { await resolveMode() }
             return LocalizedStringResource(
                 "welcome.existingSoyeht.reinstall.stopFailed",
                 defaultValue: "Couldn't close the current Soyeht. Try again.",
@@ -394,31 +385,30 @@ struct WelcomeRootView: View {
         return false
     }
 
+    /// The Mac names its own home. It used to stand on a finished progress bar
+    /// waiting for a setup invitation from an iPhone that, for most owners,
+    /// was not running yet — a listener with a timeout, which the owner read
+    /// as the app hanging on "Ready". Naming is one field and it belongs to
+    /// whoever is sitting at the machine.
     private func continueAfterInstallReady() async {
         let baseURL = Self.bootstrapBaseURL()
-        let listener = SetupInvitationListener(engineBaseURL: baseURL)
-        let outcome = await listener.listen()
-        switch outcome {
-        case .invitationClaimed(let ownerDisplayName, _):
-            mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
-            bootstrapPath.removeAll()
-            await pollUntilNamed(client: BootstrapStatusClient(baseURL: baseURL))
-        case .notFound, .failed:
-            if await routeExistingEngineStateAfterInstall(baseURL: baseURL) {
-                return
-            }
-            // Insert the MCP integration step before house naming so the
-            // user lands in a workspace with Soyeht already wired into
-            // their AI agent CLIs.
-            bootstrapPath.append(.connectAgents)
+        if await routeExistingEngineStateAfterInstall(baseURL: baseURL) {
+            return
         }
+        bootstrapPath.append(.houseNaming)
     }
 
     /// Transition from the connect-agents step to the next bootstrap step.
     /// Today that's house naming; if a setup invitation arrives during
     /// the agents step (rare race), we let the existing listener path
-    /// handle it on the next pollUntilNamed.
+    /// handle it on the next pass.
+    /// The agents step is optional and reached from M6, so finishing it goes
+    /// back to M6 rather than onward.
     private func continueAfterAgentsStep() async {
+        if bootstrapPath.last == .connectAgents {
+            bootstrapPath.removeLast()
+            return
+        }
         if await routeExistingEngineStateAfterInstall(baseURL: Self.bootstrapBaseURL()) {
             return
         }
@@ -452,18 +442,6 @@ struct WelcomeRootView: View {
                 onPaired()
             }
             return true
-        }
-    }
-
-    private func pollUntilNamed(client: BootstrapStatusClient) async {
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            guard let status = try? await client.fetch() else { continue }
-            if status.state == .namedAwaitingPair || status.state == .ready {
-                onPaired()
-                return
-            }
         }
     }
 
@@ -666,112 +644,5 @@ private struct ExistingSoyehtView: View {
                 isWorking = false
             }
         }
-    }
-}
-
-private enum ExistingSoyehtStopper {
-    static func stopKnownServices() async {
-        let commands = serviceStopCommands()
-        for command in commands {
-            await runBestEffort(executable: command.executable, arguments: command.arguments)
-        }
-    }
-
-    private static func serviceStopCommands() -> [(executable: String, arguments: [String])] {
-        // Stop only THIS build's engine. A dev build must never bootout the
-        // shipping engine (com.soyeht.engine) and vice versa — otherwise
-        // launching one would knock the other offline.
-        let engineLabel = SoyehtInstallProfile.current.engineLaunchdLabel
-        var commands: [(String, [String])] = [
-            ("/bin/launchctl", ["bootout", "gui/\(getuid())/\(engineLabel)"]),
-        ]
-
-        for brew in TheyOSEnvironment.brewBinaryCandidates where FileManager.default.isExecutableFile(atPath: brew) {
-            commands.append((brew, ["services", "stop", "theyos"]))
-        }
-
-        for soyeht in ["/opt/homebrew/bin/soyeht", "/usr/local/bin/soyeht"]
-            where FileManager.default.isExecutableFile(atPath: soyeht) {
-            commands.append((soyeht, ["stop"]))
-        }
-
-        return commands
-    }
-
-    private static func runBestEffort(executable: String, arguments: [String]) async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                runBestEffortBlocking(executable: executable, arguments: arguments)
-                continuation.resume()
-            }
-        }
-    }
-
-    private static func runBestEffortBlocking(executable: String, arguments: [String]) {
-        guard FileManager.default.isExecutableFile(atPath: executable) else { return }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-
-        let finished = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in finished.signal() }
-
-        do {
-            try process.run()
-        } catch {
-            return
-        }
-
-        if finished.wait(timeout: .now() + 8) == .timedOut {
-            process.terminate()
-            _ = finished.wait(timeout: .now() + 1)
-        }
-    }
-}
-
-private enum ExistingSoyehtStateResetter {
-    static func resetLocalEngineState() async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                resetLocalEngineStateBlocking()
-                continuation.resume()
-            }
-        }
-    }
-
-    private static func resetLocalEngineStateBlocking() {
-        let fm = FileManager.default
-        // MUST be the current build's support dir. A dev build resetting its
-        // engine state must never delete the shipping app's databases /
-        // identity / household — TheyOSEnvironment.supportDirectory resolves to
-        // "Soyeht" or "SoyehtDev" per SoyehtInstallProfile.
-        let supportDir = TheyOSEnvironment.supportDirectory
-
-        let files = [
-            "theyos.db", "theyos.db-shm", "theyos.db-wal",
-            "theyos.sessions.db", "theyos.sessions.db-shm", "theyos.sessions.db-wal",
-            "theyos-sessions.db", "theyos-sessions.db-shm", "theyos-sessions.db-wal",
-            "theyos.mobile-sessions.db", "theyos.mobile-sessions.db-shm", "theyos.mobile-sessions.db-wal",
-            "jobs-rs.db", "jobs-rs.db-shm", "jobs-rs.db-wal",
-            "ratelimit.db", "ratelimit.db-shm", "ratelimit.db-wal",
-            "identity.bootstrap_state",
-            "household.tearing-down",
-        ]
-
-        for file in files {
-            try? fm.removeItem(at: supportDir.appendingPathComponent(file, isDirectory: false))
-        }
-
-        // The engine keeps the household under `household-state/`
-        // (`household-state/household/…`, `household-state/identity.bootstrap_state`),
-        // not at the support-directory root. Until 2026-09-01 this removed
-        // `<support>/household`, which does not exist, so "reinstall" left the
-        // household on disk and the fresh engine booted straight back to
-        // `ready` with the old home.
-        try? fm.removeItem(at: supportDir.appendingPathComponent("household-state", isDirectory: true))
-        try? fm.removeItem(at: supportDir.appendingPathComponent("household", isDirectory: true))
     }
 }

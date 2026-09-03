@@ -68,6 +68,17 @@ scan_product_root() {
         --scan-product "${product_root}"
 }
 
+# The `minSupportedEngineVersion == pin` gate. It was written to run inside
+# the governed release contract, whose first tracked file is a GitHub workflow
+# this repository does not have — releases are published without CI — so the
+# whole checker aborted on that missing file and this gate never ran once. It
+# is why the pin, its checksum and the client floor reached 0.1.28 while the
+# checker still named 0.1.27. Run the half that only needs files we do track.
+check_engine_pin_contract() {
+    python3 "${REPO_ROOT}/scripts/ci/check-governed-macos-release.py" \
+        --engine-pin-only
+}
+
 scan_dmg_contents() {
     local dmg_path="$1"
     DMG_MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/soyeht-dmg-scan.XXXXXX")"
@@ -259,6 +270,9 @@ codesign --verify --deep --strict --verbose=2 "${COMPANION_APP}"
 
 # Applications symlink for drag-to-install UX.
 ln -s /Applications "${STAGING_DIR}/Applications"
+
+echo "→ Verifying the engine pin, its checksum and the client floor agree..."
+check_engine_pin_contract
 
 echo "→ Verifying staged public product contains no provider private key..."
 scan_product_root "${STAGING_DIR}"

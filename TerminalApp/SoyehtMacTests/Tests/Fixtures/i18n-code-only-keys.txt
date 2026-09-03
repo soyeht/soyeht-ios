@@ -1,0 +1,19 @@
+# i18n-code-only-keys.txt — allowlist for I18nSourceKeyCoverageTests.
+#
+# Every line is a key that source code looks up (LocalizedStringResource("k"),
+# String(localized: "k"), Text("k"), Button("k"), .help("k")) but that has NO
+# entry in its owning catalog: TerminalApp/Soyeht/Localizable.xcstrings for the
+# iOS trees (Onboarding, Home, App, Settings), TerminalApp/SoyehtMac/Localizable.xcstrings
+# for SoyehtMac/Welcome and PreferencesDevicesViewController.swift; an entry in
+# the SoyehtCore catalog counts for either tree.
+#
+# THIS LIST MAY ONLY SHRINK. Adding a line is not a fix: give the key an entry
+# in the owning catalog with all 17 locales (I18nCatalogCoverageTests enforces
+# that) and delete its line here. The test also fails when a line is no longer
+# referenced by any scanned source, or when the key now exists in a catalog —
+# delete that line. Slice S11 empties this file.
+#
+# One key per line; sorted by code point (`LC_ALL=C sort -u`); blank lines and
+# lines starting with '#' are ignored. Generated 2026-09-02 by running the
+# scanner over the six scopes: 193 keys (184 dotted keys + 9 plain literals
+# such as emoji and debug labels that the regexes also capture).

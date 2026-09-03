@@ -109,10 +109,44 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         let source = try macSource("PaneGrid/PaneViewController.swift")
         let restore = try slice(
             source,
-            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation) {",
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {",
             to: "let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath"
         )
         XCTAssertTrue(restore.contains("DeferredEngineSessionReaper.settlePendingReapBeforeReuse("))
+    }
+
+    /// The first attach of a pane runs the same two protections restore has:
+    /// it waits for a pending reap on the id it is about to reuse, and it
+    /// holds the per-pane gate so restore cannot interleave with it.
+    func testFirstAttachSettlesPendingReapUnderTheGate() throws {
+        let source = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let attach = try slice(
+            source,
+            from: "private func attachEnginePane(",
+            to: "private func initialPromptPayload("
+        )
+        XCTAssertTrue(attach.contains("EngineAttachGate.begin(conversation.id)"))
+        XCTAssertTrue(attach.contains("EngineAttachGate.end(conversation.id)"))
+        XCTAssertTrue(attach.contains("DeferredEngineSessionReaper.settlePendingReapBeforeReuse("))
+        XCTAssertTrue(
+            attach.contains("case .attached(reconnected: true) where launchNonce == nil:"),
+            "a plain shell has no stale launch environment; reconnecting to its live session is the feature, not an error"
+        )
+        XCTAssertFalse(attach.contains("createLocalTerminal"))
+    }
+
+    /// Restore must stand down while a first attach is in flight, and take the
+    /// gate itself for the window where it owns the pane.
+    func testRestoreRespectsTheAttachGate() throws {
+        let source = try macSource("PaneGrid/PaneViewController.swift")
+        let restore = try slice(
+            source,
+            from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {",
+            to: "guard case .failed(transient: true) = outcome"
+        )
+        XCTAssertTrue(restore.contains("EngineAttachGate.isInFlight(conversationID)"))
+        XCTAssertTrue(restore.contains("EngineAttachGate.begin(conversationID)"))
+        XCTAssertTrue(restore.contains("EngineAttachGate.end(conversationID)"))
     }
 
     /// The regression surface a future refactor would actually hit: unlike

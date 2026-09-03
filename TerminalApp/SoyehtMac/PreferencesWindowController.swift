@@ -118,6 +118,7 @@ class PreferencesViewController: NSViewController {
     override func loadView() {
         view = NSView()
         view.setFrameSize(NSSize(width: 700, height: 430))
+        preferredContentSize = NSSize(width: 700, height: 430)
     }
 
     override func viewDidLoad() {

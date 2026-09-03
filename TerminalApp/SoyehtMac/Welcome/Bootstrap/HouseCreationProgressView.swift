@@ -16,6 +16,17 @@ struct HouseCreationProgressView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            NeoProgressDots(
+                count: 4,
+                current: 2,
+                palette: NeoPalette.cloud,
+                accessibilityText: String(
+                    localized: "bootstrap.dots.a11y",
+                    defaultValue: "Step 3 of 4",
+                    comment: "VoiceOver label for the setup step indicator."
+                )
+            )
+            .padding(.top, 40)
             Spacer()
 
             if let message = errorMessage {
@@ -25,13 +36,13 @@ struct HouseCreationProgressView: View {
                         defaultValue: "Couldn't create your home.",
                         comment: "Title shown when /bootstrap/initialize fails."
                     ))
-                    .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
-                    .foregroundColor(BrandColors.textPrimary)
+                    .font(NeoFont.title)
+                    .foregroundStyle(NeoPalette.cloud.text)
                     .multilineTextAlignment(.center)
 
                     Text(verbatim: message)
-                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                        .foregroundColor(BrandColors.textMuted)
+                        .font(NeoFont.body)
+                        .foregroundStyle(NeoPalette.cloud.textSecondary)
                         .multilineTextAlignment(.center)
 
                     Button(action: {
@@ -46,7 +57,7 @@ struct HouseCreationProgressView: View {
                             comment: "Retry button after house creation failure."
                         ))
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(NeoPillButtonStyle(.primary, palette: NeoPalette.cloud, fillsWidth: false))
                 }
                 .frame(maxWidth: 400)
             } else {
@@ -59,8 +70,8 @@ struct HouseCreationProgressView: View {
                             defaultValue: "Creating the home identity...",
                             comment: "House creation progress title shown during key generation."
                         ))
-                        .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
-                        .foregroundColor(BrandColors.textPrimary)
+                        .font(NeoFont.title)
+                        .foregroundStyle(NeoPalette.cloud.text)
                         .multilineTextAlignment(.center)
 
                         Text(LocalizedStringResource(
@@ -68,8 +79,8 @@ struct HouseCreationProgressView: View {
                             defaultValue: "This will only take a moment.",
                             comment: "House creation subtitle. Reassures brevity."
                         ))
-                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                        .foregroundColor(BrandColors.textMuted)
+                        .font(NeoFont.body)
+                        .foregroundStyle(NeoPalette.cloud.textSecondary)
                         .multilineTextAlignment(.center)
                     }
                 }
@@ -79,6 +90,7 @@ struct HouseCreationProgressView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(NeoPalette.cloud.canvas)
         .opacity(showKey ? 1 : 0)
         .onAppear {
             guard creationTask == nil else { return }

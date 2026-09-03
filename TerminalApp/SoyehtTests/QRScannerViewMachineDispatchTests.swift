@@ -279,10 +279,10 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
     // invite handling from either one turns its own test RED.
 
     /// COLD LAUNCH. This is the exact shape that shipped broken: no household,
-    /// so `hasSetupState` is false, and the invite must still win over Mac
-    /// discovery. Without the invite branch this returns `.automaticMacDiscovery`
-    /// — which is literally the "Where do you want to install Soyeht?" path the
-    /// invited guest was dropped into.
+    /// so `hasSetupState` is false, and the invite must still win over the
+    /// onboarding root. Without the invite branch this returns `.welcome` —
+    /// which is "Your Mac, in your pocket", a first-run introduction the
+    /// invited guest has no use for.
     func testColdLaunchWithAnInviteAndNoHouseholdOpensMainNotMacDiscovery() throws {
         let invite = try makeClawShareInvite()
         let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
@@ -291,9 +291,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             OnboardingDeepLinkRouter.launchRoot(
                 launchURL: url,
                 restoredFromBackup: false,
-                hasNoSetupState: true,
-                carouselEnabled: true,
-                shouldShowCarousel: true
+                hasNoSetupState: true
             ),
             .mainStoryboard
         )
@@ -306,11 +304,9 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             OnboardingDeepLinkRouter.launchRoot(
                 launchURL: nil,
                 restoredFromBackup: false,
-                hasNoSetupState: true,
-                carouselEnabled: true,
-                shouldShowCarousel: true
+                hasNoSetupState: true
             ),
-            .automaticMacDiscovery
+            .welcome
         )
     }
 
@@ -324,19 +320,17 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             OnboardingDeepLinkRouter.launchRoot(
                 launchURL: url,
                 restoredFromBackup: true,
-                hasNoSetupState: true,
-                carouselEnabled: true,
-                shouldShowCarousel: true
+                hasNoSetupState: true
             ),
             .restoredFromBackup
         )
     }
 
-    /// THE ALREADY-A-HOUSEHOLD ARM. An owner who taps an invite must not be
-    /// diverted into the carousel; the invite still reaches the dispatcher and
-    /// sheet. Also pins that the carousel is what an ordinary launch gets, so
-    /// this test fails if the invite branch stops outranking it.
-    func testInviteOutranksTheCarouselOnADeviceThatAlreadyHasAHousehold() throws {
+    /// THE ALREADY-A-HOUSEHOLD ARM. An owner who taps an invite reaches the
+    /// dispatcher and its sheet. The control below is the same launch without
+    /// the invite: both are `.mainStoryboard`, so this arm proves the invite
+    /// is carried, not that it changes the root.
+    func testInviteIsCarriedOnADeviceThatAlreadyHasAHousehold() throws {
         let invite = try makeClawShareInvite()
         let url = try XCTUnwrap(URL(string: ClawShareCodec.inviteURI(invite)))
 
@@ -344,9 +338,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             OnboardingDeepLinkRouter.launchRoot(
                 launchURL: url,
                 restoredFromBackup: false,
-                hasNoSetupState: false,
-                carouselEnabled: true,
-                shouldShowCarousel: true
+                hasNoSetupState: false
             ),
             .mainStoryboard
         )
@@ -354,12 +346,10 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             OnboardingDeepLinkRouter.launchRoot(
                 launchURL: nil,
                 restoredFromBackup: false,
-                hasNoSetupState: false,
-                carouselEnabled: true,
-                shouldShowCarousel: true
+                hasNoSetupState: false
             ),
-            .carousel,
-            "control: without an invite this launch is the carousel, so the case above is not vacuous"
+            .mainStoryboard,
+            "control: a device that already has a household always opens the main flow"
         )
     }
 

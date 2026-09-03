@@ -1,82 +1,40 @@
 import SwiftUI
 import SoyehtCore
 
-/// MA1 — Soyeht welcome scene.
-/// Presents a headline, short description, step indicator (1 de 3),
-/// and a Continue CTA. No admin prompts; no functional work done here.
+/// M1 — the first thing a new owner sees. One sentence about what Soyeht is,
+/// one button. Nothing to decide, nothing to read twice.
 struct BootstrapWelcomeView: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            stepIndicator
-                .padding(.bottom, 36)
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text(LocalizedStringResource(
-                    "bootstrap.welcome.title",
-                    defaultValue: "Welcome to Soyeht.",
-                    comment: "MA1: Welcome headline. Shown on first launch of the bootstrap flow."
-                ))
-                .font(MacTypography.Fonts.Display.heroTitle)
-                .foregroundColor(BrandColors.textPrimary)
-
-                Text(LocalizedStringResource(
-                    "bootstrap.welcome.subtitle",
-                    defaultValue: "We'll prepare this Mac in a few steps.",
-                    comment: "MA1: Welcome subtitle. Brief reassurance before the install steps."
-                ))
-                .font(MacTypography.Fonts.Display.heroSubtitle)
-                .foregroundColor(BrandColors.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-
-            HStack {
-                Spacer()
-                Button(action: onContinue) {
-                    Text(LocalizedStringResource(
-                        "bootstrap.welcome.cta",
-                        defaultValue: "Continue",
-                        comment: "MA1: Primary CTA advancing to MA2 (InstallPreviewView)."
-                    ))
-                    .font(MacTypography.Fonts.Controls.cta)
-                    .foregroundColor(BrandColors.buttonTextOnAccent)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 28)
-                    .background(BrandColors.accentGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
+        WelcomeStepScaffold(
+            step: 1,
+            title: LocalizedStringResource(
+                "bootstrap.welcome.title",
+                defaultValue: "Welcome to Soyeht.",
+                comment: "M1: welcome headline, first launch."
+            ),
+            body: LocalizedStringResource(
+                "bootstrap.welcome.body",
+                defaultValue: "Soyeht runs your AI agents on this Mac and lets you reach them from your iPhone. Setting up takes about a minute.",
+                comment: "M1: one paragraph explaining what the app is before anything is installed."
+            ),
+            content: { EmptyView() },
+            footer: {
+                HStack {
+                    Spacer()
+                    Button(action: onContinue) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.welcome.cta",
+                            defaultValue: "Set up this Mac",
+                            comment: "M1: primary button that starts the install."
+                        ))
+                    }
+                    .buttonStyle(NeoPillButtonStyle(.primary, palette: .cloud, fillsWidth: false))
+                    .accessibilityIdentifier(WelcomeAccessibilityID.m1SetUp)
+                    .keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(LocalizedStringResource(
-                    "bootstrap.welcome.cta.a11y",
-                    defaultValue: "Continue to the next step",
-                    comment: "MA1 CTA VoiceOver label."
-                )))
-                .keyboardShortcut(.defaultAction)
             }
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var stepIndicator: some View {
-        Text(LocalizedStringResource(
-            "bootstrap.welcome.step",
-            defaultValue: "Step 1 of 3",
-            comment: "MA1: Step progress indicator shown at the top of the bootstrap flow."
-        ))
-        .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.readableTextOnSelection)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(BrandColors.selection)
-        .clipShape(Capsule())
-        .accessibilityLabel(Text(LocalizedStringResource(
-            "bootstrap.welcome.step.a11y",
-            defaultValue: "Step 1 of 3",
-            comment: "MA1: VoiceOver label for the step indicator."
-        )))
+        )
     }
 }

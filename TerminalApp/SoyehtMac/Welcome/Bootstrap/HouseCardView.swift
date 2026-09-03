@@ -3,13 +3,26 @@ import SoyehtCore
 import AppKit
 
 /// MA4 — House card scene shown after house creation.
-/// Displays avatar + name + Mac as host + pulsing "add iPhone" slot per FR-017.
+/// M4 — "Add your iPhone." Six words, a QR, and one status line.
+///
+/// The avatar went with the celebration card it belonged to: a derived emoji
+/// identifying a home the person is looking at on two screens at once adds a
+/// symbol to check where there were already six words.
 struct HouseCardView: View {
     let houseName: String
-    let avatar: HouseAvatar
-    let pairQrUri: String
+    /// What the navigation path carried when this card was pushed. It is a
+    /// seed, not the truth: the engine closes its pairing window after a few
+    /// minutes, and this string does not change when it does.
+    let initialPairQrUri: String
     let onContinueOnMac: @MainActor () async -> LocalizedStringResource?
     let onPaired: () -> Void
+
+    @ObservedObject private var advertisement = MacPairingAdvertisement.shared
+
+    /// The link this Mac is offering right now. The words, the QR, the copied
+    /// link and what the iPhone is told all read this, so they cannot
+    /// disagree with each other.
+    private var pairQrUri: String { advertisement.offer?.uri ?? initialPairQrUri }
 
     @State private var isPulsing = false
     @State private var showInfoSheet = false
@@ -21,47 +34,34 @@ struct HouseCardView: View {
     @State private var copiedPairLink = false
     @State private var showFallbackPairing = false
     @State private var copyResetTask: Task<Void, Never>?
+    @State private var iPhoneFound = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 32) {
-                HouseAvatarView(avatar: avatar, animateReveal: true)
-
-                VStack(spacing: 8) {
-                    Text(verbatim: houseName)
-                        .font(MacTypography.Fonts.Display.heroTitle)
-                        .foregroundColor(BrandColors.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .accessibilityAddTraits(.isHeader)
-
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseCard.subtitle",
-                        defaultValue: "Add your iPhone now, or continue on this Mac.",
-                        comment: "House card subtitle confirming creation."
-                    ))
-                    .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                    .foregroundColor(BrandColors.textMuted)
-                }
-
-                deviceList
-
-                actionButtons
-
-                statusMessage
-            }
-            .frame(maxWidth: 400)
-
-            Spacer()
+        WelcomeStepScaffold(
+            step: 4,
+            title: LocalizedStringResource(
+                "bootstrap.addIPhone.title",
+                defaultValue: "Add your iPhone.",
+                comment: "M4: title of the pairing step."
+            ),
+            body: LocalizedStringResource(
+                "bootstrap.addIPhone.body",
+                defaultValue: "Open Soyeht on your iPhone. It will find this Mac and show these six words. Both need Tailscale turned on.",
+                comment: "M4: what the owner does on the phone, and the one requirement."
+            ),
+            content: { pairingColumns },
+            footer: { footerRow }
+        )
+        .onAppear {
+            if !reduceMotion { isPulsing = true }
+            advertisement.start()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { if !reduceMotion { isPulsing = true } }
         .onDisappear {
             pairingComplete = true
             copyResetTask?.cancel()
             copyResetTask = nil
+            advertisement.stop()
         }
         .task { await pollUntilPaired() }
         .task { await listenForIPhoneInvitations() }
@@ -118,17 +118,158 @@ struct HouseCardView: View {
         )))
     }
 
+    private var pairingColumns: some View {
+        HStack(alignment: .top, spacing: 28) {
+            VStack(alignment: .leading, spacing: 18) {
+                wordGrid
+                pairingStatusRow
+                statusMessage
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            qrCard
+        }
+    }
+
+    /// Six wells, two rows of three — the same shape the iPhone shows, so the
+    /// two screens can be read side by side without counting.
+    @ViewBuilder private var wordGrid: some View {
+        if let words = Self.securityCodeWords(from: pairQrUri), words.count == 6 {
+            VStack(spacing: 8) {
+                ForEach(0..<2, id: \.self) { row in
+                    HStack(spacing: 8) {
+                        ForEach(0..<3, id: \.self) { column in
+                            let index = row * 3 + column
+                            NeoWordWell(
+                                index: index + 1,
+                                word: words[index],
+                                palette: NeoPalette.cloud
+                            )
+                            .accessibilityIdentifier("soyeht.welcome.m4.word.\(index + 1)")
+                        }
+                    }
+                }
+            }
+        } else {
+            // The offer refreshes on its own; this is the gap between two of
+            // them, not an error worth a screen.
+            Text(LocalizedStringResource(
+                "bootstrap.addIPhone.preparing",
+                defaultValue: "Preparing the code…",
+                comment: "M4: shown for the moment between two pairing offers."
+            ))
+            .font(NeoFont.body)
+            .foregroundStyle(NeoPalette.cloud.muted)
+        }
+    }
+
+    private var pairingStatusRow: some View {
+        HStack(spacing: 8) {
+            if iPhoneFound {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(NeoPalette.cloud.success)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+            Text(iPhoneFound
+                ? LocalizedStringResource(
+                    "bootstrap.addIPhone.found",
+                    defaultValue: "iPhone found — confirm the words on it",
+                    comment: "M4: the phone has answered and is showing the same words."
+                )
+                : LocalizedStringResource(
+                    "bootstrap.addIPhone.waiting",
+                    defaultValue: "Waiting for your iPhone…",
+                    comment: "M4: nothing has answered yet."
+                ))
+            .font(NeoFont.body)
+            .foregroundStyle(NeoPalette.cloud.textSecondary)
+        }
+        .accessibilityIdentifier("soyeht.welcome.m4.status")
+    }
+
+    private var qrCard: some View {
+        NeoCard(palette: NeoPalette.cloud) {
+            VStack(spacing: 10) {
+                if let qrImage = MacQRCodeImageFactory.makeImage(from: pairQrUri) {
+                    Image(nsImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 150, height: 150)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .accessibilityIdentifier("soyeht.welcome.m4.qr")
+                        .accessibilityLabel(Text(LocalizedStringResource(
+                            "bootstrap.houseCard.iphone.qr.a11y",
+                            defaultValue: "QR code for pairing this iPhone",
+                            comment: "VoiceOver label for the pairing QR code."
+                        )))
+                }
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.qrCaption",
+                    defaultValue: "or scan with the iPhone camera",
+                    comment: "M4: caption under the QR code."
+                ))
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.muted)
+                .multilineTextAlignment(.center)
+            }
+            .padding(16)
+        }
+        .fixedSize()
+    }
+
+    private var footerRow: some View {
+        HStack(spacing: 16) {
+            Button(action: continueOnMac) {
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.skip",
+                    defaultValue: "Skip for now — add it later in Settings",
+                    comment: "M4: leaves setup without a phone."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: NeoPalette.cloud))
+            .disabled(isContinuingOnMac)
+            .accessibilityIdentifier("soyeht.welcome.m4.skip")
+
+            Spacer()
+
+            Button(action: { showInfoSheet = true }) {
+                Text(LocalizedStringResource(
+                    "bootstrap.addIPhone.moreWays",
+                    defaultValue: "More ways to pair",
+                    comment: "M4: opens the sheet with the copyable link."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: NeoPalette.cloud))
+
+            Button(action: copyPairLink) {
+                Text(copiedPairLink
+                    ? LocalizedStringResource(
+                        "bootstrap.addIPhone.copied",
+                        defaultValue: "Copied",
+                        comment: "M4: confirmation after copying the pairing link."
+                    )
+                    : LocalizedStringResource(
+                        "bootstrap.addIPhone.copyLink",
+                        defaultValue: "Copy link",
+                        comment: "M4: copies the pairing link to the clipboard."
+                    ))
+            }
+            .buttonStyle(NeoPillButtonStyle(.secondary, palette: NeoPalette.cloud, fillsWidth: false))
+            .accessibilityIdentifier("soyeht.welcome.m4.copyLink")
+        }
+    }
+
     @ViewBuilder private var statusMessage: some View {
         if let pairingError {
             Text(pairingError)
-                .font(MacTypography.Fonts.welcomeProgressBody)
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.danger)
         } else if let continueError {
             Text(continueError)
-                .font(MacTypography.Fonts.welcomeProgressBody)
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.danger)
         }
     }
 
@@ -229,46 +370,6 @@ struct HouseCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var fallbackPairingSection: some View {
-        VStack(spacing: 14) {
-            Text(LocalizedStringResource(
-                "bootstrap.houseCard.iphone.fallback",
-                defaultValue: "Fallback pairing code",
-                comment: "Header for QR/link fallback when direct discovery is unavailable."
-            ))
-            .font(MacTypography.Fonts.welcomeProgressTitle)
-            .foregroundColor(BrandColors.textMuted)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let qrImage = MacQRCodeImageFactory.makeImage(from: pairQrUri) {
-                Image(nsImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding(12)
-                    .background(BrandColors.qrCodeBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
-                    .accessibilityLabel(Text(LocalizedStringResource(
-                        "bootstrap.houseCard.iphone.qr.a11y",
-                        defaultValue: "QR code to add this iPhone to the home.",
-                        comment: "VoiceOver label for the first iPhone pairing QR."
-                    )))
-            } else {
-                Text(LocalizedStringResource(
-                    "bootstrap.houseCard.iphone.qr.error",
-                    defaultValue: "Couldn't generate the QR code. Close this screen and try again.",
-                    comment: "Fallback shown if first iPhone QR rendering fails."
-                ))
-                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                .foregroundColor(BrandColors.accentAmber)
-                .multilineTextAlignment(.center)
-            }
-
-            pairLinkSection
-        }
-    }
-
     private func securityCodeSection(_ words: [String]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(LocalizedStringResource(
@@ -279,25 +380,30 @@ struct HouseCardView: View {
             .font(MacTypography.Fonts.welcomeProgressTitle)
             .foregroundColor(BrandColors.textMuted)
 
+            // Three columns, like I4 and like the Preferences sheet. Every
+            // surface that shows these six words shows them in the same
+            // shape, or comparing two screens becomes a puzzle.
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), alignment: .leading),
-                    GridItem(.flexible(), alignment: .leading),
-                ],
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 8, alignment: .leading),
+                    count: 3
+                ),
                 alignment: .leading,
                 spacing: 8
             ) {
                 ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)")
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textMuted)
-                            .frame(width: 16, alignment: .trailing)
 
                         Text(verbatim: word)
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 
@@ -393,22 +499,17 @@ struct HouseCardView: View {
             let error = await onContinueOnMac()
             isContinuingOnMac = false
             continueError = error
+            // The credential is this window's last job; navigation belongs to
+            // the card so both exits behave the same way.
+            if error == nil { onPaired() }
         }
     }
 
+    /// Kept as the call site the whole screen reads through; the derivation
+    /// itself now lives in one place shared with the iPhone and with Settings.
     private static func securityCodeWords(from deepLink: String) -> [String]? {
-        guard let url = URL(string: deepLink),
-              let qr = try? PairDeviceQR(url: url, now: Date()),
-              let fingerprint = try? OperatorFingerprint.derive(
-                machinePublicKey: qr.householdPublicKey,
-                pairingNonce: qr.nonce,
-                wordlist: try BIP39Wordlist()
-              ),
-              fingerprint.words.count == OperatorFingerprint.wordCount else {
-            return nil
-        }
-        return fingerprint.words
-}
+        try? PairingCodePresentation.words(pairingURI: deepLink)
+    }
 
     private func pollUntilPaired() async {
         let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
@@ -417,12 +518,25 @@ struct HouseCardView: View {
             if let status = try? await client.fetch() {
                 switch status.state {
                 case .ready:
+                    // Every way out of the Welcome window mints this Mac's own
+                    // credential first. Without it the main window opens with
+                    // no server of its own, the first pane has nothing to
+                    // attach to, and the next launch bounces back to Welcome.
+                    let error = await onContinueOnMac()
                     await MainActor.run {
+                        if let error {
+                            pairingError = error
+                            return
+                        }
                         pairingComplete = true
                         showInfoSheet = false
+                        // The code that was on screen has been spent.
+                        advertisement.invalidate()
                         onPaired()
                     }
-                    return
+                    if error == nil { return }
+                    // A credential that could not be minted yet falls through
+                    // to the poll's own 500 ms pace instead of spinning.
                 case .namedAwaitingPair, .recovering:
                     break
                 case .uninitialized, .readyForNaming:
@@ -442,23 +556,34 @@ struct HouseCardView: View {
 
     private func listenForIPhoneInvitations() async {
         let hostLabel = Host.current().localizedName ?? "Mac"
-        let existingHouse = SetupInvitationExistingHouse(
-            name: houseName,
-            hostLabel: hostLabel,
-            pairDeviceURI: pairQrUri
-        )
 
         while !Task.isCancelled {
             if await MainActor.run(body: { pairingComplete }) {
                 return
             }
 
+            // Rebuilt every pass. Captured once, this carried whichever link
+            // was live when the card appeared, so a phone arriving after the
+            // window rotated was handed a code the Mac had stopped showing.
+            let existingHouse = await MainActor.run {
+                SetupInvitationExistingHouse(
+                    name: houseName,
+                    hostLabel: hostLabel,
+                    pairDeviceURI: pairQrUri
+                )
+            }
             let listener = SetupInvitationListener(
                 engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
                 existingHouse: existingHouse
             )
             let outcome = await listener.listen()
             guard !Task.isCancelled else { return }
+
+            // Set before the switch so the pinned shape of the claim case
+            // stays exactly as it is.
+            if case .invitationClaimed = outcome {
+                await MainActor.run { iPhoneFound = true }
+            }
 
             switch outcome {
             case .invitationClaimed:
@@ -584,25 +709,32 @@ struct IPhonePairingSheetContent: View {
             .font(MacTypography.Fonts.welcomeProgressTitle)
             .foregroundColor(BrandColors.textMuted)
 
+            // Three columns and two rows, the same shape and the same reading
+            // order as the iPhone's I4. Two columns put 1,2 / 3,4 / 5,6 on
+            // screen while the phone showed 1,2,3 / 4,5,6 — the two lists are
+            // identical and look nothing alike, which is the one thing a
+            // side-by-side comparison must never do.
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), alignment: .leading),
-                    GridItem(.flexible(), alignment: .leading),
-                ],
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 8, alignment: .leading),
+                    count: 3
+                ),
                 alignment: .leading,
                 spacing: 8
             ) {
                 ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)")
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textMuted)
-                            .frame(width: 16, alignment: .trailing)
 
                         Text(verbatim: word)
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 

@@ -249,7 +249,7 @@ final class BaseMachineProjectorTests: XCTestCase {
         )
     }
 
-    func testBaseProjectionAloneChoosesHouseholdHomeWithoutOperationalRecoverySideEffects() throws {
+    func testBaseProjectionAloneStillGoesHomeWithoutOperationalRecoverySideEffects() throws {
         let registryFixture = makeRegistry()
         defer { registryFixture.clear() }
         let ownerKey = try machineKey(seed: 0x33)
@@ -270,17 +270,20 @@ final class BaseMachineProjectorTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            HouseholdRecoveryDestination.resolve(registry: registryFixture.registry),
-            .householdHome,
-            "A valid household with only the display-only base must not enter instance recovery."
-        )
-        XCTAssertEqual(
             HomeFallbackDestination.resolve(
                 registry: registryFixture.registry,
                 hasActiveHousehold: true
             ),
-            .householdHome,
-            "Return/cancel fallbacks must keep a base-only household out of the instance list."
+            .instanceList,
+            "A household with only the display-only base still goes to its home; the home is what says the Mac has not arrived."
+        )
+        XCTAssertEqual(
+            HomeFallbackDestination.resolve(
+                registry: registryFixture.registry,
+                hasActiveHousehold: false
+            ),
+            .noHome,
+            "No household is still no home — the projection alone must not conjure one."
         )
         XCTAssertFalse(registryFixture.registry.servers.isEmpty)
         XCTAssertTrue(registryFixture.registry.operationalServers.isEmpty)

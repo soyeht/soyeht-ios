@@ -184,8 +184,6 @@ public enum SoyehtFeatureFlags {
             && arguments.contains(relayStreamIPTunnelActivationE2ELaunchArgument)
     }
 
-    public static let onboardingCarouselEnabled = false
-
     @inline(never)
     private static func debugAssertionsEnabled() -> Bool {
         _isDebugAssertConfiguration()

@@ -74,12 +74,13 @@ enum LocalPairingConnectionBadge: Equatable {
 final class DevicesPreferencesViewController: NSViewController {
     private let localConnectionsLabel = NSTextField(labelWithString: "")
     private let localPresenceBadgeLabel = NSTextField(labelWithString: "")
-    private let startOverLabel = NSTextField(wrappingLabelWithString: "")
+    private let forgetHomeLabel = NSTextField(wrappingLabelWithString: "")
     private var pairingWindowController: MacIPhonePairingWindowController?
 
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 700, height: 430))
+        view.setFrameSize(NSSize(width: 700, height: 560))
+        preferredContentSize = NSSize(width: 700, height: 560)
     }
 
     override func viewDidLoad() {
@@ -202,38 +203,71 @@ final class DevicesPreferencesViewController: NSViewController {
         localPresenceBadgeLabel.font = .systemFont(ofSize: 12, weight: .medium)
         stack.addArrangedSubview(localPresenceBadgeLabel)
 
+        // Two ways to bring another machine into this home, from the one
+        // place a person looks for them. They used to live only inside the
+        // Welcome flow, which a set-up Mac never sees again.
+        let joinButton = NSButton(
+            title: String(
+                localized: "prefs.devices.joinExisting.button",
+                defaultValue: "Join an existing Soyeht…",
+                comment: "Button in Preferences › Devices that shows a QR for another Mac to join this home."
+            ),
+            target: self,
+            action: #selector(joinExistingSoyeht)
+        )
+        joinButton.bezelStyle = .rounded
+        joinButton.setAccessibilityIdentifier("prefs.devices.joinExisting")
+
+        let addLinuxButton = NSButton(
+            title: String(
+                localized: "prefs.devices.addLinux.button",
+                defaultValue: "Add a Linux server…",
+                comment: "Button in Preferences › Devices that opens the Linux server sheet."
+            ),
+            target: self,
+            action: #selector(addLinuxServer)
+        )
+        addLinuxButton.bezelStyle = .rounded
+        addLinuxButton.setAccessibilityIdentifier("prefs.devices.addLinux")
+
+        let machinesRow = NSStackView(views: [joinButton, addLinuxButton])
+        machinesRow.orientation = .horizontal
+        machinesRow.spacing = 8
+        stack.addArrangedSubview(machinesRow)
+
         // The way out of a home whose only iPhone is gone. Adding a new
         // iPhone to a paired home needs approval from an iPhone that already
         // belongs to it; when that iPhone was lost, reset, or replaced, the
         // new one waits for an approval that can never come (measured
-        // 2026-09-01: five minutes of spinner, then a timeout). The engine
-        // refuses a teardown without the owner's signature, so the honest
-        // recovery is the same one a reinstall gives: forget this home on
-        // this Mac and pair the new iPhone as the first one. The uninstaller
-        // already does exactly that, keeps the app by default, and offers
-        // "Force Local Uninstall" when the owner revocation cannot be signed.
-        startOverLabel.font = .systemFont(ofSize: 12)
-        startOverLabel.textColor = .secondaryLabelColor
-        startOverLabel.maximumNumberOfLines = 3
-        startOverLabel.stringValue = String(
-            localized: "prefs.devices.startOver.explainer",
-            defaultValue: "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Start over to forget this home on this Mac and pair the new iPhone as the first one.",
-            comment: "Explains when to use Start over in Preferences › Devices."
+        // 2026-09-01: five minutes of spinner, then a timeout).
+        //
+        // This used to be "Start over…", which opened the whole uninstaller —
+        // a window about removing Soyeht, to fix a problem about a phone. It
+        // does the same work under its own name now, and the copy is honest
+        // about where it stops: the home is forgotten on this Mac, and stays
+        // alive on any iPhone that still has it.
+        forgetHomeLabel.font = .systemFont(ofSize: 12)
+        forgetHomeLabel.textColor = .secondaryLabelColor
+        forgetHomeLabel.maximumNumberOfLines = 4
+        forgetHomeLabel.stringValue = String(
+            localized: "prefs.devices.forgetHome.explainer",
+            defaultValue: "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Forget this home on this Mac, then pair the new iPhone as the first one.",
+            comment: "Explains when to use Forget this home in Preferences › Devices."
         )
-        stack.addArrangedSubview(startOverLabel)
+        stack.addArrangedSubview(forgetHomeLabel)
 
-        let startOverButton = NSButton(
+        let forgetHomeButton = NSButton(
             title: String(
-                localized: "prefs.devices.startOver.button",
-                defaultValue: "Start over…",
-                comment: "Button in Preferences › Devices that opens the uninstaller to forget the home and pair a new first iPhone."
+                localized: "prefs.devices.forgetHome.button",
+                defaultValue: "Forget this home…",
+                comment: "Button in Preferences › Devices that forgets the household on this Mac."
             ),
             target: self,
-            action: #selector(startOver)
+            action: #selector(forgetThisHome)
         )
-        startOverButton.bezelStyle = .rounded
-        startOverButton.setAccessibilityIdentifier("prefs.devices.startOver")
-        stack.addArrangedSubview(startOverButton)
+        forgetHomeButton.bezelStyle = .rounded
+        forgetHomeButton.setAccessibilityIdentifier("prefs.devices.forgetHome")
+        stack.addArrangedSubview(forgetHomeButton)
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 28),
@@ -323,8 +357,46 @@ final class DevicesPreferencesViewController: NSViewController {
         }
     }
 
-    @objc private func startOver() {
-        NSApp.sendAction(#selector(AppDelegate.uninstallSoyeht(_:)), to: nil, from: self)
+    /// Two buttons, and the destructive one is not the default: the alert is
+    /// the last place someone can change their mind about a household this
+    /// Mac cannot get back.
+    @objc private func forgetThisHome() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(
+            localized: "prefs.devices.forgetHome.alert.title",
+            defaultValue: "Forget this home on this Mac?",
+            comment: "Title of the confirmation alert for Forget this home."
+        )
+        alert.informativeText = String(
+            localized: "prefs.devices.forgetHome.alert.body",
+            defaultValue: "This Mac will stop belonging to the home and reopen setup, so you can name a new one and pair an iPhone as the first. Your files and terminals are untouched. Any iPhone that still has this home keeps it until it leaves from there.",
+            comment: "Body of the confirmation alert for Forget this home — says exactly what it does and does not do."
+        )
+        alert.addButton(withTitle: String(
+            localized: "prefs.devices.forgetHome.alert.confirm",
+            defaultValue: "Forget This Home",
+            comment: "Destructive button of the Forget this home alert."
+        ))
+        alert.addButton(withTitle: String(
+            localized: "prefs.devices.forgetHome.alert.cancel",
+            defaultValue: "Cancel",
+            comment: "Cancel button of the Forget this home alert."
+        ))
+        alert.buttons.first?.hasDestructiveAction = true
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Task { @MainActor in
+            _ = await ForgetHomeService().run()
+        }
+    }
+
+    @objc private func joinExistingSoyeht() {
+        MacJoinExistingWindowController.shared.showWindow(nil)
+    }
+
+    @objc private func addLinuxServer() {
+        MacAddLinuxServerWindowController.shared.showWindow(nil)
     }
 
     @objc private func manageLocalConnections() {
@@ -450,6 +522,22 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
     }
 
     private func loadPairingLink() async {
+        // One offer per Mac. This sheet used to mint its own link whenever the
+        // engine was already `.ready`, while the background listener minted a
+        // different one every half second — so the words here and the words
+        // the phone was told to expect came from whichever listener claimed
+        // the invitation first.
+        MacPairingAdvertisement.shared.start()
+        if let offer = await MacPairingAdvertisement.shared.currentOffer() {
+            presentPairing(PairingPayload(
+                houseName: offer.houseName,
+                hostLabel: offer.hostLabel,
+                pairingURI: offer.uri,
+                isFirstOwnerPairing: offer.isEngineMinted,
+                initialDeviceCount: await Self.currentDeviceCount()
+            ))
+            return
+        }
         do {
             let response = try await BootstrapPairDeviceURIClient(
                 baseURL: TheyOSEnvironment.bootstrapBaseURL
@@ -624,17 +712,10 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
     }
 
     private static func homeCodeWords(for pairingURI: String) -> [String]? {
-        guard let url = URL(string: pairingURI),
-              let input = try? householdFingerprintInput(from: url),
-              let fingerprint = try? OperatorFingerprint.derive(
-                machinePublicKey: input.householdPublicKey,
-                pairingNonce: input.pairingNonce,
-                wordlist: try BIP39Wordlist()
-              ),
-              fingerprint.words.count == OperatorFingerprint.wordCount else {
-            return nil
-        }
-        return fingerprint.words
+        // The same derivation the house card and the iPhone use. It reads both
+        // link shapes, which is why this no longer needs its own branch on
+        // PairDeviceQR versus link.pairingNonce.
+        try? PairingCodePresentation.words(pairingURI: pairingURI)
     }
 
     private static func householdFingerprintInput(from url: URL) throws -> (householdPublicKey: Data, pairingNonce: Data) {
@@ -1198,4 +1279,203 @@ private enum MacPairingReachability {
     static func reachableEngineURL(localEngineBaseURL: URL) -> URL {
         MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
     }
+}
+
+// MARK: - Sheets reached from Preferences › Devices
+
+/// "Join an existing Soyeht…" — this Mac asking to be let into a home that
+/// already exists somewhere else.
+///
+/// It used to live only inside the Welcome flow, on a fork a Mac sees exactly
+/// once and never again. A second Mac bought a month later had no way in at
+/// all. The screen itself is unchanged; only where it is reached from.
+@MainActor
+final class MacJoinExistingWindowController: NSWindowController {
+    static let shared = MacJoinExistingWindowController()
+
+    private static let windowSize = NSSize(width: 460, height: 620)
+
+    private init() {
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: Self.windowSize),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(
+            localized: "prefs.devices.joinExisting.window.title",
+            defaultValue: "Join an existing Soyeht",
+            comment: "Title of the window that shows this Mac's join QR."
+        )
+        // The root is pinned to the window size. A SwiftUI root free to pick
+        // its own size makes AppKit resize the window from constraints while
+        // it is already laying out — measured as an NSGenericException from
+        // `_postWindowNeedsUpdateConstraints`, which aborts the app.
+        let content = NSHostingController(
+            rootView: MacJoinExistingGate()
+                .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .top)
+        )
+        window.contentViewController = content
+        content.preferredContentSize = Self.windowSize
+        content.view.frame = NSRect(origin: .zero, size: Self.windowSize)
+        window.setContentSize(Self.windowSize)
+        super.init(window: window)
+    }
+
+    required init?(coder: NSCoder) { fatalError("Use shared") }
+}
+
+/// The gate, as a screen rather than a hidden button.
+///
+/// Two things can stop this Mac from joining, and they need different
+/// sentences. Both need the engine's state, which means a request — so gating
+/// the *button* would make it appear a beat after the pane. A person who
+/// cannot use this deserves the reason and the way out of it, not a control
+/// that was never there.
+private struct MacJoinExistingGate: View {
+    enum Readiness: Equatable {
+        case ready
+        case engineTooOld
+        /// This Mac is already in a home, so it has nothing to join with.
+        /// The pane behind this window is where that is undone.
+        case alreadyInAHome
+        case engineUnreachable
+    }
+
+    @State private var readiness: Readiness?
+
+    var body: some View {
+        // `SwiftUI.Group` spelled out: this file imports SoyehtCore, which has
+        // a `Group` of its own, and the bare name resolves to that one.
+        SwiftUI.Group {
+            switch readiness {
+            case .none:
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .ready:
+                JoinExistingSoyehtView(onPaired: dismiss, onBack: dismiss)
+            case .alreadyInAHome:
+                message(
+                    title: LocalizedStringResource(
+                        "prefs.devices.joinExisting.alreadyInAHome.title",
+                        defaultValue: "This Mac already belongs to a home",
+                        comment: "Shown when a Mac that is already set up opens Join an existing Soyeht."
+                    ),
+                    body: LocalizedStringResource(
+                        "prefs.devices.joinExisting.alreadyInAHome.body",
+                        defaultValue: "A Mac can only be in one home at a time. Close this and choose Forget this home first.",
+                        comment: "Names the one action that makes joining possible."
+                    )
+                )
+            case .engineTooOld:
+                message(
+                    title: LocalizedStringResource(
+                        "prefs.devices.joinExisting.tooOld.title",
+                        defaultValue: "This Mac's engine is too old to join a home",
+                        comment: "Shown when the local engine predates machine joining."
+                    ),
+                    body: LocalizedStringResource(
+                        "prefs.devices.joinExisting.tooOld.body",
+                        defaultValue: "Update Soyeht on this Mac and open this again.",
+                        comment: "What fixes an engine too old to join a home."
+                    )
+                )
+            case .engineUnreachable:
+                message(
+                    title: LocalizedStringResource(
+                        "prefs.devices.joinExisting.unreachable.title",
+                        defaultValue: "This Mac's engine isn't answering",
+                        comment: "Shown when the local engine cannot be reached at all."
+                    ),
+                    body: LocalizedStringResource(
+                        "prefs.devices.joinExisting.unreachable.body",
+                        defaultValue: "Give it a moment and open this again.",
+                        comment: "What to do when the local engine is not answering yet."
+                    )
+                )
+            }
+        }
+        .task {
+            guard readiness == nil else { return }
+            readiness = await Self.resolve()
+        }
+    }
+
+    private func message(title: LocalizedStringResource, body: LocalizedStringResource) -> some View {
+        VStack(spacing: 12) {
+            Text(title).font(.headline)
+            Text(body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(String(
+                localized: "prefs.devices.joinExisting.close",
+                defaultValue: "Close",
+                comment: "Closes the Join an existing Soyeht window from one of its dead ends."
+            )) { dismiss() }
+            .padding(.top, 4)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    static func resolve(
+        fetch: () async throws -> BootstrapStatusResponse = {
+            try await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+        }
+    ) async -> Readiness {
+        guard let status = try? await fetch() else { return .engineUnreachable }
+        guard JoinExistingCapability.isAvailable(status: status) else { return .engineTooOld }
+        switch status.state {
+        case .uninitialized, .readyForNaming:
+            return .ready
+        default:
+            return .alreadyInAHome
+        }
+    }
+
+    private func dismiss() {
+        MacJoinExistingWindowController.shared.close()
+    }
+}
+
+/// "Add a Linux server…" — the same sheet the house card offers during setup,
+/// reachable after setup is over.
+@MainActor
+final class MacAddLinuxServerWindowController: NSWindowController {
+    static let shared = MacAddLinuxServerWindowController()
+
+    /// Matches the sheet's own `.frame(width: 520)`. Anything narrower
+    /// centre-crops it and the title runs off both edges.
+    private static let windowSize = NSSize(width: 520, height: 340)
+
+    private init() {
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: Self.windowSize),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(
+            localized: "prefs.devices.addLinux.window.title",
+            defaultValue: "Add a Linux server",
+            comment: "Title of the Add Linux server window opened from Preferences."
+        )
+        // Same pinning as the join window: this view was written as a sheet,
+        // sized by whatever presented it, and left to size a window itself it
+        // crashes AppKit's layout pass.
+        let content = NSHostingController(
+            rootView: AddLinuxServerSheet(
+                onConnected: { MacAddLinuxServerWindowController.shared.close() },
+                onCancel: { MacAddLinuxServerWindowController.shared.close() }
+            )
+            .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .top)
+        )
+        window.contentViewController = content
+        content.preferredContentSize = Self.windowSize
+        content.view.frame = NSRect(origin: .zero, size: Self.windowSize)
+        window.setContentSize(Self.windowSize)
+        super.init(window: window)
+    }
+
+    required init?(coder: NSCoder) { fatalError("Use shared") }
 }

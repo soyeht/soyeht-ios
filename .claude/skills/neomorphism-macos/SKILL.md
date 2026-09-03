@@ -26,9 +26,29 @@ incluindo os becos sem saída — não os repita. Referência de design: `unica.
    pills ~34pt → 6/10; cards em grid com corredor ~21pt → 4/9; painel isolado → 9/18;
    o 33/55 do gerador é para objeto-herói solitário. Reach (offset+blur) DEVE caber
    na margem disponível ou a sombra é fatiada com borda reta.
-5. **Superfície com gradiente diagonal 145°** (a curvatura): convexo = claro no
-   topo-esquerda; côncavo/pressionado = invertido (tab ativa). Tokens:
-   `MacTheme.neoConvexStart/End`.
+5. **A face é chapada; a curvatura vem do par de sombras.** O gradiente diagonal
+   de 145° foi retirado — `MacTheme.neoConvexStart/End` não existe mais. Convexo e
+   côncavo se distinguem por qual lado da sombra é escuro, não por um degradê na
+   superfície.
+
+## SwiftUI: use o kit, não recrie as leis
+
+`Packages/SoyehtCore/Sources/SoyehtCore/Theme/Neo/` é a implementação canônica em
+SwiftUI: `NeoPalette` (lê só `theme.neoStyleColors` + `theme.appPalette`, nunca
+calcula cor), `NeoShadowMath.swiftUIRadius(blur:) = blur/2` (o mesmo número que
+`MacSurface.Shadow.neo` usa do lado AppKit, para os dois não divergirem),
+`NeoElevation` (chip 3/5, card 4/8, pill 6/10, panel 9/18, hero 12/24, escalado
+pelo ESPAÇO ao redor — lei 4), `NeoRadius` (card 20 / control 12 / pill 999), e os
+modificadores `.neoCanvas/.neoRaised/.neoPressed/.neoWell/.neoAccentGlow`.
+
+**Atenção ao eixo.** SwiftUI tem y para baixo; CALayer aqui não é flipado. A lei 2
+continua valendo — luz do topo-esquerda — mas em SwiftUI isso é escura `(+d, +d)` e
+clara `(−d, −d)`, o oposto dos sinais da lei 2. As sombras entram DEPOIS do
+`.clipShape`, sobre um `.compositingGroup()`.
+
+`NeoPalette.cloud` é o que o onboarding fixa: as telas de instalação são sempre
+neo, independentemente de `DesignStyle.active`, porque quem está instalando ainda
+não escolheu tema nenhum.
 
 ## A arquitetura de luz do grid (a lição mais cara)
 

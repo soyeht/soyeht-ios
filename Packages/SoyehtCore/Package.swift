@@ -66,6 +66,9 @@ let package = Package(
             resources: [
                 // T039d — operator fingerprint cross-language fixture (Rust→Swift)
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
+                // The six words a person compares between the Mac and the phone
+                // when pairing, derived from (hh_pub, nonce) (theyos household-rs → Swift)
+                .copy("HouseholdFixtures/PairDeviceFingerprint/pair_device_fingerprint_vectors.json"),
                 // P7-B — PoP/CBOR signing-context cross-language vectors (theyos→Swift)
                 .copy("HouseholdFixtures/PoP/pop_vectors.json"),
                 // S2 - owner approval Protocol-v2 WebAuthn challenge context vectors (theyos->Swift)

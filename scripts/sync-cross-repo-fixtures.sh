@@ -180,6 +180,17 @@ cp "${BOOTSTRAP_ERROR_FIXTURE}" \
    "${TESTS}/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json"
 echo "✓ bootstrap_error_codes.json (bootstrap error-code contract)"
 
+# ── The six words compared between the Mac and the phone (admin/rust/household-rs/tests/data/) ──
+PAIR_DEVICE_FINGERPRINT_FIXTURE="${THEYOS_DIR}/admin/rust/household-rs/tests/data/pair_device_fingerprint_vectors.json"
+if [[ ! -f "${PAIR_DEVICE_FINGERPRINT_FIXTURE}" ]]; then
+    echo "error: pair-device fingerprint vectors not found at ${PAIR_DEVICE_FINGERPRINT_FIXTURE}" >&2
+    exit 1
+fi
+mkdir -p "${TESTS}/HouseholdFixtures/PairDeviceFingerprint"
+cp "${PAIR_DEVICE_FINGERPRINT_FIXTURE}" \
+   "${TESTS}/HouseholdFixtures/PairDeviceFingerprint/pair_device_fingerprint_vectors.json"
+echo "✓ pair_device_fingerprint_vectors.json (the six words, both sides)"
+
 # ── InstanceStatus: instance lifecycle status wire contract (admin/rust/store-rs/tests/fixtures/) ──
 INSTANCE_STATUS_FIXTURE="${THEYOS_DIR}/admin/rust/store-rs/tests/fixtures/instance_status_codes.json"
 if [[ ! -f "${INSTANCE_STATUS_FIXTURE}" ]]; then

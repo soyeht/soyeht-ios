@@ -47,10 +47,15 @@ ENGINE_SAFE_STAGES = "scripts/ci/engine-safe-stages.txt"
 ABSENT_FILE_SENTINEL = "<ABSENT>"
 PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 
-ENGINE_RELEASE_VERSION = "0.1.27"
-ENGINE_RELEASE_SHA256 = "e85657de58fad61f20c1e3692b3dcfbb4dd3f7450a1940dd8cb48b97871c71d6"
-ENGINE_RELEASE_SOURCE = "c1e5455adb9b4cbc4ce430a6c6303c09b1f508d3"
-ENGINE_RELEASE_TREE = "999a82bbabc3a1a900f31cfc08d0caab5413d000"
+# The release the shipped engine is actually pinned to. Every value here was
+# re-measured against the published artifact and the tag it was built from,
+# not carried over: the sha256 is of the downloaded
+# `theyos-engine-0.1.28-macos-arm64.tar.gz` asset, and the source and tree are
+# what `refs/tags/v0.1.28` resolves to.
+ENGINE_RELEASE_VERSION = "0.1.28"
+ENGINE_RELEASE_SHA256 = "bab1ef9115af2a14eddffb84d3fdf807e97306260dab61836cac22a070c7cc10"
+ENGINE_RELEASE_SOURCE = "1aa5422bf335244af1138f8ba39c3c85e4df78e8"
+ENGINE_RELEASE_TREE = "b05449a2565815676f64f0c3bfd93ba8d04523ae"
 CANONICAL_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -621,6 +626,12 @@ def parse_engine_compat_floor(text: str) -> str:
     return floor
 
 
+def semver_tuple(version: str) -> tuple[int, int, int]:
+    """Order two canonical `major.minor.patch` strings numerically."""
+    major, minor, patch = (int(part) for part in version.split("."))
+    return (major, minor, patch)
+
+
 def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     """Bind the shipped engine pin, checksum, client floor, tests, and receipt."""
 
@@ -645,10 +656,27 @@ def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     test_body = tests[test_start : test_end if test_end >= 0 else len(tests)]
     for fragment in (
         f'XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "{pin}")',
-        'XCTAssertFalse(EngineCompat.isCompatible("0.1.26"))',
         f'XCTAssertTrue(EngineCompat.isCompatible("{pin}"))',
     ):
         require_once(test_body, fragment, f"engine compatibility regression test drifted: {fragment}")
+
+    # The test must also refuse something below the floor, but which version
+    # that is moves with the floor. This used to be the literal "0.1.26",
+    # correct while the floor was 0.1.27 and stale the moment it became
+    # 0.1.28 — the same rigidity that let this whole file rot a release
+    # behind. Derive it instead: any refused version strictly below the pin
+    # proves the floor is enforced downward.
+    refused = [
+        version
+        for version in re.findall(
+            r'XCTAssertFalse\(EngineCompat\.isCompatible\("([^"]+)"\)', test_body
+        )
+        if CANONICAL_SEMVER.fullmatch(version) and semver_tuple(version) < semver_tuple(pin)
+    ]
+    require(
+        bool(refused),
+        f"engine compatibility regression test must refuse a version below the {pin} floor",
+    )
 
     require_once(
         files[CLAW_INSTALL_DOC],
@@ -848,6 +876,39 @@ def read_snapshot() -> dict[str, str]:
             result[relative] = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
             raise ContractError(f"cannot read tracked contract file {relative}: {error}") from error
+    return result
+
+
+# The engine-pin half of the contract, and the only files it needs. All six
+# are tracked in this repository, unlike the workflow contracts, so this
+# subset can be validated on a machine that builds a DMG without CI.
+ENGINE_PIN_PATHS = (
+    ENGINE_PIN,
+    ENGINE_CHECKSUMS,
+    ENGINE_COMPAT,
+    ENGINE_COMPAT_TESTS,
+    CLAW_INSTALL_DOC,
+    ENGINE_SAFE_STAGES,
+)
+
+
+def read_engine_pin_snapshot() -> dict[str, str]:
+    """Read only the engine-pin contract files.
+
+    `read_snapshot` reads every tracked contract path, and the first of those
+    is `.github/workflows/macos-release.yml`, which this repository does not
+    track — releases are published without CI. So the whole checker aborted on
+    its first file and the `minSupportedEngineVersion == pin` gate never ran,
+    which is how the pin, its checksum and the floor reached 0.1.28 while this
+    file still named 0.1.27. This reads the six files that do exist.
+    """
+    result = {}
+    for relative in ENGINE_PIN_PATHS:
+        path = REPO_ROOT / relative
+        try:
+            result[relative] = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            raise ContractError(f"cannot read engine pin file {relative}: {error}") from error
     return result
 
 
@@ -1314,6 +1375,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true", help="also reject the adversarial mutant table")
     parser.add_argument(
+        "--engine-pin-only",
+        action="store_true",
+        help=(
+            "validate just the engine pin, checksum, client floor, regression test, "
+            "install doc and diagnostic provenance; skips the workflow contracts this "
+            "repository does not track"
+        ),
+    )
+    parser.add_argument(
         "--scan-product",
         type=Path,
         help="fail if a public product tree contains provider-key material or unsafe links",
@@ -1339,6 +1409,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.engine_pin_only:
+            require(
+                args.scan_product is None
+                and not args.self_test
+                and args.engine_tarball is None
+                and args.engine_provenance is None
+                and args.verified_attestation_json is None,
+                "--engine-pin-only cannot be combined with any other input",
+            )
+            validate_engine_release_pin(read_engine_pin_snapshot())
+            print(f"engine pin contract: PASS: {ENGINE_RELEASE_VERSION}")
+            return 0
         if args.scan_product is not None:
             require(
                 not args.self_test

@@ -212,4 +212,29 @@ enum AccessibilityID {
         static let toast = "soyeht.filePreview.toast"
     }
 
+    // MARK: - Home (neo)
+
+    enum Home {
+        static let screen = "soyeht.home.screen"
+        static let houseName = "soyeht.home.houseName"
+        static let settingsButton = "soyeht.home.settingsButton"
+        static let macCard = "soyeht.home.macCard"
+        static let macArriving = "soyeht.home.macArriving"
+        static let sessionsEmpty = "soyeht.home.sessionsEmpty"
+        static let newSessionButton = "soyeht.home.newSessionButton"
+        static let otherMachinesButton = "soyeht.home.otherMachinesButton"
+        static func sessionRow(_ id: String) -> String { "soyeht.home.sessionRow.\(id)" }
+    }
+
+    // MARK: - Onboarding (neo)
+
+    enum Onboarding {
+        static let back = "soyeht.onboarding.back"
+        static let welcomeGetStarted = "soyeht.onboarding.welcome.getStarted"
+        static let macPresenceYes = "soyeht.onboarding.macPresence.yes"
+        static let macPresenceNotYet = "soyeht.onboarding.macPresence.notYet"
+        static let macPresenceLinux = "soyeht.onboarding.macPresence.linux"
+        static let pairedContinue = "soyeht.onboarding.paired.cta"
+    }
+
 }

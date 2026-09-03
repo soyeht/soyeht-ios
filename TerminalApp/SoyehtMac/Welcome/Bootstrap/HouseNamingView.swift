@@ -15,76 +15,43 @@ struct HouseNamingView: View {
     private static let forbiddenChars = CharacterSet(charactersIn: "/:\\*?\"<>|")
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            stepIndicator
-                .padding(.bottom, 36)
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text(LocalizedStringResource(
-                    "bootstrap.houseNaming.title",
-                    defaultValue: "What do you want to call your home?",
-                    comment: "House naming scene title."
-                ))
-                .font(MacTypography.Fonts.Display.heroTitle)
-                .foregroundColor(BrandColors.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-
-                Text(LocalizedStringResource(
-                    "bootstrap.houseNaming.subtitle",
-                    defaultValue: "You can change this later.",
-                    comment: "House naming subtitle reassuring name is changeable."
-                ))
-                .font(MacTypography.Fonts.Display.heroSubtitle)
-                .foregroundColor(BrandColors.textMuted)
-            }
-            .padding(.bottom, 32)
-
-            nameField
-
-            Spacer()
-
-            HStack {
-                Spacer()
-                Button(action: confirm) {
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseNaming.cta",
-                        defaultValue: "Create Home",
-                        comment: "House naming CTA. Submits the name and starts key generation."
-                    ))
-                    .font(MacTypography.Fonts.Controls.cta)
-                    .foregroundColor(BrandColors.buttonTextOnAccent)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 28)
-                    .background(isValid ? BrandColors.accentGreen : BrandColors.border)
-                    .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
+        WelcomeStepScaffold(
+            step: 3,
+            title: LocalizedStringResource(
+                "bootstrap.houseNaming.title",
+                defaultValue: "Name your home.",
+                comment: "M3: title of the naming step."
+            ),
+            body: LocalizedStringResource(
+                "bootstrap.houseNaming.explainer",
+                defaultValue: "Your home is this Mac plus the devices you add to it. The name is what you will see on your iPhone.",
+                comment: "M3: explains what a home is, in the owner's terms, before they name one."
+            ),
+            content: { nameField },
+            footer: {
+                HStack {
+                    Spacer()
+                    Button(action: confirm) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseNaming.cta",
+                            defaultValue: "Continue",
+                            comment: "M3: button that creates the home."
+                        ))
+                    }
+                    .buttonStyle(NeoPillButtonStyle(.primary, palette: NeoPalette.cloud, fillsWidth: false))
+                    .disabled(!isValid)
+                    .opacity(isValid ? 1 : 0.5)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier(WelcomeAccessibilityID.m3Continue)
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "bootstrap.houseNaming.cta.a11y",
+                        defaultValue: "Create the home with the provided name",
+                        comment: "House naming CTA VoiceOver label."
+                    )))
                 }
-                .buttonStyle(.plain)
-                .disabled(!isValid)
-                .keyboardShortcut(.defaultAction)
-                .accessibilityLabel(Text(LocalizedStringResource(
-                    "bootstrap.houseNaming.cta.a11y",
-                    defaultValue: "Create the home with the provided name",
-                    comment: "House naming CTA VoiceOver label."
-                )))
             }
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        )
         .onAppear { isTextFieldFocused = true }
-    }
-
-    private var stepIndicator: some View {
-        Text(LocalizedStringResource(
-            "bootstrap.houseNaming.step",
-            defaultValue: "Step 2 of 3",
-            comment: "House naming step indicator."
-        ))
-        .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.readableTextOnSelection)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(BrandColors.selection)
-        .clipShape(Capsule())
     }
 
     private var nameField: some View {
@@ -93,9 +60,7 @@ struct HouseNamingView: View {
                 "bootstrap.houseNaming.field.placeholder",
                 text: $houseName
             )
-            .textFieldStyle(.plain)
-            .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
-            .foregroundColor(BrandColors.textPrimary)
+            .textFieldStyle(NeoTextFieldStyle(palette: NeoPalette.cloud))
             .focused($isTextFieldFocused)
             .onChange(of: houseName) { _, new in
                 // Strip forbidden chars on input and cap length
@@ -105,14 +70,7 @@ struct HouseNamingView: View {
                 let clamped = String(cleaned.prefix(Self.maxLength))
                 if clamped != new { houseName = clamped }
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 14)
-            .background(BrandColors.card)
-            .overlay(
-                RoundedRectangle(cornerRadius: MacSurface.Radius.card)
-                    .stroke(isTextFieldFocused ? BrandColors.accentGreen : BrandColors.border, lineWidth: MacSurface.Border.hairline)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: MacSurface.Radius.card))
+            .accessibilityIdentifier(WelcomeAccessibilityID.m3NameField)
             .accessibilityLabel(Text(LocalizedStringResource(
                 "bootstrap.houseNaming.field.a11y",
                 defaultValue: "Home name, \(houseName.count) of \(Self.maxLength) characters",
@@ -131,8 +89,8 @@ struct HouseNamingView: View {
                     defaultValue: "Some characters are not allowed in the name.",
                     comment: "Validation message for forbidden filesystem characters."
                 ))
-                .font(MacTypography.Fonts.welcomeProgressBody)
-                .foregroundColor(BrandColors.accentAmber)
+                .font(NeoFont.caption)
+                .foregroundStyle(NeoPalette.cloud.danger)
             }
             Spacer()
             Text(LocalizedStringResource(
@@ -140,8 +98,8 @@ struct HouseNamingView: View {
                 defaultValue: "\(houseName.count)/\(Self.maxLength)",
                 comment: "Character count display for house name field."
             ))
-            .font(MacTypography.Fonts.welcomeProgressBody)
-            .foregroundColor(houseName.count >= Self.maxLength ? BrandColors.accentAmber : BrandColors.textMuted)
+            .font(NeoFont.caption)
+            .foregroundStyle(houseName.count >= Self.maxLength ? NeoPalette.cloud.danger : NeoPalette.cloud.muted)
             .accessibilityHidden(true)
         }
     }

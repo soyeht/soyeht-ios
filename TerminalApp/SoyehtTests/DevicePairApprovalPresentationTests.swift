@@ -217,20 +217,48 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
     }
 
-    func test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes() throws {
-        let source = try iosSource("Onboarding/HouseNaming/HouseNamingFromiPhoneView.swift")
-        let submitBody = try slice(
+    /// The Mac names its own home now, so there is no iPhone naming screen to
+    /// defer anything until. What has to stay true is the order on the phone's
+    /// own path: pair with the household first, then install the local Mac
+    /// pairing, and only then tell the app a Mac was found.
+    /// Measured on a real pair: the Mac rotated its pairing window while the
+    /// phone held the words from a single push, so the two screens showed
+    /// different codes and the person was asked to compare something that
+    /// could never match.
+    func test_theOfferOnScreenIsRefreshedWhileTheCardIsUp() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let refresh = try slice(
             source,
-            from: "private func submit()",
-            to: "private func cancelSubmission()"
+            from: "private func startOfferRefresh(engineURL: URL, isDevicePairing: Bool) {",
+            to: "\n    }"
+        )
+        XCTAssertTrue(refresh.contains("BootstrapPairDeviceURIClient(baseURL: engineURL).fetch()"))
+        XCTAssertTrue(refresh.contains("pairDeviceFingerprintWords(for: refreshed"))
+        XCTAssertTrue(
+            refresh.contains("guard !isDevicePairing else { return }"),
+            "a Mac-minted link holds its nonce for the life of the app; only the engine's window rotates"
+        )
+        XCTAssertTrue(
+            source.contains("offerRefreshTask?.cancel()"),
+            "the refresh must not outlive the screen"
+        )
+    }
+
+    func test_firstSetupInstallsLocalMacPairingOnlyAfterTheHouseholdIsJoined() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let connectBody = try slice(
+            source,
+            from: "func connectToExistingHouse()",
+            to: "private func presentExistingHouse("
         )
 
-        let householdPair = try XCTUnwrap(submitBody.range(of: "HouseholdPairingService("))
-        let installLocalPairing = try XCTUnwrap(submitBody.range(of: "installMacLocalPairing(localPairing)"))
-        let onNamed = try XCTUnwrap(submitBody.range(of: "onNamed()"))
+        let householdPair = try XCTUnwrap(connectBody.range(of: "HouseholdPairingService("))
+        let installLocalPairing = try XCTUnwrap(connectBody.range(of: "installMacLocalPairing("))
         XCTAssertLessThan(householdPair.lowerBound, installLocalPairing.lowerBound)
-        XCTAssertLessThan(installLocalPairing.lowerBound, onNamed.lowerBound)
-        XCTAssertTrue(source.contains("let localPairing: SetupInvitationMacLocalPairing?"))
+        XCTAssertFalse(
+            source.contains("case needsNaming"),
+            "a Mac still being set up must not end the search; the phone keeps looking"
+        )
     }
 
     func test_devicePairingPublishesSetupInvitationForLocalMacPairing() throws {
@@ -248,35 +276,100 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(devicePairingFlow.contains("devicePairingClaim(claim, matches: link)"))
     }
 
-    func test_recoveryDismissRoutesOnlyOnOperationalInventory() throws {
+    /// Renamed with the screen: the recovery message is gone and the
+    /// celebration inherited its continuation. What is pinned is unchanged —
+    /// the route out is chosen from the operational inventory, never from the
+    /// raw server list.
+    func test_celebrationContinueRoutesOnlyOnOperationalInventory() throws {
         let source = try iosSource("SSHLoginView.swift")
         let recoveryBranch = try slice(
             source,
-            from: "case .recoveryMessage(let snapshot):",
+            from: "case .pairingSuccess(let snapshot):",
             to: "            case .instanceList:\n                ZStack"
         )
 
-        XCTAssertTrue(recoveryBranch.contains("HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared)"))
-        let recoveryPolicy = try slice(
-            source,
-            from: "enum HouseholdRecoveryDestination: Equatable {",
-            to: "// MARK: - App Root View"
-        )
-        XCTAssertTrue(recoveryPolicy.contains("registry.operationalServers.isEmpty"))
-        XCTAssertFalse(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
+        // The celebration no longer asks the recovery policy: consulting it
+        // here raced the Mac-local pairing landing in the registry, and losing
+        // that race showed a screen of raw identifiers for a few seconds.
+        XCTAssertFalse(recoveryBranch.contains("HouseholdRecoveryDestination.resolve"))
+        XCTAssertFalse(recoveryBranch.contains("appState = .householdHome(snapshot)"))
         XCTAssertTrue(recoveryBranch.contains("let household = snapshot.underlying"))
-        XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(snapshot)"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
 
-        let householdHomeCase = try slice(
-            recoveryBranch,
-            from: "case .householdHome:",
-            to: "case .instanceList:"
+        // And the policy itself is gone: it had no callers left, and what it
+        // answered was the defect.
+        XCTAssertFalse(source.contains("enum HouseholdRecoveryDestination"))
+        XCTAssertFalse(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
+
+    }
+
+    /// The household screen — a household id, a person id, a section called
+    /// "apps" — may never be reached by the app deciding on its own. It cost
+    /// three separate fixes to learn that: the celebration branch, the launch
+    /// after it, and the way back out of sharing. This counts the doors.
+    func test_theHouseholdScreenIsReachedOnlyByScanningAMachineJoinCode() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let routes = source
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("appState = .householdHome") }
+        XCTAssertEqual(
+            routes.count,
+            1,
+            "Every route into the household screen must be a deliberate act by the person. Found: \(routes)"
         )
-        XCTAssertFalse(householdHomeCase.contains("reconcileClients()"))
-        XCTAssertFalse(householdHomeCase.contains("restoreNavigationIfNeeded()"))
-        XCTAssertFalse(householdHomeCase.contains("appState = .instanceList"))
+
+        // And that one is the machine-join scan, not a policy.
+        let scanBranch = try slice(
+            source,
+            from: "case .householdPairMachine(let envelope):",
+            to: "case .clawShareInvite(let invite):"
+        )
+        XCTAssertTrue(scanBranch.contains("stageScannedMachineJoin("))
+        XCTAssertTrue(scanBranch.contains("appState = .householdHome(snapshot)"))
+
+        // Sharing is entered from the home by way of "Other machines"; leaving
+        // it goes back to the home.
+        let shareBranch = try slice(
+            source,
+            from: "case .shareApp(let snapshot):",
+            to: "case .activeShares(let snapshot):"
+        )
+        XCTAssertTrue(shareBranch.contains("appState = .instanceList"))
+        XCTAssertFalse(shareBranch.contains("appState = .householdHome"))
+    }
+
+    /// When the phone finds the Mac itself — the radar path, no push — the
+    /// pairing succeeds and the phone still has no Mac it can open a pane on.
+    /// `mac_local_pairing` only ever arrives in a claim, so the phone has to
+    /// advertise for one. That invitation used to hang off the household
+    /// screen's `onAppear`; measured on the device, routing away from that
+    /// screen left the home showing "Getting your Mac ready…" forever, across
+    /// relaunches. The home starts it now, and so does coming back to the app.
+    func test_theHomeAdvertisesForTheMacsLocalPairingWhenItHasNoMac() throws {
+        let source = try iosSource("SSHLoginView.swift")
+
+        let policy = try slice(
+            source,
+            from: "private func startHouseholdMacRecoveryInvitation(",
+            to: "private func startMacLocalPairingPublisher("
+        )
+        XCTAssertTrue(policy.contains("ServerRegistry.shared.operationalMacs.isEmpty"))
+
+        let homeBranch = try slice(
+            source,
+            from: "            case .instanceList:",
+            to: "            case .terminal("
+        )
+        XCTAssertTrue(homeBranch.contains("startHouseholdMacRecoveryInvitation(for: snapshot)"))
+
+        let becameActive = try slice(
+            source,
+            from: "UIApplication.didBecomeActiveNotification",
+            to: "UIApplication.willResignActiveNotification"
+        )
+        XCTAssertTrue(becameActive.contains("startHouseholdMacRecoveryInvitation(for: identity)"))
     }
 
     func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {
@@ -289,7 +382,15 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
         XCTAssertTrue(postSplash.contains("ServerRegistry.shared.refreshFromLegacyStores()"))
         XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalServers.compactMap"))
-        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.operationalMacs.isEmpty"))
+        // A cold launch with a household but no operational server is the
+        // state a phone is in for the seconds after pairing, and again
+        // whenever its Mac is asleep. It goes to the home either way; asking
+        // `operationalMacs` there is what used to send it to the identity
+        // screen. (The one remaining `operationalMacs` read is the no-household
+        // case, which chooses between the scanner and the list — no home
+        // exists to go to.)
+        XCTAssertFalse(postSplash.contains("appState = .householdHome"))
+        XCTAssertTrue(postSplash.contains("operationalMacs.isEmpty ? .qrScanner : .instanceList"))
         XCTAssertFalse(postSplash.contains("ServerRegistry.shared.servers.compactMap"))
         XCTAssertFalse(postSplash.contains("ServerRegistry.shared.macs.isEmpty"))
         XCTAssertTrue(postSplash.contains("if serverContexts.isEmpty"))
@@ -318,7 +419,12 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             "The accessibility label must no longer hardcode \"owned Mac\" for every Server.Kind.")
     }
 
-    func test_baseOnlyFallbackRoutesToHouseholdHomeInsteadOfInstanceList() throws {
+    /// Every return path — cancelling the scanner, leaving a terminal, losing
+    /// a connection — lands on the home when the phone belongs to a home. The
+    /// base-machine projection still never counts as an operational server;
+    /// what changed is that "no operational server" is no longer a reason to
+    /// show a different screen.
+    func test_everyReturnPathLandsOnTheHomeWhenThePhoneHasAHome() throws {
         let source = try iosSource("SSHLoginView.swift")
         let fallbackPolicy = try slice(
             source,
@@ -327,7 +433,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(fallbackPolicy.contains("registry.operationalServers.isEmpty"))
-        XCTAssertTrue(fallbackPolicy.contains("hasActiveHousehold ? .householdHome : .noHome"))
+        XCTAssertTrue(fallbackPolicy.contains("hasActiveHousehold ? .instanceList : .noHome"))
+        XCTAssertFalse(fallbackPolicy.contains("case householdHome"))
         XCTAssertTrue(source.contains("if let destination = homeFallbackRoute"))
         XCTAssertTrue(source.contains("appState = homeFallbackRoute ?? .qrScanner"))
         XCTAssertFalse(source.contains("hasHomeContent ? .instanceList : .qrScanner"))

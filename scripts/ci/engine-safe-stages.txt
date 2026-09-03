@@ -8,10 +8,17 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@c1e5455adb9b4cbc4ce430a6c6303c09b1f508d3 (refs/tags/v0.1.27, the source
-# the shipped 0.1.27 engine asset is attested to; tree
-# 999a82bbabc3a1a900f31cfc08d0caab5413d000). Every token below was
-# verified present as a compile-time literal in that tree. Scope: the
+# theyos@1aa5422bf335244af1138f8ba39c3c85e4df78e8 (refs/tags/v0.1.28, the source
+# the shipped 0.1.28 engine asset is attested to; tree
+# b05449a2565815676f64f0c3bfd93ba8d04523ae). Every token below was
+# re-verified present as a compile-time literal in that tree when the pin
+# moved from 0.1.27 — measured by grepping the checked-out tag, not assumed.
+# One token was dropped in the process:
+# `macos_local_registration.listener_unavailable`, which is emitted by nothing
+# in 0.1.28 and was emitted by nothing in 0.1.27 either, so the "verified
+# present" sentence above had not been true of it since it was written. The
+# stage the listener actually emits on that path is
+# `macos_local_registration.serve_failed`, already listed below. Scope: the
 # initialize/bootstrap/bonjour/long-poll path that carries the initialize
 # failure, plus the progress markers needed to locate where it fell. Regenerate
 # and re-review if the pin moves. Lines starting with '#' and blank lines are
@@ -29,7 +36,6 @@ owner_events.long_poll.timeout
 owner_events.long_poll.read_failed
 owner_events.long_poll.rejected
 household_listener.serve_failed
-macos_local_registration.listener_unavailable
 # ── progress / success markers (locate the failure point) ──
 bootstrap.cold
 bootstrap.initialized

@@ -123,6 +123,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var pendingAttaches: [(paneID: String, continuation: CheckedContinuation<AttachGrant, Error>)] = []
+    private var pendingOpenPane: CheckedContinuation<String, Error>?
     private let webSocketFactory: PresenceWebSocketFactory?
 
     // MARK: - Lifecycle
@@ -218,6 +219,18 @@ final class MacPresenceClient: NSObject, ObservableObject {
         urlSession = nil
         activeHost = nil
         // Reject pending attach calls.
+        if let open = pendingOpenPane {
+            pendingOpenPane = nil
+            open.resume(throwing: NSError(
+                domain: "SoyehtPresence",
+                code: 6,
+                userInfo: [NSLocalizedDescriptionKey: String(
+                    localized: "presence.error.openPaneDisconnected",
+                    defaultValue: "Lost the connection to your Mac.",
+                    comment: "Shown when the presence socket drops while a New session request is in flight."
+                )]
+            ))
+        }
         for pending in pendingAttaches {
             pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "presence.error.disconnected", comment: "NSError userInfo shown when the presence WebSocket drops while an attach is in flight.")]))
         }
@@ -237,6 +250,72 @@ final class MacPresenceClient: NSObject, ObservableObject {
                 "type": PresenceMessage.attachPane,
                 "pane_id": paneID,
             ])
+        }
+    }
+
+    /// Ask the Mac to open a fresh shell over there, and get back the pane id
+    /// to attach to. A Mac that has not shipped this yet simply never answers,
+    /// so the wait is bounded and says what to do about it.
+    func requestOpenPane(timeout: TimeInterval = 6) async throws -> String {
+        guard status == .authenticated else {
+            throw NSError(
+                domain: "SoyehtPresence",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: String(
+                    localized: "presence.error.notAuthenticated",
+                    comment: "NSError shown when requestAttachGrant runs before the WS completes the HMAC handshake."
+                )]
+            )
+        }
+        if pendingOpenPane != nil {
+            throw NSError(
+                domain: "SoyehtPresence",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: String(
+                    localized: "presence.error.openPaneBusy",
+                    defaultValue: "Already opening a session on this Mac.",
+                    comment: "Shown when a second New session tap arrives while the first is still in flight."
+                )]
+            )
+        }
+
+        let timeoutTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(timeout))
+            guard let self, let pending = self.pendingOpenPane else { return }
+            self.pendingOpenPane = nil
+            pending.resume(throwing: NSError(
+                domain: "SoyehtPresence",
+                code: 5,
+                userInfo: [NSLocalizedDescriptionKey: String(
+                    localized: "presence.error.openPaneUnsupported",
+                    defaultValue: "This Mac did not answer. Update Soyeht on the Mac and try again.",
+                    comment: "Shown when the Mac never answers an open-pane request, which an older Mac never will."
+                )]
+            ))
+        }
+        defer { timeoutTask.cancel() }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            pendingOpenPane = continuation
+            sendJSON(["type": PresenceMessage.openPane])
+        }
+    }
+
+    private func handleOpenPaneResult(_ json: [String: Any]) {
+        guard let pending = pendingOpenPane else { return }
+        pendingOpenPane = nil
+        if let paneID = json["pane_id"] as? String, !paneID.isEmpty {
+            pending.resume(returning: paneID)
+        } else {
+            pending.resume(throwing: NSError(
+                domain: "SoyehtPresence",
+                code: 7,
+                userInfo: [NSLocalizedDescriptionKey: String(
+                    localized: "presence.error.openPaneRefused",
+                    defaultValue: "Your Mac could not open a session right now.",
+                    comment: "Shown when the Mac answers a New session request with an error."
+                )]
+            ))
         }
     }
 
@@ -321,6 +400,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
                 presenceClientLogger.log("open_pane_request mac_id=\(self.macID.uuidString, privacy: .public) pane=\(paneID, privacy: .public)")
                 onOpenPaneRequest?(paneID)
             }
+        case PresenceMessage.openPaneResult:
+            handleOpenPaneResult(json)
         case PresenceMessage.attachGranted:
             handleAttachGranted(json)
         case PresenceMessage.attachDenied:

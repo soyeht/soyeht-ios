@@ -10,66 +10,79 @@ private let awaitingMacLogger = Logger(subsystem: "com.soyeht.mobile", category:
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
     enum Result {
-        case needsNaming(engineURL: URL, claimToken: Data, localPairing: SetupInvitationMacLocalPairing?)
-        case connectedToExistingMac
+        /// Carries the Mac's own label so I5 can say "<Mac> is yours." rather
+        /// than a generic line the person has to translate back to a machine.
+        case connectedToExistingMac(macName: String?)
     }
 
     let invitation: SetupInvitationPayload
     let onMacFound: (Result) -> Void
     let onCancel: () -> Void
-    let onUseDownloadLink: () -> Void
     let onSwitchToLinux: () -> Void
 
     @StateObject private var viewModel: AwaitingMacViewModel
+    /// "Get the link" hands the macOS download to whoever is at the Mac
+    /// without taking the phone off the radar — the search keeps running under
+    /// the sheet, so a Mac that comes up mid-share is still found.
+    @State private var showDownloadShareSheet = false
 
     init(
         invitation: SetupInvitationPayload,
         onMacFound: @escaping (Result) -> Void,
         onCancel: @escaping () -> Void,
-        onUseDownloadLink: @escaping () -> Void,
         onSwitchToLinux: @escaping () -> Void
     ) {
         self.invitation = invitation
         self.onMacFound = onMacFound
         self.onCancel = onCancel
-        self.onUseDownloadLink = onUseDownloadLink
         self.onSwitchToLinux = onSwitchToLinux
         _viewModel = StateObject(wrappedValue: AwaitingMacViewModel(invitation: invitation))
     }
 
+    private let palette = NeoPalette.cloud
+
     var body: some View {
         ZStack {
-            BrandColors.surfaceDeep.ignoresSafeArea()
+            palette.canvas.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 dismissBar
 
                 Spacer()
 
-                VStack(spacing: 32) {
+                VStack(spacing: 28) {
                     if let house = viewModel.pendingExistingHouse {
                         existingHouseCard(house)
                     } else {
-                        pulsatingRadar
+                        NeoRadar(palette: palette, isSearching: true)
 
-                        VStack(spacing: 10) {
+                        VStack(spacing: 12) {
                             Text(LocalizedStringResource(
-                                "awaitingMac.title",
-                                defaultValue: "Looking for Soyeht on your Mac...",
-                                comment: "Awaiting Mac discovery title. Ellipsis indicates ongoing search."
+                                "onboarding.looking.title",
+                                defaultValue: "Looking for your Mac…",
+                                comment: "I3: title while the phone searches."
                             ))
-                            .font(OnboardingFonts.heading)
-                            .foregroundColor(BrandColors.textPrimary)
+                            .font(NeoFont.title)
+                            .foregroundStyle(palette.text)
                             .multilineTextAlignment(.center)
                             .accessibilityAddTraits(.isHeader)
 
+                            // The status says which of six situations this is.
+                            // One spinner for all of them is what made the
+                            // screen impossible to act on.
+                            Text(statusLine)
+                                .font(NeoFont.body)
+                                .foregroundStyle(palette.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .accessibilityIdentifier("soyeht.onboarding.looking.status")
+
                             Text(LocalizedStringResource(
-                                "awaitingMac.subtitle",
-                                defaultValue: "Keep this screen open. On your Mac, finish setup until Soyeht says \"Waiting for your iPhone.\"",
-                                comment: "Awaiting Mac subtitle instructing the user to finish setup on Mac while the iPhone waits."
+                                "onboarding.looking.tailscale",
+                                defaultValue: "Wi-Fi finds your Mac. Tailscale connects it — turn it on for both.",
+                                comment: "I3: the one network requirement, said once."
                             ))
-                            .font(OnboardingFonts.subheadline)
-                            .foregroundColor(BrandColors.textMuted)
+                            .font(NeoFont.caption)
+                            .foregroundStyle(palette.muted)
                             .multilineTextAlignment(.center)
                         }
 
@@ -82,171 +95,334 @@ struct AwaitingMacView: View {
                         if let diag = viewModel.diagnosticMessage {
                             Text(diag)
                                 .font(.caption.monospaced())
-                                .foregroundColor(BrandColors.textMuted)
+                                .foregroundStyle(palette.muted)
                                 .multilineTextAlignment(.center)
                                 .padding(.top, 8)
                         }
                         #endif
                     }
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 28)
                 .animation(.easeInOut(duration: 0.25), value: viewModel.showRecoveryHint)
                 .animation(.easeInOut(duration: 0.25), value: viewModel.diagnosticMessage)
 
                 Spacer()
             }
         }
-        .preferredColorScheme(BrandColors.preferredColorScheme)
+        .environment(\.neoPalette, palette)
+        .preferredColorScheme(.light)
+        .sheet(isPresented: $showDownloadShareSheet) {
+            ShareSheet(items: [MacDownloadLink.latestDMG])
+        }
         .onAppear { viewModel.start(onMacFound: onMacFound) }
         .onDisappear { viewModel.stop() }
     }
 
+    /// One line per phase, in the terms someone standing between two devices
+    /// would use.
+    private var statusLine: LocalizedStringResource {
+        switch viewModel.phase {
+        case .looking:
+            return LocalizedStringResource(
+                "onboarding.looking.status.looking",
+                defaultValue: "Nothing yet. Open Soyeht on your Mac.",
+                comment: "I3 status: nothing has answered."
+            )
+        case .macSeen:
+            return LocalizedStringResource(
+                "onboarding.looking.status.seen",
+                defaultValue: "Found something — checking whether it is your Mac.",
+                comment: "I3 status: a service resolved but has not answered yet."
+            )
+        case .waitingForMacSetup:
+            return LocalizedStringResource(
+                "onboarding.looking.status.waitingSetup",
+                defaultValue: "Your Mac is still being set up. Finish there and this will carry on.",
+                comment: "I3 status: the engine answered and has no home yet."
+            )
+        case .waitingForMacOffer:
+            return LocalizedStringResource(
+                "onboarding.looking.status.waitingOffer",
+                defaultValue: "Your Mac has a home. Waiting for it to offer this iPhone a code.",
+                comment: "I3 status: named, waiting for the pairing offer."
+            )
+        case .offered, .connecting:
+            return LocalizedStringResource(
+                "onboarding.looking.status.connecting",
+                defaultValue: "Connecting…",
+                comment: "I3 status: pairing is under way."
+            )
+        case .paired:
+            return LocalizedStringResource(
+                "onboarding.looking.status.paired",
+                defaultValue: "Connected.",
+                comment: "I3 status: done."
+            )
+        case .stalled(.macUnreachable(.alreadyHasHome)):
+            // "Still nothing" would be false: the Mac answered.
+            return LocalizedStringResource(
+                "onboarding.looking.status.alreadyHasHome",
+                defaultValue: "I found your Mac, but it isn't waiting for a new iPhone.",
+                comment: "I3 status: the Mac answered and its pairing window is closed."
+            )
+        case .stalled:
+            return LocalizedStringResource(
+                "onboarding.looking.status.stalled",
+                defaultValue: "Still nothing. One of these usually explains it.",
+                comment: "I3 status: the search needs help."
+            )
+        }
+    }
+
+    /// The same chevron `OnboardingScaffold` draws, in the same place: this
+    /// screen has its own layout (the radar wants the full height) but it is
+    /// still one of the six, and "Cancel" on a screen that is only waiting
+    /// read as "give up" rather than "go back one".
     private var dismissBar: some View {
         HStack {
             Button(action: onCancel) {
-                Text(LocalizedStringResource(
-                    "awaitingMac.cancel",
-                    defaultValue: "Cancel",
-                    comment: "Cancel button on awaiting Mac screen."
-                ))
-                .font(OnboardingFonts.subheadline)
-                .foregroundColor(BrandColors.textMuted)
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.Onboarding.back)
+            .accessibilityLabel(Text(LocalizedStringResource(
+                "onboarding.back.a11y",
+                defaultValue: "Back",
+                comment: "VoiceOver label for the back chevron shared by the onboarding screens."
+            )))
             Spacer()
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
     }
 
-    private var pulsatingRadar: some View {
-        ZStack {
-            ForEach(0..<3, id: \.self) { i in
-                PulseRing(delay: Double(i) * 0.5)
+
+    /// I8 — what to do about it. Each row is a cause the phone can actually
+    /// distinguish, not a list of everything that could ever be wrong.
+    private var recoverySection: some View {
+        VStack(spacing: 14) {
+            Text(LocalizedStringResource(
+                "onboarding.notFound.title",
+                defaultValue: "I can't find your Mac yet.",
+                comment: "I8: heading once the search has gone quiet."
+            ))
+            .font(NeoFont.heading)
+            .foregroundStyle(palette.text)
+            .multilineTextAlignment(.center)
+
+            ForEach(causes, id: \.self) { cause in
+                NeoCard(palette: palette) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(cause.title)
+                            .font(NeoFont.cta)
+                            .foregroundStyle(palette.text)
+                        Text(cause.body)
+                            .font(NeoFont.caption)
+                            .foregroundStyle(palette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                }
             }
 
-            Image(systemName: "wave.3.forward")
-                .font(.system(size: 36))
-                .foregroundColor(BrandColors.accentGreen)
+            Button(action: { viewModel.restart() }) {
+                Text(LocalizedStringResource(
+                    "onboarding.notFound.keepLooking",
+                    defaultValue: "Keep looking",
+                    comment: "I8: restarts the search."
+                ))
+            }
+            .buttonStyle(NeoPillButtonStyle(.primary, palette: palette, fillsWidth: false))
+            .accessibilityIdentifier("soyeht.onboarding.notFound.keepLooking")
+
+            Button {
+                showDownloadShareSheet = true
+            } label: {
+                Text(LocalizedStringResource(
+                    "onboarding.notFound.getLink",
+                    defaultValue: "Don't have Soyeht on the Mac yet? Get the link",
+                    comment: "I8: sends the Mac download link."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: palette))
+
+            Button(action: onSwitchToLinux) {
+                Text(LocalizedStringResource(
+                    "onboarding.notFound.linux",
+                    defaultValue: "I use Linux, not a Mac",
+                    comment: "I8: switches to the Linux pairing guide."
+                ))
+            }
+            .buttonStyle(NeoLinkButtonStyle(palette: palette))
         }
-        .frame(width: 120, height: 120)
-        .accessibilityHidden(true)
     }
 
-    private var recoverySection: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 6) {
-                Text(LocalizedStringResource(
-                    "awaitingMac.timeout.heading",
-                    defaultValue: "Not finding your Mac?",
-                    comment: "Heading shown after the iPhone has waited a while without discovering the Mac engine."
-                ))
-                .font(OnboardingFonts.bodyBold)
-                .foregroundColor(BrandColors.textPrimary)
-                .multilineTextAlignment(.center)
+    private struct Cause: Hashable {
+        let title: LocalizedStringResource
+        let body: LocalizedStringResource
 
-                Text(LocalizedStringResource(
-                    "awaitingMac.timeout.subtitle",
-                    defaultValue: "Make sure it's on and on the same network.",
-                    comment: "Subtitle hint shown below the no-Mac-found heading on the awaiting Mac screen."
-                ))
-                .font(OnboardingFonts.subheadline)
-                .foregroundColor(BrandColors.textMuted)
-                .multilineTextAlignment(.center)
-            }
-
-            VStack(spacing: 12) {
-                Button(action: onUseDownloadLink) {
-                    Text(LocalizedStringResource(
-                        "awaitingMac.timeout.useDownloadLink",
-                        defaultValue: "Use the download link instead",
-                        comment: "Secondary link-style button that switches to the QR/download-link Mac install flow."
-                    ))
-                    .font(OnboardingFonts.subheadline)
-                    .foregroundColor(BrandColors.accentGreen)
-                    .multilineTextAlignment(.center)
-                }
-
-                Button(action: onSwitchToLinux) {
-                    Text(LocalizedStringResource(
-                        "awaitingMac.timeout.switchToLinux",
-                        defaultValue: "I have a Linux instead",
-                        comment: "Secondary link-style button that switches the onboarding flow to Linux pairing."
-                    ))
-                    .font(OnboardingFonts.subheadline)
-                    .foregroundColor(BrandColors.accentGreen)
-                    .multilineTextAlignment(.center)
-                }
-            }
+        static func == (lhs: Cause, rhs: Cause) -> Bool {
+            String(localized: lhs.title) == String(localized: rhs.title)
         }
-        .padding(.top, 12)
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(String(localized: title))
+        }
+    }
+
+    /// Derived from the phase, so the screen never lists a cause the phone has
+    /// already ruled out.
+    private var causes: [Cause] {
+        var result: [Cause] = []
+
+        // A Mac that already has a home is answering, so none of the "can they
+        // see each other" causes apply. One cause, and it is the only thing
+        // that opens the door.
+        if case .stalled(.macUnreachable(.alreadyHasHome)) = viewModel.phase {
+            return [Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.alreadyHasHome.title",
+                    defaultValue: "That Mac already has a home",
+                    comment: "I8 cause: the Mac is set up and this iPhone is not in its household."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.alreadyHasHome.body",
+                    defaultValue: "Add this iPhone from the Mac: open Soyeht there, then Settings › Devices › Add iPhone.",
+                    comment: "I8 cause body: the one action that opens a closed pairing window."
+                )
+            )]
+        }
+
+        if case .waitingForMacOffer = viewModel.phase {
+            result.append(Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.tailscale.title",
+                    defaultValue: "Turn on Tailscale on both",
+                    comment: "I8 cause: the LAN closes once the Mac has a home."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.tailscale.body",
+                    defaultValue: "Once your Mac has a home it only accepts this over Tailscale. Wi-Fi alone is not enough.",
+                    comment: "I8 cause body: why Wi-Fi stops being enough."
+                )
+            ))
+        } else {
+            result.append(Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.openMac.title",
+                    defaultValue: "Open Soyeht on the Mac",
+                    comment: "I8 cause: nothing is advertising."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.openMac.body",
+                    defaultValue: "It has to be running for this iPhone to see it.",
+                    comment: "I8 cause body."
+                )
+            ))
+            result.append(Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.network.title",
+                    defaultValue: "Same Wi-Fi, or Tailscale on both",
+                    comment: "I8 cause: the two devices cannot see each other."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.network.body",
+                    defaultValue: "Guest and hotel networks block this.",
+                    comment: "I8 cause body."
+                )
+            ))
+        }
+
+        if case .stalled(.macUnreachable(.portMismatch(let observed, let expected))) = viewModel.phase {
+            result.append(Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.port.title",
+                    defaultValue: "This iPhone and that Mac are different builds",
+                    comment: "I8 cause: dev versus release, said by the numbers."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.port.body",
+                    defaultValue: "It answered on port \(observed); this build talks to \(expected).",
+                    comment: "I8 cause body with the two ports."
+                )
+            ))
+        }
+
+        return result
     }
 
     private func existingHouseCard(_ house: AwaitingMacViewModel.ExistingHouseCandidate) -> some View {
         VStack(spacing: 22) {
-            Image(systemName: "house.and.flag")
-                .font(.system(size: 44, weight: .semibold))
-                .foregroundColor(BrandColors.accentGreen)
-                .accessibilityHidden(true)
+            NeoCard(palette: palette) {
+                HStack(spacing: 14) {
+                    Image(systemName: "desktopcomputer")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(palette.accent)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: house.hostLabel)
+                            .font(NeoFont.heading)
+                            .foregroundStyle(palette.text)
+                        Text(verbatim: house.name)
+                            .font(NeoFont.caption)
+                            .foregroundStyle(palette.textSecondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+            }
+            .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.card")
 
             VStack(spacing: 8) {
                 Text(LocalizedStringResource(
-                    "awaitingMac.existingHouse.title",
-                    defaultValue: "Connect to \(house.name)",
-                    comment: "Title shown when iPhone discovers an already-named Mac home."
+                    "onboarding.isThisYourMac.title",
+                    defaultValue: "Is this your Mac?",
+                    comment: "I4: the question, asked once."
                 ))
-                .font(OnboardingFonts.heading)
-                .foregroundColor(BrandColors.textPrimary)
+                .font(NeoFont.title)
+                .foregroundStyle(palette.text)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
 
                 Text(LocalizedStringResource(
-                    "awaitingMac.existingHouse.subtitle",
-                    defaultValue: "\(house.hostLabel) is ready to add this iPhone.",
-                    comment: "Subtitle shown when iPhone discovers a Mac waiting for first iPhone pairing."
+                    "onboarding.isThisYourMac.body",
+                    defaultValue: "Your Mac is showing the same six words. If they match, connect.",
+                    comment: "I4: what the person compares."
                 ))
-                .font(OnboardingFonts.subheadline)
-                .foregroundColor(BrandColors.textMuted)
+                .font(NeoFont.body)
+                .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
             }
 
             if !viewModel.fingerprintWords.isEmpty {
-                VStack(spacing: 10) {
-                    Text(LocalizedStringResource(
-                        "awaitingMac.existingHouse.securityCode",
-                        defaultValue: "Home security code",
-                        comment: "Label above the stable home fingerprint words for Mac-first no-QR pairing."
-                    ))
-                    .font(OnboardingFonts.caption2Bold)
-                    .foregroundColor(BrandColors.textMuted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        ForEach(Array(viewModel.fingerprintWords.enumerated()), id: \.offset) { index, word in
-                            HStack(spacing: 8) {
-                                Text(verbatim: "\(index + 1)")
-                                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(BrandColors.textMuted)
-                                Text(verbatim: word)
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(BrandColors.textPrimary)
+                VStack(spacing: 8) {
+                    ForEach(0..<2, id: \.self) { row in
+                        HStack(spacing: 8) {
+                            ForEach(0..<3, id: \.self) { column in
+                                let index = row * 3 + column
+                                if index < viewModel.fingerprintWords.count {
+                                    NeoWordWell(
+                                        index: index + 1,
+                                        word: viewModel.fingerprintWords[index],
+                                        palette: palette
+                                    )
+                                    .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.word.\(index + 1)")
+                                }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
-                .padding(16)
-                .background(BrandColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(BrandColors.border, lineWidth: 1)
-                )
             }
 
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(OnboardingFonts.caption)
-                    .foregroundColor(BrandColors.textMuted)
+                    .font(NeoFont.caption)
+                    .foregroundStyle(palette.danger)
                     .multilineTextAlignment(.center)
             } else if viewModel.isPairing, house.isDevicePairing {
                 // Delegated pairing: this home already has an iPhone, and
@@ -259,60 +435,41 @@ struct AwaitingMacView: View {
                     defaultValue: "Waiting for approval from an iPhone that already belongs to this home.",
                     comment: "Shown while a new iPhone waits for an existing iPhone in the home to approve it."
                 ))
-                .font(OnboardingFonts.caption)
-                .foregroundColor(BrandColors.textMuted)
+                .font(NeoFont.caption)
+                .foregroundStyle(palette.muted)
                 .multilineTextAlignment(.center)
             }
 
-            Button(action: { viewModel.connectToExistingHouse() }) {
-                if viewModel.isPairing {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(BrandColors.buttonTextOnAccent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                } else {
+            VStack(spacing: 10) {
+                Button(action: { viewModel.connectToExistingHouse() }) {
+                    if viewModel.isPairing {
+                        ProgressView().tint(palette.onAccent)
+                    } else {
+                        Text(LocalizedStringResource(
+                            "awaitingMac.existingHouse.connect",
+                            defaultValue: "Connect this iPhone",
+                            comment: "CTA that pairs this iPhone to the discovered existing Mac home."
+                        ))
+                    }
+                }
+                .buttonStyle(NeoPillButtonStyle(.primary, palette: palette))
+                .disabled(viewModel.isPairing)
+                .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.confirm")
+
+                // The other answer to the question. Without it, "is this your
+                // Mac?" had exactly one button under it.
+                Button(action: { viewModel.rejectCandidate() }) {
                     Text(LocalizedStringResource(
-                        "awaitingMac.existingHouse.connect",
-                        defaultValue: "Connect this iPhone",
-                        comment: "CTA that pairs this iPhone to the discovered existing Mac home."
+                        "onboarding.isThisYourMac.reject",
+                        defaultValue: "Not my Mac",
+                        comment: "I4: rejects the candidate and goes back to looking."
                     ))
-                    .font(OnboardingFonts.bodyBold)
-                    .foregroundColor(BrandColors.buttonTextOnAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
                 }
+                .buttonStyle(NeoLinkButtonStyle(palette: palette))
+                .disabled(viewModel.isPairing)
+                .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.reject")
             }
-            .disabled(viewModel.isPairing)
-            .background(BrandColors.accentGreen)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-    }
-}
-
-// MARK: - PulseRing
-
-private struct PulseRing: View {
-    let delay: Double
-    @State private var scale: CGFloat = 0.4
-    @State private var opacity: Double = 0.6
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Circle()
-            .stroke(BrandColors.accentGreen.opacity(opacity), lineWidth: 1.5)
-            .scaleEffect(scale)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(
-                    .easeOut(duration: 1.8)
-                    .delay(delay)
-                    .repeatForever(autoreverses: false)
-                ) {
-                    scale = 1.4
-                    opacity = 0
-                }
-            }
     }
 }
 
@@ -338,6 +495,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var installedLocalPairingForDiscovery = false
     private var recoveryHintTask: Task<Void, Never>?
     private var macBrowserResolutionTask: Task<Void, Never>?
+    private var offerRefreshTask: Task<Void, Never>?
 
     /// Seconds to wait with no successful Mac discovery before revealing the
     /// "Not finding your Mac?" recovery section underneath the radar.
@@ -347,10 +505,17 @@ final class AwaitingMacViewModel: ObservableObject {
     private static let recoveryHintDelaySeconds: UInt64 = UInt64(OnboardingConfig.default.macDiscoveryRecoveryHintDelay)
 
     @Published private(set) var pendingExistingHouse: ExistingHouseCandidate?
+    /// Households the person answered "Not my Mac" to. Lives as long as this
+    /// view-model does, never on disk.
+    private var rejectedHouseholdKeys: Set<String> = []
     @Published private(set) var fingerprintWords: [String] = []
     @Published private(set) var isPairing = false
     @Published private(set) var errorMessage: String?
     @Published var showRecoveryHint: Bool = false
+    /// What the phone is actually doing, so the radar can say it. The old
+    /// screen had one spinner for six situations and no way to tell them
+    /// apart.
+    @Published private(set) var phase: MacDiscoveryPhase = .looking(sawService: false)
     /// Temporary in-flow diagnostic surface so users (and us, during e2e
     /// validation) can see which step the claim handshake is on without
     /// needing to attach to iPhone os_log. Updated from onMacClaimed and the
@@ -413,6 +578,8 @@ final class AwaitingMacViewModel: ObservableObject {
     }
 
     func stop() {
+        offerRefreshTask?.cancel()
+        offerRefreshTask = nil
         publisher.stop()
         publisher.onMacClaimed = nil
         macBrowser?.cancel()
@@ -422,6 +589,48 @@ final class AwaitingMacViewModel: ObservableObject {
         onMacFoundHandler = nil
         alreadyFound = false
         cancelRecoveryHint()
+    }
+
+    /// "Not my Mac" — the answer to the question I4 actually asks.
+    ///
+    /// Without it the only honest answer to "is this your Mac?" was to force
+    /// quit: the card stayed until it was connected. Rejecting drops the
+    /// candidate, remembers its household for the rest of this session so the
+    /// same push cannot put it straight back on screen, and starts looking
+    /// again. Session-scoped on purpose — a person who rejects by mistake gets
+    /// the card back on the next launch, and nothing is written to disk about
+    /// a home this phone never joined.
+    func rejectCandidate() {
+        guard let house = pendingExistingHouse else { return }
+        if let household = Self.householdKey(of: house.pairDeviceURI) {
+            rejectedHouseholdKeys.insert(household)
+        }
+        awaitingMacLogger.info("existing_house.rejected_by_user")
+        pendingExistingHouse = nil
+        fingerprintWords = []
+        errorMessage = nil
+        offerRefreshTask?.cancel()
+        offerRefreshTask = nil
+        restart()
+    }
+
+    /// The `hh_pub` of a pairing link — the household's identity, and the only
+    /// part of the URL that is stable while the nonce rotates.
+    static func householdKey(of url: URL) -> String? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == "hh_pub" }?
+            .value
+    }
+
+    /// "Keep looking" — a real restart, not a cosmetic reset. The old screen
+    /// had no way back once it gave up.
+    func restart() {
+        let handler = onMacFoundHandler
+        stop()
+        phase = .looking(sawService: false)
+        showRecoveryHint = false
+        if let handler { start(onMacFound: handler) }
     }
 
     private func scheduleRecoveryHint() {
@@ -481,8 +690,16 @@ final class AwaitingMacViewModel: ObservableObject {
                     if let pairing = house.deferredLocalPairing {
                         installMacLocalPairing(pairing)
                     }
+                    // `HouseholdPairingService` writes the session straight to
+                    // the keychain; the facade every screen reads is a cache
+                    // that only refreshes when told. Without this the
+                    // celebration asks for the identity a beat too early,
+                    // finds none, and falls through to the main flow — which
+                    // is exactly how the person who set the Mac up used to
+                    // miss the one screen that says it worked.
+                    SoyehtIdentity.shared.reload()
                     self.isPairing = false
-                    self.onMacFoundHandler?(.connectedToExistingMac)
+                    self.onMacFoundHandler?(.connectedToExistingMac(macName: house.hostLabel))
                 }
             } catch is CancellationError {
             } catch HouseholdDevicePairingError.approvalTimedOut {
@@ -494,7 +711,7 @@ final class AwaitingMacViewModel: ObservableObject {
                     // could approve it may be gone; say so, and say what fixes it.
                     self.errorMessage = String(localized: LocalizedStringResource(
                         "awaitingMac.existingHouse.connect.approvalTimedOut",
-                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Preferences › Devices, and choose Start over — then pair this iPhone as the first one.",
+                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Settings › Devices, and choose Forget this home — then pair this iPhone as the first one.",
                         comment: "Shown when delegated device pairing expires without approval from an existing iPhone."
                     ))
                 }
@@ -723,16 +940,20 @@ final class AwaitingMacViewModel: ObservableObject {
                     }
                     alreadyFound = true
                     diagnosticMessage = "Connected to existing Mac"
-                    onMacFoundHandler?(.connectedToExistingMac)
+                    onMacFoundHandler?(.connectedToExistingMac(macName: localPairing?.macName))
                     return
-                case .needsNaming:
-                    alreadyFound = true
-                    diagnosticMessage = "Mac engine ready — naming the home"
-                    onMacFoundHandler?(.needsNaming(
-                        engineURL: engineURL,
-                        claimToken: claimToken,
-                        localPairing: localPairing
-                    ))
+                case .macIsBeingSetUp(let name):
+                    // No latch and no deadline: the Mac is mid-setup and the
+                    // phone's job is to keep watching until it has a home.
+                    phase = .waitingForMacSetup(name: name)
+                    diagnosticMessage = "Mac is still being set up"
+                    cancelRecoveryHint()
+                case .macAlreadyHasHome:
+                    // Nothing to retry and nothing to probe: the Mac is
+                    // answering, it just has no open pairing window. Say the
+                    // one thing that opens it and stop pretending to search.
+                    phase = .stalled(.macUnreachable(.alreadyHasHome))
+                    diagnosticMessage = nil
                     return
                 case .retryLater:
                     let rawErrText = await probeRawError(for: engineURL)
@@ -798,6 +1019,10 @@ final class AwaitingMacViewModel: ObservableObject {
             ))
             return
         }
+        if let household = Self.householdKey(of: pairURL), rejectedHouseholdKeys.contains(household) {
+            awaitingMacLogger.info("existing_house.skipped_rejected_household")
+            return
+        }
         let isDevicePairing = Self.isDevicePairingURL(pairURL)
         let effectivePairURL: URL
         if isDevicePairing {
@@ -843,6 +1068,47 @@ final class AwaitingMacViewModel: ObservableObject {
         // We're now showing the existing-house connect card; the recovery
         // hint must not flash up alongside it.
         cancelRecoveryHint()
+        phase = .offered(houseName: house.name, hostLabel: house.hostLabel)
+        startOfferRefresh(engineURL: engineURL, isDevicePairing: isDevicePairing)
+    }
+
+    /// Keep the six words on this card equal to the six the Mac is showing.
+    ///
+    /// The Mac's pairing window closes after a few minutes and it opens a new
+    /// one. The phone received its copy in a single push, so from that moment
+    /// the two screens drifted apart: the Mac showed the live code, the phone
+    /// showed a dead one, and the person comparing them was told to check
+    /// something that could not match. Measured on a real pair 2026-09-03 —
+    /// Mac said "card camera install", phone said "valley glimpse witness".
+    ///
+    /// Only for engine-minted links: a Mac-minted `device-pairing` link keeps
+    /// its nonce for as long as the Mac app runs.
+    private func startOfferRefresh(engineURL: URL, isDevicePairing: Bool) {
+        offerRefreshTask?.cancel()
+        guard !isDevicePairing else { return }
+        offerRefreshTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                guard let self, !Task.isCancelled else { return }
+                guard let candidate = self.pendingExistingHouse, !self.isPairing else { return }
+                guard let response = try? await BootstrapPairDeviceURIClient(baseURL: engineURL).fetch(),
+                      let refreshed = URL(string: response.pairDeviceURI),
+                      refreshed != candidate.pairDeviceURI,
+                      let words = try? pairDeviceFingerprintWords(for: refreshed, now: Date())
+                else { continue }
+
+                self.fingerprintWords = words
+                self.pendingExistingHouse = ExistingHouseCandidate(
+                    name: candidate.name,
+                    hostLabel: candidate.hostLabel,
+                    pairDeviceURI: refreshed,
+                    engineURL: candidate.engineURL,
+                    isDevicePairing: candidate.isDevicePairing,
+                    deferredLocalPairing: candidate.deferredLocalPairing
+                )
+                awaitingMacLogger.info("existing_house.offer_refreshed")
+            }
+        }
     }
 
     private static func isDevicePairingURL(_ url: URL) -> Bool {
@@ -882,7 +1148,11 @@ private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? 
 private enum AwaitingMacBootstrapDecision {
     case existingHouse(SetupInvitationExistingHouse)
     case connectedToExistingMac
-    case needsNaming
+    /// The engine answered and has no home yet. Keep looking; do not latch.
+    case macIsBeingSetUp(name: String?)
+    /// The engine answered, it is someone's home, and this phone is not in it.
+    /// Not a failure to reach anything — a door that only opens from inside.
+    case macAlreadyHasHome
     case retryLater
 }
 
@@ -898,7 +1168,7 @@ private func awaitingMacBootstrapDecision(
             awaitingMacLogger.info("bootstrap_decision.fetched attempt=\(attempt, privacy: .public) state=\(String(describing: status.state), privacy: .public)")
             switch status.state {
             case .ready:
-                return canOpenExistingMac ? .connectedToExistingMac : .retryLater
+                return canOpenExistingMac ? .connectedToExistingMac : .macAlreadyHasHome
             case .namedAwaitingPair:
                 if let response = try? await BootstrapPairDeviceURIClient(baseURL: engineURL).fetch() {
                     return .existingHouse(SetupInvitationExistingHouse(
@@ -909,7 +1179,10 @@ private func awaitingMacBootstrapDecision(
                 }
                 return .retryLater
             case .uninitialized, .readyForNaming, .recovering:
-                return .needsNaming
+                // Someone is at the Mac finishing setup. This used to end the
+                // search — the phone latched, stopped looking, and never
+                // noticed when the Mac named itself moments later.
+                return .macIsBeingSetUp(name: status.hostLabel)
             }
         } catch {
             awaitingMacLogger.info("bootstrap_decision.fetch_failed attempt=\(attempt, privacy: .public) err=\(String(describing: error), privacy: .public)")

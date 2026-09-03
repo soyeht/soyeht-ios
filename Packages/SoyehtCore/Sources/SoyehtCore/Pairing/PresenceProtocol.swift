@@ -15,6 +15,9 @@ public enum PresenceMessage {
     public static let challengeResponse  = PairingMessage.challengeResponse
     public static let listPanes          = "list_panes"
     public static let attachPane         = "attach_pane"
+    /// iPhone → Mac: open a fresh shell pane over there. The Mac already had
+    /// `open_pane_request` in the other direction; nothing let the phone ask.
+    public static let openPane           = "open_pane"
     public static let pingClient         = "ping"
 
     // Mac → iPhone
@@ -26,6 +29,7 @@ public enum PresenceMessage {
     public static let attachGranted      = "attach_granted"
     public static let attachDenied       = "attach_denied"
     public static let openPaneRequest    = "open_pane_request"
+    public static let openPaneResult     = "open_pane_result"
     public static let presenceDenied     = "presence_denied"
     public static let pongServer         = "pong"
 }

@@ -71,6 +71,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         if DevLocalAppleAttestationCaptureRunner.startIfRequested() {
             return
         }
+        if DevLocalStateReset.startIfRequested() {
+            return
+        }
         #endif
 
         mainMenuController.installProgrammaticMainMenuIfNeeded()
@@ -523,6 +526,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
     }
 
+    /// After "Forget this home": every main window is about a home that no
+    /// longer exists, so they close and the Welcome takes over. Reached by
+    /// `NSApp.sendAction` so `ForgetHomeService` needs no reference to the
+    /// delegate — it is a service, not a controller.
+    @IBAction func reopenWelcomeAfterForget(_ sender: Any?) {
+        for controller in mainWindowControllers {
+            controller.window?.close()
+        }
+        openWelcomeWindow()
+    }
+
     /// Opens (or re-focuses) the onboarding window. Called on first launch
     /// and again after the user logs out of the last server.
     private func openWelcomeWindow() {
@@ -583,6 +597,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return
         }
 
+        // A machine about to be walked through setup should also come out of
+        // it looking like setup did. Only ever writes on a first launch that
+        // has chosen nothing.
+        OnboardingDesignStyleSeeder.seedIfNeverChosen(isSetUp: isSetUp)
         openWelcomeWindow()
     }
 
@@ -592,7 +610,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private func finishWelcome() {
         welcomeWindowController?.close()
         welcomeWindowController = nil
-        openNewMainWindow()
+        // The owner just finished setup: the next thing they should see is a
+        // working terminal, not an empty pane asking them to pick something.
+        let controller = openNewMainWindow()
+        controller.openFirstShellPaneIfEmpty()
     }
 
     /// Closes any stale Welcome/Login surfaces left over from a previous
@@ -672,6 +693,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     ) async throws -> SoyehtAutomationResult {
         return try await automationRequestRouter.handle(request)
     }
+    /// Opens a shell pane on this Mac because a paired iPhone asked for one.
+    /// Returns the pane id so the phone can attach straight into it.
+    ///
+    /// The phone could attach to panes that already existed but had no way to
+    /// ask for a new one, so "start something on my Mac from the couch" meant
+    /// walking to the Mac.
+    @MainActor
+    func openLocalShellPaneForPresence() async -> String? {
+        let controller = mainWindowControllers.first ?? openNewMainWindow()
+        controller.showWindow(nil)
+        let spec = SoyehtMainWindowController.LocalAgentPaneSpec(
+            name: nil,
+            projectURL: FileManager.default.homeDirectoryForCurrentUser,
+            agentName: "shell",
+            initialCommand: nil,
+            prompt: nil,
+            promptMode: nil,
+            promptDelayMs: nil,
+            promptSourceConversationIDString: nil,
+            promptSourceHandle: nil,
+            promptSourceTTY: nil
+        )
+        guard let result = try? await controller.createLocalAgentPanes([spec]).first else {
+            return nil
+        }
+        return result.conversationID.uuidString
+    }
+
     private var mainWindowControllers: [SoyehtMainWindowController] {
         var seen: Set<String> = []
         var result: [SoyehtMainWindowController] = []

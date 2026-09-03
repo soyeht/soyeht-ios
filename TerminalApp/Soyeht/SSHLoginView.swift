@@ -283,24 +283,17 @@ private enum SelfContainedPairingURL {
 /// The recovery flow may display an authenticated base machine, but that
 /// identity-only projection must never make the app enter an operational
 /// instance flow. Only entries backed by an existing credential/route adapter
-/// count when choosing between the household home and the instance list.
-@MainActor
-enum HouseholdRecoveryDestination: Equatable {
-    case householdHome
-    case instanceList
-
-    static func resolve(registry: ServerRegistry) -> Self {
-        registry.operationalServers.isEmpty ? .householdHome : .instanceList
-    }
-}
-
-/// A return path must never treat a visible base-machine projection as an
-/// operational instance. The household home owns display-only identity context;
-/// the instance list remains reserved for credential-backed server adapters.
+/// count when choosing where a return path lands.
+///
+/// A phone that belongs to a home goes to the home. It used to go somewhere
+/// else whenever `operationalServers` was empty — the household screen, with a
+/// household id, a person id and a section called "apps" — and that is exactly
+/// the state a phone is in for the first seconds after pairing, and again
+/// whenever its Mac is asleep. The home covers a missing Mac itself now, in
+/// its own words, so there is nothing left for a second screen to say.
 @MainActor
 enum HomeFallbackDestination: Equatable {
     case noHome
-    case householdHome
     case instanceList
 
     static func resolve(
@@ -310,7 +303,7 @@ enum HomeFallbackDestination: Equatable {
         if !registry.operationalServers.isEmpty {
             return .instanceList
         }
-        return hasActiveHousehold ? .householdHome : .noHome
+        return hasActiveHousehold ? .instanceList : .noHome
     }
 }
 
@@ -358,28 +351,25 @@ struct SoyehtAppView: View {
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
     @ObservedObject private var identity = SoyehtIdentity.shared
-    /// Drives the "your home isn't set up yet" banner overlaid on the
-    /// `.qrScanner` case. `HomeViewState` is `@MainActor` and publishes
-    /// `noHouseholdBannerVisible` derived from `parking_lot_visited_at`
-    /// (AppStorage, written by `AppDelegate.showParkingLot`) and
-    /// `SoyehtIdentity`. Auto-clears via the
-    /// `HouseCreatedPushHandler.houseCreatedReceived` observer wired
-    /// inside `HomeViewState.init`.
-    @StateObject private var homeViewState = HomeViewState()
+    /// The neo home. Owned here so it survives the `.instanceList` branch
+    /// being rebuilt on every `appState` change.
+    @StateObject private var homeModel = HomeViewModel()
+    /// "Other machines" — the old instance list, unchanged, one level down.
+    @State private var showOtherMachines = false
+    /// Read once, at the first body evaluation: a cold launch waits the full
+    /// splash; an arrival from the celebration gets a beat.
+    private let splashDuration: TimeInterval =
+        OnboardingLaunchIntent.consumeSkipSplashRequest() ? 0.35 : 2.0
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private var homeFallbackRoute: SoyehtAppRoute? {
-        let snapshot = identity.active
         switch HomeFallbackDestination.resolve(
             registry: ServerRegistry.shared,
-            hasActiveHousehold: snapshot != nil
+            hasActiveHousehold: identity.active != nil
         ) {
         case .noHome:
             return nil
-        case .householdHome:
-            guard let snapshot else { return nil }
-            return .householdHome(snapshot)
         case .instanceList:
             return .instanceList
         }
@@ -395,13 +385,105 @@ struct SoyehtAppView: View {
         identity.active?.id
     }
 
+    /// "Other machines": everything the phone can reach that is not the
+    /// house's own Mac — Linux servers, base machines, apps. Unchanged from
+    /// the screen this used to be; it just lives one level below the home
+    /// now. `onLogout` went with it: leaving a household is a Settings
+    /// decision, not an icon in a toolbar.
+    private var otherMachinesScreen: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    showOtherMachines = false
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                        Text(LocalizedStringResource(
+                            "home.otherMachines.back",
+                            defaultValue: "Home",
+                            comment: "Back button that returns from the machine list to the home screen."
+                        ))
+                    }
+                    .font(Typography.sansBody)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                }
+                .accessibilityIdentifier("soyeht.home.otherMachines.back")
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(SoyehtTheme.bgPrimary)
+
+            InstanceListView(
+                onConnect: { wsUrl, instance, sessionName, context in
+                    store.saveNavigationState(NavigationState(
+                        serverId: context.serverId,
+                        instanceId: instance.id,
+                        sessionName: sessionName,
+                        savedAt: Date()
+                    ))
+                    showOtherMachines = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
+                    }
+                },
+                onHouseholdConnect: { request, instance, sessionName, serverId, endpoint in
+                    store.saveNavigationState(NavigationState(
+                        serverId: serverId,
+                        instanceId: instance.id,
+                        sessionName: sessionName,
+                        savedAt: Date()
+                    ))
+                    showOtherMachines = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .householdTerminal(
+                            request: request,
+                            instance,
+                            sessionName: sessionName,
+                            serverId: serverId,
+                            endpoint: endpoint
+                        )
+                    }
+                },
+                onAddInstance: {
+                    showAddDeviceSheet = true
+                },
+                onSettings: { showSettings = true },
+                // Offered only to an owner device: the same capability
+                // the engine enforces when the invite is minted, so a
+                // device that would be refused server-side never sees
+                // the button.
+                onShareApp: identity.active
+                    .flatMap { snapshot -> (() -> Void)? in
+                        guard snapshot.underlying.personCert.allows("household.invite") else {
+                            return nil
+                        }
+                        return {
+                            showOtherMachines = false
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                appState = .shareApp(snapshot)
+                            }
+                        }
+                    },
+                onAttachMacPane: { macID, pane in
+                    await MainActor.run { showOtherMachines = false }
+                    return await attachToMacPane(macID: macID, pane: pane)
+                },
+                autoSelectInstance: $autoSelectInstance,
+                autoSelectServerId: $autoSelectServerId,
+                autoSelectSessionName: $autoSelectSessionName
+            )
+        }
+        .background(SoyehtTheme.bgPrimary.ignoresSafeArea())
+    }
+
     var body: some View {
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             switch appState {
             case .splash:
-                SplashView {
+                SplashView(minimumDuration: splashDuration) {
                     Task { await handlePostSplash() }
                 }
                 .transition(.opacity)
@@ -462,31 +544,6 @@ struct SoyehtAppView: View {
                     }
                 )
 
-                    // "Your home isn't set up yet" banner — overlaid only
-                    // when the user has no servers/macs/household AND has
-                    // visited the LaterParkingLotView (i.e. they explicitly
-                    // deferred setup via the InstallPicker "Get link later"
-                    // path). Tapping reuses the existing
-                    // `.soyehtRequestInstallPicker` notification that
-                    // SceneDelegate observes to swap the window root back
-                    // to InstallPickerView. Keeps the user one tap away
-                    // from resuming canonical onboarding instead of being
-                    // stranded on a bare QR scanner. Padding mirrors the
-                    // scanner's own top-safe-area inset so the banner sits
-                    // just below the notch / Dynamic Island without
-                    // overlapping the cancel button.
-                    if !hasHomeContent && homeViewState.noHouseholdBannerVisible {
-                        NoHouseholdBanner(onSetupNow: {
-                            NotificationCenter.default.post(
-                                name: .soyehtRequestInstallPicker,
-                                object: nil
-                            )
-                        })
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .zIndex(1)
-                    }
                 }
                 .transition(.opacity)
 
@@ -514,9 +571,13 @@ struct SoyehtAppView: View {
             case .shareApp(let snapshot):
                 ShareAppView(
                     model: ShareAppViewModel(),
+                    // Back to the home, not to the household screen. Sharing
+                    // is reached from the home by way of "Other machines", so
+                    // dismissing used to drop an owner onto a household id and
+                    // a person id — the same screen, by a longer road.
                     onDismiss: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .householdHome(snapshot)
+                            appState = .instanceList
                         }
                     },
                     onShowActiveShares: {
@@ -539,56 +600,33 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .pairingSuccess(let snapshot):
-                PairingSuccessView(
-                    houseName: snapshot.displayName,
-                    onContinue: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .enrollOwnerPasskey(snapshot)
-                        }
-                    }
-                )
-                .transition(.opacity)
-
-            case .enrollOwnerPasskey(let snapshot):
-                // Fresh-onboarding owner passkey enrollment. Both completion and
-                // an explicit "set up later" advance to the recovery message — the
-                // existing next step — so enrollment never blocks the flow.
-                OwnerPasskeyEnrollmentView(
+                // Three screens became one: the success card, the passkey
+                // screen and the recovery message all landed in the same
+                // place, and the first-owner path skipped past the lot of
+                // them. This card is what everybody who pairs sees, and the
+                // continuation is the one those three shared.
+                PairedCelebrationView(
                     snapshot: snapshot,
-                    onContinue: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .recoveryMessage(snapshot)
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .recoveryMessage(snapshot)
-                        }
-                    }
-                )
-                .transition(.opacity)
-
-            case .recoveryMessage(let snapshot):
-                RecoveryMessageView(
-                    onDismiss: {
+                    macName: nil,
+                    onOpenTerminal: {
                         let household = snapshot.underlying
                         machineJoinRuntime.activate(household)
                         Task { @MainActor in
                             // The self/base engine did not arrive through the
-                            // legacy HMAC Mac pairing flow. Resolve its
-                            // owner-authenticated identity before choosing the
-                            // empty-household route so it can render as the
-                            // initial owned instance when available.
+                            // legacy HMAC Mac pairing flow, so give it a beat
+                            // to resolve its owner-authenticated identity.
                             await BaseMachineProjector.shared.refresh()
+                            // Then the home, unconditionally. Asking
+                            // `HouseholdRecoveryDestination` here raced the
+                            // Mac-local pairing landing in the registry: lose
+                            // the race and the person got a screen of raw
+                            // household and person identifiers for a few
+                            // seconds, then a silent swap. The home covers
+                            // that wait itself, in its own voice.
+                            PairedMacRegistry.shared.reconcileClients()
+                            restoreNavigationIfNeeded()
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                switch HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared) {
-                                case .householdHome:
-                                    appState = .householdHome(snapshot)
-                                case .instanceList:
-                                    PairedMacRegistry.shared.reconcileClients()
-                                    restoreNavigationIfNeeded()
-                                    appState = .instanceList
-                                }
+                                appState = .instanceList
                             }
                         }
                     }
@@ -597,70 +635,17 @@ struct SoyehtAppView: View {
 
             case .instanceList:
                 ZStack(alignment: .top) {
-                    InstanceListView(
-                        onConnect: { wsUrl, instance, sessionName, context in
-                            store.saveNavigationState(NavigationState(
-                                serverId: context.serverId,
-                                instanceId: instance.id,
-                                sessionName: sessionName,
-                                savedAt: Date()
-                            ))
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
-                            }
-                        },
-                        onHouseholdConnect: { request, instance, sessionName, serverId, endpoint in
-                            store.saveNavigationState(NavigationState(
-                                serverId: serverId,
-                                instanceId: instance.id,
-                                sessionName: sessionName,
-                                savedAt: Date()
-                            ))
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                appState = .householdTerminal(
-                                    request: request,
-                                    instance,
-                                    sessionName: sessionName,
-                                    serverId: serverId,
-                                    endpoint: endpoint
-                                )
-                            }
-                        },
-                        onAddInstance: {
-                            showAddDeviceSheet = true
-                        },
-                        onLogout: {
-                            Task {
-                                if let active = store.activeServerId,
-                                   let ctx = store.context(for: active) {
-                                    try? await apiClient.logout(context: ctx)
-                                }
-                                withAnimation { appState = .qrScanner }
-                            }
-                        },
-                        onSettings: { showSettings = true },
-                        // Offered only to an owner device: the same capability
-                        // the engine enforces when the invite is minted, so a
-                        // device that would be refused server-side never sees
-                        // the button.
-                        onShareApp: identity.active
-                            .flatMap { snapshot -> (() -> Void)? in
-                                guard snapshot.underlying.personCert.allows("household.invite") else {
-                                    return nil
-                                }
-                                return {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        appState = .shareApp(snapshot)
-                                    }
-                                }
-                            },
-                        onAttachMacPane: { macID, pane in
+                    HomeView(
+                        model: homeModel,
+                        onOpenSession: { macID, pane in
                             await attachToMacPane(macID: macID, pane: pane)
                         },
-                        autoSelectInstance: $autoSelectInstance,
-                        autoSelectServerId: $autoSelectServerId,
-                        autoSelectSessionName: $autoSelectSessionName
+                        onOtherMachines: { showOtherMachines = true },
+                        onSettings: { showSettings = true }
                     )
+                    .fullScreenCover(isPresented: $showOtherMachines) {
+                        otherMachinesScreen
+                    }
 
                     if let snapshot = identity.active {
                         VStack(spacing: 12) {
@@ -690,6 +675,19 @@ struct SoyehtAppView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .top)
                         .zIndex(3)
+                    }
+                }
+                // The invitation the Mac answers with its local pairing —
+                // the phone's only source of a Mac it can actually open a
+                // pane on when it found the Mac itself instead of being
+                // pushed at. It used to hang off the household screen's
+                // `onAppear`, which is why routing away from that screen
+                // left the home waiting on a Mac that was never coming.
+                // Guarded inside on `operationalMacs.isEmpty`, so a phone
+                // that already has its Mac advertises nothing.
+                .onAppear {
+                    if let snapshot = identity.active {
+                        startHouseholdMacRecoveryInvitation(for: snapshot)
                     }
                 }
                 .transition(.opacity)
@@ -832,7 +830,11 @@ struct SoyehtAppView: View {
         .onReceive(macsStoreBox.$macs) { macs in
             guard !macs.isEmpty else { return }
             switch appState {
-            case .householdHome, .pairingSuccess, .recoveryMessage:
+            // Only the home. `.pairingSuccess` is the celebration now, and it
+            // carries a decision — a Mac landing in the registry must not pull
+            // the screen out from under someone reaching for the Face ID
+            // switch. They arrive at the home the moment they tap through.
+            case .householdHome:
                 PairedMacRegistry.shared.reconcileClients()
                 withAnimation(.easeInOut(duration: 0.3)) {
                     appState = .instanceList
@@ -851,6 +853,12 @@ struct SoyehtAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if let identity = loadActiveIdentityForLifecycle(reason: "didBecomeActive") {
                 machineJoinRuntime.activate(identity.underlying)
+                // The invitation lives 45 seconds. A Mac that was asleep
+                // when the phone paired needs another chance, and coming
+                // back to the app is when the person is asking for one.
+                if case .instanceList = appState {
+                    startHouseholdMacRecoveryInvitation(for: identity)
+                }
             }
             machineJoinRuntime.enterForeground()
         }
@@ -1017,7 +1025,13 @@ struct SoyehtAppView: View {
 
     private func handlePairDevice(
         url: URL,
-        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider()
+        // `.deviceUnlocked`, like every other place this iPhone becomes an
+        // owner. The default is `.biometryCurrentSet`, and this one call site
+        // took it — so a phone that paired by QR got a key whose every use
+        // asks for Face ID, and the owner-events poll asks constantly. The
+        // key's protection cannot be changed after pairing; Face ID as a
+        // deliberate choice is a passkey, not this.
+        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
     ) async {
         await MainActor.run { isPairing = true }
         do {
@@ -1527,13 +1541,9 @@ struct SoyehtAppView: View {
             await BaseMachineProjector.shared.refresh()
             if serverContexts.isEmpty {
                 await MainActor.run {
-                    if ServerRegistry.shared.operationalMacs.isEmpty {
-                        withAnimation { appState = .householdHome(identity) }
-                    } else {
-                        PairedMacRegistry.shared.reconcileClients()
-                        restoreNavigationIfNeeded()
-                        withAnimation { appState = .instanceList }
-                    }
+                    PairedMacRegistry.shared.reconcileClients()
+                    restoreNavigationIfNeeded()
+                    withAnimation { appState = .instanceList }
                 }
                 return
             }
@@ -1975,13 +1985,18 @@ struct SoyehtAppView: View {
         guard hasSecret || hasEndpoints else { return }
 
         let host = target.lastHost ?? Self.hostPort(from: selectedWsUrl)
+        let name = target.macName ?? "Mac"
         ServerRegistry.shared.upsertMacPairing(
             macID: macID,
-            name: target.macName ?? "Mac",
+            name: name,
             host: host,
             presencePort: target.presencePort,
             attachPort: target.attachPort
         )
+        // Same funnel as the proximity path: a Mac the user never named
+        // still shows the name it announced, so the home never renders a
+        // raw identifier while waiting for `MacAliasView`.
+        _ = ServerRegistry.shared.setDefaultMacAliasIfNeeded(macID: macID, suggestedAlias: name)
         PairedMacRegistry.shared.reconcileClients()
     }
 

@@ -625,4 +625,67 @@ struct MacPresenceClientTests {
         #expect(client.windows.first?.workspaces.first?.paneCount == 2)
         #expect(client.workspaces.first?.orderedPaneRows.last?.pane.isAttachable == false)
     }
+
+    @Test("open_pane_result carrying a pane id resolves the request")
+    func openPane_resolvesWithPaneID() async throws {
+        let (client, fake) = try await authenticatedClient()
+
+        let task = Task { try await client.requestOpenPane() }
+        try await settle()
+
+        let request = try fake.lastMessageJSON()
+        #expect(request["type"] as? String == PresenceMessage.openPane)
+
+        let resultJSON = #"{"type":"\#(PresenceMessage.openPaneResult)","pane_id":"pane-new"}"#
+        fake.feedServerMessage(resultJSON)
+        try await settle()
+
+        let paneID = try await task.value
+        #expect(paneID == "pane-new")
+
+        client.disconnect()
+    }
+
+    @Test("open_pane_result carrying an error throws instead of inventing a pane")
+    func openPane_errorThrows() async throws {
+        let (client, fake) = try await authenticatedClient()
+
+        let task = Task { try await client.requestOpenPane() }
+        try await settle()
+
+        let resultJSON = #"{"type":"\#(PresenceMessage.openPaneResult)","error":"pane_unavailable"}"#
+        fake.feedServerMessage(resultJSON)
+        try await settle()
+
+        do {
+            _ = try await task.value
+            Issue.record("open_pane_result with an error must not resolve to a pane id")
+        } catch {
+            // expected
+        }
+
+        client.disconnect()
+    }
+
+    @Test("a second New session tap while the first is in flight is refused, not queued")
+    func openPane_secondRequestIsRefused() async throws {
+        let (client, fake) = try await authenticatedClient()
+
+        let first = Task { try await client.requestOpenPane() }
+        try await settle()
+
+        do {
+            _ = try await client.requestOpenPane()
+            Issue.record("the second request must be refused while one is pending")
+        } catch {
+            // expected
+        }
+
+        let resultJSON = #"{"type":"\#(PresenceMessage.openPaneResult)","pane_id":"pane-new"}"#
+        fake.feedServerMessage(resultJSON)
+        try await settle()
+        #expect(try await first.value == "pane-new")
+
+        client.disconnect()
+    }
 }

@@ -1,68 +1,45 @@
 import XCTest
 
-/// Source-guard tests for the owner-passkey enrollment screen. The SwiftUI View
-/// and its live `ASAuthorization` ceremony cannot run in CI (xcframework caveat),
-/// so these assert the *contract* against the source: the View consumes the
-/// view-model (`phase` / `enroll()` / `setUpLater()`), offers a first-class "set
-/// up later", never branches on the error (`BootstrapError`), and is inserted into
-/// the fresh-onboarding flow between pairing success and the recovery message.
+/// Source-guard tests for owner-passkey enrollment. The live `ASAuthorization`
+/// ceremony cannot run in CI (xcframework caveat), so these assert the
+/// *contract* against the source.
+///
+/// The dedicated enrollment screen is gone, and so is the Face ID switch that
+/// briefly replaced it on the celebration card. Owner passkey enrollment is
+/// not something this phone can do: the engine wires its WebAuthn relying
+/// party and rollback anchor into a macOS-local Unix-socket router only, so
+/// the HTTP endpoints the phone reaches always answer
+/// `credential_anchor_invalid` / `missing_anchor_verifier`. What is asserted
+/// here is that the celebration makes no promise it cannot keep.
 final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
-    func test_enrollmentViewConsumesViewModelPhaseAndActions() throws {
-        let source = try iosSource("Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentView.swift")
+    /// No enrollment control on the celebration, and nothing between a person
+    /// and their terminal. Measured on the device on 2026-09-03: the switch
+    /// was tapped, the engine rejected the start, and the card fell to
+    /// "That didn't finish" — a failure with no possible success behind it.
+    func test_theCelebrationOffersNoEnrollmentItCannotFinish() throws {
+        let celebration = try iosSource("Onboarding/Neo/PairedCelebrationView.swift")
+        XCTAssertFalse(celebration.contains("FaceIDProtectionCard"))
+        XCTAssertFalse(celebration.contains("OwnerPasskeyEnrollmentComposer"))
+        XCTAssertFalse(celebration.contains("faceID"))
+        XCTAssertTrue(celebration.contains("Button(action: onOpenTerminal)"))
+        // The CTA reads no phase of anything — it cannot be disabled.
+        XCTAssertFalse(celebration.contains(".disabled("))
 
-        // Drives the view-model.
-        XCTAssertTrue(source.contains("model.phase"))
-        XCTAssertTrue(source.contains("await model.enroll()"))
-        XCTAssertTrue(source.contains("model.setUpLater()"))
-
-        // First-class skip affordance + manual retry.
-        XCTAssertTrue(source.contains("\"set up later\""))
-        XCTAssertTrue(source.contains("\"try again\""))
-
-        // Success (fresh OR already-committed) and skip both advance; navigation
-        // is driven only by phase.
-        XCTAssertTrue(source.contains("case .completed"))
-        XCTAssertTrue(source.contains("case .skipped"))
-        XCTAssertTrue(source.contains("onContinue()"))
-        XCTAssertTrue(source.contains("onSkip()"))
+        // The SoyehtCore client, orchestrator and view-model stay: they are
+        // the ready-made phone side for whenever the engine exposes
+        // enrollment over HTTP. What must not exist is a control wired to
+        // them in the app.
+        for root in ["Onboarding", "Home", "Settings"] {
+            for file in try iosFiles(under: root) {
+                XCTAssertFalse(
+                    file.source.contains("OwnerPasskeyEnrollmentComposer"),
+                    "\(file.path) still offers passkey enrollment"
+                )
+            }
+        }
     }
 
-    func test_enrollmentViewNeverBranchesOnError() throws {
-        let source = try iosSource("Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentView.swift")
-
-        // Anti-oracle: the View must never inspect the underlying error. The
-        // generic failure hint is driven by `.failed`, not by the error value.
-        XCTAssertFalse(source.contains("BootstrapError"))
-        XCTAssertFalse(source.contains(".serverError"))
-        XCTAssertFalse(source.contains(".code"))
-    }
-
-    func test_enrollmentInsertedBetweenPairingSuccessAndRecovery() throws {
-        let source = try iosSource("SSHLoginView.swift")
-        let routeSource = try iosSource("App/AppRoute.swift")
-
-        // The enum carries the new step.
-        XCTAssertTrue(routeSource.contains("case enrollOwnerPasskey(SoyehtIdentitySnapshot)"))
-
-        // Pairing success now advances into enrollment (not straight to recovery).
-        let pairingBranch = try slice(
-            source,
-            from: "case .pairingSuccess(let snapshot):",
-            to: "case .enrollOwnerPasskey(let snapshot):"
-        )
-        XCTAssertTrue(pairingBranch.contains("appState = .enrollOwnerPasskey(snapshot)"))
-
-        // Enrollment renders the screen; both continue and skip advance to recovery.
-        let enrollBranch = try slice(
-            source,
-            from: "case .enrollOwnerPasskey(let snapshot):",
-            to: "case .recoveryMessage(let snapshot):"
-        )
-        XCTAssertTrue(enrollBranch.contains("OwnerPasskeyEnrollmentView("))
-        XCTAssertTrue(enrollBranch.contains("appState = .recoveryMessage(snapshot)"))
-    }
-
-    func test_routeVocabularyKeepsAllFifteenCasesWithoutMovingRootHandlers() throws {
+    func test_routeVocabularyKeepsThirteenCasesWithoutMovingRootHandlers() throws {
         let rootSource = try iosSource("SSHLoginView.swift")
         let routeSource = try iosSource("App/AppRoute.swift")
 
@@ -71,7 +48,7 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             .split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { $0.hasPrefix("case ") }
-        // 15: `clawSite` (a shared claw serving an app rather than a
+        // 13: `clawSite` (a shared claw serving an app rather than a
         // terminal, chosen by the offer's resource), `shareApp` (the
         // owner-side flow that mints the invite, which lives on this device
         // because the owner key does), and `activeShares` (the owner-side
@@ -79,16 +56,15 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         // a sibling screen, not a replacement, since minting and reviewing
         // existing shares are different moments). Bumping this number is
         // meant to be a deliberate act — add the signature below too, so
-        // the count alone can never drift.
-        XCTAssertEqual(declaredCases.count, 15)
+        // the count alone can never drift. Down from 15: the dedicated
+        // passkey screen and the recovery message are one celebration now.
+        XCTAssertEqual(declaredCases.count, 13)
 
         for signature in [
             "case splash",
             "case qrScanner",
             "case householdHome(SoyehtIdentitySnapshot)",
             "case pairingSuccess(SoyehtIdentitySnapshot)",
-            "case enrollOwnerPasskey(SoyehtIdentitySnapshot)",
-            "case recoveryMessage(SoyehtIdentitySnapshot)",
             "case instanceList",
             "case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)",
             "case householdTerminal(",
@@ -110,28 +86,22 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
         XCTAssertFalse(routeSource.contains("handlePostSplash"))
         XCTAssertFalse(routeSource.contains("handleIncomingDeepLink"))
         XCTAssertFalse(routeSource.contains("attemptTerminalRestore"))
+        XCTAssertFalse(routeSource.contains("enrollOwnerPasskey"))
+        XCTAssertFalse(routeSource.contains("recoveryMessage"))
     }
 
-    func test_composerWiresOrchestratorStatusAndDegradesGracefully() throws {
-        let source = try iosSource("Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentComposer.swift")
-
-        XCTAssertTrue(source.contains("loadOwnerIdentity("))
-        XCTAssertTrue(source.contains("HouseholdPoPSigner(ownerIdentity:"))
-        XCTAssertTrue(source.contains("OwnerPasskeyEnrollmentClient(baseURL: snapshot.endpoint"))
-        XCTAssertTrue(source.contains("OwnerPasskeyRegistrationStatusClient(baseURL: snapshot.endpoint"))
-        XCTAssertTrue(source.contains("OwnerPasskeyEnrollmentOrchestrator("))
-        XCTAssertTrue(source.contains("OwnerPasskeyEnrollmentViewModel(orchestrator:"))
-        // Graceful degrade when the owner key can't be loaded (never blocks onboarding).
-        XCTAssertTrue(source.contains("return nil"))
-
-        // Anti-oracle defense-in-depth: the composer wires the phase-driven VM;
-        // it must not inspect server error codes either.
-        XCTAssertFalse(source.contains("BootstrapError"))
-        XCTAssertFalse(source.contains(".serverError"))
-        XCTAssertFalse(source.contains(".code"))
+    /// The SoyehtCore half stays whole. It is the part that was never wrong —
+    /// the client speaks the engine's CBOR, the view-model has the phases, and
+    /// the orchestrator sequences start → ceremony → finish. What went is the
+    /// app-target composer that pointed them at an endpoint that answers 401.
+    func test_theCoreEnrollmentPiecesSurviveForWhenTheEngineCanAnswer() throws {
+        for file in ["OwnerPasskeyEnrollmentClient", "OwnerPasskeyEnrollmentOrchestrator", "OwnerPasskeyEnrollmentViewModel"] {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: coreSourcePath("WebAuthn/\(file).swift")),
+                "\(file) should survive the retirement of the Face ID switch"
+            )
+        }
     }
-
-    // MARK: helpers (read app-target source; the live screen is not CI-runnable)
 
     private func iosSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
@@ -139,6 +109,32 @@ final class OwnerPasskeyEnrollmentPresentationTests: XCTestCase {
             .deletingLastPathComponent()  // TerminalApp/
         let url = terminalApp.appendingPathComponent("Soyeht").appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    /// Every Swift file under one app-target directory, with its path — so a
+    /// re-added enrollment control is caught wherever someone puts it.
+    private func iosFiles(under directory: String) throws -> [(path: String, source: String)] {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Soyeht")
+            .appendingPathComponent(directory)
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
+        return try enumerator.compactMap { entry in
+            guard let name = entry as? String, name.hasSuffix(".swift") else { return nil }
+            let url = root.appendingPathComponent(name)
+            return (path: "\(directory)/\(name)", source: try String(contentsOf: url, encoding: .utf8))
+        }
+    }
+
+    private func coreSourcePath(_ relativePath: String) -> String {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // SoyehtTests/
+            .deletingLastPathComponent()  // TerminalApp/
+            .deletingLastPathComponent()  // repo root
+            .appendingPathComponent("Packages/SoyehtCore/Sources/SoyehtCore")
+            .appendingPathComponent(relativePath)
+            .path
     }
 
     private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {

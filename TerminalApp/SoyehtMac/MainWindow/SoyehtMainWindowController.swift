@@ -3627,7 +3627,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// remote tmux path. Mirrors the `startNewConversation` shape so C1
     /// (immutable pane identity) and C3 (auto shell handle) still hold.
     @MainActor
-    func startLocalShell(in paneID: Conversation.ID, cwd: URL) {
+    /// How a failure to open the shell is shown. Onboarding opens the first
+    /// pane by itself, so a modal alert there would be the app greeting a new
+    /// owner with an error dialog nobody asked for; that path retries quietly
+    /// and, if it still fails, just leaves the pane picker on screen.
+    enum LocalShellFailurePresentation {
+        case modal
+        case retryThenPicker
+    }
+
+    func startLocalShell(
+        in paneID: Conversation.ID,
+        cwd: URL,
+        presentation: LocalShellFailurePresentation = .modal
+    ) {
         guard let convStore = AppEnvironment.conversationStore else { return }
         let workspaceID = activeWorkspaceID
         guard store.workspace(workspaceID) != nil else { return }
@@ -3658,23 +3671,55 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                _ = try await self.attachLocalPTY(
-                    to: paneID,
-                    cwd: cwd,
-                    initialCommand: nil,
-                    prompt: nil,
-                    promptDelayMs: nil,
-                    promptMode: nil,
-                    promptSourceConversationIDString: nil,
-                    promptSourceHandle: nil,
-                    promptSourceTTY: nil
-                )
-            } catch {
-                Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
-                self.presentLocalPTYError(error)
+            let attempts = presentation == .retryThenPicker ? 3 : 1
+            for attempt in 1...attempts {
+                do {
+                    _ = try await self.attachLocalPTY(
+                        to: paneID,
+                        cwd: cwd,
+                        initialCommand: nil,
+                        prompt: nil,
+                        promptDelayMs: nil,
+                        promptMode: nil,
+                        promptSourceConversationIDString: nil,
+                        promptSourceHandle: nil,
+                        promptSourceTTY: nil
+                    )
+                    return
+                } catch {
+                    Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
+                    switch presentation {
+                    case .modal:
+                        self.presentLocalPTYError(error)
+                        return
+                    case .retryThenPicker:
+                        guard attempt < attempts else {
+                            Self.logger.fault("first pane could not open a shell after \(attempts, privacy: .public) attempts; leaving the picker visible")
+                            return
+                        }
+                        try? await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000)
+                    }
+                }
             }
         }
+    }
+
+    /// Opens a live shell in the empty pane a brand new window starts with, so
+    /// the owner's first sight of Soyeht is a working terminal rather than a
+    /// picker asking them to choose something they have not learned yet.
+    func openFirstShellPaneIfEmpty() {
+        guard let convStore = AppEnvironment.conversationStore else { return }
+        guard let workspace = store.workspace(activeWorkspaceID) else { return }
+        let candidates = workspace.layout.leafIDs
+        guard let paneID = candidates.first(where: { id in
+            guard let conversation = convStore.conversation(id) else { return true }
+            return conversation.commander == .placeholderMirror
+        }) else { return }
+        startLocalShell(
+            in: paneID,
+            cwd: FileManager.default.homeDirectoryForCurrentUser,
+            presentation: .retryThenPicker
+        )
     }
 
     // MARK: - Agent switch (same pane, same conversation)
@@ -4290,18 +4335,54 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         pane: PaneViewController,
         convStore: ConversationStore
     ) async throws -> Bool {
-        let firstOutcome = await EnginePaneAttacher.attach(
-            conversation: conversation,
-            launchNonce: launchNonce,
-            cwd: cwd,
-            loginPath: loginPath,
-            cols: cols,
-            rows: rows,
-            terminalView: pane.terminalView,
-            convStore: convStore
+        // One attach per pane. Restore and transport-loss reattach take the
+        // same gate, so the second caller waits for the pane to settle instead
+        // of racing this one through its awaits.
+        guard EngineAttachGate.begin(conversation.id) else {
+            Self.logger.notice("engine attach already in flight; skipping duplicate pane=\(conversation.id.uuidString, privacy: .public)")
+            return true
+        }
+        defer { EngineAttachGate.end(conversation.id) }
+
+        // A close that is still being reaped owns this conversation id until
+        // its DELETE lands. Restore already waits for it; the first launch
+        // never did, which is how a "fresh" Mac could still meet a live
+        // session under a reused id.
+        _ = await DeferredEngineSessionReaper.settlePendingReapBeforeReuse(
+            engineConversationID: conversation.id.uuidString
         )
+
+        var firstOutcome = EnginePaneAttacher.AttachOutcome.failed(transient: false)
+        for attempt in 0...Self.firstAttachRetryDelaysNanoseconds.count {
+            firstOutcome = await EnginePaneAttacher.attach(
+                conversation: conversation,
+                launchNonce: launchNonce,
+                cwd: cwd,
+                loginPath: loginPath,
+                cols: cols,
+                rows: rows,
+                terminalView: pane.terminalView,
+                convStore: convStore
+            )
+            // A transient failure on a daemon that is still finishing its own
+            // boot is the common first-run case: the engine answers a moment
+            // later. Only a definitive refusal falls straight through to
+            // NativePTY.
+            guard case .failed(transient: true) = firstOutcome,
+                  attempt < Self.firstAttachRetryDelaysNanoseconds.count else {
+                break
+            }
+            try? await Task.sleep(nanoseconds: Self.firstAttachRetryDelaysNanoseconds[attempt])
+        }
         switch firstOutcome {
         case .attached(reconnected: false):
+            return true
+        case .attached(reconnected: true) where launchNonce == nil:
+            // A plain shell has no launch environment to go stale: the engine
+            // simply still owns a live process for this pane, which is the
+            // whole point of persistent panes. Adopt it instead of deleting a
+            // working session and calling the result an error.
+            Self.logger.notice("engine pane session restored on first attach pane=\(conversation.id.uuidString, privacy: .public)")
             return true
         case .attached(reconnected: true):
             // A lost earlier response can leave a process under the same
@@ -4343,6 +4424,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return false
         }
     }
+
+    /// The first attach of a pane retries a transient engine failure on the
+    /// same ladder restore uses, so a Mac whose engine is still coming up does
+    /// not fall back to a non-persistent PTY on its very first pane.
+    private static let firstAttachRetryDelaysNanoseconds: [UInt64] = [
+        500_000_000,
+        1_000_000_000,
+        2_000_000_000,
+        4_000_000_000,
+        8_000_000_000,
+    ]
 
     private func initialPromptPayload(
         for paneID: Conversation.ID,
