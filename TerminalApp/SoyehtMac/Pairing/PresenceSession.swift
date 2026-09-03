@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Network
 import SoyehtCore
@@ -164,10 +165,30 @@ final class PresenceSession {
             handleListPanes()
         case PresenceMessage.attachPane:
             handleAttachPane(json)
+        case PresenceMessage.openPane:
+            handleOpenPane()
         case PresenceMessage.pingClient:
             sendJSON(["type": PresenceMessage.pongServer])
         default:
             presenceSessionLogger.log("presence_unknown_message type=\(type, privacy: .public)")
+        }
+    }
+
+    /// The phone asked for a new shell on this Mac.
+    private func handleOpenPane() {
+        Task { @MainActor in
+            guard let delegate = NSApp.delegate as? AppDelegate,
+                  let paneID = await delegate.openLocalShellPaneForPresence() else {
+                self.sendJSON([
+                    "type": PresenceMessage.openPaneResult,
+                    "error": "pane_unavailable",
+                ])
+                return
+            }
+            self.sendJSON([
+                "type": PresenceMessage.openPaneResult,
+                "pane_id": paneID,
+            ])
         }
     }
 

@@ -212,4 +212,17 @@ enum AccessibilityID {
         static let toast = "soyeht.filePreview.toast"
     }
 
+    // MARK: - Home (neo)
+
+    enum Home {
+        static let screen = "soyeht.home.screen"
+        static let houseName = "soyeht.home.houseName"
+        static let settingsButton = "soyeht.home.settingsButton"
+        static let macCard = "soyeht.home.macCard"
+        static let sessionsEmpty = "soyeht.home.sessionsEmpty"
+        static let newSessionButton = "soyeht.home.newSessionButton"
+        static let otherMachinesButton = "soyeht.home.otherMachinesButton"
+        static func sessionRow(_ id: String) -> String { "soyeht.home.sessionRow.\(id)" }
+    }
+
 }

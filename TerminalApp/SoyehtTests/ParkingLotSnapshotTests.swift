@@ -1,10 +1,31 @@
 import XCTest
 import SwiftUI
 import SnapshotTesting
+import SoyehtCore
 @testable import Soyeht
 
 /// T104 — Parking-lot view snapshot tests in 4 locales: pt-BR, en, ar (RTL), ja (CJK).
 final class ParkingLotSnapshotTests: XCTestCase {
+
+    /// The references were recorded on the app's classic palette. A fresh
+    /// install now wakes up in Neo Milk (`OnboardingDesignStyleSeeder`), and
+    /// the test host is a fresh install on every run — so the theme is pinned
+    /// here rather than letting whatever the app seeded decide what these
+    /// four locale snapshots are measuring.
+    private var restoreThemeID: String?
+
+    override func setUp() {
+        super.setUp()
+        restoreThemeID = TerminalPreferences.shared.colorTheme
+        TerminalThemeStore.shared.setActiveTheme(id: ColorTheme.soyehtDark.rawValue)
+    }
+
+    override func tearDown() {
+        if let restoreThemeID {
+            TerminalThemeStore.shared.setActiveTheme(id: restoreThemeID)
+        }
+        super.tearDown()
+    }
 
     private func makeParkingLot(locale: Locale, layoutDirection: LayoutDirection = .leftToRight) -> some View {
         LaterParkingLotView(onDismiss: {}, onBack: {})

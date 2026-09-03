@@ -682,6 +682,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     ) async throws -> SoyehtAutomationResult {
         return try await automationRequestRouter.handle(request)
     }
+    /// Opens a shell pane on this Mac because a paired iPhone asked for one.
+    /// Returns the pane id so the phone can attach straight into it.
+    ///
+    /// The phone could attach to panes that already existed but had no way to
+    /// ask for a new one, so "start something on my Mac from the couch" meant
+    /// walking to the Mac.
+    @MainActor
+    func openLocalShellPaneForPresence() async -> String? {
+        let controller = mainWindowControllers.first ?? openNewMainWindow()
+        controller.showWindow(nil)
+        let spec = SoyehtMainWindowController.LocalAgentPaneSpec(
+            name: nil,
+            projectURL: FileManager.default.homeDirectoryForCurrentUser,
+            agentName: "shell",
+            initialCommand: nil,
+            prompt: nil,
+            promptMode: nil,
+            promptDelayMs: nil,
+            promptSourceConversationIDString: nil,
+            promptSourceHandle: nil,
+            promptSourceTTY: nil
+        )
+        guard let result = try? await controller.createLocalAgentPanes([spec]).first else {
+            return nil
+        }
+        return result.conversationID.uuidString
+    }
+
     private var mainWindowControllers: [SoyehtMainWindowController] {
         var seen: Set<String> = []
         var result: [SoyehtMainWindowController] = []

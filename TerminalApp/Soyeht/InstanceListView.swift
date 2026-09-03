@@ -265,7 +265,10 @@ struct InstanceListView: View {
     let onConnect: (String, SoyehtInstance, String, ServerContext) -> Void // (wsUrl, instance, sessionName, context)
     let onHouseholdConnect: (URLRequest, SoyehtInstance, String, String, URL) -> Void
     let onAddInstance: () -> Void
-    let onLogout: () -> Void
+    /// Optional since the neo home took the top level: the household
+    /// switcher is reachable from Settings, not from a toolbar icon on a
+    /// screen that is now one level down.
+    var onLogout: (() -> Void)? = nil
     /// Opens Settings — the only screen with "Leave this household". Once a
     /// Mac is paired the owner lands here, never on `HouseholdHomeView`
     /// (`HomeFallbackDestination` routes to the instance list whenever a
@@ -409,10 +412,12 @@ struct InstanceListView: View {
                                     .font(Typography.sansSection)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
-                            Button(action: onLogout) {
-                                Image(systemName: "person.2")
-                                    .font(Typography.sansSection)
-                                    .foregroundColor(SoyehtTheme.textSecondary)
+                            if let onLogout {
+                                Button(action: onLogout) {
+                                    Image(systemName: "person.2")
+                                        .font(Typography.sansSection)
+                                        .foregroundColor(SoyehtTheme.textSecondary)
+                                }
                             }
                             if let onSettings {
                                 Button(action: onSettings) {

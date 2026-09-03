@@ -224,6 +224,10 @@ final class PairingCoordinator {
             presencePort: presencePort,
             attachPort: attachPort
         )
+        // Third and last site of the alias funnel (with the proximity path
+        // and the local handoff): the row is never left with only a
+        // hostname the home would have to render raw.
+        _ = ServerRegistry.shared.setDefaultMacAliasIfNeeded(macID: macID, suggestedAlias: name)
     }
 
     private func updateMacPairingEndpoints(

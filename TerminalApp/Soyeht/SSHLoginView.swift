@@ -367,6 +367,12 @@ struct SoyehtAppView: View {
     /// inside `HomeViewState.init`.
     @StateObject private var homeViewState = HomeViewState()
 
+    /// The neo home. Owned here so it survives the `.instanceList` branch
+    /// being rebuilt on every `appState` change.
+    @StateObject private var homeModel = HomeViewModel()
+    /// "Other machines" — the old instance list, unchanged, one level down.
+    @State private var showOtherMachines = false
+
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private var homeFallbackRoute: SoyehtAppRoute? {
@@ -393,6 +399,98 @@ struct SoyehtAppView: View {
     // `HouseholdSessionStore` directly on every body re-evaluation.
     private var activeHouseholdId: String? {
         identity.active?.id
+    }
+
+    /// "Other machines": everything the phone can reach that is not the
+    /// house's own Mac — Linux servers, base machines, apps. Unchanged from
+    /// the screen this used to be; it just lives one level below the home
+    /// now. `onLogout` went with it: leaving a household is a Settings
+    /// decision, not an icon in a toolbar.
+    private var otherMachinesScreen: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    showOtherMachines = false
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                        Text(LocalizedStringResource(
+                            "home.otherMachines.back",
+                            defaultValue: "Home",
+                            comment: "Back button that returns from the machine list to the home screen."
+                        ))
+                    }
+                    .font(Typography.sansBody)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                }
+                .accessibilityIdentifier("soyeht.home.otherMachines.back")
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(SoyehtTheme.bgPrimary)
+
+            InstanceListView(
+                onConnect: { wsUrl, instance, sessionName, context in
+                    store.saveNavigationState(NavigationState(
+                        serverId: context.serverId,
+                        instanceId: instance.id,
+                        sessionName: sessionName,
+                        savedAt: Date()
+                    ))
+                    showOtherMachines = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
+                    }
+                },
+                onHouseholdConnect: { request, instance, sessionName, serverId, endpoint in
+                    store.saveNavigationState(NavigationState(
+                        serverId: serverId,
+                        instanceId: instance.id,
+                        sessionName: sessionName,
+                        savedAt: Date()
+                    ))
+                    showOtherMachines = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .householdTerminal(
+                            request: request,
+                            instance,
+                            sessionName: sessionName,
+                            serverId: serverId,
+                            endpoint: endpoint
+                        )
+                    }
+                },
+                onAddInstance: {
+                    showAddDeviceSheet = true
+                },
+                onSettings: { showSettings = true },
+                // Offered only to an owner device: the same capability
+                // the engine enforces when the invite is minted, so a
+                // device that would be refused server-side never sees
+                // the button.
+                onShareApp: identity.active
+                    .flatMap { snapshot -> (() -> Void)? in
+                        guard snapshot.underlying.personCert.allows("household.invite") else {
+                            return nil
+                        }
+                        return {
+                            showOtherMachines = false
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                appState = .shareApp(snapshot)
+                            }
+                        }
+                    },
+                onAttachMacPane: { macID, pane in
+                    await MainActor.run { showOtherMachines = false }
+                    return await attachToMacPane(macID: macID, pane: pane)
+                },
+                autoSelectInstance: $autoSelectInstance,
+                autoSelectServerId: $autoSelectServerId,
+                autoSelectSessionName: $autoSelectSessionName
+            )
+        }
+        .background(SoyehtTheme.bgPrimary.ignoresSafeArea())
     }
 
     var body: some View {
@@ -597,70 +695,17 @@ struct SoyehtAppView: View {
 
             case .instanceList:
                 ZStack(alignment: .top) {
-                    InstanceListView(
-                        onConnect: { wsUrl, instance, sessionName, context in
-                            store.saveNavigationState(NavigationState(
-                                serverId: context.serverId,
-                                instanceId: instance.id,
-                                sessionName: sessionName,
-                                savedAt: Date()
-                            ))
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
-                            }
-                        },
-                        onHouseholdConnect: { request, instance, sessionName, serverId, endpoint in
-                            store.saveNavigationState(NavigationState(
-                                serverId: serverId,
-                                instanceId: instance.id,
-                                sessionName: sessionName,
-                                savedAt: Date()
-                            ))
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                appState = .householdTerminal(
-                                    request: request,
-                                    instance,
-                                    sessionName: sessionName,
-                                    serverId: serverId,
-                                    endpoint: endpoint
-                                )
-                            }
-                        },
-                        onAddInstance: {
-                            showAddDeviceSheet = true
-                        },
-                        onLogout: {
-                            Task {
-                                if let active = store.activeServerId,
-                                   let ctx = store.context(for: active) {
-                                    try? await apiClient.logout(context: ctx)
-                                }
-                                withAnimation { appState = .qrScanner }
-                            }
-                        },
-                        onSettings: { showSettings = true },
-                        // Offered only to an owner device: the same capability
-                        // the engine enforces when the invite is minted, so a
-                        // device that would be refused server-side never sees
-                        // the button.
-                        onShareApp: identity.active
-                            .flatMap { snapshot -> (() -> Void)? in
-                                guard snapshot.underlying.personCert.allows("household.invite") else {
-                                    return nil
-                                }
-                                return {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        appState = .shareApp(snapshot)
-                                    }
-                                }
-                            },
-                        onAttachMacPane: { macID, pane in
+                    HomeView(
+                        model: homeModel,
+                        onOpenSession: { macID, pane in
                             await attachToMacPane(macID: macID, pane: pane)
                         },
-                        autoSelectInstance: $autoSelectInstance,
-                        autoSelectServerId: $autoSelectServerId,
-                        autoSelectSessionName: $autoSelectSessionName
+                        onOtherMachines: { showOtherMachines = true },
+                        onSettings: { showSettings = true }
                     )
+                    .fullScreenCover(isPresented: $showOtherMachines) {
+                        otherMachinesScreen
+                    }
 
                     if let snapshot = identity.active {
                         VStack(spacing: 12) {
@@ -1981,13 +2026,18 @@ struct SoyehtAppView: View {
         guard hasSecret || hasEndpoints else { return }
 
         let host = target.lastHost ?? Self.hostPort(from: selectedWsUrl)
+        let name = target.macName ?? "Mac"
         ServerRegistry.shared.upsertMacPairing(
             macID: macID,
-            name: target.macName ?? "Mac",
+            name: name,
             host: host,
             presencePort: target.presencePort,
             attachPort: target.attachPort
         )
+        // Same funnel as the proximity path: a Mac the user never named
+        // still shows the name it announced, so the home never renders a
+        // raw identifier while waiting for `MacAliasView`.
+        _ = ServerRegistry.shared.setDefaultMacAliasIfNeeded(macID: macID, suggestedAlias: name)
         PairedMacRegistry.shared.reconcileClients()
     }
 
