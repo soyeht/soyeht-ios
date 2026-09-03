@@ -45706,6 +45706,2467 @@
       },
       "comment": "VoiceOver summary for the household invitation card."
     },
+    "onboarding.isThisYourMac.body": {
+      "comment": "I4: what the person compares.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يعرض Mac الكلمات الست نفسها. إذا تطابقت، فاتصل."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac একই ছয়টি শব্দ দেখাচ্ছে। মিলে গেলে সংযুক্ত করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Mac zeigt dieselben sechs Wörter. Wenn sie übereinstimmen, verbinden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is showing the same six words. If they match, connect."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac muestra las mismas seis palabras. Si coinciden, conecta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre Mac affiche les mêmes six mots. S'ils correspondent, connectez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका Mac यही छह शब्द दिखा रहा है। मेल खाएँ तो कनेक्ट करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac Anda menampilkan enam kata yang sama. Jika cocok, hubungkan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac にも同じ 6 つの単語が出ています。一致していれば接続してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에도 같은 여섯 단어가 보입니다. 일치하면 연결하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा Mac हेच सहा शब्द दाखवत आहे. जुळल्यास जोडा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu Mac está mostrando estas mesmas seis palavras. Se baterem, conecte."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu Mac está a mostrar as mesmas seis palavras. Se coincidirem, ligue."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На Mac показаны те же шесть слов. Если совпадают — подключайтесь."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Mac అదే ఆరు పదాలు చూపుతోంది. సరిపోతే కనెక్ట్ చేయండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "آپ کا Mac بھی یہی چھ الفاظ دکھا رہا ہے۔ مماثل ہوں تو جوڑیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 Mac 上显示着同样的六个词。一致就连接。"
+          }
+        }
+      }
+    },
+    "onboarding.isThisYourMac.title": {
+      "comment": "I4: the question, asked once.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هل هذا هو Mac الخاص بك؟"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এটি কি আপনার Mac?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ist das Ihr Mac?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Is this your Mac?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Este es tu Mac?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Est-ce votre Mac ?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्या यह आपका Mac है?"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini Mac Anda?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これはお使いの Mac ですか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 Mac이 맞나요?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा तुमचा Mac आहे का?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este é o seu Mac?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este é o seu Mac?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это ваш Mac?"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇది మీ Macనా?"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کیا یہ آپ کا Mac ہے؟"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这是你的 Mac 吗？"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.connecting": {
+      "comment": "I3 status: pairing is under way.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ الاتصال…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সংযুক্ত হচ্ছে…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कनेक्ट हो रहा है…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menghubungkan…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続しています…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결 중…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जोडत आहोत…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A ligar…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "కనెక్ట్ అవుతోంది…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جوڑا جا رہا ہے…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在连接…"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.looking": {
+      "comment": "I3 status: nothing has answered.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا شيء بعد. افتح Soyeht على Mac."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এখনও কিছু নয়। আপনার Mac-এ Soyeht খুলুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nichts. Öffnen Sie Soyeht auf Ihrem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing yet. Open Soyeht on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada aún. Abre Soyeht en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien pour l'instant. Ouvrez Soyeht sur votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी कुछ नहीं। अपने Mac पर Soyeht खोलें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada. Buka Soyeht di Mac Anda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ見つかりません。Mac で Soyeht を開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 없습니다. Mac에서 Soyeht를 여세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून काही नाही. तुमच्या Mac वर Soyeht उघडा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada ainda. Abra o Soyeht no seu Mac."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda nada. Abra o Soyeht no seu Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ничего. Откройте Soyeht на Mac."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంకా ఏమీ లేదు. మీ Macలో Soyeht తెరవండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابھی کچھ نہیں۔ اپنے Mac پر Soyeht کھولیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有找到。请在 Mac 上打开 Soyeht。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.paired": {
+      "comment": "I3 status: done.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم الاتصال."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সংযুক্ত হয়েছে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कनेक्ट हो गया।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terhubung."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결됨."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जोडले गेले."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligado."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключено."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "కనెక్ట్ అయింది."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جڑ گیا۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.seen": {
+      "comment": "I3 status: a service resolved but has not answered yet.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عُثر على شيء — نتحقق إن كان Mac الخاص بك."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "কিছু পাওয়া গেছে — এটি আপনার Mac কিনা দেখা হচ্ছে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etwas gefunden — wird geprüft, ob es Ihr Mac ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Found something — checking whether it is your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encontré algo: comprobando si es tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose trouvé — vérification qu'il s'agit de votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ मिला — जाँच रहे हैं कि यह आपका Mac है या नहीं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menemukan sesuatu — memeriksa apakah itu Mac Anda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何か見つかりました — お使いの Mac か確認しています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "무언가 찾았습니다 — 당신의 Mac인지 확인 중입니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काहीतरी सापडले — तो तुमचा Mac आहे का तपासत आहोत."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Achei algo — conferindo se é o seu Mac."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encontrei algo — a confirmar se é o seu Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что-то найдено — проверяем, ваш ли это Mac."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏదో దొరికింది — అది మీ Macనా అని చూస్తున్నాం."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کچھ ملا — دیکھ رہے ہیں کہ آپ کا Mac ہے یا نہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现了设备 — 正在确认是否是你的 Mac。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.stalled": {
+      "comment": "I3 status: the search needs help.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا شيء بعد. عادةً يكون أحد هذه الأسباب."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এখনও কিছু নয়। সাধারণত এর একটি কারণ হয়।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immer noch nichts. Meist liegt es an einem davon."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still nothing. One of these usually explains it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía nada. Suele ser una de estas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours rien. C'est en général l'une de ces raisons."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अब भी कुछ नहीं। आमतौर पर इनमें से कोई एक कारण होता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih belum ada. Biasanya salah satu dari ini."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ見つかりません。たいていは次のどれかです。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 없습니다. 보통 아래 중 하나입니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजूनही काही नाही. सहसा यापैकी एक कारण असते."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda nada. Costuma ser uma destas."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda nada. Costuma ser uma destas."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё ещё ничего. Обычно дело в одном из этого."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంకా ఏమీ లేదు. సాధారణంగా వీటిలో ఒకటి కారణం."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابھی بھی کچھ نہیں۔ عموماً ان میں سے کوئی وجہ ہوتی ہے۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍然没有。通常是下面之一。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.waitingOffer": {
+      "comment": "I3 status: named, waiting for the pairing offer.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لدى Mac منزل بالفعل. في انتظار أن يقدّم رمزًا لهذا الـ iPhone."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac-এর বাড়ি হয়ে গেছে। এই iPhone-কে কোড দেওয়ার অপেক্ষা।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Mac hat ein Zuhause. Warten auf einen Code für dieses iPhone."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac has a home. Waiting for it to offer this iPhone a code."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac ya tiene hogar. Esperando a que ofrezca un código a este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre Mac a une maison. En attente qu'il propose un code à cet iPhone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके Mac का घर बन चुका है। इस iPhone को कोड देने का इंतज़ार है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac Anda sudah punya rumah. Menunggu kode untuk iPhone ini."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac には家があります。この iPhone にコードが提示されるのを待っています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 집이 있습니다. 이 iPhone에 코드를 제시하기를 기다리는 중입니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या Mac ला घर मिळाले आहे. या iPhone ला कोड देण्याची वाट पाहत आहोत."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu Mac já tem casa. Esperando ele oferecer um código pra este iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu Mac já tem casa. À espera que ofereça um código a este iPhone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У вашего Mac есть дом. Ждём, когда он предложит код этому iPhone."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Macకి ఇల్లు ఉంది. ఈ iPhoneకి కోడ్ ఇవ్వడం కోసం వేచి ఉన్నాం."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "آپ کے Mac کا گھر بن چکا ہے۔ اس iPhone کو کوڈ دینے کا انتظار ہے۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 Mac 已经有家了。正在等待它给这台 iPhone 一个验证词。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.status.waitingSetup": {
+      "comment": "I3 status: the engine answered and has no home yet.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يزال Mac قيد الإعداد. أكمِل هناك وسيتابع هذا تلقائيًا."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac এখনও সেট আপ হচ্ছে। সেখানে শেষ করুন, এখানে নিজে থেকেই চলবে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Mac wird noch eingerichtet. Schließen Sie das dort ab, hier läuft es weiter."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is still being set up. Finish there and this will carry on."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac aún se está configurando. Termina allí y esto seguirá solo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre Mac est encore en cours de configuration. Terminez là-bas et ceci continuera."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका Mac अभी सेट अप हो रहा है। वहाँ पूरा करें, यहाँ अपने आप चलता रहेगा।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac Anda masih disiapkan. Selesaikan di sana dan ini akan lanjut sendiri."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac はまだ設定中です。あちらで終えれば、こちらは自動で続きます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac이 아직 설정 중입니다. 그쪽에서 마치면 여기서 계속됩니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा Mac अजून सेट होत आहे. तिथे पूर्ण करा, इथे आपोआप पुढे जाईल."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu Mac ainda está sendo configurado. Termine lá que aqui continua sozinho."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O seu Mac ainda está a ser configurado. Termine aí e isto continua sozinho."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш Mac ещё настраивается. Завершите там — здесь продолжится само."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Mac ఇంకా సెటప్ అవుతోంది. అక్కడ ముగించండి, ఇక్కడ దానంతట అదే కొనసాగుతుంది."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "آپ کا Mac ابھی سیٹ اپ ہو رہا ہے۔ وہاں مکمل کریں، یہاں خود جاری رہے گا۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 Mac 还在设置中。在那边完成后，这里会自动继续。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.tailscale": {
+      "comment": "I3: the one network requirement, said once.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‏Wi-Fi يعثر على Mac وTailscale يوصله — فعّله على الجهازين."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi আপনার Mac খুঁজে দেয়, Tailscale যুক্ত করে — দুটিতেই চালু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN findet Ihren Mac. Tailscale verbindet ihn — auf beiden aktivieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi finds your Mac. Tailscale connects it — turn it on for both."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Wi-Fi encuentra tu Mac. Tailscale lo conecta: actívalo en ambos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le Wi-Fi trouve votre Mac. Tailscale le connecte — activez-le sur les deux."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi आपका Mac खोजता है, Tailscale उसे जोड़ता है — दोनों पर चालू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi menemukan Mac Anda, Tailscale menghubungkannya — aktifkan di keduanya."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi は Mac を見つけ、Tailscale がつなぎます。両方でオンにしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi가 Mac을 찾고 Tailscale이 연결합니다 — 두 기기 모두 켜세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi तुमचा Mac शोधतो, Tailscale जोडतो — दोन्हीवर चालू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Wi-Fi acha seu Mac. O Tailscale conecta — ligue nos dois."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Wi-Fi encontra o seu Mac. O Tailscale liga-o — active nos dois."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi находит Mac, Tailscale соединяет — включите на обоих."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi మీ Macని కనుగొంటుంది, Tailscale కలుపుతుంది — రెండింటిలో ఆన్ చేయండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‏Wi-Fi آپ کا Mac ڈھونڈتا ہے، Tailscale اسے جوڑتا ہے — دونوں پر آن کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 负责找到 Mac，Tailscale 负责连接 — 两台都要开启。"
+          }
+        }
+      }
+    },
+    "onboarding.looking.title": {
+      "comment": "I3: title while the phone searches.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ البحث عن Mac…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac খোঁজা হচ্ছে…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche nach Ihrem Mac…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking for your Mac…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscando tu Mac…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche de votre Mac…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका Mac खोजा जा रहा है…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mencari Mac Anda…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac を探しています…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac을 찾는 중…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा Mac शोधत आहोत…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procurando seu Mac…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À procura do seu Mac…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ищем ваш Mac…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Mac కోసం వెతుకుతున్నాం…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "آپ کا Mac تلاش کیا جا رہا ہے…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在查找你的 Mac…"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.network.body": {
+      "comment": "I8 cause body.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "شبكات الضيوف والفنادق تحجب هذا."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "গেস্ট ও হোটেলের নেটওয়ার্ক এটি আটকে দেয়।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gast- und Hotelnetze blockieren das."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guest and hotel networks block this."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las redes de invitados y de hotel lo bloquean."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les réseaux invités et d'hôtel bloquent cela."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गेस्ट और होटल नेटवर्क इसे रोकते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jaringan tamu dan hotel memblokir ini."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲスト用やホテルのネットワークではブロックされます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "게스트나 호텔 네트워크는 이를 차단합니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पाहुणे आणि हॉटेल नेटवर्क हे अडवतात."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redes de visitante e de hotel bloqueiam isso."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redes de convidados e de hotel bloqueiam isto."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гостевые и гостиничные сети это блокируют."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "గెస్ట్, హోటల్ నెట్‌వర్క్‌లు దీన్ని అడ్డుకుంటాయి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مہمان اور ہوٹل نیٹ ورک اسے روکتے ہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "访客网络和酒店网络会阻断它。"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.network.title": {
+      "comment": "I8 cause: the two devices cannot see each other.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نفس شبكة Wi-Fi أو Tailscale على الجهازين"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "একই Wi-Fi, বা দুটিতেই Tailscale"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gleiches WLAN oder Tailscale auf beiden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same Wi-Fi, or Tailscale on both"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El mismo Wi-Fi, o Tailscale en ambos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Même Wi-Fi, ou Tailscale sur les deux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक ही Wi-Fi, या दोनों पर Tailscale"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi yang sama, atau Tailscale di keduanya"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同じ Wi-Fi、または両方で Tailscale"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "같은 Wi-Fi 또는 두 기기 모두 Tailscale"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एकच Wi-Fi, किंवा दोन्हीवर Tailscale"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesmo Wi-Fi, ou Tailscale nos dois"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesmo Wi-Fi, ou Tailscale em ambos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один Wi-Fi или Tailscale на обоих"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఒకే Wi-Fi, లేదా రెండింటిలో Tailscale"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایک ہی Wi-Fi، یا دونوں پر Tailscale"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一个 Wi-Fi，或两台都开 Tailscale"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.openMac.body": {
+      "comment": "I8 cause body.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يجب أن يكون قيد التشغيل ليراه هذا الـ iPhone."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "চালু থাকলেই এই iPhone সেটি দেখতে পাবে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er muss laufen, damit dieses iPhone ihn sieht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It has to be running for this iPhone to see it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiene que estar abierto para que este iPhone lo vea."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il doit être ouvert pour que cet iPhone le voie."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चालू होना चाहिए तभी यह iPhone उसे देख पाएगा।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harus berjalan agar iPhone ini bisa melihatnya."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起動していないと、この iPhone からは見えません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 중이어야 이 iPhone이 볼 수 있습니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तो सुरू असेल तरच हा iPhone त्याला पाहू शकतो."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ele precisa estar aberto pra este iPhone enxergar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tem de estar aberto para este iPhone o ver."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он должен быть запущен, иначе iPhone его не увидит."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "అది నడుస్తుంటేనే ఈ iPhone చూడగలదు."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "چلنا ضروری ہے تاکہ یہ iPhone اسے دیکھ سکے۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只有在运行时，这台 iPhone 才能看到它。"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.openMac.title": {
+      "comment": "I8 cause: nothing is advertising.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتح Soyeht على الـ Mac"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac-এ Soyeht খুলুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht auf dem Mac öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Soyeht on the Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Soyeht en el Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez Soyeht sur le Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac पर Soyeht खोलें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka Soyeht di Mac"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac で Soyeht を開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서 Soyeht 열기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac वर Soyeht उघडा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra o Soyeht no Mac"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra o Soyeht no Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте Soyeht на Mac"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Macలో Soyeht తెరవండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac پر Soyeht کھولیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上打开 Soyeht"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.port.body": {
+      "comment": "I8 cause body with the two ports.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "استجاب على المنفذ %1$lld؛ هذا الإصدار يستخدم %2$lld."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এটি %1$lld পোর্টে সাড়া দিয়েছে; এই বিল্ড %2$lld ব্যবহার করে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er antwortete auf Port %1$lld; dieser Build nutzt %2$lld."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It answered on port %1$lld; this build talks to %2$lld."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondió en el puerto %1$lld; esta compilación usa el %2$lld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il a répondu sur le port %1$lld ; cette version utilise le %2$lld."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उसने पोर्ट %1$lld पर जवाब दिया; यह बिल्ड %2$lld पर बात करता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ia menjawab di port %1$lld; build ini memakai %2$lld."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポート %1$lld で応答しました。このビルドは %2$lld を使います。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "포트 %1$lld에서 응답했습니다. 이 빌드는 %2$lld를 사용합니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्याने पोर्ट %1$lld वर उत्तर दिले; हा बिल्ड %2$lld वापरतो."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ele respondeu na porta %1$lld; este build fala na %2$lld."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondeu na porta %1$lld; este build fala na %2$lld."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он ответил на порту %1$lld; эта сборка использует %2$lld."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "అది %1$lld పోర్ట్‌లో స్పందించింది; ఈ బిల్డ్ %2$lld వాడుతుంది."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اس نے پورٹ %1$lld پر جواب دیا؛ یہ بلڈ %2$lld استعمال کرتا ہے۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它在端口 %1$lld 响应；此版本使用 %2$lld。"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.port.title": {
+      "comment": "I8 cause: dev versus release, said by the numbers.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هذا الـ iPhone وذلك الـ Mac إصداران مختلفان"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই iPhone আর ওই Mac আলাদা বিল্ড"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone und dieser Mac sind unterschiedliche Builds"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone and that Mac are different builds"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este iPhone y ese Mac son compilaciones distintas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet iPhone et ce Mac sont des versions différentes"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह iPhone और वह Mac अलग-अलग बिल्ड हैं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone ini dan Mac itu adalah build berbeda"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この iPhone とその Mac はビルドが違います"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 iPhone과 저 Mac은 서로 다른 빌드입니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा iPhone आणि तो Mac वेगळे बिल्ड आहेत"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este iPhone e aquele Mac são builds diferentes"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este iPhone e aquele Mac são builds diferentes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот iPhone и тот Mac — разные сборки"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ iPhone, ఆ Mac వేర్వేరు బిల్డ్‌లు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "یہ iPhone اور وہ Mac مختلف بلڈز ہیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 iPhone 和那台 Mac 是不同的版本"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.tailscale.body": {
+      "comment": "I8 cause body: why Wi-Fi stops being enough.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "بمجرد أن يصبح لدى Mac منزل، لا يقبل هذا إلا عبر Tailscale. لا يكفي Wi-Fi وحده."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac-এর বাড়ি হয়ে গেলে এটি কেবল Tailscale দিয়েই গ্রহণ করে। শুধু Wi-Fi যথেষ্ট নয়।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald Ihr Mac ein Zuhause hat, akzeptiert er das nur über Tailscale. WLAN allein genügt nicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once your Mac has a home it only accepts this over Tailscale. Wi-Fi alone is not enough."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando tu Mac ya tiene hogar, solo acepta esto por Tailscale. El Wi-Fi solo no basta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une fois que votre Mac a une maison, il n'accepte cela que via Tailscale. Le Wi-Fi seul ne suffit pas."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जब Mac का घर बन जाता है, तो यह केवल Tailscale से स्वीकार करता है। अकेला Wi-Fi काफ़ी नहीं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setelah Mac punya rumah, ini hanya diterima lewat Tailscale. Wi-Fi saja tidak cukup."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac に家ができると、これは Tailscale 経由でしか受け付けません。Wi-Fi だけでは足りません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 집이 생기면 Tailscale로만 이를 허용합니다. Wi-Fi만으로는 부족합니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac ला घर मिळाल्यावर तो हे फक्त Tailscale ने स्वीकारतो. फक्त Wi-Fi पुरेसे नाही."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depois que o Mac tem casa, ele só aceita isso por Tailscale. Só Wi-Fi não basta."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depois de o Mac ter casa, só aceita isto por Tailscale. Só Wi-Fi não chega."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Когда у Mac есть дом, он принимает это только через Tailscale. Одного Wi-Fi мало."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Macకి ఇల్లు వచ్చాక ఇది Tailscale ద్వారా మాత్రమే అంగీకరిస్తుంది. Wi-Fi ఒక్కటే సరిపోదు."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جب Mac کا گھر بن جائے تو یہ صرف Tailscale کے ذریعے قبول کرتا ہے۔ صرف Wi-Fi کافی نہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一旦 Mac 有了家，它只接受经由 Tailscale 的连接。只有 Wi-Fi 不够。"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.cause.tailscale.title": {
+      "comment": "I8 cause: the LAN closes once the Mac has a home.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فعّل Tailscale على الجهازين"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "দুটিতেই Tailscale চালু করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tailscale auf beiden aktivieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Tailscale on both"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa Tailscale en ambos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activez Tailscale sur les deux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दोनों पर Tailscale चालू करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktifkan Tailscale di keduanya"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両方で Tailscale をオンに"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "두 기기 모두 Tailscale 켜기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दोन्हीवर Tailscale चालू करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligue o Tailscale nos dois"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active o Tailscale em ambos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включите Tailscale на обоих"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "రెండింటిలో Tailscale ఆన్ చేయండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "دونوں پر Tailscale آن کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "两台都开启 Tailscale"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.getLink": {
+      "comment": "I8: sends the Mac download link.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ليس لديك Soyeht على الـ Mac؟ احصل على الرابط"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac-এ Soyeht নেই? লিঙ্ক নিন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht noch nicht auf dem Mac? Link holen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't have Soyeht on the Mac yet? Get the link"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Aún no tienes Soyeht en el Mac? Obtén el enlace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore Soyeht sur le Mac ? Obtenez le lien"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac पर Soyeht नहीं है? लिंक पाएँ"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum punya Soyeht di Mac? Dapatkan tautannya"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac にまだ Soyeht がない場合はリンクを取得"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 Soyeht가 없나요? 링크 받기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac वर Soyeht नाही? दुवा मिळवा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não tem o Soyeht no Mac? Pegue o link"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não tem o Soyeht no Mac? Obtenha a ligação"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё нет Soyeht на Mac? Получить ссылку"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Macలో Soyeht లేదా? లింక్ పొందండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac پر Soyeht نہیں ہے؟ لنک حاصل کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 上还没有 Soyeht？获取链接"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.keepLooking": {
+      "comment": "I8: restarts the search.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "واصل البحث"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "খোঁজা চালিয়ে যান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep looking"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir buscando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer à chercher"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खोजते रहें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terus cari"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探し続ける"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계속 찾기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शोधत राहा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar procurando"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar à procura"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить поиск"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "వెతుకుతూ ఉండండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تلاش جاری رکھیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续查找"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.linux": {
+      "comment": "I8: switches to the Linux pairing guide.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أستخدم Linux وليس Mac"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আমি Mac নয়, Linux ব্যবহার করি"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich nutze Linux, keinen Mac"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I use Linux, not a Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uso Linux, no un Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J'utilise Linux, pas un Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं Mac नहीं, Linux उपयोग करता हूँ"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saya pakai Linux, bukan Mac"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac ではなく Linux を使っています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac이 아니라 Linux를 씁니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मी Mac नाही, Linux वापरतो"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eu uso Linux, não Mac"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eu uso Linux, não Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У меня Linux, а не Mac"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నేను Mac కాదు, Linux వాడతాను"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "میں Mac نہیں، Linux استعمال کرتا ہوں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我用的是 Linux，不是 Mac"
+          }
+        }
+      }
+    },
+    "onboarding.notFound.title": {
+      "comment": "I8: heading once the search has gone quiet.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم أعثر على Mac بعد."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এখনও আপনার Mac পাইনি।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich finde Ihren Mac noch nicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I can't find your Mac yet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no encuentro tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je ne trouve pas encore votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी आपका Mac नहीं मिला।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saya belum menemukan Mac Anda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ Mac が見つかりません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 Mac을 찾지 못했습니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून तुमचा Mac सापडला नाही."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não achei seu Mac."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não encontrei o seu Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока не нахожу ваш Mac."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంకా మీ Mac దొరకలేదు."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابھی آپ کا Mac نہیں مل سکا۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有找到你的 Mac。"
+          }
+        }
+      }
+    },
     "pairing.biometric.cancel": {
       "localizations": {
         "ar": {

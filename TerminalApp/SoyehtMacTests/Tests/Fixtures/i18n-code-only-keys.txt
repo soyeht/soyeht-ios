@@ -39,14 +39,7 @@ awaitingMac.existingHouse.connect.approvalTimedOut
 awaitingMac.existingHouse.connect.failed
 awaitingMac.existingHouse.invalidLink
 awaitingMac.existingHouse.invalidSecurityCode
-awaitingMac.existingHouse.securityCode
-awaitingMac.existingHouse.subtitle
-awaitingMac.existingHouse.title
 awaitingMac.existingHouse.waitingForApproval
-awaitingMac.timeout.heading
-awaitingMac.timeout.subtitle
-awaitingMac.timeout.switchToLinux
-awaitingMac.timeout.useDownloadLink
 awaitingNewMac.cancel
 awaitingNewMac.failure.biometryCanceled
 awaitingNewMac.failure.generic
