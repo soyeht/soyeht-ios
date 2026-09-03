@@ -586,6 +586,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
             return
         }
 
+        // A machine about to be walked through setup should also come out of
+        // it looking like setup did. Only ever writes on a first launch that
+        // has chosen nothing.
+        OnboardingDesignStyleSeeder.seedIfNeverChosen(isSetUp: isSetUp)
         openWelcomeWindow()
     }
 

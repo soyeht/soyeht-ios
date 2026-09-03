@@ -49,6 +49,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #endif
 
         Typography.bootstrap()
+        // Same rule as the Mac: a phone that has never been set up wakes up in
+        // the style its onboarding is drawn in.
+        OnboardingDesignStyleSeeder.seedIfNeverChosen(isSetUp: SceneDelegate.hasAnySetupState())
         UNUserNotificationCenter.current().delegate = self
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
@@ -284,7 +287,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     @MainActor
-    private static func hasAnySetupState() -> Bool {
+    static func hasAnySetupState() -> Bool {
         // Single read for "is there any operational paired host?" — the
         // registry is the authoritative operational subset after PR-2; the previous
         // `pairedServers || macs` OR-pair could (and did) disagree
