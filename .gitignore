@@ -37,6 +37,14 @@ build/
 Products/
 Secrets.plist
 QA/runs/**/screenshots/
+# Every image under a QA run, wherever it sits. A device screenshot carries
+# the machine's name and its LAN/tailnet address in plain text, and this
+# repository is public — the directory rules above only caught the files that
+# happened to be filed tidily.
+QA/runs/**/*.png
+QA/runs/**/*.jpg
+QA/runs/**/*.jpeg
+QA/runs/**/*.mp4
 QA/runs/**/screenshots-device/
 QA/runs/.wda-deriveddata/
 QA/runs/**/WDA-DerivedData/
