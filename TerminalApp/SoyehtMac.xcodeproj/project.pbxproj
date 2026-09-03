@@ -178,6 +178,7 @@
 		CB100047000000000000000A /* WelcomeAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100047000000000000000B /* WelcomeAccessibilityID.swift */; };
 		CA050010000000000000000E /* DevLocalStateReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000E /* DevLocalStateReset.swift */; };
 		CA050010000000000000000D /* LocalEngineReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000D /* LocalEngineReset.swift */; };
+		CB1000900000000000000001 /* ForgetHomeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000900000000000000011 /* ForgetHomeService.swift */; };
 		CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000001 /* MacClawStoreTheme.swift */; };
 		CA0600100000000000000002 /* MacClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000002 /* MacClawCardView.swift */; };
 		CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000003 /* MacClawStoreRootView.swift */; };
@@ -194,7 +195,6 @@
 		CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0700200000000000000001 /* ConnectedServersWindowController.swift */; };
 			CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
 			CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
-			CA0900100000000000000001 /* ChooseJoinOrStartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0900200000000000000001 /* ChooseJoinOrStartView.swift */; };
 			CA0900100000000000000002 /* JoinExistingSoyehtView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0900200000000000000002 /* JoinExistingSoyehtView.swift */; };
 			CA0900100000000000000003 /* JoinExistingCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0900200000000000000003 /* JoinExistingCapability.swift */; };
 			CA0900100000000000000004 /* DaemonPairMachineStageClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0900200000000000000004 /* DaemonPairMachineStageClient.swift */; };
@@ -238,7 +238,6 @@
 		E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A69005F58B0EF277320044A /* HealthCheckPoller.swift */; };
 		EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */; };
 		F17E0001000000000000F004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F003 /* Localizable.xcstrings */; };
-		FA1C3EFBA143A31017F1266D /* AutoJoinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */; };
 		FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */; };
 		CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003C0000000000000002 /* EngineServiceReconciler.swift */; };
 		CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */; };
@@ -270,7 +269,6 @@
 		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardCelebrationView.swift; sourceTree = "<group>"; };
 		68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UninstallWindowController.swift; sourceTree = "<group>"; };
-		6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoJoinView.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7A69005F58B0EF277320044A /* HealthCheckPoller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthCheckPoller.swift; sourceTree = "<group>"; };
 		810D311E9D82DE5BA7B970EB /* HouseCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardView.swift; sourceTree = "<group>"; };
@@ -422,6 +420,7 @@
 		CB100047000000000000000B /* WelcomeAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "WelcomeAccessibilityID.swift"; sourceTree = "<group>"; };
 		CA050020000000000000000E /* DevLocalStateReset.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevLocalStateReset.swift; sourceTree = "<group>"; };
 		CA050020000000000000000D /* LocalEngineReset.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalEngineReset.swift; sourceTree = "<group>"; };
+		CB1000900000000000000011 /* ForgetHomeService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ForgetHomeService.swift; sourceTree = "<group>"; };
 		CA0600200000000000000001 /* MacClawStoreTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreTheme.swift; sourceTree = "<group>"; };
 		CA0600200000000000000002 /* MacClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawCardView.swift; sourceTree = "<group>"; };
 		CA0600200000000000000003 /* MacClawStoreRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreRootView.swift; sourceTree = "<group>"; };
@@ -438,7 +437,6 @@
 		CA0700200000000000000001 /* ConnectedServersWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedServersWindowController.swift; sourceTree = "<group>"; };
 			CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
 			CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
-			CA0900200000000000000001 /* ChooseJoinOrStartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseJoinOrStartView.swift; sourceTree = "<group>"; };
 			CA0900200000000000000002 /* JoinExistingSoyehtView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinExistingSoyehtView.swift; sourceTree = "<group>"; };
 			CA0900200000000000000003 /* JoinExistingCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinExistingCapability.swift; sourceTree = "<group>"; };
 			CA0900200000000000000004 /* DaemonPairMachineStageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonPairMachineStageClient.swift; sourceTree = "<group>"; };
@@ -694,14 +692,6 @@
 			path = SetupInvitationListener;
 			sourceTree = "<group>";
 		};
-		8AAC994BD1162DB444EF751B /* AutoJoin */ = {
-			isa = PBXGroup;
-			children = (
-				6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */,
-			);
-			path = AutoJoin;
-			sourceTree = "<group>";
-		};
 		AA000008000000000000001 /* SoyehtInstance */ = {
 			isa = PBXGroup;
 			children = (
@@ -922,10 +912,10 @@
 				CB100047000000000000000B /* WelcomeAccessibilityID.swift */,
 				CA050020000000000000000E /* DevLocalStateReset.swift */,
 				CA050020000000000000000D /* LocalEngineReset.swift */,
+				CB1000900000000000000011 /* ForgetHomeService.swift */,
 				CA050020000000000000000A /* TheyOSUninstaller.swift */,
 				CA050020000000000000000B /* UninstallTheyOSView.swift */,
 					546533BF397F4FEE6EF96740 /* Bootstrap */,
-					8AAC994BD1162DB444EF751B /* AutoJoin */,
 					CA0900300000000000000001 /* Join */,
 					7D0B5D0160DE4F044D949EEF /* Recover */,
 					85F2540805099F6B36B69072 /* SetupInvitationListener */,
@@ -936,7 +926,6 @@
 			CA0900300000000000000001 /* Join */ = {
 				isa = PBXGroup;
 				children = (
-					CA0900200000000000000001 /* ChooseJoinOrStartView.swift */,
 					CA0900200000000000000002 /* JoinExistingSoyehtView.swift */,
 					CA0900200000000000000003 /* JoinExistingCapability.swift */,
 					CA0900200000000000000004 /* DaemonPairMachineStageClient.swift */,
@@ -1237,9 +1226,9 @@
 					CB100047000000000000000A /* WelcomeAccessibilityID.swift in Sources */,
 					CA050010000000000000000E /* DevLocalStateReset.swift in Sources */,
 					CA050010000000000000000D /* LocalEngineReset.swift in Sources */,
+					CB1000900000000000000001 /* ForgetHomeService.swift in Sources */,
 					CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */,
 					CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */,
-					CA0900100000000000000001 /* ChooseJoinOrStartView.swift in Sources */,
 					CA0900100000000000000002 /* JoinExistingSoyehtView.swift in Sources */,
 					CA0900100000000000000003 /* JoinExistingCapability.swift in Sources */,
 					CA0900100000000000000004 /* DaemonPairMachineStageClient.swift in Sources */,
@@ -1388,7 +1377,6 @@
 				AA70001A000000000000001 /* FloatingSidebarViewController.swift in Sources */,
 				AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */,
 				7F439E97F7D6ADD0A45D1644 /* BootstrapWelcomeView.swift in Sources */,
-				FA1C3EFBA143A31017F1266D /* AutoJoinView.swift in Sources */,
 				07B100565C6622900C62064E /* RecoverView.swift in Sources */,
 				89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */,
 				CB10003E0000000000000001 /* MacEngineAdvertisedURL.swift in Sources */,

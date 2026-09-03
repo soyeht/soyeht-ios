@@ -119,8 +119,6 @@ prefs.devices.local.count
 prefs.devices.local.manage
 prefs.devices.mac.subtitle
 prefs.devices.network.note
-prefs.devices.startOver.button
-prefs.devices.startOver.explainer
 prefs.devices.title
 prefs.tab.devices
 prefs.tab.general
@@ -134,13 +132,6 @@ uninstaller.phase.removingKeychain
 uninstaller.phase.removingLocalEngine
 uninstaller.phase.removingMCPConfigs
 uninstaller.phase.stoppingEmbeddedService
-welcome.joinChoice.badge
-welcome.joinChoice.existing.detail
-welcome.joinChoice.existing.title
-welcome.joinChoice.start.detail
-welcome.joinChoice.start.title
-welcome.joinChoice.subtitle
-welcome.joinChoice.title
 welcome.joinExisting.badge
 welcome.joinExisting.copy
 welcome.joinExisting.copy.copied

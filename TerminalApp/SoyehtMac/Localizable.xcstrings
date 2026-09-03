@@ -20492,6 +20492,1290 @@
         }
       }
     },
+    "prefs.devices.addLinux.window.title": {
+      "comment" : "Title of the Add Linux server window opened from Preferences.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة خادم Linux"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি Linux সার্ভার যোগ করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-Server hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Linux server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un servidor Linux"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un serveur Linux"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux सर्वर जोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah server Linux"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux サーバーを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 서버 추가"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux सर्व्हर जोडा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um servidor Linux"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um servidor Linux"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить сервер Linux"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux సర్వర్ జోడించండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux سرور شامل کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加 Linux 服务器"
+          }
+        }
+      }
+    },
+    "prefs.devices.addLinux.button": {
+      "comment" : "Button in Preferences › Devices that opens the Linux server sheet.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة خادم Linux…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি Linux সার্ভার যোগ করুন…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux-Server hinzufügen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Linux server…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un servidor Linux…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un serveur Linux…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux सर्वर जोड़ें…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah server Linux…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux サーバーを追加…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 서버 추가…"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux सर्व्हर जोडा…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um servidor Linux…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar um servidor Linux…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить сервер Linux…"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux సర్వర్ జోడించండి…"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux سرور شامل کریں…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加 Linux 服务器…"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.tooOld.body": {
+      "comment" : "What fixes an engine too old to join a home.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حدّث Soyeht على هذا الـ Mac ثم افتح هذا مرة أخرى."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac-এ Soyeht আপডেট করে আবার খুলুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktualisieren Sie Soyeht auf diesem Mac und öffnen Sie dies erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Soyeht on this Mac and open this again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiza Soyeht en este Mac y vuelve a abrir esto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettez Soyeht à jour sur ce Mac et rouvrez ceci."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस Mac पर Soyeht अपडेट करें और इसे फिर खोलें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perbarui Soyeht di Mac ini dan buka lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac の Soyeht を更新して、もう一度開いてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 Soyeht을 업데이트한 뒤 다시 열어 주세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या Mac वर Soyeht अद्ययावत करा आणि हे पुन्हा उघडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atualize o Soyeht neste Mac e abra isto de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atualize o Soyeht neste Mac e abra isto novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обновите Soyeht на этом Mac и откройте это снова."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Macలో Soyehtని అప్‌డేట్ చేసి దీన్ని మళ్లీ తెరవండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس Mac پر Soyeht اپ ڈیٹ کریں اور یہ دوبارہ کھولیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在这台 Mac 上更新 Soyeht，然后重新打开。"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.tooOld.title": {
+      "comment" : "Shown when the local engine predates machine joining.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "محرّك هذا الـ Mac أقدم من أن ينضم إلى منزل"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac-এর ইঞ্জিন বাড়িতে যোগ দেওয়ার জন্য অনেক পুরনো"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Engine dieses Macs ist zu alt, um einem Zuhause beizutreten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac's engine is too old to join a home"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El motor de este Mac es demasiado antiguo para unirse a un hogar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le moteur de ce Mac est trop ancien pour rejoindre une maison"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस Mac का इंजन घर में शामिल होने के लिए बहुत पुराना है"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesin Mac ini terlalu tua untuk bergabung ke sebuah rumah"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac のエンジンは古すぎてホームに参加できません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 엔진이 너무 오래되어 홈에 참여할 수 없습니다"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या Mac चे इंजिन घरात सामील होण्यासाठी फार जुने आहे"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O engine deste Mac é antigo demais para entrar numa casa"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O motor deste Mac é demasiado antigo para se juntar a uma casa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Движок этого Mac слишком старый, чтобы присоединиться к дому"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Mac ఇంజిన్ ఇంటిలో చేరడానికి చాలా పాతది"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس Mac کا انجن گھر میں شامل ہونے کے لیے بہت پرانا ہے"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的引擎太旧，无法加入一个家"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.window.title": {
+      "comment" : "Title of the window that shows this Mac's join QR.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الانضمام إلى Soyeht موجود"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বিদ্যমান Soyeht-এ যোগ দিন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einem bestehenden Soyeht beitreten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join an existing Soyeht"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unirse a un Soyeht existente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rejoindre un Soyeht existant"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "मौजूदा Soyeht में शामिल हों"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gabung ke Soyeht yang ada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "既存の Soyeht に参加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기존 Soyeht에 참여"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "अस्तित्वात असलेल्या Soyeht मध्ये सामील व्हा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrar num Soyeht existente"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Juntar-se a um Soyeht existente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединиться к существующему Soyeht"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఉన్న Soyehtలో చేరండి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "موجودہ Soyeht میں شامل ہوں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入已有的 Soyeht"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.button": {
+      "comment" : "Button in Preferences › Devices that shows a QR for another Mac to join this home.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الانضمام إلى Soyeht موجود…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বিদ্যমান Soyeht-এ যোগ দিন…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einem bestehenden Soyeht beitreten…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join an existing Soyeht…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unirse a un Soyeht existente…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rejoindre un Soyeht existant…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "मौजूदा Soyeht में शामिल हों…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gabung ke Soyeht yang ada…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "既存の Soyeht に参加…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기존 Soyeht에 참여…"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "अस्तित्वात असलेल्या Soyeht मध्ये सामील व्हा…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrar num Soyeht existente…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Juntar-se a um Soyeht existente…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединиться к существующему Soyeht…"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఉన్న Soyehtలో చేరండి…"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "موجودہ Soyeht میں شامل ہوں…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入已有的 Soyeht…"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.alert.cancel": {
+      "comment" : "Cancel button of the Forget this home alert.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বাতিল"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "रद्द करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмена"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "రద్దు"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "منسوخ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.alert.confirm": {
+      "comment" : "Destructive button of the Forget this home alert.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نسيان هذا المنزل"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ি ভুলুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuhause Vergessen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget This Home"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar Este Hogar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oublier Cette Maison"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह घर भूलें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lupakan Rumah Ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホームを忘れる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈 잊기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हे घर विसरा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer Esta Casa"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer Esta Casa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Забыть дом"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ ఇంటిని మరచిపో"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ گھر بھول جائیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忘记这个家"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.alert.body": {
+      "comment" : "Body of the confirmation alert for Forget this home — says exactly what it does and does not do.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سيتوقف هذا الـ Mac عن الانتماء إلى المنزل وسيعيد فتح الإعداد، لتسمية منزل جديد وإقران iPhone كأول جهاز. ملفاتك وطرفياتك لا تتأثر. أي iPhone لا يزال لديه هذا المنزل يحتفظ به حتى يخرج منه هناك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac আর বাড়ির অংশ থাকবে না এবং সেটআপ আবার খুলবে, যাতে আপনি নতুন নাম দিতে ও একটি iPhone প্রথম হিসেবে জোড়া দিতে পারেন। আপনার ফাইল ও টার্মিনাল অটুট থাকে। যে iPhone-এ এখনো এই বাড়ি আছে, সেটি সেখান থেকে বেরোনো পর্যন্ত রেখে দেয়।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac gehört dann nicht mehr zum Zuhause und öffnet die Einrichtung erneut, damit Sie ein neues benennen und ein iPhone als erstes koppeln können. Ihre Dateien und Terminals bleiben unberührt. Jedes iPhone, das dieses Zuhause noch hat, behält es, bis es dort verlassen wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac will stop belonging to the home and reopen setup, so you can name a new one and pair an iPhone as the first. Your files and terminals are untouched. Any iPhone that still has this home keeps it until it leaves from there."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac dejará de pertenecer al hogar y volverá a la configuración, para que puedas nombrar uno nuevo y emparejar un iPhone como el primero. Tus archivos y terminales quedan intactos. Cualquier iPhone que aún tenga este hogar lo conserva hasta que salga desde allí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac cessera d'appartenir à la maison et rouvrira la configuration, pour que vous puissiez en nommer une nouvelle et appairer un iPhone comme le premier. Vos fichiers et terminaux ne changent pas. Tout iPhone qui a encore cette maison la garde jusqu'à ce qu'il la quitte de là-bas."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह Mac घर का हिस्सा नहीं रहेगा और सेटअप फिर खुलेगा, ताकि आप नया नाम दें और एक iPhone को पहले के रूप में जोड़ें। आपकी फ़ाइलें और टर्मिनल अछूते रहते हैं। जिस iPhone के पास अभी भी यह घर है, वह वहाँ से छोड़ने तक रखता है।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac ini akan berhenti menjadi bagian rumah dan membuka penyiapan lagi, sehingga Anda dapat menamai rumah baru dan memasangkan iPhone sebagai yang pertama. Berkas dan terminal Anda tidak tersentuh. iPhone yang masih memiliki rumah ini tetap menyimpannya sampai keluar dari sana."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac はホームから外れ、設定が再び開きます。新しいホームに名前を付け、iPhone を最初の端末としてペアリングできます。ファイルとターミナルはそのままです。まだこのホームを持つ iPhone は、そちらで退出するまで保持します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac은 홈에서 빠지고 설정이 다시 열립니다. 새 홈에 이름을 붙이고 iPhone을 첫 기기로 페어링할 수 있습니다. 파일과 터미널은 그대로입니다. 이 홈을 아직 가진 iPhone은 거기서 떠날 때까지 유지합니다."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हा Mac घराचा भाग राहणार नाही आणि सेटअप पुन्हा उघडेल, म्हणजे तुम्ही नवीन नाव देऊन एक iPhone पहिला म्हणून जोडू शकता. तुमच्या फाइल्स आणि टर्मिनल अबाधित राहतात. ज्या iPhone कडे अजून हे घर आहे, तो तिथून बाहेर पडेपर्यंत ठेवतो."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac deixa de pertencer à casa e reabre a configuração, então você pode batizar uma nova e parear um iPhone como o primeiro. Seus arquivos e terminais ficam intactos. Qualquer iPhone que ainda tenha esta casa continua com ela até sair de lá."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac deixa de pertencer à casa e reabre a configuração, para poder batizar uma nova e emparelhar um iPhone como o primeiro. Os seus ficheiros e terminais ficam intactos. Qualquer iPhone que ainda tenha esta casa mantém-na até sair de lá."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac перестанет принадлежать дому и снова откроет настройку, чтобы вы назвали новый и подключили iPhone первым. Файлы и терминалы не затрагиваются. Любой iPhone, у которого этот дом ещё есть, сохранит его, пока не выйдет оттуда."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Mac ఇంటికి చెందడం ఆగిపోతుంది, సెటప్ మళ్లీ తెరుచుకుంటుంది — కొత్తదానికి పేరు పెట్టి iPhoneని మొదటిదిగా జోడించవచ్చు. మీ ఫైళ్లు, టెర్మినల్స్ ముట్టుకోబడవు. ఈ ఇల్లు ఇంకా ఉన్న ఏ iPhone అయినా అక్కడ నుండి బయటికి వెళ్లే వరకు ఉంచుకుంటుంది."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ Mac گھر کا حصہ نہیں رہے گا اور سیٹ اپ دوبارہ کھلے گا، تاکہ آپ نیا نام دیں اور ایک iPhone کو پہلے کے طور پر جوڑیں۔ آپ کی فائلیں اور ٹرمینلز محفوظ رہتے ہیں۔ جس iPhone کے پاس اب بھی یہ گھر ہے، وہ وہاں سے نکلنے تک رکھتا ہے۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 将不再属于这个家，并重新打开设置，你可以命名一个新家，并把 iPhone 作为第一台配对。你的文件和终端不受影响。任何仍有这个家的 iPhone 会一直保留，直到从那边离开。"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.alert.title": {
+      "comment" : "Title of the confirmation alert for Forget this home.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل تريد نسيان هذا المنزل على هذا الـ Mac؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac-এ এই বাড়ি ভুলে যাবেন?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Zuhause auf diesem Mac vergessen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget this home on this Mac?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Olvidar este hogar en este Mac?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oublier cette maison sur ce Mac ?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस Mac पर यह घर भूल जाएँ?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lupakan rumah ini di Mac ini?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac でホームを忘れますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에서 이 홈을 잊을까요?"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या Mac वर हे घर विसरायचे?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer esta casa neste Mac?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer esta casa neste Mac?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Забыть этот дом на этом Mac?"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Macలో ఈ ఇంటిని మరచిపోవాలా?"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس Mac پر یہ گھر بھول جائیں؟"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要在这台 Mac 上忘记这个家吗？"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.explainer": {
+      "comment" : "Explains when to use Forget this home in Preferences › Devices.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فقدت الـ iPhone الذي ينتمي إلى هذا المنزل؟ لا يمكن الموافقة على iPhone جديد إلا منه. انسَ هذا المنزل على هذا الـ Mac، ثم اقرن الـ iPhone الجديد كأول جهاز."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ির iPhone হারিয়ে গেছে? নতুন iPhone কেবল সেটিই অনুমোদন করতে পারে। এই Mac-এ বাড়িটি ভুলে যান, তারপর নতুন iPhone-কে প্রথম হিসেবে জোড়া দিন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das iPhone dieses Zuhauses verloren? Nur dieses kann ein neues iPhone freigeben. Vergessen Sie dieses Zuhause auf diesem Mac und koppeln Sie das neue iPhone als erstes."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Forget this home on this Mac, then pair the new iPhone as the first one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Perdiste el iPhone que pertenece a este hogar? Un iPhone nuevo solo puede aprobarlo ese. Olvida este hogar en este Mac y empareja el nuevo iPhone como el primero."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez perdu l'iPhone qui appartient à cette maison ? Seul celui-là peut approuver un nouvel iPhone. Oubliez cette maison sur ce Mac, puis appairez le nouvel iPhone comme le premier."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस घर का iPhone खो गया? नए iPhone को वही मंज़ूरी दे सकता है। इस Mac पर यह घर भूल जाएँ, फिर नए iPhone को पहले के रूप में जोड़ें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kehilangan iPhone yang menjadi bagian rumah ini? Hanya iPhone itu yang bisa menyetujui iPhone baru. Lupakan rumah ini di Mac, lalu pasangkan iPhone baru sebagai yang pertama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このホームの iPhone をなくしましたか？新しい iPhone を承認できるのはその iPhone だけです。この Mac でホームを忘れ、新しい iPhone を最初の端末としてペアリングしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 홈에 속한 iPhone을 잃어버렸나요? 새 iPhone은 그 iPhone만 승인할 수 있습니다. 이 Mac에서 홈을 잊고 새 iPhone을 첫 기기로 페어링하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या घराचा iPhone हरवला? नवीन iPhone ला तोच मंजुरी देऊ शकतो. या Mac वर हे घर विसरा, मग नवीन iPhone पहिला म्हणून जोडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perdeu o iPhone que pertence a esta casa? Um iPhone novo só pode ser aprovado por aquele. Esqueça esta casa neste Mac e pareie o novo iPhone como o primeiro."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perdeu o iPhone que pertence a esta casa? Um iPhone novo só pode ser aprovado por aquele. Esqueça esta casa neste Mac e emparelhe o novo iPhone como o primeiro."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Потеряли iPhone, принадлежащий этому дому? Новый iPhone может одобрить только он. Забудьте дом на этом Mac и подключите новый iPhone как первый."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ ఇంటికి చెందిన iPhone పోయిందా? కొత్త iPhoneని అదే ఆమోదించగలదు. ఈ Macలో ఈ ఇంటిని మరచిపోయి, కొత్త iPhoneని మొదటిదిగా జోడించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس گھر کا iPhone گم ہو گیا؟ نئے iPhone کی منظوری صرف وہی دے سکتا ہے۔ اس Mac پر یہ گھر بھول جائیں، پھر نئے iPhone کو پہلے کے طور پر جوڑیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "丢了属于这个家的 iPhone？新 iPhone 只能由它批准。在这台 Mac 上忘记这个家，然后把新 iPhone 作为第一台配对。"
+          }
+        }
+      }
+    },
+    "prefs.devices.forgetHome.button": {
+      "comment" : "Button in Preferences › Devices that forgets the household on this Mac.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نسيان هذا المنزل…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই বাড়ি ভুলে যান…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Zuhause vergessen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget this home…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar este hogar…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oublier cette maison…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस घर को भूलें…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lupakan rumah ini…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このホームを忘れる…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 홈 잊기…"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हे घर विसरा…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer esta casa…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquecer esta casa…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Забыть этот дом…"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ ఇంటిని మరచిపో…"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس گھر کو بھول جائیں…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忘记这个家…"
+          }
+        }
+      }
+    },
     "prefs.label.colorTheme": {
       "comment": "Preferences row label for the color theme picker.",
       "extractionState": "stale",
@@ -52601,394 +53885,6 @@
         }
       },
       "comment": "House creation VoiceOver label with house name."
-    },
-    "bootstrap.autoJoin.title": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "جارٍ البحث عن منزلك"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Looking for your home"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr Zuhause wird gesucht"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Looking for your home"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscando tu casa"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recherche de votre maison"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपका home खोज रहे हैं"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mencari home Anda"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "家を探しています"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "홈을 찾는 중"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在寻找你的家"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Looking for your home"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Procurando sua casa"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A procurar a sua casa"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Поиск вашего home"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Looking for your home"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "آپ کا home تلاش ہو رہا ہے"
-          }
-        }
-      },
-      "comment": "Auto-join title while this Mac searches for an existing casa."
-    },
-    "bootstrap.autoJoin.body": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أبقِ Soyeht مفتوحًا على iPhone لتأكيد هذا Mac."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Soyeht open on the iPhone to confirm this Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lassen Sie Soyeht auf dem iPhone geöffnet, um diesen Mac zu bestätigen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Soyeht open on the iPhone to confirm this Mac."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantén Soyeht abierto en el iPhone para confirmar este Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gardez Soyeht ouvert sur l’iPhone pour confirmer ce Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इस Mac को confirm करने के लिए iPhone पर Soyeht open रखें।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Biarkan Soyeht tetap terbuka di iPhone untuk mengonfirmasi Mac ini."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この Mac を確認するため、iPhone で Soyeht を開いたままにしてください。"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "이 Mac을 확인하려면 iPhone에서 Soyeht를 열어 둔 상태로 유지하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "请在 iPhone 上保持 Soyeht 打开，以确认这台 Mac。"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Soyeht open on the iPhone to confirm this Mac."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantenha o Soyeht aberto no iPhone para confirmar este Mac."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantenha o Soyeht aberto no iPhone para confirmar este Mac."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Оставьте Soyeht открытым на iPhone, чтобы подтвердить этот Mac."
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Soyeht open on the iPhone to confirm this Mac."
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اس Mac کو confirm کرنے کے لیے iPhone پر Soyeht open رکھیں۔"
-          }
-        }
-      },
-      "comment": "Auto-join body directing the user to keep Soyeht open on iPhone."
-    },
-    "bootstrap.autoJoin.manualContinue": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أكدت ذلك"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I confirmed it"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ich habe es bestätigt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I confirmed it"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya lo confirmé"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je l’ai confirmé"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैंने confirm किया"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saya sudah mengonfirmasinya"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確認しました"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "확인했습니다"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "我已确认"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I confirmed it"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Já confirmei"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Já confirmei"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Я подтвердил"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I confirmed it"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "میں نے confirm کیا"
-          }
-        }
-      },
-      "comment": "Manual continue button for auto-join after confirming on iPhone."
-    },
-    "bootstrap.autoJoin.step": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "جارٍ الاتصال"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verbinden"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conectando"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connexion"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Menghubungkan"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接続中"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "연결 중"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在连接"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conectando"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A ligar"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подключение"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecting"
-          }
-        }
-      },
-      "comment": "Step indicator for auto-join waiting state."
     },
     "awaitingName.title": {
       "localizations": {

@@ -58,11 +58,8 @@ struct WelcomeRootView: View {
 
     enum Mode {
         case bootstrap      // Case A: founder fresh install
-        case autoJoin       // existing household discovered on Tailnet
         case recover        // local engine state present
         case existingSoyeht(ExistingSoyehtContext)
-        case chooseJoinOrStart(ExistingSoyehtContext)
-        case joinExisting(ExistingSoyehtContext)
     }
 
     /// Inner navigation steps for the bootstrap flow (case A, MA2+).
@@ -117,36 +114,12 @@ struct WelcomeRootView: View {
                     bootstrapStep(step)
                 }
             }
-        case .autoJoin:
-            AutoJoinView(onJoined: onPaired)
         case .recover:
             RecoverView(onRecovered: onPaired)
         case .existingSoyeht(let context):
             ExistingSoyehtView(
                 onContinue: { await continueWithExistingSoyeht(context) },
                 onReinstall: { await reinstallSoyeht(context) }
-            )
-        case .chooseJoinOrStart(let context):
-            ChooseJoinOrStartView(
-                onJoinExisting: {
-                    onboardingState.beginPairing()
-                    bootstrapPath.removeAll()
-                    mode = .joinExisting(context)
-                },
-                onStartNew: {
-                    Task { @MainActor in
-                        _ = await continueWithExistingSoyeht(context)
-                    }
-                }
-            )
-        case .joinExisting(let context):
-            JoinExistingSoyehtView(
-                onPaired: onPaired,
-                onBack: {
-                    onboardingState.beginListening()
-                    mode = .chooseJoinOrStart(context)
-                    Task { await resolveMode() }
-                }
             )
         }
     }
@@ -248,11 +221,13 @@ struct WelcomeRootView: View {
                         // the screen they are on every couple of seconds.
                     } else if case .existingSoyeht = mode {
                         // already shown; keep polling quietly
-                    } else if case .chooseJoinOrStart = mode {
-                        // already shown; keep polling quietly
-                    } else if JoinExistingCapability.isAvailable(status: status) {
-                        mode = .chooseJoinOrStart(ExistingSoyehtContext(status: status))
                     } else {
+                        // One screen, not a fork. "Join an existing Soyeht"
+                        // used to be offered here, on a decision a Mac meets
+                        // exactly once and never again — so a second Mac
+                        // bought later had no way in at all. It lives in
+                        // Preferences › Devices now, where it can be reached
+                        // for as long as the Mac does.
                         mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                     }
                     try? await Task.sleep(for: .seconds(2))
@@ -374,6 +349,12 @@ struct WelcomeRootView: View {
         onboardingState.beginPairing()
         guard await prepareForReinstall(context) else {
             onboardingState.fail("reinstall_stop_failed")
+            // Go back to watching. `fail` alone left the poller stopped for
+            // good, so the screen sat on its error even after the engine
+            // recovered on its own — and "Try again" was the only thing that
+            // could ever change it.
+            onboardingState.beginListening()
+            Task { await resolveMode() }
             return LocalizedStringResource(
                 "welcome.existingSoyeht.reinstall.stopFailed",
                 defaultValue: "Couldn't close the current Soyeht. Try again.",

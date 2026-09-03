@@ -526,6 +526,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
     }
 
+    /// After "Forget this home": every main window is about a home that no
+    /// longer exists, so they close and the Welcome takes over. Reached by
+    /// `NSApp.sendAction` so `ForgetHomeService` needs no reference to the
+    /// delegate — it is a service, not a controller.
+    @IBAction func reopenWelcomeAfterForget(_ sender: Any?) {
+        for controller in mainWindowControllers {
+            controller.window?.close()
+        }
+        openWelcomeWindow()
+    }
+
     /// Opens (or re-focuses) the onboarding window. Called on first launch
     /// and again after the user logs out of the last server.
     private func openWelcomeWindow() {
