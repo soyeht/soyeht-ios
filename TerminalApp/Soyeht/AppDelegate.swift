@@ -462,8 +462,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onMacFound: { [weak self, weak window] result in
                     guard let self, let window else { return }
                     switch result {
-                    case .connectedToExistingMac:
-                        self.showMainStoryboard(in: window)
+                    case .connectedToExistingMac(let macName):
+                        self.showPaired(macName: macName, in: window)
                     }
                 },
                 onCancel: { [weak self, weak window] in
@@ -473,6 +473,32 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onSwitchToLinux: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showLinuxPairingGuide(in: window)
+                }
+            )
+        )
+    }
+
+    /// I5. The owner who set the Mac up used to skip this entirely — the
+    /// first-owner path went from the radar straight into the app — so the one
+    /// screen that says the pairing worked was seen only by the second phone.
+    /// Now every arrival lands here, and the Face ID switch is the one thing
+    /// worth deciding while the moment is fresh.
+    @MainActor
+    private func showPaired(macName: String?, in window: UIWindow) {
+        guard let snapshot = SoyehtIdentity.shared.active else {
+            // No identity means nothing to celebrate and nothing to protect;
+            // the main flow will route on whatever state does exist.
+            showMainStoryboard(in: window)
+            return
+        }
+        window.rootViewController = OnboardingHostingController(rootView:
+            PairedCelebrationView(
+                snapshot: snapshot,
+                macName: macName,
+                onOpenTerminal: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    OnboardingLaunchIntent.requestSkipSplash()
+                    self.showMainStoryboard(in: window)
                 }
             )
         )

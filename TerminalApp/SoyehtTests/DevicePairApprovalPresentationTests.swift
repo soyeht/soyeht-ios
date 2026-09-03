@@ -276,11 +276,15 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(devicePairingFlow.contains("devicePairingClaim(claim, matches: link)"))
     }
 
-    func test_recoveryDismissRoutesOnlyOnOperationalInventory() throws {
+    /// Renamed with the screen: the recovery message is gone and the
+    /// celebration inherited its continuation. What is pinned is unchanged —
+    /// the route out is chosen from the operational inventory, never from the
+    /// raw server list.
+    func test_celebrationContinueRoutesOnlyOnOperationalInventory() throws {
         let source = try iosSource("SSHLoginView.swift")
         let recoveryBranch = try slice(
             source,
-            from: "case .recoveryMessage(let snapshot):",
+            from: "case .pairingSuccess(let snapshot):",
             to: "            case .instanceList:\n                ZStack"
         )
 

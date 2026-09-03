@@ -233,6 +233,8 @@ enum AccessibilityID {
         static let macPresenceYes = "soyeht.onboarding.macPresence.yes"
         static let macPresenceNotYet = "soyeht.onboarding.macPresence.notYet"
         static let macPresenceLinux = "soyeht.onboarding.macPresence.linux"
+        static let faceIDToggle = "soyeht.onboarding.paired.faceIDToggle"
+        static let pairedContinue = "soyeht.onboarding.paired.cta"
     }
 
 }

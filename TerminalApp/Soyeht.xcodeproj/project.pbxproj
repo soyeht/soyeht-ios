@@ -22,7 +22,6 @@
 		21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
-		3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF349133DD963666644CB555 /* HouseholdInviteView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
 		4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 4929B7AD2F191AAB0075C162 /* NIOSSH */; };
 		4936D22124512AF2005CEE27 /* UIKitSshTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */; };
@@ -62,7 +61,6 @@
 		4AE724C5A04472049B1830FD /* HouseCreatedPushHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC1B97D59F495CDB184095C /* HouseCreatedPushHandler.swift */; };
 		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
 		4B757529461B8CA3296DEF79 /* TerminalPreferences+iOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25CF8831A8F130C1E7C502 /* TerminalPreferences+iOS.swift */; };
-		4DFA551D71566244E6AADD9F /* PairingSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223122974E095DFED0C4FA29 /* PairingSuccessView.swift */; };
 		59222E047C54FCD3C7FC38B7 /* APNsTokenRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0398C1D27C97981BB3B38335 /* APNsTokenRegistrar.swift */; };
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
@@ -71,7 +69,6 @@
 		713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = FBBE1B1846B242EAB3017F46 /* SnapshotTesting */; };
 		750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */; };
 		75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */; };
-		86615F456B96EA68696849DE /* RecoveryMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD320E9B5176DC1F7B841F8C /* RecoveryMessageView.swift */; };
 		8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */; };
 		8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000102 /* HouseholdHomeView.swift */; };
 		8DDA00000000000000000003 /* HouseholdPairingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */; };
@@ -110,7 +107,6 @@
 		8DDA0000000000000000001E /* PairedMac+Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011E /* PairedMac+Server.swift */; };
 		8DDA0000000000000000001F /* ServerRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011F /* ServerRegistry.swift */; };
 		8DDA00000000000000000500 /* OwnerPasskeyEnrollmentComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */; };
-		8DDA00000000000000000502 /* OwnerPasskeyEnrollmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */; };
 		8DDA00000000000000000504 /* PasskeyPresentationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */; };
 		8DDA00000000000000000506 /* OwnerPasskeyEnrollmentPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */; };
 		8DDA00000000000000000600 /* OwnerApprovalV2ReviewAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000610 /* OwnerApprovalV2ReviewAdapter.swift */; };
@@ -134,6 +130,8 @@
 		8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000423 /* ClawRouteUsageTests.swift */; };
 		8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */; };
 		CB1000500000000000000001 /* NetworkHandoffRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000500000000000000002 /* NetworkHandoffRecoveryTests.swift */; };
+		CB1000800000000000000001 /* PairedCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000800000000000000011 /* PairedCelebrationView.swift */; };
+		CB1000800000000000000002 /* FaceIDProtectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000800000000000000012 /* FaceIDProtectionCard.swift */; };
 		CB1000700000000000000001 /* OnboardingHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000700000000000000011 /* OnboardingHostingController.swift */; };
 		CB1000700000000000000002 /* OnboardingScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000700000000000000012 /* OnboardingScaffold.swift */; };
 		CB1000700000000000000003 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000700000000000000013 /* WelcomeView.swift */; };
@@ -162,7 +160,6 @@
 		ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000206 /* MachineJoinTestFixtures.swift */; };
 		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
 		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
-		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
 		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2E100000000000000000001 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000011 /* SoyehtClawShareTunnelProvider.swift */; };
 		A2E100000000000000000003 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2E100000000000000000015 /* NetworkExtension.framework */; };
@@ -252,7 +249,6 @@
 		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
 		E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
-		E7E4FF225266E8C5624B7C56 /* PairingProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB2D25632F9118F5E8C01E9F /* PairingProgressView.swift */; };
 		E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1508031EF9E559CCDBD1744C /* InstallPickerView.swift */; };
 		EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC63778F33C35BF76F1C4019 /* KeyHandoffMetaphorView.swift */; };
 		F17E0001000000000000F002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
@@ -327,7 +323,6 @@
 		186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoyehtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
 		1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtLiveActivity.appex; path = SoyehtLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		223122974E095DFED0C4FA29 /* PairingSuccessView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingSuccessView.swift; sourceTree = "<group>"; };
 		2AC1B97D59F495CDB184095C /* HouseCreatedPushHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCreatedPushHandler.swift; sourceTree = "<group>"; };
 		35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNewMacView.swift; sourceTree = "<group>"; };
 		36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtLiveActivityBundle.swift; sourceTree = "<group>"; };
@@ -392,7 +387,6 @@
 		74BE0A3265EE97582650E758 /* HowToRecoverView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HowToRecoverView.swift; sourceTree = "<group>"; };
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricConfirmView.swift; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		863630A4821674D02C07E29C /* NoHouseholdBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoHouseholdBanner.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
@@ -434,7 +428,6 @@
 		8DDA0000000000000000011E /* PairedMac+Server.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PairedMac+Server.swift"; sourceTree = "<group>"; };
 		8DDA0000000000000000011F /* ServerRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistry.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentComposer.swift; sourceTree = "<group>"; };
-		8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PasskeyPresentationAnchor.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000516 /* OwnerPasskeyEnrollmentPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerPasskeyEnrollmentPresentationTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000610 /* OwnerApprovalV2ReviewAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerApprovalV2ReviewAdapter.swift; sourceTree = "<group>"; };
@@ -457,6 +450,8 @@
 		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
 		CB1000500000000000000002 /* NetworkHandoffRecoveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkHandoffRecoveryTests.swift; sourceTree = "<group>"; };
+		CB1000800000000000000011 /* PairedCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairedCelebrationView.swift; sourceTree = "<group>"; };
+		CB1000800000000000000012 /* FaceIDProtectionCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FaceIDProtectionCard.swift; sourceTree = "<group>"; };
 		CB1000700000000000000011 /* OnboardingHostingController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingHostingController.swift; sourceTree = "<group>"; };
 		CB1000700000000000000012 /* OnboardingScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingScaffold.swift; sourceTree = "<group>"; };
 		CB1000700000000000000013 /* WelcomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -515,8 +510,6 @@
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		CB0200010000000000000001 /* ClipboardWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriter.swift; sourceTree = "<group>"; };
 		CB0200020000000000000002 /* ClipboardWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriterTests.swift; sourceTree = "<group>"; };
-		CD320E9B5176DC1F7B841F8C /* RecoveryMessageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryMessageView.swift; sourceTree = "<group>"; };
-		CF349133DD963666644CB555 /* HouseholdInviteView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdInviteView.swift; sourceTree = "<group>"; };
 		D026D7C575882A19BB757C4C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -533,7 +526,6 @@
 		E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomShortcutCreatorView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarTests.swift; sourceTree = "<group>"; };
 		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
-		EB2D25632F9118F5E8C01E9F /* PairingProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingProgressView.swift; sourceTree = "<group>"; };
 		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 		F17E0002000000000000F002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F17E0001000000000000F001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -677,6 +669,8 @@
 		2A389575B94885D99B1996D6 /* Neo */ = {
 			isa = PBXGroup;
 			children = (
+				CB1000800000000000000011 /* PairedCelebrationView.swift */,
+				CB1000800000000000000012 /* FaceIDProtectionCard.swift */,
 				CB1000700000000000000011 /* OnboardingHostingController.swift */,
 				CB1000700000000000000012 /* OnboardingScaffold.swift */,
 				CB1000700000000000000013 /* WelcomeView.swift */,
@@ -878,7 +872,6 @@
 		65826C32070114096AE6C670 /* RecoveryMessage */ = {
 			isa = PBXGroup;
 			children = (
-				CD320E9B5176DC1F7B841F8C /* RecoveryMessageView.swift */,
 				BC63778F33C35BF76F1C4019 /* KeyHandoffMetaphorView.swift */,
 			);
 			name = RecoveryMessage;
@@ -1072,10 +1065,6 @@
 		B1FB828D1BEDFB3C1FC0AB4D /* PairingConfirmation */ = {
 			isa = PBXGroup;
 			children = (
-				76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */,
-				CF349133DD963666644CB555 /* HouseholdInviteView.swift */,
-				EB2D25632F9118F5E8C01E9F /* PairingProgressView.swift */,
-				223122974E095DFED0C4FA29 /* PairingSuccessView.swift */,
 			);
 			name = PairingConfirmation;
 			path = PairingConfirmation;
@@ -1235,7 +1224,6 @@
 			isa = PBXGroup;
 			children = (
 				8DDA00000000000000000510 /* OwnerPasskeyEnrollmentComposer.swift */,
-				8DDA00000000000000000512 /* OwnerPasskeyEnrollmentView.swift */,
 				8DDA00000000000000000514 /* PasskeyPresentationAnchor.swift */,
 			);
 			name = OwnerPasskey;
@@ -1572,6 +1560,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB1000800000000000000001 /* PairedCelebrationView.swift in Sources */,
+				CB1000800000000000000002 /* FaceIDProtectionCard.swift in Sources */,
 				CB1000700000000000000001 /* OnboardingHostingController.swift in Sources */,
 				CB1000700000000000000002 /* OnboardingScaffold.swift in Sources */,
 				CB1000700000000000000003 /* WelcomeView.swift in Sources */,
@@ -1684,14 +1674,8 @@
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */,
-				B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */,
-				3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */,
-				E7E4FF225266E8C5624B7C56 /* PairingProgressView.swift in Sources */,
-				4DFA551D71566244E6AADD9F /* PairingSuccessView.swift in Sources */,
 				8DDA00000000000000000500 /* OwnerPasskeyEnrollmentComposer.swift in Sources */,
-				8DDA00000000000000000502 /* OwnerPasskeyEnrollmentView.swift in Sources */,
 				8DDA00000000000000000504 /* PasskeyPresentationAnchor.swift in Sources */,
-				86615F456B96EA68696849DE /* RecoveryMessageView.swift in Sources */,
 				59222E047C54FCD3C7FC38B7 /* APNsTokenRegistrar.swift in Sources */,
 				4AE724C5A04472049B1830FD /* HouseCreatedPushHandler.swift in Sources */,
 				F915AF2BE72F07259AD242A9 /* AwaitingMacView.swift in Sources */,

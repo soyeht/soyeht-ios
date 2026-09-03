@@ -88,14 +88,6 @@ linuxPairing.step.scan.detail
 linuxPairing.step.scan.title
 linuxPairing.subtitle
 linuxPairing.title
-ownerPasskey.enrollment.continue
-ownerPasskey.enrollment.failure
-ownerPasskey.enrollment.privacy
-ownerPasskey.enrollment.retry
-ownerPasskey.enrollment.skip
-ownerPasskey.enrollment.subtitle
-ownerPasskey.enrollment.title
-ownerPasskey.enrollment.unavailable
 prefs.devices.addIPhone.connected
 prefs.devices.addIPhone.connected.status
 prefs.devices.addIPhone.copied

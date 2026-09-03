@@ -19,7 +19,8 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
     private static let layerARoots = [
         "WelcomeView(",
         "MacPresenceQuestionView(",
-        "AwaitingMacView("
+        "AwaitingMacView(",
+        "PairedCelebrationView("
     ]
 
     func test_everyLayerARootIsHostedByTheOnboardingController() throws {
@@ -106,6 +107,66 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
 
         let phases = try codeOnly(repoSource("Packages/SoyehtCore/Sources/SoyehtCore/Onboarding/MacDiscoveryPhase.swift"))
         XCTAssertTrue(phases.contains("case alreadyHasHome"))
+    }
+
+    func test_theCelebrationIsTheOneTailForEveryWayOfPairing() throws {
+        let delegate = try codeOnly(repoSource("TerminalApp/Soyeht/AppDelegate.swift"))
+        let login = try codeOnly(repoSource("TerminalApp/Soyeht/SSHLoginView.swift"))
+
+        // Radar path: the Mac's own label reaches the title, so I5 can name it.
+        XCTAssertTrue(delegate.contains("case .connectedToExistingMac(let macName):"))
+        XCTAssertTrue(delegate.contains("showPaired(macName: macName, in: window)"))
+        XCTAssertTrue(delegate.contains("OnboardingLaunchIntent.requestSkipSplash()"))
+
+        // The celebration reads `SoyehtIdentity.shared.active`, and the facade
+        // is a cache. Pairing must refresh it in the same turn it fires the
+        // handler, or the screen asks a beat too early, finds nothing, and
+        // falls through to the main flow.
+        let radar = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift"))
+        let handoff = try slice(radar, from: "if let pairing = house.deferredLocalPairing {", to: "onMacFoundHandler?(.connectedToExistingMac")
+        XCTAssertTrue(handoff.contains("SoyehtIdentity.shared.reload()"))
+
+        // QR / link path: the same view, on the route that used to open three.
+        XCTAssertTrue(login.contains("case .pairingSuccess(let snapshot):"))
+        XCTAssertTrue(login.contains("PairedCelebrationView("))
+        XCTAssertFalse(login.contains("PairingSuccessView("))
+        XCTAssertFalse(login.contains("OwnerPasskeyEnrollmentView("))
+        XCTAssertFalse(login.contains("RecoveryMessageView("))
+
+        // A Mac landing in the registry must not yank the celebration away.
+        let rosterHop = try slice(login, from: "macsStoreBox.$macs", to: "soyehtColorThemeChanged")
+        XCTAssertFalse(rosterHop.contains(".pairingSuccess"))
+    }
+
+    func test_theRetiredPairingScreensAreGoneFromTheTree() throws {
+        for path in [
+            "TerminalApp/Soyeht/Onboarding/PairingConfirmation",
+            "TerminalApp/Soyeht/Onboarding/OwnerPasskey/OwnerPasskeyEnrollmentView.swift",
+            "TerminalApp/Soyeht/Onboarding/RecoveryMessage/RecoveryMessageView.swift"
+        ] {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: repoURL(path).path),
+                "\(path) should have been retired with the three-screen tail"
+            )
+        }
+        // The key-handoff illustration stays: "How to recover" still shows it.
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: repoURL("TerminalApp/Soyeht/Onboarding/RecoveryMessage/KeyHandoffMetaphorView.swift").path
+        ))
+    }
+
+    func test_theQuestionHasAnAnswerThatIsNotYes() throws {
+        let radar = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift"))
+
+        XCTAssertTrue(radar.contains("func rejectCandidate()"))
+        XCTAssertTrue(radar.contains("rejectedHouseholdKeys.insert(household)"))
+        // A rejected household must not come straight back on the next push.
+        XCTAssertTrue(radar.contains("rejectedHouseholdKeys.contains(household)"))
+        XCTAssertTrue(radar.contains("onboarding.isThisYourMac.reject"))
+        // Session-scoped: nothing about a home this phone never joined is
+        // written to disk.
+        XCTAssertFalse(radar.contains("rejectedHouseholdKeys\", forKey"))
+        XCTAssertFalse(radar.contains("UserDefaults.standard.set(rejectedHouseholdKeys"))
     }
 
     // MARK: - Helpers

@@ -372,6 +372,10 @@ struct SoyehtAppView: View {
     @StateObject private var homeModel = HomeViewModel()
     /// "Other machines" — the old instance list, unchanged, one level down.
     @State private var showOtherMachines = false
+    /// Read once, at the first body evaluation: a cold launch waits the full
+    /// splash; an arrival from the celebration gets a beat.
+    private let splashDuration: TimeInterval =
+        OnboardingLaunchIntent.consumeSkipSplashRequest() ? 0.35 : 2.0
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -499,7 +503,7 @@ struct SoyehtAppView: View {
 
             switch appState {
             case .splash:
-                SplashView {
+                SplashView(minimumDuration: splashDuration) {
                     Task { await handlePostSplash() }
                 }
                 .transition(.opacity)
@@ -637,38 +641,15 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .pairingSuccess(let snapshot):
-                PairingSuccessView(
-                    houseName: snapshot.displayName,
-                    onContinue: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .enrollOwnerPasskey(snapshot)
-                        }
-                    }
-                )
-                .transition(.opacity)
-
-            case .enrollOwnerPasskey(let snapshot):
-                // Fresh-onboarding owner passkey enrollment. Both completion and
-                // an explicit "set up later" advance to the recovery message — the
-                // existing next step — so enrollment never blocks the flow.
-                OwnerPasskeyEnrollmentView(
+                // Three screens became one: the success card, the passkey
+                // screen and the recovery message all landed in the same
+                // place, and the first-owner path skipped past the lot of
+                // them. The Face ID switch lives on this card now, and the
+                // continuation is the one those three shared.
+                PairedCelebrationView(
                     snapshot: snapshot,
-                    onContinue: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .recoveryMessage(snapshot)
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .recoveryMessage(snapshot)
-                        }
-                    }
-                )
-                .transition(.opacity)
-
-            case .recoveryMessage(let snapshot):
-                RecoveryMessageView(
-                    onDismiss: {
+                    macName: nil,
+                    onOpenTerminal: {
                         let household = snapshot.underlying
                         machineJoinRuntime.activate(household)
                         Task { @MainActor in
@@ -877,7 +858,11 @@ struct SoyehtAppView: View {
         .onReceive(macsStoreBox.$macs) { macs in
             guard !macs.isEmpty else { return }
             switch appState {
-            case .householdHome, .pairingSuccess, .recoveryMessage:
+            // Only the home. `.pairingSuccess` is the celebration now, and it
+            // carries a decision — a Mac landing in the registry must not pull
+            // the screen out from under someone reaching for the Face ID
+            // switch. They arrive at the home the moment they tap through.
+            case .householdHome:
                 PairedMacRegistry.shared.reconcileClients()
                 withAnimation(.easeInOut(duration: 0.3)) {
                     appState = .instanceList

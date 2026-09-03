@@ -2,7 +2,17 @@ import SwiftUI
 import SoyehtCore
 
 struct SplashView: View {
+    /// How long the splash holds before it hands over. The full two seconds
+    /// are for a cold launch, where something is genuinely being loaded behind
+    /// it. Coming out of pairing there is nothing to wait for — the person
+    /// just tapped "Open a terminal" — so that path passes a beat instead.
+    let minimumDuration: TimeInterval
     let onFinished: () -> Void
+
+    init(minimumDuration: TimeInterval = 2.0, onFinished: @escaping () -> Void) {
+        self.minimumDuration = minimumDuration
+        self.onFinished = onFinished
+    }
 
     @State private var progress: CGFloat = 0
     @State private var showText = false
@@ -68,7 +78,7 @@ struct SplashView: View {
             withAnimation(.easeInOut(duration: 1.5)) {
                 progress = 0.65
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + minimumDuration) {
                 onFinished()
             }
         }

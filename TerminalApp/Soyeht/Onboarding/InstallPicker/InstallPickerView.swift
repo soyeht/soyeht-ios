@@ -232,4 +232,20 @@ enum OnboardingLaunchIntent {
         defaults.removeObject(forKey: qrScannerKey)
         return requested
     }
+
+    private static let skipSplashKey = "soyeht.onboarding.skipSplash"
+
+    /// Set when the main flow is entered straight from the celebration. The
+    /// splash exists to cover a cold launch; after "Open a terminal" there is
+    /// nothing behind it to cover, and two seconds of logo between a tap and
+    /// its result reads as the app hanging.
+    static func requestSkipSplash(defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: skipSplashKey)
+    }
+
+    static func consumeSkipSplashRequest(defaults: UserDefaults = .standard) -> Bool {
+        let requested = defaults.bool(forKey: skipSplashKey)
+        defaults.removeObject(forKey: skipSplashKey)
+        return requested
+    }
 }

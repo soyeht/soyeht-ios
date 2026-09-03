@@ -10,7 +10,9 @@ private let awaitingMacLogger = Logger(subsystem: "com.soyeht.mobile", category:
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
     enum Result {
-        case connectedToExistingMac
+        /// Carries the Mac's own label so I5 can say "<Mac> is yours." rather
+        /// than a generic line the person has to translate back to a machine.
+        case connectedToExistingMac(macName: String?)
     }
 
     let invitation: SetupInvitationPayload
@@ -432,8 +434,8 @@ struct AwaitingMacView: View {
 
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(OnboardingFonts.caption)
-                    .foregroundColor(BrandColors.textMuted)
+                    .font(NeoFont.caption)
+                    .foregroundStyle(palette.danger)
                     .multilineTextAlignment(.center)
             } else if viewModel.isPairing, house.isDevicePairing {
                 // Delegated pairing: this home already has an iPhone, and
@@ -446,33 +448,40 @@ struct AwaitingMacView: View {
                     defaultValue: "Waiting for approval from an iPhone that already belongs to this home.",
                     comment: "Shown while a new iPhone waits for an existing iPhone in the home to approve it."
                 ))
-                .font(OnboardingFonts.caption)
-                .foregroundColor(BrandColors.textMuted)
+                .font(NeoFont.caption)
+                .foregroundStyle(palette.muted)
                 .multilineTextAlignment(.center)
             }
 
-            Button(action: { viewModel.connectToExistingHouse() }) {
-                if viewModel.isPairing {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(BrandColors.buttonTextOnAccent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                } else {
-                    Text(LocalizedStringResource(
-                        "awaitingMac.existingHouse.connect",
-                        defaultValue: "Connect this iPhone",
-                        comment: "CTA that pairs this iPhone to the discovered existing Mac home."
-                    ))
-                    .font(OnboardingFonts.bodyBold)
-                    .foregroundColor(BrandColors.buttonTextOnAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+            VStack(spacing: 10) {
+                Button(action: { viewModel.connectToExistingHouse() }) {
+                    if viewModel.isPairing {
+                        ProgressView().tint(palette.onAccent)
+                    } else {
+                        Text(LocalizedStringResource(
+                            "awaitingMac.existingHouse.connect",
+                            defaultValue: "Connect this iPhone",
+                            comment: "CTA that pairs this iPhone to the discovered existing Mac home."
+                        ))
+                    }
                 }
+                .buttonStyle(NeoPillButtonStyle(.primary, palette: palette))
+                .disabled(viewModel.isPairing)
+                .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.confirm")
+
+                // The other answer to the question. Without it, "is this your
+                // Mac?" had exactly one button under it.
+                Button(action: { viewModel.rejectCandidate() }) {
+                    Text(LocalizedStringResource(
+                        "onboarding.isThisYourMac.reject",
+                        defaultValue: "Not my Mac",
+                        comment: "I4: rejects the candidate and goes back to looking."
+                    ))
+                }
+                .buttonStyle(NeoLinkButtonStyle(palette: palette))
+                .disabled(viewModel.isPairing)
+                .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.reject")
             }
-            .disabled(viewModel.isPairing)
-            .background(BrandColors.accentGreen)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
     }
 }
@@ -535,6 +544,9 @@ final class AwaitingMacViewModel: ObservableObject {
     private static let recoveryHintDelaySeconds: UInt64 = UInt64(OnboardingConfig.default.macDiscoveryRecoveryHintDelay)
 
     @Published private(set) var pendingExistingHouse: ExistingHouseCandidate?
+    /// Households the person answered "Not my Mac" to. Lives as long as this
+    /// view-model does, never on disk.
+    private var rejectedHouseholdKeys: Set<String> = []
     @Published private(set) var fingerprintWords: [String] = []
     @Published private(set) var isPairing = false
     @Published private(set) var errorMessage: String?
@@ -618,6 +630,38 @@ final class AwaitingMacViewModel: ObservableObject {
         cancelRecoveryHint()
     }
 
+    /// "Not my Mac" — the answer to the question I4 actually asks.
+    ///
+    /// Without it the only honest answer to "is this your Mac?" was to force
+    /// quit: the card stayed until it was connected. Rejecting drops the
+    /// candidate, remembers its household for the rest of this session so the
+    /// same push cannot put it straight back on screen, and starts looking
+    /// again. Session-scoped on purpose — a person who rejects by mistake gets
+    /// the card back on the next launch, and nothing is written to disk about
+    /// a home this phone never joined.
+    func rejectCandidate() {
+        guard let house = pendingExistingHouse else { return }
+        if let household = Self.householdKey(of: house.pairDeviceURI) {
+            rejectedHouseholdKeys.insert(household)
+        }
+        awaitingMacLogger.info("existing_house.rejected_by_user")
+        pendingExistingHouse = nil
+        fingerprintWords = []
+        errorMessage = nil
+        offerRefreshTask?.cancel()
+        offerRefreshTask = nil
+        restart()
+    }
+
+    /// The `hh_pub` of a pairing link — the household's identity, and the only
+    /// part of the URL that is stable while the nonce rotates.
+    static func householdKey(of url: URL) -> String? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == "hh_pub" }?
+            .value
+    }
+
     /// "Keep looking" — a real restart, not a cosmetic reset. The old screen
     /// had no way back once it gave up.
     func restart() {
@@ -685,8 +729,16 @@ final class AwaitingMacViewModel: ObservableObject {
                     if let pairing = house.deferredLocalPairing {
                         installMacLocalPairing(pairing)
                     }
+                    // `HouseholdPairingService` writes the session straight to
+                    // the keychain; the facade every screen reads is a cache
+                    // that only refreshes when told. Without this the
+                    // celebration asks for the identity a beat too early,
+                    // finds none, and falls through to the main flow — which
+                    // is exactly how the person who set the Mac up used to
+                    // miss the one screen that says it worked.
+                    SoyehtIdentity.shared.reload()
                     self.isPairing = false
-                    self.onMacFoundHandler?(.connectedToExistingMac)
+                    self.onMacFoundHandler?(.connectedToExistingMac(macName: house.hostLabel))
                 }
             } catch is CancellationError {
             } catch HouseholdDevicePairingError.approvalTimedOut {
@@ -927,7 +979,7 @@ final class AwaitingMacViewModel: ObservableObject {
                     }
                     alreadyFound = true
                     diagnosticMessage = "Connected to existing Mac"
-                    onMacFoundHandler?(.connectedToExistingMac)
+                    onMacFoundHandler?(.connectedToExistingMac(macName: localPairing?.macName))
                     return
                 case .macIsBeingSetUp(let name):
                     // No latch and no deadline: the Mac is mid-setup and the
@@ -1004,6 +1056,10 @@ final class AwaitingMacViewModel: ObservableObject {
                 defaultValue: "I found your Mac, but couldn't verify its pairing link. Try the QR fallback on the Mac.",
                 comment: "Error shown when the Mac sends an invalid first-owner pairing URI."
             ))
+            return
+        }
+        if let household = Self.householdKey(of: pairURL), rejectedHouseholdKeys.contains(household) {
+            awaitingMacLogger.info("existing_house.skipped_rejected_household")
             return
         }
         let isDevicePairing = Self.isDevicePairingURL(pairURL)
