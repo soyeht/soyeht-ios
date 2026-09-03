@@ -7,9 +7,19 @@ import AppKit
 struct HouseCardView: View {
     let houseName: String
     let avatar: HouseAvatar
-    let pairQrUri: String
+    /// What the navigation path carried when this card was pushed. It is a
+    /// seed, not the truth: the engine closes its pairing window after a few
+    /// minutes, and this string does not change when it does.
+    let initialPairQrUri: String
     let onContinueOnMac: @MainActor () async -> LocalizedStringResource?
     let onPaired: () -> Void
+
+    @ObservedObject private var advertisement = MacPairingAdvertisement.shared
+
+    /// The link this Mac is offering right now. The words, the QR, the copied
+    /// link and what the iPhone is told all read this, so they cannot
+    /// disagree with each other.
+    private var pairQrUri: String { advertisement.offer?.uri ?? initialPairQrUri }
 
     @State private var isPulsing = false
     @State private var showInfoSheet = false
@@ -57,11 +67,15 @@ struct HouseCardView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { if !reduceMotion { isPulsing = true } }
+        .onAppear {
+            if !reduceMotion { isPulsing = true }
+            advertisement.start()
+        }
         .onDisappear {
             pairingComplete = true
             copyResetTask?.cancel()
             copyResetTask = nil
+            advertisement.stop()
         }
         .task { await pollUntilPaired() }
         .task { await listenForIPhoneInvitations() }
@@ -399,19 +413,11 @@ struct HouseCardView: View {
         }
     }
 
+    /// Kept as the call site the whole screen reads through; the derivation
+    /// itself now lives in one place shared with the iPhone and with Settings.
     private static func securityCodeWords(from deepLink: String) -> [String]? {
-        guard let url = URL(string: deepLink),
-              let qr = try? PairDeviceQR(url: url, now: Date()),
-              let fingerprint = try? OperatorFingerprint.derive(
-                machinePublicKey: qr.householdPublicKey,
-                pairingNonce: qr.nonce,
-                wordlist: try BIP39Wordlist()
-              ),
-              fingerprint.words.count == OperatorFingerprint.wordCount else {
-            return nil
-        }
-        return fingerprint.words
-}
+        try? PairingCodePresentation.words(pairingURI: deepLink)
+    }
 
     private func pollUntilPaired() async {
         let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
@@ -432,6 +438,8 @@ struct HouseCardView: View {
                         }
                         pairingComplete = true
                         showInfoSheet = false
+                        // The code that was on screen has been spent.
+                        advertisement.invalidate()
                         onPaired()
                     }
                     if error == nil { return }
@@ -456,17 +464,22 @@ struct HouseCardView: View {
 
     private func listenForIPhoneInvitations() async {
         let hostLabel = Host.current().localizedName ?? "Mac"
-        let existingHouse = SetupInvitationExistingHouse(
-            name: houseName,
-            hostLabel: hostLabel,
-            pairDeviceURI: pairQrUri
-        )
 
         while !Task.isCancelled {
             if await MainActor.run(body: { pairingComplete }) {
                 return
             }
 
+            // Rebuilt every pass. Captured once, this carried whichever link
+            // was live when the card appeared, so a phone arriving after the
+            // window rotated was handed a code the Mac had stopped showing.
+            let existingHouse = await MainActor.run {
+                SetupInvitationExistingHouse(
+                    name: houseName,
+                    hostLabel: hostLabel,
+                    pairDeviceURI: pairQrUri
+                )
+            }
             let listener = SetupInvitationListener(
                 engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
                 existingHouse: existingHouse

@@ -450,6 +450,22 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
     }
 
     private func loadPairingLink() async {
+        // One offer per Mac. This sheet used to mint its own link whenever the
+        // engine was already `.ready`, while the background listener minted a
+        // different one every half second — so the words here and the words
+        // the phone was told to expect came from whichever listener claimed
+        // the invitation first.
+        MacPairingAdvertisement.shared.start()
+        if let offer = await MacPairingAdvertisement.shared.currentOffer() {
+            presentPairing(PairingPayload(
+                houseName: offer.houseName,
+                hostLabel: offer.hostLabel,
+                pairingURI: offer.uri,
+                isFirstOwnerPairing: offer.isEngineMinted,
+                initialDeviceCount: await Self.currentDeviceCount()
+            ))
+            return
+        }
         do {
             let response = try await BootstrapPairDeviceURIClient(
                 baseURL: TheyOSEnvironment.bootstrapBaseURL
@@ -624,17 +640,10 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
     }
 
     private static func homeCodeWords(for pairingURI: String) -> [String]? {
-        guard let url = URL(string: pairingURI),
-              let input = try? householdFingerprintInput(from: url),
-              let fingerprint = try? OperatorFingerprint.derive(
-                machinePublicKey: input.householdPublicKey,
-                pairingNonce: input.pairingNonce,
-                wordlist: try BIP39Wordlist()
-              ),
-              fingerprint.words.count == OperatorFingerprint.wordCount else {
-            return nil
-        }
-        return fingerprint.words
+        // The same derivation the house card and the iPhone use. It reads both
+        // link shapes, which is why this no longer needs its own branch on
+        // PairDeviceQR versus link.pairingNonce.
+        try? PairingCodePresentation.words(pairingURI: pairingURI)
     }
 
     private static func householdFingerprintInput(from url: URL) throws -> (householdPublicKey: Data, pairingNonce: Data) {

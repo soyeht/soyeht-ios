@@ -145,6 +145,9 @@ final class MacAutomaticIPhoneDiscoveryService {
     func start() {
         guard task == nil else { return }
         task = Task { [weak self] in
+            // The offer this service hands out is the one the Mac displays;
+            // keeping it refreshed is part of listening.
+            await MacPairingAdvertisement.shared.start()
             await self?.run()
         }
     }
@@ -152,6 +155,7 @@ final class MacAutomaticIPhoneDiscoveryService {
     func stop() {
         task?.cancel()
         task = nil
+        Task { await MacPairingAdvertisement.shared.stop() }
     }
 
     private func run() async {
@@ -179,29 +183,20 @@ final class MacAutomaticIPhoneDiscoveryService {
     }
 
     private func makeExistingHousePayload() async -> SetupInvitationExistingHouse? {
-        do {
-            let status = try await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-            guard status.state == .ready else { return nil }
-            let identity = try await AutomaticHouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-            let endpoint = SetupInvitationDirectProbe.reachableMacEngineURL(
-                localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
-            )
-            let link = HouseholdDevicePairingLink(
-                endpoint: endpoint,
-                householdId: identity.householdId,
-                householdPublicKey: identity.householdPublicKey,
-                householdName: identity.name,
-                pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
-            )
-            return SetupInvitationExistingHouse(
-                name: identity.name,
-                hostLabel: Host.current().localizedName ?? "Mac",
-                pairDeviceURI: try link.url().absoluteString
-            )
-        } catch {
-            setupInvitationLogger.info("automatic_listener.payload_unavailable error=\(String(describing: error), privacy: .public)")
+        // This loop used to mint a fresh nonce on every pass — a new set of
+        // six words every half second — while the Mac's own screens showed a
+        // different one. The phone was then told to expect words nobody was
+        // displaying, and it reported that it could not verify the Mac.
+        // There is one offer per Mac now, and this reads it.
+        guard let offer = await MacPairingAdvertisement.shared.currentOffer() else {
+            setupInvitationLogger.info("automatic_listener.payload_unavailable reason=no_offer")
             return nil
         }
+        return SetupInvitationExistingHouse(
+            name: offer.houseName,
+            hostLabel: offer.hostLabel,
+            pairDeviceURI: offer.uri
+        )
     }
 }
 
@@ -209,40 +204,6 @@ private struct AutomaticHouseholdIdentitySummary {
     let householdId: String
     let householdPublicKey: Data
     let name: String
-}
-
-private struct AutomaticHouseholdIdentityFetcher {
-    let baseURL: URL
-
-    func fetch() async throws -> AutomaticHouseholdIdentitySummary {
-        let url = baseURL.appendingPathComponent("api/v1/household/identity")
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-        let envelope = try JSONDecoder().decode(IdentityEnvelope.self, from: data)
-        guard let publicKey = Data(base64Encoded: envelope.householdPublicKeyBase64),
-              publicKey.count == HouseholdIdentifiers.compressedP256PublicKeyLength else {
-            throw URLError(.cannotDecodeContentData)
-        }
-        return AutomaticHouseholdIdentitySummary(
-            householdId: envelope.householdId,
-            householdPublicKey: publicKey,
-            name: envelope.name
-        )
-    }
-
-    private struct IdentityEnvelope: Decodable {
-        let householdId: String
-        let householdPublicKeyBase64: String
-        let name: String
-
-        enum CodingKeys: String, CodingKey {
-            case householdId = "hh_id"
-            case householdPublicKeyBase64 = "hh_pub_b64"
-            case name
-        }
-    }
 }
 
 private final class ResumeOnce: @unchecked Sendable {
@@ -539,8 +500,18 @@ private enum SetupInvitationDirectProbe {
         let candidates = [
             "/opt/homebrew/bin/tailscale",
             "/usr/local/bin/tailscale",
+            // Tailscale installed the ordinary way — from the App Store or as
+            // a downloaded .app — puts its CLI inside the bundle and nowhere
+            // on PATH. Without this, the peer list came back empty for every
+            // owner who did not install it through Homebrew, and the Mac
+            // silently never found an iPhone across the tailnet.
+            "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
         ]
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+        guard let found = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
+            setupInvitationLogger.info("direct_probe.tailscale_cli_missing")
+            return nil
+        }
+        return found
     }
 
     private static func run(_ executable: String, arguments: [String], timeout: TimeInterval) async -> Data? {

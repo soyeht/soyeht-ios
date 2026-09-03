@@ -1017,7 +1017,13 @@ struct SoyehtAppView: View {
 
     private func handlePairDevice(
         url: URL,
-        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider()
+        // `.deviceUnlocked`, like every other place this iPhone becomes an
+        // owner. The default is `.biometryCurrentSet`, and this one call site
+        // took it — so a phone that paired by QR got a key whose every use
+        // asks for Face ID, and the owner-events poll asks constantly. The
+        // key's protection cannot be changed after pairing; Face ID as a
+        // deliberate choice is a passkey, not this.
+        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
     ) async {
         await MainActor.run { isPairing = true }
         do {

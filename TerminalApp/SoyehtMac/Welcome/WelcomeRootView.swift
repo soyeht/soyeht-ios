@@ -182,7 +182,7 @@ struct WelcomeRootView: View {
             HouseCardView(
                 houseName: name,
                 avatar: avatar,
-                pairQrUri: pairQrUri,
+                initialPairQrUri: pairQrUri,
                 onContinueOnMac: { await ensureLocalCredential() },
                 onPaired: onPaired
             )
