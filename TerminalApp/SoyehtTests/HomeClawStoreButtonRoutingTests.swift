@@ -103,27 +103,30 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
-    func test_releaseLaunchRouting_keepsCarouselBehindFeatureFlag() throws {
+    func test_noSetupLaunchRoutesToWelcome() throws {
         let appDelegate = try iosSource("AppDelegate.swift")
         let launchRouting = try slice(
             appDelegate,
-            from: "let storage = CarouselSeenStorage()",
+            from: "let restoredFromBackup = RestoredFromBackupDetector().detect()",
             to: "window.makeKeyAndVisible()"
         )
-        let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
 
-        XCTAssertTrue(featureFlags.contains("onboardingCarouselEnabled = false"),
-            "Public launch should keep the marketing carousel disabled until the release experience is Mac-first."
-        )
         XCTAssertTrue(launchRouting.contains("!Self.hasAnySetupState()"),
-            "First-run with no paired state must go directly to automatic Mac discovery."
+            "First-run with no paired state must still be what decides the onboarding root."
         )
-        XCTAssertTrue(launchRouting.contains("showAutomaticMacDiscovery(in: window)"),
-            "No-setup launch should start nearby Mac discovery without requiring the old carousel."
+        XCTAssertTrue(launchRouting.contains("case .welcome:"),
+            "A phone with no setup state lands on I1, not straight on the radar."
         )
-        XCTAssertTrue(launchRouting.contains("SoyehtFeatureFlags.onboardingCarouselEnabled"),
-            "Carousel routing must stay behind a feature flag so launch cannot regress to the Claw Store tour."
+        XCTAssertTrue(launchRouting.contains("showWelcome(in: window)"),
+            "The welcome root is presented by the SceneDelegate, not reached through a notification."
         )
+
+        // The marketing carousel is gone, flag and all: a flag that can only
+        // be false is a screen nobody can reach.
+        XCTAssertFalse(appDelegate.contains("CarouselRootView"))
+        XCTAssertFalse(appDelegate.contains("CarouselSeenStorage"))
+        let featureFlags = try coreSource("Features/SoyehtFeatureFlags.swift")
+        XCTAssertFalse(featureFlags.contains("onboardingCarouselEnabled"))
     }
 
     func test_clawStoreE2ELaunchArgument_isDebugOnlyAndDefaultOff() throws {

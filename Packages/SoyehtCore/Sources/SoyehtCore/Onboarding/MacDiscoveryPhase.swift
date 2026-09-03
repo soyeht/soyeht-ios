@@ -54,6 +54,12 @@ public enum MacUnreachableReason: Equatable, Sendable {
     case engineTooOld
     case noAnswer(urlErrorCode: Int)
     case txtUnresolved
+    /// The Mac answered and it already has a home this phone is not in. The
+    /// pairing window is closed, so nothing the phone does on its own opens
+    /// it — someone has to add this iPhone from the Mac. Distinct from
+    /// `noAnswer` because "unreachable" is a lie here: the Mac is right
+    /// there, answering.
+    case alreadyHasHome
 }
 
 /// Turns elapsed time plus what has been observed into a stall, or nothing.

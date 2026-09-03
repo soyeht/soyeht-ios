@@ -16,22 +16,23 @@ struct AwaitingMacView: View {
     let invitation: SetupInvitationPayload
     let onMacFound: (Result) -> Void
     let onCancel: () -> Void
-    let onUseDownloadLink: () -> Void
     let onSwitchToLinux: () -> Void
 
     @StateObject private var viewModel: AwaitingMacViewModel
+    /// "Get the link" hands the macOS download to whoever is at the Mac
+    /// without taking the phone off the radar — the search keeps running under
+    /// the sheet, so a Mac that comes up mid-share is still found.
+    @State private var showDownloadShareSheet = false
 
     init(
         invitation: SetupInvitationPayload,
         onMacFound: @escaping (Result) -> Void,
         onCancel: @escaping () -> Void,
-        onUseDownloadLink: @escaping () -> Void,
         onSwitchToLinux: @escaping () -> Void
     ) {
         self.invitation = invitation
         self.onMacFound = onMacFound
         self.onCancel = onCancel
-        self.onUseDownloadLink = onUseDownloadLink
         self.onSwitchToLinux = onSwitchToLinux
         _viewModel = StateObject(wrappedValue: AwaitingMacViewModel(invitation: invitation))
     }
@@ -108,6 +109,9 @@ struct AwaitingMacView: View {
         }
         .environment(\.neoPalette, palette)
         .preferredColorScheme(.light)
+        .sheet(isPresented: $showDownloadShareSheet) {
+            ShareSheet(items: [MacDownloadLink.latestDMG])
+        }
         .onAppear { viewModel.start(onMacFound: onMacFound) }
         .onDisappear { viewModel.stop() }
     }
@@ -152,6 +156,13 @@ struct AwaitingMacView: View {
                 defaultValue: "Connected.",
                 comment: "I3 status: done."
             )
+        case .stalled(.macUnreachable(.alreadyHasHome)):
+            // "Still nothing" would be false: the Mac answered.
+            return LocalizedStringResource(
+                "onboarding.looking.status.alreadyHasHome",
+                defaultValue: "I found your Mac, but it isn't waiting for a new iPhone.",
+                comment: "I3 status: the Mac answered and its pairing window is closed."
+            )
         case .stalled:
             return LocalizedStringResource(
                 "onboarding.looking.status.stalled",
@@ -161,17 +172,26 @@ struct AwaitingMacView: View {
         }
     }
 
+    /// The same chevron `OnboardingScaffold` draws, in the same place: this
+    /// screen has its own layout (the radar wants the full height) but it is
+    /// still one of the six, and "Cancel" on a screen that is only waiting
+    /// read as "give up" rather than "go back one".
     private var dismissBar: some View {
         HStack {
             Button(action: onCancel) {
-                Text(LocalizedStringResource(
-                    "awaitingMac.cancel",
-                    defaultValue: "Cancel",
-                    comment: "Cancel button on awaiting Mac screen."
-                ))
-                .font(OnboardingFonts.subheadline)
-                .foregroundColor(BrandColors.textMuted)
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(palette.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.Onboarding.back)
+            .accessibilityLabel(Text(LocalizedStringResource(
+                "onboarding.back.a11y",
+                defaultValue: "Back",
+                comment: "VoiceOver label for the back chevron shared by the onboarding screens."
+            )))
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -231,7 +251,9 @@ struct AwaitingMacView: View {
             .buttonStyle(NeoPillButtonStyle(.primary, palette: palette, fillsWidth: false))
             .accessibilityIdentifier("soyeht.onboarding.notFound.keepLooking")
 
-            Button(action: onUseDownloadLink) {
+            Button {
+                showDownloadShareSheet = true
+            } label: {
                 Text(LocalizedStringResource(
                     "onboarding.notFound.getLink",
                     defaultValue: "Don't have Soyeht on the Mac yet? Get the link",
@@ -268,6 +290,24 @@ struct AwaitingMacView: View {
     /// already ruled out.
     private var causes: [Cause] {
         var result: [Cause] = []
+
+        // A Mac that already has a home is answering, so none of the "can they
+        // see each other" causes apply. One cause, and it is the only thing
+        // that opens the door.
+        if case .stalled(.macUnreachable(.alreadyHasHome)) = viewModel.phase {
+            return [Cause(
+                title: LocalizedStringResource(
+                    "onboarding.notFound.cause.alreadyHasHome.title",
+                    defaultValue: "That Mac already has a home",
+                    comment: "I8 cause: the Mac is set up and this iPhone is not in its household."
+                ),
+                body: LocalizedStringResource(
+                    "onboarding.notFound.cause.alreadyHasHome.body",
+                    defaultValue: "Add this iPhone from the Mac: open Soyeht there, then Settings › Devices › Add iPhone.",
+                    comment: "I8 cause body: the one action that opens a closed pairing window."
+                )
+            )]
+        }
 
         if case .waitingForMacOffer = viewModel.phase {
             result.append(Cause(
@@ -895,6 +935,13 @@ final class AwaitingMacViewModel: ObservableObject {
                     phase = .waitingForMacSetup(name: name)
                     diagnosticMessage = "Mac is still being set up"
                     cancelRecoveryHint()
+                case .macAlreadyHasHome:
+                    // Nothing to retry and nothing to probe: the Mac is
+                    // answering, it just has no open pairing window. Say the
+                    // one thing that opens it and stop pretending to search.
+                    phase = .stalled(.macUnreachable(.alreadyHasHome))
+                    diagnosticMessage = nil
+                    return
                 case .retryLater:
                     let rawErrText = await probeRawError(for: engineURL)
                     let hostPort = "\(engineURL.host ?? "?"):\(engineURL.port.map(String.init) ?? "?")"
@@ -1086,6 +1133,9 @@ private enum AwaitingMacBootstrapDecision {
     case connectedToExistingMac
     /// The engine answered and has no home yet. Keep looking; do not latch.
     case macIsBeingSetUp(name: String?)
+    /// The engine answered, it is someone's home, and this phone is not in it.
+    /// Not a failure to reach anything — a door that only opens from inside.
+    case macAlreadyHasHome
     case retryLater
 }
 
@@ -1101,7 +1151,7 @@ private func awaitingMacBootstrapDecision(
             awaitingMacLogger.info("bootstrap_decision.fetched attempt=\(attempt, privacy: .public) state=\(String(describing: status.state), privacy: .public)")
             switch status.state {
             case .ready:
-                return canOpenExistingMac ? .connectedToExistingMac : .retryLater
+                return canOpenExistingMac ? .connectedToExistingMac : .macAlreadyHasHome
             case .namedAwaitingPair:
                 if let response = try? await BootstrapPairDeviceURIClient(baseURL: engineURL).fetch() {
                     return .existingHouse(SetupInvitationExistingHouse(

@@ -150,7 +150,7 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
 
     /// Lower this every time lines leave the fixture; never raise it. S11
     /// takes it to zero.
-    private static let allowlistCeiling = 172
+    private static let allowlistCeiling = 170
 
     func test_allowlistFixtureIsSortedAndUnique() throws {
         let allowlist = try loadAllowlist()

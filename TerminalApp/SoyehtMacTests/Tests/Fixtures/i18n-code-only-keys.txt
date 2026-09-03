@@ -96,7 +96,6 @@ ownerPasskey.enrollment.skip
 ownerPasskey.enrollment.subtitle
 ownerPasskey.enrollment.title
 ownerPasskey.enrollment.unavailable
-parkingLot.back
 prefs.devices.addIPhone.connected
 prefs.devices.addIPhone.connected.status
 prefs.devices.addIPhone.copied
@@ -133,7 +132,6 @@ prefs.devices.startOver.explainer
 prefs.devices.title
 prefs.tab.devices
 prefs.tab.general
-proximity.back
 settings.leaveHousehold.confirm.action
 settings.leaveHousehold.confirm.body
 settings.leaveHousehold.confirm.title

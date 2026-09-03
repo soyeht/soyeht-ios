@@ -231,7 +231,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             queue: .main
         ) { [weak self, weak window] _ in
             guard let self, let window else { return }
-            self.showInstallPicker(in: window)
+            self.showMacPresenceQuestion(in: window)
         }
 
         let launchURL = connectionOptions.urlContexts.first?.url ?? SessionStore.shared.pendingDeepLink
@@ -239,16 +239,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             SessionStore.shared.pendingDeepLink = launchURL
         }
 
-        let storage = CarouselSeenStorage()
         let restoredFromBackup = RestoredFromBackupDetector().detect()
         // The decision is a value (`OnboardingDeepLinkRouter.launchRoot`) so it
         // can be asserted directly; this switch only presents it.
         switch OnboardingDeepLinkRouter.launchRoot(
             launchURL: launchURL,
             restoredFromBackup: restoredFromBackup,
-            hasNoSetupState: !Self.hasAnySetupState(),
-            carouselEnabled: SoyehtFeatureFlags.onboardingCarouselEnabled,
-            shouldShowCarousel: storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup)
+            hasNoSetupState: !Self.hasAnySetupState()
         ) {
         case .restoredFromBackup:
             window.rootViewController = UIHostingController(rootView:
@@ -257,13 +254,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     self.showMainStoryboard(in: window)
                 }
             )
-        case .automaticMacDiscovery:
-            // The iPhone release experience is Mac-first: if there is no
-            // paired state, start looking for the nearby Mac immediately and
-            // keep platform/manual choices as recovery actions.
-            showAutomaticMacDiscovery(in: window)
-        case .carousel:
-            showCarousel(in: window)
+        case .welcome:
+            showWelcome(in: window)
         case .mainStoryboard:
             showMainStoryboard(in: window)
         }
@@ -360,20 +352,38 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 
-    private func showInstallPicker(in window: UIWindow) {
-        window.rootViewController = UIHostingController(rootView:
-            InstallPickerView(
-                onMacSelected: { [weak self, weak window] in
+    /// I1. Hosted by `OnboardingHostingController` like every Layer-A root so
+    /// the neo canvas owns the whole screen, status bar included.
+    private func showWelcome(in window: UIWindow) {
+        window.rootViewController = OnboardingHostingController(rootView:
+            WelcomeView(onGetStarted: { [weak self, weak window] in
+                guard let self, let window else { return }
+                self.showMacPresenceQuestion(in: window)
+            })
+        )
+    }
+
+    /// I2. Every answer ends in the same place — the phone looking for the Mac
+    /// — except the Linux one. "Not yet" shares the download link first, so the
+    /// Mac can be installed while the phone is already waiting for it.
+    private func showMacPresenceQuestion(in window: UIWindow) {
+        window.rootViewController = OnboardingHostingController(rootView:
+            MacPresenceQuestionView(
+                onAlreadyInstalled: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showProximityQuestion(in: window)
+                    Task { @MainActor in
+                        await self.beginMacNearbyFlow(in: window)
+                    }
                 },
-                onLinuxSelected: { [weak self, weak window] in
+                onNeedsInstall: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    Task { @MainActor in
+                        await self.beginMacNearbyFlow(in: window)
+                    }
+                },
+                onLinux: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showLinuxPairingGuide(in: window)
-                },
-                onLater: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showParkingLot(in: window)
                 }
             )
         )
@@ -389,62 +399,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onBack: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
-                }
-            )
-        )
-    }
-
-    private func showCarousel(in window: UIWindow) {
-        window.rootViewController = UIHostingController(rootView:
-            CarouselRootView { [weak self, weak window] in
-                guard let self, let window else { return }
-                self.showAutomaticMacDiscovery(in: window)
-            }
-        )
-    }
-
-    @MainActor
-    private func showAutomaticMacDiscovery(in window: UIWindow) {
-        let invitation = makeSetupInvitationPayload(apnsToken: APNsTokenRegistrar.shared.persistedToken())
-        showAwaitingMac(invitation: invitation, in: window)
-    }
-
-    @MainActor
-    private func showMacDownloadLink(in window: UIWindow) async {
-        let invitation = await makeSetupInvitationPayload()
-        window.rootViewController = UIHostingController(rootView:
-            QRFallbackView(
-                onContinue: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showAwaitingMac(invitation: invitation, in: window)
-                },
-                onCancel: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
-                }
-            )
-        )
-    }
-
-    private func showProximityQuestion(in window: UIWindow) {
-        window.rootViewController = UIHostingController(rootView:
-            ProximityQuestionView(
-                onNearby: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.beginMacNearbyFlow(in: window)
-                    }
-                },
-                onLater: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.showMacDownloadLink(in: window)
-                    }
-                },
-                onBack: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
+                    self.showMacPresenceQuestion(in: window)
                 }
             )
         )
@@ -501,7 +456,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func showAwaitingMac(invitation: SetupInvitationPayload, in window: UIWindow) {
-        window.rootViewController = UIHostingController(rootView:
+        window.rootViewController = OnboardingHostingController(rootView:
             AwaitingMacView(
                 invitation: invitation,
                 onMacFound: { [weak self, weak window] result in
@@ -513,33 +468,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
-                },
-                onUseDownloadLink: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.showMacDownloadLink(in: window)
-                    }
+                    self.showMacPresenceQuestion(in: window)
                 },
                 onSwitchToLinux: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showLinuxPairingGuide(in: window)
-                }
-            )
-        )
-    }
-
-    private func showParkingLot(in window: UIWindow) {
-        UserDefaults.standard.set(Date().timeIntervalSinceReferenceDate, forKey: "parking_lot_visited_at")
-        window.rootViewController = UIHostingController(rootView:
-            LaterParkingLotView(
-                onDismiss: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showMainStoryboard(in: window)
-                },
-                onBack: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -618,9 +551,7 @@ enum OnboardingDeepLinkRouter {
     static func launchRoot(
         launchURL: URL?,
         restoredFromBackup: Bool,
-        hasNoSetupState: Bool,
-        carouselEnabled: Bool,
-        shouldShowCarousel: Bool
+        hasNoSetupState: Bool
     ) -> OnboardingLaunchRoot {
         if restoredFromBackup {
             return .restoredFromBackup
@@ -633,10 +564,7 @@ enum OnboardingDeepLinkRouter {
             return .mainStoryboard
         }
         if hasNoSetupState {
-            return .automaticMacDiscovery
-        }
-        if carouselEnabled, shouldShowCarousel {
-            return .carousel
+            return .welcome
         }
         return .mainStoryboard
     }
@@ -654,8 +582,9 @@ enum OnboardingDeepLinkRouter {
 enum OnboardingLaunchRoot: Equatable {
     case restoredFromBackup
     case mainStoryboard
-    case automaticMacDiscovery
-    case carousel
+    /// I1. A phone with no setup state meets the product once, in a sentence,
+    /// and then answers the single question that decides what happens next.
+    case welcome
 }
 
 private extension Data {

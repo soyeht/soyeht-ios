@@ -225,4 +225,14 @@ enum AccessibilityID {
         static func sessionRow(_ id: String) -> String { "soyeht.home.sessionRow.\(id)" }
     }
 
+    // MARK: - Onboarding (neo)
+
+    enum Onboarding {
+        static let back = "soyeht.onboarding.back"
+        static let welcomeGetStarted = "soyeht.onboarding.welcome.getStarted"
+        static let macPresenceYes = "soyeht.onboarding.macPresence.yes"
+        static let macPresenceNotYet = "soyeht.onboarding.macPresence.notYet"
+        static let macPresenceLinux = "soyeht.onboarding.macPresence.linux"
+    }
+
 }
