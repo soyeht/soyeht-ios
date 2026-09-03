@@ -3,33 +3,55 @@ import SoyehtCore
 
 // MARK: - LinuxPairingGuideView
 
+/// The Linux answer to I2, and the last screen of the flow that was still
+/// wearing the old palette: a flat card with a hairline border, blue numbered
+/// discs and a rectangular accent button, sitting between two neo screens.
+///
+/// It is the same three steps; only the surfaces changed. The steps live in a
+/// `NeoCard`, each number is a well sunk into it, and the two actions are the
+/// same pill and link every other screen uses.
 struct LinuxPairingGuideView: View {
     let onScanPairingLink: () -> Void
     let onBack: () -> Void
 
     @State private var showShareSheet = false
 
+    private let palette = NeoPalette.cloud
     private static let theyOSInstallURL = URL(string: "https://github.com/soyeht/theyos")!
 
     var body: some View {
-        ZStack {
-            BrandColors.surfaceDeep.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
-                        header
-                        stepsCard
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 36)
-                    .padding(.bottom, 40)
+        OnboardingScaffold(palette: palette, onBack: onBack) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    stepsCard
                 }
+                .padding(.bottom, 8)
+            }
+        } actions: {
+            VStack(spacing: 12) {
+                Button(action: onScanPairingLink) {
+                    Text(LocalizedStringResource(
+                        "linuxPairing.scanButton",
+                        defaultValue: "Scan or paste pairing link",
+                        comment: "Primary action to open QR scanner for Linux pairing."
+                    ))
+                }
+                .buttonStyle(NeoPillButtonStyle(.primary, palette: palette))
+                .accessibilityIdentifier(AccessibilityID.InstallPicker.linuxScanPairingLinkButton)
 
-                footer
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Text(LocalizedStringResource(
+                        "linuxPairing.shareInstallLink",
+                        defaultValue: "Send install link to a computer",
+                        comment: "Tertiary action on the Linux pairing guide. Opens a share sheet with the theyOS install URL so the user can send it to their Linux computer (email, AirDrop, messaging app) when theyOS is not yet installed."
+                    ))
+                }
+                .buttonStyle(NeoLinkButtonStyle(palette: palette))
             }
         }
-        .preferredColorScheme(BrandColors.preferredColorScheme)
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [Self.theyOSInstallURL])
         }
@@ -37,31 +59,11 @@ struct LinuxPairingGuideView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Button(action: onBack) {
-                HStack(spacing: 8) {
-                    Image(systemName: "chevron.backward")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(LocalizedStringResource(
-                        "linuxPairing.back",
-                        defaultValue: "Back",
-                        comment: "Back button from Linux setup to install picker."
-                    ))
-                    .font(OnboardingFonts.subheadline)
-                }
-                .foregroundColor(BrandColors.textMuted)
-            }
-            .buttonStyle(.plain)
-
             Image(systemName: "terminal")
-                .font(.system(size: 42, weight: .semibold))
-                .foregroundColor(BrandColors.accentGreen)
-                .frame(width: 64, height: 64)
-                .background(BrandColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(BrandColors.border, lineWidth: 1)
-                )
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(palette.accent)
+                .frame(width: 72, height: 72)
+                .neoRaised(palette, radius: NeoRadius.card, elevation: .card)
                 .accessibilityHidden(true)
 
             Text(LocalizedStringResource(
@@ -69,8 +71,8 @@ struct LinuxPairingGuideView: View {
                 defaultValue: "Connect your Linux computer",
                 comment: "Title for Linux setup instructions."
             ))
-            .font(OnboardingFonts.headingLarge)
-            .foregroundColor(BrandColors.textPrimary)
+            .font(NeoFont.title)
+            .foregroundStyle(palette.text)
             .accessibilityAddTraits(.isHeader)
 
             Text(LocalizedStringResource(
@@ -78,14 +80,16 @@ struct LinuxPairingGuideView: View {
                 defaultValue: "Run the pairing command on Linux, then scan the QR code or paste the pairing link here.",
                 comment: "Subtitle explaining Linux pairing."
             ))
-            .font(OnboardingFonts.callout)
-            .foregroundColor(BrandColors.textMuted)
+            .font(NeoFont.body)
+            .foregroundStyle(palette.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var stepsCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        NeoCard(palette: palette) {
+            VStack(alignment: .leading, spacing: 18) {
             LinuxStepRow(
                 index: 1,
                 title: LocalizedStringResource(
@@ -125,58 +129,11 @@ struct LinuxPairingGuideView: View {
                     comment: "Linux setup step detail."
                 )
             )
+            }
+            .padding(18)
         }
-        .padding(18)
-        .background(BrandColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(BrandColors.border, lineWidth: 1)
-        )
     }
 
-    private var footer: some View {
-        VStack(spacing: 12) {
-            Divider()
-                .background(BrandColors.border)
-
-            Button {
-                showShareSheet = true
-            } label: {
-                Text(LocalizedStringResource(
-                    "linuxPairing.shareInstallLink",
-                    defaultValue: "Send install link to a computer",
-                    comment: "Tertiary action on the Linux pairing guide. Opens a share sheet with the theyOS install URL so the user can send it to their Linux computer (email, AirDrop, messaging app) when theyOS is not yet installed."
-                ))
-                .font(OnboardingFonts.subheadline)
-                .foregroundColor(BrandColors.accentGreen)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-
-            Button(action: onScanPairingLink) {
-                Text(LocalizedStringResource(
-                    "linuxPairing.scanButton",
-                    defaultValue: "Scan or paste pairing link",
-                    comment: "Primary action to open QR scanner for Linux pairing."
-                ))
-                .font(OnboardingFonts.subheadline.weight(.semibold))
-                .foregroundColor(BrandColors.buttonTextOnAccent)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(BrandColors.accentGreen)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(AccessibilityID.InstallPicker.linuxScanPairingLinkButton)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 18)
-        }
-        .background(BrandColors.surfaceDeep)
-    }
 }
 
 // MARK: - ShareSheet
@@ -193,33 +150,40 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
+/// One step. The number is a well sunk into the card rather than a filled
+/// disc floating on it: in this style depth is the only thing that separates
+/// a label from a control, and a step number is neither.
 private struct LinuxStepRow: View {
     let index: Int
     let title: LocalizedStringResource
     let detail: LocalizedStringResource
 
+    @Environment(\.neoPalette) private var palette
+
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             Text(verbatim: "\(index)")
-                .font(OnboardingFonts.caption2Bold)
-                .foregroundColor(BrandColors.buttonTextOnAccent)
-                .frame(width: 28, height: 28)
-                .background(BrandColors.accentGreen)
-                .clipShape(Circle())
+                .font(NeoFont.monoSmall)
+                .foregroundStyle(palette.accent)
+                .frame(width: 30, height: 30)
+                .neoWell(palette, radius: 15)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(OnboardingFonts.subheadline.weight(.semibold))
-                    .foregroundColor(BrandColors.textPrimary)
+                    .font(NeoFont.body)
+                    .foregroundStyle(palette.text)
                 Text(detail)
-                    .font(OnboardingFonts.caption)
-                    .foregroundColor(BrandColors.textMuted)
+                    .font(NeoFont.caption)
+                    .foregroundStyle(palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
+/// Two one-shot requests the onboarding leaves for the main flow to pick up on
+/// its next launch. They live here because this file is the last piece of the
+/// old install-picker that anything still reaches.
 enum OnboardingLaunchIntent {
     private static let qrScannerKey = "soyeht.onboarding.startInQRScanner"
 

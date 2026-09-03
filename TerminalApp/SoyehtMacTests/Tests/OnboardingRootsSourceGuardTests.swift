@@ -39,7 +39,7 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
     }
 
     func test_theNeoOnboardingScreensReadTheNeoPaletteOnly() throws {
-        for url in try neoOnboardingFiles() {
+        for url in try onboardingScreenFiles() {
             let source = try codeOnly(String(contentsOf: url, encoding: .utf8))
             let name = url.lastPathComponent
             // RestoredFromBackupView still wears the old palette; it is
@@ -169,6 +169,29 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
         XCTAssertFalse(radar.contains("UserDefaults.standard.set(rejectedHouseholdKeys"))
     }
 
+    /// Every surface that shows the six words shows them in the same shape.
+    ///
+    /// The Mac's Preferences sheet laid them out in two columns, so it read
+    /// 1,2 / 3,4 / 5,6 while the phone read 1,2,3 / 4,5,6. The two lists were
+    /// identical and looked nothing alike — which is the one thing a
+    /// side-by-side comparison must never do.
+    func test_theSixWordsAreThreeColumnsEverywhere() throws {
+        let card = try codeOnly(repoSource("TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCardView.swift"))
+
+        // Both Mac grids — M4's fallback sheet and the Preferences sheet.
+        XCTAssertEqual(card.components(separatedBy: "count: 3").count - 1, 2)
+        XCTAssertFalse(
+            card.contains("GridItem(.flexible(), alignment: .leading),\n                    GridItem(.flexible(), alignment: .leading),\n                ]"),
+            "a two-column word grid is back on the Mac"
+        )
+
+        // The phone builds its 2×3 by hand: three per row, two rows.
+        let radar = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift"))
+        XCTAssertTrue(radar.contains("ForEach(0..<2, id: \\.self) { row in"))
+        XCTAssertTrue(radar.contains("ForEach(0..<3, id: \\.self) { column in"))
+        XCTAssertTrue(radar.contains("let index = row * 3 + column"))
+    }
+
     // MARK: - Helpers
 
     /// The identifier of the hosting controller that presents `root` — read by
@@ -183,10 +206,19 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
         return String(name) + "HostingController"
     }
 
-    private func neoOnboardingFiles() throws -> [URL] {
-        let root = repoURL("TerminalApp/Soyeht/Onboarding/Neo")
-        let names = try FileManager.default.contentsOfDirectory(atPath: root.path)
-        return names.filter { $0.hasSuffix(".swift") }.map { root.appendingPathComponent($0) }
+    /// Every screen a person can reach in the onboarding — not just the ones
+    /// filed under Neo/. The Linux guide sat in its own folder wearing the old
+    /// palette for a whole slice because this scan only looked at one
+    /// directory, and it shows up between two neo screens.
+    private func onboardingScreenFiles() throws -> [URL] {
+        var files: [URL] = []
+        for folder in ["Onboarding/Neo", "Onboarding/Linux"] {
+            let root = repoURL("TerminalApp/Soyeht/\(folder)")
+            let names = try FileManager.default.contentsOfDirectory(atPath: root.path)
+            files += names.filter { $0.hasSuffix(".swift") }.map { root.appendingPathComponent($0) }
+        }
+        files.append(repoURL("TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift"))
+        return files
     }
 
     private func repoURL(_ relativePath: String) -> URL {

@@ -380,25 +380,30 @@ struct HouseCardView: View {
             .font(MacTypography.Fonts.welcomeProgressTitle)
             .foregroundColor(BrandColors.textMuted)
 
+            // Three columns, like I4 and like the Preferences sheet. Every
+            // surface that shows these six words shows them in the same
+            // shape, or comparing two screens becomes a puzzle.
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), alignment: .leading),
-                    GridItem(.flexible(), alignment: .leading),
-                ],
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 8, alignment: .leading),
+                    count: 3
+                ),
                 alignment: .leading,
                 spacing: 8
             ) {
                 ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)")
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textMuted)
-                            .frame(width: 16, alignment: .trailing)
 
                         Text(verbatim: word)
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 
@@ -704,25 +709,32 @@ struct IPhonePairingSheetContent: View {
             .font(MacTypography.Fonts.welcomeProgressTitle)
             .foregroundColor(BrandColors.textMuted)
 
+            // Three columns and two rows, the same shape and the same reading
+            // order as the iPhone's I4. Two columns put 1,2 / 3,4 / 5,6 on
+            // screen while the phone showed 1,2,3 / 4,5,6 — the two lists are
+            // identical and look nothing alike, which is the one thing a
+            // side-by-side comparison must never do.
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), alignment: .leading),
-                    GridItem(.flexible(), alignment: .leading),
-                ],
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 8, alignment: .leading),
+                    count: 3
+                ),
                 alignment: .leading,
                 spacing: 8
             ) {
                 ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)")
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textMuted)
-                            .frame(width: 16, alignment: .trailing)
 
                         Text(verbatim: word)
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(BrandColors.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 

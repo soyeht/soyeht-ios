@@ -200,19 +200,6 @@ struct AwaitingMacView: View {
         .padding(.vertical, 16)
     }
 
-    private var pulsatingRadar: some View {
-        ZStack {
-            ForEach(0..<3, id: \.self) { i in
-                PulseRing(delay: Double(i) * 0.5)
-            }
-
-            Image(systemName: "wave.3.forward")
-                .font(.system(size: 36))
-                .foregroundColor(BrandColors.accentGreen)
-        }
-        .frame(width: 120, height: 120)
-        .accessibilityHidden(true)
-    }
 
     /// I8 — what to do about it. Each row is a cause the phone can actually
     /// distinguish, not a list of everything that could ever be wrong.
@@ -483,32 +470,6 @@ struct AwaitingMacView: View {
                 .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.reject")
             }
         }
-    }
-}
-
-// MARK: - PulseRing
-
-private struct PulseRing: View {
-    let delay: Double
-    @State private var scale: CGFloat = 0.4
-    @State private var opacity: Double = 0.6
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Circle()
-            .stroke(BrandColors.accentGreen.opacity(opacity), lineWidth: 1.5)
-            .scaleEffect(scale)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(
-                    .easeOut(duration: 1.8)
-                    .delay(delay)
-                    .repeatForever(autoreverses: false)
-                ) {
-                    scale = 1.4
-                    opacity = 0
-                }
-            }
     }
 }
 
