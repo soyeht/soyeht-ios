@@ -571,9 +571,13 @@ struct SoyehtAppView: View {
             case .shareApp(let snapshot):
                 ShareAppView(
                     model: ShareAppViewModel(),
+                    // Back to the home, not to the household screen. Sharing
+                    // is reached from the home by way of "Other machines", so
+                    // dismissing used to drop an owner onto a household id and
+                    // a person id — the same screen, by a longer road.
                     onDismiss: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .householdHome(snapshot)
+                            appState = .instanceList
                         }
                     },
                     onShowActiveShares: {
@@ -599,7 +603,7 @@ struct SoyehtAppView: View {
                 // Three screens became one: the success card, the passkey
                 // screen and the recovery message all landed in the same
                 // place, and the first-owner path skipped past the lot of
-                // them. The Face ID switch lives on this card now, and the
+                // them. This card is what everybody who pairs sees, and the
                 // continuation is the one those three shared.
                 PairedCelebrationView(
                     snapshot: snapshot,

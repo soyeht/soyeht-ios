@@ -304,6 +304,42 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
     }
 
+    /// The household screen — a household id, a person id, a section called
+    /// "apps" — may never be reached by the app deciding on its own. It cost
+    /// three separate fixes to learn that: the celebration branch, the launch
+    /// after it, and the way back out of sharing. This counts the doors.
+    func test_theHouseholdScreenIsReachedOnlyByScanningAMachineJoinCode() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let routes = source
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("appState = .householdHome") }
+        XCTAssertEqual(
+            routes.count,
+            1,
+            "Every route into the household screen must be a deliberate act by the person. Found: \(routes)"
+        )
+
+        // And that one is the machine-join scan, not a policy.
+        let scanBranch = try slice(
+            source,
+            from: "case .householdPairMachine(let envelope):",
+            to: "case .clawShareInvite(let invite):"
+        )
+        XCTAssertTrue(scanBranch.contains("stageScannedMachineJoin("))
+        XCTAssertTrue(scanBranch.contains("appState = .householdHome(snapshot)"))
+
+        // Sharing is entered from the home by way of "Other machines"; leaving
+        // it goes back to the home.
+        let shareBranch = try slice(
+            source,
+            from: "case .shareApp(let snapshot):",
+            to: "case .activeShares(let snapshot):"
+        )
+        XCTAssertTrue(shareBranch.contains("appState = .instanceList"))
+        XCTAssertFalse(shareBranch.contains("appState = .householdHome"))
+    }
+
     func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {
         let source = try iosSource("SSHLoginView.swift")
         let postSplash = try slice(
