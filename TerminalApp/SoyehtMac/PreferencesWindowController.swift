@@ -35,7 +35,7 @@ class PreferencesWindowController: NSWindowController {
         let contentVC = PreferencesTabViewController()
         tabs = contentVC
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 620),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
