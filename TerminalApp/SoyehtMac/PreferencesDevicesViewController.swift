@@ -79,7 +79,7 @@ final class DevicesPreferencesViewController: NSViewController {
 
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 700, height: 430))
+        view.setFrameSize(NSSize(width: 700, height: 520))
     }
 
     override func viewDidLoad() {
