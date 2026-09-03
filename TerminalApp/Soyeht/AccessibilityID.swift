@@ -219,6 +219,7 @@ enum AccessibilityID {
         static let houseName = "soyeht.home.houseName"
         static let settingsButton = "soyeht.home.settingsButton"
         static let macCard = "soyeht.home.macCard"
+        static let macArriving = "soyeht.home.macArriving"
         static let sessionsEmpty = "soyeht.home.sessionsEmpty"
         static let newSessionButton = "soyeht.home.newSessionButton"
         static let otherMachinesButton = "soyeht.home.otherMachinesButton"

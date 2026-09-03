@@ -288,7 +288,16 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             to: "            case .instanceList:\n                ZStack"
         )
 
-        XCTAssertTrue(recoveryBranch.contains("HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared)"))
+        // The celebration no longer asks the recovery policy: consulting it
+        // here raced the Mac-local pairing landing in the registry, and losing
+        // that race showed a screen of raw identifiers for a few seconds.
+        XCTAssertFalse(recoveryBranch.contains("HouseholdRecoveryDestination.resolve"))
+        XCTAssertFalse(recoveryBranch.contains("appState = .householdHome(snapshot)"))
+        XCTAssertTrue(recoveryBranch.contains("let household = snapshot.underlying"))
+        XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
+        XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
+
+        // The policy itself is unchanged for the callers that still use it.
         let recoveryPolicy = try slice(
             source,
             from: "enum HouseholdRecoveryDestination: Equatable {",
@@ -296,19 +305,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
         XCTAssertTrue(recoveryPolicy.contains("registry.operationalServers.isEmpty"))
         XCTAssertFalse(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
-        XCTAssertTrue(recoveryBranch.contains("let household = snapshot.underlying"))
-        XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(snapshot)"))
-        XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
-        XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
 
-        let householdHomeCase = try slice(
-            recoveryBranch,
-            from: "case .householdHome:",
-            to: "case .instanceList:"
-        )
-        XCTAssertFalse(householdHomeCase.contains("reconcileClients()"))
-        XCTAssertFalse(householdHomeCase.contains("restoreNavigationIfNeeded()"))
-        XCTAssertFalse(householdHomeCase.contains("appState = .instanceList"))
     }
 
     func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {

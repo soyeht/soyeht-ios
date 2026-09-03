@@ -620,20 +620,20 @@ struct SoyehtAppView: View {
                         machineJoinRuntime.activate(household)
                         Task { @MainActor in
                             // The self/base engine did not arrive through the
-                            // legacy HMAC Mac pairing flow. Resolve its
-                            // owner-authenticated identity before choosing the
-                            // empty-household route so it can render as the
-                            // initial owned instance when available.
+                            // legacy HMAC Mac pairing flow, so give it a beat
+                            // to resolve its owner-authenticated identity.
                             await BaseMachineProjector.shared.refresh()
+                            // Then the home, unconditionally. Asking
+                            // `HouseholdRecoveryDestination` here raced the
+                            // Mac-local pairing landing in the registry: lose
+                            // the race and the person got a screen of raw
+                            // household and person identifiers for a few
+                            // seconds, then a silent swap. The home covers
+                            // that wait itself, in its own voice.
+                            PairedMacRegistry.shared.reconcileClients()
+                            restoreNavigationIfNeeded()
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                switch HouseholdRecoveryDestination.resolve(registry: ServerRegistry.shared) {
-                                case .householdHome:
-                                    appState = .householdHome(snapshot)
-                                case .instanceList:
-                                    PairedMacRegistry.shared.reconcileClients()
-                                    restoreNavigationIfNeeded()
-                                    appState = .instanceList
-                                }
+                                appState = .instanceList
                             }
                         }
                     }

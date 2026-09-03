@@ -87,7 +87,33 @@ struct HomeView: View {
 
     @ViewBuilder
     private var macCard: some View {
-        if let mac = model.mac {
+        if model.mac == nil {
+            // The seconds between "Open a terminal" and the Mac landing in the
+            // registry. They used to be spent on a different screen entirely —
+            // raw household and person identifiers, a row reading
+            // "[owned mac] —", and then a silent swap to this one. Same wait,
+            // said in the same voice as everything around it.
+            NeoCard(palette: palette) {
+                HStack(spacing: 14) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 22)
+
+                    Text(LocalizedStringResource(
+                        "home.mac.arriving",
+                        defaultValue: "Getting your Mac ready…",
+                        comment: "Shown on the home in the seconds after pairing, before the Mac appears."
+                    ))
+                    .font(NeoFont.body)
+                    .foregroundStyle(palette.textSecondary)
+
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
+            }
+            .accessibilityIdentifier(AccessibilityID.Home.macArriving)
+        } else if let mac = model.mac {
             NeoCard(palette: palette) {
                 HStack(spacing: 14) {
                     Image(systemName: "desktopcomputer")
