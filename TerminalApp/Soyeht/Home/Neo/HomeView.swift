@@ -199,11 +199,20 @@ struct HomeView: View {
                 ))
             }
         }
-        .buttonStyle(NeoPillButtonStyle(.primary, palette: palette))
-        .disabled(model.isOpeningSession || model.mac?.isOnline != true)
-        .opacity(model.mac?.isOnline == true ? 1 : 0.5)
+        // A dimmed accent pill still reads as an accent pill: measured on the
+        // device, a tap in the seconds before the presence socket
+        // authenticates does nothing at all and looks like the app ignored it.
+        // The secondary shape says "not yet" at a glance, and the Mac card
+        // directly above says why.
+        .buttonStyle(NeoPillButtonStyle(canOpenSession ? .primary : .secondary, palette: palette))
+        .disabled(model.isOpeningSession || !canOpenSession)
         .accessibilityIdentifier(AccessibilityID.Home.newSessionButton)
     }
+
+    /// The Mac has to be there to open a pane on it. `.connecting` counts as
+    /// not yet: the socket is up but the handshake has not finished, and an
+    /// `open_pane` sent then is refused.
+    private var canOpenSession: Bool { model.mac?.isOnline == true }
 
     // MARK: - Everything else
 
