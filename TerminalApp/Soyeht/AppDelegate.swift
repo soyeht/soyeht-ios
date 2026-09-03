@@ -504,13 +504,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onMacFound: { [weak self, weak window] result in
                     guard let self, let window else { return }
                     switch result {
-                    case .needsNaming(let engineURL, let tokenBytes, let localPairing):
-                        self.showHouseNaming(
-                            engineURL: engineURL,
-                            tokenBytes: tokenBytes,
-                            localPairing: localPairing,
-                            in: window
-                        )
                     case .connectedToExistingMac:
                         self.showMainStoryboard(in: window)
                     }
@@ -528,29 +521,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onSwitchToLinux: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showLinuxPairingGuide(in: window)
-                }
-            )
-        )
-    }
-
-    private func showHouseNaming(
-        engineURL: URL,
-        tokenBytes: Data,
-        localPairing: SetupInvitationMacLocalPairing?,
-        in window: UIWindow
-    ) {
-        window.rootViewController = UIHostingController(rootView:
-            HouseNamingFromiPhoneView(
-                macEngineBaseURL: engineURL,
-                claimToken: tokenBytes,
-                localPairing: localPairing,
-                onNamed: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showMainStoryboard(in: window)
-                },
-                onBack: { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.showInstallPicker(in: window)
                 }
             )
         )

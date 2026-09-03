@@ -10,7 +10,6 @@ private let awaitingMacLogger = Logger(subsystem: "com.soyeht.mobile", category:
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
     enum Result {
-        case needsNaming(engineURL: URL, claimToken: Data, localPairing: SetupInvitationMacLocalPairing?)
         case connectedToExistingMac
     }
 
@@ -351,6 +350,10 @@ final class AwaitingMacViewModel: ObservableObject {
     @Published private(set) var isPairing = false
     @Published private(set) var errorMessage: String?
     @Published var showRecoveryHint: Bool = false
+    /// What the phone is actually doing, so the radar can say it. The old
+    /// screen had one spinner for six situations and no way to tell them
+    /// apart.
+    @Published private(set) var phase: MacDiscoveryPhase = .looking(sawService: false)
     /// Temporary in-flow diagnostic surface so users (and us, during e2e
     /// validation) can see which step the claim handshake is on without
     /// needing to attach to iPhone os_log. Updated from onMacClaimed and the
@@ -725,15 +728,12 @@ final class AwaitingMacViewModel: ObservableObject {
                     diagnosticMessage = "Connected to existing Mac"
                     onMacFoundHandler?(.connectedToExistingMac)
                     return
-                case .needsNaming:
-                    alreadyFound = true
-                    diagnosticMessage = "Mac engine ready — naming the home"
-                    onMacFoundHandler?(.needsNaming(
-                        engineURL: engineURL,
-                        claimToken: claimToken,
-                        localPairing: localPairing
-                    ))
-                    return
+                case .macIsBeingSetUp(let name):
+                    // No latch and no deadline: the Mac is mid-setup and the
+                    // phone's job is to keep watching until it has a home.
+                    phase = .waitingForMacSetup(name: name)
+                    diagnosticMessage = "Mac is still being set up"
+                    cancelRecoveryHint()
                 case .retryLater:
                     let rawErrText = await probeRawError(for: engineURL)
                     let hostPort = "\(engineURL.host ?? "?"):\(engineURL.port.map(String.init) ?? "?")"
@@ -882,7 +882,8 @@ private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? 
 private enum AwaitingMacBootstrapDecision {
     case existingHouse(SetupInvitationExistingHouse)
     case connectedToExistingMac
-    case needsNaming
+    /// The engine answered and has no home yet. Keep looking; do not latch.
+    case macIsBeingSetUp(name: String?)
     case retryLater
 }
 
@@ -909,7 +910,10 @@ private func awaitingMacBootstrapDecision(
                 }
                 return .retryLater
             case .uninitialized, .readyForNaming, .recovering:
-                return .needsNaming
+                // Someone is at the Mac finishing setup. This used to end the
+                // search — the phone latched, stopped looking, and never
+                // noticed when the Mac named itself moments later.
+                return .macIsBeingSetUp(name: status.hostLabel)
             }
         } catch {
             awaitingMacLogger.info("bootstrap_decision.fetch_failed attempt=\(attempt, privacy: .public) err=\(String(describing: error), privacy: .public)")

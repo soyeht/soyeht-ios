@@ -83,10 +83,6 @@ bootstrap.houseCard.secondary.continueOnMac
 common.button.back
 common.button.close
 common.cancel
-houseNamingPhone.back
-houseNamingPhone.submit.timeoutError
-houseNamingPhone.submitting.cancel
-houseNamingPhone.submitting.slowHint
 iphonePairing.homeSecurityCode.body
 iphonePairing.homeSecurityCode.title
 linuxPairing.back

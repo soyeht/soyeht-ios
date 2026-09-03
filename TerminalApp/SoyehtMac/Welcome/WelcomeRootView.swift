@@ -46,7 +46,6 @@ final class WelcomeOnboardingState {
 ///
 /// - `bootstrap`     — fresh Mac, no house yet (case A)
 /// - `autoJoin`      — existing household found on Tailnet (US5)
-/// - `setupAwaiting` — iPhone published a setup-invitation (case B, Mac side)
 /// - `recover`       — engine has local state, re-connect/resume
 ///
 /// T049 wires `BootstrapStatusClient` into `resolveMode()`.
@@ -60,7 +59,6 @@ struct WelcomeRootView: View {
     enum Mode {
         case bootstrap      // Case A: founder fresh install
         case autoJoin       // existing household discovered on Tailnet
-        case setupAwaiting(ownerDisplayName: String?)  // iPhone setup-invitation discovered
         case recover        // local engine state present
         case existingSoyeht(ExistingSoyehtContext)
         case chooseJoinOrStart(ExistingSoyehtContext)
@@ -120,8 +118,6 @@ struct WelcomeRootView: View {
             }
         case .autoJoin:
             AutoJoinView(onJoined: onPaired)
-        case .setupAwaiting(let ownerDisplayName):
-            AwaitingNameFromiPhoneView(ownerDisplayName: ownerDisplayName, onNamed: onPaired)
         case .recover:
             RecoverView(onRecovered: onPaired)
         case .existingSoyeht(let context):
@@ -230,36 +226,27 @@ struct WelcomeRootView: View {
 
             switch status.state {
             case .uninitialized, .readyForNaming:
-                let listener = SetupInvitationListener(engineBaseURL: baseURL)
-                let outcome = await listener.listen()
+                // The Mac names its own home. It used to run a
+                // setup-invitation listener here and, on a claim, hand the
+                // naming over to the phone — which meant two devices could
+                // both think they owned the next step, and the engine was
+                // asked to initialize with a claim token nothing modelled.
                 guard onboardingState.isListening else { return }
-                switch outcome {
-                case .invitationClaimed(let ownerDisplayName, _):
-                    mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
-                    await pollUntilNamed(client: client)
-                    return
-                case .notFound, .failed:
+                do {
                     if case .bootstrap = mode, !bootstrapPath.isEmpty {
-                        // User has already committed to an in-progress
-                        // bootstrap navigation (Continue-with-this-Mac →
-                        // HouseNaming, post-install ConnectAgents, etc.).
-                        // The listener keeps running silently in the
-                        // background; only an `invitationClaimed` event
-                        // should swap `mode` (and that swaps to
-                        // `.setupAwaiting`, which is the desired Caso B
-                        // override). Setting `mode = .existingSoyeht`
-                        // here would yank the user out of the current
-                        // screen every 5s — see Bug 2 fix 2026-05-21.
+                        // Someone is already partway through setup on this
+                        // Mac. Swapping `mode` here would yank them out of
+                        // the screen they are on every couple of seconds.
                     } else if case .existingSoyeht = mode {
-                        // already shown; just loop the listener
+                        // already shown; keep polling quietly
                     } else if case .chooseJoinOrStart = mode {
-                        // already shown; just loop the listener
+                        // already shown; keep polling quietly
                     } else if JoinExistingCapability.isAvailable(status: status) {
                         mode = .chooseJoinOrStart(ExistingSoyehtContext(status: status))
                     } else {
                         mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                     }
-                    // fall through to next loop iteration → listener runs again
+                    try? await Task.sleep(for: .seconds(2))
                 }
             case .namedAwaitingPair:
                 if !(await showExistingHouseCardIfPossible()) {
@@ -428,7 +415,7 @@ struct WelcomeRootView: View {
     /// Transition from the connect-agents step to the next bootstrap step.
     /// Today that's house naming; if a setup invitation arrives during
     /// the agents step (rare race), we let the existing listener path
-    /// handle it on the next pollUntilNamed.
+    /// handle it on the next pass.
     private func continueAfterAgentsStep() async {
         if await routeExistingEngineStateAfterInstall(baseURL: Self.bootstrapBaseURL()) {
             return
@@ -463,18 +450,6 @@ struct WelcomeRootView: View {
                 onPaired()
             }
             return true
-        }
-    }
-
-    private func pollUntilNamed(client: BootstrapStatusClient) async {
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            guard let status = try? await client.fetch() else { continue }
-            if status.state == .namedAwaitingPair || status.state == .ready {
-                onPaired()
-                return
-            }
         }
     }
 

@@ -217,20 +217,25 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("SoyehtInstallProfile.current.bootstrapPort"))
     }
 
-    func test_firstSetupDefersLocalMacPairingUntilHouseNamingCompletes() throws {
-        let source = try iosSource("Onboarding/HouseNaming/HouseNamingFromiPhoneView.swift")
-        let submitBody = try slice(
+    /// The Mac names its own home now, so there is no iPhone naming screen to
+    /// defer anything until. What has to stay true is the order on the phone's
+    /// own path: pair with the household first, then install the local Mac
+    /// pairing, and only then tell the app a Mac was found.
+    func test_firstSetupInstallsLocalMacPairingOnlyAfterTheHouseholdIsJoined() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let connectBody = try slice(
             source,
-            from: "private func submit()",
-            to: "private func cancelSubmission()"
+            from: "func connectToExistingHouse()",
+            to: "private func presentExistingHouse("
         )
 
-        let householdPair = try XCTUnwrap(submitBody.range(of: "HouseholdPairingService("))
-        let installLocalPairing = try XCTUnwrap(submitBody.range(of: "installMacLocalPairing(localPairing)"))
-        let onNamed = try XCTUnwrap(submitBody.range(of: "onNamed()"))
+        let householdPair = try XCTUnwrap(connectBody.range(of: "HouseholdPairingService("))
+        let installLocalPairing = try XCTUnwrap(connectBody.range(of: "installMacLocalPairing("))
         XCTAssertLessThan(householdPair.lowerBound, installLocalPairing.lowerBound)
-        XCTAssertLessThan(installLocalPairing.lowerBound, onNamed.lowerBound)
-        XCTAssertTrue(source.contains("let localPairing: SetupInvitationMacLocalPairing?"))
+        XCTAssertFalse(
+            source.contains("case needsNaming"),
+            "a Mac still being set up must not end the search; the phone keeps looking"
+        )
     }
 
     func test_devicePairingPublishesSetupInvitationForLocalMacPairing() throws {

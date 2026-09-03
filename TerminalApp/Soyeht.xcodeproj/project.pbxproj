@@ -26,7 +26,6 @@
 		21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		32F3BE21C6D9663C33B30B45 /* LaterParkingLotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */; };
-		333B0E0A5B7885EC0F5769AF /* HouseNamingFromiPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE76B698B99AAA04C82F8FA4 /* HouseNamingFromiPhoneView.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
 		3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF349133DD963666644CB555 /* HouseholdInviteView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
@@ -550,7 +549,6 @@
 		D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModelTests.swift; sourceTree = "<group>"; };
 		D5FC3292AC27CC813C9389EB /* ProximityQuestionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProximityQuestionView.swift; sourceTree = "<group>"; };
 		DD25CF8831A8F130C1E7C502 /* TerminalPreferences+iOS.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TerminalPreferences+iOS.swift"; sourceTree = "<group>"; };
-		DE76B698B99AAA04C82F8FA4 /* HouseNamingFromiPhoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingFromiPhoneView.swift; sourceTree = "<group>"; };
 		DF36A38670AB5BA84A9E6A74 /* CardMacAndIphone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardMacAndIphone.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarItem.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarCatalog.swift; sourceTree = "<group>"; };
@@ -943,7 +941,6 @@
 		7ED8B8449FD05C73BE9FC3CD /* HouseNaming */ = {
 			isa = PBXGroup;
 			children = (
-				DE76B698B99AAA04C82F8FA4 /* HouseNamingFromiPhoneView.swift */,
 			);
 			name = HouseNaming;
 			path = HouseNaming;
@@ -1729,7 +1726,6 @@
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				DF4BA7BE56BF15D70141AC13 /* CarouselRootView.swift in Sources */,
-				333B0E0A5B7885EC0F5769AF /* HouseNamingFromiPhoneView.swift in Sources */,
 				E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */,
 				B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */,
 				3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */,

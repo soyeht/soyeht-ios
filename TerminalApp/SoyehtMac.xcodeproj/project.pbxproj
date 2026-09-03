@@ -23,7 +23,6 @@
 		49C75E482419C7E9008977FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E472419C7E9008977FE /* Assets.xcassets */; };
 		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
 		49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F8A83F24390F5200EF9C97 /* AppDelegate.swift */; };
-		550F3A30360C7F64FC6EA26E /* AwaitingNameFromiPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */; };
 		6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */; };
 		7F439E97F7D6ADD0A45D1644 /* BootstrapWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */; };
 		874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */; };
@@ -273,7 +272,6 @@
 		6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoJoinView.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7A69005F58B0EF277320044A /* HealthCheckPoller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthCheckPoller.swift; sourceTree = "<group>"; };
-		7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNameFromiPhoneView.swift; sourceTree = "<group>"; };
 		810D311E9D82DE5BA7B970EB /* HouseCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardView.swift; sourceTree = "<group>"; };
 		810D311E9D82DE5BA7B970EC /* AddLinuxServerSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddLinuxServerSheet.swift; sourceTree = "<group>"; };
 		941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCreationProgressView.swift; sourceTree = "<group>"; };
@@ -690,7 +688,6 @@
 			children = (
 				ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */,
 				CB10003E0000000000000002 /* MacEngineAdvertisedURL.swift */,
-				7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */,
 			);
 			path = SetupInvitationListener;
 			sourceTree = "<group>";
@@ -1406,7 +1403,6 @@
 				48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */,
 				E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */,
 				00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */,
-				550F3A30360C7F64FC6EA26E /* AwaitingNameFromiPhoneView.swift in Sources */,
 				EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */,
 				6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */,
 				0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */,
