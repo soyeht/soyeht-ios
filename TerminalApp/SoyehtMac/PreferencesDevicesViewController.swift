@@ -1307,9 +1307,17 @@ final class MacJoinExistingWindowController: NSWindowController {
             defaultValue: "Join an existing Soyeht",
             comment: "Title of the window that shows this Mac's join QR."
         )
-        let content = NSHostingController(rootView: MacJoinExistingGate())
+        // The root is pinned to the window size. A SwiftUI root free to pick
+        // its own size makes AppKit resize the window from constraints while
+        // it is already laying out — measured as an NSGenericException from
+        // `_postWindowNeedsUpdateConstraints`, which aborts the app.
+        let content = NSHostingController(
+            rootView: MacJoinExistingGate()
+                .frame(width: Self.windowSize.width, height: Self.windowSize.height)
+        )
         window.contentViewController = content
         content.preferredContentSize = Self.windowSize
+        content.view.frame = NSRect(origin: .zero, size: Self.windowSize)
         window.setContentSize(Self.windowSize)
         super.init(window: window)
     }
@@ -1450,12 +1458,19 @@ final class MacAddLinuxServerWindowController: NSWindowController {
             defaultValue: "Add a Linux server",
             comment: "Title of the Add Linux server window opened from Preferences."
         )
-        let content = NSHostingController(rootView: AddLinuxServerSheet(
-            onConnected: { MacAddLinuxServerWindowController.shared.close() },
-            onCancel: { MacAddLinuxServerWindowController.shared.close() }
-        ))
+        // Same pinning as the join window: this view was written as a sheet,
+        // sized by whatever presented it, and left to size a window itself it
+        // crashes AppKit's layout pass.
+        let content = NSHostingController(
+            rootView: AddLinuxServerSheet(
+                onConnected: { MacAddLinuxServerWindowController.shared.close() },
+                onCancel: { MacAddLinuxServerWindowController.shared.close() }
+            )
+            .frame(width: Self.windowSize.width, height: Self.windowSize.height)
+        )
         window.contentViewController = content
         content.preferredContentSize = Self.windowSize
+        content.view.frame = NSRect(origin: .zero, size: Self.windowSize)
         window.setContentSize(Self.windowSize)
         super.init(window: window)
     }
