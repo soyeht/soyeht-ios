@@ -1313,7 +1313,7 @@ final class MacJoinExistingWindowController: NSWindowController {
         // `_postWindowNeedsUpdateConstraints`, which aborts the app.
         let content = NSHostingController(
             rootView: MacJoinExistingGate()
-                .frame(width: Self.windowSize.width, height: Self.windowSize.height)
+                .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .top)
         )
         window.contentViewController = content
         content.preferredContentSize = Self.windowSize
@@ -1444,7 +1444,9 @@ private struct MacJoinExistingGate: View {
 final class MacAddLinuxServerWindowController: NSWindowController {
     static let shared = MacAddLinuxServerWindowController()
 
-    private static let windowSize = NSSize(width: 460, height: 420)
+    /// Matches the sheet's own `.frame(width: 520)`. Anything narrower
+    /// centre-crops it and the title runs off both edges.
+    private static let windowSize = NSSize(width: 520, height: 340)
 
     private init() {
         let window = NSWindow(
@@ -1466,7 +1468,7 @@ final class MacAddLinuxServerWindowController: NSWindowController {
                 onConnected: { MacAddLinuxServerWindowController.shared.close() },
                 onCancel: { MacAddLinuxServerWindowController.shared.close() }
             )
-            .frame(width: Self.windowSize.width, height: Self.windowSize.height)
+            .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .top)
         )
         window.contentViewController = content
         content.preferredContentSize = Self.windowSize
