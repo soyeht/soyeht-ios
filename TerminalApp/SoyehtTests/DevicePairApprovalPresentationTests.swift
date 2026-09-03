@@ -340,6 +340,38 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(shareBranch.contains("appState = .householdHome"))
     }
 
+    /// When the phone finds the Mac itself — the radar path, no push — the
+    /// pairing succeeds and the phone still has no Mac it can open a pane on.
+    /// `mac_local_pairing` only ever arrives in a claim, so the phone has to
+    /// advertise for one. That invitation used to hang off the household
+    /// screen's `onAppear`; measured on the device, routing away from that
+    /// screen left the home showing "Getting your Mac ready…" forever, across
+    /// relaunches. The home starts it now, and so does coming back to the app.
+    func test_theHomeAdvertisesForTheMacsLocalPairingWhenItHasNoMac() throws {
+        let source = try iosSource("SSHLoginView.swift")
+
+        let policy = try slice(
+            source,
+            from: "private func startHouseholdMacRecoveryInvitation(",
+            to: "private func startMacLocalPairingPublisher("
+        )
+        XCTAssertTrue(policy.contains("ServerRegistry.shared.operationalMacs.isEmpty"))
+
+        let homeBranch = try slice(
+            source,
+            from: "            case .instanceList:",
+            to: "            case .terminal("
+        )
+        XCTAssertTrue(homeBranch.contains("startHouseholdMacRecoveryInvitation(for: snapshot)"))
+
+        let becameActive = try slice(
+            source,
+            from: "UIApplication.didBecomeActiveNotification",
+            to: "UIApplication.willResignActiveNotification"
+        )
+        XCTAssertTrue(becameActive.contains("startHouseholdMacRecoveryInvitation(for: identity)"))
+    }
+
     func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {
         let source = try iosSource("SSHLoginView.swift")
         let postSplash = try slice(

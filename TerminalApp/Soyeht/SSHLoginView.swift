@@ -677,6 +677,19 @@ struct SoyehtAppView: View {
                         .zIndex(3)
                     }
                 }
+                // The invitation the Mac answers with its local pairing —
+                // the phone's only source of a Mac it can actually open a
+                // pane on when it found the Mac itself instead of being
+                // pushed at. It used to hang off the household screen's
+                // `onAppear`, which is why routing away from that screen
+                // left the home waiting on a Mac that was never coming.
+                // Guarded inside on `operationalMacs.isEmpty`, so a phone
+                // that already has its Mac advertises nothing.
+                .onAppear {
+                    if let snapshot = identity.active {
+                        startHouseholdMacRecoveryInvitation(for: snapshot)
+                    }
+                }
                 .transition(.opacity)
 
             case .terminal(let wsUrl, let instance, let sessionName, let context):
@@ -840,6 +853,12 @@ struct SoyehtAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if let identity = loadActiveIdentityForLifecycle(reason: "didBecomeActive") {
                 machineJoinRuntime.activate(identity.underlying)
+                // The invitation lives 45 seconds. A Mac that was asleep
+                // when the phone paired needs another chance, and coming
+                // back to the app is when the person is asking for one.
+                if case .instanceList = appState {
+                    startHouseholdMacRecoveryInvitation(for: identity)
+                }
             }
             machineJoinRuntime.enterForeground()
         }
