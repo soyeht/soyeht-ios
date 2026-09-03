@@ -28,8 +28,29 @@ final class JoinExistingSoyehtPresentationTests: XCTestCase {
         let prefs = try macSource("PreferencesDevicesViewController.swift")
         XCTAssertTrue(prefs.contains("prefs.devices.joinExisting.button"))
         XCTAssertTrue(prefs.contains("MacJoinExistingWindowController.shared.showWindow(nil)"))
-        XCTAssertTrue(prefs.contains("JoinExistingCapability.isAvailable(status:)"))
+        XCTAssertTrue(prefs.contains("JoinExistingCapability.isAvailable(status: status)"))
         XCTAssertTrue(prefs.contains("JoinExistingSoyehtView(onPaired: dismiss, onBack: dismiss)"))
+    }
+
+    /// Every reason this Mac cannot join gets its own sentence, and the one
+    /// that has a fix names it. A Mac already in a home used to reach
+    /// "This Mac is already part of a Soyeht." with a "Try again" that could
+    /// never succeed.
+    func test_theJoinGateSaysWhyAndNamesTheWayOut() throws {
+        let prefs = try macSource("PreferencesDevicesViewController.swift")
+        let gate = try slice(prefs, from: "enum Readiness: Equatable", to: "private func dismiss()")
+
+        for reason in ["case ready", "case engineTooOld", "case alreadyInAHome", "case engineUnreachable"] {
+            XCTAssertTrue(gate.contains(reason), "missing readiness: \(reason)")
+        }
+        XCTAssertTrue(gate.contains("prefs.devices.joinExisting.alreadyInAHome.body"))
+        XCTAssertTrue(gate.contains("Forget this home"), "the one dead end with a fix must name it")
+        // Only an engine with no home of its own can join another.
+        XCTAssertTrue(gate.contains("case .uninitialized, .readyForNaming:"))
+        XCTAssertTrue(gate.contains("return .ready"))
+        XCTAssertTrue(gate.contains("return .alreadyInAHome"))
+        // Every dead end offers a way out of the window.
+        XCTAssertTrue(gate.contains("prefs.devices.joinExisting.close"))
     }
 
     func test_welcomeRootUsesCredentialedCanonicalServersForPairedState() throws {

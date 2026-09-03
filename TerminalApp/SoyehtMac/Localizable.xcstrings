@@ -20706,6 +20706,113 @@
         }
       }
     },
+    "prefs.devices.joinExisting.close": {
+      "comment" : "Closes the Join an existing Soyeht window from one of its dead ends.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "বন্ধ করুন"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "बंद करें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutup"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "बंद करा"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыть"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "మూసివేయి"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بند کریں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
     "prefs.devices.joinExisting.tooOld.body": {
       "comment" : "What fixes an engine too old to join a home.",
       "localizations" : {
@@ -20920,6 +21027,220 @@
         }
       }
     },
+    "prefs.devices.joinExisting.unreachable.body": {
+      "comment" : "What to do when the local engine is not answering yet.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انتظر لحظة ثم افتح هذا مرة أخرى."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটু অপেক্ষা করে আবার খুলুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warten Sie einen Moment und öffnen Sie dies erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Give it a moment and open this again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera un momento y vuelve a abrir esto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patientez un instant et rouvrez ceci."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "थोड़ा रुकें और इसे फिर खोलें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tunggu sebentar lalu buka lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少し待ってから、もう一度開いてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "잠시 기다린 뒤 다시 열어 주세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "थोडे थांबा आणि हे पुन्हा उघडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espere um instante e abra isto de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aguarde um instante e abra isto novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подождите немного и откройте это снова."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "కొంచెం ఆగి దీన్ని మళ్లీ తెరవండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تھوڑا انتظار کریں اور یہ دوبارہ کھولیں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍等片刻，然后重新打开。"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.unreachable.title": {
+      "comment" : "Shown when the local engine cannot be reached at all.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "محرّك هذا الـ Mac لا يستجيب"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac-এর ইঞ্জিন সাড়া দিচ্ছে না"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Engine dieses Macs antwortet nicht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac's engine isn't answering"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El motor de este Mac no responde"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le moteur de ce Mac ne répond pas"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस Mac का इंजन जवाब नहीं दे रहा"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesin Mac ini tidak menjawab"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac のエンジンが応答していません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 엔진이 응답하지 않습니다"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या Mac चे इंजिन प्रतिसाद देत नाही"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O engine deste Mac não está respondendo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O motor deste Mac não está a responder"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Движок этого Mac не отвечает"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Mac ఇంజిన్ స్పందించడం లేదు"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اس Mac کا انجن جواب نہیں دے رہا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的引擎没有响应"
+          }
+        }
+      }
+    },
     "prefs.devices.joinExisting.window.title": {
       "comment" : "Title of the window that shows this Mac's join QR.",
       "localizations" : {
@@ -21023,6 +21344,220 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入已有的 Soyeht"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.alreadyInAHome.body": {
+      "comment" : "Names the one action that makes joining possible.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يمكن أن ينتمي الـ Mac إلا إلى منزل واحد في كل مرة. أغلق هذا واختر أولاً «نسيان هذا المنزل»."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি Mac একসাথে কেবল একটি বাড়িতেই থাকতে পারে। এটি বন্ধ করে আগে 'এই বাড়ি ভুলে যান' বেছে নিন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Mac kann nur zu einem Zuhause gehören. Schließen Sie dies und wählen Sie zuerst „Dieses Zuhause vergessen“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Mac can only be in one home at a time. Close this and choose Forget this home first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un Mac solo puede estar en un hogar a la vez. Cierra esto y elige primero Olvidar este hogar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un Mac ne peut appartenir qu'à une maison à la fois. Fermez ceci et choisissez d'abord Oublier cette maison."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "एक Mac एक समय में केवल एक घर में हो सकता है। इसे बंद करें और पहले 'इस घर को भूलें' चुनें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sebuah Mac hanya bisa berada di satu rumah. Tutup ini dan pilih Lupakan rumah ini dulu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac は一度にひとつのホームにしか属せません。これを閉じて、先に「このホームを忘れる」を選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac은 한 번에 하나의 홈에만 속할 수 있습니다. 이 창을 닫고 먼저 '이 홈 잊기'를 선택하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "एक Mac एका वेळी फक्त एका घरात असू शकतो. हे बंद करा आणि आधी 'हे घर विसरा' निवडा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um Mac só pode estar numa casa por vez. Feche isto e escolha Esquecer esta casa primeiro."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um Mac só pode estar numa casa de cada vez. Feche isto e escolha primeiro Esquecer esta casa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac может быть только в одном доме. Закройте это и сначала выберите «Забыть этот дом»."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఒక Mac ఒకేసారి ఒక ఇంటిలో మాత్రమే ఉండగలదు. దీన్ని మూసి, ముందు 'ఈ ఇంటిని మరచిపో' ఎంచుకోండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ایک Mac ایک وقت میں صرف ایک گھر میں ہو سکتا ہے۔ اسے بند کریں اور پہلے 'اس گھر کو بھول جائیں' منتخب کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一台 Mac 一次只能属于一个家。关闭此窗口，先选择“忘记这个家”。"
+          }
+        }
+      }
+    },
+    "prefs.devices.joinExisting.alreadyInAHome.title": {
+      "comment" : "Shown when a Mac that is already set up opens Join an existing Soyeht.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هذا الـ Mac ينتمي بالفعل إلى منزل"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই Mac ইতিমধ্যে একটি বাড়ির অংশ"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac gehört bereits zu einem Zuhause"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac already belongs to a home"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac ya pertenece a un hogar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac appartient déjà à une maison"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह Mac पहले से एक घर का हिस्सा है"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac ini sudah menjadi bagian sebuah rumah"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac はすでにホームに属しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac은 이미 홈에 속해 있습니다"
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "हा Mac आधीच एका घराचा भाग आहे"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac já pertence a uma casa"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac já pertence a uma casa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac уже принадлежит дому"
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ Mac ఇప్పటికే ఒక ఇంటికి చెందుతుంది"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یہ Mac پہلے ہی ایک گھر کا حصہ ہے"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 已经属于一个家"
           }
         }
       }

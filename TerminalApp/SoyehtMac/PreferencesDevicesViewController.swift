@@ -1317,49 +1317,111 @@ final class MacJoinExistingWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError("Use shared") }
 }
 
-/// The version gate, as a screen rather than a hidden button.
+/// The gate, as a screen rather than a hidden button.
 ///
-/// `JoinExistingCapability` needs the engine's version, which means a request
-/// — so gating the *button* would make it appear a beat after the pane. A
-/// person who cannot use this deserves the reason, not a control that was
-/// never there.
+/// Two things can stop this Mac from joining, and they need different
+/// sentences. Both need the engine's state, which means a request — so gating
+/// the *button* would make it appear a beat after the pane. A person who
+/// cannot use this deserves the reason and the way out of it, not a control
+/// that was never there.
 private struct MacJoinExistingGate: View {
-    @State private var isAvailable: Bool?
+    enum Readiness: Equatable {
+        case ready
+        case engineTooOld
+        /// This Mac is already in a home, so it has nothing to join with.
+        /// The pane behind this window is where that is undone.
+        case alreadyInAHome
+        case engineUnreachable
+    }
+
+    @State private var readiness: Readiness?
 
     var body: some View {
         // `SwiftUI.Group` spelled out: this file imports SoyehtCore, which has
         // a `Group` of its own, and the bare name resolves to that one.
         SwiftUI.Group {
-            switch isAvailable {
+            switch readiness {
             case .none:
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .some(true):
+            case .ready:
                 JoinExistingSoyehtView(onPaired: dismiss, onBack: dismiss)
-            case .some(false):
-                VStack(spacing: 12) {
-                    Text(LocalizedStringResource(
+            case .alreadyInAHome:
+                message(
+                    title: LocalizedStringResource(
+                        "prefs.devices.joinExisting.alreadyInAHome.title",
+                        defaultValue: "This Mac already belongs to a home",
+                        comment: "Shown when a Mac that is already set up opens Join an existing Soyeht."
+                    ),
+                    body: LocalizedStringResource(
+                        "prefs.devices.joinExisting.alreadyInAHome.body",
+                        defaultValue: "A Mac can only be in one home at a time. Close this and choose Forget this home first.",
+                        comment: "Names the one action that makes joining possible."
+                    )
+                )
+            case .engineTooOld:
+                message(
+                    title: LocalizedStringResource(
                         "prefs.devices.joinExisting.tooOld.title",
                         defaultValue: "This Mac's engine is too old to join a home",
                         comment: "Shown when the local engine predates machine joining."
-                    ))
-                    .font(.headline)
-                    Text(LocalizedStringResource(
+                    ),
+                    body: LocalizedStringResource(
                         "prefs.devices.joinExisting.tooOld.body",
                         defaultValue: "Update Soyeht on this Mac and open this again.",
                         comment: "What fixes an engine too old to join a home."
-                    ))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                }
-                .padding(32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    )
+                )
+            case .engineUnreachable:
+                message(
+                    title: LocalizedStringResource(
+                        "prefs.devices.joinExisting.unreachable.title",
+                        defaultValue: "This Mac's engine isn't answering",
+                        comment: "Shown when the local engine cannot be reached at all."
+                    ),
+                    body: LocalizedStringResource(
+                        "prefs.devices.joinExisting.unreachable.body",
+                        defaultValue: "Give it a moment and open this again.",
+                        comment: "What to do when the local engine is not answering yet."
+                    )
+                )
             }
         }
         .task {
-            guard isAvailable == nil else { return }
-            let status = try? await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-            isAvailable = status.map(JoinExistingCapability.isAvailable(status:)) ?? false
+            guard readiness == nil else { return }
+            readiness = await Self.resolve()
+        }
+    }
+
+    private func message(title: LocalizedStringResource, body: LocalizedStringResource) -> some View {
+        VStack(spacing: 12) {
+            Text(title).font(.headline)
+            Text(body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(String(
+                localized: "prefs.devices.joinExisting.close",
+                defaultValue: "Close",
+                comment: "Closes the Join an existing Soyeht window from one of its dead ends."
+            )) { dismiss() }
+            .padding(.top, 4)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    static func resolve(
+        fetch: () async throws -> BootstrapStatusResponse = {
+            try await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+        }
+    ) async -> Readiness {
+        guard let status = try? await fetch() else { return .engineUnreachable }
+        guard JoinExistingCapability.isAvailable(status: status) else { return .engineTooOld }
+        switch status.state {
+        case .uninitialized, .readyForNaming:
+            return .ready
+        default:
+            return .alreadyInAHome
         }
     }
 
