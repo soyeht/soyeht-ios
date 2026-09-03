@@ -485,6 +485,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var installedLocalPairingForDiscovery = false
     private var recoveryHintTask: Task<Void, Never>?
     private var macBrowserResolutionTask: Task<Void, Never>?
+    private var offerRefreshTask: Task<Void, Never>?
 
     /// Seconds to wait with no successful Mac discovery before revealing the
     /// "Not finding your Mac?" recovery section underneath the radar.
@@ -564,6 +565,8 @@ final class AwaitingMacViewModel: ObservableObject {
     }
 
     func stop() {
+        offerRefreshTask?.cancel()
+        offerRefreshTask = nil
         publisher.stop()
         publisher.onMacClaimed = nil
         macBrowser?.cancel()
@@ -1001,6 +1004,47 @@ final class AwaitingMacViewModel: ObservableObject {
         // We're now showing the existing-house connect card; the recovery
         // hint must not flash up alongside it.
         cancelRecoveryHint()
+        phase = .offered(houseName: house.name, hostLabel: house.hostLabel)
+        startOfferRefresh(engineURL: engineURL, isDevicePairing: isDevicePairing)
+    }
+
+    /// Keep the six words on this card equal to the six the Mac is showing.
+    ///
+    /// The Mac's pairing window closes after a few minutes and it opens a new
+    /// one. The phone received its copy in a single push, so from that moment
+    /// the two screens drifted apart: the Mac showed the live code, the phone
+    /// showed a dead one, and the person comparing them was told to check
+    /// something that could not match. Measured on a real pair 2026-09-03 —
+    /// Mac said "card camera install", phone said "valley glimpse witness".
+    ///
+    /// Only for engine-minted links: a Mac-minted `device-pairing` link keeps
+    /// its nonce for as long as the Mac app runs.
+    private func startOfferRefresh(engineURL: URL, isDevicePairing: Bool) {
+        offerRefreshTask?.cancel()
+        guard !isDevicePairing else { return }
+        offerRefreshTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                guard let self, !Task.isCancelled else { return }
+                guard let candidate = self.pendingExistingHouse, !self.isPairing else { return }
+                guard let response = try? await BootstrapPairDeviceURIClient(baseURL: engineURL).fetch(),
+                      let refreshed = URL(string: response.pairDeviceURI),
+                      refreshed != candidate.pairDeviceURI,
+                      let words = try? pairDeviceFingerprintWords(for: refreshed, now: Date())
+                else { continue }
+
+                self.fingerprintWords = words
+                self.pendingExistingHouse = ExistingHouseCandidate(
+                    name: candidate.name,
+                    hostLabel: candidate.hostLabel,
+                    pairDeviceURI: refreshed,
+                    engineURL: candidate.engineURL,
+                    isDevicePairing: candidate.isDevicePairing,
+                    deferredLocalPairing: candidate.deferredLocalPairing
+                )
+                awaitingMacLogger.info("existing_house.offer_refreshed")
+            }
+        }
     }
 
     private static func isDevicePairingURL(_ url: URL) -> Bool {

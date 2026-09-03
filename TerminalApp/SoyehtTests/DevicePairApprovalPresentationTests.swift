@@ -221,6 +221,29 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
     /// defer anything until. What has to stay true is the order on the phone's
     /// own path: pair with the household first, then install the local Mac
     /// pairing, and only then tell the app a Mac was found.
+    /// Measured on a real pair: the Mac rotated its pairing window while the
+    /// phone held the words from a single push, so the two screens showed
+    /// different codes and the person was asked to compare something that
+    /// could never match.
+    func test_theOfferOnScreenIsRefreshedWhileTheCardIsUp() throws {
+        let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        let refresh = try slice(
+            source,
+            from: "private func startOfferRefresh(engineURL: URL, isDevicePairing: Bool) {",
+            to: "\n    }"
+        )
+        XCTAssertTrue(refresh.contains("BootstrapPairDeviceURIClient(baseURL: engineURL).fetch()"))
+        XCTAssertTrue(refresh.contains("pairDeviceFingerprintWords(for: refreshed"))
+        XCTAssertTrue(
+            refresh.contains("guard !isDevicePairing else { return }"),
+            "a Mac-minted link holds its nonce for the life of the app; only the engine's window rotates"
+        )
+        XCTAssertTrue(
+            source.contains("offerRefreshTask?.cancel()"),
+            "the refresh must not outlive the screen"
+        )
+    }
+
     func test_firstSetupInstallsLocalMacPairingOnlyAfterTheHouseholdIsJoined() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let connectBody = try slice(
