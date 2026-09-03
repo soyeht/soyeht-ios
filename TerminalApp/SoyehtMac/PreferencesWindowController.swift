@@ -35,7 +35,7 @@ class PreferencesWindowController: NSWindowController {
         let contentVC = PreferencesTabViewController()
         tabs = contentVC
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 500),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -118,6 +118,7 @@ class PreferencesViewController: NSViewController {
     override func loadView() {
         view = NSView()
         view.setFrameSize(NSSize(width: 700, height: 430))
+        preferredContentSize = NSSize(width: 700, height: 430)
     }
 
     override func viewDidLoad() {

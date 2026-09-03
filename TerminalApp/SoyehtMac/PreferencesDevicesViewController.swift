@@ -79,7 +79,8 @@ final class DevicesPreferencesViewController: NSViewController {
 
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 700, height: 520))
+        view.setFrameSize(NSSize(width: 700, height: 560))
+        preferredContentSize = NSSize(width: 700, height: 560)
     }
 
     override func viewDidLoad() {
