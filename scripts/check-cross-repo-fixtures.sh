@@ -126,6 +126,7 @@ PAIRS=(
   "required:docs/contracts/claw-store-household-v1.json:admin/contracts/claw-store/v1/claw-store-household-v1.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/GuestImageFailureCode/guest_image_failure_codes.json:admin/rust/core-rs/tests/fixtures/guest_image_failure_codes.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/BootstrapErrorCode/bootstrap_error_codes.json:admin/rust/household-rs/tests/fixtures/bootstrap_error_codes.json"
+  "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/PairDeviceFingerprint/pair_device_fingerprint_vectors.json:admin/rust/household-rs/tests/data/pair_device_fingerprint_vectors.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/PersonCert/person_cert_tier_vectors.json:admin/rust/household-rs/tests/fixtures/person_cert_tier_vectors.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/SecureUpgrade/secure_upgrade_transcript_vectors.json:admin/rust/household-rs/tests/fixtures/secure_upgrade_transcript_vectors.json"
   "optional:Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdFixtures/InstanceStatus/instance_status_codes.json:admin/rust/store-rs/tests/fixtures/instance_status_codes.json"
