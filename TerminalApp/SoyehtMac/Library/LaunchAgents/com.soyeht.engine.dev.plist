@@ -8,6 +8,18 @@
 <!-- Mirrors com.soyeht.engine.plist; keep the two in sync except for the -->
 <!-- namespaced tokens (asserted by EmbeddedEngineLaunchAgentTests). -->
 <dict>
+	<!-- The session type is the whole point of this job's shape. An agent in
+	     the Aqua session dies with the login: on 2026-09-04 the WindowServer
+	     exited, loginwindow tore the session down, and every brokered PTY
+	     went with the engine. Background loads it into the user domain
+	     (`user/<uid>`), which outlives a logout — measured on that same Mac,
+	     where user-domain jobs kept their PIDs across the crash. It also
+	     means launchd, not SMAppService, owns the load: a Background job is
+	     refused by `bootstrap gui/<uid>`, which is exactly the guarantee
+	     wanted. -->
+	<key>LimitLoadToSessionType</key>
+	<string>Background</string>
+
 	<key>Label</key>
 	<string>com.soyeht.engine.dev</string>
 

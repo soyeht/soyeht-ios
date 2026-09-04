@@ -143,6 +143,11 @@ launchctl_stop() {
     local label="$1"
     local uid
     uid="$(id -u)"
+    # Both domains. The engine job moved to the user domain so it would stop
+    # dying with the graphical session (2026-09-04); a machine part-way
+    # through that migration can still be serving from gui, and one left
+    # loaded comes back at the next login as if nothing had been uninstalled.
+    best_effort /bin/launchctl bootout "user/$uid/$label" || true
     best_effort /bin/launchctl bootout "gui/$uid/$label" || true
     best_effort /bin/launchctl remove "$label" || true
 }
@@ -302,6 +307,7 @@ remove_files() {
         "$HOME/Library/WebKit/com.soyeht.mac"
         "$HOME/Library/WebKit/com.soyeht.mac.dev"
         "$HOME/Library/LaunchAgents/com.soyeht.engine.plist"
+        "$HOME/Library/LaunchAgents/com.soyeht.engine.dev.plist"
         "$HOME/Library/LaunchAgents/com.soyeht.caddy.plist"
         "$HOME/Library/LaunchAgents/com.theyos.cloudflared.plist"
         "$HOME/Library/LaunchAgents/homebrew.mxcl.theyos.plist"

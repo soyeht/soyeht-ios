@@ -248,4 +248,53 @@ enum EngineServiceReconciler {
         return rows.filter { engineTree.contains($0.ppid) && !engineTree.contains($0.pid) }.count
     }
 
+    // MARK: - Getting the engine out of the graphical session
+
+    /// What launch may do about a job that still lives in the Aqua session.
+    ///
+    /// A LaunchAgent in `gui/<uid>` dies with the login by definition.
+    /// MEASURED 2026-09-04 on the owner's Mac: the WindowServer exited at
+    /// 07:47, loginwindow tore the session down ("Window Server exited,
+    /// closing down the session immediately"), and the engine went with it,
+    /// taking every pane — while `user/<uid>` jobs on the same machine kept
+    /// their PIDs straight through it. The cure is a Background-session job,
+    /// which launchd loads into the user domain.
+    ///
+    /// Moving it is not free: launchd cannot move a running job between
+    /// domains, so the old one has to be stopped, and stopping it is exactly
+    /// what costs sessions. So the move waits for a moment when it costs
+    /// nothing — which arrives on its own, at the next launch with no panes
+    /// attached. Nobody is asked, because there is nothing to decide: the
+    /// person cannot make the migration cheaper by answering a question.
+    enum SessionDomainAction: Equatable {
+        /// Already where it belongs (or no legacy job to move).
+        case nothingToDo
+        /// Nothing is attached: install the Background job now.
+        case migrateNow
+        /// Sessions are alive under the old job — or their number could not
+        /// be trusted. Leave everything exactly as it is and try next launch.
+        case waitForAQuietMoment(liveSessionCount: Int?)
+    }
+
+    /// - Parameters:
+    ///   - backgroundJobLoaded: is this profile's job loaded in `user/<uid>`?
+    ///   - liveSessionCount: from `liveBrokeredSessionCount`; `nil` means the
+    ///     probe could not answer, which is never permission to destroy.
+    static func sessionDomainAction(
+        backgroundJobLoaded: Bool,
+        liveSessionCount: Int?
+    ) -> SessionDomainAction {
+        // Already where it belongs. A registration left behind in the GUI
+        // domain is not serving anything — two jobs under one label cannot
+        // both be loaded — so it is cleanup, not a reason to act now.
+        if backgroundJobLoaded { return .nothingToDo }
+        // Fail closed, twice over: an unreadable process table is not a zero,
+        // and a live session is not a cost launch may pay by itself. Waiting
+        // costs nothing but time, and the quiet moment always arrives.
+        guard liveSessionCount == 0 else {
+            return .waitForAQuietMoment(liveSessionCount: liveSessionCount)
+        }
+        return .migrateNow
+    }
+
 }

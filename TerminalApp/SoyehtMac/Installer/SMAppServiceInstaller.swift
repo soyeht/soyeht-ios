@@ -20,7 +20,12 @@ enum SMAppServiceInstaller {
     // MARK: - Launch reconciliation
 
     /// This build's LaunchAgent state, mapped to the pure decision type.
+    ///
+    /// A job we installed ourselves in the user domain IS the installed
+    /// state; `SMAppService` knows nothing about it and would report
+    /// `.notRegistered` forever, sending every launch down the repair path.
     static var currentState: EngineServiceReconciler.ServiceState {
+        if EngineBackgroundAgent.isLoadedInUserDomain(label: launchdLabel) { return .enabled }
         switch InstallerStatus(SMAppService.agent(plistName: plistName).status) {
         case .enabled:          return .enabled
         case .requiresApproval: return .requiresApproval
@@ -50,6 +55,7 @@ enum SMAppServiceInstaller {
     ///   for weeks, and the person found out by losing sessions.
     @discardableResult
     static func reconcileAtLaunch(isSetUp: Bool) -> EngineServiceReconciler.Attention? {
+        migrateOutOfTheGraphicalSessionIfQuiet(isSetUp: isSetUp)
         let state = currentState
         let loaded = isJobLoaded
         let decision = EngineServiceReconciler.decide(isSetUp: isSetUp, state: state, isLoaded: loaded,
@@ -131,9 +137,44 @@ enum SMAppServiceInstaller {
 
     /// Installs (or verifies already-installed) the LaunchAgent.
     ///
+    /// The job goes into the USER domain, where it outlives the graphical
+    /// session — see `EngineBackgroundAgent` for why, and for what a job in
+    /// `gui/<uid>` cost on 2026-09-04. `SMAppService` is kept only to let go
+    /// of a registration made by an older build: its API cannot express a
+    /// Background session type, and registering this plist through it now
+    /// fails outright, because launchd refuses such a job in the Aqua domain.
+    ///
     /// - Throws: `InstallerError` describing the failure. Callers should
     ///   consult `SMAppServiceFailureCoordinator` for case-specific UX.
     static func register() throws {
+        guard bundledLaunchAgentExists else { throw InstallerError.notFound }
+        // Let go of the old registration first, so the label is free and the
+        // Login Items entry does not outlive the job it described.
+        releaseLegacyRegistration()
+        switch EngineBackgroundAgent.install(bundledPlist: bundledLaunchAgentURL, label: launchdLabel) {
+        case .installed:
+            return
+        case .failed(let reason):
+            reconcileLog.error("engine job could not be installed in the user domain: \(reason, privacy: .public)")
+            throw InstallerError.registrationDidNotEnable
+        }
+    }
+
+    /// Unregisters an `SMAppService` agent left by an older build. Never
+    /// throws: a machine that never had one is the normal case after the
+    /// first migration, and a failure here must not stop the install.
+    private static func releaseLegacyRegistration() {
+        let legacy = SMAppService.agent(plistName: plistName)
+        guard legacy.status == .enabled || legacy.status == .requiresApproval else { return }
+        do {
+            try legacy.unregister()
+            reconcileLog.notice("released the legacy GUI-session registration: \(launchdLabel, privacy: .public)")
+        } catch {
+            reconcileLog.error("could not release the legacy registration: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private static func legacyRegister() throws {
         let service = SMAppService.agent(plistName: plistName)
         switch service.status {
         case .enabled:
@@ -182,6 +223,55 @@ enum SMAppServiceInstaller {
         throw InstallerError.registrationDidNotEnable
     }
 
+    // MARK: - Getting out of the graphical session
+
+    /// Moves this profile's job from the Aqua session to the user domain,
+    /// but only at a moment when the move costs nothing.
+    ///
+    /// launchd cannot move a running job between domains: the old one has to
+    /// stop, and stopping it is what takes the panes. So this waits for a
+    /// launch with nothing attached — which arrives on its own, and until it
+    /// does the machine keeps working exactly as before. Nobody is asked,
+    /// because there is nothing for a person to decide: answering a question
+    /// would not make the migration cheaper.
+    private static func migrateOutOfTheGraphicalSessionIfQuiet(isSetUp: Bool) {
+        // Before setup there is no engine to move, and onboarding installs
+        // straight into the right domain.
+        guard isSetUp, bundledLaunchAgentExists else { return }
+        let backgroundLoaded = EngineBackgroundAgent.isLoadedInUserDomain(label: launchdLabel)
+        let action = EngineServiceReconciler.sessionDomainAction(
+            backgroundJobLoaded: backgroundLoaded,
+            liveSessionCount: liveBrokeredSessionCount
+        )
+        switch action {
+        case .nothingToDo:
+            // Already home. Keep the installed plist honest with this build,
+            // WITHOUT reloading: a reload restarts the engine, and that is
+            // the cost this whole path exists to avoid. The next restart —
+            // an engine update, a reboot — picks the new file up.
+            if !EngineBackgroundAgent.installedPlistIsCurrent(bundled: bundledLaunchAgentURL, label: launchdLabel) {
+                let destination = EngineBackgroundAgent.installedPlistURL(label: launchdLabel)
+                if let data = try? Data(contentsOf: bundledLaunchAgentURL) {
+                    try? data.write(to: destination, options: .atomic)
+                    reconcileLog.notice("refreshed the installed engine plist; launchd reads it at the next restart: \(launchdLabel, privacy: .public)")
+                }
+            }
+        case .waitForAQuietMoment(let liveSessionCount):
+            reconcileLog.notice("engine still in the graphical session; \(liveSessionCount.map(String.init) ?? "an unknown number of", privacy: .public) session(s) attached, so the move waits for a quiet launch: \(launchdLabel, privacy: .public)")
+        case .migrateNow:
+            switch EngineBackgroundAgent.install(bundledPlist: bundledLaunchAgentURL, label: launchdLabel) {
+            case .installed:
+                releaseLegacyRegistration()
+                reconcileLog.notice("engine moved out of the graphical session into the user domain: \(launchdLabel, privacy: .public)")
+            case .failed(let reason):
+                // The old job was booted out by `install` before the load
+                // failed, so leaving it here would leave no engine at all.
+                reconcileLog.error("move to the user domain failed (\(reason, privacy: .public)); falling back to the graphical session")
+                try? legacyRegister()
+            }
+        }
+    }
+
     /// Restarts a RUNNING engine whose version `EngineStalenessPolicy` judged
     /// stale. This is the one sanctioned live-engine bounce outside of
     /// registration repair: it destroys every brokered session, which is why
@@ -196,23 +286,35 @@ enum SMAppServiceInstaller {
         // a wrapper change that shipped with this app — the engine log moving
         // to ~/Library/Logs, a new export — would otherwise wait for a logout
         // while the fresh binary already runs under the old command line.
-        let service = SMAppService.agent(plistName: plistName)
-        guard service.status == .enabled else {
-            kickstart()
+        // Re-install first: launchd only re-reads the plist when the job is
+        // (re)loaded, and a wrapper change that shipped with this app — a new
+        // export, the log moving — would otherwise wait for a logout while
+        // the fresh binary already runs under the old command line.
+        // `install` unloads and loads again, which IS the restart.
+        if bundledLaunchAgentExists,
+           case .installed = EngineBackgroundAgent.install(bundledPlist: bundledLaunchAgentURL, label: launchdLabel) {
+            EngineBackgroundAgent.startIfStopped(label: launchdLabel)
             return
         }
-        try? refreshEnabledService(service) // falls back to a plain kickstart itself
-        startWithoutRestarting() // RunAtLoad normally starts it; this covers the case it did not
+        EngineBackgroundAgent.restart(label: launchdLabel)
     }
 
     /// Unregisters the LaunchAgent (used by "Recomeçar do zero" FR-061).
+    ///
+    /// Both homes, always: a machine part-way through the migration can hold
+    /// a user-domain job AND an old `SMAppService` registration, and leaving
+    /// either behind means "start from scratch" did not.
     static func unregister() throws {
-        try SMAppService.agent(plistName: plistName).unregister()
+        EngineBackgroundAgent.remove(label: launchdLabel)
+        let legacy = SMAppService.agent(plistName: plistName)
+        guard legacy.status == .enabled || legacy.status == .requiresApproval else { return }
+        try legacy.unregister()
     }
 
     /// Returns the current `InstallerStatus` without side effects.
     static var status: InstallerStatus {
-        InstallerStatus(SMAppService.agent(plistName: plistName).status)
+        if EngineBackgroundAgent.isLoadedInUserDomain(label: launchdLabel) { return .enabled }
+        return InstallerStatus(SMAppService.agent(plistName: plistName).status)
     }
 
     /// Best-effort restart/start for the per-user LaunchAgent after the app
@@ -223,14 +325,11 @@ enum SMAppServiceInstaller {
     /// REGISTRATION and keeps saying `.enabled` after a `bootout`, so liveness
     /// has to be asked of launchd directly.
     static var isJobLoaded: Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["print", "gui/\(getuid())/\(launchdLabel)"]
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-        do { try process.run() } catch { return false }
-        process.waitUntilExit()
-        return process.terminationStatus == 0
+        // Either home counts as loaded: during the migration a machine may
+        // still be serving from the GUI domain, and a reconciler that called
+        // that "absent" would try to bootstrap over a live engine.
+        EngineBackgroundAgent.isLoadedInUserDomain(label: launchdLabel)
+            || EngineBackgroundAgent.isLoadedInGUIDomain(label: launchdLabel)
     }
 
     /// Starts a stopped job. Deliberately WITHOUT `-k`: that flag kills and
