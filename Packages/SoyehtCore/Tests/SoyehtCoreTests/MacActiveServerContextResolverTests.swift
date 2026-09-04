@@ -56,6 +56,65 @@ final class MacActiveServerContextResolverTests: XCTestCase {
                      "no canonical inventory row → nil (never wrap the legacy store for metadata)")
     }
 
+    // MARK: - This Mac's own engine is dialled on loopback
+
+    /// The self-pair stores this Mac's engine row under the host the engine
+    /// reports as best for a QR — its tailnet name or LAN address — because the
+    /// same row also has to serve a phone. The admin API is bound to loopback
+    /// only, so following that host from this machine dials an address where
+    /// nothing listens. MEASURED 2026-09-04: every pane opened produced twelve
+    /// `-1004` lines against 192.168.15.2:8892, this Mac's own LAN address.
+    func test_pinsThisMacsOwnEngineRowToTheLoopbackAdminHost() {
+        let (session, defaults, teardown) = makeSession()
+        defer { teardown() }
+        let id = "srv-local"
+        _ = session.addServer(pairedServer(id: id, host: "192.168.15.2:8892"), token: "tok")
+        ServerStore(defaults: defaults).save([macServer(id: id, lastHost: "192.168.15.2:8892")])
+        session.setActiveServer(id: id)
+        defaults.set(id, forKey: MacActiveServerContextResolver.verifiedLocalEngineServerIDKey)
+
+        let ctx = MacActiveServerContextResolver.activeContext(
+            sessionStore: session, defaults: defaults, localAdminHost: "localhost:8892"
+        )
+        XCTAssertEqual(ctx?.server.host, "localhost:8892")
+        XCTAssertEqual(ctx?.token, "tok", "the token is minted by that engine and is host-independent")
+        XCTAssertEqual(ctx?.server.id, id, "pinning must not change identity")
+    }
+
+    /// A remote engine — a Linux box, another Mac over the tailnet — is reached
+    /// at its own host. Pinning that to loopback would dial this machine.
+    func test_leavesAnyOtherServerAlone() {
+        let (session, defaults, teardown) = makeSession()
+        defer { teardown() }
+        let localID = "srv-local", remoteID = "srv-remote"
+        _ = session.addServer(pairedServer(id: remoteID, host: "box.tail1234.ts.net:8892"), token: "tok")
+        ServerStore(defaults: defaults).save([macServer(id: remoteID, lastHost: "box.tail1234.ts.net:8892")])
+        session.setActiveServer(id: remoteID)
+        // The app verified a DIFFERENT row as this Mac's engine.
+        defaults.set(localID, forKey: MacActiveServerContextResolver.verifiedLocalEngineServerIDKey)
+
+        let ctx = MacActiveServerContextResolver.activeContext(
+            sessionStore: session, defaults: defaults, localAdminHost: "localhost:8892"
+        )
+        XCTAssertEqual(ctx?.server.host, "box.tail1234.ts.net:8892")
+    }
+
+    /// Nothing verified yet (fresh install, or the credential was invalidated):
+    /// the row is followed as stored rather than guessed at.
+    func test_leavesTheRowAloneWhenNoLocalEngineWasVerified() {
+        let (session, defaults, teardown) = makeSession()
+        defer { teardown() }
+        let id = "srv-1"
+        _ = session.addServer(pairedServer(id: id, host: "192.168.15.2:8892"), token: "tok")
+        ServerStore(defaults: defaults).save([macServer(id: id, lastHost: "192.168.15.2:8892")])
+        session.setActiveServer(id: id)
+
+        let ctx = MacActiveServerContextResolver.activeContext(
+            sessionStore: session, defaults: defaults, localAdminHost: "localhost:8892"
+        )
+        XCTAssertEqual(ctx?.server.host, "192.168.15.2:8892")
+    }
+
     // MARK: - Helpers
 
     private func makeSession() -> (SessionStore, UserDefaults, () -> Void) {
