@@ -188,12 +188,34 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// child; live replies always go through (see `send(source:data:)`).
     private var isReplayingHistory = false
 
+    /// Armed by `resetInputModesForNewSession()`; consumed by the drain when
+    /// the first replay window opens, and applied when it closes.
+    ///
+    /// The attach-time reset alone loses a race it cannot win: the engine
+    /// replays this conversation's history AFTER the attach call returns, and
+    /// that history carries whatever the DEAD process left in it. MEASURED on
+    /// 2026-09-04, pane @zain's session log: three `CSI > 7 u` pushes and not
+    /// one `CSI < u` pop — Codex was killed with the engine and never handed
+    /// the keyboard back. Replaying that into a freshly reset emulator turns
+    /// the mode straight back on, and the new plain shell then receives
+    /// Shift+D as `CSI 68 ; 2 u` instead of `D`.
+    ///
+    /// Consuming the arm at `replayStart` (not at `replayDone`) is what keeps
+    /// a LATER replay — a transient WS reconnect, whose session may by then be
+    /// running a live TUI that legitimately owns these modes — from being
+    /// reset out from under it.
+    private var pendingInputModeResetAtReplayStart = false
+    private var appliesInputModeResetAtReplayDone = false
+
     private static let feedHighWatermark = 2 * 1024 * 1024
     private static let feedLowWatermark = 256 * 1024
     private static let feedSliceBytes = 128 * 1024
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
+    /// Set by `PaneViewController`; receives absolute paths announced by the
+    /// shell through OSC 7 (see `hostCurrentDirectoryUpdate`).
+    var onHostDirectoryChanged: ((String) -> Void)?
     var onUserInputData: ((Data) -> Void)?
     var onUserInputOutcomeUnknown: ((Data) -> Void)?
     enum BrokerSubmissionResult {
@@ -391,8 +413,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// effect, and is a no-op on a freshly created view. Callers must skip
     /// this when reattaching to a session that kept running (its TUI still
     /// owns those modes).
+    /// Applied twice on purpose: once now, so a session the engine never
+    /// replays is covered, and once after the replay window closes, so a
+    /// replayed history cannot latch the modes back on (see
+    /// `pendingInputModeResetAtReplayStart`).
     func resetInputModesForNewSession() {
         feed(text: Self.newSessionInputModeResets)
+        pendingInputModeResetAtReplayStart = true
     }
 
     /// Attach this terminal view to a locally-spawned PTY (user's `$SHELL`
@@ -956,8 +983,16 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 isFeedingServerData = false
             case .replayStart:
                 isReplayingHistory = true
+                if pendingInputModeResetAtReplayStart {
+                    pendingInputModeResetAtReplayStart = false
+                    appliesInputModeResetAtReplayDone = true
+                }
             case .replayDone:
                 isReplayingHistory = false
+                if appliesInputModeResetAtReplayDone {
+                    appliesInputModeResetAtReplayDone = false
+                    feed(text: Self.newSessionInputModeResets)
+                }
             }
         }
 
@@ -976,6 +1011,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         wsReceiveDeferred = false
         feedLock.unlock()
         isReplayingHistory = false
+        // A torn-down transport takes its pending reset with it: the next
+        // attach arms its own, and an arm left behind would fire into
+        // whatever session the view is given next.
+        pendingInputModeResetAtReplayStart = false
+        appliesInputModeResetAtReplayDone = false
     }
 
     // MARK: - Terminal Response Routing
@@ -1258,7 +1298,25 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
     }
 
-    func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
+    /// OSC 7. Shells that announce their directory (zsh does on macOS by
+    /// default) keep the pane's persisted folder current, so a relaunch
+    /// reopens where the pane WAS, not merely where it was first opened.
+    /// Silent for shells that never emit it — the launch directory persisted
+    /// by `startLocalShell` is still the floor.
+    func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {
+        guard let directory, !directory.isEmpty else { return }
+        // OSC 7 carries a file URL (`file://host/path`); a bare path is also
+        // seen in the wild. Take only local paths.
+        let path: String
+        if let url = URL(string: directory), url.isFileURL {
+            path = url.path
+        } else if directory.hasPrefix("/") {
+            path = directory
+        } else {
+            return
+        }
+        onHostDirectoryChanged?(path)
+    }
 
     // Adaptation 3: NSWorkspace for link opening
     func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {

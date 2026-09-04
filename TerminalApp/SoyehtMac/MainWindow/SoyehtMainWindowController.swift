@@ -3665,9 +3665,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 handle: handle,
                 agent: .shell,
                 workspaceID: workspaceID,
-                commander: .placeholderMirror
+                commander: .placeholderMirror,
+                workingDirectoryPath: cwd.path
             ))
         }
+        // Both branches, not just the freshly added one: a hydrated
+        // placeholder is the common path (the empty-pane picker), and it is
+        // exactly the pane that used to come back in `~`.
+        convStore.updateWorkingDirectory(paneID, path: cwd.path)
 
         Task { @MainActor [weak self] in
             guard let self else { return }

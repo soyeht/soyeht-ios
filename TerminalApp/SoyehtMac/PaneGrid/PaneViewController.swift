@@ -486,6 +486,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         terminalView.onScrollToBottomVisibilityChanged = { [weak self] isVisible in
             self?.scrollToBottomButton.isHidden = !isVisible
         }
+        terminalView.onHostDirectoryChanged = { [weak self] path in
+            guard let self else { return }
+            AppEnvironment.conversationStore?.updateWorkingDirectory(
+                self.conversationID,
+                path: path
+            )
+        }
     }
 
     @objc private func scrollToBottomTapped() {
@@ -622,6 +629,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         sessionDialog.configure(agent: agent, defaultURL: url)
         emptyState = .configuring(agent)
         updateEmptyStateVisibility()
+    }
+
+    /// Where a restored terminal pane should reopen. The pane's own persisted
+    /// folder wins; a folder that no longer exists is skipped, because the
+    /// engine cannot spawn a shell in it and the pane would come back dead
+    /// rather than merely displaced.
+    private func restoreDirectory(for conv: Conversation) -> URL {
+        if let path = conv.workingDirectoryPath, !path.isEmpty {
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                return URL(fileURLWithPath: path, isDirectory: true)
+            }
+        }
+        return resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
     }
 
     private func resolvedWorkspaceFolder() -> URL? {
@@ -876,9 +898,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             return
         }
 
-        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
-            ?? resolvedWorkspaceFolder()
-            ?? FileManager.default.homeDirectoryForCurrentUser
+        let url = restoreDirectory(for: conv)
         let term = terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)
@@ -1009,9 +1029,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // moments ago and is coming back via undo, cancel the pending reap so
         // the still-alive session is reconnected instead of deleted. No-op on
         // the normal relaunch path (nothing scheduled).
-        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
-            ?? resolvedWorkspaceFolder()
-            ?? FileManager.default.homeDirectoryForCurrentUser
+        let url = restoreDirectory(for: conv)
         let term = terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)

@@ -49,6 +49,35 @@ final class AgentPaneMouseReportingSourceGuardTests: XCTestCase {
 /// owns its modes), and the reset string actually contains each escape that
 /// clears the latched state.
 final class NewSessionInputModeResetSourceGuardTests: XCTestCase {
+    /// The attach-time reset is fed BEFORE the engine's replay arrives, so on
+    /// its own it loses to a replayed history that still carries the dead
+    /// process's mode pushes (MEASURED 2026-09-04: pane @zain's session log
+    /// held three `CSI > 7 u` pushes and not one pop). The arm is consumed
+    /// when the replay window OPENS and applied when it CLOSES — consuming it
+    /// at the open is what keeps a LATER reconnect's replay, whose session may
+    /// own its modes legitimately, from being reset out from under a live TUI.
+    func testInputModeResetIsRepeatedAfterTheReplayWindow() throws {
+        let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        XCTAssertTrue(source.contains("pendingInputModeResetAtReplayStart = true"))
+        XCTAssertTrue(source.contains("appliesInputModeResetAtReplayDone = true"))
+        XCTAssertTrue(source.contains("if appliesInputModeResetAtReplayDone {"))
+        XCTAssertTrue(source.contains("appliesInputModeResetAtReplayDone = false"))
+        // The repeat has to be the same string the attacher feeds, not a
+        // hand-rolled subset that forgets a mode.
+        let replayDone = source.components(separatedBy: "case .replayDone:")
+        XCTAssertEqual(replayDone.count, 2, "one replayDone case expected")
+        XCTAssertTrue(replayDone[1].hasPrefix("\n                isReplayingHistory = false"))
+        XCTAssertTrue(replayDone[1].contains("feed(text: Self.newSessionInputModeResets)"))
+    }
+
+    func testTornDownTransportDropsItsPendingReset() throws {
+        let source = try macSource("SoyehtInstance/MacOSWebSocketTerminalView.swift")
+        let bridge = source.components(separatedBy: "private func resetFeedBridge()")
+        XCTAssertEqual(bridge.count, 2, "resetFeedBridge should exist exactly once")
+        XCTAssertTrue(bridge[1].contains("pendingInputModeResetAtReplayStart = false"))
+        XCTAssertTrue(bridge[1].contains("appliesInputModeResetAtReplayDone = false"))
+    }
+
     func testAttacherResetsInputModesOnlyForNewSessions() throws {
         let source = try macSource("SoyehtInstance/EnginePaneAttacher.swift")
         XCTAssertTrue(source.contains("if !response.reconnected {"))

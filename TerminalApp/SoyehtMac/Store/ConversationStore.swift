@@ -100,6 +100,24 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Record the folder a pane is actually sitting in, so a relaunch can put
+    /// it back there.
+    ///
+    /// Terminal panes used to persist nothing about their directory: the
+    /// struct behind `.terminal` content is empty, and `startLocalShell`
+    /// created the conversation without a `workingDirectoryPath`. MEASURED on
+    /// 2026-09-04, after a WindowServer crash logged the session out: 45 of
+    /// the 52 stored conversations had no path at all, so every one of them
+    /// came back as a shell in `~` instead of the project it was opened in.
+    /// Editor, git, web and app panes all persisted their own path and
+    /// restored correctly — terminal was the one kind that did not.
+    func updateWorkingDirectory(_ id: Conversation.ID, path: String) {
+        guard var conv = conversations[id], conv.workingDirectoryPath != path else { return }
+        conv.workingDirectoryPath = path
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Assign or clear a semantic role without changing the pane handle or
     /// agent process identity.
     func updateRoleAssignment(_ id: Conversation.ID, roleAssignment: AgentRoleAssignment?) {
