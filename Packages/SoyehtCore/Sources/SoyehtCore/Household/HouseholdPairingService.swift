@@ -82,6 +82,11 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         self.session = session
     }
 
+    /// One pairing ceremony's worth of patience. Long enough for a tailnet
+    /// hop on a slow phone, short enough that a wrong address says so while
+    /// the person is still looking at the screen.
+    static let confirmTimeoutSeconds: TimeInterval = 15
+
     public func confirmPairing(
         endpoint: URL,
         body: PairDeviceConfirmRequest
@@ -92,6 +97,12 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
+        // Explicit, because the plain-HTTP path no longer treats a connection
+        // stuck in `.waiting` as fatal: without a deadline of its own an
+        // unroutable engine would hold the pairing screen for URLRequest's
+        // inherited 60 s, which is the shape of "it just sat there" rather
+        // than a failure anyone can act on.
+        request.timeoutInterval = Self.confirmTimeoutSeconds
         let (data, response) = try await Self.perform(request, session: session)
         // Measure the answer before anything can reject it. Without these two
         // numbers a run that failed after a *successful* server-side confirm
@@ -136,6 +147,20 @@ public struct HouseholdPairingService {
     private let rosterStorage: any HouseholdSecureStoring
     private let rosterAccount: String
     private let now: @Sendable () -> Date
+    /// Seconds since the epoch as text. `Int(_:)` traps on a value a
+    /// certificate is free to carry, and a diagnostic must not crash the
+    /// pairing it exists to explain.
+    static func epochString(_ date: Date) -> String {
+        String(format: "%.0f", date.timeIntervalSince1970)
+    }
+
+    /// How far past `from` this phone believes it is. Negative means the
+    /// certificate is still future-dated here — the only shape in which the
+    /// window can refuse a cert the Mac just minted.
+    static func millisecondsString(from: Date, to: Date) -> String {
+        String(format: "%.0f", to.timeIntervalSince(from) * 1000)
+    }
+
     private let log: HouseholdPairingLogSink
 
     public init(
@@ -303,9 +328,18 @@ public struct HouseholdPairingService {
             // `skewMs` is how far past `not_before` this phone believes it is,
             // so a NEGATIVE value means the cert is still future-dated here.
             let validationNow = now()
+            // Formatted, never converted with `Int(_:)`: a `not_before` far
+            // enough from the epoch traps, and a diagnostic line has no
+            // business crashing the pairing it exists to explain — a
+            // malformed or hostile certificate must still come out the other
+            // side as a refusal.
+            //
+            // `notAfter` is logged beside it because `cert.validate` folds
+            // BOTH ends of the window into the same `invalidValidityWindow`;
+            // without it a captured line cannot say which end refused.
             log(
                 .info,
-                "pair.cert.validity notBefore=\(Int(cert.notBefore.timeIntervalSince1970)) issuedAt=\(cert.issuedAt.map { Int($0.timeIntervalSince1970) }.map(String.init) ?? "none") now=\(Int(validationNow.timeIntervalSince1970)) skewMs=\(Int((validationNow.timeIntervalSince(cert.notBefore) * 1000).rounded()))"
+                "pair.cert.validity notBefore=\(Self.epochString(cert.notBefore)) notAfter=\(cert.notAfter.map(Self.epochString) ?? "none") issuedAt=\(cert.issuedAt.map(Self.epochString) ?? "none") now=\(Self.epochString(validationNow)) skewMs=\(Self.millisecondsString(from: cert.notBefore, to: validationNow))"
             )
             try cert.validate(
                 householdId: qr.householdId,

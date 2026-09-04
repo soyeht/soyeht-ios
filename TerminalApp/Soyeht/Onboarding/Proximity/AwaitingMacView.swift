@@ -493,6 +493,15 @@ final class AwaitingMacViewModel: ObservableObject {
     private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
     private var installedLocalPairingForDiscovery = false
+    /// Household key of the home this phone actually completed pairing with in
+    /// this session — set only on the success paths, cleared by `stop()`.
+    ///
+    /// `alreadyFound` cannot stand in for it. The latch closes on discovery,
+    /// and stays closed through "Not my Mac", an unparsable link and words the
+    /// person never verified; an adversarial review measured that the first
+    /// version of the late-claim path installed any Mac's secret in exactly
+    /// those states, because the latch was the only thing it consulted.
+    private var pairedHouseholdKey: String?
     private var recoveryHintTask: Task<Void, Never>?
     private var macBrowserResolutionTask: Task<Void, Never>?
     private var offerRefreshTask: Task<Void, Never>?
@@ -594,17 +603,21 @@ final class AwaitingMacViewModel: ObservableObject {
     /// claim arrived at 21:57:50Z, and the latch dropped it on the floor. The
     /// claim is late, not wrong.
     private func acceptLateClaim(_ claim: SetupInvitationDirectClaim) {
-        guard let pairing = claim.macLocalPairing else {
-            awaitingMacLogger.info("late_claim_ignored_no_local_pairing")
-            return
-        }
-        if let candidate = pendingExistingHouse {
-            // Same home only. A second Mac answering this invitation must not
-            // slip its secret under the card the person is reading.
-            guard Self.claim(claim, matchesHouseholdOf: candidate) else {
-                awaitingMacLogger.info("late_claim_ignored_household_mismatch")
-                return
-            }
+        let claimHouseholdKey = claim.existingHouse
+            .flatMap { URL(string: $0.pairDeviceURI) }
+            .flatMap { Self.householdKey(of: $0) }
+        let decision = LateMacClaimPolicy.decide(
+            hasLocalPairing: claim.macLocalPairing != nil,
+            candidateHouseholdKey: pendingExistingHouse.flatMap { Self.householdKey(of: $0.pairDeviceURI) },
+            claimHouseholdKey: claimHouseholdKey,
+            pairedHouseholdKey: pairedHouseholdKey,
+            alreadyInstalled: installedLocalPairingForDiscovery
+        )
+        switch decision {
+        case .drop(let refusal):
+            awaitingMacLogger.info("late_claim_dropped reason=\(refusal.rawValue, privacy: .public)")
+        case .deferToCandidate:
+            guard let pairing = claim.macLocalPairing, let candidate = pendingExistingHouse else { return }
             // Same rebuild `startOfferRefresh` does: the candidate is a value,
             // so carrying the secret means replacing it.
             pendingExistingHouse = ExistingHouseCandidate(
@@ -616,17 +629,12 @@ final class AwaitingMacViewModel: ObservableObject {
                 deferredLocalPairing: pairing
             )
             awaitingMacLogger.info("late_claim_deferred_to_candidate")
-            return
+        case .install:
+            guard let pairing = claim.macLocalPairing else { return }
+            installMacLocalPairing(pairing)
+            installedLocalPairingForDiscovery = true
+            awaitingMacLogger.info("late_claim_installed_local_pairing")
         }
-        // No card on screen: the engine pairing already went through and this
-        // secret is the only thing still missing from the phone's home.
-        guard !installedLocalPairingForDiscovery else {
-            awaitingMacLogger.info("late_claim_ignored_already_installed")
-            return
-        }
-        installMacLocalPairing(pairing)
-        installedLocalPairingForDiscovery = true
-        awaitingMacLogger.info("late_claim_installed_local_pairing")
     }
 
     /// Does a late claim belong to the home the card is offering?
@@ -648,6 +656,12 @@ final class AwaitingMacViewModel: ObservableObject {
     }
 
     func stop() {
+        // Discovery state does not survive a restart of the screen: after
+        // "Not my Mac" or "Keep looking" the next claim is judged from
+        // scratch, and a secret installed for the previous home is not
+        // treated as this one's.
+        installedLocalPairingForDiscovery = false
+        pairedHouseholdKey = nil
         offerRefreshTask?.cancel()
         offerRefreshTask = nil
         publisher.stop()
@@ -767,7 +781,12 @@ final class AwaitingMacViewModel: ObservableObject {
                     if let pairing = (self.pendingExistingHouse?.deferredLocalPairing ?? nil)
                         ?? house.deferredLocalPairing {
                         installMacLocalPairing(pairing)
+                        self.installedLocalPairingForDiscovery = true
                     }
+                    // This is the moment a home becomes THIS phone's home, and
+                    // the only thing that lets a later claim be trusted without
+                    // a card on screen.
+                    self.pairedHouseholdKey = Self.householdKey(of: house.pairDeviceURI)
                     // `HouseholdPairingService` writes the session straight to
                     // the keychain; the facade every screen reads is a cache
                     // that only refreshes when told. Without this the

@@ -68,13 +68,27 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
     func test_lateClaimWithACandidatePending_rebuildsItCarryingTheSecret() throws {
         let accept = try acceptLateClaimBody()
 
+        // WHETHER to accept is decided by `LateMacClaimPolicy`, where a test
+        // can reach every branch — an adversarial review measured that this
+        // file's text scanning passed while the "nothing on screen" branch
+        // installed any Mac's secret. The scan's job now is only to prove the
+        // view asks the policy and honours all three answers.
         XCTAssertTrue(
-            accept.contains("if let candidate = pendingExistingHouse {"),
-            "with the 'is this your Mac?' card up, the secret must be deferred onto the candidate"
+            accept.contains("LateMacClaimPolicy.decide("),
+            "the decision belongs to the policy, not to this view"
         )
+        for input in [
+            "hasLocalPairing: claim.macLocalPairing != nil",
+            "candidateHouseholdKey: pendingExistingHouse",
+            "claimHouseholdKey: claimHouseholdKey",
+            "pairedHouseholdKey: pairedHouseholdKey",
+            "alreadyInstalled: installedLocalPairingForDiscovery",
+        ] {
+            XCTAssertTrue(accept.contains(input), "the policy must be given \(input)")
+        }
         XCTAssertTrue(
-            accept.contains("guard Self.claim(claim, matchesHouseholdOf: candidate) else {"),
-            "a claim from another home must not slip its secret under the card on screen"
+            accept.contains("case .deferToCandidate:"),
+            "with the 'is this your Mac?' card up, the secret must be deferred onto the candidate"
         )
         // Same rebuild `startOfferRefresh` does: the candidate is a value type,
         // so carrying the secret means replacing it field for field.
@@ -93,12 +107,35 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         }
     }
 
+    /// The policy can only refuse an unknown Mac if the view actually tells it
+    /// which home this phone paired with — and forgets it when the screen
+    /// restarts. `alreadyFound` is not that signal: it stays closed through
+    /// "Not my Mac" and through every failed Connect.
+    func test_theViewRemembersWhichHomeItPairedWithAndForgetsItOnRestart() throws {
+        let source = try awaitingMacSource()
+        XCTAssertTrue(source.contains("private var pairedHouseholdKey: String?"))
+        XCTAssertTrue(
+            source.contains("self.pairedHouseholdKey = Self.householdKey(of: house.pairDeviceURI)"),
+            "the paired home is recorded where pairing actually succeeds"
+        )
+        let stop = try slice(source, from: "    func stop() {", to: "\n    }")
+        XCTAssertTrue(stop.contains("pairedHouseholdKey = nil"))
+        XCTAssertTrue(
+            stop.contains("installedLocalPairingForDiscovery = false"),
+            "a secret installed for the previous home must not count as this one's"
+        )
+    }
+
     func test_lateClaimAfterThePairingFinished_installsTheSecretItself() throws {
         let accept = try acceptLateClaimBody()
 
         XCTAssertTrue(
-            accept.contains("guard !installedLocalPairingForDiscovery else {"),
-            "a secret already installed must not be installed twice"
+            accept.contains("case .install:"),
+            "the policy's install answer must have a branch that installs"
+        )
+        XCTAssertTrue(
+            accept.contains("case .drop(let refusal):"),
+            "every refusal must be named in the log, or a dropped claim is invisible"
         )
         XCTAssertTrue(
             accept.contains("installMacLocalPairing(pairing)"),
