@@ -338,6 +338,11 @@ struct SoyehtAppView: View {
     /// twice on purpose and why a time window would be the wrong observable.
     @State private var invitePresentation = ClawShareInvitePresentation()
     @State private var macLocalPairingPublisher: SetupInvitationPublisher?
+    /// True while the publisher above is the household recovery window rather
+    /// than a device-pairing handshake. Only the recovery window closes on
+    /// `willResignActive`; a pair-device approval the person is in the middle
+    /// of must survive a notification banner pulling the app out of active.
+    @State private var macLocalPairingPublisherIsRecoveryWindow = false
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
     /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
@@ -829,6 +834,9 @@ struct SoyehtAppView: View {
         }
         .onReceive(macsStoreBox.$macs) { macs in
             guard !macs.isEmpty else { return }
+            // The home has its Mac. Nothing left to recover — this is the
+            // recovery window's other end.
+            stopHouseholdMacRecoveryInvitation()
             switch appState {
             // Only the home. `.pairingSuccess` is the celebration now, and it
             // carries a decision — a Mac landing in the registry must not pull
@@ -853,16 +861,23 @@ struct SoyehtAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if let identity = loadActiveIdentityForLifecycle(reason: "didBecomeActive") {
                 machineJoinRuntime.activate(identity.underlying)
-                // The invitation lives 45 seconds. A Mac that was asleep
-                // when the phone paired needs another chance, and coming
-                // back to the app is when the person is asking for one.
-                if case .instanceList = appState {
+                // `willResignActive` took the invitation down; this puts it
+                // back. Both screens that arm it are listed, because leaving
+                // one of them out means a phone that backgrounded there never
+                // advertises again. Guarded inside on `operationalMacs.isEmpty`.
+                switch appState {
+                case .instanceList, .householdHome:
                     startHouseholdMacRecoveryInvitation(for: identity)
+                default:
+                    break
                 }
             }
             machineJoinRuntime.enterForeground()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            // A Bonjour publisher the person cannot see is a radio nobody
+            // asked for. The window reopens on `didBecomeActive`.
+            stopHouseholdMacRecoveryInvitation()
             machineJoinRuntime.enterBackground()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
@@ -1110,27 +1125,56 @@ struct SoyehtAppView: View {
         }
     }
 
+    /// How long the setup invitation the Mac claims stays valid. The Mac sends
+    /// `expiresAt` back with its claim and the engine checks it, so a window
+    /// held open longer than this has to re-mint rather than keep advertising
+    /// an invitation no Mac can accept. Renewal leads the expiry by a minute.
+    private static let macLocalPairingInvitationLifetime: TimeInterval = 300
+    private static let macLocalPairingInvitationRenewal: TimeInterval = 240
+
+    /// How long the publisher stays up.
+    private enum MacLocalPairingPublisherLifetime {
+        /// A handshake with a definite end. Nothing else stops the publisher
+        /// when the Mac simply never answers, so this one stops itself.
+        case bounded(seconds: TimeInterval)
+        /// Open for as long as the home has no Mac and the app is in front:
+        /// stopped by `willResignActive` and by a Mac landing in the registry,
+        /// re-armed by `didBecomeActive`.
+        case whileActiveAndMacless
+    }
+
     @MainActor
     private func startDevicePairingSetupInvitation(for link: HouseholdDevicePairingLink) {
-        startMacLocalPairingPublisher { claim in
+        startMacLocalPairingPublisher(lifetime: .bounded(seconds: 45)) { claim in
             Self.devicePairingClaim(claim, matches: link)
         }
     }
 
+    /// The window in which a Mac can hand this iPhone the secret that puts a
+    /// Mac on its home.
+    ///
+    /// It used to be 45 seconds from whenever a screen appeared. When the radar
+    /// won the race against the Mac's claim, those 45 seconds were the only
+    /// thing left standing between the person and a home with no Mac on it —
+    /// and a Mac that was asleep, or on the far side of a Tailscale reconnect,
+    /// took longer than that. There is no clock on it now: the phone advertises
+    /// while it has no Mac and someone is looking at it.
     @MainActor
     private func startHouseholdMacRecoveryInvitation(for snapshot: SoyehtIdentitySnapshot) {
         guard ServerRegistry.shared.operationalMacs.isEmpty else { return }
-        startMacLocalPairingPublisher { claim in
+        startMacLocalPairingPublisher(lifetime: .whileActiveAndMacless) { claim in
             Self.existingHouseClaim(claim, matchesHouseholdId: snapshot.id)
         }
     }
 
     @MainActor
     private func startMacLocalPairingPublisher(
+        lifetime: MacLocalPairingPublisherLifetime,
         acceptingClaim: @escaping @Sendable (SetupInvitationDirectClaim) -> Bool
     ) {
         stopMacLocalPairingPublisher()
-        let expiresAt = UInt64(max(0, Date().timeIntervalSince1970)) + 300
+        let expiresAt = UInt64(max(0, Date().timeIntervalSince1970))
+            + UInt64(Self.macLocalPairingInvitationLifetime)
         let invitation = SetupInvitationPayload(
             token: SetupInvitationToken(),
             ownerDisplayName: nil,
@@ -1152,14 +1196,37 @@ struct SoyehtAppView: View {
             }
         }
         macLocalPairingPublisher = publisher
+        if case .whileActiveAndMacless = lifetime {
+            macLocalPairingPublisherIsRecoveryWindow = true
+        }
         publisher.start()
 
-        Task { [weak publisher] in
-            try? await Task.sleep(nanoseconds: 45_000_000_000)
-            await MainActor.run {
-                guard let publisher, macLocalPairingPublisher === publisher else { return }
-                publisher.stop()
-                macLocalPairingPublisher = nil
+        switch lifetime {
+        case .bounded(let seconds):
+            Task { [weak publisher] in
+                try? await Task.sleep(for: .seconds(seconds))
+                await MainActor.run {
+                    guard let publisher, macLocalPairingPublisher === publisher else { return }
+                    publisher.stop()
+                    macLocalPairingPublisher = nil
+                }
+            }
+        case .whileActiveAndMacless:
+            // Not a deadline — a renewal. The token this publisher is handing
+            // out lapses; the window does not.
+            Task { [weak publisher] in
+                try? await Task.sleep(for: .seconds(Self.macLocalPairingInvitationRenewal))
+                await MainActor.run {
+                    guard let publisher, macLocalPairingPublisher === publisher else { return }
+                    guard ServerRegistry.shared.operationalMacs.isEmpty else {
+                        stopMacLocalPairingPublisher()
+                        return
+                    }
+                    startMacLocalPairingPublisher(
+                        lifetime: .whileActiveAndMacless,
+                        acceptingClaim: acceptingClaim
+                    )
+                }
             }
         }
     }
@@ -1168,6 +1235,14 @@ struct SoyehtAppView: View {
     private func stopMacLocalPairingPublisher() {
         macLocalPairingPublisher?.stop()
         macLocalPairingPublisher = nil
+        macLocalPairingPublisherIsRecoveryWindow = false
+    }
+
+    /// Closes the recovery window and nothing else.
+    @MainActor
+    private func stopHouseholdMacRecoveryInvitation() {
+        guard macLocalPairingPublisherIsRecoveryWindow else { return }
+        stopMacLocalPairingPublisher()
     }
 
     nonisolated private static func devicePairingClaim(

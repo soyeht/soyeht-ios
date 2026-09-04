@@ -49,6 +49,13 @@ final class SetupInvitationListener: @unchecked Sendable {
                 return .notFound
             }
             setupInvitationLogger.info("direct_probe.invitation_found iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)")
+            if let deviceID = hit.payload.iphoneDeviceID,
+               RecentSetupInvitationClaims.shared.isRecent(deviceID) {
+                setupInvitationLogger.info(
+                    "direct_probe.claim_suppressed_recent device=\(deviceID.uuidString, privacy: .public)"
+                )
+                return .notFound
+            }
             do {
                 try await claimWithRetry(hit: hit)
                 setupInvitationLogger.info("direct_probe.claimed")
@@ -79,6 +86,9 @@ final class SetupInvitationListener: @unchecked Sendable {
                 )
             )
             setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
+            if let deviceID = hit.payload.iphoneDeviceID {
+                RecentSetupInvitationClaims.shared.record(deviceID)
+            }
             return .invitationClaimed(
                 ownerDisplayName: hit.payload.ownerDisplayName,
                 iphoneApnsToken: hit.payload.iphoneApnsToken
@@ -121,6 +131,16 @@ final class SetupInvitationListener: @unchecked Sendable {
                 return
             } catch let error as BootstrapError {
                 lastError = error
+                // The claim loop is otherwise invisible: `already_initialized`
+                // is the engine saying this invitation is spoken for, the
+                // listener proceeds past it (see
+                // `shouldProceedAfterClaimFailure`), and nothing on the Mac
+                // ever said so out loud.
+                if case .serverError(let code, _) = error, BootstrapErrorCode(wire: code) == .alreadyInitialized {
+                    setupInvitationLogger.info(
+                        "direct_probe.claim_already_initialized attempt=\(attempt, privacy: .public) iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)"
+                    )
+                }
                 if case .serverError(let code, _) = error, BootstrapErrorCode(wire: code) == .invitationNotRecognized,
                    attempt < backoffs.count {
                     setupInvitationLogger.info("direct_probe.claim_race_retry attempt=\(attempt + 1, privacy: .public) delay_ms=\(Int(backoffs[attempt] * 1000), privacy: .public)")
@@ -188,9 +208,25 @@ final class MacAutomaticIPhoneDiscoveryService {
         // different one. The phone was then told to expect words nobody was
         // displaying, and it reported that it could not verify the Mac.
         // There is one offer per Mac now, and this reads it.
-        guard let offer = await MacPairingAdvertisement.shared.currentOffer() else {
+        guard var offer = await MacPairingAdvertisement.shared.currentOffer() else {
             setupInvitationLogger.info("automatic_listener.payload_unavailable reason=no_offer")
             return nil
+        }
+        // The advertisement runs on its own clock — up to 30 s between passes.
+        // The engine's link stops being accepted the moment the engine leaves
+        // `named_awaiting_pair`, so for that whole window this loop was pushing
+        // the phone a link the phone then refused. One status fetch closes it,
+        // and only while the cached offer is the engine's.
+        if offer.isEngineMinted, await Self.engineIsReady() {
+            MacPairingAdvertisement.shared.invalidate()
+            guard let refreshed = await MacPairingAdvertisement.shared.currentOffer() else {
+                setupInvitationLogger.info("automatic_listener.payload_unavailable reason=engine_offer_closed")
+                return nil
+            }
+            setupInvitationLogger.info(
+                "automatic_listener.offer_refreshed_after_ready engine_minted=\(refreshed.isEngineMinted, privacy: .public)"
+            )
+            offer = refreshed
         }
         return SetupInvitationExistingHouse(
             name: offer.houseName,
@@ -198,12 +234,48 @@ final class MacAutomaticIPhoneDiscoveryService {
             pairDeviceURI: offer.uri
         )
     }
+
+    private static func engineIsReady() async -> Bool {
+        let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
+        guard let status = try? await client.fetch() else { return false }
+        return status.state == .ready
+    }
 }
 
 private struct AutomaticHouseholdIdentitySummary {
     let householdId: String
     let householdPublicKey: Data
     let name: String
+}
+
+/// iPhones this Mac has just finished a full claim-and-notify ceremony for.
+///
+/// The listener loop comes round about every 3.4 s and, on a Mac running both
+/// Soyeht and Soyeht Dev, two profiles chase the same phone. Every extra pass
+/// re-claims an invitation that is already spoken for and pushes the phone
+/// another claim — one more chance for the phone's radar to win the race and
+/// throw the Mac's pairing secret away. A claim is worth repeating when the
+/// phone re-publishes, not every three seconds.
+private final class RecentSetupInvitationClaims: @unchecked Sendable {
+    static let shared = RecentSetupInvitationClaims()
+
+    /// Long enough to swallow the loop's own cadence, short enough that a
+    /// phone that really did start over is served on its next pass.
+    static let window: TimeInterval = 5
+
+    private let lock = NSLock()
+    private var claimedAt: [UUID: Date] = [:]
+
+    func isRecent(_ deviceID: UUID, now: Date = Date()) -> Bool {
+        lock.withLock { () -> Bool in
+            claimedAt = claimedAt.filter { now.timeIntervalSince($0.value) < Self.window }
+            return claimedAt[deviceID] != nil
+        }
+    }
+
+    func record(_ deviceID: UUID, now: Date = Date()) {
+        lock.withLock { claimedAt[deviceID] = now }
+    }
 }
 
 private final class ResumeOnce: @unchecked Sendable {
