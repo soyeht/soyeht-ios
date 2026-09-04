@@ -188,24 +188,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// child; live replies always go through (see `send(source:data:)`).
     private var isReplayingHistory = false
 
-    /// Armed by `resetInputModesForNewSession()`; consumed by the drain when
-    /// the first replay window opens, and applied when it closes.
-    ///
-    /// The attach-time reset alone loses a race it cannot win: the engine
-    /// replays this conversation's history AFTER the attach call returns, and
-    /// that history carries whatever the DEAD process left in it. MEASURED on
-    /// 2026-09-04, pane @zain's session log: three `CSI > 7 u` pushes and not
-    /// one `CSI < u` pop — Codex was killed with the engine and never handed
-    /// the keyboard back. Replaying that into a freshly reset emulator turns
-    /// the mode straight back on, and the new plain shell then receives
-    /// Shift+D as `CSI 68 ; 2 u` instead of `D`.
-    ///
-    /// Consuming the arm at `replayStart` (not at `replayDone`) is what keeps
-    /// a LATER replay — a transient WS reconnect, whose session may by then be
-    /// running a live TUI that legitimately owns these modes — from being
-    /// reset out from under it.
-    private var pendingInputModeResetAtReplayStart = false
-    private var appliesInputModeResetAtReplayDone = false
+    /// Decides when a reused view must be told to forget a dead process's
+    /// input modes. The rule, and why it is shaped this way, lives in
+    /// `InputModeResetSchedule`, where it is tested directly.
+    private var inputModeResetSchedule = InputModeResetSchedule()
 
     private static let feedHighWatermark = 2 * 1024 * 1024
     private static let feedLowWatermark = 256 * 1024
@@ -419,7 +405,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// `pendingInputModeResetAtReplayStart`).
     func resetInputModesForNewSession() {
         feed(text: Self.newSessionInputModeResets)
-        pendingInputModeResetAtReplayStart = true
+        inputModeResetSchedule.armForNewSession()
     }
 
     /// Attach this terminal view to a locally-spawned PTY (user's `$SHELL`
@@ -983,14 +969,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 isFeedingServerData = false
             case .replayStart:
                 isReplayingHistory = true
-                if pendingInputModeResetAtReplayStart {
-                    pendingInputModeResetAtReplayStart = false
-                    appliesInputModeResetAtReplayDone = true
-                }
+                inputModeResetSchedule.replayWindowOpened()
             case .replayDone:
                 isReplayingHistory = false
-                if appliesInputModeResetAtReplayDone {
-                    appliesInputModeResetAtReplayDone = false
+                if inputModeResetSchedule.replayWindowClosed() {
                     feed(text: Self.newSessionInputModeResets)
                 }
             }
@@ -1014,8 +996,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // A torn-down transport takes its pending reset with it: the next
         // attach arms its own, and an arm left behind would fire into
         // whatever session the view is given next.
-        pendingInputModeResetAtReplayStart = false
-        appliesInputModeResetAtReplayDone = false
+        inputModeResetSchedule.transportTornDown()
     }
 
     // MARK: - Terminal Response Routing
@@ -1304,17 +1285,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Silent for shells that never emit it — the launch directory persisted
     /// by `startLocalShell` is still the floor.
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {
-        guard let directory, !directory.isEmpty else { return }
-        // OSC 7 carries a file URL (`file://host/path`); a bare path is also
-        // seen in the wild. Take only local paths.
-        let path: String
-        if let url = URL(string: directory), url.isFileURL {
-            path = url.path
-        } else if directory.hasPrefix("/") {
-            path = directory
-        } else {
-            return
-        }
+        guard let directory,
+              let path = HostDirectoryReport.localPath(fromOSC7: directory) else { return }
         onHostDirectoryChanged?(path)
     }
 

@@ -998,7 +998,13 @@ final class NativePTY {
         }
         if shellName == "bash" {
             envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
-            envDict["PS1"] = inheritedEnvironment["SOYEHT_LOCAL_PS1"] ?? defaultBashPrompt
+            // The OSC 7 report goes in front of whichever prompt is in use,
+            // the person's own included: a pane that can only be restored to
+            // the folder it was OPENED in is the defect this closes, and a
+            // custom prompt is no reason to keep it. It is zero-width, so it
+            // changes nothing anyone sees.
+            let prompt = inheritedEnvironment["SOYEHT_LOCAL_PS1"] ?? defaultBashPrompt
+            envDict["PS1"] = HostDirectoryReport.bashPromptPrefix + prompt
         }
         if !wantsLoginShell, let loginPath {
             envDict["PATH"] = loginPath

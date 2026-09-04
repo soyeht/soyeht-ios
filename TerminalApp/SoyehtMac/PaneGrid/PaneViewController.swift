@@ -488,6 +488,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
         terminalView.onHostDirectoryChanged = { [weak self] path in
             guard let self else { return }
+            // The parser is syntactic; this is where the claim meets the
+            // disk. A prompt whose parameter expansion was turned off
+            // reports its own source text, and a directory that stopped
+            // existing must not be persisted as the place to reopen in.
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else { return }
             AppEnvironment.conversationStore?.updateWorkingDirectory(
                 self.conversationID,
                 path: path

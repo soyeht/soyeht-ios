@@ -73,6 +73,8 @@
 		AA300009000000000000001 /* LocalEngineContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300009000000000000002 /* LocalEngineContext.swift */; };
 		AA300010000000000000001 /* EnginePaneSpawnRequestBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */; };
 		AA300011000000000000001 /* EnginePaneAttacher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300011000000000000002 /* EnginePaneAttacher.swift */; };
+		EE10004B0000000000000001 /* InputModeResetSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10004B0000000000000002 /* InputModeResetSchedule.swift */; };
+		EE10004A0000000000000001 /* HostDirectoryReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10004A0000000000000002 /* HostDirectoryReport.swift */; };
 		CB100046000000000000000A /* EngineAttachGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100046000000000000000B /* EngineAttachGate.swift */; };
 		AA300012000000000000001 /* EngineSessionTTYRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300012000000000000002 /* EngineSessionTTYRegistry.swift */; };
 		AA300013000000000000001 /* DeferredEngineSessionReaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300013000000000000002 /* DeferredEngineSessionReaper.swift */; };
@@ -314,6 +316,8 @@
 		AA300009000000000000002 /* LocalEngineContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEngineContext.swift; sourceTree = "<group>"; };
 		AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnginePaneSpawnRequestBuilder.swift; sourceTree = "<group>"; };
 		AA300011000000000000002 /* EnginePaneAttacher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnginePaneAttacher.swift; sourceTree = "<group>"; };
+		EE10004B0000000000000002 /* InputModeResetSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputModeResetSchedule.swift; sourceTree = "<group>"; };
+		EE10004A0000000000000002 /* HostDirectoryReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDirectoryReport.swift; sourceTree = "<group>"; };
 		CB100046000000000000000B /* EngineAttachGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineAttachGate.swift; sourceTree = "<group>"; };
 		AA300012000000000000002 /* EngineSessionTTYRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineSessionTTYRegistry.swift; sourceTree = "<group>"; };
 		AA300013000000000000002 /* DeferredEngineSessionReaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeferredEngineSessionReaper.swift; sourceTree = "<group>"; };
@@ -686,6 +690,8 @@
 				AA300009000000000000002 /* LocalEngineContext.swift */,
 				AA300010000000000000002 /* EnginePaneSpawnRequestBuilder.swift */,
 				AA300011000000000000002 /* EnginePaneAttacher.swift */,
+				EE10004B0000000000000002 /* InputModeResetSchedule.swift */,
+				EE10004A0000000000000002 /* HostDirectoryReport.swift */,
 				CB100046000000000000000B /* EngineAttachGate.swift */,
 				AA300012000000000000002 /* EngineSessionTTYRegistry.swift */,
 				AA300013000000000000002 /* DeferredEngineSessionReaper.swift */,
@@ -1308,6 +1314,8 @@
 				AA300009000000000000001 /* LocalEngineContext.swift in Sources */,
 				AA300010000000000000001 /* EnginePaneSpawnRequestBuilder.swift in Sources */,
 				AA300011000000000000001 /* EnginePaneAttacher.swift in Sources */,
+				EE10004B0000000000000001 /* InputModeResetSchedule.swift in Sources */,
+				EE10004A0000000000000001 /* HostDirectoryReport.swift in Sources */,
 				CB100046000000000000000A /* EngineAttachGate.swift in Sources */,
 				AA300012000000000000001 /* EngineSessionTTYRegistry.swift in Sources */,
 				AA300013000000000000001 /* DeferredEngineSessionReaper.swift in Sources */,
