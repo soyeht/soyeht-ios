@@ -80,6 +80,22 @@ final class EngineSessionDomainTests: XCTestCase {
         }
     }
 
+    /// A setting the engine never reads is worse than no setting: it tells the
+    /// next person LAN pairing is configured here when the engine has no such
+    /// reader (grep over theyos: zero hits). What decides LAN exposure is the
+    /// household's own state — no iPhone paired yet, or an "Add iPhone" window
+    /// open — not an environment variable that outlives both.
+    func testNeitherJobPromisesLanPairingThroughADeadSetting() throws {
+        for name in ["com.soyeht.engine.plist", "com.soyeht.engine.dev.plist"] {
+            let plist = try launchAgentPlist(name)
+            let program = (plist["ProgramArguments"] as? [String])?.joined(separator: " ") ?? ""
+            XCTAssertFalse(
+                program.contains("SOYEHT_SETUP_INVITATION_ALLOW_LAN"),
+                "\(name) exports a variable no engine reads"
+            )
+        }
+    }
+
     func testEachProfileKeepsItsOwnLabel() throws {
         XCTAssertEqual(
             try launchAgentPlist("com.soyeht.engine.plist")["Label"] as? String,
