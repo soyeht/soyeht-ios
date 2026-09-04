@@ -107,6 +107,23 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         }
     }
 
+    /// The recovery window is armed from `didBecomeActive`, and starting a
+    /// publisher tears down whatever is up. Without this guard a person who
+    /// tapped Connect, left to approve on another device and came back would
+    /// have had the approval they were waiting for taken down underneath them.
+    func test_theRecoveryWindowNeverInterruptsAPairingHandshake() throws {
+        let source = try sshLoginSource()
+        let recovery = try slice(
+            source,
+            from: "private func startHouseholdMacRecoveryInvitation",
+            to: "startMacLocalPairingPublisher(lifetime: .whileActiveAndMacless)"
+        )
+        XCTAssertTrue(
+            recovery.contains("macLocalPairingPublisher == nil || macLocalPairingPublisherIsRecoveryWindow"),
+            "a bounded pair-device publisher in flight must survive the recovery window arming"
+        )
+    }
+
     /// The policy can only refuse an unknown Mac if the view actually tells it
     /// which home this phone paired with — and forgets it when the screen
     /// restarts. `alreadyFound` is not that signal: it stays closed through

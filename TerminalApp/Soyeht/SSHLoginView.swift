@@ -1162,6 +1162,12 @@ struct SoyehtAppView: View {
     @MainActor
     private func startHouseholdMacRecoveryInvitation(for snapshot: SoyehtIdentitySnapshot) {
         guard ServerRegistry.shared.operationalMacs.isEmpty else { return }
+        // Never over a pair-device handshake in flight. `start` tears down
+        // whatever publisher is up, and this one is armed from
+        // `didBecomeActive` — so a person who tapped Connect, was sent to
+        // approve on another device and came back would have had the
+        // approval they were waiting for taken down underneath them.
+        guard macLocalPairingPublisher == nil || macLocalPairingPublisherIsRecoveryWindow else { return }
         startMacLocalPairingPublisher(lifetime: .whileActiveAndMacless) { claim in
             Self.existingHouseClaim(claim, matchesHouseholdId: snapshot.id)
         }
