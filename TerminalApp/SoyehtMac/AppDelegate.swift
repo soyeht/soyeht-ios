@@ -281,11 +281,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
                 )
                 return
             }
-            NSLog(
-                "engine %@ is older than the required %@; staged the bundled engine and restarting the LaunchAgent",
-                status.engineVersion, EngineCompat.minSupportedEngineVersion
-            )
-            SMAppServiceInstaller.restartStaleEngine()
+            // Staged is not restarted. The engine outlives the app so that an
+            // update never costs a session; an engine update is the one step
+            // that cannot keep that promise, because every brokered PTY is the
+            // engine's child. Measured 2026-09-03: the update to 0.1.45 bounced
+            // the 0.1.27 engine one second after relaunch and took eight agent
+            // sessions with it. So launch restarts only over nothing, and with
+            // sessions alive it hands the decision to the person.
+            let liveSessions = SMAppServiceInstaller.liveBrokeredSessionCount
+            switch EngineServiceReconciler.staleEngineAction(liveSessionCount: liveSessions) {
+            case .restartNow:
+                NSLog(
+                    "engine %@ is older than the required %@ and nothing is attached to it; staged the bundled engine and restarting the LaunchAgent",
+                    status.engineVersion, EngineCompat.minSupportedEngineVersion
+                )
+                SMAppServiceInstaller.restartStaleEngine()
+            case .holdForPerson(let liveSessionCount):
+                NSLog(
+                    "engine %@ is older than the required %@; staged the bundled engine, but %@ session(s) are alive under it — leaving the restart to the person",
+                    status.engineVersion, EngineCompat.minSupportedEngineVersion,
+                    liveSessionCount.map(String.init) ?? "an unknown number of"
+                )
+                await MainActor.run {
+                    EngineUpdateWindowController.present(
+                        runningVersion: status.engineVersion,
+                        stagedVersion: EngineCompat.minSupportedEngineVersion,
+                        liveSessionCount: liveSessionCount
+                    )
+                }
+            }
         }
     }
 

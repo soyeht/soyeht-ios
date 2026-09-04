@@ -369,6 +369,87 @@ final class EngineServiceReconcilerTests: XCTestCase {
             ownsEngineCommand: Self.owns))
     }
 
+    // MARK: - A stale engine is restarted only over nothing
+    //
+    // Measured 2026-09-03: the update to 0.1.45 shipped engine 0.1.28, launch
+    // judged the running 0.1.27 stale and bounced it one second after the app
+    // came back — eight agent sessions gone, after the whole point of the
+    // broker was that an update never does that. The verdict was right; acting
+    // on it over live sessions was the defect. These pin the replacement rule.
+
+    /// Zero sessions: the bounce costs nobody anything, launch may do it.
+    func testAStaleEngineWithNoSessionsIsRestartedByLaunch() {
+        XCTAssertEqual(EngineServiceReconciler.staleEngineAction(liveSessionCount: 0), .restartNow)
+    }
+
+    /// Any live session turns the restart into the person's decision.
+    func testAStaleEngineWithLiveSessionsIsLeftToThePerson() {
+        XCTAssertEqual(EngineServiceReconciler.staleEngineAction(liveSessionCount: 1),
+                       .holdForPerson(liveSessionCount: 1))
+        XCTAssertEqual(EngineServiceReconciler.staleEngineAction(liveSessionCount: 8),
+                       .holdForPerson(liveSessionCount: 8))
+    }
+
+    /// No answer is never permission — the same rule as the liveness probe.
+    func testAnUncountableSessionTableIsLeftToThePerson() {
+        XCTAssertEqual(EngineServiceReconciler.staleEngineAction(liveSessionCount: nil),
+                       .holdForPerson(liveSessionCount: nil))
+    }
+
+    /// The process table as `ps -Ao pid=,ppid=,command=` prints it on the
+    /// owner's machine after the 2026-09-03 restart: engine and three helpers
+    /// under launchd, eight shells under the engine, an agent under a shell.
+    private static let sessionTable = """
+        1     0 /sbin/launchd
+    36217     1 /Users/x/Library/Application Support/Soyeht/engine/theyos-engine
+    36446 36217 /Users/x/Library/Application Support/Soyeht/engine/vmrunner_macos_ipc
+    36447 36217 /Users/x/Library/Application Support/Soyeht/engine/store-ipc
+    36448 36217 /Users/x/Library/Application Support/Soyeht/engine/terminal-ipc
+    36489 36217 /bin/bash -i
+    36533 36217 /bin/bash -i
+    36557 36448 /bin/bash -i
+    36581 36217 /bin/bash -i
+    36582 36217 /bin/bash -i
+    36583 36217 /bin/bash -i
+    36597 36217 /bin/bash -i
+    36598 36217 /bin/zsh -il
+    14065 36489 claude
+    84204     1 /Users/x/Library/Application Support/SoyehtDev/engine/theyos-engine
+    84860 84204 /bin/bash -i
+    """
+
+    /// Eight sessions: shells under the engine and under its helper both
+    /// count once; helpers do not; the agent inside a shell is not a second
+    /// session; the other profile's engine and shell are not ours.
+    func testSessionsAreTheChildrenOfTheEngineTreeAndNothingElse() {
+        XCTAssertEqual(EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: true, exitStatus: 0, output: Self.sessionTable, ownsEngineCommand: Self.owns), 8)
+    }
+
+    /// An engine with nothing under it reads as zero — the one reading that
+    /// lets launch restart on its own.
+    func testAnEngineWithNoChildrenCountsZero() {
+        let table = "    1     0 /sbin/launchd\n36217     1 \(Self.engineLine)\n36446 36217 /Users/x/Library/Application Support/Soyeht/engine/terminal-ipc"
+        XCTAssertEqual(EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: true, exitStatus: 0, output: table, ownsEngineCommand: Self.owns), 0)
+    }
+
+    /// The caller only asks after the engine answered its version, so a
+    /// table without the engine is a bad reading, not a zero.
+    func testATableWithoutTheEngineIsNotAnAnswer() {
+        XCTAssertNil(EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: true, exitStatus: 0, output: "    1     0 /sbin/launchd\n  500     1 /usr/sbin/cupsd",
+            ownsEngineCommand: Self.owns))
+    }
+
+    /// A probe that did not run, or ran and failed, answers nothing.
+    func testAFailedSessionProbeIsNotAnAnswer() {
+        XCTAssertNil(EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: false, exitStatus: -1, output: Self.sessionTable, ownsEngineCommand: Self.owns))
+        XCTAssertNil(EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: true, exitStatus: 1, output: "", ownsEngineCommand: Self.owns))
+    }
+
     // MARK: - The person is told, not just the log
     //
     // The reconciler wrote every bad outcome to the log and stopped there.

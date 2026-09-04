@@ -281,6 +281,44 @@ enum SMAppServiceInstaller {
         )
     }
 
+    /// How many brokered sessions a restart of this profile's engine would
+    /// destroy right now, or `nil` when that cannot be known.
+    ///
+    /// Same stance as `liveEngineProcessExists`: a probe that cannot answer
+    /// never reads as permission. The rules are in
+    /// `EngineServiceReconciler.liveBrokeredSessionCount`; this only gathers
+    /// the process table.
+    static var liveBrokeredSessionCount: Int? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-Ao", "pid=,ppid=,command="]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        var ran = true
+        do {
+            try process.run()
+        } catch {
+            ran = false
+        }
+        var output = ""
+        var status: Int32 = -1
+        if ran {
+            // Drained BEFORE waiting, for the same reason as the probe above:
+            // `ps -A` overruns the pipe buffer on a busy machine.
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            output = String(decoding: data, as: UTF8.self)
+            status = process.terminationStatus
+        }
+        return EngineServiceReconciler.liveBrokeredSessionCount(
+            probeRan: ran,
+            exitStatus: status,
+            output: output,
+            ownsEngineCommand: SoyehtInstallProfile.current.ownsEngineCommand
+        )
+    }
+
     private static func startWithoutRestarting() {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
