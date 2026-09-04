@@ -1,5 +1,38 @@
 import Foundation
 import Network
+import os
+
+private let plainHTTPLogger = Logger(subsystem: "com.soyeht.core", category: "plain-http")
+
+/// Why a transport error of our own instead of `MachineJoinError.networkDrop`:
+/// `networkDrop` is `Equatable` and compared case-by-case all over the join
+/// flow, so it has no room for the one thing the log needed — the `NWError`
+/// text that says WHY the socket never carried a request. Callers that only
+/// know `MachineJoinError` still collapse this to `.networkDrop` (same retry
+/// and same user-facing message); the difference is that the line they print
+/// now names the stage and the underlying error.
+struct PlainHTTPTransportError: Error, CustomStringConvertible, Sendable {
+    /// Where the transaction stopped. `waitingTimeout` is distinct from
+    /// `timeout` because a path that only ever reported `.waiting` (no route,
+    /// interface still coming up — what Tailscale-over-5G does while it
+    /// settles) is a different diagnosis from a peer that accepted the
+    /// connection and then said nothing.
+    enum Stage: String, Sendable {
+        case connect
+        case timeout
+        case waitingTimeout
+        case send
+        case receive
+        case cancelled
+    }
+
+    let stage: Stage
+    let detail: String?
+
+    var description: String {
+        "plainHTTP stage=\(stage.rawValue) detail=\(detail ?? "none")"
+    }
+}
 
 /// Client for `POST /pair-machine/local/anchor` against the candidate
 /// machine. The iPhone owner posts the trust anchor — `(hh_id, hh_pub)`
@@ -133,6 +166,10 @@ public struct LocalAnchorClient: Sendable {
         } catch let error as MachineJoinError {
             throw error
         } catch {
+            // Collapse to `.networkDrop` so the retry policy and the operator
+            // message are unchanged, but print the transport's own account
+            // first — that text is the only place the NWError survives.
+            plainHTTPLogger.error("anchor.networkDrop error=\(String(describing: error), privacy: .public)")
             throw MachineJoinError.networkDrop
         }
 
@@ -187,6 +224,10 @@ final class PlainHTTPTransaction: @unchecked Sendable {
     private var timeoutWorkItem: DispatchWorkItem?
     private var isFinished = false
     private var didSend = false
+    /// Last reason the path gave for staying in `.waiting`, kept so the
+    /// timeout can say why the connection never became ready instead of
+    /// reporting a bare drop.
+    private var lastWaitingReason: String?
 
     init(request: URLRequest) throws {
         guard let url = request.url,
@@ -207,7 +248,12 @@ final class PlainHTTPTransaction: @unchecked Sendable {
                 ? request.timeoutInterval
                 : LocalAnchorClient.perAttemptTimeoutSeconds
             let timeoutWorkItem = DispatchWorkItem { [weak self] in
-                self?.finish(.failure(MachineJoinError.networkDrop))
+                guard let self else { return }
+                let waiting = self.lastWaitingReason
+                self.finish(.failure(PlainHTTPTransportError(
+                    stage: waiting == nil ? .timeout : .waitingTimeout,
+                    detail: waiting
+                )))
             }
             self.timeoutWorkItem = timeoutWorkItem
             queue.asyncAfter(deadline: .now() + timeout, execute: timeoutWorkItem)
@@ -224,10 +270,19 @@ final class PlainHTTPTransaction: @unchecked Sendable {
         switch state {
         case .ready:
             sendRequestIfNeeded()
-        case .failed, .waiting:
-            finish(.failure(MachineJoinError.networkDrop))
+        case .failed(let error):
+            plainHTTPLogger.error("plainhttp.failed host=\(self.url.host() ?? "<none>", privacy: .public) error=\(String(describing: error), privacy: .public)")
+            finish(.failure(PlainHTTPTransportError(stage: .connect, detail: String(describing: error))))
+        case .waiting(let error):
+            // `.waiting` is NOT fatal: a Tailscale-over-5G path flaps through
+            // it (no route yet, interface still coming up) and then reaches
+            // `.ready`. Failing on the first one turned a recoverable flap
+            // into "I couldn't connect this time" with nothing said about why.
+            // The timeout above is the only thing that ends this transaction.
+            lastWaitingReason = String(describing: error)
+            plainHTTPLogger.info("plainhttp.waiting host=\(self.url.host() ?? "<none>", privacy: .public) error=\(String(describing: error), privacy: .public)")
         case .cancelled:
-            finish(.failure(MachineJoinError.networkDrop))
+            finish(.failure(PlainHTTPTransportError(stage: .cancelled, detail: lastWaitingReason)))
         default:
             break
         }
@@ -247,8 +302,8 @@ final class PlainHTTPTransaction: @unchecked Sendable {
 
         connection.send(content: bytes, completion: .contentProcessed { [weak self] error in
             self?.queue.async {
-                if error != nil {
-                    self?.finish(.failure(MachineJoinError.networkDrop))
+                if let error {
+                    self?.finish(.failure(PlainHTTPTransportError(stage: .send, detail: String(describing: error))))
                 } else {
                     self?.receiveResponse()
                 }
@@ -260,8 +315,8 @@ final class PlainHTTPTransaction: @unchecked Sendable {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
             self?.queue.async {
                 guard let self, !self.isFinished else { return }
-                if error != nil {
-                    self.finish(.failure(MachineJoinError.networkDrop))
+                if let error {
+                    self.finish(.failure(PlainHTTPTransportError(stage: .receive, detail: String(describing: error))))
                     return
                 }
                 if let data, !data.isEmpty {

@@ -29,6 +29,12 @@ enum HouseholdTestFixtures {
         Data(repeating: byte, count: 32)
     }
 
+    /// - Parameter notBefore: `not_before` for the cert. The default backdates
+    ///   it by 60 s, which is NOT what the engine does — the engine signs
+    ///   `not_before = issued_at` at whole-second resolution, so a phone whose
+    ///   clock trails the Mac refuses a cert the Mac just minted. Pass `now`
+    ///   here to reproduce the engine's real validity window (see
+    ///   `HouseholdPairingDiagnosticsTests`).
     static func signedOwnerCert(
         householdPrivateKey: P256.Signing.PrivateKey,
         personPublicKey: Data,
@@ -37,7 +43,8 @@ enum HouseholdTestFixtures {
         scopeForOperation: ((String) -> HouseholdCBORValue?)? = nil,
         ownerAuthTier: HouseholdCBORValue? = nil,
         ownerProvenance: HouseholdCBORValue? = nil,
-        now: Date = Date(timeIntervalSince1970: 1_714_972_800)
+        now: Date = Date(timeIntervalSince1970: 1_714_972_800),
+        notBefore: Date? = nil
     ) throws -> Data {
         let hhPub = householdPrivateKey.publicKey.compressedRepresentation
         let resolvedHouseholdId = try householdId ?? HouseholdIdentifiers.householdIdentifier(for: hhPub)
@@ -57,7 +64,7 @@ enum HouseholdTestFixtures {
             "issued_by": .text(resolvedHouseholdId),
             "nonce": .bytes(Data(repeating: 9, count: 16)),
             "not_after": .null,
-            "not_before": .unsigned(UInt64(now.timeIntervalSince1970 - 60)),
+            "not_before": .unsigned(UInt64((notBefore ?? now.addingTimeInterval(-60)).timeIntervalSince1970)),
             "p_id": .text(personId),
             "p_pub": .bytes(personPublicKey),
             "type": .text("person"),

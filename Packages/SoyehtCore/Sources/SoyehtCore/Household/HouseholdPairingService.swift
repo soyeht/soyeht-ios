@@ -9,6 +9,31 @@ import os
 /// the clear; no key, no cert body, no nonce.
 private let householdPairingLogger = Logger(subsystem: "com.soyeht.core", category: "household-pairing")
 
+/// Severity for a pair-flow diagnostic. Two levels only: `info` for the
+/// measurements a successful run also emits (they are what a later failure is
+/// compared against), `error` for the line that names a refusal.
+enum HouseholdPairingLogLevel: String, Sendable {
+    case info
+    case error
+}
+
+typealias HouseholdPairingLogSink = @Sendable (HouseholdPairingLogLevel, String) -> Void
+
+/// Why the pair flow logs through an injectable sink instead of touching
+/// `householdPairingLogger` directly: these lines exist so a captured log can
+/// say WHICH guard refused a freshly minted cert, and a log no test can read is
+/// a log that silently stops being emitted the next time this function is
+/// edited. Production keeps going to `os.Logger` — `idevicesyslog` is where the
+/// line is actually read off a device.
+let householdPairingDefaultLogSink: HouseholdPairingLogSink = { level, message in
+    switch level {
+    case .info:
+        householdPairingLogger.info("\(message, privacy: .public)")
+    case .error:
+        householdPairingLogger.error("\(message, privacy: .public)")
+    }
+}
+
 public struct PairDeviceConfirmResponse: Decodable, Equatable, Sendable {
     public let v: Int
     public let householdId: String
@@ -68,10 +93,29 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await Self.perform(request, session: session)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+        // Measure the answer before anything can reject it. Without these two
+        // numbers a run that failed after a *successful* server-side confirm
+        // (engine says ready, device_count 1) cannot be told apart from one
+        // where the body never fully arrived: both surface to the user as the
+        // same catch-all sentence. `status=-1` means the response was not even
+        // an HTTP response.
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        householdPairingLogger.info("pair.confirm.response status=\(statusCode, privacy: .public) bytes=\(data.count, privacy: .public)")
+        guard (200...299).contains(statusCode) else {
+            householdPairingLogger.error("pair.pairingRejected status=\(statusCode, privacy: .public) bytes=\(data.count, privacy: .public)")
             throw HouseholdPairingError.pairingRejected
         }
-        return try JSONDecoder().decode(PairDeviceConfirmResponse.self, from: data)
+        do {
+            return try JSONDecoder().decode(PairDeviceConfirmResponse.self, from: data)
+        } catch {
+            // A 2xx we could not read is not a transport drop; say so here
+            // because the caller can only roll this up into a generic
+            // `networkUnavailable`.
+            householdPairingLogger.error(
+                "pair.confirm.decodeFailed bytes=\(data.count, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
+            throw error
+        }
     }
 
     private static func perform(_ request: URLRequest, session: URLSession) async throws -> (Data, URLResponse) {
@@ -92,6 +136,7 @@ public struct HouseholdPairingService {
     private let rosterStorage: any HouseholdSecureStoring
     private let rosterAccount: String
     private let now: @Sendable () -> Date
+    private let log: HouseholdPairingLogSink
 
     public init(
         browser: any HouseholdBonjourBrowsing = HouseholdBonjourBrowser(),
@@ -102,6 +147,32 @@ public struct HouseholdPairingService {
         rosterAccount: String = RosterProjectionStore.defaultAccount,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
+        self.init(
+            browser: browser,
+            keyProvider: keyProvider,
+            httpClient: httpClient,
+            sessionStore: sessionStore,
+            rosterStorage: rosterStorage,
+            rosterAccount: rosterAccount,
+            now: now,
+            log: householdPairingDefaultLogSink
+        )
+    }
+
+    /// Same flow with the diagnostic sink swapped out, so a test can assert a
+    /// refusal named itself instead of only asserting the rolled-up
+    /// `HouseholdPairingError`.
+    init(
+        browser: any HouseholdBonjourBrowsing,
+        keyProvider: any OwnerIdentityKeyCreating,
+        httpClient: any HouseholdPairingHTTPClient,
+        sessionStore: HouseholdSessionStore,
+        rosterStorage: any HouseholdSecureStoring,
+        rosterAccount: String,
+        now: @escaping @Sendable () -> Date,
+        log: @escaping HouseholdPairingLogSink
+    ) {
+        self.log = log
         self.browser = browser
         self.keyProvider = keyProvider
         self.httpClient = httpClient
@@ -161,7 +232,7 @@ public struct HouseholdPairingService {
             // `identityKeyUnavailable` surfaced to the user still leaves a
             // diagnosis trail on the device. The error is otherwise opaque to
             // callers that catch the rolled-up `HouseholdPairingError`.
-            householdPairingLogger.error("pair.identityKeyUnavailable error=\(String(describing: inner), privacy: .public)")
+            log(.error, "pair.identityKeyUnavailable stage=keyCreate error=\(String(describing: inner))")
             throw HouseholdPairingError.identityKeyUnavailable
         }
 
@@ -170,7 +241,12 @@ public struct HouseholdPairingService {
             request = try PairingProof.confirmRequest(qr: qr, ownerIdentity: ownerIdentity, displayName: displayName)
         } catch OwnerIdentityKeyError.biometryCanceled {
             throw HouseholdPairingError.biometryCanceled
-        } catch {
+        } catch let inner {
+            // The PoP signing step had no line at all, so the same
+            // `identityKeyUnavailable` the user sees could come from here or
+            // from key creation above with nothing on the device to separate
+            // them. `stage=` is the separator.
+            log(.error, "pair.identityKeyUnavailable stage=proof error=\(String(describing: inner))")
             throw HouseholdPairingError.identityKeyUnavailable
         }
 
@@ -180,27 +256,29 @@ public struct HouseholdPairingService {
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
-            householdPairingLogger.error("pair.networkUnavailable stage=confirm error=\(String(describing: error), privacy: .public)")
+            log(.error, "pair.networkUnavailable stage=confirm type=\(type(of: error)) error=\(String(describing: error))")
             throw HouseholdPairingError.networkUnavailable
         }
 
         guard response.v == 1 else {
-            householdPairingLogger.error("pair.certInvalid guard=v expected=1 got=\(response.v, privacy: .public)")
+            log(.error, "pair.certInvalid guard=v expected=1 got=\(response.v)")
             throw HouseholdPairingError.certInvalid
         }
         guard response.deviceCert == nil else {
-            householdPairingLogger.error("pair.certInvalid guard=deviceCert_present")
+            log(.error, "pair.certInvalid guard=deviceCert_present")
             throw HouseholdPairingError.certInvalid
         }
         guard response.householdId == qr.householdId, response.personId == ownerIdentity.personId else {
-            householdPairingLogger.error(
-                "pair.certInvalid guard=ids hh_match=\(response.householdId == qr.householdId, privacy: .public) pid_match=\(response.personId == ownerIdentity.personId, privacy: .public)"
+            log(
+                .error,
+                "pair.certInvalid guard=ids hh_match=\(response.householdId == qr.householdId) pid_match=\(response.personId == ownerIdentity.personId)"
             )
             throw HouseholdPairingError.certInvalid
         }
         guard response.personCertCBOR.utf8.count <= Self.maxPersonCertCBORBase64URLBytes else {
-            householdPairingLogger.error(
-                "pair.certInvalid guard=cborSize bytes=\(response.personCertCBOR.utf8.count, privacy: .public) cap=\(Self.maxPersonCertCBORBase64URLBytes, privacy: .public)"
+            log(
+                .error,
+                "pair.certInvalid guard=cborSize bytes=\(response.personCertCBOR.utf8.count) cap=\(Self.maxPersonCertCBORBase64URLBytes)"
             )
             throw HouseholdPairingError.certInvalid
         }
@@ -210,17 +288,31 @@ public struct HouseholdPairingService {
             certData = try Data(soyehtBase64URL: response.personCertCBOR)
             let cert = try PersonCert(cbor: certData)
             guard Set(response.capabilities) == Set(cert.caveats.map(\.operation)) else {
-                householdPairingLogger.error(
-                    "pair.certInvalid guard=capabilities response=\(Set(response.capabilities).sorted().joined(separator: ","), privacy: .public) certOps=\(Set(cert.caveats.map(\.operation)).sorted().joined(separator: ","), privacy: .public)"
+                log(
+                    .error,
+                    "pair.certInvalid guard=capabilities response=\(Set(response.capabilities).sorted().joined(separator: ",")) certOps=\(Set(cert.caveats.map(\.operation)).sorted().joined(separator: ","))"
                 )
                 throw HouseholdPairingError.certInvalid
             }
+            // `notBefore <= now` is the ONLY time-dependent guard in
+            // `cert.validate`, and the engine signs `not_before = issued_at`
+            // at whole-second resolution — a phone whose clock trails the Mac
+            // by a few hundred ms refuses a cert the Mac just minted, which is
+            // the shape of the ~3-in-7 from-scratch failures. Measure the three
+            // inputs BEFORE the guard runs so one captured line decides it:
+            // `skewMs` is how far past `not_before` this phone believes it is,
+            // so a NEGATIVE value means the cert is still future-dated here.
+            let validationNow = now()
+            log(
+                .info,
+                "pair.cert.validity notBefore=\(Int(cert.notBefore.timeIntervalSince1970)) issuedAt=\(cert.issuedAt.map { Int($0.timeIntervalSince1970) }.map(String.init) ?? "none") now=\(Int(validationNow.timeIntervalSince1970)) skewMs=\(Int((validationNow.timeIntervalSince(cert.notBefore) * 1000).rounded()))"
+            )
             try cert.validate(
                 householdId: qr.householdId,
                 householdPublicKey: qr.householdPublicKey,
                 ownerPersonId: ownerIdentity.personId,
                 ownerPersonPublicKey: ownerIdentity.publicKey,
-                now: now()
+                now: validationNow
             )
             let state = ActiveHouseholdState(
                 householdId: qr.householdId,
@@ -254,19 +346,37 @@ public struct HouseholdPairingService {
             try await rosterStore.seedPendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint)
             try sessionStore.save(state)
             return state
-        } catch HouseholdSessionError.storageFailed {
+        } catch let error as HouseholdSessionError {
+            // Every case here is a fault in writing OUR OWN session record —
+            // `encodingFailed`/`decodingFailed` included. Those two used to
+            // fall through to the catch-all and tell the user their
+            // certificate was bad, which sent them to re-scan a QR for a
+            // failure no new QR can fix.
+            log(.error, "pair.storageFailed stage=session case=\(error)")
             throw HouseholdPairingError.storageFailed
         } catch let error as RosterProjectionStoreError {
             // Must precede the catch-all: a refused roster write is a storage
             // fault, not evidence that the person cert is bad. Letting it fall
             // through to `certInvalid` would tell the user to re-pair with a
             // different QR for a failure no new QR can fix.
-            householdPairingLogger.error("pair.storageFailed stage=rosterAnchor error=\(String(describing: error), privacy: .public)")
+            log(.error, "pair.storageFailed stage=rosterAnchor error=\(String(describing: error))")
             throw HouseholdPairingError.storageFailed
         } catch let error as HouseholdPairingError {
             throw error
+        } catch let error as PersonCertError {
+            // The cert really is the thing being refused here, so the rolled-up
+            // error stays `certInvalid` — but say WHICH of the fifteen
+            // rejections fired, whether it came from the decode or from
+            // `validate`. `invalidValidityWindow` is the clock-skew one.
+            log(.error, "pair.certInvalid guard=personCert case=\(error)")
+            throw HouseholdPairingError.certInvalid
+        } catch let error as HouseholdCBORError {
+            log(.error, "pair.certInvalid guard=cborDecode case=\(error)")
+            throw HouseholdPairingError.certInvalid
         } catch {
-            householdPairingLogger.error("pair.certInvalid guard=catchAll error=\(String(describing: error), privacy: .public)")
+            // Anything still unnamed: print the concrete type, because the
+            // description alone has repeatedly been too generic to act on.
+            log(.error, "pair.certInvalid guard=catchAll type=\(type(of: error)) error=\(String(describing: error))")
             throw HouseholdPairingError.certInvalid
         }
     }
