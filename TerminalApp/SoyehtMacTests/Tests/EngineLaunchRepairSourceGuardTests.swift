@@ -91,6 +91,21 @@ final class EngineLaunchRepairSourceGuardTests: XCTestCase {
                       "holding for the person means telling them, not only the log")
     }
 
+    /// The window that carries the decision has to be answerable. MEASURED
+    /// 2026-09-04 on the Dev build: an unbounded `maxHeight: .infinity` made
+    /// the hosting view's fitting size 4224 points tall, so AppKit sized the
+    /// window to it and both buttons sat far below the screen — the warning
+    /// was readable and the answer was not reachable.
+    func testEngineUpdateWindowIsSizedToItsContent() throws {
+        let source = try macSource("Installer/EngineUpdateWindowController.swift")
+        XCTAssertTrue(source.contains(".frame(width: Self.contentWidth, alignment: .topLeading)"))
+        XCTAssertFalse(
+            source.contains("maxHeight: .infinity"),
+            "an unbounded height makes the window grow to thousands of points"
+        )
+        XCTAssertTrue(source.contains("window?.setContentSize(hosting.fittingSize)"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

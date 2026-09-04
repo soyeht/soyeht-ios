@@ -50,7 +50,7 @@ final class EngineUpdateWindowController: NSWindowController {
 
     private init(model: EngineUpdateReadyModel) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: EngineUpdateReadyView.contentWidth, height: 400),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -78,9 +78,15 @@ final class EngineUpdateWindowController: NSWindowController {
             SMAppServiceInstaller.restartStaleEngine()
             dismiss()
         }
-        window?.contentView = NSHostingView(
+        let hosting = NSHostingView(
             rootView: EngineUpdateReadyView(model: model, onRestart: restart, onLater: dismiss)
         )
+        window?.contentView = hosting
+        // Installing a hosting view resizes the window to that view's fitting
+        // size; ask for it explicitly so the window is exactly the sheet, then
+        // recentre because the size changed under it.
+        window?.setContentSize(hosting.fittingSize)
+        window?.center()
     }
 }
 
@@ -119,7 +125,7 @@ struct EngineUpdateReadyView: View {
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
             .foregroundColor(BrandColors.textMuted)
             .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 24)
+            Color.clear.frame(height: 24)
             HStack {
                 Spacer()
                 Button(action: onLater) {
@@ -136,8 +142,17 @@ struct EngineUpdateReadyView: View {
             }
         }
         .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Fixed width, content-driven height. An unbounded vertical frame
+        // made the hosting view's fitting size unbounded and AppKit sized the
+        // window to it: MEASURED 2026-09-04 on the Dev build, 520 x 4224
+        // points, with both buttons parked thousands of points below the
+        // screen — the person could read the warning and could not answer it.
+        .frame(width: Self.contentWidth, alignment: .topLeading)
     }
+
+    /// Shared with the window controller so the sheet and its window cannot
+    /// disagree about how wide the text is allowed to be.
+    static let contentWidth: CGFloat = 520
 
     private var message: String {
         let staged = model.stagedVersion
