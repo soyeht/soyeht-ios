@@ -207,7 +207,29 @@ public struct HouseholdPairingService {
         self.now = now
     }
 
-    public func pair(url: URL, displayName: String) async throws -> ActiveHouseholdState {
+    /// - Parameter reachedEndpoint: an address this phone has ALREADY talked to
+    ///   the Mac on, when the caller has one. It wins over the host inside the
+    ///   link.
+    ///
+    ///   WHY IT WINS. The engine mints the link with `best_qr_host()`, which is
+    ///   the tailnet address whenever the Mac has one — and never a LAN
+    ///   address, by design. MEASURED on the owner's Dev pair 2026-09-05 with
+    ///   the phone's Tailscale off: the phone found the Mac over Wi-Fi
+    ///   (`mac_browser.endpoint endpoint=http://192.168.1.20:8101`), showed the
+    ///   card, and then sent the confirm to the address in the link:
+    ///
+    ///       pair.confirm.post host=<tailnet> port=8101
+    ///       pair.networkUnavailable stage=confirm ... stage=timeout
+    ///
+    ///   It had a working address in hand and used one it could not reach. The
+    ///   link's host is a FALLBACK for a phone that has nothing better — a QR
+    ///   scanned off the screen with no discovery behind it. A caller that
+    ///   already completed a round trip knows more than the paper does.
+    public func pair(
+        url: URL,
+        displayName: String,
+        reachedEndpoint: URL? = nil
+    ) async throws -> ActiveHouseholdState {
         let qr: PairDeviceQR
         do {
             qr = try PairDeviceQR(url: url, now: now())
@@ -218,7 +240,17 @@ public struct HouseholdPairingService {
         }
 
         let candidate: HouseholdDiscoveryCandidate
-        if let endpoint = Self.directEndpoint(for: qr) {
+        if let reachedEndpoint {
+            log(.info, "pair.endpoint source=reached host=\(reachedEndpoint.host() ?? "<none>") port=\(reachedEndpoint.port ?? -1)")
+            candidate = HouseholdDiscoveryCandidate(
+                endpoint: reachedEndpoint,
+                householdId: qr.householdId,
+                householdName: qr.householdName,
+                machineId: nil,
+                pairingState: "device",
+                shortNonce: ""
+            )
+        } else if let endpoint = Self.directEndpoint(for: qr) {
             // Founder embedded a Tailnet host fallback in the QR (engine's
             // bonjour publisher is known broken cross-platform — Linux
             // mdns-sd does not emit announce records visible to macOS/iOS

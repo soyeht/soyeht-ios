@@ -783,7 +783,13 @@ final class AwaitingMacViewModel: ObservableObject {
                         keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
                     ).pair(
                         url: house.pairDeviceURI,
-                        displayName: HouseholdOwnerDisplayName.defaultName()
+                        displayName: HouseholdOwnerDisplayName.defaultName(),
+                        // The address this phone actually reached the Mac on.
+                        // The engine mints its link with the tailnet host and
+                        // never a LAN one, so a phone with no Tailscale would
+                        // otherwise confirm against an address it cannot dial
+                        // — after finding the Mac perfectly well over Wi-Fi.
+                        reachedEndpoint: house.engineURL
                     )
                 }
                 do {
