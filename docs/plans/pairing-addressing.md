@@ -2,6 +2,12 @@
 
 Data: 2026-09-05. Autor: [jaime]. Revisão solicitada a [blaire] antes do código.
 
+Crivo recebido: A aprovado para household; B aprovado com **preservação
+obrigatória do pareamento por Wi-Fi puro**, já medido no aparelho; C aprovado
+com release coordenado do iOS. Não usar as restrições atuais como justificativa
+para retirar LAN de uma cerimônia suportada. Alterações necessárias de política
+devem validar a intenção e a identidade, com regressões positivas e negativas.
+
 Base lida: iSoyehtTerm `299555945fe426c4911dc9c742444dde0894bb90`; theyos
 `eb96d375`. Este documento propõe a implementação; não registra testes E2E
 executados nem atribui uma causa definitiva à ausência de tráfego relatada.
@@ -107,6 +113,10 @@ encaminhamento; não basta inventar `https://host` a partir de um socket local.
   automático e permanente para LAN em um telefone com tailnet.
 - Sem tailnet no telefone, LAN só é elegível quando bind e operação estão
   admitidos. Uma interface do Mac ou a abertura da janela não bastam.
+  O pareamento por Wi-Fi puro é requisito aprovado do produto. Se uma etapa
+  desse fluxo estiver bloqueada pela política atual, corrigir a autorização
+  dessa etapa explicitamente, preservando prova/convite e perfil, em vez de
+  devolver indisponibilidade para um caminho que já funcionava.
 - LAN temporária não vira promessa de endereço permanente. A decisão registra
   sua validade; a UI não declara conexão de uso contínuo quando apenas uma
   etapa de pareamento é possível. Nenhuma ampliação de ACL está implícita.
@@ -191,6 +201,10 @@ não substitui autenticação do remetente ou prova de identidade da casa.
 
 Proposta para payload legado sem perfil: não fazer claim automático. Oferecer
 atualização/fluxo explícito compatível; não assumir produção silenciosamente.
+O iOS de loja `com.soyeht.app 1.1.19 (20)` não envia perfil, segundo a revisão
+de [blaire]. **Não publicar o enforcement no Mac/engine sem disponibilizar
+o iOS correspondente e documentar a atualização necessária.** A validação Dev
+usa o conjunto coordenado; release é outra etapa, fora desta faixa.
 O backend valida o dado recebido contra sua configuração e o convite
 verificado, não confia só na comparação feita pela GUI. Retentativas mantêm
 a mesma identidade de convite e rejeitam perfil divergente também no callback.
@@ -273,16 +287,59 @@ Sem editar os checkouts de trabalho para simular esses defeitos.
 os consumidores não redecidem, e a pessoa recebe um desfecho útil. Não é uma
 nota declarada pelo autor nem uma suíte verde que ignora a fronteira.
 
-## Pontos para [blaire] contestar antes da implementação
+## G — primeiro iPhone e aprovação pelo Mac
 
-1. Concorda em delimitar A ao serviço de household e provar que os seletores
-   administrativos não participam? Migrar a API de instâncias é outro
-   contrato, não uma correção da porta bootstrap.
-2. Concorda que esta refatoração respeite as autorizações atuais por operação
-   e explicite quando LAN não suporta a cerimônia/continuidade? Completar
-   inicialização por convite sem tailnet ou uso contínuo por LAN requer
-   decidir e testar essa política, não somente trocar o endereço.
-3. Payload sem perfil deixa de gerar claim automático. Se compatibilidade
-   automática com builds antigos for requisito, precisamos especificar uma
-   evidência alternativa verificável antes dos efeitos; inferir perfil pela
-   porta de publicação do iPhone não resolve.
+O bloqueio de produto relatado é válido: uma folha não pode exigir outro
+iPhone quando não há aprovador disponível. Entretanto, `device_count == 1`
+não prova que só existe o Mac. `hh_info` (`handlers_bootstrap.rs:3369`)
+transforma a presença de `current_owner_auth()` em 0/1; não enumera devices.
+"No paired iPhone currently connected" também descreve presença, não a
+ausência de autoridade estabelecida. Não usar nenhum desses dois dados como
+permissão para substituir o dono de uma casa.
+
+Há três estados, determinados por autoridade e capacidade comprovadas:
+
+| Estado | Cerimônia e aprovador |
+| --- | --- |
+| Sem dono estabelecido | Primeiro dono pelo protocolo existente de nonce/prova, preservando a casa e seu conteúdo; não exige outro iPhone |
+| Dono estabelecido e chave pessoal correspondente disponível neste Mac | O usuário aprova no Mac; usar a rota autenticada de device pairing existente |
+| Dono estabelecido e Mac sem capacidade de assinar por ele | Recuperação de autoridade explícita; informar a ausência do aprovador, sem spinner e sem apagar a casa como resposta padrão |
+
+O Mac já pode ser o primeiro dono (`AppDelegate.autoHouseholdPairDevice`).
+`HouseholdDevicePairingService.approve` já assina o DeviceCert e o PoP com
+`OwnerIdentitySigning`; o protocolo não exige que esse signer esteja em um
+iPhone. Proposta de G: UI de pedidos no Mac, leitura autenticada dos pedidos,
+revisão do aparelho/identidade, confirmação local e chamada desse serviço.
+Não aprovar em background apenas porque o pedido chegou ou a LAN está aberta.
+
+A capacidade local exige sessão da mesma casa, certificado do dono vigente
+e prova de posse da chave pública correspondente. O engine verifica PoP e
+vínculo do certificado aprovado à chave do pedido. A disponibilidade de uma
+referência no Keychain não é prova de que a assinatura funcionará; erro de
+acesso/cancelamento permanece visível e não altera a autoridade.
+
+`hh_priv`, `m_priv` e chave pessoal do dono são autoridades distintas. O engine
+pode ter a chave da casa e somente o **certificado público** do dono; isso não
+significa que o Mac GUI possa assinar como aquele dono. Não reabrir a cerimônia
+de primeiro dono porque o telefone foi perdido/desconectado. [blaire] verifica
+em sua faixa qual capacidade existe no Mac do Caio, sem compartilhar segredos.
+
+O desenho do terceiro estado deve considerar o mecanismo de recuperação
+existente e a disponibilidade real de chaves antes de escolher uma operação.
+Essa dependência não bloqueia A–F nem a aprovação pelo Mac quando ele já é o
+dono; impede apenas um bypass de autoridade baseado no contador incorreto.
+G permanece parte do aceite: o caso medido precisa terminar em pareamento
+ou num caminho de recuperação concreto, sem destruição da casa.
+
+Remover da folha normal o conselho de `Forget this home` e as afirmações de
+que somente iPhones podem aprovar. Manter a ação destrutiva de esquecer a
+casa como escolha explícita separada, sem executá-la nesta tarefa. Status de
+pareamento usa request/resultado da cerimônia, não incremento de um contador
+que é booleano e nunca chegará a 2.
+
+Testes G: Mac dono aprova primeiro iPhone preservando hh_id/dados; sem dono
+usa a cerimônia inicial; Mac somente máquina não consegue aprovar como dono;
+assinatura/certificado de outra casa ou chave diferente do pedido é rejeitado;
+cancelamento e expiração encerram a espera; contador 1 não concede autoridade;
+dois pedidos não recebem aprovação por engano. Rota de listagem e aprovação
+entra no gate cruzado. E2E da casa medida é responsabilidade de [blaire].
