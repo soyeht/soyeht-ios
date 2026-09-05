@@ -1,0 +1,288 @@
+# Endereçamento e pareamento: desenho para revisão
+
+Data: 2026-09-05. Autor: [jaime]. Revisão solicitada a [blaire] antes do código.
+
+Base lida: iSoyehtTerm `299555945fe426c4911dc9c742444dde0894bb90`; theyos
+`eb96d375`. Este documento propõe a implementação; não registra testes E2E
+executados nem atribui uma causa definitiva à ausência de tráfego relatada.
+
+## Resultado e divisão do trabalho
+
+Uma política em SoyehtCore escolhe o endereço que o iPhone tenta e conserva.
+Ela recebe fatos do engine e do telefone, considera a operação pretendida e
+produz uma decisão explicável ou uma indisponibilidade tipada. Descoberta,
+QR, convite direto e confirmação de pareamento consomem essa mesma política.
+
+[jaime] altera código e executa testes locais isolados nos dois repositórios.
+[blaire] possui a faixa do iPhone Devs e do engine Dev e executa E2E. Não há
+instalação, restart de engine, operação no aparelho, PR ou push nesta faixa.
+Commits locais incluem somente os arquivos desta tarefa.
+
+## Correções de premissa que afetam o escopo
+
+1. `handlers_mobile.rs:252-304` já oferece LAN. `best_qr_host()` atende a API
+   administrativa, incluindo `/api/v1/invites`; usa a porta administrativa.
+   O QR de household usa **outro** seletor: `PairDeviceUriTail::resolve`, em
+   `handlers_bootstrap.rs:1300`, que oferece somente tailnet. O ACK de claim
+   ainda tem `tailnet_address::build_mac_engine_url`. Centralizar somente os
+   quatro símbolos citados deixaria decisões ativas fora da refatoração.
+2. `HouseholdPairingService.pair(reachedEndpoint:)` prefere incondicionalmente
+   o endpoint já alcançado ao do QR. `HouseholdDevicePairingService` usa o
+   endpoint do próprio link. Os dois precisam consumir a mesma decisão até
+   a persistência; um teste de `ClaimEngineAddressChoice` sozinho não trava
+   a preferência por tailnet no fluxo completo.
+3. O payload `SetupInvitationPayload` atual **não declara bootstrap port nem
+   perfil**, inclusive no envelope JSON. O iPhone filtra a URL recebida por
+   porta; isso ocorre depois de o Mac já ter feito claim. D exige acrescentar
+   o dado ao contrato, não somente comparar uma propriedade existente.
+4. E já está implementado no gerador `EmbeddedEngineLaunchAgentSpec` e possui
+   teste em `EngineSessionDomainTests`. Restam comentário e teste negativo.
+   Preservar a garantia; plists instalados ficam com a faixa de [blaire].
+5. A janela LAN confirma a concessão, não a conclusão do bind: o listener
+   reage de forma assíncrona. `BoundSet` acompanha binds bem sucedidos, mas
+   a tarefa de serve não remove hoje a entrada quando termina com erro.
+6. Bind e autorização da operação são diferentes. `post_initialize` exige
+   origem tailnet quando existe convite persistido. A política pode retirar
+   LAN ao fechar a janela; terminal attach por LAN é negado explicitamente.
+   Escolher LAN não transforma esses caminhos em operações suportadas.
+
+**Ajuste de escopo proposto:** esta entrega unifica o endereçamento do
+pareamento de household. Não migra os convites administrativos de instância
+como se fossem o mesmo serviço. Essa separação terá teste de dependência e
+teste de porta/serviço. Se A pretende também migrar todos os links da API
+administrativa, precisamos acrescentar seus clientes web/CLI e contratos;
+não vou declarar esse trabalho resolvido pela mudança do pareamento.
+
+## Um decisor; produtores de fatos separados
+
+O tipo puro `PairingAddressPolicy`, em SoyehtCore, tem três operações:
+
+```swift
+offer(engine: EnginePairingAddressSnapshot) -> PairingAddressOffer
+choose(offer: PairingAddressOffer, phone: PhoneNetworkEvidence,
+       operation: PairingOperation) -> PairingAddressResolution
+confirm(decision: PairingAddressDecision,
+        observation: PairingEndpointObservation) -> PairingAddressResolution
+```
+
+Os nomes são propostos; o contrato e os invariantes abaixo são os requisitos.
+Coleta de interfaces, HTTP e relógio ficam fora do tipo e são injetáveis.
+
+| Dado | Conteúdo e autoridade |
+| --- | --- |
+| Identidade | perfil, porta bootstrap esperada, identidade do engine/casa quando disponível; não confundir com porta administrativa ou da publicação no iPhone |
+| Snapshot do engine | geração do processo/inventário, endpoints concretos que estão servindo, classe de transporte, operações admitidas pela política vigente e eventual prazo de exposição |
+| Oferta | candidatos sem segredos, versão e procedência do snapshot; ausência de telefone significa alcance desconhecido |
+| Evidência do telefone | interfaces/capacidades observadas e resultados recentes por candidato; ter IP tailnet não prova que aquele Mac está alcançável |
+| Decisão | candidato escolhido, finalidade, motivo e identidade/geração a que a escolha pertence |
+| Observação | endpoint efetivamente tentado, operação, resultado de transporte/protocolo e identidade comprovada quando o protocolo permite |
+
+O engine continua dono de `HouseholdExposurePolicy`, binds e guards das rotas.
+Ele publica fatos de disponibilidade; não escolhe por preferência do Mac nem
+recebe ordens do telefone para abrir uma interface. `bonjour_trust` não vira
+um ranqueador e suas regras de confiança não são ampliadas nesta mudança.
+
+O snapshot só inclui binds concluídos. Remoção/erro da tarefa atualiza o
+registro com identidade da inscrição, para uma tarefa antiga não apagar um
+bind novo no mesmo endereço. A geração muda quando o conjunto relevante ou
+a política muda. Snapshot é evidência datada, não promessa de conectividade:
+a tentativa ainda pode falhar e essa falha precisa chegar tipada ao usuário.
+
+Proposta de transporte: `GET /bootstrap/pairing-addresses`, envelope CBOR
+`v: 1`, somente leitura. O Mac consulta pelo loopback; acesso pelo telefone
+segue a autorização de descoberta correspondente, sem expor dados de outras
+casas. A implementação define e testa o conjunto mínimo de campos antes de
+publicar a rota. Endpoint público por proxy exige evidência própria de
+encaminhamento; não basta inventar `https://host` a partir de um socket local.
+
+### Regras que nenhuma camada pode contornar
+
+- Perfil incompatível é rejeitado antes de claim, geração de segredo local,
+  notificação ou alteração do estado do iPhone. Loopback nunca é destino
+  oferecido a outro aparelho. Porta de outro serviço não é bootstrap.
+- O iPhone com capacidade tailnet prefere o candidato tailnet admitido para
+  a operação. A tentativa precisa confirmar alcance. LAN descoberta antes
+  não pode sobrescrever silenciosamente a preferência ou o endpoint salvo.
+- Se tailnet falhar, produzir falha concreta. Esta entrega não faz downgrade
+  automático e permanente para LAN em um telefone com tailnet.
+- Sem tailnet no telefone, LAN só é elegível quando bind e operação estão
+  admitidos. Uma interface do Mac ou a abertura da janela não bastam.
+- LAN temporária não vira promessa de endereço permanente. A decisão registra
+  sua validade; a UI não declara conexão de uso contínuo quando apenas uma
+  etapa de pareamento é possível. Nenhuma ampliação de ACL está implícita.
+- Sem telefone conhecido, produzir oferta de candidatos; não afirmar que
+  determinado endereço é alcançável. No QR, a seleção definitiva ocorre no
+  telefone após leitura, pela mesma política usada no convite direto.
+- `noReachableAddress` não retorna uma URL de sucesso destinada a falhar.
+  Use enum com decisão ou motivo de indisponibilidade.
+- Provas criptográficas, nonce e identidade da casa permanecem vinculados à
+  cerimônia. Endereços são rotas candidatas, não provas de identidade.
+
+### Migração dos consumidores
+
+`MacEngineAdvertisedURL` perde a prioridade própria e vira adaptador de
+coleta/oferta. Preferences, `MacPairingAdvertisement` e
+`SetupInvitationListener` compartilham a oferta; não reconstruem URLs.
+`ClaimEngineAddressChoice` é substituído ou fica como adaptador temporário
+para a política, sem uma segunda regra de seleção.
+
+`AwaitingMacView`, `AwaitingNewMacView`, descoberta Bonjour, entrada por QR e
+ambos os serviços de pairing levam a decisão até o transporte e a gravação
+do endpoint. `reachedEndpoint` vira evidência de uma tentativa, não bypass.
+O host de presença/attach do pareamento local continua com suas portas e
+capacidades próprias; não é atualizado por substituição textual de URL.
+
+O engine emite material de pareamento e candidatos; o Swift constrói a oferta
+e escolhe. `PairDeviceUriTail` e o ACK de claim deixam de fazer seleção
+independente. Se uma rota ainda renderizar o link com endereço, recebe a
+decisão identificada e valida sua correspondência ao snapshot/serviço,
+sem chamar um detector para escolher novamente. Cliente Linux não precisa
+executar Swift no servidor: a escolha do destinatário continua no iPhone.
+
+Um guard de dependência e testes de handler devem demonstrar que alterar a
+preferência de `best_qr_host` não altera a oferta/decisão de household. Esse
+helper permanece restrito às rotas administrativas legadas explicitadas.
+
+Compatibilidade é parte do contrato: há decoders que rejeitam campos novos.
+O novo envelope/forma de link terá versão suportada explicitamente nos
+produtores e leitores; não adicionar campos cegamente a respostas v1. Um
+link legado é convertido em oferta com evidência limitada e conserva a
+validação de perfil. Nenhum fallback legado recebe garantia de bind que não
+observou; versão incompatível produz pedido claro de atualização.
+
+## Claim: distinguir inicialização de convite para casa existente
+
+Eliminar `shouldProceedAfterClaimFailure`, inclusive a lista de códigos
+legados que transforma erro em sucesso. Separar a orquestração de descoberta
+da cerimônia, com dependências injetáveis para testes:
+
+1. Descobrir e validar convite, perfil, validade e estado atual do engine.
+2. **Engine novo:** claim confirmado pelo engine é pré-condição para enviar
+   `bootstrapClaimAccepted`. Resposta tipada substitui o timestamp `0` usado
+   como sucesso implícito pelo client. `invitation_not_recognized` pode ter
+   retry limitado; esgotado o prazo, erro terminal da tentativa, sem notify.
+3. **Casa nomeada/ready:** usar a oferta atual de pareamento, validada contra
+   a identidade e estado do engine, e enviar `existingHouseOffered`. Não
+   chamar claim de inicialização, cuja pré-condição não vale nesse estado.
+4. `already_initialized` concorrente provoca nova leitura de estado e nova
+   avaliação explícita. Só transita para oferta existente quando essa oferta
+   foi obtida; o código de erro sozinho nunca autoriza sucesso.
+5. Timeout após mutação é resultado incerto. Recuperar ACK da mesma intenção
+   se o contrato provar que ela foi aceita; sem essa prova, falhar com motivo
+   recuperável. Não fabricar confirmação nem consumir outro convite.
+6. Notificação falha após claim aceito pode repetir a mesma notificação
+   vinculada ao token/perfil. Não refazer claim a cada tentativa de notify.
+   Reentrada do fluxo deve observar o claim persistido ou reiniciar de forma
+   explícita; teste cobre resposta perdida e reinício da orquestração.
+
+O iPhone recebe um evento discriminado, não deduz o significado de sucesso
+pelo erro que o Mac ignorou. Cancelamento, expiração e nova tentativa invalidam
+callbacks da tentativa anterior antes de qualquer gravação de segredo ou
+latch de descoberta. Os guards existentes de identidade e "Not my Mac"
+continuam obrigatórios.
+
+## Perfil e erros observáveis
+
+Adicionar perfil/porta bootstrap esperada a `SetupInvitationPayload`, JSON
+direto, TXT/CBOR e verificação do convite. Validar na descoberta do Mac, no
+claim do engine e no recebimento pelo iPhone, antes dos efeitos. A porta do
+servidor de convite do iPhone é outro dado. O perfil é isolamento de produto,
+não substitui autenticação do remetente ou prova de identidade da casa.
+
+Proposta para payload legado sem perfil: não fazer claim automático. Oferecer
+atualização/fluxo explícito compatível; não assumir produção silenciosamente.
+O backend valida o dado recebido contra sua configuração e o convite
+verificado, não confia só na comparação feita pela GUI. Retentativas mantêm
+a mesma identidade de convite e rejeitam perfil divergente também no callback.
+
+Introduzir `PairingAttemptFailure` com etapa, endpoint sanitizado, causa e
+recuperação. Causas incluem perfil, versão/decodificação, operação não
+admitida, bind indisponível, DNS, conexão recusada, timeout, transporte,
+rejeição do servidor, convite expirado, prova inválida, aprovação e storage.
+Cancelamento permanece cancelamento. Erro desconhecido conserva domínio e
+código; a UI dá uma ação útil sem inventar a causa.
+
+A causa nasce no transporte/decodificação: não pode ser recuperada depois
+que um serviço a reduz a `.networkUnavailable`. Remover esse achatamento
+nos caminhos tocados, além do catch de `AwaitingMacView`. A mensagem sobre
+Tailscale não será inferida apenas do host do QR: hoje ele pode diferir do
+endpoint que `reachedEndpoint` fez o serviço tentar.
+
+Logs correlacionam tentativa, perfil, operação, candidato selecionado,
+endpoint efetivamente tentado, duração, status HTTP/código de erro e fase.
+Nunca registram URI de pareamento completa, query com token, nonce, APNs ou
+segredo local. A tela recebe mensagem curta e ação adequada; o diagnóstico
+detalhado fica no log. Todo caminho termina em sucesso, falha, cancelamento
+ou espera explícita com prazo/ação; erro não deixa spinner indefinido.
+
+## Testes que atravessam o contrato
+
+O teste atual de `local-network-visibility` é evidência útil, mas faz busca
+textual e dá skip se o outro checkout não existe. O gate desta entrega
+**exige os dois checkouts em revisões explícitas**. Ausência é erro do gate,
+nunca verde por skip. Não depende de engine instalado ou do aparelho.
+
+Manter um catálogo das rotas tocadas com método, caminho, content-type,
+versão, perfil, campos/erros e permissões. O teste produz request pelo Swift
+real, passa pelos routers/decoders Rust em processo de teste e devolve a
+resposta serializada pelo Rust ao decoder Swift. Para callback, inverter o
+produtor/consumidor. Reutilizar o transporte injetável e `Router::oneshot`;
+não ligar o binário operacional. Fixtures persistidas são saídas verificadas
+desses produtores, não exemplos inventados em cada repositório.
+
+Cobertura mínima por rota do fluxo alterado:
+
+| Fronteira | Rotas/materiais |
+| --- | --- |
+| Mac ↔ iPhone | GET `/setup-invitation`, verificação `/setup/verify`, POST `/setup-invitation/claimed`; perfil em TXT/CBOR/JSON |
+| Mac ↔ engine | POST `/bootstrap/claim-setup-invitation`, GET `/bootstrap/status`, GET `/bootstrap/pairing-addresses`, POST `/bootstrap/local-network-visibility/open` e `/close` |
+| Oferta/QR | GET `/bootstrap/pair-device-uri`; by-code/reissue e resposta de initialize se transportarem a nova oferta; parser Swift lendo URI/material emitido pelo Rust |
+| iPhone ↔ engine | POST `/bootstrap/initialize`, POST `/api/v1/household/pair-device/confirm`, request/poll de device pairing nos caminhos usados pelos dois serviços |
+
+As rotas adicionais só entram se forem alteradas ou consumidas pelo fluxo;
+registrar a lista concreta no primeiro commit de contrato para não omitir
+uma rota por ter um decoder em outro arquivo. Testes de ausência de chamada
+comprovam que falha de claim/perfil não produz notify nem segredo.
+
+Controles negativos obrigatórios: renomear a rota ou `expires_at_unix` num
+fixture de teste isolado reprova o gate; ignorar perfil no produtor ou
+consumidor reprova; selecionar endereço de outra porta/serviço reprova;
+trocar a seleção final por `reachedEndpoint` reprova a preferência tailnet.
+Sem editar os checkouts de trabalho para simular esses defeitos.
+
+## Fatias e aceite
+
+1. Catálogo de contrato + política pura: matriz de seleção, identidade/perfil,
+   operação, ausência de bind, expiração e tailnet. Guardar o nome e ampliar
+   `test_keepsTheTailnetAddressWhenThePhoneIsOnTheTailnet` até persistência.
+2. Fatos reais de listener + contrato de oferta/claim/perfil no Rust e Swift;
+   testar abertura assíncrona, bind falho, tarefa encerrada e geração antiga.
+3. Migrar consumidores, QR e ambos os serviços; remover os seletores e o
+   proceed-after-error. Erros tipados atravessam até as duas telas iOS.
+4. Gate cruzado por rota, regressões de fingerprint/nonce/"Not my Mac",
+   deadline/cancelamento e ausência da variável morta. Compilação local com
+   diretórios de build próprios, sem o harness que baixa/inicia engine.
+5. Handoff para [blaire] com os commits locais, comandos e matriz E2E:
+   tailnet nos dois lados (incluindo endpoint salvo), telefone sem tailnet,
+   engine sem tailnet, LAN fechada/expirada, bind falho, perfil cruzado nas
+   duas direções, claim recusado, notify perdido, QR e descoberta, primeira
+   pessoa e ingresso em casa existente. Cada resultado inclui tentativa,
+   endpoint, resposta/erro e estado final; ausência de pacote não é causa.
+
+"Ótima qualidade" significa que esses invariantes são observáveis e testados,
+os consumidores não redecidem, e a pessoa recebe um desfecho útil. Não é uma
+nota declarada pelo autor nem uma suíte verde que ignora a fronteira.
+
+## Pontos para [blaire] contestar antes da implementação
+
+1. Concorda em delimitar A ao serviço de household e provar que os seletores
+   administrativos não participam? Migrar a API de instâncias é outro
+   contrato, não uma correção da porta bootstrap.
+2. Concorda que esta refatoração respeite as autorizações atuais por operação
+   e explicite quando LAN não suporta a cerimônia/continuidade? Completar
+   inicialização por convite sem tailnet ou uso contínuo por LAN requer
+   decidir e testar essa política, não somente trocar o endereço.
+3. Payload sem perfil deixa de gerar claim automático. Se compatibilidade
+   automática com builds antigos for requisito, precisamos especificar uma
+   evidência alternativa verificável antes dos efeitos; inferir perfil pela
+   porta de publicação do iPhone não resolve.
