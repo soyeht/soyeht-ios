@@ -382,7 +382,32 @@ final class AwaitingNewMacViewModel: ObservableObject {
     }
 
     private func runDance(claim: SetupInvitationDirectClaim) async {
-        let macEngineURL = claim.macEngineURL
+        // The Mac advertises by what the MAC has, so one with a tailnet
+        // address always says "dial 100.x" — even to a phone with no
+        // Tailscale, over the Wi-Fi socket this claim arrived on. This is
+        // first setup, the moment the owner's rule says the home IS visible
+        // on the Wi-Fi, so the phone chooses the address it can reach.
+        let choice = ClaimEngineAddressChoice.choose(
+            advertised: claim.macEngineURL,
+            localNetwork: claim.macEngineLocalNetworkURL,
+            phoneHasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil
+        )
+        awaitingNewMacLogger.info(
+            "setup_claim.engine_address reason=\(choice.reason.rawValue, privacy: .public) chosen=\(choice.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
+        )
+        // The second address gets the same build filter as the first: same
+        // claim, same peer, and a filter covering only one of them is none.
+        guard choice.url.port == EndpointPolicy.defaultBootstrapPort() else {
+            awaitingNewMacLogger.info(
+                "setup_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(choice.url.port.map(String.init) ?? "<nil>", privacy: .public)"
+            )
+            // Keep listening, exactly as the pre-dance filter does with a
+            // claim from the other build.
+            self.alreadyOrchestrating = false
+            self.phase = .looking
+            return
+        }
+        let macEngineURL = choice.url
         let hostname = hostnameForCert(claim: claim, macURL: macEngineURL)
 
         do {

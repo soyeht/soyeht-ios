@@ -45615,6 +45615,113 @@
         }
       }
     },
+    "awaitingMac.existingHouse.connect.tailscaleOff": {
+      "comment" : "Shown when the Mac's pairing link is a Tailscale address and this iPhone has no Tailnet interface.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏Tailscale مُعطَّل على هذا الـ iPhone. لا يقبل Mac هذا إلا عبر Tailscale — فعّله هنا وحاول مجددًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই iPhone-এ Tailscale বন্ধ আছে। আপনার Mac এটি কেবল Tailscale দিয়েই গ্রহণ করে — এখানে চালু করে আবার চেষ্টা করুন।"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale ist auf diesem iPhone aus. Ihr Mac akzeptiert das nur über Tailscale — aktivieren Sie es hier und versuchen Sie es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale is off on this iPhone. Your Mac only accepts this over Tailscale — turn it on here and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale está desactivado en este iPhone. Tu Mac solo acepta esto por Tailscale: actívalo aquí e inténtalo otra vez."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale est désactivé sur cet iPhone. Votre Mac n'accepte cela que via Tailscale — activez-le ici et réessayez."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस iPhone पर Tailscale बंद है। आपका Mac यह केवल Tailscale से स्वीकार करता है — इसे यहाँ चालू करें और फिर कोशिश करें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tailscale mati di iPhone ini. Mac Anda hanya menerima ini lewat Tailscale — aktifkan di sini lalu coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この iPhone で Tailscale がオフです。Mac は Tailscale 経由でしか受け付けません。ここでオンにして、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에서 Tailscale이 꺼져 있습니다. Mac은 Tailscale로만 이를 허용합니다 — 여기서 켜고 다시 시도하세요."
+          }
+        },
+        "mr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "या iPhone वर Tailscale बंद आहे. तुमचा Mac हे फक्त Tailscale ने स्वीकारतो — इथे चालू करा आणि पुन्हा प्रयत्न करा."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Tailscale está desligado neste iPhone. Seu Mac só aceita isso por Tailscale — ligue aqui e tente de novo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Tailscale está desligado neste iPhone. O seu Mac só aceita isto por Tailscale — active aqui e tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этом iPhone выключен Tailscale. Mac принимает это только через Tailscale — включите здесь и повторите попытку."
+          }
+        },
+        "te" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ఈ iPhoneలో Tailscale ఆఫ్‌లో ఉంది. మీ Mac దీన్ని Tailscale ద్వారా మాత్రమే అంగీకరిస్తుంది — ఇక్కడ ఆన్ చేసి మళ్లీ ప్రయత్నించండి."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‏اس iPhone پر Tailscale بند ہے۔ آپ کا Mac یہ صرف Tailscale کے ذریعے قبول کرتا ہے — یہاں آن کریں اور دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 iPhone 上的 Tailscale 已关闭。Mac 只接受经由 Tailscale 的连接 — 请在这里开启后重试。"
+          }
+        }
+      }
+    },
     "awaitingMac.existingHouse.waitingForApproval": {
       "comment" : "Shown while a new iPhone waits for an existing iPhone in the home to approve it.",
       "localizations" : {

@@ -895,7 +895,13 @@ public final class SoyehtAPIClient {
             return (data, response)
         } catch {
             let nsError = error as NSError
-            Self.logger.error("\(method) \(path) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            // The host, not just the path. A connection refused says nothing
+            // about WHICH address was dialled, and the address is the whole
+            // diagnosis when a stored row points somewhere nothing listens
+            // (2026-09-04: 713 `-1004` lines whose target could only be
+            // inferred, because the URL was redacted as <private>).
+            let target = request.url?.host.map { "\($0):\(request.url?.port ?? -1)" } ?? "?"
+            Self.logger.error("\(method) \(path) failed: host=\(target, privacy: .public) domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
             throw error
         }
     }
@@ -943,7 +949,13 @@ public final class SoyehtAPIClient {
             return (data, response)
         } catch {
             let nsError = error as NSError
-            Self.logger.error("\(method) \(path) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            // The host, not just the path. A connection refused says nothing
+            // about WHICH address was dialled, and the address is the whole
+            // diagnosis when a stored row points somewhere nothing listens
+            // (2026-09-04: 713 `-1004` lines whose target could only be
+            // inferred, because the URL was redacted as <private>).
+            let target = request.url?.host.map { "\($0):\(request.url?.port ?? -1)" } ?? "?"
+            Self.logger.error("\(method) \(path) failed: host=\(target, privacy: .public) domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
             throw error
         }
     }

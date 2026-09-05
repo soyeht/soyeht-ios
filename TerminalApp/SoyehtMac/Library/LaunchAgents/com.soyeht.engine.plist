@@ -3,6 +3,18 @@
 <plist version="1.0">
 <!-- LaunchAgent registered by SMAppService.agent(plistName:). -->
 <dict>
+	<!-- The session type is the whole point of this job's shape. An agent in
+	     the Aqua session dies with the login: on 2026-09-04 the WindowServer
+	     exited, loginwindow tore the session down, and every brokered PTY
+	     went with the engine. Background loads it into the user domain
+	     (`user/<uid>`), which outlives a logout — measured on that same Mac,
+	     where user-domain jobs kept their PIDs across the crash. It also
+	     means launchd, not SMAppService, owns the load: a Background job is
+	     refused by `bootstrap gui/<uid>`, which is exactly the guarantee
+	     wanted. -->
+	<key>LimitLoadToSessionType</key>
+	<string>Background</string>
+
 	<key>Label</key>
 	<string>com.soyeht.engine</string>
 
@@ -10,7 +22,7 @@
 	<array>
 		<string>/bin/zsh</string>
 		<string>-lc</string>
-		<string>SOYEHT_DIR="$HOME/Library/Application Support/Soyeht"; ENGINE_DIR="$SOYEHT_DIR/engine"; LOG_DIR="$HOME/Library/Logs/Soyeht"; export ADMIN_PORT="8892"; export ADDR="127.0.0.1:8892"; export SOYEHT_SETUP_INVITATION_ALLOW_LAN="1"; export THEYOS_OWNER_AUTH_V2_ROLLOUT="reviewed-core-v2-secure-upgrade"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID="W7677A5BK2"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID="com.soyeht.app"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT="production"; export THEYOS_DIR="$SOYEHT_DIR"; export THEYOS_HOME="$SOYEHT_DIR"; export THEYOS_BIN_DIR="$ENGINE_DIR"; export THEYOS_SQLITE_DB="$SOYEHT_DIR/theyos.db"; export THEYOS_RATELIMIT_DB="$SOYEHT_DIR/ratelimit.db"; export THEYOS_CONVERSATIONS_DIR="$SOYEHT_DIR/conversations"; export THEYOS_BOOTSTRAP_TOKEN_PATH="$SOYEHT_DIR/bootstrap-token"; export THEYOS_VM_ASSETS_DIR="$SOYEHT_DIR/vms"; export THEYOS_VM_STATE_DIR="$SOYEHT_DIR/vms"; export THEYOS_SNAPSHOTS_DIR="$SOYEHT_DIR/snapshots"; export THEYOS_SKIP_LEGACY_MIGRATION="1"; export THEYOS_FORCE_SOFTWARE_KEYS="1"; export THEYOS_VMRUNNER_RS_BIN="$ENGINE_DIR/vmrunner_macos_ipc"; export THEYOS_STORE_RS_BIN="$ENGINE_DIR/store-ipc"; export THEYOS_TERMINAL_RS_BIN="$ENGINE_DIR/terminal-ipc"; export THEYOS_SSH_CTL="$ENGINE_DIR/theyos-ssh"; mkdir -p "$LOG_DIR"; exec "$ENGINE_DIR/theyos-engine" >>"$LOG_DIR/engine.log" 2&gt;&amp;1</string>
+		<string>SOYEHT_DIR="$HOME/Library/Application Support/Soyeht"; ENGINE_DIR="$SOYEHT_DIR/engine"; LOG_DIR="$HOME/Library/Logs/Soyeht"; export ADMIN_PORT="8892"; export ADDR="127.0.0.1:8892"; export THEYOS_OWNER_AUTH_V2_ROLLOUT="reviewed-core-v2-secure-upgrade"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID="W7677A5BK2"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID="com.soyeht.app"; export THEYOS_SECURE_UPGRADE_APP_ATTEST_ENVIRONMENT="production"; export THEYOS_DIR="$SOYEHT_DIR"; export THEYOS_HOME="$SOYEHT_DIR"; export THEYOS_BIN_DIR="$ENGINE_DIR"; export THEYOS_SQLITE_DB="$SOYEHT_DIR/theyos.db"; export THEYOS_RATELIMIT_DB="$SOYEHT_DIR/ratelimit.db"; export THEYOS_CONVERSATIONS_DIR="$SOYEHT_DIR/conversations"; export THEYOS_BOOTSTRAP_TOKEN_PATH="$SOYEHT_DIR/bootstrap-token"; export THEYOS_VM_ASSETS_DIR="$SOYEHT_DIR/vms"; export THEYOS_VM_STATE_DIR="$SOYEHT_DIR/vms"; export THEYOS_SNAPSHOTS_DIR="$SOYEHT_DIR/snapshots"; export THEYOS_SKIP_LEGACY_MIGRATION="1"; export THEYOS_FORCE_SOFTWARE_KEYS="1"; export THEYOS_VMRUNNER_RS_BIN="$ENGINE_DIR/vmrunner_macos_ipc"; export THEYOS_STORE_RS_BIN="$ENGINE_DIR/store-ipc"; export THEYOS_TERMINAL_RS_BIN="$ENGINE_DIR/terminal-ipc"; export THEYOS_SSH_CTL="$ENGINE_DIR/theyos-ssh"; mkdir -p "$LOG_DIR"; exec "$ENGINE_DIR/theyos-engine" >>"$LOG_DIR/engine.log" 2&gt;&amp;1</string>
 	</array>
 
 	<key>EnvironmentVariables</key>

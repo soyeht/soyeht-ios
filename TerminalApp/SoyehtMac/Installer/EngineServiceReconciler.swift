@@ -179,4 +179,122 @@ enum EngineServiceReconciler {
         return output.split(separator: "\n").contains { ownsEngineCommand(String($0)) }
     }
 
+    // MARK: - A stale engine is restarted only over nothing
+
+    /// What launch may do with a RUNNING engine that `EngineStalenessPolicy`
+    /// judged stale, once the newer binary is staged in Application Support.
+    ///
+    /// The engine outlives the app precisely so that sessions survive an app
+    /// update. An engine update is the one thing that cannot preserve them:
+    /// every brokered PTY is the engine's child. Measured 2026-09-03 on the
+    /// owner's machine: updating to 0.1.45 shipped engine 0.1.28, launch
+    /// judged the running 0.1.27 stale and bounced it one second after the
+    /// app came back — eight agent sessions gone, after the whole point of
+    /// the broker was that an update never does that. The version check was
+    /// right; acting on it over live sessions was not.
+    enum StaleEngineAction: Equatable {
+        /// Nothing is attached to the engine, so the bounce costs nobody
+        /// anything: launch does it on its own.
+        case restartNow
+        /// Sessions are alive under the engine — or their number could not be
+        /// trusted. The newer engine stays staged and the person is told;
+        /// restarting is their call, made when they are ready.
+        case holdForPerson(liveSessionCount: Int?)
+    }
+
+    /// - Parameter liveSessionCount: from `liveBrokeredSessionCount`; `nil`
+    ///   means the probe could not answer, which is never permission.
+    static func staleEngineAction(liveSessionCount: Int?) -> StaleEngineAction {
+        guard let liveSessionCount, liveSessionCount == 0 else {
+            return .holdForPerson(liveSessionCount: liveSessionCount)
+        }
+        return .restartNow
+    }
+
+    /// Counts the sessions a restart of this profile's engine would destroy,
+    /// from a `ps -Ao pid=,ppid=,command=` dump.
+    ///
+    /// A brokered session is a process whose parent belongs to this profile's
+    /// engine tree — the engine itself or one of the helpers it spawns from the
+    /// same directory (`terminal-ipc`, `theyos-ssh`, …), which is what
+    /// `ownsEngineCommand` already matches. The helpers are not sessions and
+    /// are excluded by the same test. An agent running inside a session is the
+    /// session's child, not the engine's, so it is never counted twice.
+    ///
+    /// Pure, like `engineIsRunning`, and for the same reason: a rule that
+    /// decides whether destruction is allowed has to be reachable by a test.
+    ///
+    /// - Returns: the count, or `nil` when the probe cannot be trusted: it did
+    ///   not run, it failed, or no engine of this profile appears in the
+    ///   table at all. The caller only asks after the engine has answered
+    ///   its version, so a table without it is a bad reading, not a zero.
+    static func liveBrokeredSessionCount(
+        probeRan: Bool,
+        exitStatus: Int32,
+        output: String,
+        ownsEngineCommand: (String) -> Bool
+    ) -> Int? {
+        guard probeRan, exitStatus == 0 else { return nil }
+        struct Row { let pid: Int; let ppid: Int; let command: String }
+        var rows: [Row] = []
+        for rawLine in output.split(separator: "\n") {
+            let line = rawLine.drop(while: { $0 == " " })
+            let parts = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+            guard parts.count == 3, let pid = Int(parts[0]), let ppid = Int(parts[1]) else { continue }
+            rows.append(Row(pid: pid, ppid: ppid, command: String(parts[2])))
+        }
+        let engineTree = Set(rows.filter { ownsEngineCommand($0.command) }.map(\.pid))
+        guard !engineTree.isEmpty else { return nil }
+        return rows.filter { engineTree.contains($0.ppid) && !engineTree.contains($0.pid) }.count
+    }
+
+    // MARK: - Getting the engine out of the graphical session
+
+    /// What launch may do about a job that still lives in the Aqua session.
+    ///
+    /// A LaunchAgent in `gui/<uid>` dies with the login by definition.
+    /// MEASURED 2026-09-04 on the owner's Mac: the WindowServer exited at
+    /// 07:47, loginwindow tore the session down ("Window Server exited,
+    /// closing down the session immediately"), and the engine went with it,
+    /// taking every pane — while `user/<uid>` jobs on the same machine kept
+    /// their PIDs straight through it. The cure is a Background-session job,
+    /// which launchd loads into the user domain.
+    ///
+    /// Moving it is not free: launchd cannot move a running job between
+    /// domains, so the old one has to be stopped, and stopping it is exactly
+    /// what costs sessions. So the move waits for a moment when it costs
+    /// nothing — which arrives on its own, at the next launch with no panes
+    /// attached. Nobody is asked, because there is nothing to decide: the
+    /// person cannot make the migration cheaper by answering a question.
+    enum SessionDomainAction: Equatable {
+        /// Already where it belongs (or no legacy job to move).
+        case nothingToDo
+        /// Nothing is attached: install the Background job now.
+        case migrateNow
+        /// Sessions are alive under the old job — or their number could not
+        /// be trusted. Leave everything exactly as it is and try next launch.
+        case waitForAQuietMoment(liveSessionCount: Int?)
+    }
+
+    /// - Parameters:
+    ///   - backgroundJobLoaded: is this profile's job loaded in `user/<uid>`?
+    ///   - liveSessionCount: from `liveBrokeredSessionCount`; `nil` means the
+    ///     probe could not answer, which is never permission to destroy.
+    static func sessionDomainAction(
+        backgroundJobLoaded: Bool,
+        liveSessionCount: Int?
+    ) -> SessionDomainAction {
+        // Already where it belongs. A registration left behind in the GUI
+        // domain is not serving anything — two jobs under one label cannot
+        // both be loaded — so it is cleanup, not a reason to act now.
+        if backgroundJobLoaded { return .nothingToDo }
+        // Fail closed, twice over: an unreadable process table is not a zero,
+        // and a live session is not a cost launch may pay by itself. Waiting
+        // costs nothing but time, and the quiet moment always arrives.
+        guard liveSessionCount == 0 else {
+            return .waitForAQuietMoment(liveSessionCount: liveSessionCount)
+        }
+        return .migrateNow
+    }
+
 }

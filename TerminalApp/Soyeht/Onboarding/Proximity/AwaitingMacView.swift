@@ -493,6 +493,15 @@ final class AwaitingMacViewModel: ObservableObject {
     private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
     private var installedLocalPairingForDiscovery = false
+    /// Household key of the home this phone actually completed pairing with in
+    /// this session — set only on the success paths, cleared by `stop()`.
+    ///
+    /// `alreadyFound` cannot stand in for it. The latch closes on discovery,
+    /// and stays closed through "Not my Mac", an unparsable link and words the
+    /// person never verified; an adversarial review measured that the first
+    /// version of the late-claim path installed any Mac's secret in exactly
+    /// those states, because the latch was the only thing it consulted.
+    private var pairedHouseholdKey: String?
     private var recoveryHintTask: Task<Void, Never>?
     private var macBrowserResolutionTask: Task<Void, Never>?
     private var offerRefreshTask: Task<Void, Never>?
@@ -549,11 +558,40 @@ final class AwaitingMacViewModel: ObservableObject {
                 // log delta will make it obvious.
                 awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
                 self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
-                guard !self.alreadyFound else { return }
+                // The install-profile guard runs before the latch now: a late
+                // claim still has to come from this build's engine, and the
+                // late-claim branch below needs that answer too.
                 guard Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else {
                     awaitingMacLogger.info(
                         "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
                     )
+                    return
+                }
+                // The Mac picks the address it advertises by what the MAC
+                // has, so a Mac on a tailnet always says "dial 100.x" — even
+                // to a phone with no Tailscale, over the Wi-Fi socket this
+                // claim just arrived on. Only this side knows what it can
+                // reach, so it chooses between the two the claim carries.
+                let chosen = ClaimEngineAddressChoice.choose(
+                    advertised: claim.macEngineURL,
+                    localNetwork: claim.macEngineLocalNetworkURL,
+                    phoneHasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil
+                )
+                awaitingMacLogger.info(
+                    "claim.engine_address reason=\(chosen.reason.rawValue, privacy: .public) chosen=\(chosen.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
+                )
+                // The second address gets the same admission as the first: it
+                // is carried in the same claim by the same peer, and a build
+                // filter that only covered one of them would be no filter.
+                guard Self.engineURLMatchesCurrentInstallProfile(chosen.url) else {
+                    awaitingMacLogger.info(
+                        "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(chosen.url.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    )
+                    return
+                }
+                let engineURL = chosen.url
+                if self.alreadyFound {
+                    self.acceptLateClaim(claim)
                     return
                 }
                 if let existingHouse = claim.existingHouse {
@@ -561,13 +599,13 @@ final class AwaitingMacViewModel: ObservableObject {
                     self.alreadyFound = true
                     self.presentExistingHouse(
                         existingHouse,
-                        engineURL: claim.macEngineURL,
+                        engineURL: engineURL,
                         deferredLocalPairing: claim.macLocalPairing
                     )
                     return
                 }
                 await self.resolveDiscoveredMac(
-                    engineURL: claim.macEngineURL,
+                    engineURL: engineURL,
                     claimToken: self.tokenBytes,
                     localPairing: claim.macLocalPairing
                 )
@@ -577,7 +615,76 @@ final class AwaitingMacViewModel: ObservableObject {
         startMacBrowser()
     }
 
+    /// A Mac claim that lands *after* the radar has already latched.
+    ///
+    /// The HMAC secret that lets this iPhone open a pane is minted only on the
+    /// Mac (`PairingStore.ensurePairing`) and travels only inside the Mac's
+    /// claim. The radar path carries none — every browser call site resolves
+    /// with `localPairing: nil` — so whichever of the two won the race decided
+    /// whether the phone ended up with a Mac it can actually use. Measured on
+    /// the Dev pair 2026-09-03: the Mac minted the secret at 21:57:45Z, its
+    /// claim arrived at 21:57:50Z, and the latch dropped it on the floor. The
+    /// claim is late, not wrong.
+    private func acceptLateClaim(_ claim: SetupInvitationDirectClaim) {
+        let claimHouseholdKey = claim.existingHouse
+            .flatMap { URL(string: $0.pairDeviceURI) }
+            .flatMap { Self.householdKey(of: $0) }
+        let decision = LateMacClaimPolicy.decide(
+            hasLocalPairing: claim.macLocalPairing != nil,
+            candidateHouseholdKey: pendingExistingHouse.flatMap { Self.householdKey(of: $0.pairDeviceURI) },
+            claimHouseholdKey: claimHouseholdKey,
+            pairedHouseholdKey: pairedHouseholdKey,
+            alreadyInstalled: installedLocalPairingForDiscovery
+        )
+        switch decision {
+        case .drop(let refusal):
+            awaitingMacLogger.info("late_claim_dropped reason=\(refusal.rawValue, privacy: .public)")
+        case .deferToCandidate:
+            guard let pairing = claim.macLocalPairing, let candidate = pendingExistingHouse else { return }
+            // Same rebuild `startOfferRefresh` does: the candidate is a value,
+            // so carrying the secret means replacing it.
+            pendingExistingHouse = ExistingHouseCandidate(
+                name: candidate.name,
+                hostLabel: candidate.hostLabel,
+                pairDeviceURI: candidate.pairDeviceURI,
+                engineURL: candidate.engineURL,
+                isDevicePairing: candidate.isDevicePairing,
+                deferredLocalPairing: pairing
+            )
+            awaitingMacLogger.info("late_claim_deferred_to_candidate")
+        case .install:
+            guard let pairing = claim.macLocalPairing else { return }
+            installMacLocalPairing(pairing)
+            installedLocalPairingForDiscovery = true
+            awaitingMacLogger.info("late_claim_installed_local_pairing")
+        }
+    }
+
+    /// Does a late claim belong to the home the card is offering?
+    ///
+    /// `hh_pub` is the household's identity and the only part of the pairing
+    /// link that holds still while the nonce rotates. A claim from a Mac that
+    /// had no home to announce is matched on the engine host instead — same
+    /// Mac, same answer.
+    private static func claim(
+        _ claim: SetupInvitationDirectClaim,
+        matchesHouseholdOf candidate: ExistingHouseCandidate
+    ) -> Bool {
+        if let claimedURI = claim.existingHouse?.pairDeviceURI,
+           let claimedURL = URL(string: claimedURI),
+           let claimedHousehold = householdKey(of: claimedURL) {
+            return claimedHousehold == householdKey(of: candidate.pairDeviceURI)
+        }
+        return claim.macEngineURL.host == candidate.engineURL.host
+    }
+
     func stop() {
+        // Discovery state does not survive a restart of the screen: after
+        // "Not my Mac" or "Keep looking" the next claim is judged from
+        // scratch, and a secret installed for the previous home is not
+        // treated as this one's.
+        installedLocalPairingForDiscovery = false
+        pairedHouseholdKey = nil
         offerRefreshTask?.cancel()
         offerRefreshTask = nil
         publisher.stop()
@@ -676,7 +783,13 @@ final class AwaitingMacViewModel: ObservableObject {
                         keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
                     ).pair(
                         url: house.pairDeviceURI,
-                        displayName: HouseholdOwnerDisplayName.defaultName()
+                        displayName: HouseholdOwnerDisplayName.defaultName(),
+                        // The address this phone actually reached the Mac on.
+                        // The engine mints its link with the tailnet host and
+                        // never a LAN one, so a phone with no Tailscale would
+                        // otherwise confirm against an address it cannot dial
+                        // — after finding the Mac perfectly well over Wi-Fi.
+                        reachedEndpoint: house.engineURL
                     )
                 }
                 do {
@@ -687,9 +800,22 @@ final class AwaitingMacViewModel: ObservableObject {
                 }
                 try Task.checkCancellation()
                 await MainActor.run {
-                    if let pairing = house.deferredLocalPairing {
+                    // `house` is the copy taken when the button was tapped. A
+                    // Mac claim that landed while this was in flight rebuilt
+                    // the candidate with the secret on it, and that copy is
+                    // the one worth reading.
+                    // The `?? nil` flattens "no candidate" and "candidate with
+                    // no secret" into the same answer, so the tapped copy is
+                    // still consulted either way.
+                    if let pairing = (self.pendingExistingHouse?.deferredLocalPairing ?? nil)
+                        ?? house.deferredLocalPairing {
                         installMacLocalPairing(pairing)
+                        self.installedLocalPairingForDiscovery = true
                     }
+                    // This is the moment a home becomes THIS phone's home, and
+                    // the only thing that lets a later claim be trusted without
+                    // a card on screen.
+                    self.pairedHouseholdKey = Self.householdKey(of: house.pairDeviceURI)
                     // `HouseholdPairingService` writes the session straight to
                     // the keychain; the facade every screen reads is a cache
                     // that only refreshes when told. Without this the
@@ -717,15 +843,79 @@ final class AwaitingMacViewModel: ObservableObject {
                 }
             } catch {
                 awaitingMacLogger.error("existing_house_pair_failed error=\(String(describing: error), privacy: .public)")
+                let reason = Self.connectFailureReason(
+                    pairDeviceURI: house.pairDeviceURI,
+                    engineURL: house.engineURL,
+                    tailnetIPv4: TailnetAddressResolver.currentTailnetIPv4()
+                )
                 await MainActor.run {
                     self.isPairing = false
-                    self.errorMessage = String(localized: LocalizedStringResource(
-                        "awaitingMac.existingHouse.connect.failed",
-                        defaultValue: "I couldn't connect this time. Keep Soyeht open on your Mac and try again.",
-                        comment: "Recoverable error shown when no-QR existing-house pairing does not complete."
-                    ))
+                    self.errorMessage = Self.connectFailureMessage(reason)
                 }
             }
+        }
+    }
+
+    /// Why "Connect this iPhone" failed, as far as the phone can tell on its
+    /// own. Everything the phone cannot distinguish stays `.unknown`.
+    enum ConnectFailureReason: Equatable {
+        /// The Mac's link points at a Tailscale address (100.64/10) and this
+        /// iPhone has no tailnet interface, so the request never left the
+        /// phone.
+        case tailscaleOffOnThisIPhone
+        case unknown
+    }
+
+    /// Pure — no network — so the decision is the same one a test can read.
+    ///
+    /// Every failure used to render "I couldn't connect this time. Keep Soyeht
+    /// open on your Mac and try again.", which is advice for a Mac that was
+    /// already open and says nothing about the switch on this phone.
+    static func connectFailureReason(
+        pairDeviceURI: URL,
+        engineURL: URL,
+        tailnetIPv4: String?
+    ) -> ConnectFailureReason {
+        guard tailnetIPv4 == nil else { return .unknown }
+        guard let host = pairingLinkHost(pairDeviceURI: pairDeviceURI, engineURL: engineURL) else {
+            return .unknown
+        }
+        return HostClassifier.isTailnetIPv4(host) ? .tailscaleOffOnThisIPhone : .unknown
+    }
+
+    /// The host this iPhone will actually dial for a pairing link: the
+    /// `endpoint` of a Mac-minted `device-pairing` link, the `host` fallback of
+    /// an engine-minted `pair-device` one, and — when the link carries
+    /// neither — the engine URL the Mac was found on.
+    static func pairingLinkHost(pairDeviceURI: URL, engineURL: URL) -> String? {
+        let items = URLComponents(url: pairDeviceURI, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let endpoint = items.first(where: { $0.name == "endpoint" })?.value,
+           let host = URL(string: endpoint)?.host {
+            return host
+        }
+        if let hostFallback = items.first(where: { $0.name == "host" })?.value,
+           // `host` is `address:port`; borrow URL's parser so a bracketed
+           // IPv6 literal does not come apart on the colons.
+           let host = URL(string: "http://\(hostFallback)")?.host {
+            return host
+        }
+        return engineURL.host
+    }
+
+    private static func connectFailureMessage(_ reason: ConnectFailureReason) -> String {
+        switch reason {
+        case .tailscaleOffOnThisIPhone:
+            return String(localized: LocalizedStringResource(
+                "awaitingMac.existingHouse.connect.tailscaleOff",
+                defaultValue: "Tailscale is off on this iPhone. Your Mac only accepts this over Tailscale — turn it on here and try again.",
+                comment: "Shown when the Mac's pairing link is a Tailscale address and this iPhone has no Tailnet interface."
+            ))
+        case .unknown:
+            return String(localized: LocalizedStringResource(
+                "awaitingMac.existingHouse.connect.failed",
+                defaultValue: "I couldn't connect this time. Keep Soyeht open on your Mac and try again.",
+                comment: "Recoverable error shown when no-QR existing-house pairing does not complete."
+            ))
         }
     }
 

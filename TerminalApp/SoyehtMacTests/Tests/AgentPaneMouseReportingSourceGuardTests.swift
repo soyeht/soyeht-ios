@@ -49,6 +49,10 @@ final class AgentPaneMouseReportingSourceGuardTests: XCTestCase {
 /// owns its modes), and the reset string actually contains each escape that
 /// clears the latched state.
 final class NewSessionInputModeResetSourceGuardTests: XCTestCase {
+    // The ordering rule these two guards used to pin now lives in
+    // `InputModeResetSchedule`, tested directly (including the case a source
+    // guard could never reach: a LATER replay must reset nothing).
+
     func testAttacherResetsInputModesOnlyForNewSessions() throws {
         let source = try macSource("SoyehtInstance/EnginePaneAttacher.swift")
         XCTAssertTrue(source.contains("if !response.reconnected {"))

@@ -69,7 +69,7 @@ public enum EngineCompat {
     ///     the pin on purpose: a set-up Mac only replaces its engine when the
     ///     running one is older than this, and the 0.1.27 release was the
     ///     one Phase 3 kept refusing.
-    public static let minSupportedEngineVersion = "0.1.28"
+    public static let minSupportedEngineVersion = "0.1.29"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to

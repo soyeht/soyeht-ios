@@ -36,10 +36,14 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
     func test_localMacPairingClaimStillRunsBootstrapDecisionBeforeOpeningMacMirror() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
+        // Ends where the handler ends. `acceptLateClaim` is a SEPARATE
+        // decision — a claim that arrives after the latch, judged by
+        // `LateMacClaimPolicy` — and it installs on purpose. Slicing to
+        // `func stop()` swallowed it and made this guard read the wrong code.
         let claimHandler = try slice(
             source,
             from: "publisher.onMacClaimed",
-            to: "func stop()"
+            to: "/// A Mac claim that lands *after* the radar has already latched."
         )
         let connectFlow = try slice(
             source,
@@ -58,7 +62,12 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertFalse(claimHandler.contains("self.diagnosticMessage = \"Connected to Mac\""))
         XCTAssertTrue(claimHandler.contains("deferredLocalPairing: claim.macLocalPairing"))
         XCTAssertTrue(source.contains("presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: localPairing)"))
-        XCTAssertTrue(connectFlow.contains("if let pairing = house.deferredLocalPairing"))
+        // Connect installs the secret, and reads it from the candidate that
+        // may have been rebuilt while the card was on screen (a late claim
+        // carrying the pairing) before falling back to the house it was
+        // presented with.
+        XCTAssertTrue(connectFlow.contains("self.pendingExistingHouse?.deferredLocalPairing"))
+        XCTAssertTrue(connectFlow.contains("?? house.deferredLocalPairing"))
         XCTAssertTrue(connectFlow.contains("installMacLocalPairing(pairing)"))
     }
 

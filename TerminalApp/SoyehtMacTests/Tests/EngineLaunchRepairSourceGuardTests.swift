@@ -60,6 +60,52 @@ final class EngineLaunchRepairSourceGuardTests: XCTestCase {
         XCTAssertTrue(freshness.contains("guard verdict == .stale else { return }"))
     }
 
+    /// A staged engine is restarted by launch only when nothing is attached to
+    /// it. With sessions alive the restart is the person's decision, so the
+    /// launch path must ask the process table first, restart only inside the
+    /// `.restartNow` branch, and never from the branch that holds for the
+    /// person. Measured 2026-09-03: without this, the update to 0.1.45 ended
+    /// eight agent sessions one second after relaunch.
+    func testAStaleEngineIsRestartedByLaunchOnlyOverNoLiveSessions() throws {
+        let source = try macSource("AppDelegate.swift")
+        let freshness = try slice(
+            source,
+            from: "private func verifyRunningEngineFreshness() {",
+            to: "private func repairLegacyOwnerEventsLog() {"
+        )
+        let count = try XCTUnwrap(freshness.range(of: "SMAppServiceInstaller.liveBrokeredSessionCount"))
+        let decision = try XCTUnwrap(freshness.range(of: "EngineServiceReconciler.staleEngineAction(liveSessionCount:"))
+        let restart = try XCTUnwrap(freshness.range(of: "SMAppServiceInstaller.restartStaleEngine()"))
+        XCTAssertLessThan(count.lowerBound, decision.lowerBound, "the table is read before the rule is applied")
+        XCTAssertLessThan(decision.lowerBound, restart.lowerBound, "the rule is applied before anything restarts")
+
+        let restartBranch = try slice(freshness, from: "case .restartNow:", to: "case .holdForPerson")
+        XCTAssertTrue(restartBranch.contains("SMAppServiceInstaller.restartStaleEngine()"),
+                      "the only launch-time restart lives in the branch that measured nothing alive")
+
+        let holdStart = try XCTUnwrap(freshness.range(of: "case .holdForPerson"))
+        let holdBranch = String(freshness[holdStart.lowerBound...])
+        XCTAssertFalse(holdBranch.contains("restartStaleEngine"),
+                       "with sessions alive, launch tells the person and restarts nothing")
+        XCTAssertTrue(holdBranch.contains("EngineUpdateWindowController.present("),
+                      "holding for the person means telling them, not only the log")
+    }
+
+    /// The window that carries the decision has to be answerable. MEASURED
+    /// 2026-09-04 on the Dev build: an unbounded `maxHeight: .infinity` made
+    /// the hosting view's fitting size 4224 points tall, so AppKit sized the
+    /// window to it and both buttons sat far below the screen — the warning
+    /// was readable and the answer was not reachable.
+    func testEngineUpdateWindowIsSizedToItsContent() throws {
+        let source = try macSource("Installer/EngineUpdateWindowController.swift")
+        XCTAssertTrue(source.contains(".frame(width: Self.contentWidth, alignment: .topLeading)"))
+        XCTAssertFalse(
+            source.contains("maxHeight: .infinity"),
+            "an unbounded height makes the window grow to thousands of points"
+        )
+        XCTAssertTrue(source.contains("window?.setContentSize(hosting.fittingSize)"))
+    }
+
     private func macSource(_ relativePath: String) throws -> String {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

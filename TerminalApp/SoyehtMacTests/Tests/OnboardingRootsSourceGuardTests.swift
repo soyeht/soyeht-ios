@@ -123,7 +123,10 @@ final class OnboardingRootsSourceGuardTests: XCTestCase {
         // handler, or the screen asks a beat too early, finds nothing, and
         // falls through to the main flow.
         let radar = try codeOnly(repoSource("TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift"))
-        let handoff = try slice(radar, from: "if let pairing = house.deferredLocalPairing {", to: "onMacFoundHandler?(.connectedToExistingMac")
+        // The secret now comes from whichever copy of the candidate is current
+        // — a Mac claim that landed mid-Connect rebuilds it — so the marker is
+        // the fallback, not the field.
+        let handoff = try slice(radar, from: "?? house.deferredLocalPairing {", to: "onMacFoundHandler?(.connectedToExistingMac")
         XCTAssertTrue(handoff.contains("SoyehtIdentity.shared.reload()"))
 
         // QR / link path: the same view, on the route that used to open three.
