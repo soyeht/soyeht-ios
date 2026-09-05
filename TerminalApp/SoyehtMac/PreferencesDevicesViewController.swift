@@ -349,6 +349,12 @@ final class DevicesPreferencesViewController: NSViewController {
         pairingWindowController = controller
         if let window = view.window, let sheet = controller.window {
             window.beginSheet(sheet) { [weak self] _ in
+                // The home stays visible on the Wi-Fi for exactly as long as
+                // this sheet does. `releaseLocalNetworkVisibility()` is
+                // single-shot, so this and the sheet's own `viewDidDisappear`
+                // close the engine window once between them, whichever fires
+                // first.
+                controller.releaseLocalNetworkVisibility()
                 self?.pairingWindowController = nil
                 self?.refreshLocalConnectionCount()
             }
@@ -408,8 +414,11 @@ final class DevicesPreferencesViewController: NSViewController {
 final class MacIPhonePairingWindowController: NSWindowController {
     private static let windowSize = NSSize(width: 440, height: 620)
 
+    private let content: MacIPhonePairingHostingController
+
     init() {
         let content = MacIPhonePairingHostingController()
+        self.content = content
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.windowSize),
             styleMask: [.titled, .closable],
@@ -430,11 +439,22 @@ final class MacIPhonePairingWindowController: NSWindowController {
     }
 
     required init?(coder: NSCoder) { fatalError("Use init()") }
+
+    /// Tell this Mac's engine to stop being visible on the local network.
+    /// Single-shot, so the sheet's completion handler and the content's own
+    /// `viewDidDisappear` can both call it.
+    func releaseLocalNetworkVisibility() {
+        content.releaseLocalNetworkVisibility()
+    }
 }
 
 @MainActor
 private final class MacIPhonePairingHostingController: NSHostingController<MacIPhonePairingPreferencesView> {
     private let pairingModel: MacIPhonePairingPreferencesModel
+    /// One `begin()` per appearance and at most one `end()` per `begin()`, so
+    /// the engine's window is not closed out from under a second Add iPhone
+    /// surface that is still open.
+    private var holdsLocalNetworkVisibility = false
 
     init() {
         let model = MacIPhonePairingPreferencesModel()
@@ -449,9 +469,29 @@ private final class MacIPhonePairingHostingController: NSHostingController<MacIP
         fatalError("Use init()")
     }
 
+    /// "Add iPhone" is on screen, so this is one of the two situations in which
+    /// the owner wants the home discoverable on the local network. Asking is
+    /// non-blocking and failure is quiet: a phone on the tailnet still pairs
+    /// with an engine that never answered.
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        guard !holdsLocalNetworkVisibility else { return }
+        holdsLocalNetworkVisibility = true
+        LocalNetworkPairingVisibility.shared.begin()
+    }
+
+    /// Covers the window being closed as well as the sheet being dismissed —
+    /// both routes tear this view down.
     override func viewDidDisappear() {
         super.viewDidDisappear()
         pairingModel.stop()
+        releaseLocalNetworkVisibility()
+    }
+
+    func releaseLocalNetworkVisibility() {
+        guard holdsLocalNetworkVisibility else { return }
+        holdsLocalNetworkVisibility = false
+        LocalNetworkPairingVisibility.shared.end()
     }
 
     private func closeSheet() {

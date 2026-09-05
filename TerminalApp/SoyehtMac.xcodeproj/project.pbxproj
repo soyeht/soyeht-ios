@@ -172,6 +172,7 @@
 		CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000C /* TheyOSUninstallPlan.swift */; };
 		CB100049000000000000000A /* MacReadyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100049000000000000000B /* MacReadyView.swift */; };
 		CB100048000000000000000A /* MacPairingAdvertisement.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100048000000000000000B /* MacPairingAdvertisement.swift */; };
+		CB100050000000000000000A /* LocalNetworkPairingVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100050000000000000000B /* LocalNetworkPairingVisibility.swift */; };
 		13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */; };
 		CB100047000000000000000E /* LoginItemsApprovalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100047000000000000000F /* LoginItemsApprovalCard.swift */; };
 		CB100047000000000000000C /* WelcomeStepScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB100047000000000000000D /* WelcomeStepScaffold.swift */; };
@@ -368,6 +369,7 @@
 		AA800001000000000000002 /* SoyehtWindowRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtWindowRestoration.swift; sourceTree = "<group>"; };
 		AA900001000000000000002 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
 		CB100048000000000000000B /* MacPairingAdvertisement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacPairingAdvertisement.swift; sourceTree = "<group>"; };
+		CB100050000000000000000B /* LocalNetworkPairingVisibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalNetworkPairingVisibility.swift; sourceTree = "<group>"; };
 		AA900002000000000000002 /* PairingConsentPrompter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingConsentPrompter.swift; sourceTree = "<group>"; };
 		AA900003000000000000002 /* PairedDevicesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedDevicesWindowController.swift; sourceTree = "<group>"; };
 		AA900004000000000000002 /* PairingPresenceServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPresenceServer.swift; sourceTree = "<group>"; };
@@ -876,6 +878,7 @@
 			isa = PBXGroup;
 			children = (
 				CB100048000000000000000B /* MacPairingAdvertisement.swift */,
+				CB100050000000000000000B /* LocalNetworkPairingVisibility.swift */,
 				AA900001000000000000002 /* PairingStore.swift */,
 				AA900002000000000000002 /* PairingConsentPrompter.swift */,
 				AA900003000000000000002 /* PairedDevicesWindowController.swift */,
@@ -1215,6 +1218,7 @@
 					CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */,
 					CB100049000000000000000A /* MacReadyView.swift in Sources */,
 					CB100048000000000000000A /* MacPairingAdvertisement.swift in Sources */,
+					CB100050000000000000000A /* LocalNetworkPairingVisibility.swift in Sources */,
 					13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */,
 					CB100047000000000000000E /* LoginItemsApprovalCard.swift in Sources */,
 					CB100047000000000000000C /* WelcomeStepScaffold.swift in Sources */,

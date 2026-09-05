@@ -242,6 +242,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         automationService?.stop()
         MacAutomaticIPhoneDiscoveryService.shared.stop()
         PairingPresenceServer.shared.stop()
+        // Quitting with "Add iPhone" still open would otherwise leave the
+        // engine's pair-device window open, and with it the home discoverable
+        // on the Wi-Fi — the one thing the owner asked to avoid. Unlike the
+        // pane reaps above, this cannot be left to an unawaited Task: nothing
+        // runs after this method returns, so the close blocks for at most
+        // `LocalNetworkPairingVisibility.terminationCloseTimeout`, and does
+        // nothing at all when no window is open.
+        LocalNetworkPairingVisibility.shared.closeOnTermination()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
