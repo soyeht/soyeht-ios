@@ -711,15 +711,15 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = MacPairingReachability.reachableEngineURL(
-            localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
-        )
+        let snapshot = try await BootstrapPairingAddressesClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+        let endpoint = try MacEngineAdvertisedURL.resolve(offer: snapshot.offer, operation: .addDevice)
         let link = HouseholdDevicePairingLink(
             endpoint: endpoint,
             householdId: identity.householdId,
             householdPublicKey: identity.householdPublicKey,
             householdName: identity.name,
-            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
+            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength),
+            addressOffer: snapshot.offer
         )
         // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
         // to `false` while the real count sits right beside it meant a
@@ -1128,15 +1128,15 @@ private final class MacIPhonePairingViewController: NSViewController {
 
     private func makeDevicePairingPayload() async throws -> PairingPayload {
         let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = MacPairingReachability.reachableEngineURL(
-            localEngineBaseURL: TheyOSEnvironment.bootstrapBaseURL
-        )
+        let snapshot = try await BootstrapPairingAddressesClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
+        let endpoint = try MacEngineAdvertisedURL.resolve(offer: snapshot.offer, operation: .addDevice)
         let link = HouseholdDevicePairingLink(
             endpoint: endpoint,
             householdId: identity.householdId,
             householdPublicKey: identity.householdPublicKey,
             householdName: identity.name,
-            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength)
+            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength),
+            addressOffer: snapshot.offer
         )
         // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
         // to `false` while the real count sits right beside it meant a
@@ -1307,17 +1307,6 @@ private struct HouseholdIdentityFetcher {
             case householdPublicKeyBase64 = "hh_pub_b64"
             case name
         }
-    }
-}
-
-private enum MacPairingReachability {
-    /// The engine URL the iPhone will keep. Same resolver as the Welcome
-    /// pairing path — read from the interfaces, never from the `tailscale`
-    /// CLI. This copy used to prefer the MagicDNS name over the raw tailnet
-    /// address and fell back to the loopback URL, which no phone can reach;
-    /// see `MacEngineAdvertisedURL` for why neither survived.
-    static func reachableEngineURL(localEngineBaseURL: URL) -> URL {
-        MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
     }
 }
 

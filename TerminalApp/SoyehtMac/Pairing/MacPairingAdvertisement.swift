@@ -106,7 +106,7 @@ final class MacPairingAdvertisement: ObservableObject {
         case .namedAwaitingPair:
             return await refreshEngineMintedOffer(base: base)
         case .ready:
-            return refreshMacMintedOffer(base: base, hostLabel: status.hostLabel)
+            return await refreshMacMintedOffer(base: base, hostLabel: status.hostLabel)
         case .uninitialized, .readyForNaming, .recovering:
             // No house to offer yet. Anything still holding an old offer would
             // be showing a code for a household that no longer exists.
@@ -142,7 +142,7 @@ final class MacPairingAdvertisement: ObservableObject {
         return Self.secondsUntilRefresh(expiresAt: expiresAt, now: now())
     }
 
-    private func refreshMacMintedOffer(base: URL, hostLabel: String) -> Double {
+    private func refreshMacMintedOffer(base: URL, hostLabel: String) async -> Double {
         // The endpoint is re-resolved every time: a Mac that moved between
         // Wi-Fi and the tailnet would otherwise hand out an address it no
         // longer answers on. The nonce is not, so the words hold still.
@@ -156,12 +156,27 @@ final class MacPairingAdvertisement: ObservableObject {
             return 2
         }
 
+        let snapshot: PairingAddressSnapshot
+        let endpoint: URL
+        do {
+            snapshot = try await BootstrapPairingAddressesClient(baseURL: base).fetch()
+            guard snapshot.authority.householdID == identity.householdId else {
+                throw PairingAddressError.staleDecision
+            }
+            endpoint = try MacEngineAdvertisedURL.resolve(offer: snapshot.offer, operation: .addDevice)
+        } catch {
+            let failure = PairingAttemptFailure.capture(error, stage: .discovery, endpoint: base)
+            pairingAdvertisementLogger.error("pairing_offer.unavailable \(failure.diagnostic, privacy: .public)")
+            offer = nil
+            return 2
+        }
         let link = HouseholdDevicePairingLink(
-            endpoint: MacEngineAdvertisedURL.current(localEngineBaseURL: base),
+            endpoint: endpoint,
             householdId: identity.householdId,
             householdPublicKey: identity.householdPublicKey,
             householdName: identity.name,
-            pairingNonce: nonce
+            pairingNonce: nonce,
+            addressOffer: snapshot.offer
         )
         guard let uri = try? link.url().absoluteString,
               let words = try? PairingCodePresentation.words(pairingURI: uri, now: now()) else {

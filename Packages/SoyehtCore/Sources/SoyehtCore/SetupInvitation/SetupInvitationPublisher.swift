@@ -174,8 +174,13 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
             do {
                 let notification = try SetupInvitationDirectClaim.decode(
                     request.body,
-                    expectedToken: invitation.token
+                    expectedToken: invitation.token,
+                    expectedInstallation: invitation.installation ?? .current
                 )
+                guard _state == .publishing,
+                      invitation.expiresAt > UInt64(Date().timeIntervalSince1970) else {
+                    throw SetupInvitationDirectError.unauthorizedClaim
+                }
                 onMacClaimed?(notification)
                 send(status: 204, body: Data(), contentType: "application/json", on: connection)
             } catch SetupInvitationDirectError.unauthorizedClaim {
@@ -229,6 +234,12 @@ public struct SetupInvitationPayload: Equatable, Sendable {
     public let iphoneDeviceID: UUID?
     public let iphoneDeviceName: String?
     public let iphoneDeviceModel: String?
+    public let installation: PairingInstallIdentity?
+
+    public func requireInstallation(_ expected: PairingInstallIdentity) throws {
+        guard let installation else { throw PairingAddressError.profileMissing }
+        try installation.requireMatch(expected)
+    }
 
     public init(
         token: SetupInvitationToken,
@@ -237,7 +248,8 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         iphoneApnsToken: Data?,
         iphoneDeviceID: UUID? = nil,
         iphoneDeviceName: String? = nil,
-        iphoneDeviceModel: String? = nil
+        iphoneDeviceModel: String? = nil,
+        installation: PairingInstallIdentity? = .current
     ) {
         self.token = token
         self.ownerDisplayName = ownerDisplayName
@@ -246,6 +258,7 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         self.iphoneDeviceID = iphoneDeviceID
         self.iphoneDeviceName = iphoneDeviceName
         self.iphoneDeviceModel = iphoneDeviceModel
+        self.installation = installation
     }
 
     public static func iPhoneSetupInvitation(
@@ -298,6 +311,10 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         if let iphoneDeviceModel {
             fields["iphone_device_model"] = iphoneDeviceModel
         }
+        if let installation {
+            fields["profile"] = installation.profile
+            fields["bootstrap_port"] = String(installation.bootstrapPort)
+        }
         return fields
     }
 
@@ -312,6 +329,7 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         map["iphone_device_id"] = iphoneDeviceID.map { .text($0.uuidString) } ?? .null
         map["iphone_device_name"] = iphoneDeviceName.map { .text($0) } ?? .null
         map["iphone_device_model"] = iphoneDeviceModel.map { .text($0) } ?? .null
+        map["installation"] = installation.map(Self.installationCBOR) ?? .null
         return HouseholdCBOR.encode(.map(map))
     }
 
@@ -324,7 +342,8 @@ public struct SetupInvitationPayload: Equatable, Sendable {
             iphoneApnsToken: iphoneApnsToken.map(PairingCrypto.base64URLEncode),
             iphoneDeviceID: iphoneDeviceID?.uuidString,
             iphoneDeviceName: iphoneDeviceName,
-            iphoneDeviceModel: iphoneDeviceModel
+            iphoneDeviceModel: iphoneDeviceModel,
+            installation: installation
         )
         return try JSONEncoder().encode(envelope)
     }
@@ -337,7 +356,22 @@ public struct SetupInvitationPayload: Equatable, Sendable {
         ]
         map["owner_display_name"] = ownerDisplayName.map { .text($0) } ?? .null
         map["iphone_apns_token"] = iphoneApnsToken.map { .bytes($0) } ?? .null
+        map["installation"] = installation.map(Self.installationCBOR) ?? .null
         return HouseholdCBOR.encode(.map(map))
+    }
+
+    static func installationCBOR(_ installation: PairingInstallIdentity) -> HouseholdCBORValue {
+        .map(["profile": .text(installation.profile), "bootstrap_port": .unsigned(UInt64(max(0, installation.bootstrapPort)))])
+    }
+
+    static func decodeInstallation(_ value: HouseholdCBORValue?) throws -> PairingInstallIdentity? {
+        guard let value, value != .null else { return nil }
+        guard case .map(let fields) = value, case .text(let profile) = fields["profile"],
+              case .unsigned(let port) = fields["bootstrap_port"], (1...65535).contains(port),
+              profile == "dev" || profile == "release" else {
+            throw SetupInvitationDirectError.invalidEnvelope
+        }
+        return PairingInstallIdentity(profile: profile, bootstrapPort: Int(port))
     }
 
     public static func decodeDirectEndpointData(_ data: Data) throws -> SetupInvitationPayload {
@@ -355,7 +389,8 @@ public struct SetupInvitationPayload: Equatable, Sendable {
             iphoneApnsToken: apnsToken,
             iphoneDeviceID: envelope.iphoneDeviceID.flatMap(UUID.init(uuidString:)),
             iphoneDeviceName: envelope.iphoneDeviceName,
-            iphoneDeviceModel: envelope.iphoneDeviceModel
+            iphoneDeviceModel: envelope.iphoneDeviceModel,
+            installation: envelope.installation
         )
     }
 }
@@ -404,6 +439,14 @@ public struct SetupInvitationExistingHouse: Equatable, Sendable {
 }
 
 public struct SetupInvitationDirectClaim: Equatable, Sendable {
+    public enum Event: String, Codable, Sendable {
+        case bootstrapClaimAccepted = "bootstrap_claim_accepted"
+        case existingHouseOffered = "existing_house_offered"
+    }
+
+    public let installation: PairingInstallIdentity?
+    public let event: Event?
+    public let addressOffer: PairingAddressOffer?
     public let token: SetupInvitationToken
     public let macEngineURL: URL
     /// This Mac's address on the local network, when it has one and it is not
@@ -424,8 +467,14 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         macEngineURL: URL,
         macEngineLocalNetworkURL: URL? = nil,
         macLocalPairing: SetupInvitationMacLocalPairing? = nil,
-        existingHouse: SetupInvitationExistingHouse? = nil
+        existingHouse: SetupInvitationExistingHouse? = nil,
+        installation: PairingInstallIdentity? = .current,
+        event: Event? = nil,
+        addressOffer: PairingAddressOffer? = nil
     ) {
+        self.installation = installation
+        self.event = event
+        self.addressOffer = addressOffer
         self.token = token
         self.macEngineURL = macEngineURL
         self.macEngineLocalNetworkURL = macEngineLocalNetworkURL
@@ -452,6 +501,7 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
             )
         }
         let envelope = Envelope(
+            installation: installation, event: event, addressOffer: addressOffer,
             token: PairingCrypto.base64URLEncode(token.bytes),
             macEngineURL: macEngineURL.absoluteString,
             macEngineLocalNetworkURL: macEngineLocalNetworkURL?.absoluteString,
@@ -520,22 +570,37 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
             macEngineURL: url,
             macEngineLocalNetworkURL: localNetworkURL,
             macLocalPairing: localPairing,
-            existingHouse: existingHouse
+            existingHouse: existingHouse,
+            installation: envelope.installation, event: envelope.event,
+            addressOffer: envelope.addressOffer
         )
     }
 
     public static func decode(
         _ data: Data,
-        expectedToken: SetupInvitationToken
+        expectedToken: SetupInvitationToken,
+        expectedInstallation: PairingInstallIdentity? = nil
     ) throws -> SetupInvitationDirectClaim {
         let claim = try decode(data)
         guard claim.token == expectedToken else {
             throw SetupInvitationDirectError.unauthorizedClaim
         }
+        if let expectedInstallation {
+            guard let installation = claim.installation else { throw PairingAddressError.profileMissing }
+            try installation.requireMatch(expectedInstallation)
+            if let offer = claim.addressOffer { try offer.installation.requireMatch(expectedInstallation) }
+            guard claim.event != nil else { throw SetupInvitationDirectError.invalidEnvelope }
+            if claim.event == .existingHouseOffered, claim.existingHouse == nil {
+                throw SetupInvitationDirectError.invalidEnvelope
+            }
+        }
         return claim
     }
 
     private struct Envelope: Codable {
+        let installation: PairingInstallIdentity?
+        let event: Event?
+        let addressOffer: PairingAddressOffer?
         let token: String
         let macEngineURL: String
         let macEngineLocalNetworkURL: String?
@@ -543,6 +608,8 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         let existingHouse: ExistingHouseEnvelope?
 
         enum CodingKeys: String, CodingKey {
+            case installation, event
+            case addressOffer = "address_offer"
             case token
             case macEngineURL = "mac_engine_url"
             case macEngineLocalNetworkURL = "mac_engine_lan_url"
@@ -596,9 +663,11 @@ private struct SetupInvitationDirectEnvelope: Codable {
     let iphoneDeviceID: String?
     let iphoneDeviceName: String?
     let iphoneDeviceModel: String?
+    let installation: PairingInstallIdentity?
 
     enum CodingKeys: String, CodingKey {
         case version
+        case installation
         case token
         case ownerDisplayName = "owner_display_name"
         case expiresAt = "expires_at"

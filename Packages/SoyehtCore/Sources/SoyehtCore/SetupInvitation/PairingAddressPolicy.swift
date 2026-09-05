@@ -65,6 +65,39 @@ public struct PairingAddressCandidate: Codable, Equatable, Sendable {
         self.availability = availability
         self.expiresAt = expiresAt
     }
+
+    enum CodingKeys: String, CodingKey {
+        case url, transport, operations, availability
+        case expiresAt = "expires_at_unix"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        url = try values.decode(URL.self, forKey: .url)
+        transport = try values.decode(PairingTransport.self, forKey: .transport)
+        operations = Set(try values.decode([PairingOperation].self, forKey: .operations))
+        availability = try values.decode(Availability.self, forKey: .availability)
+        expiresAt = try values.decodeIfPresent(UInt64.self, forKey: .expiresAt)
+            .map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(url, forKey: .url)
+        try values.encode(transport, forKey: .transport)
+        try values.encode(operations.sorted { $0.rawValue < $1.rawValue }, forKey: .operations)
+        try values.encode(availability, forKey: .availability)
+        if let expiresAt {
+            let seconds = expiresAt.timeIntervalSince1970
+            guard seconds.isFinite, seconds >= 0, seconds < Double(UInt64.max) else {
+                throw EncodingError.invalidValue(expiresAt, .init(codingPath: encoder.codingPath,
+                                                                  debugDescription: "Invalid Unix deadline"))
+            }
+            try values.encode(UInt64(seconds), forKey: .expiresAt)
+        } else {
+            try values.encodeNil(forKey: .expiresAt)
+        }
+    }
 }
 
 public struct PairingAddressOffer: Codable, Equatable, Sendable {
@@ -72,6 +105,11 @@ public struct PairingAddressOffer: Codable, Equatable, Sendable {
     public let installation: PairingInstallIdentity
     public let generation: String
     public let candidates: [PairingAddressCandidate]
+
+    enum CodingKeys: String, CodingKey {
+        case version = "v"
+        case installation, generation, candidates
+    }
 
     public init(version: Int = 1, installation: PairingInstallIdentity,
                 generation: String, candidates: [PairingAddressCandidate]) {
@@ -94,7 +132,7 @@ public struct PhoneNetworkEvidence: Equatable, Sendable {
     }
 
     public static func current(reachedEndpoints: Set<URL> = []) -> Self {
-        Self(hasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil,
+        Self(hasTailnetAddress: TailnetAddressResolver.currentHasTailnetAddress(),
              reachedEndpoints: reachedEndpoints)
     }
 }

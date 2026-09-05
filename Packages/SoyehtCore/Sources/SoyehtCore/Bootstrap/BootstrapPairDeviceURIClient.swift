@@ -16,13 +16,16 @@ public struct BootstrapPairDeviceURIClient: Sendable {
     private static let knownKeys: Set<String> = requiredKeys.union(["expires_at"])
 
     private let baseURL: URL
+    private let installation: PairingInstallIdentity
     private let perform: TransportPerform
 
     public init(
         baseURL: URL,
+        installation: PairingInstallIdentity = .current,
         transport: @escaping TransportPerform = { req in try await URLSession.shared.data(for: req) }
     ) {
         self.baseURL = baseURL
+        self.installation = installation
         self.perform = transport
     }
 
@@ -35,7 +38,30 @@ public struct BootstrapPairDeviceURIClient: Sendable {
             authorization: nil,
             perform: perform
         )
-        return try Self.decode(data)
+        let response = try Self.decode(data)
+        let snapshot = try await BootstrapPairingAddressesClient(
+            baseURL: baseURL, installation: installation, transport: perform
+        ).fetch()
+        guard snapshot.authority.householdID == response.hhId,
+              snapshot.authority.ownerPersonID == nil,
+              let original = URL(string: response.pairDeviceURI) else {
+            throw PairingAddressError.staleDecision
+        }
+        let decision = try PairingAddressPolicy.choose(
+            offer: snapshot.offer, expectedInstallation: installation,
+            phone: PhoneNetworkEvidence(hasTailnetAddress: nil), operation: .firstOwner)
+        guard var components = URLComponents(url: original, resolvingAgainstBaseURL: false),
+              let host = decision.url.host?.trimmingCharacters(in: CharacterSet(charactersIn: "[]")),
+              let port = decision.url.port else { throw PairingAddressError.invalidEndpoint }
+        var items = components.queryItems?.filter { $0.name != "host" } ?? []
+        let authority = host.contains(":") ? "[\(host)]:\(port)" : "\(host):\(port)"
+        items.append(URLQueryItem(name: "host", value: authority))
+        components.queryItems = items
+        guard let projected = components.url else { throw PairingAddressError.invalidEndpoint }
+        let uri = try PairingLinkAddresses.attaching(snapshot.offer, to: projected)
+        return BootstrapPairDeviceURIResponse(version: response.version, houseName: response.houseName,
+            hostLabel: response.hostLabel, hhId: response.hhId, hhPub: response.hhPub,
+            pairDeviceURI: uri.absoluteString, expiresAt: response.expiresAt)
     }
 
     static func decode(_ data: Data) throws -> BootstrapPairDeviceURIResponse {

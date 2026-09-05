@@ -67,7 +67,7 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         let appKitSection = try slice(
             preferences,
             from: "private final class MacIPhonePairingViewController",
-            to: "private enum MacPairingReachability"
+            to: "// MARK: - Sheets reached from Preferences"
         )
         let appKitFlow = try slice(
             appKitSection,
@@ -101,7 +101,7 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         let appKitSection = try slice(
             preferences,
             from: "private final class MacIPhonePairingViewController",
-            to: "private enum MacPairingReachability"
+            to: "// MARK: - Sheets reached from Preferences"
         )
         let appKitPresentPairing = try slice(
             appKitSection,
@@ -172,11 +172,7 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
             from: "private static func candidateIPhoneBaseURLs(timeout:",
             to: "private static func tailscaleStatus()"
         )
-        let macURLFlow = try slice(
-            listener,
-            from: "static func reachableMacEngineURL(localEngineBaseURL:",
-            to: "static func notifyClaimed"
-        )
+
 
         XCTAssertTrue(candidateFlow.contains("candidateTailscaleIPhoneBaseURLs"))
         XCTAssertTrue(candidateFlow.contains("localBonjourIPhoneBaseURLs"))
@@ -184,16 +180,13 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         XCTAssertTrue(candidateFlow.contains("\"_soyeht-setup._tcp.\""))
         XCTAssertTrue(candidateFlow.contains("resolveBonjourIPv4Addresses"))
         XCTAssertTrue(listener.contains("DNSServiceGetAddrInfo"))
-        // The Mac's own URL no longer comes from the tailscale CLI: it is
-        // resolved from the interfaces by MacEngineAdvertisedURL, where the
-        // LAN fallback (and its port derivation) now lives.
-        XCTAssertTrue(macURLFlow.contains("MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)"))
-        XCTAssertFalse(macURLFlow.contains("tailscaleStatus()"))
+        XCTAssertTrue(listener.contains("BootstrapPairingAddressesClient"))
+        XCTAssertTrue(listener.contains("PairingAddressPolicy.choose"))
         let resolver = try macSource("Welcome/SetupInvitationListener/MacEngineAdvertisedURL.swift")
-        XCTAssertTrue(resolver.contains("localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()"))
+        XCTAssertTrue(resolver.contains("BootstrapPairingAddressesClient"))
+        XCTAssertTrue(resolver.contains("PairingAddressPolicy.choose"))
+        XCTAssertFalse(resolver.contains("getifaddrs"))
         XCTAssertFalse(resolver.contains("?? 8091"))
-        XCTAssertTrue(resolver.contains("static func isLANReachableIPv4"))
-        XCTAssertTrue(resolver.contains("static func lanIPv4Addresses()"))
     }
 
     func test_uninstallerClearsOnlyCurrentProfileKeychainNamespaces() throws {

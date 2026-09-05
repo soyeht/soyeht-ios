@@ -66,9 +66,11 @@ enum BootstrapWire {
         url: URL,
         body: Data?,
         authorization: String?,
+        failureStage: PairingAttemptFailure.Stage? = nil,
         perform: @Sendable (URLRequest) async throws -> (Data, URLResponse)
     ) async throws -> Data {
         var request = URLRequest(url: url)
+        if let failureStage { request.timeoutInterval = failureStage == .initialize ? 30 : 8 }
         request.httpMethod = method
         if body != nil {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
@@ -86,6 +88,7 @@ enum BootstrapWire {
         } catch let error as BootstrapError {
             throw error
         } catch {
+            if let failureStage { try PairingAttemptFailure.rethrow(error, stage: failureStage, endpoint: url) }
             throw BootstrapError.networkDrop
         }
 

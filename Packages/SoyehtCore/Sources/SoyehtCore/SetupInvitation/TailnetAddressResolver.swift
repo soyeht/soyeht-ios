@@ -35,6 +35,32 @@ public enum TailnetAddressResolver {
         return address
     }
 
+    /// Capability observation for address selection, including IPv6-only
+    /// tailnet interfaces. Failure to read interfaces is unknown, not absent.
+    public static func currentHasTailnetAddress() -> Bool? {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0 else { return nil }
+        defer { freeifaddrs(head) }
+        var cursor = head
+        var unreadableAddress = false
+        while let item = cursor {
+            defer { cursor = item.pointee.ifa_next }
+            guard let address = item.pointee.ifa_addr,
+                  (Int32(item.pointee.ifa_flags) & IFF_UP) != 0,
+                  (Int32(item.pointee.ifa_flags) & IFF_LOOPBACK) == 0 else { continue }
+            let family = Int32(address.pointee.sa_family)
+            guard family == AF_INET || family == AF_INET6 else { continue }
+            var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(address, socklen_t(address.pointee.sa_len), &buffer,
+                              socklen_t(buffer.count), nil, 0, NI_NUMERICHOST) == 0 else {
+                unreadableAddress = true
+                continue
+            }
+            if HostClassifier.isTailnetHost(String(cString: buffer)) { return true }
+        }
+        return unreadableAddress ? nil : false
+    }
+
     /// Pure predicate: is `address` an IPv4 string in Tailscale's CGNAT
     /// range `100.64.0.0/10`?
     ///

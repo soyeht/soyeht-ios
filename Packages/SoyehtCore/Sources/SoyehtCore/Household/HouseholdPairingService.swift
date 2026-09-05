@@ -103,7 +103,13 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         // inherited 60 s, which is the shape of "it just sat there" rather
         // than a failure anyone can act on.
         request.timeoutInterval = Self.confirmTimeoutSeconds
-        let (data, response) = try await Self.perform(request, session: session)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await Self.perform(request, session: session)
+        } catch {
+            try PairingAttemptFailure.rethrow(error, stage: .confirm, endpoint: url)
+        }
         // Measure the answer before anything can reject it. Without these two
         // numbers a run that failed after a *successful* server-side confirm
         // (engine says ready, device_count 1) cannot be told apart from one
@@ -114,7 +120,7 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         householdPairingLogger.info("pair.confirm.response status=\(statusCode, privacy: .public) bytes=\(data.count, privacy: .public)")
         guard (200...299).contains(statusCode) else {
             householdPairingLogger.error("pair.pairingRejected status=\(statusCode, privacy: .public) bytes=\(data.count, privacy: .public)")
-            throw HouseholdPairingError.pairingRejected
+            throw PairingAttemptFailure(stage: .confirm, endpoint: url, cause: .server(status: statusCode))
         }
         do {
             return try JSONDecoder().decode(PairDeviceConfirmResponse.self, from: data)
@@ -125,7 +131,7 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
             householdPairingLogger.error(
                 "pair.confirm.decodeFailed bytes=\(data.count, privacy: .public) error=\(String(describing: error), privacy: .public)"
             )
-            throw error
+            throw PairingAttemptFailure(stage: .confirm, endpoint: url, cause: .invalidResponse)
         }
     }
 
@@ -207,28 +213,15 @@ public struct HouseholdPairingService {
         self.now = now
     }
 
-    /// - Parameter reachedEndpoint: an address this phone has ALREADY talked to
-    ///   the Mac on, when the caller has one. It wins over the host inside the
-    ///   link.
-    ///
-    ///   WHY IT WINS. The engine mints the link with `best_qr_host()`, which is
-    ///   the tailnet address whenever the Mac has one — and never a LAN
-    ///   address, by design. MEASURED on the owner's Dev pair 2026-09-05 with
-    ///   the phone's Tailscale off: the phone found the Mac over Wi-Fi
-    ///   (`mac_browser.endpoint endpoint=http://192.168.1.20:8101`), showed the
-    ///   card, and then sent the confirm to the address in the link:
-    ///
-    ///       pair.confirm.post host=<tailnet> port=8101
-    ///       pair.networkUnavailable stage=confirm ... stage=timeout
-    ///
-    ///   It had a working address in hand and used one it could not reach. The
-    ///   link's host is a FALLBACK for a phone that has nothing better — a QR
-    ///   scanned off the screen with no discovery behind it. A caller that
-    ///   already completed a round trip knows more than the paper does.
+    /// The reached endpoint is evidence for the shared address policy. A
+    /// tailnet-capable phone keeps tailnet through confirmation and storage.
     public func pair(
         url: URL,
         displayName: String,
-        reachedEndpoint: URL? = nil
+        reachedEndpoint: URL? = nil,
+        addressOffer: PairingAddressOffer? = nil,
+        phoneNetwork: PhoneNetworkEvidence? = nil,
+        installation: PairingInstallIdentity = .current
     ) async throws -> ActiveHouseholdState {
         let qr: PairDeviceQR
         do {
@@ -239,45 +232,37 @@ public struct HouseholdPairingService {
             throw HouseholdPairingError.invalidQR
         }
 
-        let candidate: HouseholdDiscoveryCandidate
-        if let reachedEndpoint {
-            log(.info, "pair.endpoint source=reached host=\(reachedEndpoint.host() ?? "<none>") port=\(reachedEndpoint.port ?? -1)")
-            candidate = HouseholdDiscoveryCandidate(
-                endpoint: reachedEndpoint,
-                householdId: qr.householdId,
-                householdName: qr.householdName,
-                machineId: nil,
-                pairingState: "device",
-                shortNonce: ""
-            )
-        } else if let endpoint = Self.directEndpoint(for: qr) {
-            // Founder embedded a Tailnet host fallback in the QR (engine's
-            // bonjour publisher is known broken cross-platform — Linux
-            // mdns-sd does not emit announce records visible to macOS/iOS
-            // NWBrowser). Skip Bonjour browse entirely. The household
-            // identity is still verified by `PairingProof.confirmRequest`
-            // through `qr.householdPublicKey` so this fallback path
-            // inherits the same trust model as Bonjour discovery.
-            candidate = HouseholdDiscoveryCandidate(
-                endpoint: endpoint,
-                householdId: qr.householdId,
-                householdName: qr.householdName,
-                machineId: nil,
-                pairingState: "device",
-                shortNonce: ""
-            )
-        } else {
+        var endpoints = [Self.directEndpoint(for: qr), reachedEndpoint].compactMap { $0 }
+        var discovered: HouseholdDiscoveryCandidate?
+        if addressOffer == nil, qr.addressOffer == nil, endpoints.isEmpty {
             do {
-                candidate = try await browser.firstMatchingCandidate(
-                    for: qr,
-                    timeout: OnboardingConfig.default.householdDiscoveryTimeout
+                discovered = try await browser.firstMatchingCandidate(
+                    for: qr, timeout: OnboardingConfig.default.householdDiscoveryTimeout
                 )
+                if let discovered { endpoints.append(discovered.endpoint) }
+            } catch is CancellationError {
+                throw CancellationError()
             } catch let error as HouseholdPairingError {
                 throw error
             } catch {
                 throw HouseholdPairingError.noMatchingHousehold
             }
         }
+        let reached = Set([reachedEndpoint].compactMap { $0 })
+        let evidence = phoneNetwork.map {
+            PhoneNetworkEvidence(hasTailnetAddress: $0.hasTailnetAddress,
+                                 reachedEndpoints: $0.reachedEndpoints.union(reached))
+        } ?? PhoneNetworkEvidence.current(reachedEndpoints: reached)
+        let decision = try PairingAddressPolicy.choose(
+            offer: addressOffer ?? qr.addressOffer ?? PairingAddressPolicy.legacyOffer(endpoints: endpoints, installation: installation),
+            expectedInstallation: installation, phone: evidence, operation: .firstOwner, now: now()
+        )
+        log(.info, "pair.endpoint source=\(decision.reason.rawValue) host=\(decision.url.host ?? "<none>") port=\(decision.url.port ?? -1)")
+        let candidate = HouseholdDiscoveryCandidate(
+            endpoint: decision.url, householdId: qr.householdId,
+            householdName: discovered?.householdName ?? qr.householdName,
+            machineId: discovered?.machineId, pairingState: "device", shortNonce: qr.shortNonce
+        )
 
         let ownerIdentity: any OwnerIdentitySigning
         do {
@@ -313,8 +298,8 @@ public struct HouseholdPairingService {
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
-            log(.error, "pair.networkUnavailable stage=confirm type=\(type(of: error)) error=\(String(describing: error))")
-            throw HouseholdPairingError.networkUnavailable
+            log(.error, "pair.failed \(PairingAttemptFailure.capture(error, stage: .confirm, endpoint: candidate.endpoint).diagnostic)")
+            try PairingAttemptFailure.rethrow(error, stage: .confirm, endpoint: candidate.endpoint)
         }
 
         guard response.v == 1 else {

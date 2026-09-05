@@ -36,6 +36,7 @@ public enum MacDiscoveryPhase: Equatable, Sendable {
 
 /// Why the search is not going anywhere, in the terms the screen explains it.
 public enum MacDiscoveryStall: Equatable, Sendable {
+    case pairingFailure(PairingAttemptFailure)
     /// Nothing is advertising on any network the phone can see.
     case nothingOnNetwork(publisherFailed: Bool, hasTailnet: Bool)
     /// Something answered, but not usefully.

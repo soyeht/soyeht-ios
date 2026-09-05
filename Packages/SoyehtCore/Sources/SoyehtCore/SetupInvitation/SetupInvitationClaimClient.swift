@@ -13,7 +13,7 @@ public struct SetupInvitationClaimClient: Sendable {
 
     static let path = "/bootstrap/claim-setup-invitation"
 
-    private static let requiredKeys: Set<String> = ["v"]
+    private static let requiredKeys: Set<String> = ["v", "accepted_at", "installation"]
     private static let knownKeys: Set<String> = requiredKeys.union([
         "accepted_at",
         "iphone_endpoint",
@@ -71,7 +71,8 @@ public struct SetupInvitationClaimClient: Sendable {
         iphoneApnsToken: Data?,
         iphoneEndpoint: URL?,
         iphoneAddresses: [String],
-        expiresAt: UInt64?
+        expiresAt: UInt64?,
+        installation: PairingInstallIdentity = .current
     ) async throws -> UInt64 {
         let body = Self.encodeRequest(
             token: token,
@@ -79,13 +80,14 @@ public struct SetupInvitationClaimClient: Sendable {
             iphoneApnsToken: iphoneApnsToken,
             iphoneEndpoint: iphoneEndpoint,
             iphoneAddresses: iphoneAddresses,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            installation: installation
         )
         let (url, _) = BootstrapWire.endpointURL(baseURL: baseURL, path: Self.path)
         let data = try await BootstrapWire.send(
-            method: "POST", url: url, body: body, authorization: nil, perform: perform
+            method: "POST", url: url, body: body, authorization: nil, failureStage: .claim, perform: perform
         )
-        return try Self.decode(data)
+        return try Self.decode(data, expectedInstallation: installation)
     }
 
     // MARK: - Encode
@@ -96,11 +98,14 @@ public struct SetupInvitationClaimClient: Sendable {
         iphoneApnsToken: Data?,
         iphoneEndpoint: URL? = nil,
         iphoneAddresses: [String] = [],
-        expiresAt: UInt64? = nil
+        expiresAt: UInt64? = nil,
+        installation: PairingInstallIdentity = .current
     ) -> Data {
         var map: [String: HouseholdCBORValue] = [
             "v": .unsigned(1),
             "token": .bytes(token.bytes),
+            "installation": .map(["profile": .text(installation.profile),
+                                   "bootstrap_port": .unsigned(UInt64(installation.bootstrapPort))]),
         ]
         map["owner_display_name"] = ownerDisplayName.map { .text($0) } ?? .null
         map["iphone_apns_token"] = iphoneApnsToken.map { .bytes($0) } ?? .null
@@ -118,7 +123,7 @@ public struct SetupInvitationClaimClient: Sendable {
 
     // MARK: - Decode
 
-    private static func decode(_ data: Data) throws -> UInt64 {
+    static func decode(_ data: Data, expectedInstallation: PairingInstallIdentity) throws -> UInt64 {
         guard case .map(let map) = try BootstrapWire.decodeCanonical(data) else {
             throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
         }
@@ -131,12 +136,13 @@ public struct SetupInvitationClaimClient: Sendable {
         guard case .unsigned(1) = map["v"] else {
             throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
         }
-        if case .unsigned(let acceptedAt) = map["accepted_at"] {
-            return acceptedAt
+        guard case .map(let identity) = map["installation"],
+              case .text(let profile) = identity["profile"],
+              case .unsigned(let port) = identity["bootstrap_port"], port <= 65535,
+              case .unsigned(let acceptedAt) = map["accepted_at"], acceptedAt > 0 else {
+            throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
         }
-        if case .text = map["iphone_endpoint"] {
-            return 0
-        }
-        throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
+        try PairingInstallIdentity(profile: profile, bootstrapPort: Int(port)).requireMatch(expectedInstallation)
+        return acceptedAt
     }
 }

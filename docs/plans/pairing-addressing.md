@@ -343,3 +343,26 @@ assinatura/certificado de outra casa ou chave diferente do pedido é rejeitado;
 cancelamento e expiração encerram a espera; contador 1 não concede autoridade;
 dois pedidos não recebem aprovação por engano. Rota de listagem e aprovação
 entra no gate cruzado. E2E da casa medida é responsabilidade de [blaire].
+
+
+## Checkpoint de implementação — 2026-09-05
+
+A oferta de listeners, perfil e recibo de claim está integrada aos consumidores
+Swift. O QR transporta a oferta inteira; os dois serviços aplicam a política
+antes de gravar a sessão. A oferta de casa existente usa evento próprio e não
+passa por um claim recusado. O engine verifica perfil e token pelo callback do
+iPhone, e a inicialização remota verifica token, expiração e origem novamente
+sob a trava de mutação. O campo `claim_token` era enviado pelo Swift e ignorado
+pelo decoder Rust; a promessa antiga de idempotência não correspondia ao
+handler e foi removida. Repetir o claim conserva seu recibo; inicialização com
+resultado incerto exige reconsultar o estado.
+
+Validação local deste checkpoint: builds de Mac e iOS; 163 testes Swift do
+núcleo, 44 do domínio Mac; 27 testes de contrato de claim Rust, 47 de listeners
+e 77 de bootstrap. Um teste preexistente de distribuição de tempo continua
+ignorado por ser caracterização especulativa, não gate de contrato. Estes
+resultados não constituem o gate cruzado nem a validação E2E no aparelho.
+
+Continuam obrigatórios: G (capacidade e aprovação pelo dono no Mac, recuperação
+sem apagar a casa), gate executável por rota entre os dois checkouts e matriz
+E2E conduzida por [blaire]. Nenhuma versão foi atualizada ou publicada.

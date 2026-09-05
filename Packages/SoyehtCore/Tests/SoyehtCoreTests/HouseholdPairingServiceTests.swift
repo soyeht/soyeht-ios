@@ -81,7 +81,7 @@ struct HouseholdPairingServiceTests {
         let rosterStorage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://home.local:8443")!,
+                endpoint: URL(string: "https://home.local:8091")!,
                 householdId: qr.householdId,
                 householdName: "Sample Home",
                 machineId: "m_mac",
@@ -112,7 +112,7 @@ struct HouseholdPairingServiceTests {
             account: "roster"
         ).load()
         #expect(seeded == .pendingAnchor(qrAnchorFingerprint: qr.machineCertFingerprint))
-        #expect(await http.capturedEndpoint == URL(string: "https://home.local:8443")!)
+        #expect(await http.capturedEndpoint == URL(string: "https://home.local:8091")!)
         #expect(await http.capturedBody?.nonce == nonce.soyehtBase64URLEncodedString())
         #expect(await http.capturedBody?.displayName == "Owner")
     }
@@ -142,7 +142,7 @@ struct HouseholdPairingServiceTests {
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(
                 candidate: HouseholdDiscoveryCandidate(
-                    endpoint: URL(string: "https://home.local:8443")!,
+                    endpoint: URL(string: "https://home.local:8091")!,
                     householdId: qr.householdId,
                     householdName: "Sample Home",
                     machineId: "m_mac",
@@ -175,7 +175,7 @@ struct HouseholdPairingServiceTests {
         let ownerKey = P256.Signing.PrivateKey()
         let hhPub = householdKey.publicKey.compressedRepresentation
         let nonce = HouseholdTestFixtures.nonce(byte: 0x79)
-        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Retry%20Home&host=192.0.2.10:8101&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Retry%20Home&host=192.168.1.20:8091&m_cert_fp=\(Data(repeating: 0xAB, count: 32).soyehtBase64URLEncodedString())&crit=m_cert_fp"))
         let qr = try PairDeviceQR(url: qrURL, now: now)
         let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
             householdPrivateKey: householdKey,
@@ -204,7 +204,7 @@ struct HouseholdPairingServiceTests {
         let state = try await service.pair(url: qrURL, displayName: "Owner")
 
         #expect(state.householdName == "Retry Home")
-        #expect(await http.capturedEndpoint == URL(string: "http://192.0.2.10:8101")!)
+        #expect(await http.capturedEndpoint == URL(string: "http://192.168.1.20:8091")!)
     }
 
     @Test func invalidCertificateDoesNotActivateHousehold() async throws {
@@ -226,7 +226,7 @@ struct HouseholdPairingServiceTests {
         let rosterStorage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://home.local:8443")!,
+                endpoint: URL(string: "https://home.local:8091")!,
                 householdId: qr.householdId,
                 householdName: "Sample Home",
                 machineId: nil,
@@ -290,7 +290,7 @@ struct HouseholdPairingServiceTests {
         rosterStorage.shouldFailSave = true
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://home.local:8443")!,
+                endpoint: URL(string: "https://home.local:8091")!,
                 householdId: qr.householdId,
                 householdName: "Sample Home",
                 machineId: "m_mac",
@@ -347,7 +347,7 @@ struct HouseholdPairingServiceTests {
         let rosterStorage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://home.local:8443")!,
+                endpoint: URL(string: "https://home.local:8091")!,
                 householdId: qr.householdId,
                 householdName: "Sample Home",
                 machineId: "m_mac",

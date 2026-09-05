@@ -56,22 +56,31 @@ final class SetupInvitationListener: @unchecked Sendable {
                 )
                 return .notFound
             }
-            do {
-                try await claimWithRetry(hit: hit)
-                setupInvitationLogger.info("direct_probe.claimed")
-            } catch {
-                guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
-                    throw error
+            try hit.payload.requireInstallation(.current)
+            let addresses = BootstrapPairingAddressesClient(baseURL: engineBaseURL)
+            var snapshot = try await addresses.fetch()
+            let event: SetupInvitationDirectClaim.Event
+            let operation: PairingOperation
+            if let existingHouse {
+                try SetupInvitationCeremony.requireMatchingHouse(existingHouse, authority: snapshot.authority)
+                operation = try SetupInvitationCeremony.operation(for: existingHouse)
+                event = .existingHouseOffered
+            } else {
+                guard snapshot.authority.householdID == nil,
+                      snapshot.authority.ownerPersonID == nil else {
+                    throw PairingAddressError.operationUnavailable
                 }
-                setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
+                try await claimWithRetry(hit: hit)
+                snapshot = try await addresses.fetch()
+                operation = .initialize
+                event = .bootstrapClaimAccepted
+                setupInvitationLogger.info("direct_probe.claimed")
             }
-            // Always resolves: tailnet address first, then LAN, then the
-            // loopback base — there is no longer a "could not reach our own
-            // engine" branch, because the answer comes from the interfaces,
-            // not from a subprocess that may be missing or hung.
-            let macEngineURL = SetupInvitationDirectProbe.reachableMacEngineURL(
-                localEngineBaseURL: engineBaseURL
+            let decision = try PairingAddressPolicy.choose(
+                offer: snapshot.offer, expectedInstallation: .current,
+                phone: PhoneNetworkEvidence(hasTailnetAddress: nil), operation: operation
             )
+            let macEngineURL = decision.url
             let localPairing = await SetupInvitationDirectProbe.makeMacLocalPairing(
                 payload: hit.payload,
                 macEngineURL: macEngineURL
@@ -81,12 +90,11 @@ final class SetupInvitationListener: @unchecked Sendable {
                 claim: SetupInvitationDirectClaim(
                     token: hit.payload.token,
                     macEngineURL: macEngineURL,
-                    macEngineLocalNetworkURL: SetupInvitationDirectProbe.localNetworkMacEngineURL(
-                        localEngineBaseURL: engineBaseURL,
-                        advertised: macEngineURL
-                    ),
                     macLocalPairing: localPairing,
-                    existingHouse: existingHouse
+                    existingHouse: existingHouse,
+                    installation: snapshot.offer.installation,
+                    event: event,
+                    addressOffer: snapshot.offer
                 )
             )
             setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
@@ -100,22 +108,14 @@ final class SetupInvitationListener: @unchecked Sendable {
         } catch is CancellationError {
             return .notFound
         } catch {
-            setupInvitationLogger.error("direct_probe.failed \(String(describing: error), privacy: .public)")
-            return .failed(error)
+            let failure = PairingAttemptFailure.capture(error, stage: .claim, endpoint: engineBaseURL)
+            setupInvitationLogger.error("direct_probe.failed \(failure.diagnostic, privacy: .public)")
+            return .failed(failure)
         }
     }
 
-    /// Wraps `claimClient.claim` with bounded retries for the
-    /// `invitation_not_recognized` timing race.
-    ///
-    /// The race: the Mac engine populates its setup-invitation cache from its
-    /// own Bonjour browser. The GUI's direct-probe listener fetches the
-    /// iPhone's `/setup-invitation` payload via a separate path and can reach
-    /// `claim_setup_invitation` 1-3 seconds before the engine browser has
-    /// inserted the token. Without retry, the listener silently "proceeds
-    /// anyway" (see `shouldProceedAfterClaimFailure`), notifies the iPhone of
-    /// a non-existent claim, and the engine sits at `uninitialized` forever
-    /// while the user stares at AwaitingMacView.
+    /// Retry a rejected transient claim without fabricating an acceptance.
+    /// Notification starts only after the engine returns a valid receipt.
     private func claimWithRetry(hit: SetupInvitationDirectProbe.Hit) async throws {
         let backoffs: [TimeInterval] = [0.5, 1.0, 2.0]
         var lastError: Error?
@@ -127,7 +127,8 @@ final class SetupInvitationListener: @unchecked Sendable {
                     iphoneApnsToken: hit.payload.iphoneApnsToken,
                     iphoneEndpoint: hit.iphoneBaseURL,
                     iphoneAddresses: hit.iphoneAddresses,
-                    expiresAt: hit.payload.expiresAt
+                    expiresAt: hit.payload.expiresAt,
+                    installation: .current
                 )
                 if attempt > 0 {
                     setupInvitationLogger.info("direct_probe.claim_recovered attempt=\(attempt, privacy: .public)")
@@ -135,11 +136,6 @@ final class SetupInvitationListener: @unchecked Sendable {
                 return
             } catch let error as BootstrapError {
                 lastError = error
-                // The claim loop is otherwise invisible: `already_initialized`
-                // is the engine saying this invitation is spoken for, the
-                // listener proceeds past it (see
-                // `shouldProceedAfterClaimFailure`), and nothing on the Mac
-                // ever said so out loud.
                 if case .serverError(let code, _) = error, BootstrapErrorCode(wire: code) == .alreadyInitialized {
                     setupInvitationLogger.info(
                         "direct_probe.claim_already_initialized attempt=\(attempt, privacy: .public) iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)"
@@ -337,50 +333,24 @@ private enum SetupInvitationDirectProbe {
         return nil
     }
 
-    /// The engine URL the iPhone will keep. Read from the interfaces, never
-    /// from the `tailscale` CLI: see `MacEngineAdvertisedURL`. The raw
-    /// tailnet IPv4 is deliberately preferred over the MagicDNS name — the
-    /// engine's source-IP guard (`post_initialize`) requires the iPhone to
-    /// connect from a tailnet address, and on iOS a `*.ts.net` name may not
-    /// resolve through Tailscale's resolver, in which case the DNS-named URL
-    /// falls through to Wi-Fi and the engine rejects with `tailnet_required`.
-    static func reachableMacEngineURL(localEngineBaseURL: URL) -> URL {
-        MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
-    }
-
-    /// This Mac's address on the local network, carried ALONGSIDE the one
-    /// above so a phone with no Tailscale has somewhere to go.
-    ///
-    /// `reachableMacEngineURL` chooses by what this MAC has, and on a Mac with
-    /// a tailnet address it always answers the tailnet one — over a Wi-Fi
-    /// socket, to a phone that may have no route to 100.64/10. Only the phone
-    /// knows what it can reach, so it gets both and decides
-    /// (`ClaimEngineAddressChoice`). Nil when this Mac has no LAN address, or
-    /// when the LAN address is already what the claim advertises.
-    static func localNetworkMacEngineURL(localEngineBaseURL: URL, advertised: URL) -> URL? {
-        guard let lan = MacEngineAdvertisedURL.lanIPv4Addresses().first else { return nil }
-        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
-        guard let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(lan):\(port)"),
-              url != advertised else {
-            return nil
-        }
-        return url
-    }
-
     static func notifyClaimed(iphoneBaseURL: URL, claim: SetupInvitationDirectClaim) async throws {
         let url = iphoneBaseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.claimedPath.dropFirst()))
         let body = try claim.encodedData()
         setupInvitationLogger.info("direct_probe.notify_request url=\(url.absoluteString, privacy: .public) body_bytes=\(body.count, privacy: .public)")
-        let response = try await DirectProbeHTTPClient.request(
-            method: "POST",
-            url: url,
-            body: body,
-            contentType: "application/json",
-            timeout: 1.5
-        )
-        setupInvitationLogger.info("direct_probe.notify_response url=\(url.absoluteString, privacy: .public) status=\(response.statusCode, privacy: .public) body_bytes=\(response.body.count, privacy: .public)")
-        guard (200..<300).contains(response.statusCode) else {
-            throw DirectProbeError.claimNotificationFailed
+        do {
+            let response = try await DirectProbeHTTPClient.request(
+                method: "POST",
+                url: url,
+                body: body,
+                contentType: "application/json",
+                timeout: 1.5
+            )
+            setupInvitationLogger.info("direct_probe.notify_response url=\(url.absoluteString, privacy: .public) status=\(response.statusCode, privacy: .public) body_bytes=\(response.body.count, privacy: .public)")
+            guard (200..<300).contains(response.statusCode) else {
+                throw PairingAttemptFailure(stage: .notification, endpoint: url, cause: .server(status: response.statusCode))
+            }
+        } catch {
+            try PairingAttemptFailure.rethrow(error, stage: .notification, endpoint: url)
         }
     }
 
@@ -449,6 +419,7 @@ private enum SetupInvitationDirectProbe {
             }
             do {
                 let payload = try SetupInvitationPayload.decodeDirectEndpointData(response.body)
+                try payload.requireInstallation(.current)
                 return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
             } catch {
                 setupInvitationLogger.info("direct_probe.fetch_decode_failed url=\(url.absoluteString, privacy: .public) body_bytes=\(response.body.count, privacy: .public) err=\(String(describing: error), privacy: .public)")
@@ -457,22 +428,6 @@ private enum SetupInvitationDirectProbe {
         } catch {
             setupInvitationLogger.info("direct_probe.fetch_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
             return nil
-        }
-    }
-
-    /// Setup-invitation claim error codes that are safe to "proceed anyway" past.
-    /// `invalid_state` / `already_named` are a LEGACY iOS expectation that
-    /// theyos@8effb506 no longer emits and are intentionally NOT part of the
-    /// `BootstrapErrorCode` fixture — kept here for backward-compat.
-    private static let legacyProceedAfterClaimFailureCodes: Set<String> = ["invalid_state", "already_named"]
-
-    fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
-        guard case BootstrapError.serverError(let code, _) = error else { return false }
-        switch BootstrapErrorCode(wire: code) {
-        case .invitationNotRecognized, .alreadyInitialized:
-            return true
-        default:
-            return legacyProceedAfterClaimFailureCodes.contains(code)
         }
     }
 

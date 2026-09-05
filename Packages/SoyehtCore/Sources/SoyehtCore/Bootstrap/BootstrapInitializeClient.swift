@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Mints house identity (name + P-256 keypair in engine's Secure Enclave/keyring).
 /// No auth required — at this point no identity exists yet.
-/// Idempotent via `claimToken` (case B): same token → same `hh_pub` on retry.
+/// `claimToken` proves the pending invitation. After an uncertain response,
+/// refresh bootstrap status before deciding whether another initialize is needed.
 public struct BootstrapInitializeClient: Sendable {
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
@@ -17,9 +18,8 @@ public struct BootstrapInitializeClient: Sendable {
     private let perform: TransportPerform
 
     /// Shared URLSession with a 30s request timeout (vs URLSession.shared's 60s default).
-    /// `/bootstrap/initialize` is idempotent via `claimToken`, so failing fast and letting the
-    /// user retry is preferable to a long stare at the spinner when the Mac engine is down or
-    /// the network dropped.
+    /// A timeout has an uncertain outcome: the caller must refresh status to
+    /// distinguish a completed initialization from a request that never arrived.
     public static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
@@ -49,7 +49,7 @@ public struct BootstrapInitializeClient: Sendable {
         let body = Self.encodeRequest(name: name, claimToken: claimToken)
         let (url, _) = BootstrapWire.endpointURL(baseURL: baseURL, path: Self.path)
         let data = try await BootstrapWire.send(
-            method: "POST", url: url, body: body, authorization: nil, perform: perform
+            method: "POST", url: url, body: body, authorization: nil, failureStage: .initialize, perform: perform
         )
         return try Self.decode(data)
     }

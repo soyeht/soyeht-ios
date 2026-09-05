@@ -54,7 +54,7 @@ struct AwaitingMacView: View {
                     if let house = viewModel.pendingExistingHouse {
                         existingHouseCard(house)
                     } else {
-                        NeoRadar(palette: palette, isSearching: true)
+                        NeoRadar(palette: palette, isSearching: viewModel.phase.isWaitingOnItsOwn)
 
                         VStack(spacing: 12) {
                             Text(LocalizedStringResource(
@@ -84,6 +84,14 @@ struct AwaitingMacView: View {
                             .font(NeoFont.caption)
                             .foregroundStyle(palette.muted)
                             .multilineTextAlignment(.center)
+                        }
+
+                        if let error = viewModel.errorMessage {
+                            Text(error)
+                                .font(NeoFont.body)
+                                .foregroundStyle(palette.textSecondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try again") { viewModel.restart() }
                         }
 
                         if viewModel.showRecoveryHint {
@@ -157,6 +165,12 @@ struct AwaitingMacView: View {
                 "onboarding.looking.status.paired",
                 defaultValue: "Connected.",
                 comment: "I3 status: done."
+            )
+        case .stalled(.pairingFailure):
+            return LocalizedStringResource(
+                "onboarding.looking.status.pairingFailed",
+                defaultValue: "Pairing could not finish.",
+                comment: "Pairing stopped with a specific error shown below."
             )
         case .stalled(.macUnreachable(.alreadyHasHome)):
             // "Still nothing" would be false: the Mac answered.
@@ -572,11 +586,15 @@ final class AwaitingMacViewModel: ObservableObject {
                 // to a phone with no Tailscale, over the Wi-Fi socket this
                 // claim just arrived on. Only this side knows what it can
                 // reach, so it chooses between the two the claim carries.
-                let chosen = ClaimEngineAddressChoice.choose(
-                    advertised: claim.macEngineURL,
-                    localNetwork: claim.macEngineLocalNetworkURL,
-                    phoneHasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil
-                )
+                let chosen: PairingAddressDecision
+                do {
+                    chosen = try claim.chooseAddress()
+                } catch {
+                    let failure = PairingAttemptFailure.capture(error, stage: .discovery, endpoint: claim.macEngineURL)
+                    awaitingMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
+                    self.recordFailure(failure)
+                    return
+                }
                 awaitingMacLogger.info(
                     "claim.engine_address reason=\(chosen.reason.rawValue, privacy: .public) chosen=\(chosen.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
                 )
@@ -736,6 +754,8 @@ final class AwaitingMacViewModel: ObservableObject {
         let handler = onMacFoundHandler
         stop()
         phase = .looking(sawService: false)
+        errorMessage = nil
+        isPairing = false
         showRecoveryHint = false
         if let handler { start(onMacFound: handler) }
     }
@@ -773,7 +793,7 @@ final class AwaitingMacViewModel: ObservableObject {
                     let link = try HouseholdDevicePairingLink(url: house.pairDeviceURI)
                     _ = try await HouseholdDevicePairingService(
                         keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                    ).pair(link: link)
+                    ).pair(link: link, reachedEndpoint: house.engineURL)
                 } else {
                     _ = try await HouseholdPairingService(
                         browser: DirectExistingHousePairingBrowser(
@@ -828,95 +848,23 @@ final class AwaitingMacViewModel: ObservableObject {
                     self.onMacFoundHandler?(.connectedToExistingMac(macName: house.hostLabel))
                 }
             } catch is CancellationError {
-            } catch HouseholdDevicePairingError.approvalTimedOut {
-                awaitingMacLogger.error("existing_house_pair_failed error=approvalTimedOut")
-                await MainActor.run {
-                    self.isPairing = false
-                    // Not a network failure: the request reached the Mac and
-                    // sat unapproved until it expired. The only iPhone that
-                    // could approve it may be gone; say so, and say what fixes it.
-                    self.errorMessage = String(localized: LocalizedStringResource(
-                        "awaitingMac.existingHouse.connect.approvalTimedOut",
-                        defaultValue: "No iPhone in this home approved the request. If that iPhone is gone, open Soyeht on the Mac, go to Settings › Devices, and choose Forget this home — then pair this iPhone as the first one.",
-                        comment: "Shown when delegated device pairing expires without approval from an existing iPhone."
-                    ))
-                }
+                self.isPairing = false
             } catch {
-                awaitingMacLogger.error("existing_house_pair_failed error=\(String(describing: error), privacy: .public)")
-                let reason = Self.connectFailureReason(
-                    pairDeviceURI: house.pairDeviceURI,
-                    engineURL: house.engineURL,
-                    tailnetIPv4: TailnetAddressResolver.currentTailnetIPv4()
+                let failure = PairingAttemptFailure.capture(
+                    error, stage: house.isDevicePairing ? .request : .confirm, endpoint: house.engineURL
                 )
-                await MainActor.run {
-                    self.isPairing = false
-                    self.errorMessage = Self.connectFailureMessage(reason)
-                }
+                awaitingMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
+                self.recordFailure(failure)
             }
         }
     }
 
-    /// Why "Connect this iPhone" failed, as far as the phone can tell on its
-    /// own. Everything the phone cannot distinguish stays `.unknown`.
-    enum ConnectFailureReason: Equatable {
-        /// The Mac's link points at a Tailscale address (100.64/10) and this
-        /// iPhone has no tailnet interface, so the request never left the
-        /// phone.
-        case tailscaleOffOnThisIPhone
-        case unknown
-    }
-
-    /// Pure — no network — so the decision is the same one a test can read.
-    ///
-    /// Every failure used to render "I couldn't connect this time. Keep Soyeht
-    /// open on your Mac and try again.", which is advice for a Mac that was
-    /// already open and says nothing about the switch on this phone.
-    static func connectFailureReason(
-        pairDeviceURI: URL,
-        engineURL: URL,
-        tailnetIPv4: String?
-    ) -> ConnectFailureReason {
-        guard tailnetIPv4 == nil else { return .unknown }
-        guard let host = pairingLinkHost(pairDeviceURI: pairDeviceURI, engineURL: engineURL) else {
-            return .unknown
-        }
-        return HostClassifier.isTailnetIPv4(host) ? .tailscaleOffOnThisIPhone : .unknown
-    }
-
-    /// The host this iPhone will actually dial for a pairing link: the
-    /// `endpoint` of a Mac-minted `device-pairing` link, the `host` fallback of
-    /// an engine-minted `pair-device` one, and — when the link carries
-    /// neither — the engine URL the Mac was found on.
-    static func pairingLinkHost(pairDeviceURI: URL, engineURL: URL) -> String? {
-        let items = URLComponents(url: pairDeviceURI, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        if let endpoint = items.first(where: { $0.name == "endpoint" })?.value,
-           let host = URL(string: endpoint)?.host {
-            return host
-        }
-        if let hostFallback = items.first(where: { $0.name == "host" })?.value,
-           // `host` is `address:port`; borrow URL's parser so a bracketed
-           // IPv6 literal does not come apart on the colons.
-           let host = URL(string: "http://\(hostFallback)")?.host {
-            return host
-        }
-        return engineURL.host
-    }
-
-    private static func connectFailureMessage(_ reason: ConnectFailureReason) -> String {
-        switch reason {
-        case .tailscaleOffOnThisIPhone:
-            return String(localized: LocalizedStringResource(
-                "awaitingMac.existingHouse.connect.tailscaleOff",
-                defaultValue: "Tailscale is off on this iPhone. Your Mac only accepts this over Tailscale — turn it on here and try again.",
-                comment: "Shown when the Mac's pairing link is a Tailscale address and this iPhone has no Tailnet interface."
-            ))
-        case .unknown:
-            return String(localized: LocalizedStringResource(
-                "awaitingMac.existingHouse.connect.failed",
-                defaultValue: "I couldn't connect this time. Keep Soyeht open on your Mac and try again.",
-                comment: "Recoverable error shown when no-QR existing-house pairing does not complete."
-            ))
-        }
+    private func recordFailure(_ failure: PairingAttemptFailure) {
+        isPairing = false
+        errorMessage = failure.userMessage
+        diagnosticMessage = nil
+        phase = .stalled(.pairingFailure(failure))
+        cancelRecoveryHint()
     }
 
     // MARK: - Private
@@ -1223,7 +1171,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     householdId: link.householdId,
                     householdPublicKey: link.householdPublicKey,
                     householdName: link.householdName,
-                    pairingNonce: link.pairingNonce
+                    pairingNonce: link.pairingNonce,
+                    addressOffer: link.addressOffer
                 ).url()
                 fingerprintWords = try pairDeviceFingerprintWords(for: effectivePairURL, now: Date())
             } catch {
