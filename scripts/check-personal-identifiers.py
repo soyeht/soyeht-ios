@@ -45,6 +45,7 @@ Exit 0 clean, 1 when something was found.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -120,9 +121,121 @@ def added_lines(diff: str) -> str:
                      if line.startswith("+") and not line.startswith("+++"))
 
 
+class GitFailed(RuntimeError):
+    """Git refused. This must never be mistaken for "nothing to look at"."""
+
+
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True,
-                          check=False).stdout
+    """Runs git and FAILS CLOSED.
+
+    The first version passed `check=False` and returned stdout. A bad ref then
+    produced an empty string, the scan found nothing in it, and the tool printed
+    "clean" and exited 0 — a checker that reports safety when it looked at
+    nothing. [jaime] found it with the obvious negative control:
+    `--range refs/heads/definitely-missing..HEAD` came back green.
+
+    That is the same failure this whole file exists to stop, wearing the
+    checker's own uniform. A guard that cannot fail is not a guard.
+    """
+    result = subprocess.run(["git", *args], capture_output=True, text=True,
+                            check=False)
+    if result.returncode != 0:
+        raise GitFailed(f"git {' '.join(args)} -> {result.returncode}: "
+                        f"{result.stderr.strip() or '<no message>'}")
+    return result.stdout
+
+
+def commits_in(rev_range: str) -> list[str]:
+    return [line for line in git("rev-list", rev_range).splitlines() if line]
+
+
+def added_text_per_commit(rev_range: str) -> str:
+    """Every line ADDED by each commit in the range, examined separately.
+
+    An aggregated `git diff A..B` shows only the net effect, so a value that is
+    introduced by one commit and removed by a later one inside the same range
+    vanishes from it — while living on forever in the history the range covers.
+    That is exactly the leak shape being audited: `b415927d` removed the
+    identifiers and published them in its own diff. [jaime]
+    """
+    chunks = []
+    for sha in commits_in(rev_range):
+        # `-m` so a merge is compared against each parent rather than skipped.
+        chunks.append(added_lines(git("show", "-m", "--format=", sha)))
+    return "\n".join(chunks)
+
+
+def self_test() -> int:
+    """The two ways this checker was already caught reporting safety.
+
+    Both were found by [jaime] against the first version, and neither would
+    have been noticed by using the tool normally — which is the whole argument
+    for pinning them here. A guard nobody can fail is not a guard.
+    """
+    import tempfile
+
+    failures = 0
+
+    # 1. A ref git cannot resolve must REFUSE. The first version returned
+    #    stdout with `check=False`, so a bad ref produced an empty string, the
+    #    scan found nothing in it, and it printed "clean" and exited 0.
+    try:
+        git("rev-list", "refs/heads/definitely-missing-ref..HEAD")
+        print("  CALIBRATION FAILED  a missing ref did not raise")
+        failures += 1
+    except GitFailed:
+        print("  ok  a missing ref refuses instead of reporting clean")
+
+    # 2. A value introduced and then removed INSIDE the range must still be
+    #    found. The aggregated `git diff A..B` shows only the net effect, so it
+    #    hides exactly the leak shape being audited.
+    with tempfile.TemporaryDirectory(prefix="identifier-selftest-") as workdir:
+        def run(*args: str) -> None:
+            subprocess.run(["git", "-C", workdir, *args],
+                           capture_output=True, check=True)
+
+        run("init", "-q", ".")
+        run("config", "user.email", "selftest@example.test")
+        run("config", "user.name", "self test")
+        # Composed at run time, never written as a literal. The fixture has to
+        # LOOK like a violation or it would not reproduce the hole — and a
+        # literal here would make this file trip its own check on every commit,
+        # which is how a checker teaches everyone to ignore it.
+        planted = "192.168." + "99.7"
+        target = os.path.join(workdir, "fixture.txt")
+        for content, message in (("base", "base"),
+                                 (f"host = {planted}", "introduce"),
+                                 ("host = 192.168.1.20", "remove")):
+            with open(target, "w") as handle:
+                handle.write(content + "\n")
+            run("add", "-A")
+            run("commit", "-qm", message)
+
+        here = os.getcwd()
+        try:
+            os.chdir(workdir)
+            aggregated = offending(added_lines(git("diff", "HEAD~2..HEAD")))
+            per_commit = offending(added_text_per_commit("HEAD~2..HEAD"))
+        finally:
+            os.chdir(here)
+
+        if aggregated:
+            print("  CALIBRATION FAILED  the aggregated diff was supposed to "
+                  "hide it; the fixture no longer reproduces the hole")
+            failures += 1
+        elif not per_commit:
+            print("  CALIBRATION FAILED  a value added then removed inside the "
+                  "range slipped through")
+            failures += 1
+        else:
+            print("  ok  a value added then removed inside the range is still found")
+
+    if failures:
+        print(f"\n{failures} calibration case(s) failed. Do not trust a clean "
+              "report from this checker until that is fixed.")
+        return 1
+    print("\ncalibration ok: it refuses when it cannot look, and it looks per commit.")
+    return 0
 
 
 def main() -> int:
@@ -130,17 +243,29 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--range", help="commit range, e.g. origin/main..main")
     parser.add_argument("--files", nargs="*", help="check these files whole")
+    parser.add_argument("--self-test", action="store_true",
+                        help="prove the checker can still fail; touches nothing")
     args = parser.parse_args()
 
-    if args.files:
-        label = "files"
-        text = "\n".join(open(path, errors="replace").read() for path in args.files)
-    elif args.range:
-        label = f"range {args.range}"
-        text = added_lines(git("diff", args.range))
-    else:
-        label = "staged changes"
-        text = added_lines(git("diff", "--cached"))
+    if args.self_test:
+        return self_test()
+
+    try:
+        if args.files:
+            label = "files"
+            text = "\n".join(open(path, errors="replace").read()
+                             for path in args.files)
+        elif args.range:
+            commits = commits_in(args.range)
+            label = f"range {args.range} ({len(commits)} commit(s), each examined)"
+            text = added_text_per_commit(args.range)
+        else:
+            label = "staged changes"
+            text = added_lines(git("diff", "--cached"))
+    except (GitFailed, OSError) as error:
+        # Refusing is the only safe answer: "I could not look" is not "clean".
+        print(f"refusing: could not inspect anything.\n  {error}")
+        return 1
 
     hits = offending(text)
     if not hits:
