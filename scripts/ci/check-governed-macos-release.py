@@ -207,6 +207,65 @@ def scan_product_root(product_root: Path) -> None:
             f"PKCS8 private-key marker is forbidden in public product: {relative}",
         )
 
+    validate_embedded_engine(root)
+
+
+def embedded_engine_version(engine: Path) -> str:
+    """The version the SHIPPED engine binary reports about itself.
+
+    Read by RUNNING it, because that is the number the Mac app will read at
+    launch — anything else measures a file, not the fact.
+    """
+    try:
+        completed = subprocess.run(
+            [str(engine), "--version"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ContractError(f"cannot ask the embedded engine its version: {error}") from error
+    require(completed.returncode == 0,
+            f"embedded engine exited {completed.returncode} when asked its version")
+    found = CANONICAL_SEMVER.search(completed.stdout + completed.stderr)
+    require(found is not None,
+            "embedded engine did not report a canonical version")
+    assert found is not None
+    return found.group(0)
+
+
+def validate_embedded_engine(product_root: Path) -> None:
+    """The binary that SHIPS must announce the version the pin promises.
+
+    WHY THIS EXISTS. `mac-v0.1.46` shipped an engine that carried every 0.1.29
+    fix and announced itself as `0.1.28`: it was built before the version bump,
+    copied into the staging directory `embed-engine.sh` reads, and the rebuilt
+    0.1.29 binary went only to the release tarball. Every file this contract
+    already checked said 0.1.29 — the pin, the checksum, the client floor, the
+    docs — because all of them are TEXT. Nothing opened the binary.
+
+    The cost was not cosmetic. `EngineCompat.minSupportedEngineVersion` is
+    0.1.29, so the shipped engine judged itself stale on every launch, offered
+    a restart that destroys every live session, installed the same 0.1.28, and
+    would have asked again forever. On the owner's Mac it took eleven agent
+    sessions on the first try and changed nothing.
+
+    So this asks the binary, and only the binary.
+    """
+    engine = product_root / "Soyeht.app" / "Contents" / "Helpers" / "theyos-engine"
+    if not engine.exists():
+        # A staging tree that is not an app bundle (the DMG scan covers that
+        # shape) has nothing to check here.
+        alternative = product_root / "Contents" / "Helpers" / "theyos-engine"
+        if not alternative.exists():
+            return
+        engine = alternative
+    reported = embedded_engine_version(engine)
+    require(
+        reported == ENGINE_RELEASE_VERSION,
+        f"the engine inside the product announces {reported}, but this release pins "
+        f"{ENGINE_RELEASE_VERSION}; a Mac on this build would judge its own engine "
+        f"stale at every launch and offer a session-destroying restart that changes nothing",
+    )
+
 
 def flattened(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
