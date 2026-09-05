@@ -49,13 +49,14 @@ PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 
 # The release the shipped engine is actually pinned to. Every value here was
 # re-measured against the published artifact and the tag it was built from,
-# not carried over: the sha256 is of the downloaded
-# `theyos-engine-0.1.28-macos-arm64.tar.gz` asset, and the source and tree are
-# what `refs/tags/v0.1.28` resolves to.
-ENGINE_RELEASE_VERSION = "0.1.28"
-ENGINE_RELEASE_SHA256 = "bab1ef9115af2a14eddffb84d3fdf807e97306260dab61836cac22a070c7cc10"
-ENGINE_RELEASE_SOURCE = "1aa5422bf335244af1138f8ba39c3c85e4df78e8"
-ENGINE_RELEASE_TREE = "b05449a2565815676f64f0c3bfd93ba8d04523ae"
+# not carried over: the sha256 is of the DOWNLOADED
+# `theyos-engine-0.1.29-macos-arm64.tar.gz` asset (fetched from the public
+# release URL, because validating the local file proves the build and not the
+# delivery), and the source and tree are what `refs/tags/v0.1.29` resolves to.
+ENGINE_RELEASE_VERSION = "0.1.29"
+ENGINE_RELEASE_SHA256 = "b777299dd1e72bc234575c59f293f4df0b2b222999a7bdf485cbc55b4a30e431"
+ENGINE_RELEASE_SOURCE = "eb96d37509544a2fe8e2ff69e7f5d9d27b136f79"
+ENGINE_RELEASE_TREE = "7fb7141905ae20ba812c470afc0ac050834b8f26"
 CANONICAL_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -649,8 +650,8 @@ def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     require(floor == pin, f"engine compatibility floor {floor} differs from pin {pin}")
 
     tests = files[ENGINE_COMPAT_TESTS]
-    required_test = "func test_currentReleaseRequiresFirstOwnerPhase3Engine()"
-    require_once(tests, required_test, "first-owner Phase 3 engine compatibility regression test is missing")
+    required_test = "func test_currentReleaseRequiresTheWiFiPairingEngine()"
+    require_once(tests, required_test, "engine compatibility regression test for the pinned release is missing")
     test_start = tests.index(required_test)
     test_end = tests.find("\n    func ", test_start + len(required_test))
     test_body = tests[test_start : test_end if test_end >= 0 else len(tests)]
@@ -691,7 +692,7 @@ def validate_engine_release_pin(files: Mapping[str, str]) -> None:
         ENGINE_RELEASE_TREE,
     ):
         require_once(safe_stages, fragment, f"engine diagnostic provenance drifted: {fragment}")
-    for stale in ("refs/tags/v0.1.25", "theyos@eb1da518"):
+    for stale in ("refs/tags/v0.1.25", "theyos@eb1da518", "refs/tags/v0.1.28", "theyos@1aa5422b"):
         require(stale not in safe_stages, f"stale engine diagnostic provenance remains: {stale}")
 
 

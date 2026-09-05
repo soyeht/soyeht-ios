@@ -8,11 +8,18 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@1aa5422bf335244af1138f8ba39c3c85e4df78e8 (refs/tags/v0.1.28, the source
-# the shipped 0.1.28 engine asset is attested to; tree
-# b05449a2565815676f64f0c3bfd93ba8d04523ae). Every token below was
+# theyos@eb96d37509544a2fe8e2ff69e7f5d9d27b136f79 (refs/tags/v0.1.29, the source
+# the shipped 0.1.29 engine asset is attested to; tree
+# 7fb7141905ae20ba812c470afc0ac050834b8f26). Every token below was
 # re-verified present as a compile-time literal in that tree when the pin
-# moved from 0.1.27 — measured by grepping the checked-out tag, not assumed.
+# moved from 0.1.28 — measured by grepping the checked-out tag, not assumed.
+# `pair_machine.window_opened` was dropped in that pass: it is emitted by
+# nothing in 0.1.29, and grepping v0.1.28 shows it was emitted by nothing there
+# either, so the "verified present" sentence above had never been true of it.
+# Four stages were added, all four literals in the new
+# `local_network_visibility` module — the routes the Add iPhone sheet calls to
+# put the home on the Wi-Fi, whose diagnostics would otherwise be dropped by
+# omission on the one path a person is most likely to need explained.
 # One token was dropped in the process:
 # `macos_local_registration.listener_unavailable`, which is emitted by nothing
 # in 0.1.28 and was emitted by nothing in 0.1.27 either, so the "verified
@@ -41,5 +48,8 @@ bootstrap.cold
 bootstrap.initialized
 bootstrap.endpoint.live
 bootstrap.complete
-pair_machine.window_opened
 macos_local_registration.listener_started
+local_network_visibility.opened
+local_network_visibility.closed
+local_network_visibility.open.non_loopback_rejected
+local_network_visibility.close.non_loopback_rejected
