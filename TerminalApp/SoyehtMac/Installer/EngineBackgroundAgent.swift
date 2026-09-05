@@ -45,6 +45,36 @@ enum EngineBackgroundAgent {
         launchctl(["print", "gui/\(getuid())/\(label)"]).status == 0
     }
 
+    /// How long to wait for launchd to release a booted-out label before
+    /// loading over it. Generous next to the ~20 ms launchd actually takes,
+    /// because the alternative — loading too early — costs every live session
+    /// and leaves nothing running.
+    static let labelReleaseBudget: TimeInterval = 5
+
+    /// Blocks until `label` is absent from BOTH domains, or the budget runs
+    /// out. Returns whether the name came free.
+    ///
+    /// Pure enough to test through its two seams: the probe and the sleep.
+    @discardableResult
+    static func awaitLabelReleased(
+        label: String,
+        budget: TimeInterval = EngineBackgroundAgent.labelReleaseBudget,
+        stillLoaded: ((String) -> Bool)? = nil,
+        sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
+    ) -> Bool {
+        let probe = stillLoaded ?? { name in
+            isLoadedInUserDomain(label: name) || isLoadedInGUIDomain(label: name)
+        }
+        let step: TimeInterval = 0.05
+        var waited: TimeInterval = 0
+        while probe(label) {
+            guard waited < budget else { return false }
+            sleep(step)
+            waited += step
+        }
+        return true
+    }
+
     /// Does the installed copy match what this build ships? A wrapper change
     /// (a new export, a moved log) reaches launchd only when the file does.
     static func installedPlistIsCurrent(bundled: URL, label: String) -> Bool {
@@ -88,10 +118,44 @@ enum EngineBackgroundAgent {
         _ = launchctl(["bootout", "gui/\(getuid())/\(label)"])
         _ = launchctl(["bootout", "user/\(getuid())/\(label)"])
 
+        // `bootout` RETURNS BEFORE launchd has finished releasing the label,
+        // and loading into a name launchd still holds fails with EEXIST.
+        //
+        // MEASURED on the owner's Mac 2026-09-05, 18 ms apart:
+        //
+        //     14:24:05.134  bootout gui/501/com.soyeht.engine [37543]
+        //     14:24:05.152  launchd: Caller tried to import service with same
+        //                   label as an existing service ... failed (17: File exists)
+        //
+        // The engine was gone and nothing replaced it — eleven agent sessions
+        // died and the machine sat with no engine for thirty-six seconds, until
+        // an unrelated relaunch happened to re-bootstrap it. The old code could
+        // not even see the failure coming: `launchctl load` reports success
+        // whether or not launchd accepted the job, so the only witness was the
+        // `isLoadedInUserDomain` check AFTER the kill.
+        //
+        // So wait for the name to actually come free. A poll, because launchd
+        // offers nothing to wait on.
+        if !awaitLabelReleased(label: label) {
+            log.error("\(label, privacy: .public) was still loaded \(Self.labelReleaseBudget, privacy: .public)s after bootout; loading anyway")
+        }
+
         let load = launchctl(["load", "-S", "Background", destination.path])
         guard load.status == 0 else {
             log.error("launchctl load -S Background failed for \(label, privacy: .public): \(load.output, privacy: .public)")
             return .failed("load: \(load.output)")
+        }
+        // One retry, because the whole cost of this call has ALREADY been paid:
+        // the engine is dead either way, and giving up here is what left the
+        // Mac with no engine at all. A second attempt after the name is
+        // provably free costs a second and can only help.
+        if !isLoadedInUserDomain(label: label) {
+            log.error("\(label, privacy: .public) did not appear in the user domain; the engine is already down, so retrying the load")
+            _ = awaitLabelReleased(label: label)
+            let retry = launchctl(["load", "-S", "Background", destination.path])
+            if retry.status != 0 {
+                log.error("retry of launchctl load -S Background failed for \(label, privacy: .public): \(retry.output, privacy: .public)")
+            }
         }
         guard isLoadedInUserDomain(label: label) else {
             log.error("\(label, privacy: .public) did not appear in the user domain after loading")
