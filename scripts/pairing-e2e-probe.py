@@ -1,55 +1,59 @@
 #!/usr/bin/env python3
-"""Mede uma corrida de pareamento de ponta a ponta e diz QUAL invariante caiu.
+"""Measures one end-to-end pairing run and says WHICH invariant broke.
 
-POR QUE ISTO EXISTE
+WHY THIS EXISTS
 
-Em 2026-09-05 o Caio ficou olhando um spinner. As duas suítes estavam verdes,
-o Mac 0.1.47 escutava nos dois endereços, o firewall estava desligado e o
-celular tinha rota direta na tailnet. Nada disso respondia a pergunta que
-importava — *qual endereço o celular tentou, e o que voltou* — porque a
-resposta mora em três logs diferentes, em duas máquinas, e ninguém junta.
+On 2026-09-05 the owner sat watching a spinner. Both test suites were green,
+the Mac was listening on the tailnet address AND the LAN address, the firewall
+was off, and the phone had a direct tailnet route. None of that answered the
+question that mattered — *which address did the phone dial, and what came
+back* — because the answer lives in three logs, on two machines, and nothing
+joins them.
 
-Esta sonda junta. Ela não é um teste de unidade com outro nome: ela lê o que
-os TRÊS participantes registraram durante UMA corrida real e confere os
-invariantes contra isso.
+This joins them. It is not a unit test wearing a different hat: it reads what
+all THREE participants recorded during ONE real run and checks the invariants
+against that.
 
-O QUE ELA MEDE, E DE ONDE
+WHAT IT MEASURES, AND FROM WHERE
 
-  Mac    os_log, subsystem `com.soyeht.mac`  →  endereço OFERECIDO no claim
-  iPhone os_log, subsystem `com.soyeht.mobile` (via `log collect`, porque
-         `idevicesyslog` não carrega as nossas linhas — medido 2026-09-05)
-                                             →  endereço ESCOLHIDO e TENTADO
-  engine `~/Library/Logs/SoyehtDev/engine.log`
-                                             →  o que CHEGOU, e o desfecho
+  Mac     os_log, subsystem `com.soyeht.mac`   ->  the address OFFERED in the claim
+  iPhone  os_log, subsystem `com.soyeht.mobile`, via `log collect` because
+          `idevicesyslog` does not carry our subsystem (measured 2026-09-05)
+                                               ->  the address CHOSEN and TRIED
+  engine  `~/Library/Logs/SoyehtDev/engine.log`
+                                               ->  what ARRIVED, and the outcome
 
-Correlacionar os três é o ponto. Cada um sozinho mente por omissão: o Mac diz
-que notificou, o engine diz que não recebeu nada, e sem o celular no meio não
-dá para saber se ele discou o endereço errado ou se nem discou.
+Correlating the three is the whole point. Each one alone lies by omission: the
+Mac says it notified the phone, the engine says nothing arrived, and without
+the phone in the middle there is no way to tell whether it dialled the wrong
+address or never dialled at all.
 
-OS INVARIANTES
+THE INVARIANTS
 
-  TAILNET-KEPT     celular com tailnet escolhe tailnet E persiste tailnet.
-                   A propriedade que protege quem sai de casa.
-  LAN-WORKS        celular sem tailnet pareia pela LAN. Decisão explícita do
-                   Caio, provada no aparelho em 2026-09-05; regressão aqui é
-                   reprovação, não "comportamento mais seguro".
-  NO-SILENT-LAN    celular COM tailnet nunca persiste endereço de LAN.
-  PROFILE-ISOLATED prod e Dev não reclamam o celular um do outro.
-  NO-SPINNER       toda corrida termina em sucesso, falha tipada ou
-                   cancelamento. Espera sem prazo é reprovação.
-  FIRST-PHONE      casa cujo único membro é o Mac admite o primeiro iPhone
-                   sem aprovação de um terceiro que não existe.
+  TAILNET-KEPT      a phone with a tailnet address chooses tailnet AND persists
+                    tailnet. This is the property that protects someone who
+                    leaves the house.
+  LAN-WORKS         a phone with no tailnet pairs over the LAN. Explicit owner
+                    decision, proven on the device 2026-09-05; a regression here
+                    is a failure, not "safer behaviour".
+  NO-SILENT-LAN     a phone WITH tailnet never persists a LAN address.
+  PROFILE-ISOLATED  production and Dev never claim each other's phone.
+  NO-SPINNER        every run ends in success, typed failure or cancellation.
+                    An unbounded wait is a failure.
+  FIRST-PHONE       a household whose only member is the Mac admits the first
+                    iPhone without approval from a third party that cannot exist.
+  CAPABILITY-HONEST a locked owner key is never reported as a missing one.
 
-CALIBRAÇÃO
+CALIBRATION
 
-Um verde só vale se o vermelho for possível. `--self-test` roda os invariantes
-contra transcrições sintéticas de corridas boas e ruins e exige que os dois
-lados batam. Se o self-test não passa, a sonda não julga corrida nenhuma.
+Green only means something if red is reachable. `--self-test` runs the
+invariants against synthetic transcripts of good and bad runs and requires both
+sides to land. If the self-test does not pass, this probe judges nothing.
 
-SEGURANÇA
+SAFETY
 
-Só olha para o par Dev (bootstrap 8101, admin 8902). Recusa-se a rodar contra
-produção (8091/8892) e nunca escreve em nada da produção.
+Only looks at the Dev pair (bootstrap 8101, admin 8902). Refuses to run against
+production (8091/8892) and never writes anything production owns.
 """
 
 from __future__ import annotations
@@ -57,7 +61,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import plistlib
 import re
 import shutil
 import subprocess
@@ -72,20 +75,19 @@ PROD_BOOTSTRAP_PORT = 8091
 PROD_ADMIN_PORT = 8892
 
 DEV_ENGINE_LOG = os.path.expanduser("~/Library/Logs/SoyehtDev/engine.log")
-PROD_ENGINE_LOG = os.path.expanduser("~/Library/Logs/Soyeht/engine.log")
 DEV_APP_PROCESS = "Soyeht Dev"
 MAC_SUBSYSTEM = "com.soyeht.mac"
 PHONE_SUBSYSTEM = "com.soyeht.mobile"
 
 TAILNET_RE = re.compile(r"\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b")
 LOOPBACK_RE = re.compile(r"\b(127\.\d{1,3}\.\d{1,3}\.\d{1,3}|::1|localhost)\b")
-IPV4_RE = re.compile(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b")
+IPV4_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
 
 
 def classify(host: str | None) -> str:
-    """tailnet / lan / loopback / unknown — a mesma partição que o engine usa.
+    """tailnet / lan / loopback / unknown — the same partition the engine uses.
 
-    Vale para host puro e para URL; quem chama não precisa saber a diferença.
+    Accepts a bare host or a full URL; callers should not have to care which.
     """
     if not host:
         return "unknown"
@@ -98,46 +100,47 @@ def classify(host: str | None) -> str:
     return "unknown"
 
 
-# ────────────────────────── o que cada lado disse ──────────────────────────
+# ───────────────────────── what each side recorded ─────────────────────────
 
 
 @dataclass
 class Transcript:
-    """As três fitas de uma corrida, já em texto, cada linha na sua origem."""
+    """One run's three tapes, as text, each line kept with its origin."""
 
     mac: list[str] = field(default_factory=list)
     phone: list[str] = field(default_factory=list)
     engine: list[str] = field(default_factory=list)
 
     def mac_grep(self, needle: str) -> list[str]:
-        return [l for l in self.mac if needle in l]
+        return [line for line in self.mac if needle in line]
 
     def phone_grep(self, needle: str) -> list[str]:
-        return [l for l in self.phone if needle in l]
+        return [line for line in self.phone if needle in line]
 
     def engine_grep(self, needle: str) -> list[str]:
-        return [l for l in self.engine if needle in l]
+        return [line for line in self.engine if needle in line]
 
 
 def first_host(lines: list[str], key: str) -> str | None:
-    """O valor de `key=` (host ou URL) na primeira linha que o traz.
+    """The value of `key=` (a host or a URL) on the first line that carries it.
 
-    Aceita `host=1.2.3.4`, `mac=http://1.2.3.4:8101` e `endpoint=…` — as três
-    formas que os nossos logs realmente usam hoje.
+    Handles `host=1.2.3.4`, `mac=http://1.2.3.4:8101` and `endpoint=…`, which
+    are the three shapes our logs actually emit today.
     """
     for line in lines:
-        m = re.search(rf"{re.escape(key)}=(\S+)", line)
-        if m:
-            return m.group(1)
+        match = re.search(rf"{re.escape(key)}=(\S+)", line)
+        if match:
+            return match.group(1)
     return None
 
 
-# ───────────────────────────── os invariantes ─────────────────────────────
+# ───────────────────────────── the invariants ─────────────────────────────
 #
-# Cada um responde uma pergunta e devolve (veredito, evidência). O veredito é
-# "pass", "fail" ou "n/a" — n/a quando o cenário não exercita aquilo. n/a
-# NUNCA conta como pass: o resumo separa os dois de propósito, porque foi
-# assim que a suíte ficou verde enquanto o produto estava quebrado.
+# Each one answers a question and returns a verdict plus its evidence. The
+# verdict is "pass", "fail" or "n/a" — n/a when the scenario does not exercise
+# it. n/a NEVER counts as a pass: the summary keeps them apart on purpose,
+# because counting them together is how a suite stays green while the product
+# is broken.
 
 
 @dataclass
@@ -149,102 +152,103 @@ class Finding:
 
 def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if not phone_has_tailnet:
-        return Finding("TAILNET-KEPT", "n/a", "celular sem tailnet neste cenário")
+        return Finding("TAILNET-KEPT", "n/a", "phone has no tailnet in this scenario")
     chosen = first_host(t.phone_grep("pair.endpoint"), "host")
     if chosen is None:
-        return Finding("TAILNET-KEPT", "fail",
-                       "o celular não registrou endereço escolhido")
+        return Finding("TAILNET-KEPT", "fail", "the phone recorded no chosen address")
     kind = classify(chosen)
     if kind == "tailnet":
-        return Finding("TAILNET-KEPT", "pass", f"escolheu tailnet ({chosen})")
+        return Finding("TAILNET-KEPT", "pass", f"chose tailnet ({chosen})")
     return Finding("TAILNET-KEPT", "fail",
-                   f"celular tem tailnet e escolheu {kind} ({chosen}); "
-                   "sai de casa e fica sem Mac")
+                   f"phone has a tailnet address and chose {kind} ({chosen}); "
+                   "it loses the Mac the moment it leaves the house")
 
 
 def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if phone_has_tailnet:
-        return Finding("LAN-WORKS", "n/a", "cenário não exercita LAN pura")
+        return Finding("LAN-WORKS", "n/a", "this scenario does not exercise pure LAN")
     tried = first_host(t.phone_grep("pair.confirm.post"), "host")
     if tried is None:
-        return Finding("LAN-WORKS", "fail", "o celular nunca chegou a confirmar")
+        return Finding("LAN-WORKS", "fail", "the phone never reached the confirm step")
     if classify(tried) != "lan":
         return Finding("LAN-WORKS", "fail",
-                       f"sem tailnet, mas tentou {classify(tried)} ({tried})")
+                       f"no tailnet available, yet it tried {classify(tried)} ({tried})")
     if not t.engine_grep("pair_device.confirm.success"):
         return Finding("LAN-WORKS", "fail",
-                       f"tentou LAN ({tried}) e o engine não confirmou")
-    return Finding("LAN-WORKS", "pass", f"pareou pela LAN ({tried})")
+                       f"tried the LAN ({tried}) and the engine never confirmed")
+    return Finding("LAN-WORKS", "pass", f"paired over the LAN ({tried})")
 
 
 def inv_no_silent_lan(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if not phone_has_tailnet:
-        return Finding("NO-SILENT-LAN", "n/a", "só vale para celular com tailnet")
+        return Finding("NO-SILENT-LAN", "n/a", "only applies to a tailnet-capable phone")
     saved = first_host(t.phone_grep("endpoint.persisted"), "host")
     if saved is None:
-        return Finding("NO-SILENT-LAN", "n/a", "nada foi persistido nesta corrida")
+        return Finding("NO-SILENT-LAN", "n/a", "nothing was persisted in this run")
     if classify(saved) == "lan":
         return Finding("NO-SILENT-LAN", "fail",
-                       f"gravou LAN ({saved}) num celular com tailnet")
-    return Finding("NO-SILENT-LAN", "pass", f"gravou {classify(saved)} ({saved})")
+                       f"stored a LAN address ({saved}) on a tailnet-capable phone")
+    return Finding("NO-SILENT-LAN", "pass", f"stored {classify(saved)} ({saved})")
 
 
 def inv_profile_isolated(t: Transcript) -> Finding:
-    """Nenhum perfil reclama o celular do outro.
+    """Neither install profile claims the other's phone.
 
-    Medido em 2026-09-05: Dev e produção reclamaram o mesmo aparelho com 50 s
-    de diferença e o Dev ganhou, mandando o celular discar o engine errado.
+    Measured 2026-09-05: Dev and production claimed the same handset 50 seconds
+    apart, Dev won, and it told the phone to dial the wrong engine.
     """
-    strangers = [l for l in t.mac_grep("direct_probe.claim")
-                 if f":{PROD_BOOTSTRAP_PORT}" in l]
+    strangers = [line for line in t.mac_grep("direct_probe.claim")
+                 if f":{PROD_BOOTSTRAP_PORT}" in line]
     if strangers:
         return Finding("PROFILE-ISOLATED", "fail",
-                       f"o Dev reclamou um alvo de produção: {strangers[0][:120]}")
-    return Finding("PROFILE-ISOLATED", "pass", "nenhum claim cruzou o perfil")
+                       f"Dev claimed a production target: {strangers[0][:120]}")
+    return Finding("PROFILE-ISOLATED", "pass", "no claim crossed the profile line")
 
 
 def inv_no_spinner(t: Transcript) -> Finding:
-    """Toda corrida termina. Espera sem prazo é o defeito, não o sintoma."""
+    """Every run ends. An unbounded wait is the defect, not the symptom."""
     ended = (t.phone_grep("pair.result=") or t.phone_grep("pair.failed")
              or t.engine_grep("pair_device.confirm.success"))
     if ended:
-        return Finding("NO-SPINNER", "pass", "a corrida terminou com desfecho")
+        return Finding("NO-SPINNER", "pass", "the run reached an outcome")
     return Finding("NO-SPINNER", "fail",
-                   "nenhum desfecho registrado: o usuário ficou no spinner")
+                   "no outcome recorded: the person was left on the spinner")
 
 
 def inv_first_phone(t: Transcript, household_devices: int | None) -> Finding:
-    """Casa só com o Mac tem que admitir o primeiro iPhone.
+    """A household holding only the Mac must admit the first iPhone.
 
-    `ForgetHomeService.swift:11-16` documenta o beco desde 2026-09-01: sem um
-    iPhone que já pertença à casa, o novo espera uma aprovação que não chega —
-    "five minutes of spinner and then a timeout".
+    `ForgetHomeService.swift:11-16` has documented the dead end since
+    2026-09-01: with no iPhone already in the household, the new one waits for
+    an approval that can never arrive — "five minutes of spinner and then a
+    timeout".
     """
     if household_devices is None or household_devices > 1:
         return Finding("FIRST-PHONE", "n/a",
-                       "a casa já tem mais de um membro neste cenário")
-    blocked = t.mac_grep("already belongs to this home") or t.phone_grep("awaiting_approval")
+                       "the household has more than one member in this scenario")
+    blocked = (t.mac_grep("already belongs to this home")
+               or t.phone_grep("awaiting_approval"))
     if blocked:
         return Finding("FIRST-PHONE", "fail",
-                       "casa só com o Mac pediu aprovação de um iPhone inexistente")
+                       "a Mac-only household asked approval of an iPhone that "
+                       "does not exist")
     if not t.engine_grep("pair_device.confirm.success"):
-        return Finding("FIRST-PHONE", "fail",
-                       "o primeiro iPhone não entrou na casa")
-    return Finding("FIRST-PHONE", "pass", "o primeiro iPhone entrou sem terceiro")
+        return Finding("FIRST-PHONE", "fail", "the first iPhone never joined")
+    return Finding("FIRST-PHONE", "pass", "the first iPhone joined with no third party")
 
 
-# Os seis estados de capacidade de assinatura do dono, do adendo G do [jaime].
-# A distinção que importa: uma chave que EXISTE mas exige desbloqueio não é
-# "não tenho chave". Confundir os dois é o que faria a tela dizer ao dono que
-# ele perdeu a casa quando bastava um Touch ID — e é a mesma família do
-# `errSecInternalComponent` que me mordeu hoje nas panes sem sessão gráfica.
+# The six owner-signing capability states, from [jaime]'s addendum G. The
+# distinction that matters: a key that EXISTS but needs unlocking is not "I
+# have no key". Conflating them is what would tell an owner they lost their
+# household when a Touch ID prompt would have settled it — the same family as
+# the `errSecInternalComponent` that bit us in panes with no GUI session.
 OWNER_CAPABILITY_STATES = {
-    "no_session",           # este Mac não guarda sessão de casa nenhuma
-    "identity_mismatch",    # guarda sessão, mas de outra casa
-    "no_key",               # sessão certa, chave do dono ausente de verdade
-    "needs_authentication", # chave presente; assinar exige gesto do dono
-    "proven",               # assinatura produzida e verificada contra o cert
-    "error",                # falhou por outro motivo, com o motivo junto
+    "no_session",            # this Mac holds no household session at all
+    "identity_mismatch",     # holds a session, but for a different household
+    "no_key",                # right session, owner key genuinely absent
+    "needs_authentication",  # key present; signing requires an owner gesture
+    "proven",                # signature produced and verified against the cert
+    "error",                 # failed for another reason, carried with it
 }
 
 _INTERACTION_DENIED = re.compile(
@@ -255,26 +259,25 @@ _INTERACTION_DENIED = re.compile(
 
 
 def inv_capability_honest(t: Transcript) -> Finding:
-    """O Mac diz o que consegue, e nunca chama "bloqueado" de "não tenho".
+    """The Mac states what it can do, and never calls "locked" "missing".
 
-    Sem isto, G volta pro beco por outro caminho: a tela diria "preciso do
-    iPhone que tem a chave" para um dono cuja chave está ali, atrás de um
-    desbloqueio que ninguém pediu.
+    Without this, G returns to the same dead end by another road: the screen
+    would say "I need the iPhone that holds the key" to an owner whose key is
+    right there, behind an unlock nobody asked for.
     """
     lines = t.mac_grep("owner_capability=")
     if not lines:
         return Finding("CAPABILITY-HONEST", "n/a",
-                       "o Mac não declarou capacidade nesta corrida")
-    m = re.search(r"owner_capability=(\w+)", lines[0])
-    state = m.group(1) if m else "<ilegível>"
+                       "the Mac declared no capability in this run")
+    match = re.search(r"owner_capability=(\w+)", lines[0])
+    state = match.group(1) if match else "<unreadable>"
     if state not in OWNER_CAPABILITY_STATES:
-        return Finding("CAPABILITY-HONEST", "fail",
-                       f"estado fora do contrato: {state}")
+        return Finding("CAPABILITY-HONEST", "fail", f"state outside the contract: {state}")
     if state == "no_key" and any(_INTERACTION_DENIED.search(l) for l in lines):
         return Finding("CAPABILITY-HONEST", "fail",
-                       "disse no_key quando a causa era desbloqueio negado; "
-                       "isso manda o dono apagar uma casa que ele ainda controla")
-    return Finding("CAPABILITY-HONEST", "pass", f"declarou {state}")
+                       "reported no_key when the cause was a denied unlock; "
+                       "that tells the owner to erase a household they still control")
+    return Finding("CAPABILITY-HONEST", "pass", f"declared {state}")
 
 
 def judge(t: Transcript, phone_has_tailnet: bool,
@@ -290,76 +293,77 @@ def judge(t: Transcript, phone_has_tailnet: bool,
     ]
 
 
-# ──────────────────────────── colher as três fitas ────────────────────────
+# ───────────────────────── collecting the three tapes ─────────────────────
 
 
 def guard_not_production(bootstrap_port: int) -> None:
     if bootstrap_port in (PROD_BOOTSTRAP_PORT, PROD_ADMIN_PORT):
-        sys.exit(f"recusado: esta sonda nunca fala com produção "
+        sys.exit(f"refused: this probe never talks to production "
                  f"({PROD_BOOTSTRAP_PORT}/{PROD_ADMIN_PORT}). "
-                 f"O par Dev é {DEV_BOOTSTRAP_PORT}/{DEV_ADMIN_PORT}.")
-
-
-def engine_tail(path: str, since_offset: int) -> tuple[list[str], int]:
-    """Lê o que entrou no log do engine depois de `since_offset`."""
-    if not os.path.exists(path):
-        return [], since_offset
-    with open(path, "r", errors="replace") as fh:
-        fh.seek(since_offset)
-        lines = fh.read().splitlines()
-        return lines, fh.tell()
+                 f"The Dev pair is {DEV_BOOTSTRAP_PORT}/{DEV_ADMIN_PORT}.")
 
 
 def engine_offset(path: str) -> int:
     return os.path.getsize(path) if os.path.exists(path) else 0
 
 
+def engine_tail(path: str, since_offset: int) -> list[str]:
+    """Whatever the engine appended after `since_offset`."""
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", errors="replace") as handle:
+        handle.seek(since_offset)
+        return handle.read().splitlines()
+
+
 def start_mac_capture(out_path: str, process: str) -> subprocess.Popen:
-    """os_log do app do Mac. `--level info` porque as categorias de pareamento
-    são `.info` e não persistem no armazenamento padrão."""
-    fh = open(out_path, "w")
+    """Streams the Mac app's os_log. `--level info` because the pairing
+    categories log at `.info` and those do not persist in the default store."""
+    handle = open(out_path, "w")
     return subprocess.Popen(
         ["/usr/bin/log", "stream", "--level", "info", "--style", "compact",
-         "--predicate",
-         f'subsystem == "{MAC_SUBSYSTEM}" AND process == "{process}"'],
-        stdout=fh, stderr=subprocess.STDOUT,
+         "--predicate", f'subsystem == "{MAC_SUBSYSTEM}" AND process == "{process}"'],
+        stdout=handle, stderr=subprocess.STDOUT,
     )
 
 
 def collect_phone_log(udid: str, minutes: int, out_dir: str) -> list[str]:
-    """`log collect` é o único caminho: `idevicesyslog` não traz o nosso
-    subsystem (medido 2026-09-05). Exige sudo sem senha e o aparelho no cabo."""
+    """`log collect` is the only way in: `idevicesyslog` does not carry our
+    subsystem (measured 2026-09-05). Needs passwordless sudo and the cable."""
     archive = os.path.join(out_dir, "iphone.logarchive")
     shutil.rmtree(archive, ignore_errors=True)
-    r = subprocess.run(
+    collected = subprocess.run(
         ["sudo", "-n", "/usr/bin/log", "collect", "--device-udid", udid,
          "--last", f"{minutes}m", "--output", archive],
         capture_output=True, text=True,
     )
-    if r.returncode != 0:
-        return [f"<<sem log do celular: {r.stderr.strip()}>>"]
-    show = subprocess.run(
+    if collected.returncode != 0:
+        return [f"<<no phone log: {collected.stderr.strip()}>>"]
+    shown = subprocess.run(
         ["/usr/bin/log", "show", "--archive", archive, "--style", "compact",
          "--info", "--predicate", f'subsystem == "{PHONE_SUBSYSTEM}"'],
         capture_output=True, text=True,
     )
-    return show.stdout.splitlines()
+    return shown.stdout.splitlines()
 
 
 def household_device_count(port: int) -> int | None:
+    """NOTE: the engine's `device_count` is `u32::from(owner_auth.is_some())`
+    (`handlers_bootstrap.rs:3369`) — a boolean about owner authority, never a
+    device roster. Used here only to tell "no owner yet" from "owner exists"."""
     import urllib.request
     try:
         with urllib.request.urlopen(
-                f"http://127.0.0.1:{port}/bootstrap/status", timeout=4) as r:
-            return json.load(r).get("device_count")
+                f"http://127.0.0.1:{port}/bootstrap/status", timeout=4) as response:
+            return json.load(response).get("device_count")
     except Exception:
         return None
 
 
-# ─────────────────────────────── calibração ───────────────────────────────
+# ─────────────────────────────── calibration ───────────────────────────────
 #
-# Transcrições sintéticas. Não substituem a corrida real — provam que o
-# julgamento distingue os dois lados. Uma sonda que nunca reprova não mede.
+# Synthetic transcripts. They do not replace a real run — they prove the
+# judgement can tell the two apart. A probe that never fails measures nothing.
 
 GOOD_TAILNET = Transcript(
     mac=["direct_probe.notified iphone=http://192.168.1.50:8092/ "
@@ -404,47 +408,47 @@ BAD_FIRST_PHONE = Transcript(
 )
 
 BAD_CROSS_PROFILE = Transcript(
-    mac=[f"direct_probe.claim_already_initialized iphone=http://192.168.1.50:{PROD_BOOTSTRAP_PORT}/"],
+    mac=[f"direct_probe.claim_already_initialized "
+         f"iphone=http://192.168.1.50:{PROD_BOOTSTRAP_PORT}/"],
     phone=["pair.result=paired"],
     engine=["pair_device.confirm.success"],
 )
 
-
 GOOD_CAPABILITY_LOCKED = Transcript(
     mac=["owner_capability=needs_authentication reason=user-presence-required",
-         "approval.offer shown=Aprovar neste Mac — desbloqueio necessário"],
+         "approval.offer shown=Approve on this Mac — unlock required"],
     phone=["pair.result=awaiting_owner_approval"],
     engine=[],
 )
 
 BAD_CAPABILITY_LIES = Transcript(
     mac=["owner_capability=no_key cause=errSecInteractionNotAllowed",
-         "approval.offer shown=preciso do iPhone que tem a chave"],
+         "approval.offer shown=I need the iPhone that holds the key"],
     phone=["pair.result=failed"],
     engine=[],
 )
 
 
 def self_test() -> int:
-    """Cada caso diz qual invariante TEM que dar o quê. Um verde que não
-    consegue ficar vermelho não é evidência de nada."""
+    """Every case names the verdict each invariant MUST produce. A green that
+    cannot turn red is not evidence of anything."""
     cases = [
-        ("boa, tailnet", GOOD_TAILNET, True, 1,
+        ("good, tailnet", GOOD_TAILNET, True, 1,
          {"TAILNET-KEPT": "pass", "NO-SILENT-LAN": "pass",
           "NO-SPINNER": "pass", "FIRST-PHONE": "pass"}),
-        ("boa, LAN pura", GOOD_LAN, False, 1,
+        ("good, pure LAN", GOOD_LAN, False, 1,
          {"LAN-WORKS": "pass", "NO-SPINNER": "pass", "FIRST-PHONE": "pass"}),
-        ("ruim, LAN silenciosa", BAD_SILENT_LAN, True, 2,
+        ("bad, silent LAN downgrade", BAD_SILENT_LAN, True, 2,
          {"TAILNET-KEPT": "fail", "NO-SILENT-LAN": "fail"}),
-        ("ruim, spinner", BAD_SPINNER, True, 2,
+        ("bad, endless spinner", BAD_SPINNER, True, 2,
          {"NO-SPINNER": "fail"}),
-        ("ruim, primeiro celular travado", BAD_FIRST_PHONE, True, 1,
+        ("bad, first phone deadlocked", BAD_FIRST_PHONE, True, 1,
          {"FIRST-PHONE": "fail", "NO-SPINNER": "fail"}),
-        ("ruim, perfil cruzado", BAD_CROSS_PROFILE, True, 2,
+        ("bad, crossed profiles", BAD_CROSS_PROFILE, True, 2,
          {"PROFILE-ISOLATED": "fail"}),
-        ("boa, chave presente mas trancada", GOOD_CAPABILITY_LOCKED, True, 1,
+        ("good, key present but locked", GOOD_CAPABILITY_LOCKED, True, 1,
          {"CAPABILITY-HONEST": "pass"}),
-        ("ruim, chamou trancado de ausente", BAD_CAPABILITY_LIES, True, 1,
+        ("bad, called locked missing", BAD_CAPABILITY_LIES, True, 1,
          {"CAPABILITY-HONEST": "fail"}),
     ]
     failures = 0
@@ -452,20 +456,20 @@ def self_test() -> int:
         got = {f.name: f.verdict for f in judge(transcript, has_tailnet, devices)}
         for name, want in expected.items():
             if got.get(name) != want:
-                print(f"  CALIBRAÇÃO FALHOU  {label}: {name} "
-                      f"esperava {want}, deu {got.get(name)}")
+                print(f"  CALIBRATION FAILED  {label}: {name} "
+                      f"expected {want}, got {got.get(name)}")
                 failures += 1
         if not failures:
             print(f"  ok  {label}")
     if failures:
-        print(f"\n{failures} caso(s) de calibração falharam. "
-              "A sonda não julga corrida real até isto passar.")
+        print(f"\n{failures} calibration case(s) failed. "
+              "This probe judges no real run until that is fixed.")
         return 1
-    print("\ncalibração ok: a sonda aprova o bom e reprova cada defeito conhecido.")
+    print("\ncalibration ok: it passes the good runs and fails every known defect.")
     return 0
 
 
-# ──────────────────────────────── a corrida ────────────────────────────────
+# ──────────────────────────────── the run ────────────────────────────────
 
 
 def run(args) -> int:
@@ -477,10 +481,10 @@ def run(args) -> int:
     devices_before = household_device_count(args.bootstrap_port)
     offset = engine_offset(args.engine_log)
     capture = start_mac_capture(mac_log, args.mac_process)
-    print(f"capturando em {out_dir}")
-    print(f"casa Dev: device_count={devices_before}")
-    print(f"\n>>> execute o cenário AGORA: {args.scenario}")
-    print(f">>> {args.hold_secs}s até eu ler as fitas\n")
+    print(f"capturing into {out_dir}")
+    print(f"Dev household: device_count={devices_before}")
+    print(f"\n>>> run the scenario NOW: {args.scenario}")
+    print(f">>> {args.hold_secs}s until I read the tapes\n")
 
     try:
         time.sleep(args.hold_secs)
@@ -491,56 +495,56 @@ def run(args) -> int:
         except subprocess.TimeoutExpired:
             capture.kill()
 
-    engine_lines, _ = engine_tail(args.engine_log, offset)
-    with open(mac_log, errors="replace") as fh:
-        mac_lines = fh.read().splitlines()
+    engine_lines = engine_tail(args.engine_log, offset)
+    with open(mac_log, errors="replace") as handle:
+        mac_lines = handle.read().splitlines()
     phone_lines = (collect_phone_log(args.udid, args.collect_minutes, out_dir)
-                   if args.udid else ["<<sem UDID: celular não medido>>"])
+                   if args.udid else ["<<no UDID given: the phone was not measured>>"])
 
     transcript = Transcript(mac=mac_lines, phone=phone_lines, engine=engine_lines)
-    with open(os.path.join(out_dir, "transcript.json"), "w") as fh:
-        json.dump(asdict(transcript), fh, indent=2)
+    with open(os.path.join(out_dir, "transcript.json"), "w") as handle:
+        json.dump(asdict(transcript), handle, indent=2)
 
     findings = judge(transcript, args.phone_has_tailnet, devices_before)
 
-    print(f"cenário: {args.scenario}")
-    print(f"linhas colhidas — Mac {len(mac_lines)}, celular {len(phone_lines)}, "
+    print(f"scenario: {args.scenario}")
+    print(f"lines collected — Mac {len(mac_lines)}, phone {len(phone_lines)}, "
           f"engine {len(engine_lines)}\n")
     width = max(len(f.name) for f in findings)
-    for f in findings:
-        mark = {"pass": "ok  ", "fail": "FALHA", "n/a": "  – "}[f.verdict]
-        print(f"  {mark} {f.name.ljust(width)}  {f.detail}")
+    for finding in findings:
+        mark = {"pass": "ok  ", "fail": "FAIL", "n/a": "  – "}[finding.verdict]
+        print(f"  {mark} {finding.name.ljust(width)}  {finding.detail}")
 
     failed = [f for f in findings if f.verdict == "fail"]
     skipped = [f for f in findings if f.verdict == "n/a"]
-    print(f"\n{len(findings) - len(failed) - len(skipped)} passaram, "
-          f"{len(failed)} falharam, {len(skipped)} não se aplicam.")
-    print(f"fitas em {out_dir}")
+    print(f"\n{len(findings) - len(failed) - len(skipped)} passed, "
+          f"{len(failed)} failed, {len(skipped)} not applicable.")
+    print(f"tapes in {out_dir}")
 
     if not any(f.verdict == "pass" for f in findings):
-        print("\nNENHUM invariante foi exercitado. Isto não é um verde — "
-              "é uma corrida que não aconteceu.")
+        print("\nNO invariant was exercised. This is not a green — "
+              "it is a run that did not happen.")
         return 2
     return 1 if failed else 0
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--self-test", action="store_true",
-                   help="calibra o julgamento e sai; não toca em aparelho nem engine")
-    p.add_argument("--scenario", default="pareamento do zero",
-                   help="nome do cenário desta corrida, para o relatório")
-    p.add_argument("--udid", help="UDID do iPhone Devs; sem ele o celular não é medido")
-    p.add_argument("--phone-has-tailnet", action="store_true",
-                   help="declare o estado do Tailscale NO CELULAR para este cenário")
-    p.add_argument("--hold-secs", type=int, default=90)
-    p.add_argument("--collect-minutes", type=int, default=5)
-    p.add_argument("--bootstrap-port", type=int, default=DEV_BOOTSTRAP_PORT)
-    p.add_argument("--engine-log", default=DEV_ENGINE_LOG)
-    p.add_argument("--mac-process", default=DEV_APP_PROCESS)
-    p.add_argument("--out-dir")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--self-test", action="store_true",
+                        help="calibrate the judgement and exit; touches no device or engine")
+    parser.add_argument("--scenario", default="pairing from scratch",
+                        help="name of this run's scenario, for the report")
+    parser.add_argument("--udid", help="test iPhone UDID; without it the phone is not measured")
+    parser.add_argument("--phone-has-tailnet", action="store_true",
+                        help="declare the Tailscale state ON THE PHONE for this scenario")
+    parser.add_argument("--hold-secs", type=int, default=90)
+    parser.add_argument("--collect-minutes", type=int, default=5)
+    parser.add_argument("--bootstrap-port", type=int, default=DEV_BOOTSTRAP_PORT)
+    parser.add_argument("--engine-log", default=DEV_ENGINE_LOG)
+    parser.add_argument("--mac-process", default=DEV_APP_PROCESS)
+    parser.add_argument("--out-dir")
+    args = parser.parse_args()
 
     if args.self_test:
         return self_test()
