@@ -64,12 +64,20 @@ final class LocalNetworkPairingVisibility {
 
     /// Read from the non-isolated termination path, which cannot touch
     /// `interestedParties`. It answers exactly one question: is there a window
-    /// worth closing on the way out?
-    private let openFlag = OpenFlag()
+    /// at the engine that nobody has closed yet?
+    private let latch = VisibilityLatch()
+
+    /// Which open/close cycle we are in. Carried by each close so a close
+    /// enqueued for a sheet that is already gone cannot clear a window a NEWER
+    /// sheet has since opened.
+    private var cycle: UInt64 = 0
 
     /// Requests run in one chain so a fast open/close pair cannot land out of
-    /// order and leave the home visible after the sheet is gone. Tests await it
-    /// through `settle()`.
+    /// order and leave the home visible after the sheet is gone. Renewals go
+    /// through it too: a renewal issued outside the chain can be answered by
+    /// the engine AFTER the close that followed it, which re-opens the window
+    /// the person just dismissed and leaves the home on the Wi-Fi until the
+    /// engine's TTL runs out. Tests await it through `settle()`.
     private var requestChain: Task<Void, Never>?
     /// Exposed to the module so the renewal loop can be awaited in a test
     /// instead of slept on.
@@ -90,7 +98,8 @@ final class LocalNetworkPairingVisibility {
     func begin() {
         interestedParties += 1
         guard interestedParties == 1 else { return }
-        openFlag.set(true)
+        cycle += 1
+        latch.opened(cycle: cycle)
         enqueue { requester in
             await Self.requestOpen(requester, stage: "open")
         }
@@ -102,20 +111,29 @@ final class LocalNetworkPairingVisibility {
         guard interestedParties > 0 else { return }
         interestedParties -= 1
         guard interestedParties == 0 else { return }
-        openFlag.set(false)
         stopRenewals()
+        let closing = cycle
+        let latch = self.latch
         enqueue { requester in
+            // Claimed rather than assumed: the same window can be closed by
+            // this chain or by `closeOnTermination()`, whichever gets there
+            // first, and a re-opened sheet must not be closed by the close its
+            // predecessor left in the queue.
+            guard latch.claimClose(cycle: closing) else { return }
             await Self.requestClose(requester)
         }
     }
 
     /// The app is quitting. `applicationWillTerminate` is the last moment a
     /// request can be made at all — an unawaited `Task` would simply not run —
-    /// so this blocks the caller for at most
-    /// ``terminationCloseTimeout``. Does nothing when no window is open.
+    /// so this blocks the caller for at most ``terminationCloseTimeout``.
+    ///
+    /// The gate is "is there a window nobody has closed yet", NOT "is a sheet
+    /// on screen": dismissing the sheet and quitting in the same breath used to
+    /// leave the close sitting in a queue that the dying process never drained,
+    /// and the home stayed on the Wi-Fi until the engine's TTL expired.
     nonisolated func closeOnTermination() {
-        guard openFlag.value else { return }
-        openFlag.set(false)
+        guard latch.claimCloseOnTermination() else { return }
 
         let requester = self.requester
         let done = DispatchSemaphore(value: 0)
@@ -130,10 +148,13 @@ final class LocalNetworkPairingVisibility {
         }
     }
 
-    /// Awaits every request issued so far. Test seam; the app never needs it.
+    /// Awaits every request issued so far. Renewals first: they enqueue onto
+    /// the chain, so awaiting the chain before them would miss the very
+    /// requests the renewal loop is about to add. Test seam; the app never
+    /// needs it.
     func settle() async {
-        await requestChain?.value
         await renewalTask?.value
+        await requestChain?.value
     }
 
     // MARK: - Renewal
@@ -142,16 +163,21 @@ final class LocalNetworkPairingVisibility {
         renewalTask?.cancel()
         let interval = renewInterval
         let sleeper = self.sleeper
-        let requester = self.requester
-        renewalTask = Task {
+        renewalTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 do {
                     try await sleeper(interval)
                 } catch {
                     return
                 }
-                guard !Task.isCancelled else { return }
-                await Self.requestOpen(requester, stage: "renew")
+                guard !Task.isCancelled, let self else { return }
+                // Onto the chain, never straight to the engine: `end()` runs on
+                // this same actor and cancels above, so a renewal that gets
+                // here is genuinely earlier than the close and must be ordered
+                // before it.
+                self.enqueue { requester in
+                    await Self.requestOpen(requester, stage: "renew")
+                }
             }
         }
     }
@@ -230,23 +256,48 @@ struct LiveLocalNetworkPairingVisibilityRequester: LocalNetworkPairingVisibility
     }
 }
 
-/// A `Bool` the main actor writes and the termination path reads, with nothing
-/// else riding along: `applicationWillTerminate` runs synchronously and cannot
-/// await the actor that owns the reference count.
-private final class OpenFlag: @unchecked Sendable {
+/// The one fact the main actor and the termination path share: is there a
+/// window at the engine that nobody has closed yet, and which cycle opened it?
+/// `applicationWillTerminate` runs synchronously and cannot await the actor
+/// that owns the reference count, so this is a lock and not an actor.
+///
+/// It holds a cycle rather than a `Bool` because both a claim and a re-open can
+/// race the queue:
+///
+///   - dismiss and quit in the same breath: the close is still queued, and the
+///     process dies before the queue drains. The quit path has to see work
+///     outstanding, which a "is a sheet on screen" flag does not report.
+///   - dismiss and re-open: the first close is still queued when the second
+///     sheet opens. Closing then would take down a window the person is
+///     looking at, so a close only fires for the cycle it was made for.
+private final class VisibilityLatch: @unchecked Sendable {
     private let lock = NSLock()
-    private var storage = false
+    /// The cycle whose window is believed open at the engine; nil when there
+    /// is nothing left to close.
+    private var openCycle: UInt64?
 
-    var value: Bool {
+    func opened(cycle: UInt64) {
         lock.lock()
-        defer { lock.unlock() }
-        return storage
+        openCycle = cycle
+        lock.unlock()
     }
 
-    func set(_ newValue: Bool) {
+    /// True exactly once per cycle, for whoever gets here first.
+    func claimClose(cycle: UInt64) -> Bool {
         lock.lock()
-        storage = newValue
-        lock.unlock()
+        defer { lock.unlock() }
+        guard openCycle == cycle else { return false }
+        openCycle = nil
+        return true
+    }
+
+    /// Quitting closes whatever is open, whichever cycle left it that way.
+    func claimCloseOnTermination() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard openCycle != nil else { return false }
+        openCycle = nil
+        return true
     }
 }
 

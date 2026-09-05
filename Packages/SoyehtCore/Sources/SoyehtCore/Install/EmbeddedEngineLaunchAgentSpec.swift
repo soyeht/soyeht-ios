@@ -97,7 +97,13 @@ public struct EmbeddedEngineLaunchAgentSpec: Sendable, Equatable {
         return [
             "ADMIN_PORT": "\(profile.adminPort)",
             "ADDR": "127.0.0.1:\(profile.adminPort)",
-            "SOYEHT_SETUP_INVITATION_ALLOW_LAN": "1",
+            // No `SOYEHT_SETUP_INVITATION_ALLOW_LAN`: no engine has ever read
+            // it (grep over theyos: zero hits, and its exposure-policy guard
+            // names it a ghost). Exporting it told the next person LAN pairing
+            // was configured here. What actually decides LAN exposure is the
+            // household's own state — no iPhone paired yet, or an "Add iPhone"
+            // window open, which the Mac asks for through
+            // `POST /bootstrap/local-network-visibility/open`.
             "THEYOS_OWNER_AUTH_V2_ROLLOUT": "reviewed-core-v2-secure-upgrade",
             "THEYOS_SECURE_UPGRADE_APP_ATTEST_TEAM_ID": "W7677A5BK2",
             "THEYOS_SECURE_UPGRADE_APP_ATTEST_BUNDLE_ID": appAttestBundleID,

@@ -23,7 +23,7 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
 
         let request = try XCTUnwrap(recorder.requests.first)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.absoluteString, "http://127.0.0.1:8091/bootstrap/pair-device/window/open")
+        XCTAssertEqual(request.url?.absoluteString, "http://127.0.0.1:8091/bootstrap/local-network-visibility/open")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/cbor")
         // Loopback is the engine's admission check for this route, exactly as
         // for `POST /bootstrap/pair-device/reissue`. No household signature.
@@ -39,11 +39,43 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
             transport: recorder.transport(responding: Self.ackBody(expiresAt: nil))
         )
 
-        _ = try await client.close()
+        let ack = try await client.close()
 
         let request = try XCTUnwrap(recorder.requests.first)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.absoluteString, "http://127.0.0.1:8101/bootstrap/pair-device/window/close")
+        XCTAssertEqual(request.url?.absoluteString, "http://127.0.0.1:8101/bootstrap/local-network-visibility/close")
+        // Close answers `expires_at_unix: null` — present, and null. Reading
+        // that as a protocol violation would make every successful close report
+        // a failure.
+        XCTAssertNil(ack.expiresAt)
+    }
+
+    /// The mismatch an adversarial review caught, and the reason this file no
+    /// longer trusts its own invention: the first version of this client called
+    /// `/bootstrap/pair-device/window/{open,close}` and read `expires_at`,
+    /// while the engine serves `/bootstrap/local-network-visibility/{open,close}`
+    /// and writes `expires_at_unix`. BOTH suites were green — each side pinned
+    /// what it had made up — and the feature was dead end to end, silently,
+    /// because every caller treats a failure as "no Wi-Fi bonus" and carries on.
+    ///
+    /// The engine is a sibling checkout, not a dependency, so a machine without
+    /// it skips rather than fails.
+    func test_theEngineServesTheRoutesThisClientCalls() throws {
+        let engine = try engineSource("local_network_visibility.rs")
+        let client = try coreSource("Bootstrap/BootstrapPairDeviceWindowClient.swift")
+
+        for path in [
+            "/bootstrap/local-network-visibility/open",
+            "/bootstrap/local-network-visibility/close",
+        ] {
+            XCTAssertTrue(client.contains("\"\(path)\""), "the client stopped calling \(path)")
+            XCTAssertTrue(engine.contains("\"\(path)\""), "the engine stopped serving \(path)")
+        }
+        XCTAssertTrue(client.contains("expiresAtKey = \"expires_at_unix\""))
+        XCTAssertTrue(
+            engine.contains("expires_at_unix: Option<u64>"),
+            "the engine renamed or retyped the deadline the client decodes"
+        )
     }
 
     /// The client asks for visibility and nothing else. Minting is
@@ -54,8 +86,8 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
         let source = try coreSource("Bootstrap/BootstrapPairDeviceWindowClient.swift")
         XCTAssertFalse(source.contains("\"/bootstrap/pair-device/reissue\""))
         XCTAssertFalse(source.contains("\"/bootstrap/pair-device-uri\""))
-        XCTAssertTrue(source.contains("static let openPath = \"/bootstrap/pair-device/window/open\""))
-        XCTAssertTrue(source.contains("static let closePath = \"/bootstrap/pair-device/window/close\""))
+        XCTAssertTrue(source.contains("static let openPath = \"/bootstrap/local-network-visibility/open\""))
+        XCTAssertTrue(source.contains("static let closePath = \"/bootstrap/local-network-visibility/close\""))
     }
 
     // MARK: - Open on presentation, close on every exit
@@ -120,6 +152,41 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
         XCTAssertEqual(engine.calls, [])
     }
 
+    /// Dismiss and quit in the same breath. `applicationWillTerminate` runs
+    /// synchronously on the main thread, so the close `end()` queued CANNOT
+    /// run before the process dies — which is why the quit gate has to ask
+    /// "is a window still open at the engine", not "is a sheet on screen".
+    /// Gated on the sheet, this path issued nothing and the home stayed
+    /// discoverable on the Wi-Fi until the engine's TTL ran out.
+    func test_dismissingAndQuittingInTheSameBreathStillClosesTheWindow() async {
+        let engine = VisibilitySpy()
+        let visibility = await LocalNetworkPairingVisibility(requester: engine, sleeper: Self.neverReturns)
+
+        await visibility.begin()
+        await visibility.settle()
+
+        // Both on the main actor with nothing awaited in between, and the
+        // engine read from INSIDE that block: exactly the interleaving AppKit
+        // gives a quit. The queued close never gets a turn, so anything
+        // recorded here was recorded by the quit itself. Reading after the
+        // block would hand the main actor back and let the queue drain — which
+        // a terminating process never does.
+        let recordedDuringQuit = await MainActor.run { () -> [VisibilityCall] in
+            visibility.end()
+            visibility.closeOnTermination()
+            return engine.calls
+        }
+
+        XCTAssertEqual(
+            recordedDuringQuit, [.open, .close],
+            "the quit path never asked the engine to stop being visible"
+        )
+
+        // And the close still sitting in the queue must not fire a second one.
+        await visibility.settle()
+        XCTAssertEqual(engine.calls, [.open, .close])
+    }
+
     // MARK: - Failure is quiet
 
     /// The engine half of this is not merged, so today every call fails with a
@@ -160,6 +227,45 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
 
         XCTAssertEqual(engine.calls, [.open, .open, .open, .open])
         XCTAssertLessThan(LocalNetworkPairingVisibility.defaultRenewInterval, .seconds(60))
+    }
+
+    /// A renewal in flight when the sheet is dismissed. The renewal used to go
+    /// straight to the engine instead of onto the request chain, so the engine
+    /// could answer the close first and the renewal second — re-opening the
+    /// window the person had just dismissed and leaving the home on the Wi-Fi
+    /// for a whole TTL. The close must therefore wait behind the renewal.
+    func test_aCloseNeverOvertakesARenewalThatIsStillInFlight() async {
+        let engine = GatedVisibilitySpy(gateFrom: 2)
+        let sleeps = Counter()
+        let visibility = await LocalNetworkPairingVisibility(
+            requester: engine,
+            renewInterval: .seconds(20),
+            sleeper: { _ in if sleeps.increment() > 1 { throw CancellationError() } }
+        )
+
+        await visibility.begin()
+        // The renewal has reached the engine and is sitting inside the call.
+        // Waiting on the engine rather than on `renewalTask`: a renewal that
+        // talks to the engine from inside the loop never returns while it is
+        // gated, and the test would hang instead of reporting.
+        await engine.waitForOpenStarts(2)
+
+        await visibility.end()
+        // Hand the main actor back several times so anything the close is
+        // free to do, it does. Behind the chain it can do nothing: the
+        // renewal is still inside the engine call.
+        for _ in 0..<5 { await MainActor.run {} }
+        XCTAssertEqual(
+            engine.calls, [.openStarted, .openFinished, .openStarted],
+            "the close overtook a renewal that had not been answered yet"
+        )
+
+        engine.release()
+        await visibility.settle()
+        XCTAssertEqual(
+            engine.calls,
+            [.openStarted, .openFinished, .openStarted, .openFinished, .close]
+        )
     }
 
     // MARK: - The call sites
@@ -227,10 +333,30 @@ final class LocalNetworkPairingVisibilityTests: XCTestCase {
         }
     }
 
+    /// The engine's body field for field
+    /// (`local_network_visibility::VisibilityResponse`): three keys, and on
+    /// close `expires_at_unix` is present AND null — the field is an
+    /// `Option<u64>` with no `skip_serializing_if`, so serde writes the null.
     private static func ackBody(expiresAt: UInt64?) -> Data {
-        var map: [String: HouseholdCBORValue] = ["v": .unsigned(1)]
-        if let expiresAt { map["expires_at"] = .unsigned(expiresAt) }
-        return HouseholdCBOR.encode(.map(map))
+        HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "open": .bool(expiresAt != nil),
+            "expires_at_unix": expiresAt.map { HouseholdCBORValue.unsigned($0) } ?? .null,
+        ]))
+    }
+
+    /// The engine repo, sibling to this one. `THEYOS_REPO` overrides for a
+    /// checkout somewhere else; missing means skip, not fail.
+    private func engineSource(_ fileName: String) throws -> String {
+        let root = ProcessInfo.processInfo.environment["THEYOS_REPO"].map(URL.init(fileURLWithPath:))
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/theyos")
+        let url = root
+            .appendingPathComponent("admin/rust/server-rs/src")
+            .appendingPathComponent(fileName)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw XCTSkip("engine checkout not on this machine: \(url.path)")
+        }
+        return try String(contentsOf: url, encoding: .utf8)
     }
 
     private func macSource(_ relativePath: String) throws -> String {
@@ -299,6 +425,96 @@ private final class VisibilitySpy: LocalNetworkPairingVisibilityRequesting, @unc
         recorded.append(call)
         lock.unlock()
         if let failure { throw failure }
+    }
+}
+
+private enum GatedVisibilityCall: Equatable {
+    case openStarted
+    case openFinished
+    case close
+}
+
+/// A spy that can hold an `open()` inside the engine call, so a test can ask
+/// what the coordinator does while a request is unanswered — which is where
+/// ordering bugs live. `VisibilitySpy` answers instantly and cannot see them.
+private final class GatedVisibilitySpy: LocalNetworkPairingVisibilityRequesting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [GatedVisibilityCall] = []
+    private var opensStarted = 0
+    private var gateWaiters: [CheckedContinuation<Void, Never>] = []
+    private var startWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var released = false
+    private let gateFrom: Int
+
+    /// `gateFrom` is 1-based: the Nth open and every one after it wait.
+    init(gateFrom: Int) {
+        self.gateFrom = gateFrom
+    }
+
+    var calls: [GatedVisibilityCall] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
+    }
+
+    @discardableResult
+    func open() async throws -> BootstrapPairDeviceWindowAck {
+        lock.lock()
+        recorded.append(.openStarted)
+        opensStarted += 1
+        let index = opensStarted
+        let ready = startWaiters.filter { $0.count <= index }
+        startWaiters.removeAll { $0.count <= index }
+        let gated = index >= gateFrom && !released
+        lock.unlock()
+        ready.forEach { $0.continuation.resume() }
+
+        if gated {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                if released {
+                    lock.unlock()
+                    continuation.resume()
+                } else {
+                    gateWaiters.append(continuation)
+                    lock.unlock()
+                }
+            }
+        }
+
+        lock.lock()
+        recorded.append(.openFinished)
+        lock.unlock()
+        return BootstrapPairDeviceWindowAck(version: 1, expiresAt: nil)
+    }
+
+    func close() async throws {
+        lock.lock()
+        recorded.append(.close)
+        lock.unlock()
+    }
+
+    /// Returns once the engine has been asked to open at least `count` times.
+    func waitForOpenStarts(_ count: Int) async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if opensStarted >= count {
+                lock.unlock()
+                continuation.resume()
+            } else {
+                startWaiters.append((count, continuation))
+                lock.unlock()
+            }
+        }
+    }
+
+    func release() {
+        lock.lock()
+        released = true
+        let waiting = gateWaiters
+        gateWaiters.removeAll()
+        lock.unlock()
+        waiting.forEach { $0.resume() }
     }
 }
 
