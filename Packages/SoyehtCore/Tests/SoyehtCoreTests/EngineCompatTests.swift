@@ -79,10 +79,16 @@ final class EngineCompatTests: XCTestCase {
         XCTAssertFalse(EngineCompat.isCompatible("0.0.99"))
     }
 
-    func test_currentReleaseRequiresFirstOwnerPhase3Engine() {
-        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.28")
-        XCTAssertFalse(EngineCompat.isCompatible("0.1.27"), "the release Phase 3 refused on every pre-9ded9731 Mac")
-        XCTAssertTrue(EngineCompat.isCompatible("0.1.28"))
+    /// 0.1.29 is the first engine that admits loopback to
+    /// `bootstrap/initialize` (so first setup works with an iPhone nearby),
+    /// mints owner certificates with a clock allowance, and answers
+    /// `POST /bootstrap/local-network-visibility/{open,close}` — the route the
+    /// Add iPhone sheet calls to put the home on the Wi-Fi. A Mac on 0.1.28
+    /// would call it and get nothing, silently, so the floor moves with it.
+    func test_currentReleaseRequiresTheWiFiPairingEngine() {
+        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.29")
+        XCTAssertFalse(EngineCompat.isCompatible("0.1.28"), "0.1.28 has no local-network-visibility route")
+        XCTAssertTrue(EngineCompat.isCompatible("0.1.29"))
     }
 
     func test_isCompatible_rejectsUnparseableVersion() {

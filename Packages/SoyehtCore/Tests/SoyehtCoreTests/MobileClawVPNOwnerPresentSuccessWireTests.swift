@@ -550,7 +550,13 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
         // shown byte-identical between the vendored copy and the source at the
         // new pin, so the slice's historical evidence is provably unchanged and
         // only the pin moved.
-        #expect(pin == "43a517f0d8b527130ca734e4e1727190e96b04f0")
+        //
+        // Moved to eb96d375 (theyos main at engine 0.1.29) on 2026-09-05. The
+        // ritual was performed: the vendored fixture and
+        // `admin/contracts/mobile-claw-vpn/v1/owner_present_success_wire_v1.json`
+        // at that commit both hash to
+        // 55fe55c6f1985103f21e679c5e6227646035e4d03da3e75193cfc9d1eeb45f8f.
+        #expect(pin == "eb96d37509544a2fe8e2ff69e7f5d9d27b136f79")
     }
 }
 
