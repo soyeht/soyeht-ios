@@ -406,17 +406,29 @@ public struct SetupInvitationExistingHouse: Equatable, Sendable {
 public struct SetupInvitationDirectClaim: Equatable, Sendable {
     public let token: SetupInvitationToken
     public let macEngineURL: URL
+    /// This Mac's address on the local network, when it has one and it is not
+    /// already what `macEngineURL` says. Carried so a phone with no Tailscale
+    /// has somewhere to go: the Mac picks `macEngineURL` by what the MAC has,
+    /// and on a Mac with a tailnet address that is always the tailnet one.
+    /// See `ClaimEngineAddressChoice`, which is where the phone decides.
+    ///
+    /// Optional on the wire in both directions: a Mac built before this sends
+    /// nothing, and a phone built before this ignores the key (the envelope is
+    /// plain JSON with no unknown-key rejection).
+    public let macEngineLocalNetworkURL: URL?
     public let macLocalPairing: SetupInvitationMacLocalPairing?
     public let existingHouse: SetupInvitationExistingHouse?
 
     public init(
         token: SetupInvitationToken,
         macEngineURL: URL,
+        macEngineLocalNetworkURL: URL? = nil,
         macLocalPairing: SetupInvitationMacLocalPairing? = nil,
         existingHouse: SetupInvitationExistingHouse? = nil
     ) {
         self.token = token
         self.macEngineURL = macEngineURL
+        self.macEngineLocalNetworkURL = macEngineLocalNetworkURL
         self.macLocalPairing = macLocalPairing
         self.existingHouse = existingHouse
     }
@@ -442,6 +454,7 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         let envelope = Envelope(
             token: PairingCrypto.base64URLEncode(token.bytes),
             macEngineURL: macEngineURL.absoluteString,
+            macEngineLocalNetworkURL: macEngineLocalNetworkURL?.absoluteString,
             macLocalPairing: localPairing,
             existingHouse: existingHouse
         )
@@ -498,9 +511,14 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         } else {
             existingHouse = nil
         }
+        // A malformed LAN address is dropped, never fatal: it is a bonus
+        // address, and refusing the whole claim over it would cost the phone
+        // the Mac it was waiting for.
+        let localNetworkURL = envelope.macEngineLocalNetworkURL.flatMap(URL.init(string:))
         return SetupInvitationDirectClaim(
             token: token,
             macEngineURL: url,
+            macEngineLocalNetworkURL: localNetworkURL,
             macLocalPairing: localPairing,
             existingHouse: existingHouse
         )
@@ -520,12 +538,14 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
     private struct Envelope: Codable {
         let token: String
         let macEngineURL: String
+        let macEngineLocalNetworkURL: String?
         let macLocalPairing: MacLocalPairingEnvelope?
         let existingHouse: ExistingHouseEnvelope?
 
         enum CodingKeys: String, CodingKey {
             case token
             case macEngineURL = "mac_engine_url"
+            case macEngineLocalNetworkURL = "mac_engine_lan_url"
             case macLocalPairing = "mac_local_pairing"
             case existingHouse = "existing_house"
         }

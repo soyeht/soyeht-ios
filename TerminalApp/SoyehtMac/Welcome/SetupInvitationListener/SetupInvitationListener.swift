@@ -81,6 +81,10 @@ final class SetupInvitationListener: @unchecked Sendable {
                 claim: SetupInvitationDirectClaim(
                     token: hit.payload.token,
                     macEngineURL: macEngineURL,
+                    macEngineLocalNetworkURL: SetupInvitationDirectProbe.localNetworkMacEngineURL(
+                        localEngineBaseURL: engineBaseURL,
+                        advertised: macEngineURL
+                    ),
                     macLocalPairing: localPairing,
                     existingHouse: existingHouse
                 )
@@ -342,6 +346,25 @@ private enum SetupInvitationDirectProbe {
     /// falls through to Wi-Fi and the engine rejects with `tailnet_required`.
     static func reachableMacEngineURL(localEngineBaseURL: URL) -> URL {
         MacEngineAdvertisedURL.current(localEngineBaseURL: localEngineBaseURL)
+    }
+
+    /// This Mac's address on the local network, carried ALONGSIDE the one
+    /// above so a phone with no Tailscale has somewhere to go.
+    ///
+    /// `reachableMacEngineURL` chooses by what this MAC has, and on a Mac with
+    /// a tailnet address it always answers the tailnet one — over a Wi-Fi
+    /// socket, to a phone that may have no route to 100.64/10. Only the phone
+    /// knows what it can reach, so it gets both and decides
+    /// (`ClaimEngineAddressChoice`). Nil when this Mac has no LAN address, or
+    /// when the LAN address is already what the claim advertises.
+    static func localNetworkMacEngineURL(localEngineBaseURL: URL, advertised: URL) -> URL? {
+        guard let lan = MacEngineAdvertisedURL.lanIPv4Addresses().first else { return nil }
+        let port = localEngineBaseURL.port ?? EndpointPolicy.defaultBootstrapPort()
+        guard let url = EndpointPolicy.bootstrapStatusBaseURL(forHost: "\(lan):\(port)"),
+              url != advertised else {
+            return nil
+        }
+        return url
     }
 
     static func notifyClaimed(iphoneBaseURL: URL, claim: SetupInvitationDirectClaim) async throws {

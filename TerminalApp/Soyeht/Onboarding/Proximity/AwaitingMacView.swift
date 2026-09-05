@@ -567,6 +567,29 @@ final class AwaitingMacViewModel: ObservableObject {
                     )
                     return
                 }
+                // The Mac picks the address it advertises by what the MAC
+                // has, so a Mac on a tailnet always says "dial 100.x" — even
+                // to a phone with no Tailscale, over the Wi-Fi socket this
+                // claim just arrived on. Only this side knows what it can
+                // reach, so it chooses between the two the claim carries.
+                let chosen = ClaimEngineAddressChoice.choose(
+                    advertised: claim.macEngineURL,
+                    localNetwork: claim.macEngineLocalNetworkURL,
+                    phoneHasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil
+                )
+                awaitingMacLogger.info(
+                    "claim.engine_address reason=\(chosen.reason.rawValue, privacy: .public) chosen=\(chosen.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
+                )
+                // The second address gets the same admission as the first: it
+                // is carried in the same claim by the same peer, and a build
+                // filter that only covered one of them would be no filter.
+                guard Self.engineURLMatchesCurrentInstallProfile(chosen.url) else {
+                    awaitingMacLogger.info(
+                        "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(chosen.url.port.map(String.init) ?? "<nil>", privacy: .public)"
+                    )
+                    return
+                }
+                let engineURL = chosen.url
                 if self.alreadyFound {
                     self.acceptLateClaim(claim)
                     return
@@ -576,13 +599,13 @@ final class AwaitingMacViewModel: ObservableObject {
                     self.alreadyFound = true
                     self.presentExistingHouse(
                         existingHouse,
-                        engineURL: claim.macEngineURL,
+                        engineURL: engineURL,
                         deferredLocalPairing: claim.macLocalPairing
                     )
                     return
                 }
                 await self.resolveDiscoveredMac(
-                    engineURL: claim.macEngineURL,
+                    engineURL: engineURL,
                     claimToken: self.tokenBytes,
                     localPairing: claim.macLocalPairing
                 )
