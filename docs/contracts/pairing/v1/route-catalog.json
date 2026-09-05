@@ -1,0 +1,227 @@
+{
+  "version": 1,
+  "service": "household_pairing",
+  "purpose": "Inventory for executable cross-repository checks; not wire response fixtures.",
+  "completion_rule": "Every listed route must have producer-to-consumer execution coverage before slice 3 is accepted. Planned does not mean skip.",
+  "installations": {
+    "release": {
+      "bootstrap_port": 8091
+    },
+    "dev": {
+      "bootstrap_port": 8101
+    }
+  },
+  "owner_capability_states": [
+    "no_session",
+    "identity_mismatch",
+    "no_key",
+    "needs_authentication",
+    "proven",
+    "error"
+  ],
+  "invariants": [
+    "tailnet_capable_phone_keeps_tailnet_through_persistence",
+    "phone_without_tailnet_can_pair_over_lan",
+    "profile_mismatch_has_no_claim_or_notification_side_effect",
+    "missing_profile_has_no_automatic_claim",
+    "failed_claim_is_never_a_successful_notification",
+    "operation_admission_is_distinct_from_bind",
+    "engine_bound_snapshot_tracks_listener_lifetime",
+    "awaiting_approval_has_a_named_approver_and_terminal_outcome",
+    "interaction_not_allowed_is_never_no_key",
+    "device_count_never_grants_owner_authority",
+    "administrative_selectors_do_not_choose_household_destinations"
+  ],
+  "routes": [
+    {
+      "id": "invitation.get",
+      "method": "GET",
+      "path": "/setup-invitation",
+      "server": "iphone",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
+      "rust_source": "admin/rust/server-rs/src/setup_invitation.rs",
+      "planned_route": false
+    },
+    {
+      "id": "invitation.verify",
+      "method": "POST",
+      "path": "/setup/verify",
+      "server": "iphone",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
+      "rust_source": "admin/rust/server-rs/src/setup_invitation.rs",
+      "planned_route": false
+    },
+    {
+      "id": "invitation.notify",
+      "method": "POST",
+      "path": "/setup-invitation/claimed",
+      "server": "iphone",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
+      "rust_source": null,
+      "planned_route": false
+    },
+    {
+      "id": "bootstrap.claim",
+      "method": "POST",
+      "path": "/bootstrap/claim-setup-invitation",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationClaimClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "bootstrap.status",
+      "method": "GET",
+      "path": "/bootstrap/status",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapStatusClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.addresses",
+      "method": "GET",
+      "path": "/bootstrap/pairing-addresses",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": null,
+      "rust_source": null,
+      "planned_route": true
+    },
+    {
+      "id": "visibility.open",
+      "method": "POST",
+      "path": "/bootstrap/local-network-visibility/open",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceWindowClient.swift",
+      "rust_source": "admin/rust/server-rs/src/local_network_visibility.rs",
+      "planned_route": false
+    },
+    {
+      "id": "visibility.close",
+      "method": "POST",
+      "path": "/bootstrap/local-network-visibility/close",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceWindowClient.swift",
+      "rust_source": "admin/rust/server-rs/src/local_network_visibility.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.uri",
+      "method": "GET",
+      "path": "/bootstrap/pair-device-uri",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceURIClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.uri_by_code",
+      "method": "POST",
+      "path": "/bootstrap/pair-device-uri/by-code",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": null,
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.reissue",
+      "method": "POST",
+      "path": "/bootstrap/pair-device/reissue",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": null,
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "bootstrap.initialize",
+      "method": "POST",
+      "path": "/bootstrap/initialize",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapInitializeClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.first_owner",
+      "method": "POST",
+      "path": "/api/v1/household/pair-device/confirm",
+      "server": "engine",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdPairingService.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_pair_device.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.request",
+      "method": "POST",
+      "path": "/api/v1/household/device-pairing/request",
+      "server": "engine",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.poll",
+      "method": "GET",
+      "path": "/api/v1/household/device-pairing/{request_id}",
+      "server": "engine",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.requests",
+      "method": "GET",
+      "path": "/api/v1/household/device-pairing/requests",
+      "server": "engine",
+      "response_content_type": "application/json",
+      "swift_source": null,
+      "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
+      "planned_route": false
+    },
+    {
+      "id": "pairing.approve",
+      "method": "POST",
+      "path": "/api/v1/household/device-pairing/approve",
+      "server": "engine",
+      "response_content_type": "application/json",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
+      "planned_route": false
+    },
+    {
+      "id": "bootstrap.accept_household",
+      "method": "POST",
+      "path": "/bootstrap/accept-household",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapAcceptHouseholdClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    },
+    {
+      "id": "bootstrap.accept_household_confirm",
+      "method": "POST",
+      "path": "/bootstrap/accept-household/confirm",
+      "server": "engine",
+      "response_content_type": "application/cbor",
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapAcceptHouseholdConfirmClient.swift",
+      "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
+      "planned_route": false
+    }
+  ]
+}
