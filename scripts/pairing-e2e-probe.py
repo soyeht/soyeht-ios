@@ -233,6 +233,50 @@ def inv_first_phone(t: Transcript, household_devices: int | None) -> Finding:
     return Finding("FIRST-PHONE", "pass", "o primeiro iPhone entrou sem terceiro")
 
 
+# Os seis estados de capacidade de assinatura do dono, do adendo G do [jaime].
+# A distinção que importa: uma chave que EXISTE mas exige desbloqueio não é
+# "não tenho chave". Confundir os dois é o que faria a tela dizer ao dono que
+# ele perdeu a casa quando bastava um Touch ID — e é a mesma família do
+# `errSecInternalComponent` que me mordeu hoje nas panes sem sessão gráfica.
+OWNER_CAPABILITY_STATES = {
+    "no_session",           # este Mac não guarda sessão de casa nenhuma
+    "identity_mismatch",    # guarda sessão, mas de outra casa
+    "no_key",               # sessão certa, chave do dono ausente de verdade
+    "needs_authentication", # chave presente; assinar exige gesto do dono
+    "proven",               # assinatura produzida e verificada contra o cert
+    "error",                # falhou por outro motivo, com o motivo junto
+}
+
+_INTERACTION_DENIED = re.compile(
+    r"interaction[_ -]?not[_ -]?allowed|errSecInteractionNotAllowed|-25308"
+    r"|user interaction is not allowed|errSecAuthFailed|LAError",
+    re.IGNORECASE,
+)
+
+
+def inv_capability_honest(t: Transcript) -> Finding:
+    """O Mac diz o que consegue, e nunca chama "bloqueado" de "não tenho".
+
+    Sem isto, G volta pro beco por outro caminho: a tela diria "preciso do
+    iPhone que tem a chave" para um dono cuja chave está ali, atrás de um
+    desbloqueio que ninguém pediu.
+    """
+    lines = t.mac_grep("owner_capability=")
+    if not lines:
+        return Finding("CAPABILITY-HONEST", "n/a",
+                       "o Mac não declarou capacidade nesta corrida")
+    m = re.search(r"owner_capability=(\w+)", lines[0])
+    state = m.group(1) if m else "<ilegível>"
+    if state not in OWNER_CAPABILITY_STATES:
+        return Finding("CAPABILITY-HONEST", "fail",
+                       f"estado fora do contrato: {state}")
+    if state == "no_key" and any(_INTERACTION_DENIED.search(l) for l in lines):
+        return Finding("CAPABILITY-HONEST", "fail",
+                       "disse no_key quando a causa era desbloqueio negado; "
+                       "isso manda o dono apagar uma casa que ele ainda controla")
+    return Finding("CAPABILITY-HONEST", "pass", f"declarou {state}")
+
+
 def judge(t: Transcript, phone_has_tailnet: bool,
           household_devices: int | None) -> list[Finding]:
     return [
@@ -242,6 +286,7 @@ def judge(t: Transcript, phone_has_tailnet: bool,
         inv_profile_isolated(t),
         inv_no_spinner(t),
         inv_first_phone(t, household_devices),
+        inv_capability_honest(t),
     ]
 
 
@@ -365,6 +410,21 @@ BAD_CROSS_PROFILE = Transcript(
 )
 
 
+GOOD_CAPABILITY_LOCKED = Transcript(
+    mac=["owner_capability=needs_authentication reason=user-presence-required",
+         "approval.offer shown=Aprovar neste Mac — desbloqueio necessário"],
+    phone=["pair.result=awaiting_owner_approval"],
+    engine=[],
+)
+
+BAD_CAPABILITY_LIES = Transcript(
+    mac=["owner_capability=no_key cause=errSecInteractionNotAllowed",
+         "approval.offer shown=preciso do iPhone que tem a chave"],
+    phone=["pair.result=failed"],
+    engine=[],
+)
+
+
 def self_test() -> int:
     """Cada caso diz qual invariante TEM que dar o quê. Um verde que não
     consegue ficar vermelho não é evidência de nada."""
@@ -382,6 +442,10 @@ def self_test() -> int:
          {"FIRST-PHONE": "fail", "NO-SPINNER": "fail"}),
         ("ruim, perfil cruzado", BAD_CROSS_PROFILE, True, 2,
          {"PROFILE-ISOLATED": "fail"}),
+        ("boa, chave presente mas trancada", GOOD_CAPABILITY_LOCKED, True, 1,
+         {"CAPABILITY-HONEST": "pass"}),
+        ("ruim, chamou trancado de ausente", BAD_CAPABILITY_LIES, True, 1,
+         {"CAPABILITY-HONEST": "fail"}),
     ]
     failures = 0
     for label, transcript, has_tailnet, devices, expected in cases:
