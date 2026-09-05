@@ -30,6 +30,18 @@ final class PairingAddressPolicyTests: XCTestCase {
         XCTAssertEqual(decision.reason, .tailnetOnBothEnds)
     }
 
+    func test_unknownTailnetCapabilityDoesNotLetReachedLANReplaceTailnet() throws {
+        for candidates in [[candidate(lan), candidate(tailnet)], [candidate(tailnet), candidate(lan)]] {
+            let decision = try choose(offer(candidates), tailnet: nil, reached: [lan])
+            XCTAssertEqual(decision.url, tailnet)
+            XCTAssertEqual(decision.reason, .advertised)
+        }
+    }
+
+    func test_unknownTailnetCapabilityCanStillUseAnOfferWithOnlyLAN() throws {
+        XCTAssertEqual(try choose(offer([candidate(lan)]), tailnet: nil, reached: [lan]).url, lan)
+    }
+
     func test_pureWiFiCanPairEvenWhenTheMacAlsoHasTailnet() throws {
         let decision = try choose(offer([candidate(tailnet), candidate(lan)]), tailnet: false)
         XCTAssertEqual(decision.url, lan)

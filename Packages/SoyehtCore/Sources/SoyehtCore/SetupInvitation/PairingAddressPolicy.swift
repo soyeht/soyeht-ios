@@ -238,7 +238,9 @@ public enum PairingAddressPolicy {
 
     private static func rank(_ candidate: PairingAddressCandidate,
                              phone: PhoneNetworkEvidence) -> Int {
-        if candidate.transport == .tailnet, phone.hasTailnetAddress == true { return 0 }
+        // Unknown capability is not evidence that the durable route is
+        // unavailable. Do not let an earlier LAN exchange silently replace it.
+        if candidate.transport == .tailnet, phone.hasTailnetAddress != false { return 0 }
         if phone.reachedEndpoints.contains(candidate.url) { return 1 }
         switch candidate.transport {
         case .tailnet: return 2
