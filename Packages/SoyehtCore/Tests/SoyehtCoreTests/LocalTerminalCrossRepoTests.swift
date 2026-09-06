@@ -10,15 +10,21 @@ import Testing
     func crossRepoLocalTerminal() throws {
         let directory = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["SOYEHT_TERMINAL_CONTRACT_DIR"]))
         let stage = try #require(ProcessInfo.processInfo.environment["SOYEHT_TERMINAL_CONTRACT_STAGE"])
+        let issued = try JSONDecoder().decode(SoyehtAPIClient.LocalTerminalIntent.self,
+            from: Data(contentsOf: directory.appendingPathComponent("issued.json")))
+        #expect(issued.backend == "supervisor")
+        #expect(issued.conversationId == "supervised-pane")
+        let issuedID = try #require(issued.intentId)
+        #expect(UUID(uuidString: issuedID) != nil)
         if stage == "encode" {
             let request = SoyehtAPIClient.LocalTerminalCreateRequest(
                 conversationId: "supervised-pane", argv: ["/bin/bash", "--noprofile", "--norc", "-i"],
                 cwd: "/tmp", env: ["PS1": "", "PATH": "/usr/bin:/bin"], cols: 80, rows: 24,
-                intentId: "00000000-0000-4000-8000-000000000001"
+                intentId: issuedID
             )
-            try JSONEncoder().encode(request).write(to: directory.appendingPathComponent("request.json"))
             let input = TerminalWireFrame.Input(data: "printf '\\143\\162\\157\\163\\163\\055\\142\\157\\165\\156\\144\\141\\162\\171\\055\\157\\153\\n'\n")
-            try TerminalWireFrame.encoder.encode(input).write(to: directory.appendingPathComponent("input.json"))
+            try TerminalWireFrame.encoder.encode(input).write(to: directory.appendingPathComponent("input.json"), options: .atomic)
+            try JSONEncoder().encode(request).write(to: directory.appendingPathComponent("request-ready.json"), options: .atomic)
             return
         }
         #expect(stage == "decode")
@@ -34,7 +40,7 @@ import Testing
         #expect(response.created.backend == "supervisor")
         #expect(response.created.streamProtocol == LocalTerminalStream.version)
         #expect(!response.created.reconnected)
-        #expect(response.created.intentId == "00000000-0000-4000-8000-000000000001")
+        #expect(response.created.intentId == issuedID)
         #expect(response.restored.sessionInstanceId == instance)
         #expect(response.restored.isConnected)
         let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])

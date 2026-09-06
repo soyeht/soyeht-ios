@@ -22,6 +22,7 @@ extension SoyehtAPIClient {
         case instanceMismatch
         case incompatibleProtocol
         case stateNotSaved
+        case intentExpired
         case rejected(code: String)
 
         public var errorDescription: String? {
@@ -32,6 +33,7 @@ extension SoyehtAPIClient {
             case .instanceMismatch: String(localized: "terminal.failure.changed", defaultValue: "The terminal session has changed.", bundle: .module)
             case .incompatibleProtocol: String(localized: "terminal.failure.incompatible", defaultValue: "The terminal components need compatible versions.", bundle: .module)
             case .stateNotSaved: String(localized: "terminal.failure.stateNotSaved", defaultValue: "The terminal session could not be saved.", bundle: .module)
+            case .intentExpired: String(localized: "terminal.failure.intentExpired", defaultValue: "This terminal request has expired. Open a new terminal to continue.", bundle: .module)
             case .rejected: String(localized: "terminal.failure.rejected", defaultValue: "The terminal service could not complete this operation.", bundle: .module)
             }
         }
@@ -209,6 +211,36 @@ extension SoyehtAPIClient {
         try checkLocalTerminalResponse(response, data: data)
     }
 
+    public struct LocalTerminalIntent: Decodable, Sendable {
+        public let conversationId: String
+        public let intentId: String?
+        public let backend: String
+        enum CodingKeys: String, CodingKey {
+            case conversationId = "conversation_id", intentId = "intent_id", backend
+        }
+    }
+
+    /// Issuance can be retried safely: it never executes a command. Persist
+    /// the returned ticket before submitting CREATE, whose retry is different.
+    public func issueLocalTerminalIntent(conversationId: String, context: ServerContext) async throws -> LocalTerminalIntent {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/local/\(conversationId)/intents")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        context.server.kind.applyAuth(to: &request, token: context.token)
+        let (data, response) = try await session.data(for: request)
+        try checkLocalTerminalResponse(response, data: data)
+        let result = try JSONDecoder().decode(LocalTerminalIntent.self, from: data)
+        guard result.conversationId == conversationId else { throw LocalTerminalFailure.instanceMismatch }
+        switch result.backend {
+        case "supervisor":
+            guard let id = result.intentId, UUID(uuidString: id) != nil else { throw LocalTerminalFailure.incompatibleProtocol }
+        case "legacy":
+            guard result.intentId == nil else { throw LocalTerminalFailure.incompatibleProtocol }
+        default: throw LocalTerminalFailure.incompatibleProtocol
+        }
+        return result
+    }
+
     /// Read-only restoration: never execute a launch command as a response
     /// to a missing session or a temporarily unavailable engine.
     public func restoreLocalTerminal(conversationId: String, sessionInstanceId: String, context: ServerContext) async throws -> LocalTerminalCreateResponse {
@@ -240,7 +272,8 @@ extension SoyehtAPIClient {
         switch code {
         case "supervisor_protocol_mismatch", "local_backend_mismatch": throw LocalTerminalFailure.incompatibleProtocol
         case "instance_mismatch", "session_instance_required": throw LocalTerminalFailure.instanceMismatch
-        case "session_closed", "intent_consumed": throw LocalTerminalFailure.sessionEnded
+        case "session_closed": throw LocalTerminalFailure.sessionEnded
+        case "intent_expired", "intent_consumed": throw LocalTerminalFailure.intentExpired
         case "session_not_found": throw LocalTerminalFailure.sessionMissing
         case "supervisor_unavailable", "storage_unavailable", "registry_unavailable": throw LocalTerminalFailure.unavailable
         default: throw LocalTerminalFailure.rejected(code: code)

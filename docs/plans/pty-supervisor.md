@@ -319,8 +319,11 @@ descarta só a cauda incompleta, e retenção que remove segmentos fechados em v
 de deslocar bytes válidos in-place. O F4 endurece e testa; ele não pode ser o
 lugar onde a garantia nasce.
 
-E a garantia precisa ser dita com precisão: **morte do processo ≠ queda de
-energia**. `write_all` aceito não é durabilidade no dispositivo (`sync_all`).
+Para o scrollback, **morte do processo ≠ queda de energia**: `write_all` aceito
+não é durabilidade no dispositivo. Tickets de execução têm contrato mais forte:
+registro consumido sincronizado, rename e diretório sincronizado antes de spawn
+ou confirmação de cancelamento. Os detalhes e os limites físicos conjuntos
+estão em `pty-supervisor-f1-design.md`; não há sincronização por byte de saída.
 
 ### F5 — A virada em produção
 Ver §5.

@@ -80,7 +80,31 @@ enum EnginePaneAttacher {
         guard convStore.conversation(conversation.id)?.commander == current.commander else {
             return .preserved(retryable: false, message: SoyehtAPIClient.LocalTerminalFailure.instanceMismatch.localizedDescription)
         }
-        let creationIntent = current.commander.engineCreationIntentID ?? UUID().uuidString
+        var issuedIntent = current.commander.engineCreationIntentID
+        var refreshedForIssuance = false
+        while expectedInstance == nil && issuedIntent == nil {
+            do {
+                let issued = try await SoyehtAPIClient.shared.issueLocalTerminalIntent(conversationId: conversation.id.uuidString, context: context)
+                // The explicit legacy backend does not consume tickets. Keep
+                // its pending-request marker without impersonating issuance.
+                issuedIntent = issued.intentId ?? UUID().uuidString
+            } catch {
+                if !refreshedForIssuance, isAuthenticationRejection(error) {
+                    refreshedForIssuance = true
+                    LocalEngineContext.invalidateVerification(context)
+                    if case .resolved(let refreshed) = await LocalEngineContext.resolveDetailed() {
+                        context = refreshed
+                        continue
+                    }
+                }
+                logger.error("terminal intent issuance failed cause=\(String(describing: error), privacy: .public)")
+                return unresolved(isTransient(error))
+            }
+        }
+        guard convStore.conversation(conversation.id)?.commander == current.commander else {
+            return .preserved(retryable: false, message: SoyehtAPIClient.LocalTerminalFailure.instanceMismatch.localizedDescription)
+        }
+        let creationIntent = issuedIntent ?? UUID().uuidString
         let request = EnginePaneSpawnRequestBuilder.makeCreateRequest(
             conversation: conversation,
             cwd: cwd,

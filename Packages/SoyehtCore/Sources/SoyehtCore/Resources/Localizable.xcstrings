@@ -1,6 +1,113 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "terminal.failure.intentExpired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This terminal request has expired. Open a new terminal to continue."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido de terminal expirou. Abra um novo terminal para continuar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido de terminal expirou. Abra um novo terminal para continuar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta solicitud de terminal ha caducado. Abre un nuevo terminal para continuar."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Terminalanfrage ist abgelaufen. Öffne ein neues Terminal, um fortzufahren."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette demande de terminal a expiré. Ouvrez un nouveau terminal pour continuer."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия этого запроса терминала истёк. Откройте новый терминал, чтобы продолжить."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permintaan terminal ini telah kedaluwarsa. Buka terminal baru untuk melanjutkan."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انتهت صلاحية طلب الطرفية هذا. افتح طرفية جديدة للمتابعة."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اس ٹرمینل کی درخواست کی مدت ختم ہو گئی ہے۔ جاری رکھنے کے لیے نیا ٹرمینل کھولیں۔"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このターミナル要求は期限切れです。続行するには新しいターミナルを開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 터미널 요청이 만료되었습니다. 계속하려면 새 터미널을 여세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此终端请求已失效。请打开新终端以继续。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस टर्मिनल अनुरोध की अवधि समाप्त हो गई है। जारी रखने के लिए नया टर्मिनल खोलें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या टर्मिनल विनंतीची मुदत संपली आहे. पुढे जाण्यासाठी नवीन टर्मिनल उघडा."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ టెర్మినల్ అభ్యర్థన గడువు ముగిసింది. కొనసాగడానికి కొత్త టెర్మినల్‌ను తెరవండి."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই টার্মিনাল অনুরোধের মেয়াদ শেষ হয়েছে। চালিয়ে যেতে একটি নতুন টার্মিনাল খুলুন।"
+          }
+        }
+      }
+    },
     "terminal.failure.unavailable": {
       "extractionState": "manual",
       "localizations": {

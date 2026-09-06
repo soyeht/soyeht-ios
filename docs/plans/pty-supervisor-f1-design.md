@@ -123,45 +123,84 @@ fallback silencioso que selecione a instância atual para um DELETE antigo.
   idempotência da intenção + tombstone com prazo documentado. "Reanexar à
   instância esperada" e "criar nova execução" são operações diferentes.
 
-### Contrato inicial do F1b
+### Contrato de criação — F4a, protocolo UDS versão 2
 
-`intent_id` é UUID de uma intenção de criação, congelada com argv/cwd/env e
-dimensões iniciais. Repetir a mesma intenção viva devolve a mesma instância;
-alterar os parâmetros devolve `intent_mismatch`. Depois do fim ou de um
-restart do supervisor, a intenção consumida não executa novamente.
+O supervisor emite `intent_id` por `IssueIntent`. Não aceita UUID escolhido
+pelo cliente como autorização de CREATE. Emitir não executa nada: perder a
+resposta pode desperdiçar uma reserva, mas nunca duplica um comando.
+O app recebe o ticket, persiste a intenção com argv/cwd/env e dimensões antes
+do POST, e não troca esse ticket automaticamente após uma resposta incerta.
 
-A reserva da intenção é persistida antes do spawn. Nesta primeira versão os
-tombstones não expiram: há teto explícito de 4096 intenções e recusa
-`intent_limit` ao atingir o teto. GC que permita reutilizar uma intenção antiga
-não será introduzido implicitamente. Essa política precisa ser reavaliada com
-a matriz de limites do F4 antes da ativação em produção.
+Repetir uma intenção viva devolve a mesma instância; alterar seus parâmetros
+devolve `intent_mismatch`. CREATE só aceita um registro previamente emitido.
+Registro ausente, coletado ou perdido não volta a autorizar execução:
+`intent_expired` é definitivo. Registro consumido, legado ou corrompido também
+não executa. O app oferece erro que pede uma nova sessão deliberada; não
+reinterpreta expiração como prova de que nenhum comando chegou a rodar.
 
-**Gate obrigatório de F4:** o teto de 4096 é de vida inteira nesta fatia,
-inclusive após restart; não é uma política aceitável para produção. CREATE e
-cancelamento da mesma intenção gastam uma reserva, não duas. A política final
-deve limitar armazenamento sem voltar a aceitar CREATE antigo: expirar apenas
-o tombstone por TTL ou apagar o log da conversa reabre execução atrasada.
-Qualquer GC exige uma validade de criação verificável mesmo após remover a
-reserva (por exemplo, ticket com prazo/época emitido pelo supervisor). Medir
-mais de 4096 criações/cancelamentos sem restart e provar que um pedido antigo
-continua recusado são pré-condições de F5.
+A transição para `consumed` ocorre sob a trava do registro, antes do spawn:
+grava `.next`, sincroniza o arquivo, renomeia e sincroniza o diretório **depois**
+da troca. Qualquer erro impede spawn, inclusive erro após rename. `sync_all`
+na plataforma Apple usa `F_FULLFSYNC`. A garantia depende de filesystem e
+dispositivo honrarem a barreira; os testes dirigidos provam ordem e recusa,
+não uma queda física de energia. Isso é mais forte que o contrato do scrollback,
+que não paga sincronização por registro de saída.
+
+Há no máximo 4096 tickets armazenados. Ao atingir o limite, a emissão coleta
+os mais antigos até liberar um oitavo do orçamento, excluindo tickets de
+sessões vivas. Idade só decide a vítima; nenhum relógio pode restaurar uma
+autorização ausente. A recolha sincroniza o diretório antes de confirmar.
+Se todas as reservas forem protegidas, há recusa explícita, sem reiniciar o
+supervisor. CREATE e cancelar o mesmo ticket continuam usando uma reserva.
+
+O elo sessão/intenção vive no registro do supervisor enquanto a sessão existe.
+A garantia é sobreviver à troca do **engine**. Reiniciar o próprio supervisor
+não readota PTYs e não preserva sessões; tickets consumidos continuam impedindo
+reexecução após esse reinício.
 
 `CancelCreate(conversation_id, intent_id)` é distinto de CLOSE por instância.
-Reserva o tombstone sob a mesma trava de CREATE, antes de responder. É
-idempotente, inclusive quando nunca houve CREATE; se a intenção já criou um
-processo, fecha apenas esse processo, nunca uma instância nova da conversa.
+Sincroniza `consumed` sob a mesma trava de CREATE antes de responder, em vez de
+usar unlink como confirmação de revogação. Ausente, corrompido e legado são
+sucesso idempotente; erro real de leitura ou conversa divergente continuam erro.
+Se existe sessão com esse ticket no registro, fecha somente ela, mesmo se o
+arquivo já não existir. Nunca seleciona uma nova instância da conversa.
 O cancelamento impede sobrevivência e execução posterior daquela intenção;
 não desfaz efeitos de inicialização que ocorreram antes dele.
+
+A mudança exige UDS versão 2: incompatibilidade no handshake é erro de protocolo,
+sem retry. O gate cruzado começa pela emissão HTTP real no Rust; Swift usa essa
+resposta para construir o CREATE e os frames de teclado que Rust executa.
 
 O stream de attach é dedicado à saída. WRITE/RESIZE/CLOSE usam conexão de
 comandos e identificam a instância. ACK perdido de WRITE é resultado incerto:
 o cliente não repete automaticamente a escrita. EOF não equivale a EXIT.
 `ReplayRead::Gap` não contém bytes; o transporte envia GAP antes de avançar.
 
-Disco indisponível durante append mantém, por ora, a política explícita do
-PTY existente: encerra a sessão e informa `log_write_failed`. Retenção falha
-é diagnosticada separadamente e não encerra sessão. São falhas distintas da
-troca do engine; F4 precisa exercitá-las antes do aceite final.
+Disco indisponível durante append encerra a sessão e informa `log_write_failed`.
+Retenção falha é diagnosticada separadamente e não encerra sessão. O ensaio
+dirigido recusa a criação do próximo segmento, confere EXIT com o offset exato
+dos bytes gravados e reabre o log preservando esse prefixo.
+
+### Orçamentos físicos de F4
+
+Cada log protegido retém até 32 MiB; segmentos têm alvo de 512 KiB físico.
+Há 64 posições de sessão, incluindo instâncias encerradas ainda drenando ou
+servindo replay. Arquivos coletáveis têm orçamento separado de 256 MiB e
+64 instâncias. Portanto o conteúdo de log gerenciado ocupa até **2,25 GiB**,
+mais tickets/metadados e a escrita transitória de um registro por log.
+Isso não é uma quota de filesystem nem conta conteúdo externo ao formato.
+
+A coleta roda antes de nova execução e a cada 60 segundos, inclusive ocioso.
+Protege as instâncias no registro e a trava real do escritor. Layout desconhecido
+fica preservado, fora da coleta e de seu orçamento, com `ptyd.archive.unmanaged`;
+uma pasta inesperada não é tratada como falha transitória de disco. Erro real
+de E/S impede nova execução sem encerrar as sessões existentes.
+
+Ensaios com o daemon: 80 instâncias encerradas deixam 64 arquivos de instância,
+preservando o shell vivo; um leitor que não consome não impede 40 MiB de saída,
+a retenção física fica em 32 MiB e reattach recebe GAP antes dos bytes restantes.
+Os testes do podador usam o tamanho dos arquivos e verificam separadamente
+proteção por registro, por flock e isolamento de layout desconhecido.
 
 ---
 
@@ -193,4 +232,10 @@ O teste do adapter recria o servidor HTTP mantendo o daemon e a identidade
 da sessão; não mata o processo completo do engine. O ensaio de cancelamento
 exercita as duas ordens, repetição e intent antigo diante de instância nova.
 Ainda faltam F0 completo (TUI/job e morte real do engine), ciclo de vida
-launchd, limite/GC de F4 e migração de sessões legadas para o aceite final.
+launchd e migração de sessões legadas para o aceite final. Os limites/GC de
+F4 descritos acima já têm ensaios locais, sem ativação do backend instalado.
+
+Antes de entregar o supervisor como componente instalado, seus eventos precisam
+entrar no diagnóstico coletado com procedência verificada. A lista governada
+`scripts/ci/engine-safe-stages.txt` cobre hoje o engine; não se presume que ela
+inclua `ptyd.archive.unmanaged` ou os demais eventos do novo processo.

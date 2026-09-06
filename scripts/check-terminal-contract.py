@@ -3,9 +3,11 @@
 import argparse
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 
 
 def run(command, cwd, env, expected, should_fail=False):
@@ -15,6 +17,51 @@ def run(command, cwd, env, expected, should_fail=False):
     if (result.returncode == 0) == should_fail or expected not in result.stdout:
         print(result.stdout)
         raise SystemExit("FAIL: command failed or the required test did not pass")
+
+
+def rust_exchange(command, rust, swift_command, swift, env, directory, defect=None):
+    for name in ("issued.json", "request.json", "request-ready.json", "input.json", "response.json"):
+        (directory / name).unlink(missing_ok=True)
+    with tempfile.TemporaryFile(mode="w+") as output:
+        process = subprocess.Popen(command, cwd=rust, env=env, text=True,
+                                   stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            deadline = time.monotonic() + 900
+            while not (directory / "issued.json").is_file():
+                if process.poll() is not None or time.monotonic() > deadline:
+                    output.seek(0)
+                    print(output.read())
+                    raise SystemExit("FAIL: Rust did not issue a real ticket")
+                time.sleep(0.02)
+            encode_env = dict(env, SOYEHT_TERMINAL_CONTRACT_STAGE="encode")
+            run(swift_command, swift, encode_env, "crossRepoLocalTerminal() passed")
+            ready = directory / "request-ready.json"
+            if not ready.is_file() or not (directory / "input.json").is_file():
+                raise SystemExit("FAIL: Swift did not encode create and keyboard requests")
+            if defect == "keyboard":
+                path = directory / "input.json"
+                keyboard = json.loads(path.read_text())
+                keyboard["type"] = "unknown_input"
+                path.write_text(json.dumps(keyboard))
+            elif defect == "intent":
+                request = json.loads(ready.read_text())
+                request["wrong_intent_key"] = request.pop("intent_id")
+                ready.write_text(json.dumps(request))
+            # Publishing this file releases Rust's request barrier only after
+            # every Swift artifact (and the requested defect) is complete.
+            ready.replace(directory / "request.json")
+            status = process.wait(timeout=900)
+            output.seek(0)
+            transcript = output.read()
+            expected = ("supervisor_http_contract_preserves_sessions_and_fences_stale_mutations ... FAILED"
+                        if defect else "1 passed; 0 failed")
+            if (status == 0) == bool(defect) or expected not in transcript:
+                print(transcript)
+                raise SystemExit("FAIL: Rust did not produce the required test verdict")
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=10)
 
 
 def main():
@@ -34,14 +81,10 @@ def main():
         command = ["swift", "test", "--package-path", "Packages/SoyehtCore",
                    "--scratch-path", os.path.abspath(args.swift_scratch),
                    "--filter", "LocalTerminalCrossRepoTests/crossRepoLocalTerminal"]
-        env["SOYEHT_TERMINAL_CONTRACT_STAGE"] = "encode"
-        run(command, swift, env, "crossRepoLocalTerminal() passed")
-        if any(not (Path(temporary) / name).is_file() for name in ("request.json", "input.json")):
-            raise SystemExit("FAIL: Swift did not produce its create and keyboard requests")
         rust_command = ["cargo", "test", "-p", "server-rs", "--test", "local_terminal_metadata",
              "--jobs", "2", "supervisor_http_contract_preserves_sessions_and_fences_stale_mutations",
              "--", "--exact"]
-        run(rust_command, rust, env, "1 passed; 0 failed")
+        rust_exchange(rust_command, rust, command, swift, env, Path(temporary))
         if not (Path(temporary) / "response.json").is_file():
             raise SystemExit("FAIL: Rust did not produce HTTP and WebSocket evidence")
         env["SOYEHT_TERMINAL_CONTRACT_STAGE"] = "decode"
@@ -61,22 +104,9 @@ def main():
             run(command + ["--skip-build"], swift, env,
                 "crossRepoLocalTerminal() failed", should_fail=True)
         response_path.write_text(original)
-        input_path = Path(temporary) / "input.json"
-        original_input = input_path.read_text()
-        keyboard = json.loads(original_input)
-        keyboard["type"] = "unknown_input"
-        input_path.write_text(json.dumps(keyboard))
-        run(rust_command, rust, env,
-            "supervisor_http_contract_preserves_sessions_and_fences_stale_mutations ... FAILED",
-            should_fail=True)
-        input_path.write_text(original_input)
-        request_path = Path(temporary) / "request.json"
-        request = json.loads(request_path.read_text())
-        request["wrong_intent_key"] = request.pop("intent_id")
-        request_path.write_text(json.dumps(request))
-        run(rust_command, rust, env,
-            "supervisor_http_contract_preserves_sessions_and_fences_stale_mutations ... FAILED",
-            should_fail=True)
+        for defect in ("keyboard", "intent"):
+            rust_exchange(rust_command, rust, command + ["--skip-build"], swift, env,
+                          Path(temporary), defect=defect)
     print("PASS: Swift create and keyboard requests executed by Rust; real HTTP/PTY frames decoded by Swift; 4 boundary defects rejected")
 
 

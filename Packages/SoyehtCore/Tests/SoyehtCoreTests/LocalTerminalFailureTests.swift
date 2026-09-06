@@ -35,7 +35,9 @@ private final class TerminalFailureProtocol: URLProtocol, @unchecked Sendable {
             ("supervisor_protocol_mismatch", .incompatibleProtocol),
             ("future_unknown_error", .rejected(code: "future_unknown_error")),
             ("instance_mismatch", .instanceMismatch),
-            ("intent_consumed", .sessionEnded),
+            ("intent_consumed", .intentExpired),
+            ("intent_expired", .intentExpired),
+            ("session_closed", .sessionEnded),
         ]
         for (code, expected) in cases {
             do {
