@@ -58,6 +58,11 @@ ID_CARD = "soyeht.onboarding.isThisYourMac.card"
 ID_CONFIRM = "soyeht.onboarding.isThisYourMac.confirm"
 ID_REJECT = "soyeht.onboarding.isThisYourMac.reject"
 ID_KEEP_LOOKING = "soyeht.onboarding.notFound.keepLooking"
+# The words the phone shows while it waits for an owner to approve it. They are
+# derived from request_id + d_pub through one shared type in SoyehtCore, so the
+# approving Mac must show the SAME six. Reading them here is the only way an
+# automated run can tell "both ends agree" from "both ends show six words".
+ID_APPROVAL_WORDS = "soyeht.onboarding.approval.requestWords"
 
 
 class DriveError(RuntimeError):
@@ -271,7 +276,18 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float) -> dict
 
     tapped = phone.tap(ID_CONFIRM)
     note("confirmed on the phone", tapped)
-    return {"scenario": "from scratch", "steps": steps, "drove_to_the_end": tapped}
+
+    # If the run continues into owner approval, capture the request words the
+    # phone displays. Comparing them against the Mac's is the point of the
+    # ceremony: six words on each screen prove nothing until they are the same
+    # six, and only a machine reading both ends can say that without a person
+    # squinting at two displays.
+    approval = phone.text_of(ID_APPROVAL_WORDS)
+    if approval:
+        note("phone shows request words for the approver", True, approval)
+
+    return {"scenario": "from scratch", "steps": steps,
+            "phone_approval_words": approval, "drove_to_the_end": tapped}
 
 
 SCENARIOS = {"from-scratch": scenario_from_scratch}
