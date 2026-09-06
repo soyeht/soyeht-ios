@@ -91,6 +91,29 @@ final class PairingInvitationContractTests: XCTestCase {
         for secret in ["password", "token=", "secret", "private"] { XCTAssertFalse(failure.diagnostic.contains(secret)) }
     }
 
+    func testVisibilityAcknowledgementCannotHideAMissingOrContradictoryDeadline() {
+        for fields: [String: HouseholdCBORValue] in [
+            ["v": .unsigned(1), "open": .bool(true)],
+            ["v": .unsigned(1), "open": .bool(true), "expires_at_unix": .null],
+            ["v": .unsigned(1), "open": .bool(false), "expires_at_unix": .unsigned(123)],
+        ] {
+            XCTAssertThrowsError(try BootstrapPairDeviceWindowClient.decodeAck(HouseholdCBOR.encode(.map(fields))))
+        }
+    }
+
+    func testPlainHTTPFailuresKeepTheTransportStage() throws {
+        for stage: PlainHTTPTransportError.Stage in [.connect, .send, .receive, .timeout, .waitingTimeout] {
+            let failure = PairingAttemptFailure.capture(PlainHTTPTransportError(stage: stage, detail: nil),
+                stage: .confirm, endpoint: endpoint)
+            let kind: PairingAttemptFailure.NetworkCause = [.timeout, .waitingTimeout].contains(stage) ? .timeout : .connection
+            XCTAssertEqual(failure.cause, .network(kind, domain: "PlainHTTP.\(stage.rawValue)", code: 0))
+        }
+        XCTAssertThrowsError(try PairingAttemptFailure.rethrow(
+            PlainHTTPTransportError(stage: .cancelled, detail: nil), stage: .confirm, endpoint: endpoint)) {
+            XCTAssertTrue($0 is CancellationError)
+        }
+    }
+
     func testCancellationRemainsControlFlow() {
         XCTAssertThrowsError(try PairingAttemptFailure.rethrow(URLError(.cancelled), stage: .poll, endpoint: endpoint)) {
             XCTAssertTrue($0 is CancellationError)

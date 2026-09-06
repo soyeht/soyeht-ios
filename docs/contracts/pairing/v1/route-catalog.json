@@ -41,7 +41,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
       "rust_source": "admin/rust/server-rs/src/setup_invitation.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "phone_dispatch_and_codec"
     },
     {
       "id": "invitation.verify",
@@ -51,7 +52,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
       "rust_source": "admin/rust/server-rs/src/setup_invitation.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "phone_dispatch_and_codec"
     },
     {
       "id": "invitation.notify",
@@ -61,7 +63,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationPublisher.swift",
       "rust_source": null,
-      "planned_route": false
+      "planned_route": false,
+      "execution": "phone_dispatch_and_codec"
     },
     {
       "id": "bootstrap.claim",
@@ -71,7 +74,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/SetupInvitation/SetupInvitationClaimClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "bootstrap.status",
@@ -81,7 +85,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapStatusClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.addresses",
@@ -89,9 +94,10 @@
       "path": "/bootstrap/pairing-addresses",
       "server": "engine",
       "response_content_type": "application/cbor",
-      "swift_source": null,
-      "rust_source": null,
-      "planned_route": true
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairingAddressesClient.swift",
+      "rust_source": "admin/rust/server-rs/src/pairing_addresses.rs",
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "visibility.open",
@@ -101,7 +107,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceWindowClient.swift",
       "rust_source": "admin/rust/server-rs/src/local_network_visibility.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "visibility.close",
@@ -111,7 +118,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceWindowClient.swift",
       "rust_source": "admin/rust/server-rs/src/local_network_visibility.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.uri",
@@ -121,7 +129,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapPairDeviceURIClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.uri_by_code",
@@ -129,9 +138,10 @@
       "path": "/bootstrap/pair-device-uri/by-code",
       "server": "engine",
       "response_content_type": "application/cbor",
-      "swift_source": null,
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/PairDeviceQR.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "legacy_request_to_live_rust_router_and_swift_link_decoder"
     },
     {
       "id": "pairing.reissue",
@@ -139,9 +149,10 @@
       "path": "/bootstrap/pair-device/reissue",
       "server": "engine",
       "response_content_type": "application/cbor",
-      "swift_source": null,
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/PairDeviceQR.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "legacy_request_to_live_rust_router_and_swift_link_decoder"
     },
     {
       "id": "bootstrap.initialize",
@@ -151,7 +162,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapInitializeClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.first_owner",
@@ -161,7 +173,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdPairingService.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_pair_device.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.request",
@@ -171,7 +184,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.poll",
@@ -181,7 +195,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.requests",
@@ -189,9 +204,10 @@
       "path": "/api/v1/household/device-pairing/requests",
       "server": "engine",
       "response_content_type": "application/json",
-      "swift_source": null,
+      "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "pairing.approve",
@@ -201,7 +217,8 @@
       "response_content_type": "application/json",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Household/HouseholdDevicePairingService.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_device_pairing.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "bootstrap.accept_household",
@@ -211,7 +228,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapAcceptHouseholdClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     },
     {
       "id": "bootstrap.accept_household_confirm",
@@ -221,7 +239,8 @@
       "response_content_type": "application/cbor",
       "swift_source": "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/BootstrapAcceptHouseholdConfirmClient.swift",
       "rust_source": "admin/rust/server-rs/src/handlers_bootstrap.rs",
-      "planned_route": false
+      "planned_route": false,
+      "execution": "swift_client_to_live_rust_router"
     }
   ]
 }

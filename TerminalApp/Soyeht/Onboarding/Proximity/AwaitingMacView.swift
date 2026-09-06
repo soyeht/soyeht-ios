@@ -77,8 +77,8 @@ struct AwaitingMacView: View {
                                 .accessibilityIdentifier("soyeht.onboarding.looking.status")
 
                             Text(LocalizedStringResource(
-                                "onboarding.looking.tailscale",
-                                defaultValue: "Wi-Fi finds your Mac. Tailscale connects it — turn it on for both.",
+                                "onboarding.looking.pairingNetworks",
+                                defaultValue: "Use the same Wi-Fi, or turn on Tailscale on both devices.",
                                 comment: "I3: the one network requirement, said once."
                             ))
                             .font(NeoFont.caption)
@@ -315,14 +315,14 @@ struct AwaitingMacView: View {
         if case .waitingForMacOffer = viewModel.phase {
             result.append(Cause(
                 title: LocalizedStringResource(
-                    "onboarding.notFound.cause.tailscale.title",
-                    defaultValue: "Turn on Tailscale on both",
-                    comment: "I8 cause: the LAN closes once the Mac has a home."
+                    "onboarding.notFound.cause.pairingWindow.title",
+                    defaultValue: "Open Add iPhone on the Mac",
+                    comment: "Pairing requires an active offer from the Mac."
                 ),
                 body: LocalizedStringResource(
-                    "onboarding.notFound.cause.tailscale.body",
-                    defaultValue: "Once your Mac has a home it only accepts this over Tailscale. Wi-Fi alone is not enough.",
-                    comment: "I8 cause body: why Wi-Fi stops being enough."
+                    "onboarding.notFound.cause.pairingWindow.body",
+                    defaultValue: "Keep Add iPhone open in Settings › Devices on the Mac. Use the same Wi-Fi, or Tailscale on both devices.",
+                    comment: "How to open a current offer on either supported network."
                 )
             ))
         } else {
@@ -586,11 +586,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     )
                     return
                 }
-                // The Mac picks the address it advertises by what the MAC
-                // has, so a Mac on a tailnet always says "dial 100.x" — even
-                // to a phone with no Tailscale, over the Wi-Fi socket this
-                // claim just arrived on. Only this side knows what it can
-                // reach, so it chooses between the two the claim carries.
+                // Only the phone can combine its network evidence with the
+                // engine's operation-specific offer to select a destination.
                 let chosen: PairingAddressDecision
                 do {
                     chosen = try claim.chooseAddress()

@@ -17,65 +17,17 @@ public struct BootstrapPairDeviceWindowAck: Equatable, Sendable {
     }
 }
 
-/// Client for the pair-device window's open/close pair on this Mac's own engine.
-///
-/// WHY THIS EXISTS. The owner's rule is that the home is discoverable on the
-/// local network in exactly two situations: while the household has not been
-/// set up yet, and while an "Add iPhone" window is open. The engine half of the
-/// second situation exists (`HouseholdExposurePolicy` grants
-/// `InterfaceClass::Lan` post-onboarding only while a pairing window is Open,
-/// and the listener reconciles on the window's broadcast and on a 500 ms tick).
-/// Nothing on a household that is already set up ever opened that window:
-/// the Add iPhone sheet shows an offer the Mac itself minted, and the only
-/// route that opens an engine-side window is `GET /bootstrap/pair-device-uri`,
-/// the FIRST-OWNER route, which answers 404 once an owner exists — measured
-/// against the Dev engine on 2026-09-04: 404 with `device_count=1`. So the
-/// policy saw `Closed` and the LAN never bound.
-///
-/// WHAT THIS ASKS FOR. Visibility, and nothing else. This client never mints,
-/// reads or renews a pairing offer. The six words on the Add iPhone sheet come
-/// from `MacPairingAdvertisement` and are untouched by open/close. It is
-/// deliberately NOT `POST /bootstrap/pair-device/reissue`: that route mints a
-/// NEW token and answers `409 window_still_open` when one is open, so calling
-/// it would make the words on the Mac and the words the phone expects disagree
-/// — a defect this codebase has already lived through once.
-///
-/// THE CONTRACT, read off the engine's own source
-/// (`server-rs/src/local_network_visibility.rs`) rather than invented here —
-/// the first version of this file made up its own names and its own response
-/// key, and shipped green on both sides:
-///   - `POST /bootstrap/local-network-visibility/open` — body `{v: 1}`
-///     canonical CBOR, no `Authorization` (the engine admits loopback only, the
-///     same admission `POST /bootstrap/pair-device/reissue` uses). The engine
-///     IGNORES the body: the TTL is engine policy, not a caller's choice.
-///     Idempotent and time-boxed — one slot, and opening while open replaces
-///     the deadline rather than stacking a second grant. Answers
-///     `{v: 1, open: true, expires_at_unix: <secs>}`.
-///   - `POST /bootstrap/local-network-visibility/close` — body `{v: 1}`, same
-///     admission. Idempotent: closing a closed window is a success. Answers
-///     `{v: 1, open: false, expires_at_unix: null}` — the key is always
-///     present, and `null` is how the engine says "no deadline", because its
-///     `Option<u64>` carries no `skip_serializing_if`.
-///
-/// The engine half is on `theyos` branch `engine/lan-pairing-optin` and is NOT
-/// merged as of this file's first commit. Until it lands, both calls fail —
-/// which is the designed outcome, because every caller here treats a failure as
-/// "no LAN bonus" and carries on.
+/// Opens or closes temporary LAN visibility through the loopback engine API.
+/// The engine owns the deadline and reports it as `expires_at_unix`; this
+/// operation does not mint a pairing token or prove that a listener has bound.
+/// Consumers use the address snapshot to observe the completed bind.
 public struct BootstrapPairDeviceWindowClient: Sendable {
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
-    // These four literals ARE the contract with the engine
-    // (theyos admin/rust/server-rs/src/local_network_visibility.rs). The first
-    // version of this file invented its own names and shipped green: both
-    // suites passed because each side pinned what it had made up, and the
-    // feature would have been dead end to end — silently, since every caller
-    // here treats a failure as "no Wi-Fi bonus" and carries on.
-    // `theEngineServesTheRoutesThisClientCalls` compares them against the
-    // engine's source when that repo is on disk.
     static let openPath = "/bootstrap/local-network-visibility/open"
     static let closePath = "/bootstrap/local-network-visibility/close"
 
-    private static let requiredKeys: Set<String> = ["v"]
+    private static let requiredKeys: Set<String> = ["v", "open", "expires_at_unix"]
     static let expiresAtKey = "expires_at_unix"
     private static let knownKeys: Set<String> = requiredKeys.union([expiresAtKey, "open"])
 
@@ -149,12 +101,15 @@ public struct BootstrapPairDeviceWindowClient: Sendable {
         switch map[Self.expiresAtKey] {
         case .some(.unsigned(let value)):
             expiresAt = value
-        case .none, .some(.null):
+        case .some(.null):
             expiresAt = nil
         default:
             throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
         }
 
+        guard case .bool(let open) = map["open"], open == (expiresAt != nil) else {
+            throw BootstrapError.protocolViolation(detail: .unexpectedResponseShape)
+        }
         return BootstrapPairDeviceWindowAck(version: 1, expiresAt: expiresAt)
     }
 }

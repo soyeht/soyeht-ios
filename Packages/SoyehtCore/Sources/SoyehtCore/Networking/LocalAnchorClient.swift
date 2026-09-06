@@ -242,27 +242,40 @@ final class PlainHTTPTransaction: @unchecked Sendable {
     }
 
     func perform() async throws -> (Data, URLResponse) {
-        try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            let timeout = request.timeoutInterval > 0
-                ? request.timeoutInterval
-                : LocalAnchorClient.perAttemptTimeoutSeconds
-            let timeoutWorkItem = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                let waiting = self.lastWaitingReason
-                self.finish(.failure(PlainHTTPTransportError(
-                    stage: waiting == nil ? .timeout : .waitingTimeout,
-                    detail: waiting
-                )))
+        try Task.checkCancellation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                queue.async { self.begin(continuation) }
             }
-            self.timeoutWorkItem = timeoutWorkItem
-            queue.asyncAfter(deadline: .now() + timeout, execute: timeoutWorkItem)
-
-            connection.stateUpdateHandler = { [weak self] state in
-                self?.queue.async { self?.handle(state) }
-            }
-            connection.start(queue: queue)
+        } onCancel: {
+            self.queue.async { self.finish(.failure(CancellationError())) }
         }
+    }
+
+    private func begin(_ continuation: CheckedContinuation<(Data, URLResponse), Error>) {
+        guard !isFinished else {
+            continuation.resume(throwing: CancellationError())
+            return
+        }
+        self.continuation = continuation
+        let timeout = request.timeoutInterval > 0
+            ? request.timeoutInterval
+            : LocalAnchorClient.perAttemptTimeoutSeconds
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let waiting = self.lastWaitingReason
+            self.finish(.failure(PlainHTTPTransportError(
+                stage: waiting == nil ? .timeout : .waitingTimeout,
+                detail: waiting
+            )))
+        }
+        self.timeoutWorkItem = timeoutWorkItem
+        queue.asyncAfter(deadline: .now() + timeout, execute: timeoutWorkItem)
+
+        connection.stateUpdateHandler = { [weak self] state in
+            self?.queue.async { self?.handle(state) }
+        }
+        connection.start(queue: queue)
     }
 
     private func handle(_ state: NWConnection.State) {

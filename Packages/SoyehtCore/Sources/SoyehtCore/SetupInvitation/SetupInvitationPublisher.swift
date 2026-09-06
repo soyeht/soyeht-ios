@@ -159,38 +159,10 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
     }
 
     private func handle(_ request: DirectHTTPRequest, on connection: NWConnection) {
-        switch (request.method, request.path) {
-        case ("GET", SetupInvitationDirectEndpoint.invitationPath):
-            do {
-                let body = try invitation.directEndpointData()
-                send(status: 200, body: body, contentType: "application/json", on: connection)
-            } catch {
-                send(status: 500, body: Data(), contentType: "application/json", on: connection)
-            }
-        case ("POST", SetupInvitationDirectEndpoint.verifyPath):
-            let body = invitation.verifyData()
-            send(status: 200, body: body, contentType: "application/cbor", on: connection)
-        case ("POST", SetupInvitationDirectEndpoint.claimedPath):
-            do {
-                let notification = try SetupInvitationDirectClaim.decode(
-                    request.body,
-                    expectedToken: invitation.token,
-                    expectedInstallation: invitation.installation ?? .current
-                )
-                guard _state == .publishing,
-                      invitation.expiresAt > UInt64(Date().timeIntervalSince1970) else {
-                    throw SetupInvitationDirectError.unauthorizedClaim
-                }
-                onMacClaimed?(notification)
-                send(status: 204, body: Data(), contentType: "application/json", on: connection)
-            } catch SetupInvitationDirectError.unauthorizedClaim {
-                send(status: 401, body: Data(), contentType: "application/json", on: connection)
-            } catch {
-                send(status: 400, body: Data(), contentType: "application/json", on: connection)
-            }
-        default:
-            send(status: 404, body: Data(), contentType: "application/json", on: connection)
-        }
+        let response = SetupInvitationDirectEndpoint.respond(method: request.method, path: request.path,
+            body: request.body, invitation: invitation, isPublishing: _state == .publishing)
+        if let notification = response.notification { onMacClaimed?(notification) }
+        send(status: response.status, body: response.body, contentType: response.contentType, on: connection)
     }
 
     private func send(status: Int, body: Data, contentType: String, on connection: NWConnection) {
@@ -399,6 +371,39 @@ public enum SetupInvitationDirectEndpoint {
     public static let invitationPath = "/setup-invitation"
     public static let verifyPath = "/setup/verify"
     public static let claimedPath = "/setup-invitation/claimed"
+
+    /// Pure route dispatch shared by the network publisher and contract tests.
+    /// The caller owns publication lifetime and delivers an accepted notification.
+    static func respond(method: String, path: String, body: Data,
+                        invitation: SetupInvitationPayload, isPublishing: Bool,
+                        now: Date = Date()) -> Response {
+        switch (method, path) {
+        case ("GET", invitationPath):
+            do { return Response(status: 200, body: try invitation.directEndpointData()) }
+            catch { return Response(status: 500) }
+        case ("POST", verifyPath):
+            return Response(status: 200, body: invitation.verifyData(), contentType: "application/cbor")
+        case ("POST", claimedPath):
+            do {
+                let notification = try SetupInvitationDirectClaim.decode(body,
+                    expectedToken: invitation.token, expectedInstallation: invitation.installation ?? .current)
+                guard isPublishing, invitation.expiresAt > UInt64(max(0, now.timeIntervalSince1970)) else {
+                    throw SetupInvitationDirectError.unauthorizedClaim
+                }
+                return Response(status: 204, notification: notification)
+            } catch SetupInvitationDirectError.unauthorizedClaim { return Response(status: 401) }
+            catch { return Response(status: 400) }
+        default: return Response(status: 404)
+        }
+    }
+
+    struct Response {
+        let status: Int
+        var body = Data()
+        var contentType = "application/json"
+        var notification: SetupInvitationDirectClaim?
+    }
+
 }
 
 public struct SetupInvitationMacLocalPairing: Equatable, Sendable {
@@ -449,15 +454,8 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
     public let addressOffer: PairingAddressOffer?
     public let token: SetupInvitationToken
     public let macEngineURL: URL
-    /// This Mac's address on the local network, when it has one and it is not
-    /// already what `macEngineURL` says. Carried so a phone with no Tailscale
-    /// has somewhere to go: the Mac picks `macEngineURL` by what the MAC has,
-    /// and on a Mac with a tailnet address that is always the tailnet one.
-    /// See `ClaimEngineAddressChoice`, which is where the phone decides.
-    ///
-    /// Optional on the wire in both directions: a Mac built before this sends
-    /// nothing, and a phone built before this ignores the key (the envelope is
-    /// plain JSON with no unknown-key rejection).
+    /// Legacy companion address for older readers. Current readers choose
+    /// from `addressOffer` using phone evidence and operation eligibility.
     public let macEngineLocalNetworkURL: URL?
     public let macLocalPairing: SetupInvitationMacLocalPairing?
     public let existingHouse: SetupInvitationExistingHouse?

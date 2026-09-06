@@ -412,3 +412,39 @@ Verificação deste checkpoint: 24 testes Core selecionados; 43 testes Mac de do
 1 guarda de fronteira da aprovação. Builds Mac e iOS sem assinatura passaram.
 O gate executável cruzado e a matriz no aparelho continuam pendentes. Este checkpoint
 não autoriza release nem instala qualquer build.
+
+### Fechamento do gate — 2026-09-05
+
+O gate executável está em `scripts/pairing-contract-gate.py`; o contrato e seus
+limites estão em `docs/contracts/pairing/v1/README.md`. Os dois checkouts são
+obrigatórios, os builds são atuais e nenhuma rota planejada/ausente ou execução
+ignorada pode dar verde. O recibo registra hashes das fontes e os dois commits.
+
+As 19 rotas passaram pela fronteira declarada no catálogo. Inicialização,
+primeiro dono, aprovação de outro aparelho e entrada de outro Mac usam handlers
+reais, certificados reais de identidades temporárias e clientes Swift reais.
+A persistência é relida com tailnet presente, ausente e desconhecida. Os handlers
+de convite do telefone compartilham seu dispatcher com o teste; o callback Rust
+consome os bytes produzidos pelo Swift. Não há publicação Bonjour nem aparelho
+nessa execução. Binds simulados e transporte redirecionado não provam alcance real.
+
+Os três controles negativos foram ativados e reprovados no ponto esperado:
+rota renomeada com 404 real; campo de prazo renomeado depois de 200 real; e LAN
+substituindo tailnet na gravação após confirmação. Checkout ausente também foi
+recusado. O roteador de testes não mantém uma cópia das rotas de pareamento:
+produção e teste montam as mesmas funções de roteamento.
+
+A revisão final corrigiu o transporte HTTP direto: cancelamento encerra a
+transação pendente e a camada de pareamento conserva timeout/conexão em vez de
+registrar causa desconhecida. O ACK de visibilidade agora exige o prazo e a
+coerência entre `open` e prazo nulo. A orientação de rede no onboarding aceita
+Wi-Fi ou tailnet e pede a janela Add iPhone para a casa existente.
+
+Verificação adicional: 41 testes Core, 38 do domínio Mac e 30 do roteador Rust,
+todos sem falhas ou skips; builds Mac e iOS sem assinatura. Estes números são
+das verificações finais relevantes, não uma alegação de suíte integral.
+
+**Ainda falta o aceite no aparelho**, conduzido por [blaire]: tailnet, Wi-Fi
+puro, perfil cruzado, capacidade do dono e cerimônia com palavras iguais nas
+duas pontas. A casa de produção continua intacta. Nenhum release, bump, PR,
+push ou instalação foi feito nesta faixa. A nota final depende desse resultado.

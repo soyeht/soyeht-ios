@@ -76,10 +76,14 @@ public protocol HouseholdPairingHTTPClient: Sendable {
 }
 
 public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
-    private let session: URLSession
+    private let transport: @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
     public init(session: URLSession = .shared) {
-        self.session = session
+        self.transport = { try await Self.perform($0, session: session) }
+    }
+
+    init(transport: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse)) {
+        self.transport = transport
     }
 
     /// One pairing ceremony's worth of patience. Long enough for a tailnet
@@ -106,7 +110,7 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await Self.perform(request, session: session)
+            (data, response) = try await transport(request)
         } catch {
             try PairingAttemptFailure.rethrow(error, stage: .confirm, endpoint: url)
         }

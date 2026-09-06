@@ -75,6 +75,16 @@ public struct PairingAttemptFailure: Error, Equatable, Sendable, LocalizedError 
             }
             return Self(stage: stage, endpoint: endpoint, cause: cause)
         }
+        if let transport = error as? PlainHTTPTransportError {
+            let kind: NetworkCause
+            switch transport.stage {
+            case .timeout, .waitingTimeout: kind = .timeout
+            case .connect, .send, .receive: kind = .connection
+            case .cancelled: kind = .other
+            }
+            return Self(stage: stage, endpoint: endpoint,
+                cause: .network(kind, domain: "PlainHTTP.\(transport.stage.rawValue)", code: 0))
+        }
         if let urlError = error as? URLError {
             let kind: NetworkCause
             switch urlError.code {
@@ -99,7 +109,8 @@ public struct PairingAttemptFailure: Error, Equatable, Sendable, LocalizedError 
 
     /// Cancellation is control flow, never a failure message or a retry.
     public static func rethrow(_ error: Error, stage: Stage, endpoint: URL?) throws -> Never {
-        if error is CancellationError || (error as? URLError)?.code == .cancelled {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled
+            || (error as? PlainHTTPTransportError)?.stage == .cancelled {
             throw CancellationError()
         }
         throw capture(error, stage: stage, endpoint: endpoint)
