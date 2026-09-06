@@ -153,6 +153,13 @@ class Finding:
     detail: str
 
 
+def paired_outcome(t: Transcript) -> bool:
+    """Evidence that a pairing actually completed, from either ceremony."""
+    return bool(t.engine_grep("pair_device.confirm.success")
+                or t.phone_grep("pair.result=paired")
+                or t.phone_grep("endpoint.persisted"))
+
+
 def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if not phone_has_tailnet:
         return Finding("TAILNET-KEPT", "n/a", "phone has no tailnet in this scenario")
@@ -170,16 +177,35 @@ def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
 def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if phone_has_tailnet:
         return Finding("LAN-WORKS", "n/a", "this scenario does not exercise pure LAN")
-    tried = first_host(t.phone_grep("pair.confirm.post"), "host")
+    # Either ceremony's evidence of an address actually dialled. The QR path
+    # posts a confirm; the device-pairing path resolves an engine and talks to
+    # it. Looking only for the confirm made this report "never reached the
+    # confirm step" about a run that had no confirm step to reach. [jaime]
+    tried = (first_host(t.phone_grep("pair.confirm.post"), "host")
+             or first_host(t.phone_grep("resolveDiscoveredMac.entry"), "engines")
+             or first_host(t.phone_grep("mac_browser.endpoint"), "endpoint"))
     if tried is None:
-        return Finding("LAN-WORKS", "fail", "the phone never reached the confirm step")
+        return Finding("LAN-WORKS", "fail",
+                       "the phone never dialled any address")
     if classify(tried) != "lan":
         return Finding("LAN-WORKS", "fail",
                        f"no tailnet available, yet it tried {classify(tried)} ({tried})")
-    if not t.engine_grep("pair_device.confirm.success"):
+    if paired_outcome(t):
+        return Finding("LAN-WORKS", "pass", f"paired over the LAN ({tried})")
+    if t.phone_grep("pair.failed") or t.phone_grep("pair.result=failed"):
         return Finding("LAN-WORKS", "fail",
-                       f"tried the LAN ({tried}) and the engine never confirmed")
-    return Finding("LAN-WORKS", "pass", f"paired over the LAN ({tried})")
+                       f"tried the LAN ({tried}) and the pairing failed")
+    # There are TWO pairing ceremonies and only one of them records success.
+    # `handlers_pair_device.rs:460` logs `pair_device.confirm.success`;
+    # `handlers_device_pairing.rs` (request/approve, the second-device path)
+    # carries only `tracing::warn!` and is silent when it works. Reading that
+    # silence as failure made this invariant impossible to satisfy on the
+    # second-device path — a check that can never pass, which is worse than no
+    # check. [jaime]
+    return Finding("LAN-WORKS", "n/a",
+                   f"tried the LAN ({tried}) and no side recorded an outcome; "
+                   "the device-pairing path logs nothing on success, so this "
+                   "cannot be judged from the tapes yet")
 
 
 def inv_no_silent_lan(t: Transcript, phone_has_tailnet: bool) -> Finding:
@@ -216,12 +242,30 @@ def inv_profile_isolated(t: Transcript) -> Finding:
                    f"{len(claims)} claim(s), none crossed the profile line")
 
 
-def inv_no_spinner(t: Transcript) -> Finding:
-    """Every run ends. An unbounded wait is the defect, not the symptom."""
+# A pending approval is allowed to wait this long by design, so a capture
+# shorter than it cannot distinguish "waiting" from "waiting forever".
+APPROVAL_DEADLINE_SECS = 300
+
+
+def inv_no_spinner(t: Transcript, captured_secs: float | None = None) -> Finding:
+    """Every run ends. An unbounded wait is the defect, not the symptom.
+
+    But a run legitimately waiting for an owner has up to
+    APPROVAL_DEADLINE_SECS to be approved. Calling that a spinner because the
+    capture ended first would report a defect that the product does not have,
+    and the tape cannot tell the two apart. [jaime]
+    """
     ended = (t.phone_grep("pair.result=") or t.phone_grep("pair.failed")
              or t.engine_grep("pair_device.confirm.success"))
     if ended:
         return Finding("NO-SPINNER", "pass", "the run reached an outcome")
+    awaiting = t.phone_grep("pairing_review_digest") or t.phone_grep("awaiting")
+    if awaiting and (captured_secs is None or captured_secs < APPROVAL_DEADLINE_SECS):
+        return Finding("NO-SPINNER", "n/a",
+                       f"still inside the {APPROVAL_DEADLINE_SECS}s approval "
+                       f"window when the capture ended"
+                       + (f" ({captured_secs:.0f}s)" if captured_secs else "")
+                       + "; a shorter capture cannot prove an endless wait")
     return Finding("NO-SPINNER", "fail",
                    "no outcome recorded: the person was left on the spinner")
 
@@ -234,9 +278,17 @@ def inv_first_phone(t: Transcript, household_devices: int | None) -> Finding:
     an approval that can never arrive — "five minutes of spinner and then a
     timeout".
     """
-    if household_devices is None or household_devices > 1:
+    # `device_count` is `u32::from(owner_auth.is_some())` — a boolean about
+    # owner authority (`handlers_bootstrap.rs:3369`), never a roster. So this
+    # invariant applies ONLY when it is 0: no owner established. A 1 means an
+    # owner exists, and a Mac without a local owner session is then a member
+    # without local authority, not a household nobody owns. Treating 1 as "the
+    # first phone should walk in" would turn this run into an argument for
+    # reopening first-owner, which is the one thing it must never do. [jaime]
+    if household_devices != 0:
         return Finding("FIRST-PHONE", "n/a",
-                       "the household has more than one member in this scenario")
+                       f"an owner is already established (device_count="
+                       f"{household_devices}); this is not the ownerless case")
     blocked = (t.mac_grep("already belongs to this home")
                or t.phone_grep("awaiting_approval"))
     if blocked:
@@ -334,6 +386,18 @@ def inv_words_match(t: Transcript) -> Finding:
     mac_seen = digests_in(t.mac_grep("pairing_review_digest"))
     phone_seen = digests_in(t.phone_grep("pairing_review_digest"))
 
+    # If this Mac cannot approve, it is not the approver, and its silence is
+    # authorization working rather than a broken ceremony. Blaming it for
+    # showing no words would turn a member Mac into a defect. [jaime]
+    capability = re.search(r"owner_capability=(\w+)",
+                           "\n".join(t.mac_grep("owner_capability=")))
+    if (capability and capability.group(1) not in ("proven", "needs_authentication")
+            and not mac_seen):
+        return Finding("WORDS-MATCH", "n/a",
+                       f"this Mac is not the approver (owner_capability="
+                       f"{capability.group(1)}); the words belong on whichever "
+                       "device holds the owner key")
+
     if not mac_seen and not phone_seen:
         # "Never got there" and "got there and disagreed" are different
         # answers. A malformed digest is a third, and must not read as absent.
@@ -367,13 +431,14 @@ def inv_words_match(t: Transcript) -> Finding:
 
 
 def judge(t: Transcript, phone_has_tailnet: bool,
-          household_devices: int | None) -> list[Finding]:
+          household_devices: int | None,
+          captured_secs: float | None = None) -> list[Finding]:
     return [
         inv_tailnet_kept(t, phone_has_tailnet),
         inv_lan_works(t, phone_has_tailnet),
         inv_no_silent_lan(t, phone_has_tailnet),
         inv_profile_isolated(t),
-        inv_no_spinner(t),
+        inv_no_spinner(t, captured_secs),
         inv_first_phone(t, household_devices),
         inv_capability_honest(t),
         inv_words_match(t),
@@ -587,17 +652,25 @@ def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
     cases = [
-        ("good, tailnet", GOOD_TAILNET, True, 1,
+        ("good, tailnet", GOOD_TAILNET, True, 0,
          {"TAILNET-KEPT": "pass", "NO-SILENT-LAN": "pass",
           "NO-SPINNER": "pass", "FIRST-PHONE": "pass"}),
-        ("good, pure LAN", GOOD_LAN, False, 1,
+        ("good, pure LAN", GOOD_LAN, False, 0,
          {"LAN-WORKS": "pass", "NO-SPINNER": "pass", "FIRST-PHONE": "pass"}),
         ("bad, silent LAN downgrade", BAD_SILENT_LAN, True, 2,
          {"TAILNET-KEPT": "fail", "NO-SILENT-LAN": "fail"}),
         ("bad, endless spinner", BAD_SPINNER, True, 2,
          {"NO-SPINNER": "fail"}),
-        ("bad, first phone deadlocked", BAD_FIRST_PHONE, True, 1,
+        ("bad, first phone deadlocked", BAD_FIRST_PHONE, True, 0,
          {"FIRST-PHONE": "fail", "NO-SPINNER": "fail"}),
+        # An owner exists, so a Mac with no local session is a member without
+        # authority — never an argument that the household is ownerless.
+        ("owner exists, so first-phone does not apply", BAD_FIRST_PHONE, True, 1,
+         {"FIRST-PHONE": "n/a"}),
+        # And the same waiting run, captured for less than the approval
+        # window, must not be called a spinner.
+        ("short capture while awaiting approval", BAD_FIRST_PHONE, True, 0,
+         {"NO-SPINNER": "n/a"}),
         ("bad, crossed profiles", BAD_CROSS_PROFILE, True, 2,
          {"PROFILE-ISOLATED": "fail"}),
         ("good, key present but locked", GOOD_CAPABILITY_LOCKED, True, 1,
@@ -630,8 +703,13 @@ def self_test() -> int:
          GOOD_CLAIM_IN_PROFILE, True, 1, {"PROFILE-ISOLATED": "pass"}),
     ]
     failures = 0
+    # A capture longer than the approval window, so "waited past the deadline"
+    # is distinguishable from "the capture simply ended". The one case that
+    # needs the opposite says so with its own value.
     for label, transcript, has_tailnet, devices, expected in cases:
-        got = {f.name: f.verdict for f in judge(transcript, has_tailnet, devices)}
+        captured = 30.0 if label.startswith("short capture") else 600.0
+        got = {f.name: f.verdict
+               for f in judge(transcript, has_tailnet, devices, captured)}
         for name, want in expected.items():
             if got.get(name) != want:
                 print(f"  CALIBRATION FAILED  {label}: {name} "
@@ -683,7 +761,8 @@ def run(args) -> int:
     with open(os.path.join(out_dir, "transcript.json"), "w") as handle:
         json.dump(asdict(transcript), handle, indent=2)
 
-    findings = judge(transcript, args.phone_has_tailnet, devices_before)
+    findings = judge(transcript, args.phone_has_tailnet, devices_before,
+                     captured_secs=float(args.hold_secs))
 
     print(f"scenario: {args.scenario}")
     print(f"lines collected — Mac {len(mac_lines)}, phone {len(phone_lines)}, "
