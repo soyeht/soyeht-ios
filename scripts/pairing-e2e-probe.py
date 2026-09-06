@@ -568,16 +568,31 @@ def inv_advert_follows_window(t: Transcript) -> Finding:
                            "is invisible until its engine restarts")
 
     closes = [i for i, l in enumerate(engine)
-              if "pairing_window=closed" in l or "pairing_window\":\"closed" in l]
+              if "pairing_window=closed" in l or 'pairing_window":"closed' in l]
     if closes and closes[-1] > last_open:
-        if _advert_live_at(engine, len(engine) - 1):
+        # Closing withdraws the LAN, never the whole home. A tailnet advert is
+        # legitimate with the window closed: someone away from the house still
+        # has to reach their Mac. Failing on any live registration would have
+        # demanded that closing the sheet make the Mac vanish entirely, which
+        # is a rule nobody asked for and would break the case the tailnet
+        # exists to serve. [jaime]
+        lan_after_close = [
+            l for l in engine[closes[-1]:]
+            if "bonjour.published" in l and "interface_class=lan" in l
+        ]
+        residual_lan = [
+            l for l in engine[closes[-1]:]
+            if "bonjour.reconciled" in l and "pairing_window=closed" in l
+            and "lan" in l.lower() and "registered_count=0" not in l
+        ]
+        if lan_after_close or residual_lan:
             return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
                            "the window closed and a LAN advert is still "
-                           "registered; the home stays discoverable after the "
-                           "person dismissed the sheet")
+                           "registered; the home stays discoverable on the "
+                           "Wi-Fi after the person dismissed the sheet")
         return Finding("ADVERT-FOLLOWS-WINDOW", "pass",
-                       "the advert followed the window open and was withdrawn "
-                       "on close, with no restart")
+                       "the advert followed the window open and the LAN was "
+                       "withdrawn on close, with no restart")
     return Finding("ADVERT-FOLLOWS-WINDOW", "pass",
                    "the advert followed the window without a restart")
 
@@ -906,11 +921,35 @@ GOOD_WITHDRAWN_ON_CLOSE = Transcript(
             "bonjour.reconciled target_count=0 registered_count=0 pairing_window=closed"],
 )
 
+# Without a transport this case was ambiguous: a live registration after a
+# close is a leak only if it is the LAN. Saying `lan` out loud is what the
+# fixture always meant, and leaving it implicit made the calibration pass for
+# the wrong reason once the rule learned to tell the two apart.
 BAD_STILL_ADVERTISED_AFTER_CLOSE = Transcript(
     mac=[], phone=[],
     engine=["local_network_visibility.opened",
-            "bonjour.published",
+            "bonjour.published interface_class=lan address=192.168.1.20:8101",
+            "bonjour.reconciled target_count=1 registered_count=1 "
+            "interface_class=lan pairing_window=closed"],
+)
+
+
+# Closing withdraws the LAN and leaves the tailnet. Both of these close the
+# window; only one of them is a leak.
+GOOD_TAILNET_SURVIVES_CLOSE = Transcript(
+    mac=[], phone=[],
+    engine=["local_network_visibility.opened",
+            "bonjour.published interface_class=lan address=192.168.1.20:8101",
+            "bonjour.published interface_class=tailnet address=100.64.0.10:8101",
             "bonjour.reconciled target_count=1 registered_count=1 pairing_window=closed"],
+)
+
+BAD_LAN_SURVIVES_CLOSE = Transcript(
+    mac=[], phone=[],
+    engine=["local_network_visibility.opened",
+            "bonjour.published interface_class=lan address=192.168.1.20:8101",
+            "bonjour.reconciled target_count=1 registered_count=1 pairing_window=closed",
+            "bonjour.published interface_class=lan address=192.168.1.20:8101"],
 )
 
 
@@ -990,6 +1029,10 @@ def self_test() -> int:
         ("bad, still advertised after the window closed",
          BAD_STILL_ADVERTISED_AFTER_CLOSE, True, 1,
          {"ADVERT-FOLLOWS-WINDOW": "fail"}),
+        ("good, tailnet advert survives closing the window",
+         GOOD_TAILNET_SURVIVES_CLOSE, True, 1, {"ADVERT-FOLLOWS-WINDOW": "pass"}),
+        ("bad, LAN advert survives closing the window",
+         BAD_LAN_SURVIVES_CLOSE, True, 1, {"ADVERT-FOLLOWS-WINDOW": "fail"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
         ("a claim was attempted and stayed in profile",
