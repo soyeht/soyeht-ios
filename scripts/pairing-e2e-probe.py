@@ -153,11 +153,29 @@ class Finding:
     detail: str
 
 
-def paired_outcome(t: Transcript) -> bool:
-    """Evidence that a pairing actually completed, from either ceremony."""
-    return bool(t.engine_grep("pair_device.confirm.success")
-                or t.phone_grep("pair.result=paired")
+def engine_accepted(t: Transcript) -> bool:
+    """The ENGINE accepted. Says nothing about the phone.
+
+    `device_pairing.request.success` and `device_pairing.approve.success` mean
+    a pending request was stored and a verified certificate was accepted by the
+    store. Neither proves the phone fetched it, validated it, or saved a
+    session. Treating engine acceptance as a completed pairing is the same
+    mistake as reading engine silence as failure — one direction of it burned
+    this probe already. [jaime]
+    """
+    return bool(t.engine_grep("device_pairing.approve.success")
+                or t.engine_grep("pair_device.confirm.success"))
+
+
+def phone_concluded(t: Transcript) -> bool:
+    """The PHONE finished: it has a session it can use."""
+    return bool(t.phone_grep("pair.result=paired")
                 or t.phone_grep("endpoint.persisted"))
+
+
+def paired_outcome(t: Transcript) -> bool:
+    """A pairing that both ends agree happened."""
+    return engine_accepted(t) and phone_concluded(t)
 
 
 def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
@@ -191,7 +209,14 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
         return Finding("LAN-WORKS", "fail",
                        f"no tailnet available, yet it tried {classify(tried)} ({tried})")
     if paired_outcome(t):
-        return Finding("LAN-WORKS", "pass", f"paired over the LAN ({tried})")
+        return Finding("LAN-WORKS", "pass",
+                       f"paired over the LAN ({tried}): the engine accepted "
+                       "and the phone saved a session")
+    if engine_accepted(t) and not phone_concluded(t):
+        return Finding("LAN-WORKS", "fail",
+                       f"the engine accepted over the LAN ({tried}) and the "
+                       "phone never ended up with a session — the two ends "
+                       "disagree about whether this worked")
     if t.phone_grep("pair.failed") or t.phone_grep("pair.result=failed"):
         return Finding("LAN-WORKS", "fail",
                        f"tried the LAN ({tried}) and the pairing failed")
@@ -357,7 +382,11 @@ def inv_capability_honest(t: Transcript) -> Finding:
     return Finding("CAPABILITY-HONEST", "pass", f"declared {state}")
 
 
-DIGEST_RE = re.compile(r"pairing_review_digest=([0-9a-f]{64})\b")
+# ONLY `pairing_review_digest`. The engine also logs a `request_digest` — a
+# BLAKE3 of the request id that correlates its own two lines and says nothing
+# about the words on either screen. Matching it here would let two engine log
+# lines "prove" that a person compared six words nobody showed them. [jaime]
+DIGEST_RE = re.compile(r"\bpairing_review_digest=([0-9a-f]{64})\b")
 
 
 def digests_in(lines: list[str]) -> set[str]:
@@ -648,6 +677,23 @@ GOOD_SESSION_TRULY_ABSENT = Transcript(
 )
 
 
+# The engine accepted, and the phone never got a session. Both ends have to
+# agree, or "it worked" is only true on one machine.
+BAD_ENGINE_ONLY = Transcript(
+    mac=[],
+    phone=["pair.confirm.post host=192.168.1.20 port=8101"],
+    engine=["device_pairing.approve.success request_digest=" + "c" * 64],
+)
+
+# The engine's own correlation digest must not be mistaken for the words.
+BAD_REQUEST_DIGEST_IS_NOT_WORDS = Transcript(
+    mac=["owner_capability=proven"],
+    phone=["pairing_review_digest=" + SAME],
+    engine=["device_pairing.request.success request_digest=" + SAME,
+            "device_pairing.approve.success request_digest=" + SAME],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -697,6 +743,10 @@ def self_test() -> int:
         # "no claim crossed the profile line". Measured in the rehearsal of
         # 2026-09-05: the driver failed before touching anything and this
         # still reported ok.
+        ("bad, engine accepted but the phone has no session",
+         BAD_ENGINE_ONLY, False, 1, {"LAN-WORKS": "fail"}),
+        ("bad, the engine's request digest is not the words",
+         BAD_REQUEST_DIGEST_IS_NOT_WORDS, True, 1, {"WORDS-MATCH": "fail"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
         ("a claim was attempted and stayed in profile",
