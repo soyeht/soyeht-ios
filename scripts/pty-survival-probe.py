@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["websockets>=12"]
+# ///
 """F0 — measures whether a terminal session SURVIVED an engine swap.
 
 Without this, "it survived" is an opinion. That opinion is how eleven of the
@@ -194,6 +198,129 @@ class Engine:
             return False
 
 
+# ───────────────────── behaviour: the half identity cannot prove ─────────
+
+# `\x00\x01CTL:` marks a control marker; every other binary frame is PTY output.
+CTL_PREFIX = b"\x00\x01CTL:"
+ABSENT_LINES = 64
+
+
+def _ws_url(port: int, conversation_id: str) -> str:
+    return f"ws://127.0.0.1:{port}/api/v1/terminals/local/{conversation_id}/pty"
+
+
+async def _converse(port: int, token: str, conversation_id: str,
+                    sends: list[str], collect_secs: float,
+                    full_replay: bool = False) -> str:
+    """Attaches, sends each line, and returns everything the PTY emitted.
+
+    Control markers are dropped: they are the transport talking about itself,
+    and what this probe judges is what the SESSION produced.
+    """
+    import asyncio
+    import websockets
+
+    url = _ws_url(port, conversation_id)
+    if full_replay:
+        url += "?full_replay=true"
+    output: list[bytes] = []
+    async with websockets.connect(
+        url, additional_headers={"Authorization": f"Bearer {token}"},
+        max_size=8 * 1024 * 1024,
+    ) as socket:
+        async def drain() -> None:
+            async for message in socket:
+                if isinstance(message, bytes):
+                    if message.startswith(CTL_PREFIX):
+                        continue
+                    output.append(message)
+
+        reader = asyncio.ensure_future(drain())
+        for line in sends:
+            await socket.send(json.dumps({"type": "input", "data": line}))
+            await asyncio.sleep(0.35)
+        await asyncio.sleep(collect_secs)
+        reader.cancel()
+        try:
+            await reader
+        except asyncio.CancelledError:
+            pass
+    return b"".join(output).decode("utf-8", "replace")
+
+
+def converse(port: int, token: str, conversation_id: str, sends: list[str],
+             collect_secs: float, full_replay: bool = False) -> str:
+    import asyncio
+    return asyncio.run(_converse(port, token, conversation_id, sends,
+                                 collect_secs, full_replay))
+
+
+def arm_session(port: int, token: str, conversation_id: str, nonce: str) -> bool:
+    """Puts the marks in the session that a re-created one could not carry.
+
+    - the nonce lives in a variable that is NOT exported, so it exists only in
+      THIS shell's memory: a replacement shell cannot inherit it and a recovery
+      script cannot re-derive it;
+    - `stty -echo` first, so the nonce is never echoed into the log where a
+      later replay could hand it back to us;
+    - a numbered writer runs in the BACKGROUND, so output keeps being produced
+      while nobody is attached — that is what makes the absence measurable.
+    """
+    marker = converse(port, token, conversation_id, [
+        "stty -echo\n",
+        f"SOYEHT_PROBE_NONCE='{nonce}'; export -n SOYEHT_PROBE_NONCE\n",
+        "printf 'ARMED:%s\\n' \"$SOYEHT_PROBE_NONCE\"\n",
+        f"( for n in $(seq 1 {ABSENT_LINES}); do printf 'ABSENT:%03d\\n' \"$n\"; "
+        "sleep 0.2; done ) &\n",
+    ], collect_secs=1.2)
+    return f"ARMED:{nonce}" in marker
+
+
+def verify_session(port: int, token: str, conversation_id: str,
+                   nonce: str, writer_grace: float = 25.0) -> dict:
+    """Reattaches and asks the session to prove it is the same one.
+
+    Three separate questions, because each fails differently:
+      absence   — did the numbered output produced with nobody attached come
+                  back, each line exactly once? Content AND interval, never
+                  "something showed up".
+      nonce     — is the non-exported variable still there, and still NOT in
+                  the environment? The second half is what rules out a
+                  replacement shell that was handed the value.
+      responds  — does the session still answer? A process can be alive and
+                  wedged, and identity would call that survival.
+    """
+    # The writer emits one line every 0.2 s, so a short absence can end before
+    # it finished. Waiting for it is honest; failing it for arriving late
+    # would be the instrument blaming the product for the instrument's clock.
+    deadline = time.time() + writer_grace
+    seen = ""
+    while True:
+        seen = converse(port, token, conversation_id, [
+            f"printf 'AFTER:%s\\n' \"$SOYEHT_PROBE_NONCE\"\n",
+            "env | /usr/bin/grep '^SOYEHT_PROBE_NONCE=' ; printf 'CHALLENGE:%s\\n' done\n",
+        ], collect_secs=2.5, full_replay=True)
+        if seen.count(f"ABSENT:{ABSENT_LINES:03d}") >= 1 or time.time() >= deadline:
+            break
+        time.sleep(1.0)
+
+    counts = [seen.count(f"ABSENT:{n:03d}") for n in range(1, ABSENT_LINES + 1)]
+    exactly_once = sum(1 for c in counts if c == 1)
+    duplicated = sum(1 for c in counts if c > 1)
+    return {
+        "absence": (exactly_once == ABSENT_LINES and duplicated == 0,
+                    f"{exactly_once}/{ABSENT_LINES} lines exactly once"
+                    + (f", {duplicated} duplicated" if duplicated else "")),
+        "nonce": (f"AFTER:{nonce}" in seen and "SOYEHT_PROBE_NONCE=" not in seen,
+                  "in-memory variable survived and is still not exported"
+                  if f"AFTER:{nonce}" in seen else "the variable is gone"),
+        "responds": ("CHALLENGE:done" in seen,
+                     "answered after reattach" if "CHALLENGE:done" in seen
+                     else "no answer — alive is not the same as working"),
+    }
+
+
+
 # ─────────────────────────── one session under test ───────────────────────
 
 
@@ -278,7 +405,8 @@ def processes_on_tty(tty: str) -> list[dict]:
 # ─────────────────────────── the verdict ───────────────────────────
 
 
-def compare(before: SessionSnapshot, after: SessionSnapshot | None) -> dict:
+def compare(before: SessionSnapshot, after: SessionSnapshot | None,
+            behaviour: dict | None = None) -> dict:
     """Checks identity AND behaviour. Both, or it is not the same session."""
     checks: dict[str, tuple[bool | None, str]] = {}
 
@@ -340,10 +468,18 @@ def compare(before: SessionSnapshot, after: SessionSnapshot | None) -> dict:
         f"(informative until F2; then the expected parent is the supervisor)",
     )
 
+    for name, (ok, detail) in (behaviour or {}).items():
+        checks[name] = (ok, detail)
+
     executed = [ok for ok, _ in checks.values() if ok is not None]
     survived = bool(executed) and all(executed)
+    # `identity_only` was True for as long as this probe could photograph a
+    # process and nothing else. Identity alone cannot tell THE SAME session
+    # from one re-created convincingly — same argv, same cwd, a fresh PID that
+    # happens to look right. The behaviour checks are what close that, so the
+    # flag now reports whether they actually ran instead of being a constant.
     return {"survived": survived, "checks": checks,
-            "identity_only": True}  # nonce/TUI/IO still pending — see F0 above
+            "identity_only": not behaviour}
 
 
 def wait_for_engine_change(before: dict, budget: float) -> str:
@@ -423,6 +559,7 @@ def run(args) -> int:
     print(f"Dev engine pid={engine_pid} start={engine_before['start']}")
 
     created: list[tuple[str, SessionSnapshot]] = []
+    armed_count = 0
     try:
         for index in range(args.sessions):
             conversation = f"ptyprobe-{uuid.uuid4()}"
@@ -437,8 +574,14 @@ def run(args) -> int:
             if snapshot.shell is None:
                 print(f"  session {index}: no shell found on {tty}")
                 continue
+            armed = arm_session(args.port, token, conversation, nonce)
+            armed_count += 1 if armed else 0
             created.append((conversation, snapshot))
-            print(f"  session {index}: pid={snapshot.shell['pid']} tty={tty}")
+            print(f"  session {index}: pid={snapshot.shell['pid']} tty={tty}"
+                  f" armed={'yes' if armed else 'NO'}")
+            if not armed:
+                print("    the marks could not be placed — this session will be "
+                      "judged on identity alone, which cannot prove survival")
 
         if not created:
             sys.exit("no session was created — nothing to measure")
@@ -471,7 +614,17 @@ def run(args) -> int:
         survivors = 0
         for conversation, before in created:
             after = resnapshot(before)
-            verdict = compare(before, after)
+            behaviour = None
+            if after is not None:
+                try:
+                    behaviour = verify_session(args.port, token, conversation,
+                                               before.nonce)
+                except Exception as error:
+                    # Not being able to ASK is not the same as a bad answer,
+                    # and reporting it as survival is the exact failure this
+                    # whole file exists to stop.
+                    behaviour = {"responds": (False, f"could not reattach: {error}")}
+            verdict = compare(before, after, behaviour)
             survivors += 1 if verdict["survived"] else 0
             results.append({"conversation_id": conversation, **verdict})
 
@@ -505,8 +658,25 @@ def run(args) -> int:
                   f"(observed: {observed}). No survival number means anything here.")
         else:
             print(f"\nsurvival: {survivors}/{len(created)} ({percentage:.0f}%)")
-        print("scope: IDENTITY only — nonce, TUI, long-running process, I/O "
-              "challenge and output during the absence are not measured yet")
+        measured = sorted({name for item in results
+                           for name in item["checks"]
+                           if name in ("absence", "nonce", "responds")})
+        if measured:
+            print("scope: identity AND behaviour — " + ", ".join(measured)
+                  + ". Still not measured: a TUI and a separate long-running "
+                    "process alongside the shell.")
+        elif armed_count:
+            # The marks WERE placed; there was simply nothing left to ask.
+            # Saying "could not be placed" here would blame the instrument for
+            # a death it measured correctly — and that sentence is what a
+            # reader would use to dismiss the number.
+            print(f"scope: behaviour marks were armed on {armed_count} "
+                  "session(s) and none survived to answer. The 0% is a real "
+                  "measurement, not a missing instrument.")
+        else:
+            print("scope: IDENTITY only — the behaviour marks could not be "
+                  "placed, so nothing here separates the same session from "
+                  "one convincingly re-created")
 
         if args.json_out:
             with open(args.json_out, "w", encoding="utf-8") as handle:
