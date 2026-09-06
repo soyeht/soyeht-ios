@@ -556,7 +556,12 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
         // `admin/contracts/mobile-claw-vpn/v1/owner_present_success_wire_v1.json`
         // at that commit both hash to
         // 55fe55c6f1985103f21e679c5e6227646035e4d03da3e75193cfc9d1eeb45f8f.
-        #expect(pin == "eb96d37509544a2fe8e2ff69e7f5d9d27b136f79")
+        //
+        // Moved to 1a8e5763 (theyos main at engine 0.1.30) on 2026-09-06, for
+        // the release that carries the Bonjour advert fix. Ritual performed
+        // again, and the hash is the SAME value as above — which is the point:
+        // it proves the pin moved and this slice's evidence did not.
+        #expect(pin == "1a8e57630b49ded40d3b1a1a6a64386e4953b663")
     }
 }
 

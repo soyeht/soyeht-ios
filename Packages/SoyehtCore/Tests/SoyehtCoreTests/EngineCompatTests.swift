@@ -79,16 +79,26 @@ final class EngineCompatTests: XCTestCase {
         XCTAssertFalse(EngineCompat.isCompatible("0.0.99"))
     }
 
-    /// 0.1.29 is the first engine that admits loopback to
-    /// `bootstrap/initialize` (so first setup works with an iPhone nearby),
-    /// mints owner certificates with a clock allowance, and answers
-    /// `POST /bootstrap/local-network-visibility/{open,close}` — the route the
-    /// Add iPhone sheet calls to put the home on the Wi-Fi. A Mac on 0.1.28
-    /// would call it and get nothing, silently, so the floor moves with it.
-    func test_currentReleaseRequiresTheWiFiPairingEngine() {
-        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.29")
+    /// 0.1.29 added `POST /bootstrap/local-network-visibility/{open,close}`,
+    /// the route the Add iPhone sheet calls to put the home on the Wi-Fi.
+    /// 0.1.30 is the first engine that actually ACTS on it: until then the
+    /// Bonjour advert was decided once at startup, so a Mac could answer the
+    /// route, report success, and never advertise. Measured on 2026-09-06:
+    /// `bonjour.published` at 13:44:16, `bonjour.skipped` at 13:51:51, and the
+    /// window opening ten times after that with no advert at all — the phone
+    /// had no way to find the Mac.
+    ///
+    /// So the floor moves to 0.1.30. A Mac left on 0.1.29 has the route and
+    /// none of its effect, which is the worst of the three states: it looks
+    /// healthy and pairs nobody.
+    func test_currentReleaseRequiresTheAdvertThatFollowsTheWindow() {
+        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.30")
+        XCTAssertFalse(
+            EngineCompat.isCompatible("0.1.29"),
+            "0.1.29 answers local-network-visibility but never reconciles the advert"
+        )
         XCTAssertFalse(EngineCompat.isCompatible("0.1.28"), "0.1.28 has no local-network-visibility route")
-        XCTAssertTrue(EngineCompat.isCompatible("0.1.29"))
+        XCTAssertTrue(EngineCompat.isCompatible("0.1.30"))
     }
 
     func test_isCompatible_rejectsUnparseableVersion() {
