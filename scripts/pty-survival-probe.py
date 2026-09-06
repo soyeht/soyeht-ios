@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["websockets>=14"]
+# ///
 """F0 — measures whether a terminal session SURVIVED an engine swap.
 
 Without this, "it survived" is an opinion. That opinion is how eleven of the
@@ -30,8 +34,14 @@ re-created" — criteria proposed by [jaime]):
 EVERYTHING IS TAKEN FROM THE OPERATING SYSTEM, never from the `list` of the
 service under test — otherwise it testifies about itself.
 
-SAFETY: talks only to the Dev engine (port 8902 by default). Refuses to run
-against production. Never kills anything it did not create.
+SAFETY: talks only to the Dev engine on port 8902. Deletes only its own PTYs.
+Failure modes restart the verified Dev engine only after checking that it has
+no pre-existing local sessions. They are explicit mutations, not read-only QA.
+
+CURRENT SCOPE: shell identity, non-exported nonce, fresh I/O challenge and
+output produced without an attached reader. This installed-Dev probe does NOT
+yet prove TUI/job identity or that the output was produced during ENGINE
+absence. The separate Rust process-survival harness exercises those cases.
 """
 
 from __future__ import annotations
@@ -62,7 +72,7 @@ def ps_rows(fields: str, extra: list[str] | None = None) -> list[list[str]]:
     command = ["/bin/ps", "-Ao", fields]
     if extra:
         command = ["/bin/ps", *extra, "-o", fields]
-    output = subprocess.run(command, capture_output=True, text=True, check=False)
+    output = subprocess.run(command, capture_output=True, text=True, check=True)
     rows = []
     # `pid=` (with the `=`) suppresses the header, so dropping the first line
     # ate a process — possibly the very one I was looking for. [jaime]
@@ -153,16 +163,19 @@ def engine_identity(path_fragment: str) -> dict | None:
 
 
 class Engine:
-    def __init__(self, port: int, token: str):
+    def __init__(self, port: int, token: str, backend: str = "legacy"):
         self.base = f"http://127.0.0.1:{port}"
         self.token = token
+        self.backend = backend
+        self.created: dict[str, dict] = {}
 
-    def _call(self, method: str, path: str, body: dict | None = None, timeout=15):
+    def _call(self, method: str, path: str, body: dict | None = None, timeout=15,
+              extra_headers: dict | None = None):
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(
             f"{self.base}{path}", data=data, method=method,
             headers={"Content-Type": "application/json",
-                     "Authorization": f"Bearer {self.token}"},
+                     "Authorization": f"Bearer {self.token}", **(extra_headers or {})},
         )
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read()
@@ -171,20 +184,44 @@ class Engine:
     def create_terminal(self, conversation_id: str, argv: list[str],
                         cwd: str | None = None,
                         env: list[list[str]] | None = None) -> dict:
-        return self._call("POST", "/api/v1/terminals/local", {
+        body = {
             "conversation_id": conversation_id,
             "argv": argv,
-            "cwd": cwd,
+            "cwd": cwd or os.getcwd(),
             "env": env or [],
             "cols": 120,
             "rows": 40,
-        })
+        }
+        if self.backend == "supervisor":
+            issued = self._call("POST", f"/api/v1/terminals/local/{conversation_id}/intents")
+            if issued.get("backend") != "supervisor" or issued.get("conversation_id") != conversation_id:
+                raise RuntimeError("ticket was not issued by the expected backend")
+            uuid.UUID(issued["intent_id"])
+            body["intent_id"] = issued["intent_id"]
+            # Keep the exact ticket even if the following CREATE response is
+            # lost. Cleanup cancels this ticket, never the current conversation.
+            self.created[conversation_id] = issued
+        result = self._call("POST", "/api/v1/terminals/local", body)
+        self.created[conversation_id] = {**self.created.get(conversation_id, {}), **result}
+        if self.backend == "supervisor" and result.get("backend") != "supervisor":
+            raise RuntimeError("CREATE did not use the expected supervisor")
+        return result
 
     def delete_terminal(self, conversation_id: str) -> None:
         try:
-            self._call("DELETE", f"/api/v1/terminals/local/{conversation_id}")
-        except urllib.error.HTTPError:
-            pass
+            metadata = self.created[conversation_id]
+            path = f"/api/v1/terminals/local/{conversation_id}"
+            if self.backend == "supervisor":
+                instance = metadata.get("session_instance_id")
+                if instance:
+                    self._call("DELETE", path, extra_headers={"If-Match": f'"{instance}"'})
+                else:
+                    self._call("POST", f"{path}/intents/{metadata['intent_id']}/cancel")
+            else:
+                self._call("DELETE", path)
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                print(f"probe cleanup refused: HTTP {error.code}", file=sys.stderr)
 
     def alive(self) -> bool:
         try:
@@ -192,6 +229,157 @@ class Engine:
             return True
         except Exception:
             return False
+
+
+# ───────────────────── behaviour: the half identity cannot prove ─────────
+
+# `\x00\x01CTL:` marks a control marker; every other binary frame is PTY output.
+CTL_PREFIX = b"\x00\x01CTL:"
+PTY_PREFIX = b"\x00\x02PTY:"
+ABSENT_LINES = 64
+
+
+def _ws_url(port: int, conversation_id: str) -> str:
+    return f"ws://127.0.0.1:{port}/api/v1/terminals/local/{conversation_id}/pty"
+
+
+async def _converse(port: int, token: str, conversation_id: str,
+                    sends: list[str], collect_secs: float,
+                    full_replay: bool = False, session: dict | None = None) -> str:
+    """Attaches, sends each line, and returns everything the PTY emitted.
+
+    Control markers are dropped: they are the transport talking about itself,
+    and what this probe judges is what the SESSION produced.
+    """
+    import asyncio
+    import websockets
+
+    url = _ws_url(port, conversation_id)
+    supervised = session is not None and session.get("backend") == "supervisor"
+    if supervised:
+        instance = str(uuid.UUID(session["session_instance_id"]))
+        url += f"?session_instance_id={instance}&stream_protocol=1&next_offset=0"
+    elif full_replay:
+        url += "?full_replay=true"
+    output: list[bytes] = []
+    async with websockets.connect(
+        url, additional_headers={"Authorization": f"Bearer {token}"},
+        max_size=8 * 1024 * 1024,
+    ) as socket:
+        async def drain() -> None:
+            cursor = 0
+            async for message in socket:
+                if isinstance(message, bytes):
+                    if supervised:
+                        if not message.startswith(PTY_PREFIX) or len(message) < len(PTY_PREFIX) + 8:
+                            raise RuntimeError("invalid supervised terminal frame")
+                        offset = int.from_bytes(message[len(PTY_PREFIX):len(PTY_PREFIX)+8], "big")
+                        if offset != cursor:
+                            raise RuntimeError("terminal replay skipped or duplicated bytes")
+                        message = message[len(PTY_PREFIX)+8:]
+                        cursor += len(message)
+                        output.append(message)
+                        continue
+                    if message.startswith(CTL_PREFIX):
+                        continue
+                    output.append(message)
+                elif supervised:
+                    event = json.loads(message)
+                    if event.get("type") == "attached":
+                        if event.get("info", {}).get("session_instance_id") != instance:
+                            raise RuntimeError("attached to a different terminal instance")
+                    elif event.get("type") != "replay_end":
+                        raise RuntimeError(f"terminal proof interrupted: {event.get('type')}")
+
+        reader = asyncio.ensure_future(drain())
+        for line in sends:
+            await socket.send(json.dumps({"type": "input", "data": line}))
+            await asyncio.sleep(0.35)
+        await asyncio.sleep(collect_secs)
+        reader.cancel()
+        try:
+            await reader
+        except asyncio.CancelledError:
+            pass
+    return b"".join(output).decode("utf-8", "replace")
+
+
+def converse(port: int, token: str, conversation_id: str, sends: list[str],
+             collect_secs: float, full_replay: bool = False, session: dict | None = None) -> str:
+    import asyncio
+    return asyncio.run(_converse(port, token, conversation_id, sends,
+                                 collect_secs, full_replay, session))
+
+
+def arm_session(port: int, token: str, conversation_id: str, nonce: str,
+                session: dict | None = None) -> bool:
+    """Puts the marks in the session that a re-created one could not carry.
+
+    - the nonce lives in a variable that is NOT exported, so it exists only in
+      THIS shell's memory: a replacement shell cannot inherit it and a recovery
+      script cannot re-derive it;
+    - `stty -echo` first, so the nonce is never echoed into the log where a
+      later replay could hand it back to us;
+    - a numbered writer runs in the BACKGROUND, so output keeps being produced
+      while nobody is attached — that is what makes the absence measurable.
+    """
+    marker = converse(port, token, conversation_id, [
+        "stty -echo\n",
+        f"SOYEHT_PROBE_NONCE='{nonce}'; export -n SOYEHT_PROBE_NONCE\n",
+        "printf 'ARMED:%s\\n' \"$SOYEHT_PROBE_NONCE\"\n",
+        f"( for n in $(seq 1 {ABSENT_LINES}); do printf 'ABSENT:%03d\\n' \"$n\"; "
+        "sleep 0.2; done ) &\n",
+    ], collect_secs=1.2, session=session)
+    return f"ARMED:{nonce}" in marker
+
+
+def verify_session(port: int, token: str, conversation_id: str,
+                   nonce: str, writer_grace: float = 25.0,
+                   session: dict | None = None) -> dict:
+    """Reattaches and asks the session to prove it is the same one.
+
+    Three separate questions, because each fails differently:
+      detached_output — did the numbered output produced with nobody attached come
+                  back, each line exactly once? Content AND interval, never
+                  "something showed up".
+      nonce     — is the non-exported variable still there, and still NOT in
+                  the environment? The second half is what rules out a
+                  replacement shell that was handed the value.
+      responds  — does the session still answer? A process can be alive and
+                  wedged, and identity would call that survival.
+    """
+    # The writer emits one line every 0.2 s, so a short absence can end before
+    # it finished. Waiting for it is honest; failing it for arriving late
+    # would be the instrument blaming the product for the instrument's clock.
+    deadline = time.time() + writer_grace
+    seen = ""
+    while True:
+        # A fresh challenge per attempt cannot be satisfied by full replay of
+        # an earlier successful probe. Tie the nonce response to it as well.
+        challenge = uuid.uuid4().hex
+        seen = converse(port, token, conversation_id, [
+            f"printf 'AFTER:{challenge}:%s\\n' \"$SOYEHT_PROBE_NONCE\"\n",
+            f"env | /usr/bin/grep '^SOYEHT_PROBE_NONCE=' ; printf 'CHALLENGE:%s\\n' '{challenge}'\n",
+        ], collect_secs=2.5, full_replay=True, session=session)
+        if seen.count(f"ABSENT:{ABSENT_LINES:03d}") >= 1 or time.time() >= deadline:
+            break
+        time.sleep(1.0)
+
+    counts = [seen.count(f"ABSENT:{n:03d}") for n in range(1, ABSENT_LINES + 1)]
+    exactly_once = sum(1 for c in counts if c == 1)
+    duplicated = sum(1 for c in counts if c > 1)
+    return {
+        "detached_output": (exactly_once == ABSENT_LINES and duplicated == 0,
+                    f"{exactly_once}/{ABSENT_LINES} lines exactly once"
+                    + (f", {duplicated} duplicated" if duplicated else "")),
+        "nonce": (f"AFTER:{challenge}:{nonce}" in seen and f"SOYEHT_PROBE_NONCE={nonce}" not in seen,
+                  "in-memory variable survived and is still not exported"
+                  if f"AFTER:{challenge}:{nonce}" in seen else "the variable is gone"),
+        "responds": (f"CHALLENGE:{challenge}" in seen,
+                     "answered after reattach" if f"CHALLENGE:{challenge}" in seen
+                     else "no answer — alive is not the same as working"),
+    }
+
 
 
 # ─────────────────────────── one session under test ───────────────────────
@@ -278,7 +466,8 @@ def processes_on_tty(tty: str) -> list[dict]:
 # ─────────────────────────── the verdict ───────────────────────────
 
 
-def compare(before: SessionSnapshot, after: SessionSnapshot | None) -> dict:
+def compare(before: SessionSnapshot, after: SessionSnapshot | None,
+            behaviour: dict | None = None) -> dict:
     """Checks identity AND behaviour. Both, or it is not the same session."""
     checks: dict[str, tuple[bool | None, str]] = {}
 
@@ -340,10 +529,18 @@ def compare(before: SessionSnapshot, after: SessionSnapshot | None) -> dict:
         f"(informative until F2; then the expected parent is the supervisor)",
     )
 
+    for name, (ok, detail) in (behaviour or {}).items():
+        checks[name] = (ok, detail)
+
     executed = [ok for ok, _ in checks.values() if ok is not None]
     survived = bool(executed) and all(executed)
+    # `identity_only` was True for as long as this probe could photograph a
+    # process and nothing else. Identity alone cannot tell THE SAME session
+    # from one re-created convincingly — same argv, same cwd, a fresh PID that
+    # happens to look right. The behaviour checks are what close that, so the
+    # flag now reports whether they actually ran instead of being a constant.
     return {"survived": survived, "checks": checks,
-            "identity_only": True}  # nonce/TUI/IO still pending — see F0 above
+            "identity_only": not behaviour}
 
 
 def wait_for_engine_change(before: dict, budget: float) -> str:
@@ -387,7 +584,11 @@ def provoke_failure(mode: str, engine: dict) -> None:
     if DEV_ENGINE_PATH_FRAGMENT not in engine.get("command", ""):
         sys.exit("refused: the target is not the Dev engine "
                  f"(command={engine.get('command','')[:60]!r})")
-    if mode == "bootout":
+    current = process_identity(engine["pid"])
+    if (current is None or current["start"] != engine["start"]
+            or DEV_ENGINE_PATH_FRAGMENT not in current.get("command", "")):
+        sys.exit("refused: the Dev engine changed identity while the probe was arming")
+    if mode == "kickstart":
         label = f"user/{os.getuid()}/{DEV_ENGINE_LABEL}"
         subprocess.run(["/bin/launchctl", "kickstart", "-k", label], check=False)
     elif mode == "sigkill":
@@ -406,23 +607,33 @@ def read_token(state_dir: str) -> str:
 
 
 def guard_not_production(port: int) -> None:
-    if port == PROD_ADMIN_PORT:
-        sys.exit("refused: this probe never talks to the production engine (8892). "
-                 "It creates and kills sessions.")
+    if port != DEV_ADMIN_PORT:
+        sys.exit("refused: this installed-service probe accepts only Dev admin port 8902")
 
 
 def run(args) -> int:
     guard_not_production(args.port)
+    if os.path.realpath(args.state_dir) != os.path.realpath(DEV_STATE_DIR):
+        sys.exit("refused: bootstrap credentials must come from the Dev profile")
+    if not 1 <= args.sessions <= 8:
+        sys.exit("refused: use between one and eight disposable probe sessions")
     token = read_token(args.state_dir)
-    engine = Engine(args.port, token)
+    engine = Engine(args.port, token, args.backend)
 
     engine_before = engine_identity(DEV_ENGINE_PATH_FRAGMENT)
     if not engine_before:
         sys.exit("the Dev engine is not running")
     engine_pid = engine_before["pid"]
     print(f"Dev engine pid={engine_pid} start={engine_before['start']}")
+    if args.failure_mode != "none":
+        existing = engine._call("GET", "/api/v1/terminals/local")
+        if not isinstance(existing.get("data"), list):
+            sys.exit("refused: could not inventory existing Dev sessions")
+        if existing["data"]:
+            sys.exit("refused: restarting this Dev engine could affect terminals not created by the probe")
 
     created: list[tuple[str, SessionSnapshot]] = []
+    armed_count = 0
     try:
         for index in range(args.sessions):
             conversation = f"ptyprobe-{uuid.uuid4()}"
@@ -437,8 +648,14 @@ def run(args) -> int:
             if snapshot.shell is None:
                 print(f"  session {index}: no shell found on {tty}")
                 continue
+            armed = arm_session(args.port, token, conversation, nonce, session=response)
+            armed_count += 1 if armed else 0
             created.append((conversation, snapshot))
-            print(f"  session {index}: pid={snapshot.shell['pid']} tty={tty}")
+            print(f"  session {index}: pid={snapshot.shell['pid']} tty={tty}"
+                  f" armed={'yes' if armed else 'NO'}")
+            if not armed:
+                print("    the marks could not be placed — this session will be "
+                      "judged on identity alone, which cannot prove survival")
 
         if not created:
             sys.exit("no session was created — nothing to measure")
@@ -471,7 +688,17 @@ def run(args) -> int:
         survivors = 0
         for conversation, before in created:
             after = resnapshot(before)
-            verdict = compare(before, after)
+            behaviour = None
+            if after is not None:
+                try:
+                    behaviour = verify_session(args.port, token, conversation,
+                                               before.nonce, session=engine.created[conversation])
+                except Exception as error:
+                    # Not being able to ASK is not the same as a bad answer,
+                    # and reporting it as survival is the exact failure this
+                    # whole file exists to stop.
+                    behaviour = {"responds": (False, f"could not reattach: {error}")}
+            verdict = compare(before, after, behaviour)
             survivors += 1 if verdict["survived"] else 0
             results.append({"conversation_id": conversation, **verdict})
 
@@ -480,8 +707,8 @@ def run(args) -> int:
         if engine_after:
             print(f"engine after:  pid={engine_after['pid']} start={engine_after['start']}")
             same = engine_after["pid"] == engine_before["pid"]
-            print("  the engine was "
-                  + ("NOT swapped (invalid control!)" if same else "swapped ✓"))
+            print("  positive control: engine left running" if args.failure_mode == "none"
+                  else "  the engine was " + ("NOT swapped (invalid control!)" if same else "swapped ✓"))
         else:
             print("engine after:  ABSENT")
 
@@ -499,20 +726,39 @@ def run(args) -> int:
         # exactly the shape of the mistake that cost the eleven panes: a green
         # that does not measure what it claims to. [jaime] reproduced this
         # with mocks.
-        valid = observed == "replaced"
+        valid = observed == "replaced" or args.failure_mode == "none"
         if not valid:
             print(f"\nVERDICT INVALID — the failure was not provoked "
                   f"(observed: {observed}). No survival number means anything here.")
         else:
             print(f"\nsurvival: {survivors}/{len(created)} ({percentage:.0f}%)")
-        print("scope: IDENTITY only — nonce, TUI, long-running process, I/O "
-              "challenge and output during the absence are not measured yet")
+        measured = sorted({name for item in results
+                           for name in item["checks"]
+                           if name in ("detached_output", "nonce", "responds")})
+        if measured:
+            print("scope: identity AND behaviour — " + ", ".join(measured)
+                  + ". Still not measured: a TUI and a separate long-running "
+                    "process alongside the shell, or numbered output produced "
+                    "specifically while the ENGINE is absent.")
+        elif armed_count:
+            # The marks WERE placed; there was simply nothing left to ask.
+            # Saying "could not be placed" here would blame the instrument for
+            # a death it measured correctly — and that sentence is what a
+            # reader would use to dismiss the number.
+            print(f"scope: behaviour marks were armed on {armed_count} "
+                  "session(s) and none survived to answer. The 0% is a real "
+                  "measurement, not a missing instrument.")
+        else:
+            print("scope: IDENTITY only — the behaviour marks could not be "
+                  "placed, so nothing here separates the same session from "
+                  "one convincingly re-created")
 
         if args.json_out:
             with open(args.json_out, "w", encoding="utf-8") as handle:
                 json.dump({"valid": valid,
                            "failure_observed": observed,
-                           "scope": "identity_only",
+                           "scope": "identity_and_detached_output" if measured else "identity_only",
+                           "engine_absence_output_proven": False,
                            "engine_before": engine_before,
                            "engine_after": engine_after,
                            "results": results,
@@ -524,7 +770,7 @@ def run(args) -> int:
             return 2  # invalid gets its own code: never confuse it with failure
         return 0 if survivors == len(created) else 1
     finally:
-        for conversation, _ in created:
+        for conversation in engine.created:
             engine.delete_terminal(conversation)
 
 
@@ -532,9 +778,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--sessions", type=int, default=3)
+    parser.add_argument("--backend", choices=["legacy", "supervisor"], default="legacy",
+                        help="explicit backend under test; never falls back after a supervisor error")
     parser.add_argument("--port", type=int, default=DEV_ADMIN_PORT)
     parser.add_argument("--state-dir", default=DEV_STATE_DIR)
-    parser.add_argument("--failure-mode", choices=["none", "bootout", "sigkill"],
+    parser.add_argument("--failure-mode", choices=["none", "kickstart", "sigkill"],
                         default="none",
                         help="how to provoke the failure; the target is verified first")
     parser.add_argument("--absence-budget", type=float, default=60.0,

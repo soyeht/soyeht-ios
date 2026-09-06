@@ -231,11 +231,33 @@ falhada e teste ignorado não contam como controle negativo válido.
 O teste do adapter recria o servidor HTTP mantendo o daemon e a identidade
 da sessão; não mata o processo completo do engine. O ensaio de cancelamento
 exercita as duas ordens, repetição e intent antigo diante de instância nova.
-Ainda faltam F0 completo (TUI/job e morte real do engine), ciclo de vida
-launchd e migração de sessões legadas para o aceite final. Os limites/GC de
+Ainda faltam morte/troca do engine instalado, ciclo de vida launchd e migração
+de sessões legadas para o aceite final. Os limites/GC de
 F4 descritos acima já têm ensaios locais, sem ativação do backend instalado.
 
 Antes de entregar o supervisor como componente instalado, seus eventos precisam
 entrar no diagnóstico coletado com procedência verificada. A lista governada
 `scripts/ci/engine-safe-stages.txt` cobre hoje o engine; não se presume que ela
 inclua `ptyd.archive.unmanaged` ou os demais eventos do novo processo.
+
+## Ensaio de processo — shell, TUI e job
+
+`server-rs/tests/support/local_terminal_process_survival.rs` executa o adapter
+HTTP real em processo descartável, separado do processo que hospeda o supervisor.
+SIGKILL no adapter é confirmado pelo SO e pelo HTTP indisponível. Só então a
+TUI em terminal alternativo produz 64 linhas; a nova instância HTTP só é iniciada
+depois de a produção terminar. Reattach pede o cursor anterior e confere cada
+linha uma vez, seguido de desafio aleatório novo. Shell, TUI, job de longa duração
+e supervisor mantêm PID/start/TTY/grupo; o nonce continua não exportado e a saída
+da TUI devolve o primeiro plano ao shell. O controle negativo mata o dono do PTY
+com a mesma carga armada e exige que shell, TUI e job desapareçam.
+
+Isso não executa `main` completo do engine, não altera launchd e não testa a
+renderização do app. O ensaio mede a arquitetura nova, com dono e HTTP em
+processos separados. O engine publicado ainda hospeda ambos no mesmo processo;
+seu controle negativo de 0/2 continua válido e não contradiz este positivo local.
+A sobrevivência instalada só será afirmada após entregar essa separação e medir
+sua troca sob launchd no Mac. A sonda Dev foi incorporada de `fdcb922b`, corrigida para
+chamar `kickstart -k` pelo nome certo, usar desafio novo por tentativa e decodificar
+o protocolo supervisionado. Seu relatório distingue saída sem attach de saída
+com engine ausente; não se atribui a ela a cobertura adicional do ensaio Rust.
