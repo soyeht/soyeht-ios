@@ -43,6 +43,9 @@ THE INVARIANTS
   FIRST-PHONE       a household whose only member is the Mac admits the first
                     iPhone without approval from a third party that cannot exist.
   CAPABILITY-HONEST a locked owner key is never reported as a missing one.
+  WORDS-MATCH       the six words the Mac shows are the six the phone shows.
+                    Two screens showing six words each prove nothing until they
+                    are the SAME six.
 
 CALIBRATION
 
@@ -280,6 +283,52 @@ def inv_capability_honest(t: Transcript) -> Finding:
     return Finding("CAPABILITY-HONEST", "pass", f"declared {state}")
 
 
+DIGEST_RE = re.compile(r"pairing_review_digest=([0-9a-f]{64})\b")
+
+
+def inv_words_match(t: Transcript) -> Finding:
+    """The six words on the Mac must be the six words on the phone.
+
+    The approval ceremony asks a person to compare two screens. Six words on
+    each proves nothing until they are the SAME six — and a machine reading
+    both ends is the only way to say that without someone squinting at two
+    displays.
+
+    Both sides log `pairing_review_digest=` from one shared derivation
+    (`DevicePairingReview.diagnostic`), so this compares tape to tape. The
+    driver reads the phone's words too, but its reading never reaches this
+    verdict: whoever acts must not feed whoever judges.
+    """
+    mac = DIGEST_RE.search("\n".join(t.mac_grep("pairing_review_digest")))
+    phone = DIGEST_RE.search("\n".join(t.phone_grep("pairing_review_digest")))
+
+    if mac is None and phone is None:
+        # Distinguish "never got there" from "got there and disagreed". A run
+        # that stops before owner approval exercises nothing here.
+        malformed = [line for line in t.mac + t.phone
+                     if "pairing_review_digest" in line]
+        if malformed:
+            return Finding("WORDS-MATCH", "fail",
+                           f"digest present but not 64 lowercase hex: {malformed[0][:100]}")
+        return Finding("WORDS-MATCH", "n/a", "this run never reached owner approval")
+
+    if mac is None:
+        return Finding("WORDS-MATCH", "fail",
+                       "only the phone derived the words; the approver has "
+                       "nothing to compare against")
+    if phone is None:
+        return Finding("WORDS-MATCH", "fail",
+                       "only the Mac derived the words; the person is asked to "
+                       "compare against a screen that shows none")
+    if mac.group(1) != phone.group(1):
+        return Finding("WORDS-MATCH", "fail",
+                       f"the two ends derived different words "
+                       f"(Mac {mac.group(1)[:12]}…, phone {phone.group(1)[:12]}…); "
+                       "approving here would confirm the wrong request")
+    return Finding("WORDS-MATCH", "pass",
+                   f"both ends derived the same words ({mac.group(1)[:12]}…)")
+
+
 def judge(t: Transcript, phone_has_tailnet: bool,
           household_devices: int | None) -> list[Finding]:
     return [
@@ -290,6 +339,7 @@ def judge(t: Transcript, phone_has_tailnet: bool,
         inv_no_spinner(t),
         inv_first_phone(t, household_devices),
         inv_capability_honest(t),
+        inv_words_match(t),
     ]
 
 
@@ -429,6 +479,28 @@ BAD_CAPABILITY_LIES = Transcript(
 )
 
 
+SAME = "a" * 64
+OTHER = "b" * 64
+
+GOOD_WORDS_MATCH = Transcript(
+    mac=[f"pairing_review_digest={SAME}"],
+    phone=[f"pairing_review_digest={SAME}", "pair.result=paired"],
+    engine=["pair_device.confirm.success"],
+)
+
+BAD_WORDS_DIFFER = Transcript(
+    mac=[f"pairing_review_digest={SAME}"],
+    phone=[f"pairing_review_digest={OTHER}", "pair.result=paired"],
+    engine=["pair_device.confirm.success"],
+)
+
+BAD_WORDS_ONE_SIDED = Transcript(
+    mac=[f"pairing_review_digest={SAME}"],
+    phone=["pair.result=awaiting_owner_approval"],
+    engine=[],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -450,6 +522,14 @@ def self_test() -> int:
          {"CAPABILITY-HONEST": "pass"}),
         ("bad, called locked missing", BAD_CAPABILITY_LIES, True, 1,
          {"CAPABILITY-HONEST": "fail"}),
+        ("good, both ends derived the same words", GOOD_WORDS_MATCH, True, 1,
+         {"WORDS-MATCH": "pass"}),
+        ("bad, the two ends derived different words", BAD_WORDS_DIFFER, True, 1,
+         {"WORDS-MATCH": "fail"}),
+        ("bad, only one end derived words", BAD_WORDS_ONE_SIDED, True, 1,
+         {"WORDS-MATCH": "fail"}),
+        ("neither end reached approval", GOOD_TAILNET, True, 1,
+         {"WORDS-MATCH": "n/a"}),
     ]
     failures = 0
     for label, transcript, has_tailnet, devices, expected in cases:
