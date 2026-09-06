@@ -448,3 +448,41 @@ das verificações finais relevantes, não uma alegação de suíte integral.
 puro, perfil cruzado, capacidade do dono e cerimônia com palavras iguais nas
 duas pontas. A casa de produção continua intacta. Nenhum release, bump, PR,
 push ou instalação foi feito nesta faixa. A nota final depende desse resultado.
+
+### Aceite no aparelho — 2026-09-06 ([blaire])
+
+O que o fechamento do gate deixou pendente — tailnet, Wi-Fi puro, perfil
+cruzado, capacidade do dono e cerimônia com palavras iguais nas duas pontas —
+foi medido no iPhone Devs contra o engine Dev. **Nove invariantes, zero
+reprovações.** Nenhuma corrida sozinha cobre os nove; duas se complementam, e
+os `n/a` de cada uma são exatamente os cenários que a outra exerce:
+
+| corrida | fixture | resultado |
+|---|---|---|
+| tailnet nos dois lados | casa `named_awaiting_pair`, `device_count 0` | 7 ok, 0 falha, 2 n/a |
+| LAN pura | casa com dono, telefone sem Tailscale | 5 ok, 0 falha, 4 n/a |
+
+Provas diretas, não inferências: o telefone registrou
+`pair.endpoint source=tailnetOnBothEnds` e gravou `endpoint.persisted
+class=tailnet`; o engine registrou `pair_device.confirm.success` e passou a
+`ready`; as seis palavras lidas na tela do telefone foram as seis da tela do
+Mac; e a casa de `device_count 0` admitiu o primeiro iPhone **sem** nenhuma
+linha de aprovação por terceiro — o contrário do bloqueio relatado, que é de
+casa com dono, não de casa nova.
+
+Duas correções saíram desta faixa, ambas defeitos reais e não do harness:
+
+- **`endpoint.persisted` não existia.** O invariante NO-SILENT-LAN estava
+  ancorado numa linha que nenhum build jamais escreveu, então reportava `n/a`
+  em toda corrida: um guarda incapaz de reprovar, protegendo justamente o
+  defeito para o qual foi escrito. O telefone agora registra qual endereço
+  gravou, com `class=` decidido pelo app; a sonda reprova uma corrida que
+  pareou sem registrar endereço. Commit `04c95918`.
+- **Seis chaves de i18n sem entrada em catálogo**, cinco delas nas mensagens de
+  pareamento escritas nesta mesma rodada. O gate `I18nSourceKeyCoverageTests`
+  já estava vermelho no `main`. Commit `f9201c8c`.
+
+Verificação: suíte de domínio do Mac completa, 1070 testes, 0 falhas, 5 skips.
+Produção intocada durante toda a faixa (19 h de uptime contínuo). Nenhum
+release, bump, PR ou push nesta faixa — o pacote conjunto (Mac + engine + iOS)
+continua sendo decisão do Caio.
