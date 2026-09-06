@@ -200,12 +200,20 @@ def inv_profile_isolated(t: Transcript) -> Finding:
     Measured 2026-09-05: Dev and production claimed the same handset 50 seconds
     apart, Dev won, and it told the phone to dial the wrong engine.
     """
-    strangers = [line for line in t.mac_grep("direct_probe.claim")
-                 if f":{PROD_BOOTSTRAP_PORT}" in line]
+    claims = t.mac_grep("direct_probe.claim")
+    if not claims:
+        # Passing here because no claim crossed the line, when no claim was
+        # made at all, is a green earned by nothing happening. The rehearsal of
+        # 2026-09-05 produced exactly that: the driver failed before touching
+        # anything and this still reported "ok".
+        return Finding("PROFILE-ISOLATED", "n/a",
+                       "no claim was attempted in this run")
+    strangers = [line for line in claims if f":{PROD_BOOTSTRAP_PORT}" in line]
     if strangers:
         return Finding("PROFILE-ISOLATED", "fail",
                        f"Dev claimed a production target: {strangers[0][:120]}")
-    return Finding("PROFILE-ISOLATED", "pass", "no claim crossed the profile line")
+    return Finding("PROFILE-ISOLATED", "pass",
+                   f"{len(claims)} claim(s), none crossed the profile line")
 
 
 def inv_no_spinner(t: Transcript) -> Finding:
@@ -535,6 +543,18 @@ BAD_ONE_REQUEST_UNREVIEWED = Transcript(
 )
 
 
+# A run that really did claim, on the Dev bootstrap port. Without this the
+# suite would only ever exercise n/a and fail for PROFILE-ISOLATED, and the
+# pass path would be untested — the same vacuity, one level up.
+GOOD_CLAIM_IN_PROFILE = Transcript(
+    mac=[f"direct_probe.claim_already_initialized "
+         f"iphone=http://192.168.1.50:{DEV_BOOTSTRAP_PORT}/",
+         f"pairing_review_digest={SAME}"],
+    phone=[f"pairing_review_digest={SAME}", "pair.result=paired"],
+    engine=["pair_device.confirm.success"],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -568,6 +588,14 @@ def self_test() -> int:
          GOOD_TWO_REQUESTS_ANY_ORDER, True, 1, {"WORDS-MATCH": "pass"}),
         ("bad, one request reviewed on the Mac only",
          BAD_ONE_REQUEST_UNREVIEWED, True, 1, {"WORDS-MATCH": "fail"}),
+        # A run where nothing was ever attempted must not earn a pass for
+        # "no claim crossed the profile line". Measured in the rehearsal of
+        # 2026-09-05: the driver failed before touching anything and this
+        # still reported ok.
+        ("no claim attempted at all", BAD_SPINNER, True, 1,
+         {"PROFILE-ISOLATED": "n/a"}),
+        ("a claim was attempted and stayed in profile",
+         GOOD_CLAIM_IN_PROFILE, True, 1, {"PROFILE-ISOLATED": "pass"}),
     ]
     failures = 0
     for label, transcript, has_tailnet, devices, expected in cases:
@@ -639,7 +667,11 @@ def run(args) -> int:
           f"{len(failed)} failed, {len(skipped)} not applicable.")
     print(f"tapes in {out_dir}")
 
-    if not any(f.verdict == "pass" for f in findings):
+    # "I could not measure" and "I measured and it is broken" are different
+    # answers that lead to different actions, and collapsing them wastes a
+    # window. Only a run where EVERY invariant came back n/a is invalid; a run
+    # with real failures measured something real.
+    if len(skipped) == len(findings):
         print("\nNO invariant was exercised. This is not a green — "
               "it is a run that did not happen.")
         return 2

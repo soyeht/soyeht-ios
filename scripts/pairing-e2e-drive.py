@@ -64,6 +64,14 @@ ID_KEEP_LOOKING = "soyeht.onboarding.notFound.keepLooking"
 # automated run can tell "both ends agree" from "both ends show six words".
 ID_APPROVAL_WORDS = "soyeht.onboarding.approval.requestWords"
 
+# Leaving the household is how a phone returns to the state where it publishes
+# a setup invitation again. Without it a phone that already belongs to a home
+# simply never advertises, the Mac logs `candidates count=0` forever, and a
+# scenario called "from scratch" measures a phone that was never from scratch.
+# Measured 2026-09-05: that is exactly what the first real rehearsal did.
+LEAVE_HOUSEHOLD_LABEL = "Leave this household"
+LEAVE_CONFIRM_LABEL = "Leave"
+
 
 class DriveError(RuntimeError):
     """A failure to DRIVE. Never a verdict about the product — the probe
@@ -195,6 +203,19 @@ class Phone:
         self._call("POST", f"/session/{self.session}/element/{element}/click", {})
         return True
 
+    def find_by_label(self, label: str) -> str | None:
+        """By visible name. Settings has no accessibility ids on these rows."""
+        try:
+            response = self._call("POST", f"/session/{self.session}/element",
+                                  {"using": "link text", "value": f"label={label}"})
+        except DriveError:
+            return None
+        value = response.get("value") or {}
+        return value.get("ELEMENT") or value.get("element-6066-11e4-a52e-4f735466cecf")
+
+    def click(self, element: str) -> None:
+        self._call("POST", f"/session/{self.session}/element/{element}/click", {})
+
     def text_of(self, accessibility_id: str) -> str | None:
         element = self.find(accessibility_id)
         if element is None:
@@ -224,18 +245,52 @@ def osascript(script: str) -> str:
     return result.stdout.strip()
 
 
+def app_menu_title(process: str) -> str:
+    """The app's own menu title, asked for rather than guessed.
+
+    Guessing it as the first word of the process name worked for "Soyeht" and
+    failed for "Soyeht Dev", whose menu is titled "Soyeht Dev". The rehearsal
+    caught it; a real run would have wasted a whole measurement window.
+    """
+    titles = osascript(
+        f'tell application "System Events" to tell process "{process}" to '
+        'name of menu bar items of menu bar 1'
+    ).split(", ")
+    # The app menu is the one right after Apple's.
+    for title in titles[1:]:
+        if title.strip():
+            return title.strip()
+    raise DriveError(f"{process} exposes no application menu")
+
+
 def open_add_iphone(process: str = DEV_APP_PROCESS) -> None:
     guard_mac_app(process)
+    menu = app_menu_title(process)
     osascript(f'tell application "System Events" to tell process "{process}" to '
               'click menu item "Devices…" of menu 1 of menu bar item '
-              f'"{process.split()[0]}" of menu bar 1')
+              f'"{menu}" of menu bar 1')
     time.sleep(2)
     # The button comes from the accessibility API, not from a coordinate: the
     # sheet re-lays out as its state changes (measured 2026-09-05, the text
     # changed mid-run) and a click by pixel lands somewhere else without saying so.
-    osascript(f'tell application "System Events" to tell process "{process}" to '
-              'click (first button of (first window whose name is "Preferences") '
-              'whose name is "Add iPhone")')
+    #
+    # The window is bound to a variable first. Written as one expression,
+    # AppleScript folded the two `whose` clauses into a single filter on the
+    # window and asked for a Preferences window that was also named "Add
+    # iPhone" — a window that cannot exist. The rehearsal caught it.
+    # The buttons are not direct children of the window: the window holds one
+    # AXGroup and the buttons live inside it. Asking the window for them
+    # returns only the traffic lights, whose names are all "missing value" —
+    # which reads as "the button is not there" rather than "you looked in the
+    # wrong place". The rehearsal caught both this and the `whose` clause
+    # below, which AppleScript had been folding into a single window filter.
+    osascript(
+        'tell application "System Events" to tell process "%s"\n'
+        '  set prefsWindow to first window whose name is "Preferences"\n'
+        '  set content to first UI element of prefsWindow\n'
+        '  click (first button of content whose name is "Add iPhone")\n'
+        'end tell' % process
+    )
 
 
 def mac_app_running(process: str) -> bool:
@@ -247,7 +302,25 @@ def mac_app_running(process: str) -> bool:
 # ─────────────────────────────── scenarios ───────────────────────────────
 
 
-def scenario_from_scratch(phone: Phone, mac_process: str, budget: float) -> dict:
+def leave_household(phone: Phone) -> bool:
+    """Puts the phone back to publishing an invitation, by its own Settings.
+
+    Deliberately NOT silent and NOT the default: this erases the phone's
+    membership, and a driver that wipes state nobody asked it to wipe is how a
+    harness stops being trustworthy. The caller opts in with --reset-phone.
+    """
+    for label in (LEAVE_HOUSEHOLD_LABEL, LEAVE_CONFIRM_LABEL):
+        element = phone.find_by_label(label)
+        if element is None:
+            return False
+        phone.click(element)
+        time.sleep(2)
+    time.sleep(4)  # the app restarts itself into the welcome carousel
+    return True
+
+
+def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
+                          reset_phone: bool = False) -> dict:
     """Pairing from scratch: the Mac offers, the phone checks the words and accepts.
 
     Returns what the DRIVER observed — steps taken and deadlines blown. None of
@@ -260,6 +333,19 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float) -> dict
 
     phone.open_app()
     note("opened the app on the phone", True)
+
+    if reset_phone:
+        left = leave_household(phone)
+        note("phone left its household so it advertises again", left,
+             "" if left else "could not find the Settings control")
+        if not left:
+            return {"scenario": "from scratch", "steps": steps,
+                    "drove_to_the_end": False}
+        phone.open_app()
+    else:
+        note("phone NOT reset", True,
+             "a phone that already belongs to a home never advertises; "
+             "pass --reset-phone for a true from-scratch run")
 
     open_add_iphone(mac_process)
     note("opened Add iPhone on the Mac", True)
@@ -317,6 +403,10 @@ def main() -> int:
     parser.add_argument("--find-budget", type=float, default=90,
                         help="how long the phone gets to find the Mac before I "
                              "call it a spinner")
+    parser.add_argument("--reset-phone", action="store_true",
+                        help="make the phone leave its household first, so it "
+                             "advertises again; without this a 'from scratch' "
+                             "run measures a phone that is not from scratch")
     parser.add_argument("--preflight", action="store_true",
                         help="only report whether a run is possible, then exit")
     args = parser.parse_args()
@@ -341,7 +431,8 @@ def main() -> int:
         return 1
 
     try:
-        result = SCENARIOS[args.scenario](phone, args.mac_process, args.find_budget)
+        result = SCENARIOS[args.scenario](phone, args.mac_process,
+                                          args.find_budget, args.reset_phone)
     except DriveError as error:
         print(f"could not drive: {error}", file=sys.stderr)
         print("this is NOT a verdict about pairing — the script itself failed.",
