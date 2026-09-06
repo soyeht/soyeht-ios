@@ -69,6 +69,12 @@ ID_APPROVAL_WORDS = "soyeht.onboarding.approval.requestWords"
 # simply never advertises, the Mac logs `candidates count=0` forever, and a
 # scenario called "from scratch" measures a phone that was never from scratch.
 # Measured 2026-09-05: that is exactly what the first real rehearsal did.
+# The Mac side of owner approval (G). With `proven` the list populates on its
+# own; with `needs_authentication` pressing Review IS the unlock gesture, which
+# is why the driver must press it rather than expect a populated list.
+ID_MAC_REVIEW_REQUESTS = "prefs.devices.pairing.reviewRequests"
+ID_MAC_APPROVE_REQUEST = "prefs.devices.pairing.approveRequest"
+
 LEAVE_HOUSEHOLD_LABEL = "Leave this household"
 LEAVE_CONFIRM_LABEL = "Leave"
 
@@ -293,6 +299,31 @@ def open_add_iphone(process: str = DEV_APP_PROCESS) -> None:
     )
 
 
+def mac_click_identifier(process: str, identifier: str) -> bool:
+    """Presses a Mac control by its accessibility identifier.
+
+    By identifier and not by title: the approval controls change wording with
+    the capability state, and matching on words would silently press the wrong
+    thing — or nothing — exactly when the state is the interesting part.
+    """
+    script = (
+        'tell application "System Events" to tell process "%s"\n'
+        '  set prefsWindow to first window whose name is "Preferences"\n'
+        '  set content to first UI element of prefsWindow\n'
+        '  repeat with element in (every UI element of content)\n'
+        '    try\n'
+        '      if value of attribute "AXIdentifier" of element is "%s" then\n'
+        '        perform action "AXPress" of element\n'
+        '        return "pressed"\n'
+        '      end if\n'
+        '    end try\n'
+        '  end repeat\n'
+        '  return "absent"\n'
+        'end tell' % (process, identifier)
+    )
+    return osascript(script) == "pressed"
+
+
 def mac_app_running(process: str) -> bool:
     return bool(subprocess.run(["/usr/bin/pgrep", "-f",
                                 f"{process}.app/Contents/MacOS"],
@@ -302,25 +333,52 @@ def mac_app_running(process: str) -> bool:
 # ─────────────────────────────── scenarios ───────────────────────────────
 
 
-def leave_household(phone: Phone) -> bool:
-    """Puts the phone back to publishing an invitation, by its own Settings.
+def leave_household(udid: str, app_path: str | None) -> bool:
+    """Returns the phone to a state where it publishes an invitation again.
 
-    Deliberately NOT silent and NOT the default: this erases the phone's
-    membership, and a driver that wipes state nobody asked it to wipe is how a
-    harness stops being trustworthy. The caller opts in with --reset-phone.
+    By reinstalling the app, not by driving Settings. The first version hunted
+    for the "Leave this household" row on whatever screen happened to be
+    showing and never navigated to Settings at all — so it reported "control
+    not found" for a control that was simply elsewhere. Driving several screens
+    to reach it would add exactly the kind of fragile choreography that makes a
+    harness lie about the product.
+
+    Reinstalling is deterministic and this is the disposable test device. It is
+    still NOT the default: erasing an app's state is destructive, and a driver
+    that wipes what nobody asked it to wipe stops being trustworthy.
     """
-    for label in (LEAVE_HOUSEHOLD_LABEL, LEAVE_CONFIRM_LABEL):
-        element = phone.find_by_label(label)
-        if element is None:
+    if not app_path:
+        return False
+    for args in (["uninstall", "app", "--device", udid, DEV_BUNDLE_ID],
+                 ["install", "app", "--device", udid, app_path]):
+        result = subprocess.run(["xcrun", "devicectl", "device", *args],
+                                capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
             return False
-        phone.click(element)
-        time.sleep(2)
-    time.sleep(4)  # the app restarts itself into the welcome carousel
+    time.sleep(3)
     return True
 
 
+def reset_took_effect(phone: Phone, budget: float = 25) -> bool:
+    """Did the phone actually come back with no household?
+
+    MEASURED 2026-09-06: uninstall + install reported success and the phone
+    came back still authenticated to its home — `presence_authenticated` in
+    its own log. The membership survives in the iOS keychain, which an app
+    reinstall does not clear.
+
+    So the reset is asserted, never assumed. A step that reports success
+    without having done anything is worse than a missing step: it turns "my
+    scenario never ran" into "the product is broken", and I would have taken
+    that to the author as a defect.
+    """
+    phone.open_app()
+    return phone.wait_for(ID_LOOKING, budget)
+
+
 def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
-                          reset_phone: bool = False) -> dict:
+                          reset_phone: bool = False, udid: str = "",
+                          app_path: str | None = None) -> dict:
     """Pairing from scratch: the Mac offers, the phone checks the words and accepts.
 
     Returns what the DRIVER observed — steps taken and deadlines blown. None of
@@ -335,13 +393,17 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
     note("opened the app on the phone", True)
 
     if reset_phone:
-        left = leave_household(phone)
-        note("phone left its household so it advertises again", left,
-             "" if left else "could not find the Settings control")
-        if not left:
+        reinstalled = leave_household(udid, app_path)
+        note("reinstalled the app on the phone", reinstalled,
+             "" if reinstalled else "reinstall failed, or --app-path was not given")
+        verified = reinstalled and reset_took_effect(phone)
+        note("phone really came back with no household", verified,
+             "" if verified else
+             "it is still in a home — the iOS keychain survived the reinstall, "
+             "so this run would measure a phone that is NOT from scratch")
+        if not verified:
             return {"scenario": "from scratch", "steps": steps,
                     "drove_to_the_end": False}
-        phone.open_app()
     else:
         note("phone NOT reset", True,
              "a phone that already belongs to a home never advertises; "
@@ -371,6 +433,18 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
     approval = phone.text_of(ID_APPROVAL_WORDS)
     if approval:
         note("phone shows request words for the approver", True, approval)
+        # G: the Mac reviews and approves. Review is the unlock gesture when
+        # the capability is `needs_authentication`, so pressing it is part of
+        # driving, not a shortcut around it. If the Mac reports `no_key` the
+        # controls are simply absent, and that absence is the measurement —
+        # never a reason to erase a household.
+        reviewed = mac_click_identifier(mac_process, ID_MAC_REVIEW_REQUESTS)
+        note("Mac review opened", reviewed,
+             "" if reviewed else "control absent — read owner_capability in the tape")
+        if reviewed:
+            time.sleep(3)
+            approved = mac_click_identifier(mac_process, ID_MAC_APPROVE_REQUEST)
+            note("Mac approved the request", approved)
 
     return {"scenario": "from scratch", "steps": steps,
             "phone_approval_words": approval, "drove_to_the_end": tapped}
@@ -403,6 +477,8 @@ def main() -> int:
     parser.add_argument("--find-budget", type=float, default=90,
                         help="how long the phone gets to find the Mac before I "
                              "call it a spinner")
+    parser.add_argument("--app-path",
+                        help="the built .app to reinstall for --reset-phone")
     parser.add_argument("--reset-phone", action="store_true",
                         help="make the phone leave its household first, so it "
                              "advertises again; without this a 'from scratch' "
@@ -432,7 +508,8 @@ def main() -> int:
 
     try:
         result = SCENARIOS[args.scenario](phone, args.mac_process,
-                                          args.find_budget, args.reset_phone)
+                                          args.find_budget, args.reset_phone,
+                                          args.udid, args.app_path)
     except DriveError as error:
         print(f"could not drive: {error}", file=sys.stderr)
         print("this is NOT a verdict about pairing — the script itself failed.",
