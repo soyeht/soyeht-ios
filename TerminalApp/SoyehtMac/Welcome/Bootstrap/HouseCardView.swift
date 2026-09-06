@@ -611,6 +611,7 @@ struct IPhonePairingSheetContent: View {
     @Binding var showFallbackPairing: Bool
     let copiedPairLink: Bool
     let onCopyPairLink: () -> Void
+    let approvalContent: AnyView?
     var closeAction: (() -> Void)?
 
     init(
@@ -622,6 +623,7 @@ struct IPhonePairingSheetContent: View {
         showFallbackPairing: Binding<Bool>,
         copiedPairLink: Bool,
         onCopyPairLink: @escaping () -> Void,
+        approvalContent: AnyView? = nil,
         closeAction: (() -> Void)? = nil
     ) {
         self.title = title
@@ -632,6 +634,7 @@ struct IPhonePairingSheetContent: View {
         self._showFallbackPairing = showFallbackPairing
         self.copiedPairLink = copiedPairLink
         self.onCopyPairLink = onCopyPairLink
+        self.approvalContent = approvalContent
         self.closeAction = closeAction
     }
 
@@ -668,6 +671,8 @@ struct IPhonePairingSheetContent: View {
                     }
                     .padding(.vertical, 4)
                 }
+
+                if let approvalContent { approvalContent }
 
                 if showFallbackPairing {
                     fallbackPairingSection

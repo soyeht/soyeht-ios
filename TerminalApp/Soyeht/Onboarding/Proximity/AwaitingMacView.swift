@@ -439,19 +439,22 @@ struct AwaitingMacView: View {
                     .foregroundStyle(palette.danger)
                     .multilineTextAlignment(.center)
             } else if viewModel.isPairing, house.isDevicePairing {
-                // Delegated pairing: this home already has an iPhone, and
-                // only that iPhone can approve a new one. Measured
-                // 2026-09-01: with no such iPhone left, this screen showed a
-                // bare spinner for the whole approval window and the person
-                // had no idea what they were waiting for.
                 Text(LocalizedStringResource(
-                    "awaitingMac.existingHouse.waitingForApproval",
-                    defaultValue: "Waiting for approval from an iPhone that already belongs to this home.",
-                    comment: "Shown while a new iPhone waits for an existing iPhone in the home to approve it."
+                    "awaitingMac.existingHouse.ownerApproval",
+                    defaultValue: "Waiting for owner approval. Open Add iPhone on the Mac to review the request, or approve from a device holding this home's owner key.",
+                    comment: "Identifies where an owner can approve this specific device request."
                 ))
                 .font(NeoFont.caption)
                 .foregroundStyle(palette.muted)
                 .multilineTextAlignment(.center)
+            }
+
+            if let words = viewModel.approvalWords, viewModel.isPairing {
+                Text(words.joined(separator: " · "))
+                    .font(.system(.body, design: .monospaced))
+                    .accessibilityIdentifier("soyeht.onboarding.approval.requestWords")
+                Text("Compare these request words on the approving device before accepting.")
+                    .font(NeoFont.caption)
             }
 
             VStack(spacing: 10) {
@@ -519,6 +522,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var recoveryHintTask: Task<Void, Never>?
     private var macBrowserResolutionTask: Task<Void, Never>?
     private var offerRefreshTask: Task<Void, Never>?
+    private var pairingTask: Task<Void, Never>?
 
     /// Seconds to wait with no successful Mac discovery before revealing the
     /// "Not finding your Mac?" recovery section underneath the radar.
@@ -533,6 +537,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var rejectedHouseholdKeys: Set<String> = []
     @Published private(set) var fingerprintWords: [String] = []
     @Published private(set) var isPairing = false
+    @Published private(set) var approvalWords: [String]?
     @Published private(set) var errorMessage: String?
     @Published var showRecoveryHint: Bool = false
     /// What the phone is actually doing, so the radar can say it. The old
@@ -697,6 +702,9 @@ final class AwaitingMacViewModel: ObservableObject {
     }
 
     func stop() {
+        pairingTask?.cancel()
+        pairingTask = nil
+        approvalWords = nil
         // Discovery state does not survive a restart of the screen: after
         // "Not my Mac" or "Keep looking" the next claim is judged from
         // scratch, and a secret installed for the previous home is not
@@ -786,14 +794,18 @@ final class AwaitingMacViewModel: ObservableObject {
         guard let house = pendingExistingHouse, !isPairing else { return }
         isPairing = true
         errorMessage = nil
+        approvalWords = nil
 
-        Task {
+        pairingTask = Task {
             do {
                 if house.isDevicePairing {
                     let link = try HouseholdDevicePairingLink(url: house.pairDeviceURI)
                     _ = try await HouseholdDevicePairingService(
                         keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                    ).pair(link: link, reachedEndpoint: house.engineURL)
+                    ).pair(link: link, reachedEndpoint: house.engineURL, onPending: { [weak self] review in
+                        awaitingMacLogger.info("\(review.diagnostic, privacy: .public)")
+                        await MainActor.run { self?.approvalWords = review.words }
+                    })
                 } else {
                     _ = try await HouseholdPairingService(
                         browser: DirectExistingHousePairingBrowser(
@@ -804,11 +816,7 @@ final class AwaitingMacViewModel: ObservableObject {
                     ).pair(
                         url: house.pairDeviceURI,
                         displayName: HouseholdOwnerDisplayName.defaultName(),
-                        // The address this phone actually reached the Mac on.
-                        // The engine mints its link with the tailnet host and
-                        // never a LAN one, so a phone with no Tailscale would
-                        // otherwise confirm against an address it cannot dial
-                        // — after finding the Mac perfectly well over Wi-Fi.
+                        // Reachability evidence joins the engine offer in the shared policy.
                         reachedEndpoint: house.engineURL
                     )
                 }

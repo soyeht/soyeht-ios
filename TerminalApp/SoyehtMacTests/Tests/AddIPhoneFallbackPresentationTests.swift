@@ -21,28 +21,16 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
             XCTAssertFalse(source.contains("private static func makeQRImage"), path)
             factoryCalls += source.occurrences(of: "MacQRCodeImageFactory.makeImage(from:")
         }
-        XCTAssertEqual(factoryCalls, 5)
+        XCTAssertEqual(factoryCalls, 4)
     }
 
-    func test_preferencesAddIPhoneKeepsQRCodeAndLinkBehindFallbackButton() throws {
+    func test_preferencesUsesTheSharedSheetAndOfferInsteadOfDuplicatingTheCeremony() throws {
         let source = try macSource("PreferencesDevicesViewController.swift")
-        let presentPairing = try slice(
-            source,
-            from: "private func presentPairing",
-            to: "private func startListening"
-        )
-
-        XCTAssertTrue(source.contains("MacIPhonePairingHostingController"))
         XCTAssertTrue(source.contains("IPhonePairingSheetContent"))
-        XCTAssertTrue(source.contains("prefs.devices.addIPhone.fallback"))
-        XCTAssertTrue(source.contains("OperatorFingerprint.derive"))
-        XCTAssertTrue(source.contains("PairDeviceQR(url: url, now: Date())"))
-        XCTAssertTrue(source.contains("link.pairingNonce"))
-        XCTAssertTrue(presentPairing.contains("homeCodeWords = Self.homeCodeWords(for: payload.pairingURI)"))
-        XCTAssertTrue(presentPairing.contains("showFallbackPairing = false"))
-        XCTAssertFalse(presentPairing.contains("showFallbackPairing = true"))
-        XCTAssertFalse(presentPairing.contains("qrImageView"))
-        XCTAssertFalse(presentPairing.contains("pairLinkField"))
+        XCTAssertTrue(source.contains("MacPairingAdvertisement.shared.currentOffer()"))
+        XCTAssertFalse(source.contains("private final class MacIPhonePairingViewController"))
+        XCTAssertFalse(source.contains("OperatorFingerprint.derive"))
+        XCTAssertFalse(source.contains("deviceCount"))
     }
 
     func test_onboardingHouseCardKeepsFallbackPairingBehindButton() throws {
@@ -57,72 +45,17 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("showFallbackPairing = false"))
     }
 
-    func test_addIPhoneStopsDirectListenerAfterFirstClaim() throws {
-        let preferences = try macSource("PreferencesDevicesViewController.swift")
-        let swiftUIFlow = try slice(
-            preferences,
-            from: "private func startListening(_ payload: PairingPayload)",
-            to: "private func startPollingForReady"
-        )
-        let appKitSection = try slice(
-            preferences,
-            from: "private final class MacIPhonePairingViewController",
-            to: "// MARK: - Sheets reached from Preferences"
-        )
-        let appKitFlow = try slice(
-            appKitSection,
-            from: "private func startListening(_ payload: PairingPayload)",
-            to: "private func startPollingForReady"
-        )
-        let houseCard = try macSource("Welcome/Bootstrap/HouseCardView.swift")
-        let houseCardFlow = try slice(
-            houseCard,
-            from: "private func listenForIPhoneInvitations() async",
-            to: "struct IPhonePairingSheetStatus"
-        )
-
-        XCTAssertTrue(swiftUIFlow.contains("case .invitationClaimed:\n                    showIPhoneFound(payload)\n                    return"))
-        XCTAssertTrue(appKitFlow.contains("case .invitationClaimed:\n                    self.showIPhoneFound(payload)\n                    return"))
-        XCTAssertTrue(houseCardFlow.contains("case .invitationClaimed:\n                return"))
-    }
-
-    func test_addIPhonePollsUntilADeviceCountIncreaseForExistingHomes() throws {
-        let preferences = try macSource("PreferencesDevicesViewController.swift")
-        let swiftUIPresentPairing = try slice(
-            preferences,
-            from: "private func presentPairing(_ payload: PairingPayload)",
-            to: "private func startListening"
-        )
-        let swiftUIPolling = try slice(
-            preferences,
-            from: "private func startPollingForReady(_ payload: PairingPayload)",
-            to: "private func makeDevicePairingPayload"
-        )
-        let appKitSection = try slice(
-            preferences,
-            from: "private final class MacIPhonePairingViewController",
-            to: "// MARK: - Sheets reached from Preferences"
-        )
-        let appKitPresentPairing = try slice(
-            appKitSection,
-            from: "private func presentPairing(_ payload: PairingPayload)",
-            to: "private func startListening"
-        )
-        let appKitPolling = try slice(
-            appKitSection,
-            from: "private func startPollingForReady(_ payload: PairingPayload)",
-            to: "private func makeDevicePairingPayload"
-        )
-
-        XCTAssertTrue(swiftUIPresentPairing.contains("startPollingForReady(payload)"))
-        XCTAssertFalse(swiftUIPresentPairing.contains("if payload.isFirstOwnerPairing {\n            startPollingForReady"))
-        XCTAssertTrue(swiftUIPolling.contains("var initialDeviceCount = payload.initialDeviceCount"))
-        XCTAssertTrue(swiftUIPolling.contains("status.deviceCount > $0"))
-
-        XCTAssertTrue(appKitPresentPairing.contains("startPollingForReady(payload)"))
-        XCTAssertFalse(appKitPresentPairing.contains("if payload.isFirstOwnerPairing {\n            startPollingForReady"))
-        XCTAssertTrue(appKitPolling.contains("var initialDeviceCount = payload.initialDeviceCount"))
-        XCTAssertTrue(appKitPolling.contains("status.deviceCount > $0"))
+    func test_approvalDoesNotInferAuthorityOrSuccessFromDeviceCounts() throws {
+        let source = try macSource("PreferencesDevicesViewController.swift")
+        XCTAssertFalse(source.contains("initialDeviceCount"))
+        XCTAssertFalse(source.contains("currentDeviceCount"))
+        XCTAssertFalse(source.contains("status.deviceCount"))
+        XCTAssertTrue(source.contains("OwnerApprovalCapabilityChecker.local()"))
+        XCTAssertTrue(source.contains("SetupInvitationCeremony.requireMatchingHouse"))
+        XCTAssertTrue(source.contains("refreshRequests(allowInteraction: false)"))
+        XCTAssertTrue(source.contains("Date() < deadline"))
+        XCTAssertTrue(source.contains("Approval sent. Finish setup on your iPhone."))
+        XCTAssertFalse(source.contains("iPhone connected. You can close this window."))
     }
 
     func test_preferencesRefreshesLocalConnectionCountAfterAddIPhoneSheetCloses() throws {

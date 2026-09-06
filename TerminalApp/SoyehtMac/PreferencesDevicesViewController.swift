@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 import SoyehtCore
+import os
 
 final class PreferencesTabViewController: NSTabViewController {
     private enum TabIndex {
@@ -235,23 +236,13 @@ final class DevicesPreferencesViewController: NSViewController {
         machinesRow.spacing = 8
         stack.addArrangedSubview(machinesRow)
 
-        // The way out of a home whose only iPhone is gone. Adding a new
-        // iPhone to a paired home needs approval from an iPhone that already
-        // belongs to it; when that iPhone was lost, reset, or replaced, the
-        // new one waits for an approval that can never come (measured
-        // 2026-09-01: five minutes of spinner, then a timeout).
-        //
-        // This used to be "Start over…", which opened the whole uninstaller —
-        // a window about removing Soyeht, to fix a problem about a phone. It
-        // does the same work under its own name now, and the copy is honest
-        // about where it stops: the home is forgotten on this Mac, and stays
-        // alive on any iPhone that still has it.
+        // Leaving a home is a separate, explicitly destructive action.
         forgetHomeLabel.font = .systemFont(ofSize: 12)
         forgetHomeLabel.textColor = .secondaryLabelColor
         forgetHomeLabel.maximumNumberOfLines = 4
         forgetHomeLabel.stringValue = String(
-            localized: "prefs.devices.forgetHome.explainer",
-            defaultValue: "Lost the iPhone that belongs to this home? A new iPhone can only be approved by that one. Forget this home on this Mac, then pair the new iPhone as the first one.",
+            localized: "prefs.devices.forgetHome.separateAction",
+            defaultValue: "To connect a new iPhone, use Add iPhone. Forgetting this home removes its connection from this Mac.",
             comment: "Explains when to use Forget this home in Preferences › Devices."
         )
         stack.addArrangedSubview(forgetHomeLabel)
@@ -505,48 +496,39 @@ private final class MacIPhonePairingHostingController: NSHostingController<MacIP
 
 @MainActor
 private final class MacIPhonePairingPreferencesModel: ObservableObject {
-    @Published var instructions: [LocalizedStringResource] = [
-        LocalizedStringResource(
-            "prefs.devices.addIPhone.loading",
-            defaultValue: "Preparing this Mac for iPhone pairing...",
-            comment: "Loading text while Preferences prepares the iPhone pairing link."
-        ),
-    ]
+    @Published var instructions: [LocalizedStringResource] = ["Preparing this Mac for iPhone pairing…"]
     @Published var homeCodeWords: [String]?
-    @Published var status: IPhonePairingSheetStatus? = IPhonePairingSheetStatus(
-        message: LocalizedStringResource(
-            "prefs.devices.addIPhone.loading.status",
-            defaultValue: "Preparing...",
-            comment: "Compact loading status while Preferences prepares iPhone pairing."
-        ),
-        showsProgress: true
-    )
+    @Published var status: IPhonePairingSheetStatus?
     @Published var pairingURI = ""
     @Published var showFallbackPairing = false
     @Published var copiedPairLink = false
+    @Published var capability: OwnerApprovalCapability?
+    @Published var requests: [DevicePairingReview] = []
+    @Published var approvalInFlight = false
 
     private var didStart = false
     private var loadTask: Task<Void, Never>?
     private var listenerTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
+    private var approvalTask: Task<Void, Never>?
     private var copyResetTask: Task<Void, Never>?
+    private var deadline = Date.distantPast
+    private var authority: PairingAuthority?
+    private let baseURL = TheyOSEnvironment.bootstrapBaseURL
+    private let logger = Logger(subsystem: "com.soyeht.mac", category: "pairing-approval")
 
     func start() {
         guard !didStart else { return }
         didStart = true
+        MacPairingAdvertisement.shared.start()
         loadTask = Task { await loadPairingLink() }
     }
 
     func stop() {
-        loadTask?.cancel()
-        listenerTask?.cancel()
-        pollTask?.cancel()
-        copyResetTask?.cancel()
-        loadTask = nil
-        listenerTask = nil
-        pollTask = nil
-        copyResetTask = nil
+        guard didStart else { return }
         didStart = false
+        [loadTask, listenerTask, pollTask, approvalTask, copyResetTask].forEach { $0?.cancel() }
+        MacPairingAdvertisement.shared.stop()
     }
 
     func copyPairingLink() {
@@ -555,153 +537,68 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
         NSPasteboard.general.setString(pairingURI, forType: .string)
         copiedPairLink = true
         copyResetTask?.cancel()
-        copyResetTask = Task { @MainActor in
+        copyResetTask = Task {
             try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
             copiedPairLink = false
         }
     }
 
+    private func setStatus(_ message: String, progress: Bool = false) {
+        status = IPhonePairingSheetStatus(message: LocalizedStringResource(stringLiteral: message),
+                                         showsProgress: progress)
+    }
+
+    private func observeCapability(_ value: OwnerApprovalCapability) {
+        capability = value
+        logger.info("\(value.diagnostic, privacy: .public)")
+    }
+
     private func loadPairingLink() async {
-        // One offer per Mac. This sheet used to mint its own link whenever the
-        // engine was already `.ready`, while the background listener minted a
-        // different one every half second — so the words here and the words
-        // the phone was told to expect came from whichever listener claimed
-        // the invitation first.
-        MacPairingAdvertisement.shared.start()
-        if let offer = await MacPairingAdvertisement.shared.currentOffer() {
-            presentPairing(PairingPayload(
-                houseName: offer.houseName,
-                hostLabel: offer.hostLabel,
-                pairingURI: offer.uri,
-                isFirstOwnerPairing: offer.isEngineMinted,
-                initialDeviceCount: await Self.currentDeviceCount()
-            ))
-            return
-        }
         do {
-            let response = try await BootstrapPairDeviceURIClient(
-                baseURL: TheyOSEnvironment.bootstrapBaseURL
-            ).fetch()
-            presentPairing(PairingPayload(
-                houseName: response.houseName,
-                hostLabel: response.hostLabel,
-                pairingURI: response.pairDeviceURI,
-                isFirstOwnerPairing: true,
-                initialDeviceCount: await Self.currentDeviceCount()
-            ))
-        } catch {
-            do {
-                presentPairing(try await makeDevicePairingPayload())
-            } catch {
-                instructions = [
-                    LocalizedStringResource(
-                        "prefs.devices.addIPhone.unavailable",
-                        defaultValue: "This Mac is not ready to add an iPhone yet.",
-                        comment: "Shown when iPhone pairing cannot be prepared from Preferences."
-                    ),
-                ]
-                homeCodeWords = nil
-                status = nil
-                pairingURI = ""
-                showFallbackPairing = false
+            // The visibility request and listener bind are asynchronous. Wait for
+            // an actual offer for a bounded time, never fabricate a LAN address.
+            var offered: MacPairingAdvertisement.Offer?
+            for _ in 0..<10 {
+                try Task.checkCancellation()
+                offered = await MacPairingAdvertisement.shared.currentOffer()
+                if offered != nil { break }
+                try await Task.sleep(for: .milliseconds(500))
             }
-        }
+            guard let offer = offered else { throw PairingAddressError.operationUnavailable }
+            let snapshot = try await BootstrapPairingAddressesClient(baseURL: baseURL).fetch()
+            let house = SetupInvitationExistingHouse(name: offer.houseName, hostLabel: offer.hostLabel,
+                                                    pairDeviceURI: offer.uri)
+            try SetupInvitationCeremony.requireMatchingHouse(house, authority: snapshot.authority)
+            let firstOwner = try SetupInvitationCeremony.operation(for: house) == .firstOwner
+            authority = snapshot.authority
+            observeCapability(OwnerApprovalCapabilityChecker.local().check(authority: snapshot.authority))
+            pairingURI = offer.uri
+            homeCodeWords = offer.words
+            deadline = min(offer.expiresAt ?? Date().addingTimeInterval(300), Date().addingTimeInterval(300))
+            instructions = ["Open Soyeht on your iPhone and start looking for this Mac.",
+                            "Use the same LAN or Wi-Fi, or connect both devices through Tailscale."]
+            if !firstOwner {
+                instructions.append(capability?.canAttemptApproval == true
+                    ? "This Mac can review approval. Compare the iPhone request code before approving."
+                    : "Approval requires a device holding this home's owner key. Open Soyeht on that device to review the new iPhone. Your home stays intact.")
+            }
+            setStatus("Waiting for iPhone…", progress: true)
+            startListening(house: house, firstOwner: firstOwner)
+            startPolling(firstOwner: firstOwner)
+        } catch is CancellationError { return }
+        catch { showFailure(error) }
     }
 
-    private func presentPairing(_ payload: PairingPayload) {
-        if payload.isFirstOwnerPairing {
-            instructions = [
-                LocalizedStringResource(
-                    "prefs.devices.addIPhone.instructions.open",
-                    defaultValue: "Open Soyeht on your iPhone and start looking for this Mac.",
-                    comment: "Primary instruction shown in the Add iPhone sheet."
-                ),
-                LocalizedStringResource(
-                    "prefs.devices.addIPhone.instructions.network",
-                    defaultValue: "Keep both devices on the same LAN or Wi-Fi, or connected through Tailscale. Guest networks can block pairing.",
-                    comment: "Network note shown in the Add iPhone sheet."
-                ),
-            ]
-        } else {
-            instructions = [
-                LocalizedStringResource(
-                    "prefs.devices.addIPhone.existingOwner.instructions.open",
-                    defaultValue: "Open Soyeht on the new iPhone and start looking for this Mac.",
-                    comment: "Primary instruction shown when adding another iPhone to an existing home."
-                ),
-                LocalizedStringResource(
-                    "prefs.devices.addIPhone.existingOwner.instructions.approve",
-                    defaultValue: "Then approve it from an iPhone that already belongs to this home.",
-                    comment: "Approval instruction shown when adding another iPhone to an existing home."
-                ),
-            ]
-        }
-        homeCodeWords = Self.homeCodeWords(for: payload.pairingURI)
-        status = IPhonePairingSheetStatus(
-            message: LocalizedStringResource(
-                "prefs.devices.addIPhone.waiting",
-                defaultValue: "Waiting for iPhone...",
-                comment: "Status shown while the Mac is listening for an iPhone."
-            ),
-            showsProgress: true
-        )
-        pairingURI = payload.pairingURI
-        showFallbackPairing = false
-        copiedPairLink = false
-        startListening(payload)
-        startPollingForReady(payload)
-    }
-
-    private func startListening(_ payload: PairingPayload) {
+    private func startListening(house: SetupInvitationExistingHouse, firstOwner: Bool) {
         listenerTask?.cancel()
-        let existingHouse = SetupInvitationExistingHouse(
-            name: payload.houseName,
-            hostLabel: payload.hostLabel,
-            pairDeviceURI: payload.pairingURI
-        )
         listenerTask = Task {
-            while !Task.isCancelled {
-                let listener = SetupInvitationListener(
-                    engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
-                    existingHouse: existingHouse
-                )
-                let outcome = await listener.listen()
-                switch outcome {
-                case .invitationClaimed:
-                    showIPhoneFound(payload)
-                    return
-                case .notFound, .failed:
-                    break
-                }
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-        }
-    }
-
-    private func startPollingForReady(_ payload: PairingPayload) {
-        pollTask?.cancel()
-        pollTask = Task {
-            let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
-            var initialDeviceCount = payload.initialDeviceCount
-            while !Task.isCancelled {
-                if let status = try? await client.fetch() {
-                    if initialDeviceCount == nil {
-                        initialDeviceCount = status.deviceCount
-                    }
-                    let pairedNewDevice = initialDeviceCount.map { status.deviceCount > $0 } ?? payload.isFirstOwnerPairing
-                    if status.state != .ready || !pairedNewDevice {
-                        try? await Task.sleep(for: .milliseconds(700))
-                        continue
-                    }
-                    self.status = IPhonePairingSheetStatus(
-                        message: LocalizedStringResource(
-                            "prefs.devices.addIPhone.connected",
-                            defaultValue: "iPhone connected. You can close this window.",
-                            comment: "Shown after iPhone pairing completes from Preferences."
-                        ),
-                        showsProgress: false
-                    )
-                    listenerTask?.cancel()
+            while !Task.isCancelled, Date() < deadline {
+                let outcome = await SetupInvitationListener(engineBaseURL: baseURL, existingHouse: house).listen()
+                guard !Task.isCancelled else { return }
+                if case .invitationClaimed = outcome {
+                    setStatus(firstOwner ? "iPhone found. Compare the home code and finish on your iPhone."
+                        : "iPhone found. Start connecting on the iPhone, then review its approval request.")
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(700))
@@ -709,83 +606,120 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
         }
     }
 
-    private func makeDevicePairingPayload() async throws -> PairingPayload {
-        let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let snapshot = try await BootstrapPairingAddressesClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = try MacEngineAdvertisedURL.resolve(offer: snapshot.offer, operation: .addDevice)
-        let link = HouseholdDevicePairingLink(
-            endpoint: endpoint,
-            householdId: identity.householdId,
-            householdPublicKey: identity.householdPublicKey,
-            householdName: identity.name,
-            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength),
-            addressOffer: snapshot.offer
-        )
-        // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
-        // to `false` while the real count sits right beside it meant a
-        // zero-device household always showed the delegated-pairing copy
-        // ("finish approval on an iPhone that already belongs to this home"),
-        // which is impossible advice when no such iPhone exists yet.
-        let deviceCount = await Self.currentDeviceCount()
-        return PairingPayload(
-            houseName: identity.name,
-            hostLabel: Host.current().localizedName ?? "Mac",
-            pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: deviceCount == 0,
-            initialDeviceCount: deviceCount
-        )
-    }
-
-    private func showIPhoneFound(_ payload: PairingPayload) {
-        status = IPhonePairingSheetStatus(
-            message: payload.isFirstOwnerPairing ? LocalizedStringResource(
-                "prefs.devices.addIPhone.found",
-                defaultValue: "iPhone found. Confirm the home security code matches, then finish on your iPhone.",
-                comment: "Shown when the Mac discovers the iPhone during first-owner pairing."
-            ) : LocalizedStringResource(
-                "prefs.devices.addIPhone.existingOwner.found",
-                defaultValue: "iPhone found. Finish approval on an iPhone that already belongs to this home.",
-                comment: "Shown when a new iPhone starts delegated device pairing."
-            ),
-            showsProgress: false
-        )
-    }
-
-    private static func homeCodeWords(for pairingURI: String) -> [String]? {
-        // The same derivation the house card and the iPhone use. It reads both
-        // link shapes, which is why this no longer needs its own branch on
-        // PairDeviceQR versus link.pairingNonce.
-        try? PairingCodePresentation.words(pairingURI: pairingURI)
-    }
-
-    private static func householdFingerprintInput(from url: URL) throws -> (householdPublicKey: Data, pairingNonce: Data) {
-        if isHouseholdDevicePairingURL(url) {
-            let link = try HouseholdDevicePairingLink(url: url)
-            return (link.householdPublicKey, link.pairingNonce)
+    private func startPolling(firstOwner: Bool) {
+        pollTask?.cancel()
+        pollTask = Task {
+            do {
+                while !Task.isCancelled, Date() < deadline {
+                    let snapshot = try await BootstrapPairingAddressesClient(baseURL: baseURL).fetch()
+                    guard snapshot.authority.householdID == authority?.householdID else {
+                        throw PairingAttemptFailure(stage: .approval, endpoint: baseURL, cause: .certificate)
+                    }
+                    if firstOwner, snapshot.authority.ownerPersonID != nil {
+                        setStatus("Owner registered. Finish setup on your iPhone.")
+                        listenerTask?.cancel()
+                        return
+                    }
+                    if !firstOwner, capability?.state == .proven, !approvalInFlight {
+                        try await refreshRequests(allowInteraction: false)
+                    }
+                    try await Task.sleep(for: .seconds(2))
+                }
+                guard !Task.isCancelled else { return }
+                requests = []
+                listenerTask?.cancel()
+                setStatus("Pairing expired. Close this sheet and choose Add iPhone to try again.")
+            } catch is CancellationError { return }
+            catch { showFailure(error) }
         }
-        let qr = try PairDeviceQR(url: url, now: Date())
-        return (qr.householdPublicKey, qr.nonce)
     }
 
-    private static func isHouseholdDevicePairingURL(_ url: URL) -> Bool {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return false
+    /// Called only by a visible user action. Automatic polling never prompts.
+    func reviewRequests() {
+        guard !approvalInFlight else { return }
+        approvalInFlight = true
+        approvalTask = Task {
+            defer { approvalInFlight = false }
+            do { try await refreshRequests(allowInteraction: true) }
+            catch is CancellationError { return }
+            catch { showFailure(error) }
         }
-        return components.scheme == "soyeht"
-            && components.host == "household"
-            && components.path == "/device-pairing"
     }
 
-    private static func currentDeviceCount() async -> UInt8? {
-        try? await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch().deviceCount
+    private func signingSession(allowInteraction: Bool) async throws -> (ActiveHouseholdState, any OwnerIdentitySigning) {
+        let snapshot = try await BootstrapPairingAddressesClient(baseURL: baseURL).fetch()
+        guard snapshot.authority == authority else {
+            throw OwnerIdentityKeyError.publicKeyMismatch
+        }
+        guard let data = try HouseholdSessionStore.defaultStorage().loadDiagnosed(
+            account: HouseholdSessionStore.activeSessionAccount, allowInteraction: allowInteraction) else {
+            throw HouseholdSessionError.missingSession
+        }
+        let session = try JSONDecoder().decode(ActiveHouseholdState.self, from: data)
+        guard session.householdId == snapshot.authority.householdID,
+              session.ownerPersonId == snapshot.authority.ownerPersonID,
+              session.ownerPublicKey == snapshot.authority.ownerPublicKey else {
+            throw OwnerIdentityKeyError.publicKeyMismatch
+        }
+        let provider = SecureEnclaveOwnerIdentityKeyProvider()
+        let signer = try allowInteraction
+            ? provider.loadOwnerIdentity(keyReference: session.ownerKeyReference,
+                publicKey: session.ownerPublicKey, personId: session.ownerPersonId)
+            : provider.loadOwnerIdentityWithoutInteraction(keyReference: session.ownerKeyReference,
+                publicKey: session.ownerPublicKey, personId: session.ownerPersonId)
+        return (session, signer)
     }
 
-    private struct PairingPayload {
-        let houseName: String
-        let hostLabel: String
-        let pairingURI: String
-        let isFirstOwnerPairing: Bool
-        let initialDeviceCount: UInt8?
+    private func refreshRequests(allowInteraction: Bool) async throws {
+        let (session, signer) = try await signingSession(allowInteraction: allowInteraction)
+        let listed = try await URLSessionHouseholdDevicePairingHTTPClient()
+            .listPairingRequests(endpoint: baseURL, ownerIdentity: signer)
+        try Task.checkCancellation()
+        if allowInteraction {
+            observeCapability(.init(state: .proven, cause: "owner_request_verified"))
+        }
+        let previousRequests = Set(requests.map(\.id))
+        requests = try listed.filter { $0.status == "pending" && TimeInterval($0.expiresAt) > Date().timeIntervalSince1970 }
+            .map { try $0.review(householdPublicKey: session.householdPublicKey) }
+        for review in requests where !previousRequests.contains(review.id) {
+            logger.info("\(review.diagnostic, privacy: .public)")
+        }
+        if requests.isEmpty { setStatus("No pending request yet. Start connecting on your iPhone, then review again.") }
+    }
+
+    func approve(_ request: DevicePairingReview) {
+        guard !approvalInFlight, request.expiresAt > Date(), Date() < deadline,
+              requests.contains(request) else { return }
+        approvalInFlight = true
+        approvalTask = Task {
+            defer { approvalInFlight = false }
+            do {
+                let (session, signer) = try await signingSession(allowInteraction: true)
+                try Task.checkCancellation()
+                guard request.expiresAt > Date() else { throw HouseholdDevicePairingError.approvalTimedOut }
+                try await HouseholdDevicePairingService().approve(requestId: request.id,
+                    devicePublicKey: request.devicePublicKey, deviceName: request.deviceName,
+                    platform: request.platform, household: session, ownerIdentity: signer,
+                    endpointOverride: baseURL)
+                try Task.checkCancellation()
+                requests.removeAll { $0.id == request.id }
+                setStatus("Approval sent. Finish setup on your iPhone.")
+                logger.info("pairing_approval=sent")
+            } catch is CancellationError { return }
+            catch { showFailure(error) }
+        }
+    }
+
+    private func showFailure(_ error: Error) {
+        let observed = OwnerApprovalCapability.failure(error)
+        if error is OwnerIdentityKeyError || observed.state == .needsAuthentication {
+            observeCapability(observed)
+        }
+        let failure = PairingAttemptFailure.capture(error, stage: .approval, endpoint: baseURL)
+        logger.error("\(failure.diagnostic, privacy: .public)")
+        setStatus(observed.state == .needsAuthentication
+            ? "Review on this Mac requires unlocking the owner key. Choose Review requests to continue."
+            : failure.userMessage)
     }
 }
 
@@ -807,505 +741,30 @@ private struct MacIPhonePairingPreferencesView: View {
             showFallbackPairing: $model.showFallbackPairing,
             copiedPairLink: model.copiedPairLink,
             onCopyPairLink: { model.copyPairingLink() },
+            approvalContent: AnyView(approvalContent),
             closeAction: closeAction
         )
         .task { model.start() }
     }
-}
 
-@MainActor
-private final class MacIPhonePairingViewController: NSViewController {
-    private let statusLabel = NSTextField(wrappingLabelWithString: "")
-    private let securityCodeBox = NSView()
-    private let securityCodeField = NSTextField(labelWithString: "")
-    private let waitingIndicator = NSProgressIndicator()
-    private let waitingLabel = NSTextField(labelWithString: "")
-    private let qrImageView = NSImageView()
-    private let pairLinkField = NSTextField()
-    private let fallbackButton = NSButton()
-    private let copyButton = NSButton()
-    private var loadTask: Task<Void, Never>?
-    private var listenerTask: Task<Void, Never>?
-    private var pollTask: Task<Void, Never>?
-
-    private struct PairingPayload {
-        let houseName: String
-        let hostLabel: String
-        let pairingURI: String
-        let isFirstOwnerPairing: Bool
-        let initialDeviceCount: UInt8?
-    }
-
-    override func loadView() {
-        view = NSView()
-        view.setFrameSize(NSSize(width: 520, height: 470))
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        buildUI()
-        loadTask = Task { await loadPairingLink() }
-    }
-
-    deinit {
-        loadTask?.cancel()
-        listenerTask?.cancel()
-        pollTask?.cancel()
-    }
-
-    private func buildUI() {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 16
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-
-        let title = NSTextField(labelWithString: String(
-            localized: "prefs.devices.addIPhone.title",
-            defaultValue: "Add iPhone",
-            comment: "Title inside the Add iPhone pairing sheet."
-        ))
-        title.font = .systemFont(ofSize: 24, weight: .semibold)
-
-        statusLabel.alignment = .center
-        statusLabel.textColor = .secondaryLabelColor
-        statusLabel.maximumNumberOfLines = 4
-        statusLabel.preferredMaxLayoutWidth = 450
-
-        securityCodeBox.translatesAutoresizingMaskIntoConstraints = false
-        securityCodeBox.wantsLayer = true
-        securityCodeBox.layer?.cornerRadius = MacSurface.Radius.panel
-        securityCodeBox.layer?.borderWidth = MacSurface.Border.hairline
-        securityCodeBox.layer?.borderColor = NSColor.separatorColor.cgColor
-        securityCodeBox.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.45).cgColor
-        securityCodeBox.isHidden = true
-
-        let securityTitle = NSTextField(labelWithString: String(
-            localized: "prefs.devices.addIPhone.security.title",
-            defaultValue: "Security code",
-            comment: "Header above the security words shown while pairing an iPhone."
-        ))
-        securityTitle.font = .systemFont(ofSize: 13, weight: .semibold)
-        securityTitle.textColor = .secondaryLabelColor
-
-        securityCodeField.font = .monospacedSystemFont(ofSize: 15, weight: .semibold)
-        securityCodeField.textColor = .labelColor
-        securityCodeField.maximumNumberOfLines = 3
-        securityCodeField.alignment = .left
-
-        let securityHint = NSTextField(wrappingLabelWithString: String(
-            localized: "prefs.devices.addIPhone.security.hint",
-            defaultValue: "Compare these words with your iPhone before connecting.",
-            comment: "Short instruction for validating the Mac/iPhone security code."
-        ))
-        securityHint.font = .systemFont(ofSize: 12)
-        securityHint.textColor = .secondaryLabelColor
-        securityHint.maximumNumberOfLines = 2
-
-        let securityStack = NSStackView(views: [securityTitle, securityCodeField, securityHint])
-        securityStack.orientation = .vertical
-        securityStack.alignment = .leading
-        securityStack.spacing = 8
-        securityStack.translatesAutoresizingMaskIntoConstraints = false
-        securityCodeBox.addSubview(securityStack)
-
-        waitingIndicator.style = .spinning
-        waitingIndicator.controlSize = .small
-        waitingIndicator.isDisplayedWhenStopped = false
-        waitingIndicator.startAnimation(nil)
-
-        waitingLabel.stringValue = String(
-            localized: "prefs.devices.addIPhone.waiting",
-            defaultValue: "Waiting for iPhone...",
-            comment: "Status shown while the Mac is listening for an iPhone."
-        )
-        waitingLabel.textColor = .secondaryLabelColor
-
-        let waitingStack = NSStackView(views: [waitingIndicator, waitingLabel])
-        waitingStack.orientation = .horizontal
-        waitingStack.alignment = .centerY
-        waitingStack.spacing = 8
-        waitingStack.isHidden = true
-
-        qrImageView.imageScaling = .scaleProportionallyUpOrDown
-        qrImageView.wantsLayer = true
-        qrImageView.layer?.backgroundColor = NSColor.white.cgColor
-        qrImageView.layer?.cornerRadius = MacSurface.Radius.card
-        qrImageView.isHidden = true
-
-        pairLinkField.isEditable = false
-        pairLinkField.isSelectable = true
-        pairLinkField.isBezeled = true
-        pairLinkField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        pairLinkField.lineBreakMode = .byTruncatingMiddle
-        pairLinkField.isHidden = true
-
-        fallbackButton.title = String(
-            localized: "prefs.devices.addIPhone.fallback",
-            defaultValue: "Use QR/link instead",
-            comment: "Button that reveals the manual QR and link fallback."
-        )
-        fallbackButton.target = self
-        fallbackButton.action = #selector(showFallbackPairing)
-        fallbackButton.isHidden = true
-
-        copyButton.title = String(
-            localized: "prefs.devices.addIPhone.copy",
-            defaultValue: "Copy Pairing Link",
-            comment: "Button that copies the iPhone pairing link from Preferences."
-        )
-        copyButton.target = self
-        copyButton.action = #selector(copyPairingLink)
-        copyButton.isHidden = true
-
-        let closeButton = NSButton(
-            title: String(localized: "common.button.close", defaultValue: "Close"),
-            target: self,
-            action: #selector(closeSheet)
-        )
-
-        [
-            title,
-            statusLabel,
-            securityCodeBox,
-            waitingStack,
-            qrImageView,
-            pairLinkField,
-            copyButton,
-            fallbackButton,
-            closeButton,
-        ].forEach(stack.addArrangedSubview)
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 30),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 34),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -34),
-            securityCodeBox.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            securityStack.topAnchor.constraint(equalTo: securityCodeBox.topAnchor, constant: 14),
-            securityStack.leadingAnchor.constraint(equalTo: securityCodeBox.leadingAnchor, constant: 16),
-            securityStack.trailingAnchor.constraint(equalTo: securityCodeBox.trailingAnchor, constant: -16),
-            securityStack.bottomAnchor.constraint(equalTo: securityCodeBox.bottomAnchor, constant: -14),
-            qrImageView.widthAnchor.constraint(equalToConstant: 220),
-            qrImageView.heightAnchor.constraint(equalToConstant: 220),
-            pairLinkField.widthAnchor.constraint(equalTo: stack.widthAnchor),
-        ])
-        showLoading()
-    }
-
-    private func showLoading() {
-        statusLabel.stringValue = String(
-            localized: "prefs.devices.addIPhone.loading",
-            defaultValue: "Preparing this Mac for iPhone pairing...",
-            comment: "Loading text while Preferences prepares the iPhone pairing link."
-        )
-        waitingIndicator.superview?.isHidden = true
-        securityCodeBox.isHidden = true
-        fallbackButton.isHidden = true
-        hideFallbackPairing()
-    }
-
-    private func loadPairingLink() async {
-        do {
-            let response = try await BootstrapPairDeviceURIClient(
-                baseURL: TheyOSEnvironment.bootstrapBaseURL
-            ).fetch()
-            presentPairing(PairingPayload(
-                houseName: response.houseName,
-                hostLabel: response.hostLabel,
-                pairingURI: response.pairDeviceURI,
-                isFirstOwnerPairing: true,
-                initialDeviceCount: await Self.currentDeviceCount()
-            ))
-        } catch {
-            do {
-                presentPairing(try await makeDevicePairingPayload())
-            } catch {
-                statusLabel.stringValue = String(
-                    localized: "prefs.devices.addIPhone.unavailable",
-                    defaultValue: "This Mac is not ready to add an iPhone yet.",
-                    comment: "Shown when iPhone pairing cannot be prepared from Preferences."
-                )
-                waitingIndicator.superview?.isHidden = true
-                securityCodeBox.isHidden = true
-                fallbackButton.isHidden = true
-                hideFallbackPairing()
+    @ViewBuilder private var approvalContent: some View {
+        if model.capability?.canAttemptApproval == true {
+            Button(model.capability?.state == .needsAuthentication
+                   ? "Review requests on this Mac — unlock required" : "Review requests on this Mac") {
+                model.reviewRequests()
             }
+            .disabled(model.approvalInFlight)
+            .accessibilityIdentifier("prefs.devices.pairing.reviewRequests")
         }
-    }
-
-    private func presentPairing(_ payload: PairingPayload) {
-        if payload.isFirstOwnerPairing {
-            statusLabel.stringValue = String(
-                localized: "prefs.devices.addIPhone.instructions",
-                defaultValue: "Open Soyeht on your iPhone and start looking for this Mac. Keep both devices on the same LAN or Wi-Fi, or connected through Tailscale.",
-                comment: "Instructions shown in the Add iPhone sheet."
-            )
-        } else {
-            statusLabel.stringValue = String(
-                localized: "prefs.devices.addIPhone.existingOwner.instructions",
-                defaultValue: "Open Soyeht on the new iPhone and start looking for this Mac. Then approve it from an iPhone that already belongs to this home.",
-                comment: "Instructions shown when adding another iPhone to an existing home."
-            )
-        }
-        configureSecurityCode(for: payload)
-        pairLinkField.stringValue = payload.pairingURI
-        qrImageView.image = MacQRCodeImageFactory.makeImage(from: payload.pairingURI)
-        hideFallbackPairing()
-        fallbackButton.isHidden = false
-        waitingLabel.stringValue = String(
-            localized: "prefs.devices.addIPhone.waiting",
-            defaultValue: "Waiting for iPhone...",
-            comment: "Status shown while the Mac is listening for an iPhone."
-        )
-        waitingIndicator.superview?.isHidden = false
-        waitingIndicator.startAnimation(nil)
-        startListening(payload)
-        startPollingForReady(payload)
-    }
-
-    private func startListening(_ payload: PairingPayload) {
-        listenerTask?.cancel()
-        let existingHouse = SetupInvitationExistingHouse(
-            name: payload.houseName,
-            hostLabel: payload.hostLabel,
-            pairDeviceURI: payload.pairingURI
-        )
-        listenerTask = Task {
-            while !Task.isCancelled {
-                let listener = SetupInvitationListener(
-                    engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
-                    existingHouse: existingHouse
-                )
-                let outcome = await listener.listen()
-                switch outcome {
-                case .invitationClaimed:
-                    self.showIPhoneFound(payload)
-                    return
-                case .notFound:
-                    break
-                case .failed:
-                    break
-                }
-                try? await Task.sleep(for: .milliseconds(500))
+        ForEach(model.requests) { request in
+            VStack(spacing: 8) {
+                Text(request.deviceName).font(.headline)
+                Text(request.words.joined(separator: " · ")).font(.system(.body, design: .monospaced))
+                Text("Approve only if these request words match the words on your iPhone.")
+                Button("The words match — approve this iPhone") { model.approve(request) }
+                    .disabled(model.approvalInFlight || request.expiresAt <= Date())
+                    .accessibilityIdentifier("prefs.devices.pairing.approveRequest")
             }
-        }
-    }
-
-    private func startPollingForReady(_ payload: PairingPayload) {
-        pollTask?.cancel()
-        pollTask = Task {
-            let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
-            var initialDeviceCount = payload.initialDeviceCount
-            while !Task.isCancelled {
-                if let status = try? await client.fetch() {
-                    if initialDeviceCount == nil {
-                        initialDeviceCount = status.deviceCount
-                    }
-                    let pairedNewDevice = initialDeviceCount.map { status.deviceCount > $0 } ?? payload.isFirstOwnerPairing
-                    if status.state != .ready || !pairedNewDevice {
-                        try? await Task.sleep(for: .milliseconds(700))
-                        continue
-                    }
-                    statusLabel.stringValue = String(
-                        localized: "prefs.devices.addIPhone.connected",
-                        defaultValue: "iPhone connected. You can close this window.",
-                        comment: "Shown after iPhone pairing completes from Preferences."
-                    )
-                    waitingLabel.stringValue = String(
-                        localized: "prefs.devices.addIPhone.connected.status",
-                        defaultValue: "Connected",
-                        comment: "Compact status shown after iPhone pairing completes."
-                    )
-                    waitingIndicator.stopAnimation(nil)
-                    listenerTask?.cancel()
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(700))
-            }
-        }
-    }
-
-    private func makeDevicePairingPayload() async throws -> PairingPayload {
-        let identity = try await HouseholdIdentityFetcher(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let snapshot = try await BootstrapPairingAddressesClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch()
-        let endpoint = try MacEngineAdvertisedURL.resolve(offer: snapshot.offer, operation: .addDevice)
-        let link = HouseholdDevicePairingLink(
-            endpoint: endpoint,
-            householdId: identity.householdId,
-            householdPublicKey: identity.householdPublicKey,
-            householdName: identity.name,
-            pairingNonce: PairingCrypto.randomBytes(count: HouseholdDevicePairingLink.pairingNonceLength),
-            addressOffer: snapshot.offer
-        )
-        // Fetch once and derive `isFirstOwnerPairing` from it. Hardcoding this
-        // to `false` while the real count sits right beside it meant a
-        // zero-device household always showed the delegated-pairing copy
-        // ("finish approval on an iPhone that already belongs to this home"),
-        // which is impossible advice when no such iPhone exists yet.
-        let deviceCount = await Self.currentDeviceCount()
-        return PairingPayload(
-            houseName: identity.name,
-            hostLabel: Host.current().localizedName ?? "Mac",
-            pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: deviceCount == 0,
-            initialDeviceCount: deviceCount
-        )
-    }
-
-    private func showIPhoneFound(_ payload: PairingPayload) {
-        if payload.isFirstOwnerPairing {
-            statusLabel.stringValue = String(
-                localized: "prefs.devices.addIPhone.found",
-                defaultValue: "iPhone found. Confirm the security code matches, then finish on your iPhone.",
-                comment: "Shown when the Mac discovers the iPhone during first-owner pairing."
-            )
-        } else {
-            statusLabel.stringValue = String(
-                localized: "prefs.devices.addIPhone.existingOwner.found",
-                defaultValue: "iPhone found. Finish approval on an iPhone that already belongs to this home.",
-                comment: "Shown when a new iPhone starts delegated device pairing."
-            )
-        }
-        waitingLabel.stringValue = String(
-            localized: "prefs.devices.addIPhone.found.status",
-            defaultValue: "iPhone found",
-            comment: "Compact status shown after an iPhone is discovered."
-        )
-        waitingIndicator.stopAnimation(nil)
-    }
-
-    private func configureSecurityCode(for payload: PairingPayload) {
-        guard let url = URL(string: payload.pairingURI),
-              let words = try? Self.securityCodeWords(for: url),
-              words.count == OperatorFingerprint.wordCount else {
-            securityCodeBox.isHidden = true
-            return
-        }
-
-        securityCodeField.stringValue = Self.formatSecurityCode(words)
-        securityCodeBox.isHidden = false
-    }
-
-    private static func securityCodeWords(for url: URL) throws -> [String] {
-        let householdPublicKey: Data
-        let pairingNonce: Data
-        if isHouseholdDevicePairingURL(url) {
-            let link = try HouseholdDevicePairingLink(url: url)
-            householdPublicKey = link.householdPublicKey
-            pairingNonce = link.pairingNonce
-        } else {
-            let qr = try PairDeviceQR(url: url, now: Date())
-            householdPublicKey = qr.householdPublicKey
-            pairingNonce = qr.nonce
-        }
-        let fingerprint = try OperatorFingerprint.derive(
-            machinePublicKey: householdPublicKey,
-            pairingNonce: pairingNonce,
-            wordlist: try BIP39Wordlist()
-        )
-        return fingerprint.words
-    }
-
-    private static func isHouseholdDevicePairingURL(_ url: URL) -> Bool {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return false
-        }
-        return components.scheme == "soyeht"
-            && components.host == "household"
-            && components.path == "/device-pairing"
-    }
-
-    private static func formatSecurityCode(_ words: [String]) -> String {
-        let cells = words.enumerated().map { index, word in
-            "\(index + 1) \(word)"
-        }
-        guard cells.count == 6 else { return cells.joined(separator: "   ") }
-        return [
-            "\(cells[0].padding(toLength: 17, withPad: " ", startingAt: 0))\(cells[1])",
-            "\(cells[2].padding(toLength: 17, withPad: " ", startingAt: 0))\(cells[3])",
-            "\(cells[4].padding(toLength: 17, withPad: " ", startingAt: 0))\(cells[5])",
-        ].joined(separator: "\n")
-    }
-
-    private static func currentDeviceCount() async -> UInt8? {
-        try? await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch().deviceCount
-    }
-
-    private func hideFallbackPairing() {
-        pairLinkField.isHidden = true
-        copyButton.isHidden = true
-        qrImageView.isHidden = true
-        copyButton.title = String(
-            localized: "prefs.devices.addIPhone.copy",
-            defaultValue: "Copy Pairing Link",
-            comment: "Button that copies the iPhone pairing link from Preferences."
-        )
-    }
-
-    @objc private func showFallbackPairing() {
-        qrImageView.isHidden = qrImageView.image == nil
-        pairLinkField.isHidden = false
-        copyButton.isHidden = false
-        fallbackButton.isHidden = true
-    }
-
-    @objc private func copyPairingLink() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(pairLinkField.stringValue, forType: .string)
-        copyButton.title = String(
-            localized: "prefs.devices.addIPhone.copied",
-            defaultValue: "Pairing Link Copied",
-            comment: "Button state after copying the iPhone pairing link."
-        )
-    }
-
-    @objc private func closeSheet() {
-        if let sheetParent = view.window?.sheetParent, let window = view.window {
-            sheetParent.endSheet(window)
-        } else {
-            view.window?.close()
-        }
-    }
-
-    }
-
-private struct HouseholdIdentitySummary {
-    let householdId: String
-    let householdPublicKey: Data
-    let name: String
-}
-
-private struct HouseholdIdentityFetcher {
-    let baseURL: URL
-
-    func fetch() async throws -> HouseholdIdentitySummary {
-        let url = baseURL.appendingPathComponent("api/v1/household/identity")
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-        let envelope = try JSONDecoder().decode(IdentityEnvelope.self, from: data)
-        guard let publicKey = Data(base64Encoded: envelope.householdPublicKeyBase64),
-              publicKey.count == HouseholdIdentifiers.compressedP256PublicKeyLength else {
-            throw URLError(.cannotDecodeContentData)
-        }
-        return HouseholdIdentitySummary(
-            householdId: envelope.householdId,
-            householdPublicKey: publicKey,
-            name: envelope.name
-        )
-    }
-
-    private struct IdentityEnvelope: Decodable {
-        let householdId: String
-        let householdPublicKeyBase64: String
-        let name: String
-
-        enum CodingKeys: String, CodingKey {
-            case householdId = "hh_id"
-            case householdPublicKeyBase64 = "hh_pub_b64"
-            case name
         }
     }
 }

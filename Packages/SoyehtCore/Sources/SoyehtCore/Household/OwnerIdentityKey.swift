@@ -11,6 +11,9 @@ public enum OwnerIdentityKeyError: Error, Equatable, Sendable {
     case biometryLockout
     case signingFailed(String)
     case invalidSignatureEncoding
+    case keyNotFound
+    case publicKeyMismatch
+    case securityFailure(domain: String, code: Int)
 }
 
 public protocol OwnerIdentitySigning: Sendable {
@@ -90,7 +93,7 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
                 if Self.isBiometryLockout(nsError) {
                     throw OwnerIdentityKeyError.biometryLockout
                 }
-                throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
+                throw Self.securityFailure(nsError)
             }
             throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
         }
@@ -113,6 +116,19 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
             current = error.userInfo[NSUnderlyingErrorKey] as? NSError
         }
         return false
+    }
+
+    static func securityFailure(_ error: NSError) -> OwnerIdentityKeyError {
+        var current: NSError? = error
+        for _ in 0..<8 {
+            guard let value = current else { break }
+            if value.domain == LAError.errorDomain || (value.domain == NSOSStatusErrorDomain
+                && [Int(errSecInteractionNotAllowed), Int(errSecAuthFailed), Int(errSecUserCanceled)].contains(value.code)) {
+                return .securityFailure(domain: value.domain, code: value.code)
+            }
+            current = value.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return .securityFailure(domain: error.domain, code: error.code)
     }
 
     static func rawP256Signature(fromDER der: Data) throws -> Data {
@@ -361,13 +377,24 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         publicKey: Data,
         personId: String
     ) throws -> any OwnerIdentitySigning {
-        // Attach the process-shared LAContext so SecKeyCreateSignature on
-        // this biometry-protected key reuses one biometric prompt across
-        // every signed request the runtime makes within
-        // `allowableReuseDuration`. The context is static on the provider
-        // type to survive across different call sites — see comment on
-        // `sharedAuthContext` for the full rationale.
-        let context = Self.sharedAuthContext
+        try loadOwnerIdentity(keyReference: keyReference, publicKey: publicKey,
+                              personId: personId, context: Self.sharedAuthContext)
+    }
+
+    /// A separate context prevents a capability probe from prompting or changing
+    /// the interactive runtime's authentication state.
+    public func loadOwnerIdentityWithoutInteraction(
+        keyReference: String, publicKey: Data, personId: String
+    ) throws -> any OwnerIdentitySigning {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        return try loadOwnerIdentity(keyReference: keyReference, publicKey: publicKey,
+                                     personId: personId, context: context)
+    }
+
+    private func loadOwnerIdentity(
+        keyReference: String, publicKey: Data, personId: String, context: LAContext
+    ) throws -> any OwnerIdentitySigning {
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: Data(keyReference.utf8),
@@ -377,13 +404,20 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let key = result else {
-            throw OwnerIdentityKeyError.keyCreationFailed("key reference not found")
+        if status == errSecItemNotFound { throw OwnerIdentityKeyError.keyNotFound }
+        guard status == errSecSuccess else {
+            throw OwnerIdentityKeyError.securityFailure(domain: NSOSStatusErrorDomain, code: Int(status))
         }
+        guard let key = result else { throw OwnerIdentityKeyError.publicKeyUnavailable }
         guard CFGetTypeID(key) == SecKeyGetTypeID() else {
             throw OwnerIdentityKeyError.keyCreationFailed("key reference invalid")
         }
         let privateKey = key as! SecKey
+        guard let actualKey = SecKeyCopyPublicKey(privateKey),
+              let actualPublicKey = try Self.compressedPublicKey(from: actualKey) else {
+            throw OwnerIdentityKeyError.publicKeyUnavailable
+        }
+        guard actualPublicKey == publicKey else { throw OwnerIdentityKeyError.publicKeyMismatch }
         return try OwnerIdentityKey(
             privateKey: privateKey,
             publicKey: publicKey,

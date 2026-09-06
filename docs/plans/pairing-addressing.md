@@ -366,3 +366,49 @@ resultados não constituem o gate cruzado nem a validação E2E no aparelho.
 Continuam obrigatórios: G (capacidade e aprovação pelo dono no Mac, recuperação
 sem apagar a casa), gate executável por rota entre os dois checkouts e matriz
 E2E conduzida por [blaire]. Nenhuma versão foi atualizada ou publicada.
+
+### Checkpoint G — capacidade e aprovação no Mac
+
+A capacidade local agora consulta a sessão sem interação, compara casa/pessoa/chave
+com a autoridade atual do engine, abre a chave sem interação e verifica uma assinatura
+P-256 de desafio aleatório com separação de domínio. Referência de keychain não é prova.
+A leitura preserva os erros de Security/LocalAuthentication: item ausente, necessidade
+de autenticação e erro operacional são estados distintos. A API usada para impedir
+prompts é `LAContext.interactionNotAllowed`, conforme a documentação da Apple:
+https://developer.apple.com/documentation/localauthentication/lacontext/interactionnotallowed
+
+Add iPhone usa uma implementação. Removeu-se o controlador AppKit duplicado e os
+usos de `deviceCount` como autorização ou sucesso. O Mac com a chave do dono lista
+pedidos com PoP e aprova o pedido explicitamente escolhido. A observação automática
+nunca pode solicitar autenticação; desbloqueio e aprovação exigem gesto na tela.
+Depois de aprovar, a mensagem diz que a aprovação foi enviada e pede concluir no
+telefone. Não inventa uma conexão ativa.
+
+O pedido tem seis palavras próprias, distintas do código da oferta da casa. Elas
+vinculam `request_id` e `d_pub` ao contexto da casa, por derivação única em
+`DevicePairingReview`. Mac, proximidade no telefone, QR/link e aprovação por outro
+iPhone usam a mesma derivação. Os emissores registram `pairing_review_digest`, SHA256
+das palavras separadas por NUL, sem identificadores ou palavras no log. A comparação
+é uma ação explícita antes da aprovação. Pedidos e esperas têm prazo.
+
+Casa sem dono usa a cerimônia de primeiro dono já existente. Casa com dono e chave
+comprovada no Mac usa aprovação neste Mac. Se a chave estiver em outro dispositivo,
+o caminho preservado é aprovar naquele dispositivo; a tela identifica essa
+necessidade. Ausência de chave não autoriza reabrir a cerimônia de primeiro dono.
+Se nenhuma chave de dono estiver disponível, esta entrega não inventa recuperação
+criptográfica: a casa permanece intacta e a limitação fica explícita. “Forget home”
+foi separado do pareamento e deixou de ser instrução para adicionar um telefone.
+
+O engine valida agora o certificado de pareamento no momento da aprovação e compara
+chave/nome/plataforma com o pedido sob o mesmo lock que o finaliza. O formato real
+Swift inclui `hh_id` e caveats herdados. Ele não é o certificado R0a de admissão;
+nenhum grant ou caminho de admissão R0a foi ligado. O telefone já verificava a cadeia
+e sua própria chave: esta correção evita armazenar uma aprovação inválida e faz a
+recusa ocorrer onde o defeito nasceu, sem alegar que antes era possível admitir um
+aparelho com certificado forjado.
+
+Verificação deste checkpoint: 24 testes Core selecionados; 43 testes Mac de domínio;
+16 testes de store/rotas de pedido, 10 testes Rust de endereços/certificado/política e
+1 guarda de fronteira da aprovação. Builds Mac e iOS sem assinatura passaram.
+O gate executável cruzado e a matriz no aparelho continuam pendentes. Este checkpoint
+não autoriza release nem instala qualquer build.

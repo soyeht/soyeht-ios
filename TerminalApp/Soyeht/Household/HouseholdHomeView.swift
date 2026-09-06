@@ -679,6 +679,12 @@ private struct DevicePairConfirmationCard: View {
                 }
             }
 
+            Text(viewModel.review.words.joined(separator: " · "))
+                .font(.system(.body, design: .monospaced))
+                .accessibilityIdentifier("soyeht.household.approval.requestWords")
+            Text("Compare these request words with the new iPhone before approving.")
+                .font(Typography.monoSmall)
+
             switch viewModel.state {
             case .pending:
                 Button {
