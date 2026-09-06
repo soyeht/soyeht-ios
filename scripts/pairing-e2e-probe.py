@@ -202,10 +202,14 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
     # somewhere else entirely. [jaime]
     tried = (first_host(t.phone_grep("pair.confirm.post"), "host")
              or first_host(t.phone_grep("pair.request.post"), "host")
-             # The typed failure carries the endpoint it was talking to, which
-             # is the send address and not a discovery guess.
-             or first_host(t.phone_grep("pairing.failed"), "endpoint")
              or first_host(t.phone_grep("pair.endpoint source="), "host"))
+    # NOT the endpoint on a `pairing.failed` line. For a domain error like
+    # approvalTimedOut the view builds the failure with `house.engineURL`,
+    # which is the house's address and not necessarily what the policy chose
+    # inside the service — it may well have preferred tailnet. Using it as
+    # proof of the send would attribute a LAN pairing to a request that went
+    # somewhere else. `pair.request.post` is the only line taken from the
+    # URLRequest actually handed to URLSession. [jaime]
     if tried is None:
         discovered = (t.phone_grep("resolveDiscoveredMac.entry")
                       or t.phone_grep("mac_browser.endpoint"))
@@ -749,9 +753,21 @@ DISCOVERY_ONLY = Transcript(
 # correctly: a typed failure under the name the app really uses.
 GOOD_TYPED_EXPIRY = Transcript(
     mac=[],
-    phone=["pairing.failed stage=request endpoint=http://192.168.1.20:8101 "
+    phone=["pair.request.post host=192.168.1.20 port=8101",
+           "pairing.failed stage=request endpoint=http://192.168.1.20:8101 "
            "cause=approvalExpired"],
     engine=["device_pairing.request.success request_digest=" + "e" * 64],
+)
+
+# The same expiry WITHOUT a record of the send. The failure line carries an
+# endpoint, but for a domain error it is the house URL — so this must stay
+# unjudgeable rather than credit the LAN with a request it cannot prove.
+EXPIRY_WITHOUT_SEND_RECORD = Transcript(
+    mac=[],
+    phone=["resolveDiscoveredMac.entry engines=http://192.168.1.20:8101",
+           "pairing.failed stage=request endpoint=http://192.168.1.20:8101 "
+           "cause=approvalExpired"],
+    engine=["device_pairing.request.success request_digest=" + "f" * 64],
 )
 
 
@@ -814,6 +830,9 @@ def self_test() -> int:
          BAD_REQUEST_DIGEST_IS_NOT_WORDS, True, 1, {"WORDS-MATCH": "fail"}),
         ("good, ended with a typed expiry rather than a spinner",
          GOOD_TYPED_EXPIRY, False, 1,
+         {"NO-SPINNER": "pass", "LAN-WORKS": "n/a"}),
+        ("expiry with no record of the send stays unjudgeable",
+         EXPIRY_WITHOUT_SEND_RECORD, False, 1,
          {"NO-SPINNER": "pass", "LAN-WORKS": "n/a"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
