@@ -267,6 +267,13 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
 }
 
 public struct HouseholdDevicePairingService {
+    /// Completed approval steps. These observations carry no credentials and
+    /// do not imply that the requesting phone has validated or saved a session.
+    public enum ApprovalProgress: String, Sendable {
+        case certificateSigned = "certificate_signed"
+        case proofSigned = "proof_signed"
+        case responseReceived = "response_received"
+    }
     private let keyProvider: any OwnerIdentityKeyCreating
     private let httpClient: any HouseholdDevicePairingHTTPClient
     private let sessionStore: HouseholdSessionStore
@@ -382,7 +389,8 @@ public struct HouseholdDevicePairingService {
         platform: String,
         household: ActiveHouseholdState,
         ownerIdentity: any OwnerIdentitySigning,
-        endpointOverride: URL? = nil
+        endpointOverride: URL? = nil,
+        onProgress: @Sendable (ApprovalProgress) -> Void = { _ in }
     ) async throws {
         let deviceCertCBOR = try DeviceCert.signedCBOR(
             householdId: household.householdId,
@@ -393,6 +401,7 @@ public struct HouseholdDevicePairingService {
             issuedAt: now(),
             signer: ownerIdentity
         )
+        onProgress(.certificateSigned)
         let bodyData = try URLSessionHouseholdDevicePairingHTTPClient.approvalBody(
             requestId: requestId,
             deviceCertCBOR: deviceCertCBOR
@@ -402,12 +411,14 @@ public struct HouseholdDevicePairingService {
             pathAndQuery: URLSessionHouseholdDevicePairingHTTPClient.approvalPathAndQuery(),
             body: bodyData
         ).authorizationHeader
+        onProgress(.proofSigned)
         _ = try await httpClient.approvePairing(
             endpoint: endpointOverride ?? household.endpoint,
             requestId: requestId,
             deviceCertCBOR: deviceCertCBOR,
             authorization: authorization
         )
+        onProgress(.responseReceived)
     }
 
     private func persistApprovedPairing(

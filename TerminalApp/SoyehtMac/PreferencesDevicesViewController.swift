@@ -688,25 +688,43 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
     }
 
     func approve(_ request: DevicePairingReview) {
-        guard !approvalInFlight, request.expiresAt > Date(), Date() < deadline,
-              requests.contains(request) else { return }
+        let now = Date()
+        let refusal: String?
+        if approvalInFlight { refusal = "approval_in_flight" }
+        else if request.expiresAt <= now { refusal = "request_expired" }
+        else if now >= deadline { refusal = "sheet_expired" }
+        else if !requests.contains(request) { refusal = "request_not_listed" }
+        else { refusal = nil }
+        if let refusal {
+            logger.info("pairing_approval=skipped reason=\(refusal, privacy: .public) \(request.diagnostic, privacy: .public)")
+            return
+        }
+        logger.info("pairing_approval=started \(request.diagnostic, privacy: .public)")
         approvalInFlight = true
         approvalTask = Task {
             defer { approvalInFlight = false }
             do {
                 let (session, signer) = try await signingSession(allowInteraction: true)
+                logger.info("pairing_approval=signer_loaded \(request.diagnostic, privacy: .public)")
                 try Task.checkCancellation()
                 guard request.expiresAt > Date() else { throw HouseholdDevicePairingError.approvalTimedOut }
                 try await HouseholdDevicePairingService().approve(requestId: request.id,
                     devicePublicKey: request.devicePublicKey, deviceName: request.deviceName,
                     platform: request.platform, household: session, ownerIdentity: signer,
-                    endpointOverride: baseURL)
+                    endpointOverride: baseURL, onProgress: { [logger] progress in
+                        logger.info("pairing_approval=\(progress.rawValue, privacy: .public) \(request.diagnostic, privacy: .public)")
+                    })
                 try Task.checkCancellation()
                 requests.removeAll { $0.id == request.id }
                 setStatus("Approval sent. Finish setup on your iPhone.")
-                logger.info("pairing_approval=sent")
-            } catch is CancellationError { return }
-            catch { showFailure(error) }
+                logger.info("pairing_approval=sent \(request.diagnostic, privacy: .public)")
+            } catch is CancellationError {
+                logger.info("pairing_approval=cancelled \(request.diagnostic, privacy: .public)")
+            } catch {
+                let failure = PairingAttemptFailure.capture(error, stage: .approval, endpoint: baseURL)
+                logger.error("pairing_approval=failed \(request.diagnostic, privacy: .public) \(failure.diagnostic, privacy: .public)")
+                showFailure(error)
+            }
         }
     }
 
