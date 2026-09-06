@@ -64,6 +64,13 @@ ID_KEEP_LOOKING = "soyeht.onboarding.notFound.keepLooking"
 # automated run can tell "both ends agree" from "both ends show six words".
 ID_APPROVAL_WORDS = "soyeht.onboarding.approval.requestWords"
 
+# The onboarding a fresh phone must walk before it advertises itself at all.
+# A phone parked on the welcome carousel publishes nothing, so the Mac logs
+# `candidates count=0` and a run reads as "the product cannot find the phone"
+# when the truth is that the scenario never started. Measured 2026-09-06.
+ID_WELCOME_GET_STARTED = "soyeht.onboarding.welcome.getStarted"
+ID_MAC_PRESENCE_YES = "soyeht.onboarding.macPresence.yes"
+
 # Leaving the household is how a phone returns to the state where it publishes
 # a setup invitation again. Without it a phone that already belongs to a home
 # simply never advertises, the Mac logs `candidates count=0` forever, and a
@@ -373,7 +380,26 @@ def reset_took_effect(phone: Phone, budget: float = 25) -> bool:
     that to the author as a defect.
     """
     phone.open_app()
-    return phone.wait_for(ID_LOOKING, budget)
+    # The WELCOME carousel is the proof of a fresh app. Checking for the
+    # "looking" screen instead reported a failed reset on a phone that had
+    # reset perfectly: looking is two taps further on, and a fresh app has not
+    # taken them yet.
+    return phone.wait_for(ID_WELCOME_GET_STARTED, budget)
+
+
+def walk_onboarding(phone: Phone, budget: float = 30) -> bool:
+    """Takes a fresh phone from the welcome carousel to the looking screen.
+
+    Only the taps a person would make, and only the ones that decide nothing
+    about pairing: "Get started", then "Yes, it's installed". Everything the
+    run is meant to measure happens after this point.
+    """
+    for identifier in (ID_WELCOME_GET_STARTED, ID_MAC_PRESENCE_YES):
+        if phone.find(identifier) is None:
+            continue  # already past this step
+        phone.tap(identifier)
+        time.sleep(3)
+    return phone.wait_for(ID_LOOKING, budget) or phone.find(ID_CARD) is not None
 
 
 def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
@@ -408,6 +434,13 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
         note("phone NOT reset", True,
              "a phone that already belongs to a home never advertises; "
              "pass --reset-phone for a true from-scratch run")
+
+    walked = walk_onboarding(phone)
+    note("walked the onboarding to the looking screen", walked,
+         "" if walked else "the phone never reached the screen where it advertises")
+    if not walked:
+        return {"scenario": "from scratch", "steps": steps,
+                "drove_to_the_end": False}
 
     open_add_iphone(mac_process)
     note("opened Add iPhone on the Mac", True)

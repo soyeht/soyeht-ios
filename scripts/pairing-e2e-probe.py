@@ -262,9 +262,15 @@ OWNER_CAPABILITY_STATES = {
     "error",                 # failed for another reason, carried with it
 }
 
-_INTERACTION_DENIED = re.compile(
+# Causes that mean "the read did not succeed", never "the thing is not there".
+# Grown from the OSStatus family into decode and access denial as well: the
+# capability now covers session lookup too, and a session that failed to decode
+# is not a session that does not exist.
+_ACCESS_FAILED = re.compile(
     r"interaction[_ -]?not[_ -]?allowed|errSecInteractionNotAllowed|-25308"
-    r"|user interaction is not allowed|errSecAuthFailed|LAError",
+    r"|user interaction is not allowed|errSecAuthFailed|LAError"
+    r"|errSec[A-Za-z]*(?:Denied|Failed|Invalid)|decod(?:e|ing)[_ -]?fail"
+    r"|access[_ -]?denied|read[_ -]?failed|keychain[_ -]?error",
     re.IGNORECASE,
 )
 
@@ -284,10 +290,18 @@ def inv_capability_honest(t: Transcript) -> Finding:
     state = match.group(1) if match else "<unreadable>"
     if state not in OWNER_CAPABILITY_STATES:
         return Finding("CAPABILITY-HONEST", "fail", f"state outside the contract: {state}")
-    if state == "no_key" and any(_INTERACTION_DENIED.search(l) for l in lines):
-        return Finding("CAPABILITY-HONEST", "fail",
-                       "reported no_key when the cause was a denied unlock; "
-                       "that tells the owner to erase a household they still control")
+    # Two ways of claiming absence when the truth is "I could not look".
+    # `no_key` covering a denied unlock was the first; `no_session` covering a
+    # keychain read that failed is the same lie one level up, and it reads as
+    # "this Mac has no home" — which is how an owner gets told to start over.
+    if state in ("no_key", "no_session"):
+        lying = [l for l in lines if _ACCESS_FAILED.search(l)]
+        if lying:
+            return Finding("CAPABILITY-HONEST", "fail",
+                           f"reported {state} when the cause was a failed or denied "
+                           f"read: {lying[0][:110]}. Absence and 'I could not look' "
+                           "are different answers, and this one sends the owner to "
+                           "erase a household they still control")
     return Finding("CAPABILITY-HONEST", "pass", f"declared {state}")
 
 
@@ -555,6 +569,20 @@ GOOD_CLAIM_IN_PROFILE = Transcript(
 )
 
 
+BAD_SESSION_LIES = Transcript(
+    mac=["owner_capability=no_session cause=errSecInteractionNotAllowed",
+         "approval.offer shown=this Mac has no home"],
+    phone=["pair.result=failed"],
+    engine=[],
+)
+
+GOOD_SESSION_TRULY_ABSENT = Transcript(
+    mac=["owner_capability=no_session cause=item_not_found"],
+    phone=["pair.result=failed"],
+    engine=[],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -576,6 +604,10 @@ def self_test() -> int:
          {"CAPABILITY-HONEST": "pass"}),
         ("bad, called locked missing", BAD_CAPABILITY_LIES, True, 1,
          {"CAPABILITY-HONEST": "fail"}),
+        ("bad, a failed read reported as no_session", BAD_SESSION_LIES, True, 1,
+         {"CAPABILITY-HONEST": "fail"}),
+        ("good, the session really is absent", GOOD_SESSION_TRULY_ABSENT, True, 1,
+         {"CAPABILITY-HONEST": "pass"}),
         ("good, both ends derived the same words", GOOD_WORDS_MATCH, True, 1,
          {"WORDS-MATCH": "pass"}),
         ("bad, the two ends derived different words", BAD_WORDS_DIFFER, True, 1,
