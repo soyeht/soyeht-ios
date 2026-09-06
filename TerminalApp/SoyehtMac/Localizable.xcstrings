@@ -45527,6 +45527,222 @@
         }
       }
     },
+    "pane.alert.qrUnsupportedOnAdmin.message": {
+      "comment": "Alert body explaining why the QR hand-off is unavailable on a Linux admin server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يستخدم هذا التسليم نقطة اقتران iOS، التي لا يوفّرها سوى محرك theyOS المحلي على الـ Mac. اتصل بخادم Mac لاقتران iPhone."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই হ্যান্ড-অফ iOS পেয়ারিং এন্ডপয়েন্ট ব্যবহার করে, যা কেবল Mac-এর স্থানীয় theyOS ইঞ্জিন সরবরাহ করে। iPhone যুক্ত করতে একটি Mac সার্ভারে সংযোগ করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Übergabe nutzt den iOS-Kopplungsendpunkt, den nur die lokale theyOS-Engine des Mac bereitstellt. Verbinde einen Mac-Server, um ein iPhone zu koppeln."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This hand-off uses the iOS pairing endpoint, which only the Mac's local theyOS engine exposes. Connect a Mac server to pair an iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este traspaso usa el punto de emparejamiento de iOS, que solo expone el motor theyOS local del Mac. Conecta un servidor Mac para emparejar un iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce transfert utilise le point d’association iOS, exposé uniquement par le moteur theyOS local du Mac. Connectez un serveur Mac pour associer un iPhone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह हैंड-ऑफ़ iOS पेयरिंग एंडपॉइंट का उपयोग करता है, जिसे केवल Mac का स्थानीय theyOS इंजन उपलब्ध कराता है। iPhone जोड़ने के लिए Mac सर्वर से कनेक्ट करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serah terima ini memakai endpoint penyandingan iOS, yang hanya disediakan mesin theyOS lokal di Mac. Hubungkan server Mac untuk menyandingkan iPhone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この引き継ぎは iOS のペアリングエンドポイントを使います。これは Mac のローカル theyOS エンジンだけが公開しています。iPhone をペアリングするには Mac サーバに接続してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 이어하기는 iOS 페어링 엔드포인트를 사용하며, 이는 Mac의 로컬 theyOS 엔진만 제공합니다. iPhone을 페어링하려면 Mac 서버에 연결하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे हस्तांतरण iOS जोडणी एंडपॉइंट वापरते, जे फक्त Mac चे स्थानिक theyOS इंजिन पुरवते. iPhone जोडण्यासाठी Mac सर्व्हरशी कनेक्ट करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essa passagem usa o ponto de pareamento do iOS, que só o engine theyOS local do Mac oferece. Conecte um servidor Mac para parear um iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta passagem usa o ponto de emparelhamento do iOS, que só o motor theyOS local do Mac oferece. Ligue um servidor Mac para emparelhar um iPhone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта передача использует конечную точку сопряжения iOS, которую предоставляет только локальный движок theyOS на Mac. Подключите сервер Mac, чтобы сопрячь iPhone."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ హ్యాండ్-ఆఫ్ iOS పెయిరింగ్ ఎండ్‌పాయింట్‌ను ఉపయోగిస్తుంది, దీన్ని Mac లోని స్థానిక theyOS ఇంజిన్ మాత్రమే అందిస్తుంది. iPhone జత చేయడానికి Mac సర్వర్‌కు కనెక్ట్ చేయండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "یہ ہینڈ آف iOS پیئرنگ اینڈ پوائنٹ استعمال کرتا ہے، جسے صرف Mac کا مقامی theyOS انجن فراہم کرتا ہے۔ iPhone منسلک کرنے کے لیے Mac سرور سے جڑیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此接力使用 iOS 配对端点，只有 Mac 上的本地 theyOS 引擎提供该端点。请连接 Mac 服务器以配对 iPhone。"
+          }
+        }
+      }
+    },
+    "pane.alert.qrUnsupportedOnAdmin.title": {
+      "comment": "Alert title when the user opens the QR hand-off menu while connected to a Linux admin theyOS server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«المتابعة على iPhone» غير متاحة على خوادم Linux"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux সার্ভারে 'iPhone-এ চালিয়ে যান' উপলব্ধ নয়"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Auf dem iPhone fortsetzen“ ist auf Linux-Servern nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue on iPhone isn't available on Linux servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar en el iPhone no está disponible en servidores Linux"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Continuer sur l’iPhone » n’est pas disponible sur les serveurs Linux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्वर पर 'iPhone पर जारी रखें' उपलब्ध नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan di iPhone tidak tersedia di server Linux"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「iPhone で続ける」は Linux サーバでは利用できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'iPhone에서 계속하기'는 Linux 서버에서 사용할 수 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्व्हरवर 'iPhone वर सुरू ठेवा' उपलब्ध नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Продолжить на iPhone» недоступно на серверах Linux"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux సర్వర్‌లలో 'iPhone లో కొనసాగించు' అందుబాటులో లేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux سرورز پر 'iPhone پر جاری رکھیں' دستیاب نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“在 iPhone 上继续”不适用于 Linux 服务器"
+          }
+        }
+      }
+    },
     "pane.alert.workspaceUnavailable.message": {
       "comment": "Alert body — no tmux session ID on the terminal view.",
       "extractionState": "stale",
@@ -45739,6 +45955,546 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workspace دستیاب نہیں"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.button.a11y": {
+      "comment": "Accessibility label for the agent switcher button on a pane header.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اختيار وكيل آخر"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্য এজেন্ট বেছে নিন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anderen Agenten wählen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir otro agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir un autre agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दूसरा एजेंट चुनें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih agen lain"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のエージェントを選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 에이전트 선택"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुसरा एजंट निवडा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher outro agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher outro agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать другого агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మరో ఏజెంట్‌ను ఎంచుకోండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "دوسرا ایجنٹ منتخب کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择其他代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.error.title": {
+      "comment": "Alert title when switching the pane's agent fails.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر تبديل الوكيل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলানো যায়নি"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent konnte nicht gewechselt werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't switch agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar de agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de changer d’agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट नहीं बदला जा सका"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak bisa mengganti agen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替えられませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트를 전환하지 못했습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदलता आला नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível trocar de agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível mudar de agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сменить агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చలేకపోయాం"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل نہیں ہو سکا"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法切换代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.menu.none": {
+      "comment": "Shown in the agent switcher when no other local agent CLI is installed.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يوجد وكيل آخر مثبّت"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্য কোনো এজেন্ট ইনস্টল করা নেই"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein anderer Agent installiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other agent installed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay otro agente instalado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun autre agent installé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोई अन्य एजेंट इंस्टॉल नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada agen lain yang terpasang"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のエージェントはインストールされていません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설치된 다른 에이전트가 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतर कोणताही एजंट स्थापित नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum outro agente instalado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum outro agente instalado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие агенты не установлены"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మరే ఏజెంట్ ఇన్‌స్టాల్ కాలేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کوئی دوسرا ایجنٹ انسٹال نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装其他代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.menu.title": {
+      "comment": "Title of the agent switcher menu on a pane header.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تبديل الوكيل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wechseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar de agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer d’agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट बदलें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti agen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트 전환"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदला"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trocar de agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mudar de agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.tooltip": {
+      "comment": "Tooltip on the agent switcher button; says the conversation is kept.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تبديل الوكيل (مع الاحتفاظ بهذه المحادثة)"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলান (এই কথোপকথন থেকে যাবে)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wechseln (behält diese Unterhaltung)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch agent (keeps this conversation)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar de agente (conserva esta conversación)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer d’agent (conserve cette conversation)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट बदलें (यह बातचीत बनी रहती है)"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti agen (percakapan ini dipertahankan)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替え（この会話は保持されます）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트 전환(이 대화는 유지됩니다)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदला (हे संभाषण टिकून राहते)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trocar de agente (mantém esta conversa)"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mudar de agente (mantém esta conversa)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить агента (разговор сохраняется)"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చు (ఈ సంభాషణ అలాగే ఉంటుంది)"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل کریں (یہ گفتگو برقرار رہتی ہے)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换代理（保留此对话）"
           }
         }
       }
@@ -46063,6 +46819,438 @@
           "stringUnit": {
             "state": "translated",
             "value": "یہ ٹیب آن لائن جوڑی شدہ iPhone کو بھیجیں"
+          }
+        }
+      }
+    },
+    "pane.header.button.qr.tooltip.disabled": {
+      "comment": "Tooltip on the disabled Continue-on-iPhone button when connected to a Linux server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«المتابعة على iPhone» غير متاحة على خوادم Linux"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux সার্ভারে 'iPhone-এ চালিয়ে যান' উপলব্ধ নয়"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Auf dem iPhone fortsetzen“ ist auf Linux-Servern nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue on iPhone isn't available on Linux servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar en el iPhone no está disponible en servidores Linux"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Continuer sur l’iPhone » n’est pas disponible sur les serveurs Linux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्वर पर 'iPhone पर जारी रखें' उपलब्ध नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan di iPhone tidak tersedia di server Linux"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「iPhone で続ける」は Linux サーバでは利用できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'iPhone에서 계속하기'는 Linux 서버에서 사용할 수 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्व्हरवर 'iPhone वर सुरू ठेवा' उपलब्ध नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Продолжить на iPhone» недоступно на серверах Linux"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux సర్వర్‌లలో 'iPhone లో కొనసాగించు' అందుబాటులో లేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux سرورز پر 'iPhone پر جاری رکھیں' دستیاب نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“在 iPhone 上继续”不适用于 Linux 服务器"
+          }
+        }
+      }
+    },
+    "pane.header.button.qr.tooltip.enabled": {
+      "comment": "Tooltip on the Continue-on-iPhone button when a paired iPhone can take over.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "متابعة هذا الجزء على iPhone مقترن"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই প্যানটি যুক্ত করা iPhone-এ চালিয়ে যান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Fenster auf einem gekoppelten iPhone fortsetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue this pane on a paired iPhone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar este panel en un iPhone emparejado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer ce volet sur un iPhone associé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस पैन को जोड़े गए iPhone पर जारी रखें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan panel ini di iPhone yang tersanding"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このペインをペアリング済みの iPhone で続ける"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 창을 페어링된 iPhone에서 계속하기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे पेन जोडलेल्या iPhone वर सुरू ठेवा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar esta pane num iPhone pareado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar este painel num iPhone emparelhado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить эту панель на сопряжённом iPhone"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ పేన్‌ను జత చేసిన iPhone లో కొనసాగించండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اس پین کو منسلک iPhone پر جاری رکھیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在已配对的 iPhone 上继续此窗格"
+          }
+        }
+      }
+    },
+    "pane.header.contextMenu.messaging": {
+      "comment": "Right-click menu item on a pane header that opens agent communication controls.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الرسائل والحظر…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "বার্তা ও ব্লক…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten & Blockierungen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messaging & Blocks…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensajes y bloqueos…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages et blocages…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संदेश और ब्लॉक…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pesan & Pemblokiran…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージとブロック…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지 및 차단…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संदेश आणि ब्लॉक…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensagens e bloqueios…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensagens e bloqueios…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сообщения и блокировки…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "సందేశాలు & బ్లాక్‌లు…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "پیغامات اور بلاکس…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消息与屏蔽…"
+          }
+        }
+      }
+    },
+    "pane.header.contextMenu.orchestration": {
+      "comment": "Right-click menu item on a pane header that opens the agent role and orchestration settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الدور والتنسيق…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ভূমিকা ও অর্কেস্ট্রেশন…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rolle & Orchestrierung …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role & Orchestration…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rol y orquestación…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rôle et orchestration…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका और ऑर्केस्ट्रेशन…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peran & Orkestrasi…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロールとオーケストレーション…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "역할 및 오케스트레이션…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका आणि ऑर्केस्ट्रेशन…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papel e orquestração…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papel e orquestração…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Роль и оркестрация…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "పాత్ర & ఆర్కెస్ట్రేషన్…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کردار اور آرکیسٹریشن…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "角色与编排…"
           }
         }
       }
