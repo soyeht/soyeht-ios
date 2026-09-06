@@ -8,9 +8,28 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@eb96d37509544a2fe8e2ff69e7f5d9d27b136f79 (refs/tags/v0.1.29, the source
-# the shipped 0.1.29 engine asset is attested to; tree
-# 7fb7141905ae20ba812c470afc0ac050834b8f26). Every token below was
+# theyos@1a8e57630b49ded40d3b1a1a6a64386e4953b663 (refs/tags/v0.1.30, the source
+# the shipped 0.1.30 engine asset is attested to; tree
+# ee2cc611a8341b21a80833dc68c38f6bd2517249).
+#
+# Moved from v0.1.29 on 2026-09-06. All twenty tokens that were listed were
+# re-verified present as compile-time literals in the v0.1.30 tree — grepped
+# against the checked-out tag, not assumed — and none were dropped. Three were
+# ADDED, all three literals in `bonjour_publisher.rs`:
+#
+#   bonjour.published     the home IS being advertised, and on which interface
+#   bonjour.reconciled    the advert followed the window opening or closing
+#   bonjour.unregistered  the advert was withdrawn when the window closed
+#
+# They answer the one question this release creates. Before 0.1.30 the advert
+# was decided once at startup: `bonjour.skipped` at 13:51:51 on 2026-09-06,
+# then the window opened ten times with nothing announced, and the phone had no
+# way to find the Mac. Someone debugging that needs to know whether the home is
+# on the air; with these dropped by omission, the diagnostic would say nothing
+# about the exact thing that broke. The other twenty-one bonjour and
+# household_listener stages in v0.1.30 — shutdown, lag, channel-closed — stay
+# out: this list is minimal on purpose, and they describe the publisher's
+# internals rather than what a person can act on. Every token below was
 # re-verified present as a compile-time literal in that tree when the pin
 # moved from 0.1.28 — measured by grepping the checked-out tag, not assumed.
 # `pair_machine.window_opened` was dropped in that pass: it is emitted by
@@ -53,3 +72,6 @@ local_network_visibility.opened
 local_network_visibility.closed
 local_network_visibility.open.non_loopback_rejected
 local_network_visibility.close.non_loopback_rejected
+bonjour.published
+bonjour.reconciled
+bonjour.unregistered
