@@ -94,12 +94,18 @@ def main():
         # must have executed and failed, not merely returned a nonzero code.
         response_path = Path(temporary) / "response.json"
         original = response_path.read_text()
-        for defect in ("frame_prefix", "session_instance"):
+        for defect in ("frame_prefix", "session_instance", "running_image", "broker_boot"):
             response = json.loads(original)
             if defect == "frame_prefix":
                 response["frames"][0][1] = 3
-            else:
+            elif defect == "session_instance":
                 response["created"]["session_instance_id"] = "00000000-0000-4000-8000-000000000099"
+            elif defect == "running_image":
+                # Preserve semver and commit: neither proves the loaded image.
+                original_uuid = response["engine"]["artifact"]["image_uuid"]
+                response["engine"]["artifact"]["image_uuid"] = ("a" if original_uuid[0] != "a" else "b") + original_uuid[1:]
+            else:
+                response["supervisor"]["broker_boot_id"] = "00000000-0000-4000-8000-000000000099"
             response_path.write_text(json.dumps(response))
             run(command + ["--skip-build"], swift, env,
                 "crossRepoLocalTerminal() failed", should_fail=True)
@@ -107,7 +113,7 @@ def main():
         for defect in ("keyboard", "intent"):
             rust_exchange(rust_command, rust, command + ["--skip-build"], swift, env,
                           Path(temporary), defect=defect)
-    print("PASS: Swift create and keyboard requests executed by Rust; real HTTP/PTY frames decoded by Swift; 4 boundary defects rejected")
+    print("PASS: Swift requests executed by Rust; real HTTP/PTY frames and runtime identities decoded by Swift; 6 boundary defects rejected")
 
 
 if __name__ == "__main__":

@@ -32,9 +32,19 @@ import Testing
             let created: SoyehtAPIClient.LocalTerminalCreateResponse
             let restored: SoyehtAPIClient.LocalTerminalSessionMetadata
             let frames: [[UInt8]]
+            let engine: EngineRuntimeIdentity
+            let expected_artifact: EngineArtifactIdentity
+            let supervisor: PTYSupervisorStatus
+            let prior_broker_boot_id: UUID
         }
         let data = try Data(contentsOf: directory.appendingPathComponent("response.json"))
         let response = try JSONDecoder().decode(Response.self, from: data)
+        #expect(response.engine.supervisedReplacementOutcome(
+            expected: response.expected_artifact,
+            priorBrokerBootID: response.prior_broker_boot_id,
+            supervisor: response.supervisor
+        ) == .readyWithContinuity)
+        #expect(response.supervisor.liveSessions == 1)
         let instance = try #require(response.created.sessionInstanceId)
         #expect(UUID(uuidString: instance) != nil)
         #expect(response.created.backend == "supervisor")
