@@ -168,8 +168,16 @@ def engine_accepted(t: Transcript) -> bool:
 
 
 def phone_concluded(t: Transcript) -> bool:
-    """The PHONE finished: it has a session it can use."""
-    return bool(t.phone_grep("pair.result=paired")
+    """The PHONE finished: it has a session it can use.
+
+    `pair_secret_stored` is what the app actually writes when it commits the
+    pairing — MEASURED 2026-09-06 on a run that ended with "your Mac is yours"
+    on screen while this returned false, because I was looking for markers the
+    app does not emit. A verdict of "the phone never got a session" about a
+    phone showing its paired home is the instrument talking, not the product.
+    """
+    return bool(t.phone_grep("pair_secret_stored")
+                or t.phone_grep("pair.result=paired")
                 or t.phone_grep("endpoint.persisted"))
 
 
@@ -557,6 +565,14 @@ def inv_advert_follows_window(t: Transcript) -> Finding:
     if not opens:
         return Finding("ADVERT-FOLLOWS-WINDOW", "n/a",
                        "no pairing window was opened in this run")
+    # A tape with no publisher lines at all has nothing to judge — the advert
+    # may have been registered before the capture started. Reporting failure
+    # there blames the product for the moment I chose to begin recording, and
+    # that is exactly what happened when I truncated the log mid-session.
+    if not any("bonjour." in line for line in engine):
+        return Finding("ADVERT-FOLLOWS-WINDOW", "n/a",
+                       "the capture holds no publisher lines; the advert may "
+                       "predate it, so this cannot be judged from this tape")
 
     last_open = opens[-1]
     if not _advert_live_at(engine, len(engine) - 1) and last_open < len(engine):
@@ -953,6 +969,21 @@ BAD_LAN_SURVIVES_CLOSE = Transcript(
 )
 
 
+# A run that concluded using the marker the app really writes.
+GOOD_PHONE_STORED_SECRET = Transcript(
+    mac=[], phone=["pair.confirm.post host=192.168.1.20 port=8101",
+                   "pair_secret_stored mac_id=abc"],
+    engine=["device_pairing.approve.success request_digest=" + "a" * 64],
+)
+
+# Window opened, but the tape starts after the advert was already registered.
+NO_PUBLISHER_LINES_AT_ALL = Transcript(
+    mac=[], phone=[],
+    engine=["local_network_visibility.opened",
+            "household_listener.pairing_window_bound"],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -1033,6 +1064,10 @@ def self_test() -> int:
          GOOD_TAILNET_SURVIVES_CLOSE, True, 1, {"ADVERT-FOLLOWS-WINDOW": "pass"}),
         ("bad, LAN advert survives closing the window",
          BAD_LAN_SURVIVES_CLOSE, True, 1, {"ADVERT-FOLLOWS-WINDOW": "fail"}),
+        ("good, the phone stored its pairing secret",
+         GOOD_PHONE_STORED_SECRET, False, 1, {"LAN-WORKS": "pass"}),
+        ("a tape with no publisher lines cannot be judged",
+         NO_PUBLISHER_LINES_AT_ALL, True, 1, {"ADVERT-FOLLOWS-WINDOW": "n/a"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
         ("a claim was attempted and stayed in profile",
