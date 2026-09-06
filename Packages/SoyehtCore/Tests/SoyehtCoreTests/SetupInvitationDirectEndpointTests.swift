@@ -233,11 +233,13 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
         XCTAssertEqual(map["expires_at"], .unsigned(1_778_559_686))
     }
 
-    func test_claimClientAcceptsEngineAckShape() async throws {
+    func test_claimClientRequiresAnEngineAcceptanceReceipt() async throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x21, count: 32))
         let responseBody = HouseholdCBOR.encode(.map([
             "v": .unsigned(1),
-            "iphone_endpoint": .text("iphone-13-mini.local.:8092"),
+            "accepted_at": .unsigned(1_800_000_000),
+            "installation": SetupInvitationPayload.installationCBOR(.current),
+            "iphone_endpoint": .text("device-alpha.local.:8092"),
             "owner_display_name": .text(""),
             "hh_id": .null,
         ]))
@@ -261,7 +263,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
             iphoneApnsToken: nil
         )
 
-        XCTAssertEqual(acceptedAt, 0)
+        XCTAssertEqual(acceptedAt, 1_800_000_000)
     }
 
     func test_setupInvitationReleaseParametersAllowLocalNetworkAndTailscale() {

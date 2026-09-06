@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -18,6 +19,7 @@ public enum HouseholdDevicePairingError: Error, Equatable, Sendable {
 public struct HouseholdDevicePairingLink: Equatable, Sendable {
     public static let pairingNonceLength = 32
 
+    public let addressOffer: PairingAddressOffer?
     public let endpoint: URL
     public let householdId: String
     public let householdPublicKey: Data
@@ -29,8 +31,10 @@ public struct HouseholdDevicePairingLink: Equatable, Sendable {
         householdId: String,
         householdPublicKey: Data,
         householdName: String,
-        pairingNonce: Data
+        pairingNonce: Data,
+        addressOffer: PairingAddressOffer? = nil
     ) {
+        self.addressOffer = addressOffer
         self.endpoint = endpoint
         self.householdId = householdId
         self.householdPublicKey = householdPublicKey
@@ -54,6 +58,7 @@ public struct HouseholdDevicePairingLink: Equatable, Sendable {
               pairingNonce.count == Self.pairingNonceLength else {
             throw HouseholdDevicePairingError.invalidLink
         }
+        self.addressOffer = try PairingLinkAddresses.offer(in: url)
         self.endpoint = endpoint
         self.householdId = householdId
         self.householdPublicKey = householdPublicKey
@@ -76,7 +81,7 @@ public struct HouseholdDevicePairingLink: Equatable, Sendable {
         guard let url = components.url else {
             throw HouseholdDevicePairingError.invalidLink
         }
-        return url
+        return try addressOffer.map { try PairingLinkAddresses.attaching($0, to: url) } ?? url
     }
 }
 
@@ -145,6 +150,7 @@ public protocol HouseholdDevicePairingHTTPClient: Sendable {
 }
 
 public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairingHTTPClient {
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "device-pairing")
     private let session: URLSession
 
     public init(session: URLSession = .shared) {
@@ -168,11 +174,7 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
-        let (responseData, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw HouseholdDevicePairingError.requestRejected
-        }
-        return try JSONDecoder().decode(DevicePairingRequestResponse.self, from: responseData)
+        return try await send(request, stage: .request)
     }
 
     public func pollPairing(
@@ -188,14 +190,7 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
         guard let url = components?.url else {
             throw HouseholdDevicePairingError.invalidLink
         }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse else {
-            throw HouseholdDevicePairingError.networkUnavailable
-        }
-        guard http.statusCode == 202 || (200..<300).contains(http.statusCode) else {
-            throw HouseholdDevicePairingError.approvalRejected
-        }
-        return try JSONDecoder().decode(DevicePairingPollResponse.self, from: data)
+        return try await send(URLRequest(url: url), stage: .poll)
     }
 
     public func approvePairing(
@@ -210,11 +205,42 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(authorization, forHTTPHeaderField: "Authorization")
         request.httpBody = data
-        let (responseData, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw HouseholdDevicePairingError.approvalRejected
+        return try await send(request, stage: .approval)
+    }
+
+    public func listPairingRequests(endpoint: URL, ownerIdentity: any OwnerIdentitySigning) async throws -> [DevicePairingRequestSummary] {
+        let path = "/api/v1/household/device-pairing/requests"
+        var request = URLRequest(url: Self.url(endpoint: endpoint, path: path))
+        let proof = try HouseholdPoPSigner(ownerIdentity: ownerIdentity).authorization(
+            method: "GET", pathAndQuery: path, body: Data())
+        request.setValue(proof.authorizationHeader, forHTTPHeaderField: "Authorization")
+        let response: DevicePairingRequestsResponse = try await send(request, stage: .approval)
+        guard response.version == 1 else { throw HouseholdDevicePairingError.requestRejected }
+        return response.requests
+    }
+
+    private func send<Response: Decodable>(
+        _ original: URLRequest, stage: PairingAttemptFailure.Stage
+    ) async throws -> Response {
+        var request = original
+        request.timeoutInterval = 15
+        do {
+            if stage == .request, let url = request.url {
+                // Record the request handed to URLSession, after address selection.
+                // Never include the body, credentials, or a polling token.
+                Self.logger.info("pair.request.post host=\(url.host() ?? "<none>", privacy: .public) port=\(url.port ?? (url.scheme == "https" ? 443 : 80), privacy: .public)")
+            }
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw PairingAttemptFailure(stage: stage, endpoint: request.url, cause: .invalidResponse)
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                throw PairingAttemptFailure(stage: stage, endpoint: request.url, cause: .server(status: http.statusCode))
+            }
+            return try JSONDecoder().decode(Response.self, from: data)
+        } catch {
+            try PairingAttemptFailure.rethrow(error, stage: stage, endpoint: request.url)
         }
-        return try JSONDecoder().decode(DevicePairingApprovalAck.self, from: responseData)
     }
 
     public static func approvalPathAndQuery() -> String {
@@ -241,6 +267,13 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
 }
 
 public struct HouseholdDevicePairingService {
+    /// Completed approval steps. These observations carry no credentials and
+    /// do not imply that the requesting phone has validated or saved a session.
+    public enum ApprovalProgress: String, Sendable {
+        case certificateSigned = "certificate_signed"
+        case proofSigned = "proof_signed"
+        case responseReceived = "response_received"
+    }
     private let keyProvider: any OwnerIdentityKeyCreating
     private let httpClient: any HouseholdDevicePairingHTTPClient
     private let sessionStore: HouseholdSessionStore
@@ -263,7 +296,30 @@ public struct HouseholdDevicePairingService {
         self.sleeper = sleeper
     }
 
-    public func pair(link: HouseholdDevicePairingLink, deviceName: String = Self.defaultDeviceName()) async throws -> ActiveHouseholdState {
+    public func pair(
+        link originalLink: HouseholdDevicePairingLink,
+        deviceName: String = Self.defaultDeviceName(),
+        reachedEndpoint: URL? = nil,
+        addressOffer: PairingAddressOffer? = nil,
+        phoneNetwork: PhoneNetworkEvidence? = nil,
+        installation: PairingInstallIdentity = .current,
+        onPending: @Sendable (DevicePairingReview) async -> Void = { _ in }
+    ) async throws -> ActiveHouseholdState {
+        let endpoints = [Optional(originalLink.endpoint), reachedEndpoint].compactMap { $0 }
+        let reached = Set([reachedEndpoint].compactMap { $0 })
+        let evidence = phoneNetwork.map {
+            PhoneNetworkEvidence(hasTailnetAddress: $0.hasTailnetAddress,
+                                 reachedEndpoints: $0.reachedEndpoints.union(reached))
+        } ?? PhoneNetworkEvidence.current(reachedEndpoints: reached)
+        let decision = try PairingAddressPolicy.choose(
+            offer: addressOffer ?? originalLink.addressOffer ?? PairingAddressPolicy.legacyOffer(endpoints: endpoints, installation: installation),
+            expectedInstallation: installation, phone: evidence, operation: .addDevice, now: now()
+        )
+        let link = HouseholdDevicePairingLink(
+            endpoint: decision.url, householdId: originalLink.householdId,
+            householdPublicKey: originalLink.householdPublicKey,
+            householdName: originalLink.householdName, pairingNonce: originalLink.pairingNonce
+        )
         let deviceIdentity: any OwnerIdentitySigning
         do {
             deviceIdentity = try keyProvider.createOwnerIdentity(displayName: deviceName)
@@ -284,14 +340,21 @@ public struct HouseholdDevicePairingService {
         } catch let error as HouseholdDevicePairingError {
             throw error
         } catch {
-            throw HouseholdDevicePairingError.networkUnavailable
+            try PairingAttemptFailure.rethrow(error, stage: .request, endpoint: link.endpoint)
         }
 
         guard request.version == 1 else {
             throw HouseholdDevicePairingError.requestRejected
         }
 
-        while UInt64(max(0, now().timeIntervalSince1970)) < request.expiresAt {
+        let deadline = min(Date(timeIntervalSince1970: TimeInterval(request.expiresAt)), now().addingTimeInterval(300))
+        guard deadline > now(), !request.token.isEmpty else { throw HouseholdDevicePairingError.approvalTimedOut }
+        try Task.checkCancellation()
+        await onPending(try DevicePairingReview(requestID: request.requestId,
+            devicePublicKey: deviceIdentity.publicKey, deviceName: deviceName,
+            platform: Self.platformName(), expiresAt: request.expiresAt,
+            householdPublicKey: link.householdPublicKey))
+        while now() < deadline {
             try Task.checkCancellation()
             let response: DevicePairingPollResponse
             do {
@@ -303,7 +366,7 @@ public struct HouseholdDevicePairingService {
             } catch let error as HouseholdDevicePairingError {
                 throw error
             } catch {
-                throw HouseholdDevicePairingError.networkUnavailable
+                try PairingAttemptFailure.rethrow(error, stage: .poll, endpoint: link.endpoint)
             }
             if response.status == "pending" {
                 try await sleeper(1)
@@ -325,7 +388,9 @@ public struct HouseholdDevicePairingService {
         deviceName: String,
         platform: String,
         household: ActiveHouseholdState,
-        ownerIdentity: any OwnerIdentitySigning
+        ownerIdentity: any OwnerIdentitySigning,
+        endpointOverride: URL? = nil,
+        onProgress: @Sendable (ApprovalProgress) -> Void = { _ in }
     ) async throws {
         let deviceCertCBOR = try DeviceCert.signedCBOR(
             householdId: household.householdId,
@@ -336,6 +401,7 @@ public struct HouseholdDevicePairingService {
             issuedAt: now(),
             signer: ownerIdentity
         )
+        onProgress(.certificateSigned)
         let bodyData = try URLSessionHouseholdDevicePairingHTTPClient.approvalBody(
             requestId: requestId,
             deviceCertCBOR: deviceCertCBOR
@@ -345,12 +411,14 @@ public struct HouseholdDevicePairingService {
             pathAndQuery: URLSessionHouseholdDevicePairingHTTPClient.approvalPathAndQuery(),
             body: bodyData
         ).authorizationHeader
+        onProgress(.proofSigned)
         _ = try await httpClient.approvePairing(
-            endpoint: household.endpoint,
+            endpoint: endpointOverride ?? household.endpoint,
             requestId: requestId,
             deviceCertCBOR: deviceCertCBOR,
             authorization: authorization
         )
+        onProgress(.responseReceived)
     }
 
     private func persistApprovedPairing(

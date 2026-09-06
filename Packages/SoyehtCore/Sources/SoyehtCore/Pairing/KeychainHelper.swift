@@ -1,9 +1,7 @@
 import Foundation
 import Security
 import os
-#if os(macOS)
 import LocalAuthentication
-#endif
 
 private let keychainLog = Logger(subsystem: "com.soyeht.core", category: "keychain")
 
@@ -112,37 +110,48 @@ public struct KeychainHelper: Sendable {
     }
 
     public func load(account: String) -> Data? {
-        var query = baseQuery(account: account)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        #if os(macOS)
-        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-        #endif
-        var result: AnyObject?
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data {
+        try? loadWithoutInteraction(account: account)
+    }
+
+    /// Absence and unavailable authentication must remain distinct for authority
+    /// decisions. Never falls back to another store after an authentication error.
+    public func loadWithoutInteraction(account: String) throws -> Data? {
+        try loadDiagnosed(account: account, allowInteraction: false)
+    }
+
+    public func loadDiagnosed(account: String, allowInteraction: Bool) throws -> Data? {
+        func read(_ base: [String: Any]) throws -> Data? {
+            var query = base
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+            let context = LAContext()
+            context.interactionNotAllowed = !allowInteraction
+            query[kSecUseAuthenticationContext as String] = context
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecItemNotFound { return nil }
+            guard status == errSecSuccess else {
+                throw OwnerIdentityKeyError.securityFailure(domain: NSOSStatusErrorDomain, code: Int(status))
+            }
+            guard let data = result as? Data else { throw HouseholdSessionError.decodingFailed }
             return data
         }
-
-        #if os(macOS)
-        // Development builds signed to run locally can lack the entitlement
-        // needed for the data-protection keychain. In that case `save` falls
-        // back to the legacy keychain; read it without allowing UI prompts.
-        var legacy = legacyBaseQuery(account: account)
-        legacy[kSecReturnData as String] = true
-        legacy[kSecMatchLimit as String] = kSecMatchLimitOne
-        legacy[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-        let noPromptContext = LAContext()
-        noPromptContext.interactionNotAllowed = true
-        legacy[kSecUseAuthenticationContext as String] = noPromptContext
-        result = nil
-        if SecItemCopyMatching(legacy as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data {
-            return data
+        do {
+            if let data = try read(baseQuery(account: account)) { return data }
+        } catch {
+            #if os(macOS)
+            guard error as? OwnerIdentityKeyError == .securityFailure(
+                domain: NSOSStatusErrorDomain, code: Int(errSecMissingEntitlement)
+            ) else { throw error }
+            #else
+            throw error
+            #endif
         }
-        #endif
-
+        #if os(macOS)
+        return try read(legacyBaseQuery(account: account))
+        #else
         return nil
+        #endif
     }
 
     public func loadString(account: String) -> String? {

@@ -154,7 +154,7 @@ private struct Fixture {
             notBefore: notBefore
         )
         candidate = HouseholdDiscoveryCandidate(
-            endpoint: URL(string: "https://home.local:8443")!,
+            endpoint: URL(string: "https://home.local:8091")!,
             householdId: qr.householdId,
             householdName: "Sample Home",
             machineId: "m_mac",

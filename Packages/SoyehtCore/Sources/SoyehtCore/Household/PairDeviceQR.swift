@@ -16,6 +16,7 @@ public enum PairDeviceQRError: Error, Equatable {
 }
 
 public struct PairDeviceQR: Equatable, Sendable {
+    public let addressOffer: PairingAddressOffer?
     public let version: Int
     public let householdPublicKey: Data
     public let householdId: String
@@ -42,8 +43,10 @@ public struct PairDeviceQR: Equatable, Sendable {
         householdName: String = "Home",
         criticalFields: [String] = [],
         hostFallback: String? = nil,
-        machineCertFingerprint: Data
+        machineCertFingerprint: Data,
+        addressOffer: PairingAddressOffer? = nil
     ) {
+        self.addressOffer = addressOffer
         self.version = version
         self.householdPublicKey = householdPublicKey
         self.householdId = householdId
@@ -160,7 +163,8 @@ public struct PairDeviceQR: Equatable, Sendable {
             householdName: householdName,
             criticalFields: criticalFields.sorted(),
             hostFallback: hostFallback,
-            machineCertFingerprint: machineCertFingerprint
+            machineCertFingerprint: machineCertFingerprint,
+            addressOffer: try PairingLinkAddresses.offer(in: url)
         )
     }
 }

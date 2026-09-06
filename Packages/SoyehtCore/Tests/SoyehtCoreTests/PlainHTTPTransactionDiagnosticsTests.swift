@@ -35,6 +35,22 @@ struct PlainHTTPTransactionDiagnosticsTests {
         #expect(Date().timeIntervalSince(started) >= 0.3)
     }
 
+    @Test func cancellationEndsAPendingTransactionWithoutWaitingForItsDeadline() async throws {
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:9/contract-cancel")!)
+        request.timeoutInterval = 30
+        let transaction = try PlainHTTPTransaction(request: request)
+        let task = Task { try await transaction.perform() }
+        try await Task.sleep(for: .milliseconds(50))
+        let cancelledAt = Date()
+        task.cancel()
+        do {
+            _ = try await task.value
+            Issue.record("A cancelled transaction must not succeed")
+        } catch is CancellationError {
+            #expect(Date().timeIntervalSince(cancelledAt) < 1)
+        }
+    }
+
     /// `LocalAnchorClient` still collapses the transport's account into
     /// `.networkDrop`, so the retry policy and the operator-facing message are
     /// unchanged by the richer error.

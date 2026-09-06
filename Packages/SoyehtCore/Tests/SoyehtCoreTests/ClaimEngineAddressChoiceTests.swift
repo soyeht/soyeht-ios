@@ -1,22 +1,14 @@
 import XCTest
 @testable import SoyehtCore
 
-/// The address a phone dials after a Mac claims it.
-///
-/// The Mac chooses what to advertise by what the MAC has, and
-/// `MacEngineAdvertisedURL` prefers the tailnet address whenever this Mac has
-/// one — right for a phone that could use the tailnet, and a dead end for a
-/// phone that has no Tailscale at all. MEASURED on the owner's Mac 2026-09-04:
-/// it holds a 100.64/10 address, so every claim it sends over the Wi-Fi says
-/// "dial me on the tailnet". Opening the LAN on the engine bought nothing while
-/// the phone was never told the Wi-Fi address.
+/// Legacy claims use the same policy as the services that persist endpoints.
 final class ClaimEngineAddressChoiceTests: XCTestCase {
 
     private let tailnet = URL(string: "http://100.64.0.10:8091")!
     private let lan = URL(string: "http://192.168.1.20:8091")!
 
-    func test_takesTheWiFiAddressWhenThePhoneHasNoTailnetOfItsOwn() {
-        let choice = ClaimEngineAddressChoice.choose(
+    func test_takesTheWiFiAddressWhenThePhoneHasNoTailnetOfItsOwn() throws {
+        let choice = try ClaimEngineAddressChoice.choose(
             advertised: tailnet, localNetwork: lan, phoneHasTailnetAddress: false
         )
         XCTAssertEqual(choice.url, lan)
@@ -27,8 +19,8 @@ final class ClaimEngineAddressChoiceTests: XCTestCase {
     /// address that still answers away from home. It stores the endpoint for
     /// the life of the pairing, so handing it the Wi-Fi address here is how
     /// someone silently becomes unreachable the moment they leave the house.
-    func test_keepsTheTailnetAddressWhenThePhoneIsOnTheTailnet() {
-        let choice = ClaimEngineAddressChoice.choose(
+    func test_keepsTheTailnetAddressWhenThePhoneIsOnTheTailnet() throws {
+        let choice = try ClaimEngineAddressChoice.choose(
             advertised: tailnet, localNetwork: lan, phoneHasTailnetAddress: true
         )
         XCTAssertEqual(choice.url, tailnet)
@@ -37,47 +29,36 @@ final class ClaimEngineAddressChoiceTests: XCTestCase {
 
     /// A Mac with no tailnet already advertises something dialable. Nothing to
     /// decide, whatever else is carried.
-    func test_leavesANonTailnetAdvertisementAlone() {
+    func test_leavesANonTailnetAdvertisementAlone() throws {
         for phoneHasTailnet in [true, false] {
-            let choice = ClaimEngineAddressChoice.choose(
+            let choice = try ClaimEngineAddressChoice.choose(
                 advertised: lan,
                 localNetwork: URL(string: "http://192.168.1.99:8091")!,
                 phoneHasTailnetAddress: phoneHasTailnet
             )
             XCTAssertEqual(choice.url, lan)
-            XCTAssertEqual(choice.reason, .advertised)
+            XCTAssertEqual(choice.reason, phoneHasTailnet ? .advertised : .localNetworkFallback)
         }
     }
 
-    /// A Mac built before this carries no second address. The phone is no
-    /// worse off than it was — and the reason says why it is about to fail.
-    func test_anOlderMacOffersNothingElseAndTheReasonSaysSo() {
-        let choice = ClaimEngineAddressChoice.choose(
+    func test_anOlderMacWithNoReachableAddressFailsExplicitly() {
+        XCTAssertThrowsError(try ClaimEngineAddressChoice.choose(
             advertised: tailnet, localNetwork: nil, phoneHasTailnetAddress: false
-        )
-        XCTAssertEqual(choice.url, tailnet)
-        XCTAssertEqual(choice.reason, .noReachableAddress)
-    }
-
-    /// The second address is not a second chance to be told anything. A
-    /// loopback, a tailnet address wearing the LAN field, or a host that is
-    /// not an address at all are all refused — the phone would dial its own
-    /// machine, or the address it already established it cannot reach.
-    func test_refusesASecondAddressThatIsNotALocalNetworkAddress() {
-        for impostor in [
-            "http://127.0.0.1:8091",
-            "http://100.64.9.9:8091",
-            "http://mac.example.test:8091",
-        ] {
-            let choice = ClaimEngineAddressChoice.choose(
-                advertised: tailnet,
-                localNetwork: URL(string: impostor)!,
-                phoneHasTailnetAddress: false
-            )
-            XCTAssertEqual(choice.url, tailnet, "\(impostor) must not be dialled")
-            XCTAssertEqual(choice.reason, .noReachableAddress, "\(impostor)")
+        )) {
+            XCTAssertEqual($0 as? PairingAddressError, .noReachableAddress)
         }
     }
+
+    func test_refusesASecondAddressThatIsNotALocalNetworkAddress() {
+        for impostor in ["http://127.0.0.1:8091", "http://100.64.9.9:8091", "http://mac.example.test:8091"] {
+            XCTAssertThrowsError(try ClaimEngineAddressChoice.choose(
+                advertised: tailnet, localNetwork: URL(string: impostor), phoneHasTailnetAddress: false
+            )) {
+                XCTAssertEqual($0 as? PairingAddressError, .noReachableAddress)
+            }
+        }
+    }
+
 }
 
 /// The claim carries the second address across a version gap in both

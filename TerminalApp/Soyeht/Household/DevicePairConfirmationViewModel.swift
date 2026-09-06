@@ -1,5 +1,6 @@
 import Foundation
 import SoyehtCore
+import os
 
 @MainActor
 final class DevicePairConfirmationViewModel: ObservableObject {
@@ -17,6 +18,7 @@ final class DevicePairConfirmationViewModel: ObservableObject {
     let envelope: DevicePairRequestEnvelope
     let displayDeviceName: String
     let displayPlatform: String
+    let review: DevicePairingReview
 
     @Published private(set) var state: State = .pending
     @Published private(set) var secondsRemaining: Int
@@ -32,11 +34,15 @@ final class DevicePairConfirmationViewModel: ObservableObject {
 
     init(
         envelope: DevicePairRequestEnvelope,
+        review: DevicePairingReview,
         queue: DevicePairRequestQueue,
         nowProvider: @escaping NowProvider = { Date() },
         approveAction: @escaping ApproveAction
     ) {
         self.envelope = envelope
+        self.review = review
+        Logger(subsystem: "com.soyeht.mobile", category: "device-approval")
+            .info("\(review.diagnostic, privacy: .public)")
         self.queue = queue
         self.nowProvider = nowProvider
         self.approveAction = approveAction

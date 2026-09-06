@@ -184,7 +184,7 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         let connect = try slice(
             try codeOnly(awaitingMacSource()),
             from: "func connectToExistingHouse() {",
-            to: "enum ConnectFailureReason"
+            to: "private func recordFailure("
         )
         XCTAssertTrue(
             connect.contains("self.pendingExistingHouse?.deferredLocalPairing")
@@ -193,62 +193,16 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         )
     }
 
-    // MARK: - "Tailscale is off on this iPhone" instead of the catch-all
-
-    func test_connectFailureNamesTailscaleOff_whenTheLinkIsTailnetAndThePhoneIsNot() throws {
+    func testPairingFailuresPreserveTheAttemptInsteadOfGuessingFromTheLink() throws {
         let source = try codeOnly(awaitingMacSource())
-
-        XCTAssertTrue(
-            source.contains("case tailscaleOffOnThisIPhone"),
-            "the phone can distinguish this one cause; it must have a case of its own"
-        )
-        let reason = try slice(
-            source,
-            from: "static func connectFailureReason(",
-            to: "static func pairingLinkHost("
-        )
-        XCTAssertTrue(
-            reason.contains("guard tailnetIPv4 == nil else { return .unknown }"),
-            "with a tailnet address on this iPhone, Tailscale is not the explanation"
-        )
-        XCTAssertTrue(
-            reason.contains("HostClassifier.isTailnetIPv4(host)"),
-            "the 100.64/10 test must come from HostClassifier, not a hand-rolled prefix check"
-        )
-
-        // From the end of the approval-timed-out catch to the reason type:
-        // exactly the generic catch that used to answer every failure.
-        let catchBlock = try slice(
-            source,
-            from: "\"awaitingMac.existingHouse.connect.approvalTimedOut\",",
-            to: "enum ConnectFailureReason"
-        )
-        XCTAssertTrue(
-            catchBlock.contains("TailnetAddressResolver.currentTailnetIPv4()"),
-            "the failure message must be chosen against this iPhone's live tailnet address"
-        )
-        XCTAssertTrue(
-            catchBlock.contains("Self.connectFailureMessage(reason)"),
-            "the catch must ask for the message that matches the reason, not hardcode one"
-        )
-    }
-
-    func test_pairingLinkHostPrefersTheLinksOwnEndpoint_thenItsHostFallback() throws {
-        let host = try slice(
-            try codeOnly(awaitingMacSource()),
-            from: "static func pairingLinkHost(",
-            to: "private static func connectFailureMessage("
-        )
-        let endpoint = try XCTUnwrap(host.range(of: "$0.name == \"endpoint\""))
-        let fallback = try XCTUnwrap(host.range(of: "$0.name == \"host\""))
-        XCTAssertLessThan(
-            endpoint.lowerBound, fallback.lowerBound,
-            "a Mac-minted device-pairing link carries `endpoint`; the engine-minted `host` fallback is the second answer"
-        )
-        XCTAssertTrue(
-            host.contains("return engineURL.host"),
-            "a link carrying neither must fall back to the engine URL the Mac was found on"
-        )
+        let connect = try slice(source, from: "func connectToExistingHouse() {", to: "private func recordFailure(")
+        XCTAssertTrue(connect.contains("PairingAttemptFailure.capture("))
+        XCTAssertTrue(connect.contains("self.recordFailure(failure)"))
+        XCTAssertFalse(source.contains("connectFailureReason("))
+        let failure = try slice(source, from: "private func recordFailure(", to: "private func startMacBrowser()")
+        XCTAssertTrue(failure.contains(".stalled(.pairingFailure(failure))"))
+        XCTAssertTrue(failure.contains("errorMessage = failure.userMessage"))
+        XCTAssertTrue(source.contains("isSearching: viewModel.phase.isWaitingOnItsOwn"))
     }
 
     func test_theTailscaleOffMessageIsInTheCatalogInEveryLocale() throws {

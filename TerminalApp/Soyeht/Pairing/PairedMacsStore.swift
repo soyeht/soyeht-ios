@@ -241,6 +241,46 @@ final class PairedMacsStore {
 
     // MARK: - Mac registry
 
+    /// Records which address this phone just wrote down for a Mac.
+    ///
+    /// Pairing already logs the address it DIALLED (`pair.endpoint`), and for
+    /// a long time that was mistaken for the same thing. It is not. The
+    /// dialled address is a decision taken once; `lastHost` is what every
+    /// later reconnection starts from, and a phone that dials tailnet but
+    /// stores the LAN address it was reached on looks perfectly healthy at
+    /// home and loses the Mac the moment it leaves the house.
+    ///
+    /// Nothing recorded that, so the failure had no evidence at all — a
+    /// question about it could only be answered by reading the keychain off
+    /// the device. `class` is the part the invariant reads; `host` is kept
+    /// alongside it because "tailnet" with no address is not enough to tell
+    /// two Macs apart when a run pairs more than one.
+    private func logPersistedEndpoint(macID: UUID, host: String) {
+        pairingLogger.log("""
+            endpoint.persisted mac_id=\(macID.uuidString, privacy: .public) \
+            host=\(host, privacy: .public) \
+            class=\(Self.addressClass(host), privacy: .public)
+            """)
+    }
+
+    /// The class of the address written down, as the ONE classifier decides
+    /// it.
+    ///
+    /// The first version of this reimplemented the CGNAT and RFC1918 ranges
+    /// inline. [jaime] caught it in SSOT review: `HostClassifier` already
+    /// owns that rule and `PairingAddressPolicy.transport` already uses it,
+    /// so a second copy — even a diagnostic one — is a second answer waiting
+    /// to disagree with the first. This subsystem got a 4/10 for exactly that
+    /// shape: four owners for one decision.
+    ///
+    /// The log is what the NO-SILENT-LAN invariant reads, so it has to agree
+    /// with the policy that chose the address. Deriving both from the same
+    /// function is what makes "stored tailnet" mean the same thing on both
+    /// sides of the tape.
+    static func addressClass(_ host: String) -> String {
+        HostClassifier.classify(host).rawValue
+    }
+
     func upsertMac(
         macID: UUID,
         name: String,
@@ -254,7 +294,10 @@ final class PairedMacsStore {
         if let idx = macs.firstIndex(where: { $0.macID == macID }) {
             macs[idx].name = name
             macs[idx].lastSeenAt = now
-            if let host { macs[idx].lastHost = host }
+            if let host {
+                macs[idx].lastHost = host
+                logPersistedEndpoint(macID: macID, host: host)
+            }
             if let presencePort { macs[idx].presencePort = presencePort }
             if let attachPort { macs[idx].attachPort = attachPort }
             if let normalizedEngineMachineId {
@@ -271,6 +314,7 @@ final class PairedMacsStore {
                 firstPairedAt: now,
                 lastSeenAt: now
             ))
+            if let host { logPersistedEndpoint(macID: macID, host: host) }
         }
         persist()
         onChange?()
@@ -399,7 +443,10 @@ final class PairedMacsStore {
 
     func updateEndpoints(macID: UUID, host: String?, presencePort: Int?, attachPort: Int?) {
         guard let idx = macs.firstIndex(where: { $0.macID == macID }) else { return }
-        if let host { macs[idx].lastHost = host }
+        if let host {
+            macs[idx].lastHost = host
+            logPersistedEndpoint(macID: macID, host: host)
+        }
         if let presencePort { macs[idx].presencePort = presencePort }
         if let attachPort { macs[idx].attachPort = attachPort }
         persist()

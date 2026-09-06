@@ -166,7 +166,8 @@ public final class SetupInvitationBrowser: @unchecked Sendable {
             iphoneApnsToken: iphoneApnsToken,
             iphoneDeviceID: iphoneDeviceID,
             iphoneDeviceName: iphoneDeviceName,
-            iphoneDeviceModel: iphoneDeviceModel
+            iphoneDeviceModel: iphoneDeviceModel,
+            installation: try SetupInvitationPayload.decodeInstallation(map["installation"])
         )
     }
 }

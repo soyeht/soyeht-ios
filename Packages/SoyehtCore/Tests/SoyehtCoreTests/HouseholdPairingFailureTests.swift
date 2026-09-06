@@ -76,7 +76,8 @@ struct HouseholdPairingFailureTests {
         try await expectFailure(
             fixture: fixture,
             httpClient: FailureMatrixHTTPClient(response: nil, error: URLError(.networkConnectionLost)),
-            expected: .networkUnavailable
+            expectedAttempt: PairingAttemptFailure(stage: .confirm, endpoint: fixture.candidate.endpoint,
+                cause: .network(.connection, domain: NSURLErrorDomain, code: URLError.networkConnectionLost.rawValue))
         )
         try await expectFailure(
             fixture: fixture,
@@ -129,7 +130,8 @@ struct HouseholdPairingFailureTests {
         keyProvider: FailureMatrixOwnerIdentityProvider? = nil,
         httpClient: FailureMatrixHTTPClient? = nil,
         sessionStore: HouseholdSessionStore? = nil,
-        expected: HouseholdPairingError
+        expected: HouseholdPairingError? = nil,
+        expectedAttempt: PairingAttemptFailure? = nil
     ) async throws {
         let storage = InMemoryHouseholdStorage()
         let resolvedStore = sessionStore ?? HouseholdSessionStore(storage: storage, account: "active")
@@ -147,6 +149,8 @@ struct HouseholdPairingFailureTests {
             Issue.record("Expected \(expected)")
         } catch let error as HouseholdPairingError {
             #expect(error == expected)
+        } catch let error as PairingAttemptFailure {
+            #expect(error == expectedAttempt)
         } catch {
             Issue.record("Unexpected error \(error)")
         }
@@ -188,7 +192,7 @@ struct HouseholdPairingFailureTests {
             qrURL: qrURL,
             ownerKey: ownerKey,
             candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://home.local:8443")!,
+                endpoint: URL(string: "https://home.local:8091")!,
                 householdId: qr.householdId,
                 householdName: "Sample Home",
                 machineId: "m_mac",

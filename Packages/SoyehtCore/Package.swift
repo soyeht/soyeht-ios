@@ -16,6 +16,12 @@ let engineHarnessTargets: [Target] = isEngineHarnessEnabled ? [
     ),
 ] : []
 
+// The pairing contract gate builds both local checkouts and hosts only test
+// routers on ephemeral loopback ports. It never downloads or starts an engine.
+let pairingContractTargets: [Target] = ProcessInfo.processInfo.environment["SOYEHT_PAIRING_CONTRACT"] == "1" ? [
+    .testTarget(name: "PairingContractTests", dependencies: ["SoyehtCore"], path: "Tests/PairingContractTests"),
+] : []
+
 let package = Package(
     name: "SoyehtCore",
     platforms: [
@@ -105,5 +111,5 @@ let package = Package(
                 .copy("Fixtures"),
             ]
         ),
-    ] + engineHarnessTargets
+    ] + engineHarnessTargets + pairingContractTargets
 )

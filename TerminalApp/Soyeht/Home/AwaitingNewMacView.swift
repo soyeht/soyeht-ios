@@ -387,11 +387,16 @@ final class AwaitingNewMacViewModel: ObservableObject {
         // Tailscale, over the Wi-Fi socket this claim arrived on. This is
         // first setup, the moment the owner's rule says the home IS visible
         // on the Wi-Fi, so the phone chooses the address it can reach.
-        let choice = ClaimEngineAddressChoice.choose(
-            advertised: claim.macEngineURL,
-            localNetwork: claim.macEngineLocalNetworkURL,
-            phoneHasTailnetAddress: TailnetAddressResolver.currentTailnetIPv4() != nil
-        )
+        let choice: PairingAddressDecision
+        do {
+            choice = try claim.chooseAddress(freshOperation: .acceptHousehold)
+        } catch {
+            let failure = PairingAttemptFailure.capture(error, stage: .discovery, endpoint: claim.macEngineURL)
+            awaitingNewMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
+            self.alreadyOrchestrating = false
+            self.phase = .failure(message: failure.userMessage)
+            return
+        }
         awaitingNewMacLogger.info(
             "setup_claim.engine_address reason=\(choice.reason.rawValue, privacy: .public) chosen=\(choice.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
         )

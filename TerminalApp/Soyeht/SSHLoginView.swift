@@ -353,6 +353,8 @@ struct SoyehtAppView: View {
     /// `activeHouseholdId == nil` gate only sees persisted state, so it
     /// cannot block in-flight overlap on its own.
     @State private var isPairing = false
+    @State private var devicePairingReview: DevicePairingReview?
+    @State private var devicePairingTask: Task<Void, Never>?
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
     @ObservedObject private var identity = SoyehtIdentity.shared
@@ -903,6 +905,19 @@ struct SoyehtAppView: View {
         .sheet(isPresented: $showSettings) {
             SettingsRootView()
         }
+        .sheet(item: $devicePairingReview) { review in
+            VStack(spacing: 20) {
+                Text("Waiting for owner approval").font(.headline)
+                Text(review.words.joined(separator: " · "))
+                    .font(.system(.body, design: .monospaced))
+                    .accessibilityIdentifier("soyeht.onboarding.approval.requestWords")
+                Text("Open Add iPhone on the Mac, or use a device holding the owner key. Compare these request words before approving.")
+                Text(review.expiresAt, style: .timer)
+                Button("Cancel") { devicePairingTask?.cancel() }
+            }
+            .padding(24)
+            .interactiveDismissDisabled()
+        }
         .sheet(item: $pendingPairDeviceConfirmation) { confirmation in
             PairDeviceConfirmationSheet(
                 fingerprintWords: confirmation.fingerprintWords,
@@ -1097,7 +1112,11 @@ struct SoyehtAppView: View {
             await MainActor.run {
                 startDevicePairingSetupInvitation(for: link)
             }
-            let household = try await HouseholdDevicePairingService(keyProvider: keyProvider).pair(link: link)
+            let household = try await HouseholdDevicePairingService(keyProvider: keyProvider).pair(
+                link: link, onPending: { review in
+                    householdDeepLinkLogger.info("\(review.diagnostic, privacy: .public)")
+                    await MainActor.run { devicePairingReview = review }
+                })
             do {
                 _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
             } catch {
@@ -1110,16 +1129,24 @@ struct SoyehtAppView: View {
                 // immediately.
                 SoyehtIdentity.shared.reload()
                 isPairing = false
+                devicePairingReview = nil
                 machineJoinRuntime.activate(household)
                 let snapshot = SoyehtIdentitySnapshot(raw: household)
                 withAnimation(.easeInOut(duration: 0.3)) {
                     appState = .pairingSuccess(snapshot)
                 }
             }
+        } catch is CancellationError {
+            await MainActor.run {
+                stopMacLocalPairingPublisher()
+                isPairing = false
+                devicePairingReview = nil
+            }
         } catch {
             await MainActor.run {
                 stopMacLocalPairingPublisher()
                 isPairing = false
+                devicePairingReview = nil
                 errorMessage = devicePairingMessage(for: error)
             }
         }
@@ -1818,7 +1845,9 @@ struct SoyehtAppView: View {
             await handlePairDevice(url: url)
 
         case .householdDevicePairing(let url):
-            await handleDevicePairing(url: url)
+            devicePairingTask = Task { await handleDevicePairing(url: url) }
+            await devicePairingTask?.value
+            devicePairingTask = nil
 
         case .householdPairMachine(let envelope):
             let snapshot = await MainActor.run { () -> SoyehtIdentitySnapshot? in

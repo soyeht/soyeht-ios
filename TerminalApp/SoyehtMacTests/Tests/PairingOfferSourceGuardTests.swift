@@ -59,12 +59,10 @@ final class PairingOfferSourceGuardTests: XCTestCase {
         )
         XCTAssertTrue(cardWords.contains("PairingCodePresentation.words(pairingURI: deepLink)"))
 
-        let prefsWords = try slice(
-            preferences,
-            from: "private static func homeCodeWords(for pairingURI: String) -> [String]? {",
-            to: "\n    }"
-        )
-        XCTAssertTrue(prefsWords.contains("PairingCodePresentation.words(pairingURI: pairingURI)"))
+        let advertisement = try macSource("Pairing/MacPairingAdvertisement.swift")
+        XCTAssertTrue(preferences.contains("homeCodeWords = offer.words"))
+        XCTAssertTrue(advertisement.contains("PairingCodePresentation.words("))
+        XCTAssertFalse(preferences.contains("OperatorFingerprint.derive("))
     }
 
     func test_theOfferRefreshesBeforeTheEnginesWindowCloses() throws {

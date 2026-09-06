@@ -690,17 +690,19 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         for request: DevicePairRequestQueue.PendingRequest,
         household: ActiveHouseholdState
     ) throws -> DevicePairConfirmationViewModel {
-        let ownerIdentity = try keyProvider.loadOwnerIdentity(
-            keyReference: household.ownerKeyReference,
-            publicKey: household.ownerPublicKey,
-            personId: household.ownerPersonId
-        )
         let nowProvider = self.nowProvider
         return DevicePairConfirmationViewModel(
             envelope: request.envelope,
+            review: try DevicePairingReview(requestID: request.envelope.requestId,
+                devicePublicKey: request.envelope.devicePublicKey, deviceName: request.envelope.deviceName,
+                platform: request.envelope.platform, expiresAt: request.envelope.ttlUnix,
+                householdPublicKey: household.householdPublicKey),
             queue: devicePairQueue,
             nowProvider: nowProvider,
-            approveAction: { [session] envelope in
+            approveAction: { [session, keyProvider] envelope in
+                let ownerIdentity = try keyProvider.loadOwnerIdentity(
+                    keyReference: household.ownerKeyReference, publicKey: household.ownerPublicKey,
+                    personId: household.ownerPersonId)
                 try await HouseholdDevicePairingService(
                     httpClient: URLSessionHouseholdDevicePairingHTTPClient(session: session),
                     now: nowProvider

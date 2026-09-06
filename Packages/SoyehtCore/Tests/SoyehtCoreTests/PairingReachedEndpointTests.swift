@@ -3,77 +3,85 @@ import Foundation
 import Testing
 @testable import SoyehtCore
 
-/// Which address the confirm is sent to.
-///
-/// The engine mints its pairing link with `best_qr_host()` — the tailnet
-/// address whenever the Mac has one, and deliberately never a LAN address. A
-/// phone with no Tailscale therefore reads a host it cannot reach out of a
-/// link it received over Wi-Fi.
-///
-/// MEASURED on the owner's Dev pair 2026-09-05, phone's Tailscale off:
-///
-///     mac_browser.endpoint   endpoint=http://192.168.1.20:8101   ← found over Wi-Fi
-///     pair.confirm.post      host=<tailnet> port=8101            ← confirmed elsewhere
-///     pair.networkUnavailable stage=confirm ... stage=timeout
-///
-/// The phone had a working address in hand and used one it could not dial.
+/// Exercise the selected endpoint through confirm and actual session storage.
 @Suite("PairingReachedEndpoint")
 struct PairingReachedEndpointTests {
-
     static let macNow = Date(timeIntervalSince1970: 1_714_972_800)
+    private let installation = PairingInstallIdentity(.dev)
+    private let lan = URL(string: "http://192.168.1.20:8101")!
 
-    @Test func theAddressThePhoneAlreadyReachedWinsOverTheLinksHost() async throws {
+    @Test func pureWiFiUsesTheReachedLANAddressThroughPersistence() async throws {
         let fixture = try EndpointFixture(hostFallback: "100.64.0.10:8101")
         let recorder = EndpointRecorder()
-
-        _ = try await fixture.service(recorder: recorder).pair(
-            url: fixture.qrURL,
-            displayName: "Owner",
-            reachedEndpoint: URL(string: "http://192.168.1.20:8101")!
+        let paired = try await fixture.service(recorder: recorder).pair(
+            url: fixture.qrURL, displayName: "Owner", reachedEndpoint: lan,
+            phoneNetwork: .init(hasTailnetAddress: false), installation: installation
         )
-
-        #expect(recorder.endpoint?.absoluteString == "http://192.168.1.20:8101")
+        #expect(recorder.endpoint == lan)
+        #expect(paired.endpoint == lan)
+        #expect(try fixture.persisted()?.endpoint == lan)
     }
 
-    /// The link's host stays the answer for a phone that has nothing better —
-    /// a QR scanned off the screen, with no discovery behind it.
-    @Test func theLinksHostIsStillUsedWhenTheCallerReachedNothing() async throws {
+    @Test func test_keepsTheTailnetAddressWhenThePhoneIsOnTheTailnet() async throws {
         let fixture = try EndpointFixture(hostFallback: "100.64.0.10:8101")
         let recorder = EndpointRecorder()
-
-        _ = try await fixture.service(recorder: recorder).pair(
-            url: fixture.qrURL,
-            displayName: "Owner"
+        let paired = try await fixture.service(recorder: recorder).pair(
+            url: fixture.qrURL, displayName: "Owner", reachedEndpoint: lan,
+            phoneNetwork: .init(hasTailnetAddress: true), installation: installation
         )
+        let tailnet = URL(string: "http://100.64.0.10:8101")!
+        #expect(recorder.endpoint == tailnet)
+        #expect(paired.endpoint == tailnet)
+        #expect(try fixture.persisted()?.endpoint == tailnet)
+    }
 
+    @Test(arguments: [true, false, nil] as [Bool?])
+    func embeddedQROfferReachesPersistenceWithPhoneEvidence(capability: Bool?) async throws {
+        let fixture = try EndpointFixture(hostFallback: "192.168.1.20:8101")
+        let tailnet = URL(string: "http://100.64.0.10:8101")!
+        let offer = PairingAddressOffer(installation: installation, generation: "listeners", candidates: [
+            PairingAddressCandidate(url: lan, transport: .localNetwork, operations: [.firstOwner], availability: .listening),
+            PairingAddressCandidate(url: tailnet, transport: .tailnet, operations: [.firstOwner], availability: .listening),
+        ])
+        let qr = try PairingLinkAddresses.attaching(offer, to: fixture.qrURL)
+        let recorder = EndpointRecorder()
+        let paired = try await fixture.service(recorder: recorder).pair(
+            url: qr, displayName: "Owner", reachedEndpoint: lan,
+            phoneNetwork: .init(hasTailnetAddress: capability), installation: installation)
+        let expected = capability == false ? lan : tailnet
+        #expect(recorder.endpoint == expected)
+        #expect(paired.endpoint == expected)
+        #expect(try fixture.persisted()?.endpoint == expected)
+    }
+
+    @Test func theLinksHostIsUsedWhenTheCallerReachedNothing() async throws {
+        let fixture = try EndpointFixture(hostFallback: "100.64.0.10:8101")
+        let recorder = EndpointRecorder()
+        _ = try await fixture.service(recorder: recorder).pair(
+            url: fixture.qrURL, displayName: "Owner",
+            phoneNetwork: .init(hasTailnetAddress: true), installation: installation
+        )
         #expect(recorder.endpoint?.host() == "100.64.0.10")
     }
 
-    /// And with neither, discovery still decides — the browser is not bypassed.
-    @Test func withNoHostAndNoReachedAddressTheBrowserStillDecides() async throws {
+    @Test func withNoHostAndNoReachedAddressDiscoverySuppliesTheCandidate() async throws {
         let fixture = try EndpointFixture(hostFallback: nil)
         let recorder = EndpointRecorder()
-
         _ = try await fixture.service(recorder: recorder).pair(
-            url: fixture.qrURL,
-            displayName: "Owner"
+            url: fixture.qrURL, displayName: "Owner",
+            phoneNetwork: .init(hasTailnetAddress: false), installation: installation
         )
-
         #expect(recorder.endpoint?.host() == "discovered.local")
     }
 
-    /// The line a captured log needs to tell the two apart.
-    @Test func theChosenAddressSaysWhereItCameFrom() async throws {
+    @Test func theChosenAddressSaysWhyItWasSelected() async throws {
         let fixture = try EndpointFixture(hostFallback: "100.64.0.10:8101")
         let log = LineRecorder()
-
         _ = try await fixture.service(recorder: EndpointRecorder(), log: log.sink).pair(
-            url: fixture.qrURL,
-            displayName: "Owner",
-            reachedEndpoint: URL(string: "http://192.168.1.20:8101")!
+            url: fixture.qrURL, displayName: "Owner", reachedEndpoint: lan,
+            phoneNetwork: .init(hasTailnetAddress: false), installation: installation
         )
-
-        #expect(log.line(containing: "pair.endpoint source=reached host=192.168.1.20") != nil)
+        #expect(log.line(containing: "pair.endpoint source=localNetworkFallback host=192.168.1.20") != nil)
     }
 }
 
@@ -193,6 +201,10 @@ private struct EndpointFixture {
             personCertCBOR: certCBOR.soyehtBase64URLEncodedString(),
             capabilities: Array(PersonCert.requiredOwnerOperations).sorted()
         )
+    }
+
+    func persisted() throws -> ActiveHouseholdState? {
+        try HouseholdSessionStore(storage: storage, account: "active").load()
     }
 
     func service(
