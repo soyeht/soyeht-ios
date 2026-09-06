@@ -6,6 +6,25 @@ import XCTest
 /// than a direct `NativePTY` forkpty. These tests only cover the model:
 /// exhaustive-switch call sites are exercised by building the app target.
 final class CommanderStateEngineLocalTests: XCTestCase {
+    func testLegacySnapshotDecodesWithoutAnInstanceOrIntent() throws {
+        let data = Data(#"{"engineLocal":{"conversationID":"conv-123"}}"#.utf8)
+        let state = try JSONDecoder().decode(CommanderState.self, from: data)
+        XCTAssertEqual(state, .engineLocal(conversationID: "conv-123"))
+        XCTAssertFalse(state.requiresEngineSessionPreservation)
+    }
+
+    func testSupervisedIdentityAndPendingIntentSurvivePersistence() throws {
+        let instance = "00000000-0000-4000-8000-000000000001"
+        let intent = "00000000-0000-4000-8000-000000000002"
+        for state in [
+            CommanderState.engineLocal(conversationID: "conv-123", sessionInstanceID: instance, creationIntentID: intent),
+            CommanderState.engineLocal(conversationID: "conv-123", creationIntentID: intent),
+        ] {
+            let restored = try JSONDecoder().decode(CommanderState.self, from: JSONEncoder().encode(state))
+            XCTAssertEqual(restored, state)
+            XCTAssertTrue(restored.requiresEngineSessionPreservation)
+        }
+    }
     func testEngineLocalRoundTripsThroughConversationJSON() throws {
         let conversation = Conversation(
             handle: "foo",

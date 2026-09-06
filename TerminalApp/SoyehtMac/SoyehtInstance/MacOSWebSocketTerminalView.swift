@@ -64,6 +64,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var configuredURL: String?
+    private var replayCursor: LocalTerminalReplayCursor?
+    private var supervisedExitPending = false
 
     /// True for a WS-attached session this Mac owns and can hand off to a
     /// paired phone (`.engineLocal`) — false for a `.mirror` session, whose
@@ -160,9 +162,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - Feed Flow Control
 
     private enum FeedItem {
-        case bytes(Data)
+        case bytes(Data, offset: UInt64? = nil)
         case replayStart
         case replayDone
+        case gap(from: UInt64, to: UInt64)
+        case supervisedExit(instanceID: String, finalOffset: UInt64, exitCode: Int32?)
     }
 
     /// Transport→parser bridge. Chunks are appended from the transport thread
@@ -331,11 +335,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     // MARK: - Connection
 
-    func configure(wsUrl: String, cookieHeader: String? = nil, isLocalHandoffSource: Bool = false) {
+    func configure(wsUrl: String, cookieHeader: String? = nil, isLocalHandoffSource: Bool = false, sessionInstanceId: String? = nil) {
         // Re-attach only when something actually changed. Comparing the
         // URL alone (the original behaviour) would miss a server-kind
         // swap that flipped the cookie header on the same WS endpoint.
-        if configuredURL == wsUrl, configuredCookieHeader == cookieHeader {
+        if configuredURL == wsUrl, configuredCookieHeader == cookieHeader, replayCursor?.instanceID == sessionInstanceId {
             switch state {
             case .connecting, .open, .reconnecting:
                 return
@@ -355,6 +359,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         Self.logger.info("[WS] Configure new URL (cookieHeader=\(cookieHeader == nil ? "no" : "yes", privacy: .public))")
 
         disconnect()
+        if replayCursor?.instanceID != sessionInstanceId {
+            replayCursor = sessionInstanceId.map { LocalTerminalReplayCursor(instanceID: $0) }
+        }
         connect(wsUrl: wsUrl)
     }
 
@@ -414,6 +421,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// all terminal-parser state stays on the main thread.
     func configureLocal(pty: NativePTY) {
         disconnect()
+        replayCursor = nil
         configuredURL = nil
         configuredCookieHeader = nil
         localPTY = pty
@@ -490,7 +498,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     private func connect(wsUrl: String) {
-        guard let url = URL(string: wsUrl) else {
+        resetFeedBridge()
+        var components = URLComponents(string: wsUrl)
+        if let replayCursor {
+            var query = components?.queryItems ?? []
+            query.removeAll { $0.name == "next_offset" }
+            query.append(URLQueryItem(name: "next_offset", value: String(replayCursor.applied)))
+            components?.queryItems = query
+        }
+        guard let url = components?.url else {
             feed(text: "[ERROR] Invalid WebSocket URL\r\n")
             state = .closed
             return
@@ -498,7 +514,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
         state = .connecting
         setSessionActive(true)
-        resetFeedBridge()
         Self.logger.info("[WS] Connecting to \(url.host ?? "unknown", privacy: .public)...\(url.path, privacy: .public)")
 
         let config = URLSessionConfiguration.default
@@ -583,6 +598,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
+        if replayCursor != nil {
+            guard !supervisedExitPending else { return }
+            handleReceiveResult(.failure(URLError(.networkConnectionLost)))
+            return
+        }
         if case .open = state {
             state = .closed
             setSessionActive(false)
@@ -656,6 +676,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private func receiveLoop() {
         guard let task = webSocketTask else { return }
         task.receive { [weak self] result in
+          DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             guard task === self.webSocketTask else { return }
             guard case .connecting = self.state else {
@@ -664,6 +685,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 return
             }
             self.handleReceiveResult(result)
+          }
         }
     }
 
@@ -715,6 +737,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private func handleReceiveResult(_ result: Result<URLSessionWebSocketTask.Message, any Error>) {
         switch result {
         case .success(let message):
+            if replayCursor != nil {
+                do {
+                    switch message {
+                    case .data(let data): try handleSupervisedEvent(LocalTerminalStream.decodeOutput(data))
+                    case .string(let text): try handleSupervisedEvent(LocalTerminalStream.decodeControl(text))
+                    @unknown default: throw LocalTerminalStream.Failure.malformedFrame
+                    }
+                    if !deferWSReceiveIfBacklogged() { receiveLoop() }
+                } catch {
+                    failSupervisedProtocol(error)
+                }
+                return
+            }
             switch message {
             case .data(let data):
                 if let content = TerminalProtocolCodec.decodeControlFrame(data) {
@@ -734,6 +769,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             }
 
         case .failure(let error):
+            if supervisedExitPending { return }
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
 
@@ -756,6 +792,46 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 }
             }
         }
+    }
+
+    private func handleSupervisedEvent(_ event: LocalTerminalStream.Event) throws {
+        switch event {
+        case .attached(let instanceID, _, _):
+            try replayCursor?.validate(instanceID: instanceID)
+            enqueueFeedMarker(.replayStart)
+        case .data(let offset, let bytes):
+            guard let accepted = try replayCursor?.receive(offset: offset, bytes: bytes) else { return }
+            enqueueFeed(accepted.bytes, offset: accepted.offset)
+        case .gap(let from, let to):
+            try replayCursor?.receiveGap(from: from, to: to)
+            enqueueFeedMarker(.gap(from: from, to: to))
+        case .replayEnd(let offset):
+            guard replayCursor?.received == offset else { throw LocalTerminalStream.Failure.malformedFrame }
+            enqueueFeedMarker(.replayDone)
+        case .exited(let instanceID, let finalOffset, let exitCode, _):
+            try replayCursor?.validate(instanceID: instanceID)
+            guard replayCursor?.received == finalOffset else { throw LocalTerminalStream.Failure.malformedFrame }
+            supervisedExitPending = true
+            enqueueFeedMarker(.supervisedExit(instanceID: instanceID, finalOffset: finalOffset, exitCode: exitCode))
+        case .resyncRequired:
+            state = .reconnecting(attempt: min(reconnectAttempt + 1, maxReconnectAttempts))
+            attemptReconnect()
+        case .error(let code):
+            // Delivery of input may already have happened. Surface it and
+            // preserve the pane; never replay uncertain input automatically.
+            failSupervisedProtocol(SoyehtAPIClient.LocalTerminalFailure.rejected(code: code))
+        }
+    }
+
+    private func failSupervisedProtocol(_ error: Error) {
+        state = .closed
+        reconnectTask?.cancel()
+        webSocketTask?.cancel(with: .protocolError, reason: nil)
+        webSocketTask = nil
+        didNotifyConnectionFailure = true
+        setSessionActive(false)
+        Self.logger.error("supervised terminal protocol stopped: \(error.localizedDescription, privacy: .public)")
+        onConnectionFailed?(error as? SoyehtAPIClient.LocalTerminalFailure ?? .incompatibleProtocol)
     }
 
     /// Dispatch backend v2 CTL markers received as Binary frames prefixed with
@@ -852,10 +928,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Accept transport bytes from any thread. `pausing` is the PTY whose read
     /// source should be suspended above the high watermark (passed explicitly
     /// because `localPTY` is main-confined and this runs on the ioQueue).
-    private func enqueueFeed(_ data: Data, pausing pty: NativePTY? = nil) {
+    private func enqueueFeed(_ data: Data, pausing pty: NativePTY? = nil, offset: UInt64? = nil) {
         guard !data.isEmpty else { return }
         feedLock.lock()
-        feedQueue.append(.bytes(data))
+        feedQueue.append(.bytes(data, offset: offset))
         feedBacklogBytes += data.count
         let shouldSchedule = !feedDrainScheduled
         feedDrainScheduled = true
@@ -909,22 +985,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         feedLock.lock()
         while budget > 0, !feedQueue.isEmpty {
             switch feedQueue[0] {
-            case .bytes(let data):
+            case .bytes(let data, let offset):
                 let available = data.count - feedHeadOffset
                 if available <= budget {
-                    batch.append(.bytes(feedHeadOffset == 0 ? data : data.subdata(in: feedHeadOffset..<data.count)))
+                    batch.append(.bytes(feedHeadOffset == 0 ? data : data.subdata(in: feedHeadOffset..<data.count), offset: offset.map { $0 + UInt64(feedHeadOffset) }))
                     feedQueue.removeFirst()
                     feedHeadOffset = 0
                     feedBacklogBytes -= available
                     budget -= available
                 } else {
                     let end = feedHeadOffset + budget
-                    batch.append(.bytes(data.subdata(in: feedHeadOffset..<end)))
+                    batch.append(.bytes(data.subdata(in: feedHeadOffset..<end), offset: offset.map { $0 + UInt64(feedHeadOffset) }))
                     feedHeadOffset = end
                     feedBacklogBytes -= budget
                     budget = 0
                 }
-            case .replayStart, .replayDone:
+            case .replayStart, .replayDone, .gap, .supervisedExit:
                 batch.append(feedQueue.removeFirst())
             }
         }
@@ -949,7 +1025,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
         for item in batch {
             switch item {
-            case .bytes(let data):
+            case .bytes(let data, let offset):
                 lastOutputAt = Date()
                 // Local PTY (.native) or a WS session this Mac owns and can
                 // hand off (.engineLocal, via `isLocalHandoffSource`). NOT
@@ -967,6 +1043,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 isFeedingServerData = true
                 feed(byteArray: [UInt8](data)[...])
                 isFeedingServerData = false
+                if let offset {
+                    do { try replayCursor?.commit(offset: offset, byteCount: data.count) }
+                    catch { failSupervisedProtocol(error); return }
+                }
             case .replayStart:
                 isReplayingHistory = true
                 inputModeResetSchedule.replayWindowOpened()
@@ -975,6 +1055,16 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 if inputModeResetSchedule.replayWindowClosed() {
                     feed(text: Self.newSessionInputModeResets)
                 }
+            case .gap(let from, let to):
+                do { try replayCursor?.commitGap(from: from, to: to) }
+                catch { failSupervisedProtocol(error); return }
+                feed(text: "\r\n[\(LocalTerminalStream.retainedHistoryGapMessage)]\r\n")
+            case .supervisedExit(let instanceID, let finalOffset, let exitCode):
+                guard replayCursor?.instanceID == instanceID, replayCursor?.applied == finalOffset else {
+                    failSupervisedProtocol(LocalTerminalStream.Failure.malformedFrame); return
+                }
+                exitStatus = exitCode
+                handleControlMarker("session_ended")
             }
         }
 
@@ -992,6 +1082,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         feedTransportPaused = false
         wsReceiveDeferred = false
         feedLock.unlock()
+        replayCursor?.discardUnapplied()
+        supervisedExitPending = false
         isReplayingHistory = false
         // A torn-down transport takes its pending reset with it: the next
         // attach arms its own, and an arm left behind would fire into

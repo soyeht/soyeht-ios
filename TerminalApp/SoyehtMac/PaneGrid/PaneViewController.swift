@@ -452,6 +452,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// reattach is scheduled per loss; the restore flow carries its own
     /// bounded retries and NativePTY fallback if the engine stays gone.
     private func scheduleEngineReattachAfterTransportLoss(_ error: Error) {
+        if let failure = error as? SoyehtAPIClient.LocalTerminalFailure, failure != .unavailable { return }
+        if error is LocalTerminalStream.Failure { return }
         let nsError = error as NSError
         if nsError.domain == "SoyehtTerm", nsError.code == 4 { return }
         guard let convStore = AppEnvironment.conversationStore,
@@ -473,6 +475,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func showDisconnectBanner(_ message: String) {
         disconnectBanner.stringValue = "  ⚠ \(message)  "
         disconnectBanner.isHidden = false
+    }
+
+    func preserveEngineSession(message: String, retryable: Bool) {
+        showDisconnectBanner(message)
+        if retryable { scheduleEngineReattachAfterTransportLoss(SoyehtAPIClient.LocalTerminalFailure.unavailable) }
     }
 
     private func hideDisconnectBanner() {
@@ -965,59 +972,23 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
     }
 
-    /// Backoff schedule for transient (network hiccup / 5xx) attach
-    /// failures during restore only — the engine is a persistent daemon,
-    /// so at cold start the session almost certainly still exists and a
-    /// blip shouldn't permanently downgrade the pane. First-attach (A1)
-    /// doesn't retry: a brand-new pane was never expected to already have
-    /// a live session, so there's nothing worth waiting to confirm.
-    /// MEASURED on a cold boot, 2026-08-20: the engine came up **31 seconds**
-    /// after the app asked for it. The previous budget was 0.5s + 1s + 2s —
-    /// three and a half seconds — so even a correctly classified transient
-    /// failure would have exhausted its retries long before the engine
-    /// existed, and the pane would still have ended up in-process and fragile
-    /// for the whole session.
-    ///
-    /// 35.5s across seven attempts covers that with margin. The cost is a
-    /// restored pane that is not interactive for as long as it takes; the
-    /// alternative is one that works instantly and can never survive a quit.
-    /// On a warm launch the first attempt succeeds and none of this runs.
+    /// Bounded retries for legacy attachment before execution is submitted.
+    /// Known supervised ownership uses `.preserved` and the transport retry
+    /// scheduler; exhausting this budget never permits replacing that session.
     private static let restoreRetryDelaysNanoseconds: [UInt64] = [
         500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000,
         8_000_000_000, 10_000_000_000, 10_000_000_000,
     ]
 
-    /// `.engineLocal` survives undo/relaunch in the model exactly like
-    /// `.native` does, but the WebSocket attachment does not. Mirrors
-    /// `restoreLocalShellIfNeeded`: re-issues the engine attach (the
-    /// engine's own `create` contract is idempotent per `conversation_id`,
-    /// so it transparently either reconnects to a still-alive session or
-    /// spawns a fresh one if it died) and logs honestly which one happened,
-    /// via the E5 `reconnected` field — never claims "restored" for a
-    /// silent fresh respawn.
-    ///
-    /// Two failure modes matter here, both found in independent review:
-    /// - A transient failure must NOT immediately downgrade to `.native` —
-    ///   that would orphan a live engine session forever (the next
-    ///   relaunch only looks for `.engineLocal`). Retries with backoff
-    ///   first; only downgrades once retries are exhausted or the failure
-    ///   is definitive (no engine context, or a non-5xx HTTP error).
-    /// - This function awaits network I/O for potentially several seconds
-    ///   (login-PATH resolution, the attach call, retries) — the pane or
-    ///   its workspace can close in that window (`endEngineSessionIfNeeded`
-    ///   already DELETEd the session), so every re-entry after an `await`
-    ///   re-validates via `stillRestorableEngineConversation` before
-    ///   acting, and aborts cleanly (cleaning up a session it may have
-    ///   just (re)created) rather than operating on stale state.
-    ///
-    /// Falls back to a fresh `NativePTY` so the pane never comes up dead —
-    /// same fail-open contract as the first attach (A1). A pane downgraded
-    /// this way stays `.native` until the user recreates it (this
-    /// relaunch only looks for `.engineLocal`) — graceful degradation to
-    /// pre-flag behavior, never a crash.
+    /// Restore the recorded terminal owner after app relaunch or transport
+    /// loss. Supervised sessions use GET and retain their instance through
+    /// outages; missing/ended/incompatible sessions stay visible without an
+    /// automatic replacement shell. Legacy panes retain their migration path.
+    /// Revalidate pane ownership after awaits and settle any committed reap
+    /// before reusing the conversation.
     private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {
         guard conv.content.isTerminal else { return }
-        guard case .engineLocal(let initialEngineConversationID) = conv.commander else { return }
+        guard case .engineLocal(let initialEngineConversationID, _, _) = conv.commander else { return }
         // `forceReattach` re-enters a pane whose view IS configured but whose
         // transport is confirmed dead (`onConnectionFailed` after the
         // reconnect ladder) — the engine-bounce case, where the old URL and
@@ -1125,6 +1096,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             }
 
             switch outcome {
+            case .preserved(let retryable, let message):
+                preserveEngineSession(message: message, retryable: retryable)
+                return
             case .attached(reconnected: true):
                 deferredAgentDeliveryCoordinator
                     .markTerminalDraftStateUnknownAfterPersistentReattach()
@@ -1150,7 +1124,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 break
             }
 
-            Self.logger.warning("engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
+            if convStore.conversation(conversationID)?.commander.requiresEngineSessionPreservation == true {
+                preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription, retryable: true)
+                return
+            }
+            Self.logger.warning("legacy engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
             if let current = convStore.conversation(conversationID) {
                 guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
                     PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
@@ -1193,9 +1171,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// must abort rather than act on state that moved on without it.
     /// Tries to rebuild a dead `.native` pane inside the broker.
     ///
-    /// - Returns: `true` when the pane is now broker-backed and configured —
-    ///   the caller must not also build a `NativePTY`. `false` means nothing
-    ///   was changed and the caller falls back.
+    /// - Returns: `true` when the broker owns the result, including an
+    ///   uncertain CREATE preserved for recovery. Only `.attached` marks the
+    ///   transport ready. `false` permits the legacy NativePTY fallback.
     private func upgradedRestoredPaneToEngine(
         conversationID: Conversation.ID,
         cwd: URL,
@@ -1227,6 +1205,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 return false
             }
             liveConversation = revalidated
+        }
+        if case .preserved(let retryable, let message) = outcome {
+            preserveEngineSession(message: message, retryable: retryable)
+            return true
         }
         guard case .attached(let reconnected) = outcome else { return false }
         if reconnected {
@@ -1816,7 +1798,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// closing a workspace is also an explicit user action, not a restart.
     private func endEngineSessionIfNeeded() {
         guard let conversation = AppEnvironment.conversationStore?.conversation(conversationID),
-              case .engineLocal(let engineConversationID) = conversation.commander else { return }
+              case .engineLocal(let engineConversationID, _, _) = conversation.commander else { return }
         // W3 — undo window: don't delete immediately. Schedule the destructive
         // teardown (TTY-map removal + engine DELETE) after `undoWindow`. If the
         // store's undo re-creates this pane, its reattach cancels the reap and
@@ -1825,7 +1807,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // reattach in the window can still resolve it.
         DeferredEngineSessionReaper.scheduleReap(
             engineConversationID: engineConversationID,
-            paneID: conversationID
+            paneID: conversationID,
+            sessionInstanceID: conversation.commander.engineSessionInstanceID,
+            creationIntentID: conversation.commander.engineCreationIntentID
         )
     }
 }

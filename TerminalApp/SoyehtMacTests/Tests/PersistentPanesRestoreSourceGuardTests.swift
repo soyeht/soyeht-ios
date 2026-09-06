@@ -44,7 +44,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(restoreGuard.contains("forceReattach || !terminalView.isRemoteSessionConfigured"))
     }
 
-    func testRestoreEnginePaneGuardsAndFallsBackToNativePTY() throws {
+    func testRestoreEnginePanePreservesSupervisedOwnershipAndRetainsLegacyFallback() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
         let restore = try slice(
             source,
@@ -52,7 +52,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             to: "private func stillRestorableEngineConversation("
         )
         // Only engineLocal panes with no live WS session, not re-entrant.
-        XCTAssertTrue(restore.contains("case .engineLocal(let initialEngineConversationID) = conv.commander"))
+        XCTAssertTrue(restore.contains("case .engineLocal(let initialEngineConversationID, _, _) = conv.commander"))
         XCTAssertTrue(restore.contains("!terminalView.isRemoteSessionConfigured"))
         XCTAssertTrue(restore.contains("!isRestoringLocalShell"))
         // Reuses the shared attacher rather than reimplementing create+attach.
@@ -61,7 +61,10 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // fresh respawn, never claim "restored" for the latter.
         XCTAssertTrue(restore.contains("case .attached(reconnected: true):"))
         XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))
-        // Never leaves the pane dead if the engine can't be reached.
+        // Only the explicit legacy path may fall back. Known instances and
+        // uncertain creates retain ownership while transport is unavailable.
+        XCTAssertTrue(restore.contains("case .preserved(let retryable, let message):"))
+        XCTAssertTrue(restore.contains("requiresEngineSessionPreservation == true"))
         XCTAssertTrue(restore.contains("NativePTY("))
         XCTAssertTrue(restore.contains(".native(pid: pty.pid)"))
 
@@ -72,9 +75,8 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(restore.contains("restoreRetryDelaysNanoseconds"))
         XCTAssertTrue(restore.contains("case .failed(transient: true) = outcome"))
         XCTAssertTrue(restore.contains("Task.sleep(nanoseconds:"))
-        // Best-effort delete before falling back, in case a request that
-        // looked failed to us actually succeeded engine-side (lost
-        // response) — must not leave that orphaned.
+        // Explicit legacy cleanup remains behind the ownership guards;
+        // supervised operations require an instance or creation-intent fence.
         XCTAssertTrue(restore.contains("bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)"))
 
         // FIX-2 (independent review, TOCTOU): every await gap must
@@ -137,7 +139,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             from: "static func attach(",
             to: "}\n}"
         )
-        XCTAssertTrue(attach.contains("return .failed(transient: false)"))
+        XCTAssertTrue(attach.contains("return unresolved(false)"))
     }
 
     func testFirstAttachAndRestoreShareTheSameEngineAttachMechanics() throws {
@@ -168,12 +170,12 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(attach.contains("LocalEngineContext.resolveDetailed()"))
         XCTAssertTrue(attach.contains("case .engineNotAnsweringYet:"),
                       "o attacher tem de distinguir 'ainda não respondeu' de 'não há'")
-        XCTAssertTrue(attach.contains("return .failed(transient: true)"),
+        XCTAssertTrue(attach.contains("return unresolved(true)"),
                       "'ainda não respondeu' tem de armar a repetição a jusante, que já existe e estava correta")
         XCTAssertTrue(attach.contains("EnginePaneSpawnRequestBuilder.makeCreateRequest("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.createLocalTerminal("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment("))
-        XCTAssertTrue(attach.contains("convStore.updateCommander(conversation.id, commander: .engineLocal(conversationID: response.conversationId))"))
+        XCTAssertTrue(attach.contains("conversationID: response.conversationId, sessionInstanceID: response.sessionInstanceId"))
         XCTAssertTrue(attach.contains("terminalView.configure("))
         XCTAssertTrue(attach.contains("wsUrl: attachment.url"))
         XCTAssertTrue(attach.contains("cookieHeader: attachment.cookieHeader"))
@@ -267,7 +269,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertEqual(attempt.components(separatedBy: "return false").count - 1, 3,
                        "as três saídas de falha (sem store, sem pane viva, attach falhado) têm de devolver false para o chamador reconstruir")
         guard let attachedAt = attempt.range(of: "guard case .attached(let reconnected) = outcome else { return false }"),
-              let successAt = attempt.range(of: "return true") else {
+              let successAt = attempt.range(of: "return true", options: .backwards) else {
             return XCTFail("a promoção deixou de exigir um attach bem-sucedido antes de reclamar sucesso")
         }
         // ORDEM, não presença. Um `return true` colocado ANTES do guard deixa
@@ -275,8 +277,10 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // medido com mutante na primeira versão desta guarda.
         XCTAssertLessThan(attachedAt.lowerBound, successAt.lowerBound,
                           "o único `return true` tem de vir DEPOIS do guard; antes dele reclama sucesso sem attach")
-        XCTAssertEqual(attempt.components(separatedBy: "return true").count - 1, 1,
-                       "um só caminho pode reclamar sucesso")
+        let preserved = try slice(attempt, from: "if case .preserved", to: "guard case .attached")
+        XCTAssertTrue(preserved.contains("preserveEngineSession(message: message, retryable: retryable)"))
+        XCTAssertFalse(preserved.contains("markTerminalTransportReady"), "preservation is not a successful attachment")
+        XCTAssertTrue(preserved.contains("return true"), "the caller must not spawn a NativePTY for uncertain ownership")
     }
 
     /// A promoção só olha para panes `.native`, e o restauro do engine só para

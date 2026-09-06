@@ -3901,10 +3901,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // immediately (the switch is deliberate — no undo window), local
         // PTYs are closed directly.
         switch conv.commander {
-        case .engineLocal(let engineConversationID):
+        case .engineLocal(let engineConversationID, _, _):
             guard await DeferredEngineSessionReaper.reapNow(
                 engineConversationID: engineConversationID,
-                paneID: paneID
+                paneID: paneID,
+                sessionInstanceID: conv.commander.engineSessionInstanceID,
+                creationIntentID: conv.commander.engineCreationIntentID
             ) else {
                 if let previous = orchestrationBeforeManagerRevocation {
                     store.updateOrchestration(conv.workspaceID, orchestration: previous)
@@ -4074,14 +4076,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // disk cache.
         let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
 
-        // `persistentLocalPanesEnabled` routes the pane through this Mac's own
-        // embedded engine (broker-owned PTY, survives app restart/update)
-        // instead of a direct `NativePTY` forkpty. Any failure along that path
-        // (no local engine session, network error) falls back to `NativePTY`
-        // unconditionally — the flag must never regress a pane that would
-        // have worked with it off.
+        // The flag chooses the backend for a new pane only. A recorded
+        // supervisor instance or CREATE intent retains that owner even if
+        // the flag changes or the engine becomes unavailable.
         let attachedViaEngine: Bool
-        if SoyehtFeatureFlags.persistentLocalPanesEnabled, let conversation {
+        if SoyehtFeatureFlags.persistentLocalPanesEnabled || conversation?.commander.requiresEngineSessionPreservation == true,
+           let conversation {
             attachedViaEngine = try await attachEnginePane(
                 paneID: paneID,
                 conversation: conversation,
@@ -4098,6 +4098,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         if !attachedViaEngine {
+            guard convStore.conversation(paneID)?.commander.requiresEngineSessionPreservation != true else {
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
+            }
             let pty = try NativePTY(
                 shellPath: nil,
                 cwd: cwd,
@@ -4121,10 +4124,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // identity after relaunch while the new bearer/process survives.
         guard store.flushPendingSave() else {
             if let current = convStore.conversation(paneID),
-               case .engineLocal(let engineConversationID) = current.commander {
+               case .engineLocal(let engineConversationID, _, _) = current.commander {
                 _ = await DeferredEngineSessionReaper.reapNow(
                     engineConversationID: engineConversationID,
-                    paneID: paneID
+                    paneID: paneID,
+                    sessionInstanceID: current.commander.engineSessionInstanceID,
+                    creationIntentID: current.commander.engineCreationIntentID
                 )
             }
             _ = PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)
@@ -4327,8 +4332,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// Attempts to spawn/reattach the pane's shell via this Mac's own
     /// embedded engine (`POST /api/v1/terminals/local`) and wire the
     /// terminal view to it over WebSocket, exactly like a remote `.mirror`
-    /// pane. Returns `false` on ANY failure (no local engine session
-    /// resolvable, network error) so the caller falls back to `NativePTY`.
+    /// pane. Returns false only before execution was submitted and with no
+    /// recorded supervised owner. Uncertain execution preserves the pane.
     private func attachEnginePane(
         paneID: Conversation.ID,
         conversation: Conversation,
@@ -4380,6 +4385,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             try? await Task.sleep(nanoseconds: Self.firstAttachRetryDelaysNanoseconds[attempt])
         }
         switch firstOutcome {
+        case .preserved(let retryable, let message):
+            pane.preserveEngineSession(message: message, retryable: retryable)
+            throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
         case .attached(reconnected: false):
             return true
         case .attached(reconnected: true) where launchNonce == nil:
@@ -4390,6 +4398,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             Self.logger.notice("engine pane session restored on first attach pane=\(conversation.id.uuidString, privacy: .public)")
             return true
         case .attached(reconnected: true):
+            if let current = convStore.conversation(conversation.id), current.commander.engineSessionInstanceID != nil {
+                // A duplicate supervised CREATE proves the same launch intent
+                // and exact spawn specification. Never delete it as recovery
+                // from a lost HTTP response. A separate deliberate launch
+                // against an already known instance must use the switch flow.
+                guard conversation.commander.engineSessionInstanceID == nil else {
+                    throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
+                }
+                return true
+            }
             // A lost earlier response can leave a process under the same
             // conversation id. This is a NEW launch with a newly rotated
             // nonce: never bootstrap the old process under stale environment.
@@ -4416,6 +4434,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 terminalView: pane.terminalView,
                 convStore: convStore
             ) {
+            case .preserved(let retryable, let message):
+                pane.preserveEngineSession(message: message, retryable: retryable)
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
             case .attached(reconnected: false):
                 return true
             case .attached(reconnected: true):

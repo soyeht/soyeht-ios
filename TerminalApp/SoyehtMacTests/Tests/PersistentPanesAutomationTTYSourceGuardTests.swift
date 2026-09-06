@@ -23,7 +23,7 @@ final class PersistentPanesAutomationTTYSourceGuardTests: XCTestCase {
         // .engineLocal(conversationID:) — NOT re-derived from
         // conversation.id.uuidString (fragile: happens to match today only
         // because the engine echoes the UUID byte-for-byte).
-        XCTAssertTrue(resolveAutomationSource.contains("if case .engineLocal(let id) = conversation.commander { return id }"))
+        XCTAssertTrue(resolveAutomationSource.contains("if case .engineLocal(let id, _, _) = conversation.commander { return id }"))
         XCTAssertTrue(resolveAutomationSource.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: $0)"))
         XCTAssertFalse(
             resolveAutomationSource.contains("EngineSessionTTYRegistry.slaveTTYPath(forConversationID: conversation.id.uuidString)"),

@@ -12,7 +12,8 @@ enum EnginePaneSpawnRequestBuilder {
         loginPath: String?,
         cols: Int,
         rows: Int,
-        launchNonce: String? = nil
+        launchNonce: String? = nil,
+        creationIntentID: String? = nil
     ) -> SoyehtAPIClient.LocalTerminalCreateRequest {
         let plan = NativePTY.resolveSpawnPlan(
             shellPath: nil,
@@ -32,7 +33,8 @@ enum EnginePaneSpawnRequestBuilder {
             cwd: cwd.path,
             env: plan.env,
             cols: cols,
-            rows: rows
+            rows: rows,
+            intentId: creationIntentID
         )
     }
 }

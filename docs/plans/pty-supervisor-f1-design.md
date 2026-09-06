@@ -136,6 +136,23 @@ tombstones não expiram: há teto explícito de 4096 intenções e recusa
 não será introduzido implicitamente. Essa política precisa ser reavaliada com
 a matriz de limites do F4 antes da ativação em produção.
 
+**Gate obrigatório de F4:** o teto de 4096 é de vida inteira nesta fatia,
+inclusive após restart; não é uma política aceitável para produção. CREATE e
+cancelamento da mesma intenção gastam uma reserva, não duas. A política final
+deve limitar armazenamento sem voltar a aceitar CREATE antigo: expirar apenas
+o tombstone por TTL ou apagar o log da conversa reabre execução atrasada.
+Qualquer GC exige uma validade de criação verificável mesmo após remover a
+reserva (por exemplo, ticket com prazo/época emitido pelo supervisor). Medir
+mais de 4096 criações/cancelamentos sem restart e provar que um pedido antigo
+continua recusado são pré-condições de F5.
+
+`CancelCreate(conversation_id, intent_id)` é distinto de CLOSE por instância.
+Reserva o tombstone sob a mesma trava de CREATE, antes de responder. É
+idempotente, inclusive quando nunca houve CREATE; se a intenção já criou um
+processo, fecha apenas esse processo, nunca uma instância nova da conversa.
+O cancelamento impede sobrevivência e execução posterior daquela intenção;
+não desfaz efeitos de inicialização que ocorreram antes dele.
+
 O stream de attach é dedicado à saída. WRITE/RESIZE/CLOSE usam conexão de
 comandos e identificam a instância. ACK perdido de WRITE é resultado incerto:
 o cliente não repete automaticamente a escrita. EOF não equivale a EXIT.
@@ -150,9 +167,30 @@ troca do engine; F4 precisa exercitá-las antes do aceite final.
 
 ## O que ainda não prometo
 
-**Cursor sem duplicata até a pane.** Offset no socket deduplica
-supervisor↔engine; não prova que a pane não viu duas vezes, porque o app pode
-ter reiniciado e perdido o estado do emulador. Ou a UI ganha uma capability que
-diz "aceitei até aqui", ou o aceite do F2 promete menos. **Rotação deliberada e
+**Estado do emulador após reiniciar o app.** F2a separa `received` de
+`applied` e avança `applied` somente após o parser consumir a fatia de bytes.
+Reconectar a mesma view retoma de `applied`; descartar backlog rebobina apenas
+`received`. O cursor não é persistido: uma nova view começa em zero e recebe
+GAP explícito se a retenção já removeu história. Isso não promete recuperar um
+estado de emulador que foi perdido. **Rotação deliberada e
 "scrollback integral para sempre" não podem ser garantias simultâneas** — e a
 segunda é a que vai embora.
+
+## Checkpoint F2a — integração sem ativação
+
+O adapter HTTP/WS e o consumidor Mac estão implementados. A variável
+`THEYOS_PTY_SUPERVISOR_SOCKET` seleciona o backend; ausente mantém o legado,
+presente e indisponível retorna erro sem fallback. Nenhum plist instalado
+foi alterado por esta fatia.
+
+O gate `scripts/check-terminal-contract.py` exige os dois checkouts: o Swift
+gera CREATE e teclado JSON; Rust executa HTTP/UDS/PTY; Swift decodifica a
+resposta e os frames reais. Quatro defeitos deliberados precisam reprovar:
+prefixo de saída, instância, tipo de teclado e chave de intent. Compilação
+falhada e teste ignorado não contam como controle negativo válido.
+
+O teste do adapter recria o servidor HTTP mantendo o daemon e a identidade
+da sessão; não mata o processo completo do engine. O ensaio de cancelamento
+exercita as duas ordens, repetição e intent antigo diante de instância nova.
+Ainda faltam F0 completo (TUI/job e morte real do engine), ciclo de vida
+launchd, limite/GC de F4 e migração de sessões legadas para o aceite final.

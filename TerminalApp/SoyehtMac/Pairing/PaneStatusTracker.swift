@@ -453,7 +453,7 @@ final class PaneStatusTracker {
         let conversation = AppEnvironment.conversationStore?.conversation(paneID)
         let engineConversationID: String? = {
             guard let conversation,
-                  case .engineLocal(let id) = conversation.commander else { return nil }
+                  case .engineLocal(let id, _, _) = conversation.commander else { return nil }
             return id
         }()
         let candidateTTY = ttyPath
