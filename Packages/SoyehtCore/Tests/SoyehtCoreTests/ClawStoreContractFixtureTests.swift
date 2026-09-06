@@ -969,6 +969,7 @@ struct ClawStoreContractFixtureTests {
         let defaults = UserDefaults(suiteName: "com.soyeht.core.tests.claw-contract.\(UUID().uuidString)")!
         let store = SessionStore(
             defaults: defaults,
+            credentialStorage: InMemoryHouseholdStorage(),
             keychainService: "com.soyeht.core.tests.claw-contract.\(UUID().uuidString)"
         )
         let server = PairedServer(
@@ -1010,6 +1011,7 @@ struct ClawStoreContractFixtureTests {
             session: URLSession(configuration: config),
             store: SessionStore(
                 defaults: defaults,
+                credentialStorage: InMemoryHouseholdStorage(),
                 keychainService: "com.soyeht.core.tests.claw-contract.hh.\(UUID().uuidString)"
             ),
             householdSessionStore: householdStore,

@@ -406,6 +406,7 @@ private func makeClawTestClient() -> SoyehtCore.SoyehtAPIClient {
     defaults.removePersistentDomain(forName: "com.soyeht.tests.claw.\(id)")
     let store = SoyehtCore.SessionStore(
         defaults: defaults,
+        credentialStorage: TestInMemoryHouseholdStorage(),
         keychainService: "com.soyeht.mobile.tests.claw.\(id)"
     )
     let server = SoyehtCore.PairedServer(

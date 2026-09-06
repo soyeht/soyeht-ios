@@ -22,6 +22,7 @@ public enum RosterProjectionStoreError: Error, Equatable, Sendable {
 /// rejected it" — the latter feeds the tamper/repair classification and should
 /// be logged loudly, in the same spirit as `SoyehtIdentityState.decodingFailed`.
 public enum RosterProjectionLoadRejection: Equatable, Sendable {
+    case storageUnavailable
     case blobUnreadable
     case versionUnsupported
     case householdMismatch
@@ -273,12 +274,8 @@ public actor RosterProjectionStore {
     /// write. A refused write therefore never publishes the new state: the
     /// live instance keeps serving the previous one.
     ///
-    /// It does NOT promise the previous record survives on disk. `KeychainHelper`
-    /// implements `save` as delete-then-add, so a refusal may already have
-    /// destroyed the blob. That is the acceptable failure: the next instance
-    /// reads nothing and degrades to `.absent`, which the pair flow recovers
-    /// from with a fresh QR. What is ruled out is a half-written record or a
-    /// new state published on top of a failed write.
+    /// `KeychainHelper` updates existing items without deleting them first,
+    /// preserving the persisted record when a replacement fails.
     private func persist(_ blob: PersistedBlob) throws {
         let data: Data
         do {
@@ -297,8 +294,14 @@ public actor RosterProjectionStore {
         expectedHouseholdId: String,
         householdPublicKey: Data
     ) -> (state: RosterStoredState, rejection: RosterProjectionLoadRejection?) {
-        guard let data = storage.load(account: account) else {
-            return (.absent, nil)
+        let data: Data
+        do {
+            guard let stored = try storage.loadWithoutInteraction(account: account) else {
+                return (.absent, nil)
+            }
+            data = stored
+        } catch {
+            return (.absent, .storageUnavailable)
         }
         guard let blob = try? JSONDecoder().decode(PersistedBlob.self, from: data) else {
             return (.absent, .blobUnreadable)

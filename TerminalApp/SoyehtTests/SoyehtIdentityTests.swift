@@ -69,6 +69,20 @@ final class SoyehtIdentityTests: XCTestCase {
         )
     }
 
+    func testReload_preservesUnreadableSessionAndRecovers() throws {
+        let storage = MemoryStorage()
+        try storage.write(try Self.makeHousehold())
+        storage.readFailure = OwnerIdentityKeyError.securityFailure(
+            domain: NSOSStatusErrorDomain, code: -25308
+        )
+        let identity = makeIdentity(storage: storage)
+        XCTAssertEqual(identity.state, .unavailable(.storageUnavailable))
+        XCTAssertNotNil(storage.payload)
+        storage.readFailure = nil
+        identity.reload()
+        XCTAssertTrue(identity.isActive)
+    }
+
     func testReload_promotesUnavailable_toActive_whenProtectedDataBecomesAvailable() throws {
         let household = try Self.makeHousehold()
         let storage = MemoryStorage()
@@ -392,6 +406,7 @@ final class SoyehtIdentityTests: XCTestCase {
 /// (malformed bytes that decode-throws).
 private final class MemoryStorage: HouseholdSecureStoring, @unchecked Sendable {
     var payload: Data?
+    var readFailure: Error?
 
     init(payload: Data? = nil) {
         self.payload = payload
@@ -408,6 +423,11 @@ private final class MemoryStorage: HouseholdSecureStoring, @unchecked Sendable {
 
     func load(account: String) -> Data? {
         payload
+    }
+
+    func loadWithoutInteraction(account: String) throws -> Data? {
+        if let readFailure { throw readFailure }
+        return payload
     }
 
     func delete(account: String) {

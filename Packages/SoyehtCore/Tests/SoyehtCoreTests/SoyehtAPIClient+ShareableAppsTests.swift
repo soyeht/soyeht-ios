@@ -80,7 +80,7 @@ struct ShareableAppsClientTests {
     return SoyehtAPIClient(
       session: URLSession(configuration: config),
       store: SessionStore(
-        defaults: defaults, keychainService: "ShareableAppsClientTests.\(UUID().uuidString)"),
+        defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: "ShareableAppsClientTests.\(UUID().uuidString)"),
       householdSessionStore: householdStore,
       ownerIdentityKeyProvider: ShareableAppsOwnerKeyProvider(key: ownerKey),
       now: { Date(timeIntervalSince1970: 1_714_972_800) }

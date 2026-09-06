@@ -943,7 +943,7 @@ struct HouseholdAPIClientTests {
     return SoyehtAPIClient(
       session: URLSession(configuration: config),
       store: SessionStore(
-        defaults: defaults, keychainService: "HouseholdAPIClientTests.\(UUID().uuidString)"),
+        defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: "HouseholdAPIClientTests.\(UUID().uuidString)"),
       householdSessionStore: householdStore,
       ownerIdentityKeyProvider: HouseholdAPIClientOwnerKeyProvider(key: ownerKey),
       now: { Date(timeIntervalSince1970: 1_714_972_800) }

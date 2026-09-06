@@ -61,6 +61,7 @@ private func makeIsolatedStore() -> SessionStore {
     defaults.removePersistentDomain(forName: "com.soyeht.core.tests.kind.\(id)")
     return SessionStore(
         defaults: defaults,
+        credentialStorage: InMemoryHouseholdStorage(),
         keychainService: "com.soyeht.core.tests.kind.\(id)"
     )
 }

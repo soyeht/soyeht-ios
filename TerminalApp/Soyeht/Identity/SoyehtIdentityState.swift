@@ -48,6 +48,10 @@ enum SoyehtIdentityState: Equatable, Sendable {
         /// `InstanceListView.hasHouseholdSession`. Caller decides
         /// whether to treat as `.inactive` or surface as a hard error.
         case decodingFailed
+
+        /// Security could not read the store. This is neither proof of
+        /// absence nor malformed data; retry after access is restored.
+        case storageUnavailable
     }
 }
 

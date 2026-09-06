@@ -70,7 +70,7 @@ final class SessionStoreTokenRekeyTests: XCTestCase {
         let suite = "com.soyeht.tests.sessionstore.rekey.\(UUID().uuidString)"
         let keychain = "com.soyeht.tests.sessionstore.rekey.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
-        let store = SessionStore(defaults: defaults, keychainService: keychain)
+        let store = SessionStore(defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: keychain)
         return (store, { defaults.removePersistentDomain(forName: suite) })
     }
 

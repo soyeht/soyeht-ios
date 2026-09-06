@@ -139,7 +139,7 @@ final class InstalledClawsProviderServiceAdoptionTests: XCTestCase {
         let id = UUID().uuidString
         let defaults = UserDefaults(suiteName: "com.soyeht.tests.provider-adopt.\(id)")!
         defaults.removePersistentDomain(forName: "com.soyeht.tests.provider-adopt.\(id)")
-        let store = SessionStore(defaults: defaults, keychainService: "com.soyeht.tests.provider-adopt.\(id)")
+        let store = SessionStore(defaults: defaults, credentialStorage: TestCredentialStorage(), keychainService: "com.soyeht.tests.provider-adopt.\(id)")
         if let activeServerID {
             let server = PairedServer(
                 id: activeServerID, host: "api.example.test", name: "t",

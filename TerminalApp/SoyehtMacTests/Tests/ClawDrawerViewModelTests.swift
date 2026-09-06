@@ -191,7 +191,7 @@ final class ClawDrawerViewModelTests: XCTestCase {
         let id = UUID().uuidString
         let defaults = UserDefaults(suiteName: "com.soyeht.tests.drawer-vm.\(id)")!
         defaults.removePersistentDomain(forName: "com.soyeht.tests.drawer-vm.\(id)")
-        let store = SessionStore(defaults: defaults, keychainService: "com.soyeht.tests.drawer-vm.\(id)")
+        let store = SessionStore(defaults: defaults, credentialStorage: TestCredentialStorage(), keychainService: "com.soyeht.tests.drawer-vm.\(id)")
         replaceActiveServer(in: store, id: activeServerID, host: host, name: name)
         return store
     }
