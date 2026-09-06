@@ -202,6 +202,9 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
     # somewhere else entirely. [jaime]
     tried = (first_host(t.phone_grep("pair.confirm.post"), "host")
              or first_host(t.phone_grep("pair.request.post"), "host")
+             # The typed failure carries the endpoint it was talking to, which
+             # is the send address and not a discovery guess.
+             or first_host(t.phone_grep("pairing.failed"), "endpoint")
              or first_host(t.phone_grep("pair.endpoint source="), "host"))
     if tried is None:
         discovered = (t.phone_grep("resolveDiscoveredMac.entry")
@@ -225,7 +228,7 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
         # while the phone is inside its own window would report a defect the
         # product does not have. Only a terminal failure or an expired deadline
         # settles it. [jaime]
-        terminal = (t.phone_grep("pair.result=failed") or t.phone_grep("pair.failed")
+        terminal = (t.phone_grep("pair.result=failed") or t.phone_grep("pairing.failed")
                     or t.phone_grep("expired") or t.engine_grep("expired"))
         if not terminal:
             return Finding("LAN-WORKS", "n/a",
@@ -236,9 +239,20 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
                        f"the engine accepted over the LAN ({tried}) and the "
                        "phone ended without a session — the two ends disagree "
                        "about whether this worked")
-    if t.phone_grep("pair.failed") or t.phone_grep("pair.result=failed"):
+    failures = t.phone_grep("pairing.failed") or t.phone_grep("pair.result=failed")
+    if failures:
+        # Why it failed decides whose fault it is. `approvalExpired` means the
+        # LAN carried the request to the engine and nobody approved in time —
+        # that is not the local network failing.
+        cause = re.search(r"cause=(\w+)", failures[0])
+        reason = cause.group(1) if cause else "unknown"
+        if reason in ("approvalExpired", "approvalTimedOut", "cancelled"):
+            return Finding("LAN-WORKS", "n/a",
+                           f"the LAN ({tried}) carried the request to the engine "
+                           f"and the pairing ended as {reason}; nothing here is "
+                           "the local network failing")
         return Finding("LAN-WORKS", "fail",
-                       f"tried the LAN ({tried}) and the pairing failed")
+                       f"tried the LAN ({tried}) and the pairing failed: {reason}")
     # There are TWO pairing ceremonies and only one of them records success.
     # `handlers_pair_device.rs:460` logs `pair_device.confirm.success`;
     # `handlers_device_pairing.rs` (request/approve, the second-device path)
@@ -299,7 +313,11 @@ def inv_no_spinner(t: Transcript, captured_secs: float | None = None) -> Finding
     capture ended first would report a defect that the product does not have,
     and the tape cannot tell the two apart. [jaime]
     """
-    ended = (t.phone_grep("pair.result=") or t.phone_grep("pair.failed")
+    # `pairing.failed` is what the app actually emits; matching only
+    # `pair.failed` missed a typed failure that was right there in the tape and
+    # reported "left on the spinner" about a run that ended correctly. One word.
+    # [jaime]
+    ended = (t.phone_grep("pair.result=") or t.phone_grep("pairing.failed")
              or t.engine_grep("pair_device.confirm.success"))
     if ended:
         return Finding("NO-SPINNER", "pass", "the run reached an outcome")
@@ -727,6 +745,16 @@ DISCOVERY_ONLY = Transcript(
 )
 
 
+# The shape that made this probe report a spinner on a run that ended
+# correctly: a typed failure under the name the app really uses.
+GOOD_TYPED_EXPIRY = Transcript(
+    mac=[],
+    phone=["pairing.failed stage=request endpoint=http://192.168.1.20:8101 "
+           "cause=approvalExpired"],
+    engine=["device_pairing.request.success request_digest=" + "e" * 64],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -784,6 +812,9 @@ def self_test() -> int:
          DISCOVERY_ONLY, False, 1, {"LAN-WORKS": "n/a"}),
         ("bad, the engine's request digest is not the words",
          BAD_REQUEST_DIGEST_IS_NOT_WORDS, True, 1, {"WORDS-MATCH": "fail"}),
+        ("good, ended with a typed expiry rather than a spinner",
+         GOOD_TYPED_EXPIRY, False, 1,
+         {"NO-SPINNER": "pass", "LAN-WORKS": "n/a"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
         ("a claim was attempted and stayed in profile",
