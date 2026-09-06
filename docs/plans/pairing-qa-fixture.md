@@ -8,7 +8,7 @@ Não importar sessão, chave ou certificado; não reabrir first-owner numa casa
 existente. A fixture positiva só vale após `owner_capability=proven` e aprovação
 seguida de validação e persistência no iPhone.
 
-Não há outro Mac/VM disponível. Uma cópia de Dev.app e outra porta não isolam
+Na elaboração inicial, não havia outro Mac/VM disponível. Uma cópia de Dev.app e outra porta não isolam
 Keychain, registro local, instalação nem limpeza. Esta fixture precisa de um
 terceiro perfil explícito de ponta a ponta, `pairingqa`. Não é uma flag que dá
 autoridade ao Mac: a verificação da assinatura e a cerimônia permanecem iguais.
@@ -94,7 +94,19 @@ nem conclusão da cerimônia. O subsystem é `com.soyeht.mobile`, categoria
 
 ## Estado
 
-Desenho para crivo antes da implementação da fixture. Nenhuma instância QA
-está liberada com este documento. O log de envio é uma correção independente.
+Implementação suspensa em 2026-09-06: um segundo Mac ficou disponível na LAN,
+segundo a faixa E2E. O caminho preferido passa a ser usar os builds Dev normais
+nessa máquina; o acesso ainda depende do usuário. Este documento fica como
+alternativa, sem implementação autorizada enquanto essa opção é verificada.
+
+Uma máquina separada isola os recursos locais, mas não prova estado Dev vazio
+nem isola descoberta na LAN. Antes de criar a casa, a faixa deve verificar o
+estado existente e preservar qualquer casa já estabelecida. O cenário positivo
+precisa comprovar que o Mac criou a casa e possui a capacidade de aprovação.
+As fitas devem identificar qual Mac/engine recebeu o pedido: ambos os Macs
+podem anunciar o mesmo perfil Dev e a mesma porta. O isolamento de perfil não
+seleciona uma máquina entre duas do mesmo perfil.
+
+Nenhuma instância QA está liberada com este documento. O log de envio é uma correção independente.
 Uma fixture positiva não substitui a matriz do fluxo ordinário em que o dono
 está no iPhone, nem demonstra recuperação de uma chave ausente.
