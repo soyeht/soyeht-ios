@@ -286,6 +286,10 @@ def inv_capability_honest(t: Transcript) -> Finding:
 DIGEST_RE = re.compile(r"pairing_review_digest=([0-9a-f]{64})\b")
 
 
+def digests_in(lines: list[str]) -> set[str]:
+    return {m.group(1) for line in lines for m in [DIGEST_RE.search(line)] if m}
+
+
 def inv_words_match(t: Transcript) -> Finding:
     """The six words on the Mac must be the six words on the phone.
 
@@ -298,13 +302,19 @@ def inv_words_match(t: Transcript) -> Finding:
     (`DevicePairingReview.diagnostic`), so this compares tape to tape. The
     driver reads the phone's words too, but its reading never reaches this
     verdict: whoever acts must not feed whoever judges.
-    """
-    mac = DIGEST_RE.search("\n".join(t.mac_grep("pairing_review_digest")))
-    phone = DIGEST_RE.search("\n".join(t.phone_grep("pairing_review_digest")))
 
-    if mac is None and phone is None:
-        # Distinguish "never got there" from "got there and disagreed". A run
-        # that stops before owner approval exercises nothing here.
+    SETS, not first-match. There are several emitters per side now — the Mac
+    logs on arrival and on approval, and the phone logs from the proximity,
+    deep-link and approver paths. Taking the first digest from each tape would
+    pair unrelated requests whenever a run carries two, and report a mismatch
+    that never happened, or agreement that never happened.
+    """
+    mac_seen = digests_in(t.mac_grep("pairing_review_digest"))
+    phone_seen = digests_in(t.phone_grep("pairing_review_digest"))
+
+    if not mac_seen and not phone_seen:
+        # "Never got there" and "got there and disagreed" are different
+        # answers. A malformed digest is a third, and must not read as absent.
         malformed = [line for line in t.mac + t.phone
                      if "pairing_review_digest" in line]
         if malformed:
@@ -312,21 +322,26 @@ def inv_words_match(t: Transcript) -> Finding:
                            f"digest present but not 64 lowercase hex: {malformed[0][:100]}")
         return Finding("WORDS-MATCH", "n/a", "this run never reached owner approval")
 
-    if mac is None:
+    if not mac_seen:
         return Finding("WORDS-MATCH", "fail",
                        "only the phone derived the words; the approver has "
                        "nothing to compare against")
-    if phone is None:
+    if not phone_seen:
         return Finding("WORDS-MATCH", "fail",
                        "only the Mac derived the words; the person is asked to "
                        "compare against a screen that shows none")
-    if mac.group(1) != phone.group(1):
+
+    mac_only = mac_seen - phone_seen
+    phone_only = phone_seen - mac_seen
+    if mac_only or phone_only:
         return Finding("WORDS-MATCH", "fail",
-                       f"the two ends derived different words "
-                       f"(Mac {mac.group(1)[:12]}…, phone {phone.group(1)[:12]}…); "
-                       "approving here would confirm the wrong request")
+                       f"a request was reviewed on one end only "
+                       f"(Mac-only {sorted(d[:12] for d in mac_only)}, "
+                       f"phone-only {sorted(d[:12] for d in phone_only)}); "
+                       "approving here could confirm the wrong request")
     return Finding("WORDS-MATCH", "pass",
-                   f"both ends derived the same words ({mac.group(1)[:12]}…)")
+                   f"both ends derived the same words for all "
+                   f"{len(mac_seen)} request(s)")
 
 
 def judge(t: Transcript, phone_has_tailnet: bool,
@@ -501,6 +516,25 @@ BAD_WORDS_ONE_SIDED = Transcript(
 )
 
 
+# Two requests in one run, logged in OPPOSITE order on each side. Comparing
+# the first digest of each tape pairs A against B and reports a mismatch that
+# never happened. This case exists to keep that bug from coming back.
+GOOD_TWO_REQUESTS_ANY_ORDER = Transcript(
+    mac=[f"pairing_review_digest={SAME}", f"pairing_review_digest={OTHER}"],
+    phone=[f"pairing_review_digest={OTHER}", f"pairing_review_digest={SAME}",
+           "pair.result=paired"],
+    engine=["pair_device.confirm.success"],
+)
+
+# The Mac reviewed two requests, the phone only showed one. Somebody is being
+# asked to approve a request whose words they were never shown.
+BAD_ONE_REQUEST_UNREVIEWED = Transcript(
+    mac=[f"pairing_review_digest={SAME}", f"pairing_review_digest={OTHER}"],
+    phone=[f"pairing_review_digest={SAME}", "pair.result=paired"],
+    engine=["pair_device.confirm.success"],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -530,6 +564,10 @@ def self_test() -> int:
          {"WORDS-MATCH": "fail"}),
         ("neither end reached approval", GOOD_TAILNET, True, 1,
          {"WORDS-MATCH": "n/a"}),
+        ("good, two requests logged in opposite order",
+         GOOD_TWO_REQUESTS_ANY_ORDER, True, 1, {"WORDS-MATCH": "pass"}),
+        ("bad, one request reviewed on the Mac only",
+         BAD_ONE_REQUEST_UNREVIEWED, True, 1, {"WORDS-MATCH": "fail"}),
     ]
     failures = 0
     for label, transcript, has_tailnet, devices, expected in cases:
