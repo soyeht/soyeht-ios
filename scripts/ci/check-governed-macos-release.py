@@ -50,13 +50,32 @@ PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 # The release the shipped engine is actually pinned to. Every value here was
 # re-measured against the published artifact and the tag it was built from,
 # not carried over: the sha256 is of the DOWNLOADED
-# `theyos-engine-0.1.29-macos-arm64.tar.gz` asset (fetched from the public
+# `theyos-engine-0.1.30-macos-arm64.tar.gz` asset (fetched from the public
 # release URL, because validating the local file proves the build and not the
-# delivery), and the source and tree are what `refs/tags/v0.1.29` resolves to.
-ENGINE_RELEASE_VERSION = "0.1.29"
-ENGINE_RELEASE_SHA256 = "b777299dd1e72bc234575c59f293f4df0b2b222999a7bdf485cbc55b4a30e431"
-ENGINE_RELEASE_SOURCE = "eb96d37509544a2fe8e2ff69e7f5d9d27b136f79"
-ENGINE_RELEASE_TREE = "7fb7141905ae20ba812c470afc0ac050834b8f26"
+# delivery), and the source and tree are what `refs/tags/v0.1.30` resolves to.
+#
+# Moved from 0.1.29 on 2026-09-06. The reason is the mirror image of why this
+# contract exists: `v0.1.29` was published WITHOUT the five pairing fixes that
+# passed acceptance on hardware — `git merge-base --is-ancestor` put all five
+# outside the tag — so a Mac release against that pin would have carried the
+# old behaviour under a new number. Re-measured here: the asset was downloaded
+# from the public URL and compared byte for byte against what was built.
+ENGINE_RELEASE_VERSION = "0.1.30"
+ENGINE_RELEASE_SHA256 = "ea3280aa99c95d7a176a6a13aca4133f45536d16fac65490120998d0da391a5e"
+ENGINE_RELEASE_SOURCE = "1a8e57630b49ded40d3b1a1a6a64386e4953b663"
+ENGINE_RELEASE_TREE = "ee2cc611a8341b21a80833dc68c38f6bd2517249"
+
+# The regression test that pins the floor. The NAME lives here, with the rest
+# of the per-release measurements, rather than as a literal inside the check.
+#
+# It was buried in `validate_engine_release_pin` as
+# `test_currentReleaseRequiresTheWiFiPairingEngine`, and one release later that
+# name was already wrong: the floor moved to 0.1.30 because of the Bonjour
+# advert, not Wi-Fi pairing, so the honest test name changed and the contract
+# failed on a rename that was an improvement. That is the same rigidity the
+# comment further down calls out for the refused-version literal — a value
+# that must move with the release does not belong hard-coded in the logic.
+ENGINE_RELEASE_FLOOR_TEST = "test_currentReleaseRequiresTheAdvertThatFollowsTheWindow"
 CANONICAL_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -709,7 +728,7 @@ def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     require(floor == pin, f"engine compatibility floor {floor} differs from pin {pin}")
 
     tests = files[ENGINE_COMPAT_TESTS]
-    required_test = "func test_currentReleaseRequiresTheWiFiPairingEngine()"
+    required_test = f"func {ENGINE_RELEASE_FLOOR_TEST}()"
     require_once(tests, required_test, "engine compatibility regression test for the pinned release is missing")
     test_start = tests.index(required_test)
     test_end = tests.find("\n    func ", test_start + len(required_test))
